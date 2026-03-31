@@ -369,9 +369,21 @@ export default function PublicFormPage() {
       const styleEl = document.createElement("style");
       styleEl.textContent = "::-webkit-scrollbar { display: none; }";
       document.head.appendChild(styleEl);
+
+      const sendHeight = () => {
+        const h = document.documentElement.scrollHeight;
+        window.parent.postMessage({ type: "indexus-form-resize", height: h }, "*");
+      };
+      sendHeight();
+      const resizeObs = new ResizeObserver(sendHeight);
+      resizeObs.observe(document.body);
+      const interval = setInterval(sendHeight, 1000);
+
       return () => {
         document.documentElement.style.scrollbarWidth = "";
         styleEl.remove();
+        resizeObs.disconnect();
+        clearInterval(interval);
       };
     }
   }, [isEmbedded]);

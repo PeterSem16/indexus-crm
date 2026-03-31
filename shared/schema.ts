@@ -6337,6 +6337,8 @@ export const webForms = pgTable("web_forms", {
   labelFontWeight: text("label_font_weight").notNull().default("medium"),
   buttonFontSize: text("button_font_size").notNull().default("base"),
   buttonFontWeight: text("button_font_weight").notNull().default("semibold"),
+  dateFormat: text("date_format").notNull().default("dd.mm.yyyy"),
+  placeholderColor: text("placeholder_color").notNull().default("#b0b0b0"),
   logoUrl: text("logo_url"),
   showProgressPipeline: boolean("show_progress_pipeline").notNull().default(true),
   pregnancyAdviceEnabled: boolean("pregnancy_advice_enabled").notNull().default(false),

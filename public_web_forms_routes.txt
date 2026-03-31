@@ -1,0 +1,621 @@
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/public/web-form/:slug", async (req, res) => {
+    try {
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const sections = await storage.getWebFormSections(form.id);
+      const fields = await storage.getWebFormFields(form.id);
+      const hicsRaw = await db.select().from((await import("@shared/schema")).healthInsuranceCompanies)
+        .where(eq((await import("@shared/schema")).healthInsuranceCompanies.countryCode, form.countryCode));
+      const hospitalsRaw = await db.select().from((await import("@shared/schema")).hospitals)
+        .where(and(eq((await import("@shared/schema")).hospitals.countryCode, form.countryCode), eq((await import("@shared/schema")).hospitals.isActive, true)));
+      const productSetsRaw = await db.select().from((await import("@shared/schema")).productSets)
+        .where(and(eq((await import("@shared/schema")).productSets.countryCode, form.countryCode), eq((await import("@shared/schema")).productSets.isActive, true)));
+      const productsRaw = await db.select().from((await import("@shared/schema")).products)
+        .where(eq((await import("@shared/schema")).products.isActive, true));
+      const countryProducts = productsRaw.filter(p => p.countries && p.countries.includes(form.countryCode));
+      const clinicsRaw = await db.select().from((await import("@shared/schema")).clinics)
+        .where(and(eq((await import("@shared/schema")).clinics.countryCode, form.countryCode), eq((await import("@shared/schema")).clinics.isActive, true)));
+      res.json({
+        form: { ...form, sections, fields },
+        healthInsuranceCompanies: hicsRaw,
+        hospitals: hospitalsRaw.map(h => ({ id: h.id, name: h.name, fullName: h.fullName, city: h.city })),
+        productSets: productSetsRaw.map(p => ({ id: p.id, name: p.name, totalGrossAmount: p.totalGrossAmount, currency: p.currency })),
+        products: countryProducts.map(p => ({ id: p.id, name: p.name, description: p.description })),
+        clinics: clinicsRaw.map(c => ({ id: c.id, name: c.name, doctorName: c.doctorName, doctorTitle: c.doctorTitle, doctorFirstName: c.doctorFirstName, doctorLastName: c.doctorLastName, city: c.city })),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/check-customer", async (req, res) => {
+    try {
+      const { firstName, lastName, email } = req.body;
+      if (!firstName || !lastName || !email) return res.status(400).json({ error: "Missing fields" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const results = await db.select().from((await import("@shared/schema")).customers)
+        .where(and(
+          sql`LOWER(${(await import("@shared/schema")).customers.firstName}) = LOWER(${firstName})`,
+          sql`LOWER(${(await import("@shared/schema")).customers.lastName}) = LOWER(${lastName})`,
+          sql`LOWER(${(await import("@shared/schema")).customers.email}) = LOWER(${email})`,
+        )).limit(1);
+      if (results.length > 0) {
+        res.json({ found: true });
+      } else {
+        res.json({ found: false });
+      }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/send-otp", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ error: "Email required" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      await storage.createWebFormOtp({ formId: form.id, email, code, expiresAt });
+      await storage.createWebFormAuditLog({ formId: form.id, action: "otp_sent", details: JSON.stringify({ email }), ipAddress: req.ip || null });
+      try {
+        const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+        if (systemConnection && systemConnection.isConnected) {
+          const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+          const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+          const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+          const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+          const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+          if (tokenResult) {
+            if (tokenResult.refreshed) {
+              await storage.updateSystemMs365Connection(form.countryCode, {
+                accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                tokenExpiresAt: tokenResult.expiresOn
+              });
+            }
+            const brandColor = form.brandColor || "#16a34a";
+            const otpHtml = `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:400px;margin:0 auto;padding:32px;text-align:center;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08)"><div style="width:48px;height:48px;margin:0 auto 16px;background:${brandColor}15;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:24px">🔐</span></div><h2 style="color:#111827;margin:0 0 8px 0;font-size:20px;">Overovací kód</h2><p style="color:#6b7280;font-size:14px;margin:0 0 24px 0;">Použite tento kód na overenie vašej identity</p><p style="font-size:36px;font-weight:bold;letter-spacing:8px;padding:20px;background:${brandColor}08;border:2px dashed ${brandColor}30;border-radius:12px;color:${brandColor};margin:0 0 24px 0">${code}</p><p style="color:#9ca3af;font-size:12px;margin:0">Kód platí 10 minút. Ak ste ho nevyžiadali, ignorujte tento email.</p></div>`;
+            const fromEmail = systemConnection.email;
+            await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [email], "Overovací kód - Cord Blood Center", otpHtml, true);
+            console.log(`[WebForm OTP] Code sent to ${email} from ${fromEmail} via system email`);
+          } else {
+            console.error("[WebForm OTP] Failed to get valid access token for system email");
+          }
+        } else {
+          console.error("[WebForm OTP] System email not configured/connected for country", form.countryCode);
+        }
+      } catch (emailError) {
+        console.error("[WebForm OTP] Failed to send email:", emailError);
+      }
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/verify-otp", async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) return res.status(400).json({ error: "Missing fields" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const otp = await storage.getWebFormOtp(form.id, email, code);
+      if (!otp) return res.status(400).json({ error: "Invalid code" });
+      if (new Date() > otp.expiresAt) return res.status(400).json({ error: "Code expired" });
+      await storage.markWebFormOtpUsed(otp.id);
+      const crypto = await import("crypto");
+      const verificationToken = crypto.randomBytes(32).toString("hex");
+      await storage.createWebFormAuditLog({ formId: form.id, action: "otp_verified", details: JSON.stringify({ email, verificationToken }), ipAddress: req.ip || null });
+      const schema = await import("@shared/schema");
+      const [customer] = await db.select().from(schema.customers)
+        .where(sql`LOWER(${schema.customers.email}) = LOWER(${email})`)
+        .limit(1);
+      if (customer) {
+        const safeData = {
+          phone: customer.phone, mobile: customer.mobile, address: customer.address,
+          city: customer.city, postalCode: customer.postalCode, country: customer.country,
+          dateOfBirth: customer.dateOfBirth, nationalId: customer.nationalId,
+          healthInsuranceId: customer.healthInsuranceId, bankAccount: customer.bankAccount,
+          bankName: customer.bankName, bankSwift: customer.bankSwift,
+        };
+        res.json({ verified: true, customerData: safeData, customerId: customer.id, clientStatus: customer.clientStatus, verificationToken });
+      } else {
+        res.json({ verified: true, verificationToken });
+      }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/submit", async (req, res) => {
+    try {
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const { formData, customerId, verificationToken, clientMetadata } = req.body;
+      console.log(`[WebForm Submit] slug=${req.params.slug}, customerId=${customerId || 'none'}, hasToken=${!!verificationToken}, email=${formData?.email}`);
+      if (!formData) return res.status(400).json({ error: "No form data" });
+
+      const schema = await import("@shared/schema");
+      let resolvedHospitalName = formData.hospitalName || null;
+      if (formData.hospitalId && !resolvedHospitalName) {
+        const [hosp] = await db.select().from(schema.hospitals).where(eq(schema.hospitals.id, formData.hospitalId)).limit(1);
+        if (hosp) resolvedHospitalName = hosp.name || null;
+      }
+      let resolvedGynName = formData.gynecologistName || null;
+      let resolvedGynPhone = formData.gynecologistPhone || null;
+      let resolvedGynEmail = formData.gynecologistEmail || null;
+      if (formData.gynecologistClinicId) {
+        const [clinic] = await db.select().from(schema.clinics).where(eq(schema.clinics.id, formData.gynecologistClinicId)).limit(1);
+        if (clinic) {
+          if (!resolvedGynName) {
+            const parts = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean);
+            resolvedGynName = parts.length > 0 ? parts.join(" ") : (clinic.doctorName || clinic.name || null);
+          }
+          if (!resolvedGynPhone && clinic.phone) resolvedGynPhone = clinic.phone;
+          if (!resolvedGynEmail && clinic.email) resolvedGynEmail = clinic.email;
+        }
+      }
+
+      let isOtpVerified = false;
+      if (customerId && verificationToken) {
+        const auditLogs = await storage.getWebFormAuditLogs(form.id);
+        console.log(`[WebForm Submit] Found ${auditLogs.length} audit logs, searching for token match...`);
+        const matchingLog = auditLogs.find(log => {
+          if (log.action !== "otp_verified") return false;
+          try {
+            const details = JSON.parse(log.details || "{}");
+            return details.verificationToken === verificationToken;
+          } catch { return false; }
+        });
+        if (!matchingLog) {
+          console.error(`[WebForm Submit] Token verification FAILED - no matching audit log`);
+          return res.status(403).json({ error: "Invalid verification token" });
+        }
+        isOtpVerified = true;
+        console.log(`[WebForm Submit] OTP verified successfully for customer ${customerId}`);
+      }
+
+      let targetCustomerId: string | null = null;
+      let isNewCustomer = false;
+
+      // No auto-create/update - just identify if existing or new customer
+      if (customerId && isOtpVerified) {
+        targetCustomerId = customerId;
+        isNewCustomer = false;
+        console.log('[WebForm Submit] Existing customer identified via OTP: ' + customerId);
+      } else {
+        // Check if email matches existing customer
+        if (formData.email) {
+          const [existingByEmail] = await db.select().from(schema.customers)
+            .where(eq(schema.customers.email, formData.email)).limit(1);
+          if (existingByEmail) {
+            targetCustomerId = existingByEmail.id;
+            isNewCustomer = false;
+            console.log('[WebForm Submit] Existing customer matched by email: ' + existingByEmail.id);
+          } else {
+            isNewCustomer = true;
+            console.log('[WebForm Submit] New customer (no email match), pending approval');
+          }
+        } else {
+          isNewCustomer = true;
+          console.log('[WebForm Submit] New customer (no email), pending approval');
+        }
+      }
+
+      const forwardedFor = req.headers["x-forwarded-for"];
+      const realIp = typeof forwardedFor === "string" ? forwardedFor.split(",")[0].trim() : (req.ip || req.socket?.remoteAddress || null);
+      const serverMetadata: Record<string, any> = {
+        ip: realIp,
+        forwardedFor: forwardedFor || null,
+        userAgent: req.headers["user-agent"] || null,
+        acceptLanguage: req.headers["accept-language"] || null,
+        origin: req.headers["origin"] || null,
+        referer: req.headers["referer"] || null,
+        host: req.headers["host"] || null,
+        contentLength: req.headers["content-length"] || null,
+        secChUa: req.headers["sec-ch-ua"] || null,
+        secChUaPlatform: req.headers["sec-ch-ua-platform"] || null,
+        secChUaMobile: req.headers["sec-ch-ua-mobile"] || null,
+        serverTimestamp: new Date().toISOString(),
+        formSlug: req.params.slug,
+        formCountry: form.countryCode,
+      };
+      const combinedMetadata = { server: serverMetadata, client: clientMetadata || {} };
+      const submission = await storage.createWebFormSubmission({
+        formId: form.id,
+        data: JSON.stringify({ ...formData, productSetId: formData.productSetId, hospitalId: formData.hospitalId, howDidYouHear: formData.howDidYouHear }),
+        ipAddress: realIp,
+        userAgent: req.headers["user-agent"] || null,
+        metadata: JSON.stringify(combinedMetadata),
+        status: "pending",
+        customerId: targetCustomerId,
+        isNewCustomer,
+        isOtpVerified: isOtpVerified || false,
+        processedAt: null,
+      });
+      await storage.createWebFormAuditLog({
+        formId: form.id, submissionId: submission.id,
+        action: "form_submitted",
+        details: JSON.stringify({ customerId: targetCustomerId, isNewCustomer, isOtpVerified }),
+        ipAddress: realIp || null,
+      });
+      if (targetCustomerId) {
+        await storage.createActivityLog({
+          userId: "system",
+          action: "marketing_action",
+          entityType: "customer",
+          entityId: targetCustomerId,
+          entityName: `${formData.firstName || ""} ${formData.lastName || ""}`.trim(),
+          details: JSON.stringify({
+            type: "web_form_registration",
+            source: "Internet",
+            formName: form.name,
+            formSlug: req.params.slug,
+            formCountry: form.countryCode,
+            isNewCustomer,
+            message: `Registrácia cez webový formulár "${form.name}"`,
+          }),
+        });
+      }
+      console.log(`[WebForm] Confirm email check: enabled=${form.confirmEmailEnabled}, email=${formData.email}`);
+      if (form.confirmEmailEnabled !== false && formData.email) {
+        try {
+          console.log(`[WebForm] Starting confirmation email for ${formData.email}, country=${form.countryCode}`);
+          const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
+          const billingCompany = billingCompanies.find(b => b.webFromEmail) || billingCompanies[0];
+          const companyName = billingCompany?.companyName || "Cord Blood Center";
+
+          const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+          console.log(`[WebForm] systemConnection: connected=${systemConnection?.isConnected}, email=${systemConnection?.email}`);
+          if (systemConnection && systemConnection.isConnected) {
+            const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+            const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+            const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+            const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+            const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+            console.log(`[WebForm] tokenResult: ${tokenResult ? 'valid' : 'null/invalid'}`);
+            if (tokenResult) {
+              if (tokenResult.refreshed) {
+                await storage.updateSystemMs365Connection(form.countryCode, {
+                  accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                  refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                  tokenExpiresAt: tokenResult.expiresOn
+                });
+              }
+              const fromEmail = systemConnection.email;
+                const brandColor = form.brandColor || "#16a34a";
+                const lastName = formData.lastName || "";
+                const greeting = (form.confirmEmailGreeting || `Dobrý deň p. {{priezvisko}},`).replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
+                const bodyText = (form.confirmEmailBody || "ďakujeme za Váš záujem. Čoskoro Vás budeme kontaktovať.").replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
+                const footerText = form.confirmEmailFooter || `V prípade akýchkoľvek otázok nás neváhajte kontaktovať.`;
+                const signatureText = form.confirmEmailSignature || companyName;
+                const subject = (form.confirmEmailSubject || `Potvrdenie registrácie - ${companyName}`).replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
+
+                const formFieldsSections = form.confirmEmailShowData !== false ? await (async () => {
+                  const sections = await storage.getWebFormSections(form.id);
+                  const fields = await storage.getWebFormFields(form.id);
+                  const sorted = fields.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                  let html = "";
+                  const sectionMap = new Map(sections.map((s: any) => [s.id, s]));
+                  const grouped: Record<string, any[]> = {};
+                  for (const field of sorted) {
+                    const key = field.sectionId || "__none";
+                    if (!grouped[key]) grouped[key] = [];
+                    grouped[key].push(field);
+                  }
+                  const insuranceCompanies = await db.select().from(schema.healthInsuranceCompanies)
+                    .where(eq(schema.healthInsuranceCompanies.countryCode, form.countryCode));
+                  const hospitals = await db.select().from(schema.hospitals)
+                    .where(eq(schema.hospitals.countryCode, form.countryCode));
+                  const productSets = await db.select().from(schema.productSets)
+                    .where(eq(schema.productSets.countryCode, form.countryCode));
+                  const allProducts = await db.select().from(schema.products)
+                    .where(eq(schema.products.isActive, true));
+                  const allClinics = await db.select().from(schema.clinics)
+                    .where(eq(schema.clinics.countryCode, form.countryCode));
+                  const insuranceMap = new Map(insuranceCompanies.map((c: any) => [c.id, c.name]));
+                  const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h.name]));
+                  const productSetMap = new Map(productSets.map((p: any) => [p.id, p.name]));
+                  const productMap = new Map(allProducts.map((p: any) => [p.id, p.name]));
+                  const clinicMap = new Map(allClinics.map((c: any) => [c.id, c.doctorName ? `${c.doctorName} — ${c.name}` : c.name]));
+                  const paymentMethodLabels: Record<string, string> = {
+                    bank_transfer: "Bankový prevod", cash: "Hotovosť", card: "Kartou",
+                    invoice: "Faktúra", installments: "Splátky", other: "Iné",
+                  };
+                  const resolveDisplayValue = (val: any, customerField: string): string => {
+                    if (!val) return "";
+                    const strVal = String(val);
+                    if (customerField === "healthInsuranceId") return insuranceMap.get(strVal) || strVal;
+                    if (customerField === "hospitalId") return hospitalMap.get(strVal) || strVal;
+                    if (customerField === "gynecologistClinicId") return clinicMap.get(strVal) || strVal;
+                    if (customerField === "productSetId") return productSetMap.get(strVal) || productMap.get(strVal) || strVal;
+                    if (customerField === "paymentMethod") return paymentMethodLabels[strVal] || strVal;
+                    if ((customerField === "dateOfBirth" || customerField === "expectedDueDate" || customerField === "expectedDeliveryDate") && strVal.match(/^\d{4}-\d{2}-\d{2}/)) {
+                      const parts = strVal.substring(0, 10).split("-");
+                      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+                    }
+                    return strVal;
+                  };
+                  for (const [secId, secFields] of Object.entries(grouped)) {
+                    const sec = sectionMap.get(secId);
+                    if (sec?.title) {
+                      html += `<tr><td colspan="2" style="padding:16px 0 8px 0;border-bottom:2px solid ${brandColor}22;"><strong style="color:${brandColor};text-transform:uppercase;font-size:12px;letter-spacing:1px;">${sec.title}</strong></td></tr>`;
+                    }
+                    for (const field of secFields) {
+                      const rawVal = formData[field.customerField || field.label] || formData[field.id] || "";
+                      const val = resolveDisplayValue(rawVal, field.customerField || "");
+                      if (val) {
+                        html += `<tr><td style="padding:6px 12px 6px 0;color:#6b7280;font-size:13px;white-space:nowrap;vertical-align:top;">${field.label}</td><td style="padding:6px 0;color:#111827;font-size:13px;">${val}</td></tr>`;
+                      }
+                    }
+                  }
+                  return html;
+                })() : "";
+
+                const emailLayout = form.confirmEmailLayout || "modern";
+                const companyLine = billingCompany?.postalName || companyName;
+                const phoneLine = billingCompany?.phone ? `<p style="margin:4px 0 0 0;color:#6b7280;font-size:12px;">Tel: ${billingCompany.phone}</p>` : '';
+                const emailLine = billingCompany?.email ? `<p style="margin:2px 0 0 0;color:#6b7280;font-size:12px;">${billingCompany.email}</p>` : '';
+                const dataBlock = formFieldsSections ? `<div style="margin:24px 0;padding:20px;background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb;"><p style="margin:0 0 12px 0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Kópia vyplnených údajov</p><table width="100%" cellpadding="0" cellspacing="0">${formFieldsSections}</table></div>` : '';
+                const footerBlock = `<p style="margin:24px 0 0 0;color:#6b7280;font-size:13px;line-height:1.6;">${footerText}</p><div style="margin:24px 0 0 0;padding:16px 0 0 0;border-top:1px solid #e5e7eb;"><p style="margin:0;color:#111827;font-size:13px;font-weight:600;">${signatureText}</p>${phoneLine}${emailLine}</div>`;
+                const copyright = `<p style="margin:0;color:#9ca3af;font-size:11px;">&copy; ${new Date().getFullYear()} ${companyName}. Tento e-mail bol odoslaný automaticky.</p>`;
+                const title = form.headerTitle || 'Potvrdenie registrácie';
+
+                let emailBody = '';
+                if (emailLayout === 'minimal') {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr><td style="padding:40px;background:#ffffff;">
+  <h1 style="margin:0 0 24px 0;color:${brandColor};font-size:20px;font-weight:700;border-bottom:2px solid ${brandColor};padding-bottom:12px;">${title}</h1>
+  <p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p>
+  <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+  ${dataBlock}${footerBlock}
+</td></tr>
+<tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                } else if (emailLayout === 'sidebar') {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr>
+  <td width="8" style="background:${brandColor};border-radius:8px 0 0 8px;"></td>
+  <td style="background:#ffffff;padding:40px;border-radius:0 8px 8px 0;">
+    <p style="margin:0 0 4px 0;color:${brandColor};font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">${companyLine}</p>
+    <h1 style="margin:0 0 24px 0;color:#111827;font-size:20px;font-weight:700;">${title}</h1>
+    <p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p>
+    <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+    ${dataBlock}${footerBlock}
+  </td>
+</tr>
+<tr><td colspan="2" style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                } else if (emailLayout === 'elegant') {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr><td style="padding:32px 40px;text-align:center;">
+  <p style="margin:0;color:${brandColor};font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${companyLine}</p>
+</td></tr>
+<tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,${brandColor},transparent);"></div></td></tr>
+<tr><td style="padding:32px 40px;background:#ffffff;">
+  <h1 style="margin:0 0 24px 0;color:#111827;font-size:22px;font-weight:300;text-align:center;">${title}</h1>
+  <p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p>
+  <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+  ${dataBlock}${footerBlock}
+</td></tr>
+<tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,${brandColor},transparent);"></div></td></tr>
+<tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                } else if (emailLayout === 'bold') {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr><td style="background:${brandColor};padding:48px 40px;text-align:center;border-radius:16px 16px 0 0;">
+  ${billingCompany?.postalName ? `<p style="margin:0 0 8px 0;color:#ffffffbb;font-size:11px;text-transform:uppercase;letter-spacing:2px;">${billingCompany.postalName}</p>` : ''}
+  <h1 style="margin:0 0 12px 0;color:#ffffff;font-size:26px;font-weight:800;">${title}</h1>
+  <p style="margin:0;color:#ffffffdd;font-size:14px;">${greeting}</p>
+</td></tr>
+<tr><td style="background:#ffffff;padding:40px;border-radius:0 0 16px 16px;">
+  <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+  ${dataBlock}${footerBlock}
+</td></tr>
+<tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                } else {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr><td style="background:linear-gradient(135deg,${brandColor},${brandColor}dd);padding:32px 40px;border-radius:16px 16px 0 0;text-align:center;">
+  ${billingCompany?.postalName ? `<p style="margin:0 0 4px 0;color:#ffffffbb;font-size:12px;text-transform:uppercase;letter-spacing:2px;">${billingCompany.postalName}</p>` : ''}
+  <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">${title}</h1>
+</td></tr>
+<tr><td style="background:#ffffff;padding:40px;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+  <p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p>
+  <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+  ${dataBlock}${footerBlock}
+</td></tr>
+<tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                }
+
+                const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px;">
+<tr><td align="center">${emailBody}</td></tr></table></body></html>`;
+
+                await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [formData.email], subject, emailHtml, true);
+                console.log(`[WebForm] Confirmation email sent to ${formData.email} from ${fromEmail} via system email`);
+            }
+          }
+        } catch (emailError) {
+          console.error("[WebForm] Failed to send confirmation email:", emailError);
+        }
+      }
+
+      res.json({ success: true, submissionId: submission.id, isNewCustomer, customerId: targetCustomerId });
+    } catch (e: any) {
+      console.error("[WebForm Submit] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  const aiRateLimits = new Map<string, { count: number; resetAt: number }>();
+  app.post("/api/public/web-form/:slug/ai-validate", async (req, res) => {
+    try {
+      const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+      const rateLimitKey = `${clientIp}:${req.params.slug}`;
+      const now = Date.now();
+      const rateEntry = aiRateLimits.get(rateLimitKey);
+      if (rateEntry && rateEntry.resetAt > now) {
+        if (rateEntry.count >= 30) {
+          return res.status(429).json({ error: "Too many requests", suggestions: [] });
+        }
+        rateEntry.count++;
+      } else {
+        aiRateLimits.set(rateLimitKey, { count: 1, resetAt: now + 60000 });
+      }
+      if (aiRateLimits.size > 10000) {
+        for (const [k, v] of aiRateLimits) { if (v.resetAt < now) aiRateLimits.delete(k); }
+      }
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive || !form.aiAssistantEnabled) {
+        return res.status(404).json({ error: "AI not available" });
+      }
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: "AI not configured" });
+      }
+      const { fieldKey, fieldLabel, fieldType, value, allValues } = req.body;
+      if (!fieldKey || typeof fieldKey !== "string" || fieldKey.length > 100) return res.json({ suggestions: [] });
+      if (value === undefined || value === null || value === "") return res.json({ suggestions: [] });
+      const valStr = String(value).slice(0, 500);
+      if (typeof fieldLabel !== "string" || typeof fieldType !== "string") return res.json({ suggestions: [] });
+      const safeLabel = String(fieldLabel).slice(0, 100);
+      const safeType = String(fieldType).slice(0, 50);
+      const ALLOWED_FIELD_TYPES = ["text","email","tel","date","number","textarea"];
+      if (!ALLOWED_FIELD_TYPES.includes(safeType)) return res.json({ suggestions: [] });
+      const contextFields: string[] = [];
+      if (allValues) {
+        if (allValues.firstName) contextFields.push(`Meno: ${String(allValues.firstName).slice(0, 100)}`);
+        if (allValues.lastName) contextFields.push(`Priezvisko: ${String(allValues.lastName).slice(0, 100)}`);
+        if (allValues.email) contextFields.push(`Email: ${String(allValues.email).slice(0, 100)}`);
+        if (allValues.phone) contextFields.push(`Telefón: ${String(allValues.phone).slice(0, 50)}`);
+        if (allValues.expectedDeliveryDate) contextFields.push(`Predpokladaný dátum pôrodu: ${String(allValues.expectedDeliveryDate).slice(0, 20)}`);
+        if (allValues.address) contextFields.push(`Ulica: ${String(allValues.address).slice(0, 200)}`);
+        if (allValues.city) contextFields.push(`Mesto: ${String(allValues.city).slice(0, 100)}`);
+        if (allValues.postalCode) contextFields.push(`PSČ: ${String(allValues.postalCode).slice(0, 20)}`);
+        if (allValues.region) contextFields.push(`Kraj: ${String(allValues.region).slice(0, 100)}`);
+        if (allValues.nationalId) contextFields.push(`Rodné číslo: ${String(allValues.nationalId).slice(0, 20)}`);
+        if (allValues.birthNumber) contextFields.push(`Rodné číslo: ${String(allValues.birthNumber).slice(0, 20)}`);
+        if (allValues.corrName) contextFields.push(`Korešpondenčná adresa — Meno: ${String(allValues.corrName).slice(0, 100)}`);
+        if (allValues.corrAddress) contextFields.push(`Korešpondenčná adresa — Ulica: ${String(allValues.corrAddress).slice(0, 200)}`);
+        if (allValues.corrCity) contextFields.push(`Korešpondenčná adresa — Mesto: ${String(allValues.corrCity).slice(0, 100)}`);
+        if (allValues.corrPostalCode) contextFields.push(`Korešpondenčná adresa — PSČ: ${String(allValues.corrPostalCode).slice(0, 20)}`);
+      }
+      const today = new Date().toISOString().split("T")[0];
+      const countryCode = form.countryCode || "SK";
+      const prompt = `Si Laura — priateľská AI asistentka pre registračný formulár krvnej banky pupočníkovej krvi v krajine ${countryCode}. Dnes je ${today}.
+
+Používateľ vyplnil pole "${safeLabel}" (typ: ${safeType}, kľúč: ${fieldKey}) s hodnotou: "${valStr}"
+
+${contextFields.length > 0 ? `Kontext ostatných vyplnených polí:\n${contextFields.join("\n")}` : ""}
+
+Analyzuj zadanú hodnotu a vráť JSON pole s návrhmi (suggestions). Každý návrh musí mať:
+- "type": "error" | "warning" | "info" | "tip"
+- "message": krátka správa v slovenčine (max 120 znakov)
+- "suggestion": IBA opravená hodnota pripravená na vloženie do poľa (napr. "Jana", "421912345678", "seman@gmail.com"). NIKDY nepíš vety ako "Opraviť na..." alebo "Zmeniť na..." — iba čistú hodnotu. Ak oprava nie je možná, daj null.
+
+Pravidlá kontroly:
+1. MENO/PRIEZVISKO: Skontroluj veľké písmeno na začiatku, žiadne čísla, diakritika OK. VŽDY porovnaj so zoznamom bežných slovenských/českých mien. Ak je meno podobné bežnému menu ale má zdvojené písmená, chýbajúce písmená alebo preklep, navrhni opravu na najbližšie reálne meno. Príklady opráv: "Jankoo"→"Janko", "Marria"→"Mária", "Petrr"→"Peter", "Jann"→"Ján", "Zuzzana"→"Zuzana", "Miichal"→"Michal", "Katrína"→"Katarína". Ak meno neexistuje v žiadnej bežnej databáze mien, upozorni používateľa. Ak je meno reálne existujúce (aj keď nezvyčajné), neopravuj.
+2. TELEFÓN: Pre SK formát s medzinárodnou predvoľbou BEZ plus znaku: 421 9XX XXX XXX (napr. 421948519143). Pre CZ: 420 XXX XXX XXX. Ak používateľ zadá s + na začiatku, navrhni opravu bez +. Ak zadá iba národný formát (09XX...), pridaj predvoľbu 421. Vždy BEZ znaku +.
+3. EMAIL: Skontroluj základný formát, bežné preklepy domén (gmial->gmail, hotmal->hotmail).
+4. DÁTUM PÔRODU: Musí byť v budúcnosti (po ${today}). Ak je viac ako 9 mesiacov v budúcnosti, upozorni. Ak je v minulosti, chyba. Ak je blízko, daj tip o príprave.
+5. PSČ: Pre SK 5-miestne (napr. 81101), pre CZ 5-miestne (napr. 11000). Ak poznáš mesto z kontextu, navrhni správne PSČ.
+6. ADRESA/ULICA: Prvé písmeno MUSÍ byť veľké (napr. "hlavná 5" → "Hlavná 5", "štefánikova 12" → "Štefánikova 12"). Vždy navrhni opravu ak prvé písmeno je malé. Skontroluj preklepy. Ak poznáš ulicu a mesto, navrhni PSČ cez autoFill.
+7. MESTO: Prvé písmeno musí byť veľké (napr. "bratislava" → "Bratislava", "košice" → "Košice"). Skontroluj preklepy v názve mesta. Ak poznáš mesto, navrhni PSČ cez autoFill (kľúč "postalCode").
+10. DÁTUM NARODENIA (dateOfBirth): Dátum narodenia je VŽDY v minulosti — to je normálne, NIKDY neupozorňuj že dátum je v minulosti. Skontroluj iba či je dátum reálny (napr. nie budúci dátum, nie starší ako 120 rokov).
+8. KOREŠPONDENČNÁ ADRESA (corrName/corrAddress/corrCity/corrPostalCode): Rovnaké pravidlá ako pre hlavnú adresu. Skontroluj meno, ulicu, mesto, PSČ. Ak poznáš mesto, navrhni PSČ cez autoFill (kľúč "corrPostalCode"). Ak poznáš ulicu a mesto korešpondenčnej adresy, navrhni PSČ.
+9. RODNÉ ČÍSLO (nationalId/birthNumber): Pre SK/CZ formát XXXXXX/XXXX (6 číslic lomka 3-4 číslice, napr. 690516/9183). Ak chýba lomka, navrhni opravu s lomkou. Skontroluj dátum v prvých 6 čísliciach. Pre HU formát je 11-miestne číslo. Pre iné krajiny skontroluj bežný formát.
+
+Každý návrh môže mať aj voliteľné pole:
+- "autoFill": objekt s kľúčmi polí a hodnotami na automatické vyplnenie (napr. {"postalCode": "81101", "city": "Bratislava"}). Použi ak z kontextu vieš doplniť súvisiace polia.
+
+Ak je všetko v poriadku, vráť prázdne pole [].
+Ak máš tip alebo radu súvisiacu s tehotenstvom/odberom pupočníkovej krvi, pridaj ho ako "tip".
+DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+      const content = response.choices[0]?.message?.content?.trim() || "[]";
+      let suggestions: any[] = [];
+      try {
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        const raw = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+        if (Array.isArray(raw)) {
+          suggestions = raw.slice(0, 5).filter((s: any) =>
+            s && typeof s.type === "string" && ["error","warning","info","tip"].includes(s.type)
+            && typeof s.message === "string" && s.message.length <= 200
+          ).map((s: any) => {
+            let sug = s.suggestion && typeof s.suggestion === "string" ? String(s.suggestion).slice(0, 200) : null;
+            if (sug) {
+              sug = sug.replace(/^(Opravi[tť]\s+(na\s+)?|Zmeni[tť]\s+(na\s+)?|Použi[tť]\s+)/i, "").replace(/^['"""„]+|['"""]+$/g, "").trim();
+              if (!sug) sug = null;
+            }
+            let autoFill: Record<string, string> | null = null;
+            if (s.autoFill && typeof s.autoFill === "object") {
+              autoFill = {};
+              for (const [k, v] of Object.entries(s.autoFill)) {
+                if (typeof k === "string" && typeof v === "string" && k.length < 50 && v.length < 200) {
+                  autoFill[k] = v;
+                }
+              }
+              if (Object.keys(autoFill).length === 0) autoFill = null;
+            }
+            return { type: s.type, message: String(s.message).slice(0, 200), suggestion: sug, autoFill };
+          });
+        }
+      } catch { suggestions = []; }
+      res.json({ suggestions, lauraAvatarUrl: form.lauraAvatarUrl || null });
+    } catch (e: any) {
+      console.error("[WebForm AI Validate]", e.message);
+      res.json({ suggestions: [] });
+    }
+  });
+
+  app.post("/api/web-forms/:id/laura-avatar", requireAuth, uploadAvatar.single("avatar"), async (req, res) => {
+    try {
+      const form = await storage.getWebForm(req.params.id);
+      if (!form) return res.status(404).json({ error: "Form not found" });
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      await storage.updateWebForm(req.params.id, { lauraAvatarUrl: avatarUrl } as any);
+      res.json({ success: true, lauraAvatarUrl: avatarUrl });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/web-forms/:id/test-email", requireAuth, async (req, res) => {
+    try {
+      const { testEmail } = req.body;
+      if (!testEmail) return res.status(400).json({ error: "Email is required" });
+
+      const form = await storage.getWebForm(req.params.id);
+      if (!form) return res.status(404).json({ error: "Form not found" });
+
+      const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
+      const billingCompany = billingCompanies.find((b: any) => b.webFromEmail) || billingCompanies[0];
+      const companyName = billingCompany?.companyName || "Cord Blood Center";
+
+      const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+      if (!systemConnection || !systemConnection.isConnected) return res.status(400).json({ error: "System email not configured/connected for this country" });
+
+      const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+      const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+      const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+      const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+      if (!tokenResult) return res.status(400).json({ error: "System email MS365 token expired" });
+      if (tokenResult.refreshed) {
+        await storage.updateSystemMs365Connection(form.countryCode, {
+          accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+          refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+          tokenExpiresAt: tokenResult.expiresOn
+        });
+      }
+      const fromEmail = systemConnection.email;
+
+      const brandColor = form.brandColor || "#16a34a";
+      const greeting = (form.confirmEmailGreeting || `Dobrý deň p. {{priezvisko}},`).replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail);
+      const bodyText = (form.confirmEmailBody || "ďakujeme za Váš záujem. Čoskoro Vás budeme kontaktovať.").replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail);
+      const footerText = form.confirmEmailFooter || `V prípade akýchkoľvek otázok nás neváhajte kontaktovať.`;
+      const signatureText = form.confirmEmailSignature || companyName;
+      const subject = "[TEST] " + ((form.confirmEmailSubject || `Potvrdenie registrácie - ${companyName}`).replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail));

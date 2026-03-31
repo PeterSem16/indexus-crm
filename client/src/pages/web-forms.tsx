@@ -861,6 +861,7 @@ function EmbedCodeDialog({ form, onClose, getFormUrl, copyToClipboard, t }: {
   const [embedShadow, setEmbedShadow] = useState(false);
   const [embedCentered, setEmbedCentered] = useState(true);
   const [embedLazy, setEmbedLazy] = useState(false);
+  const [embedResponsive, setEmbedResponsive] = useState(true);
 
   const buildIframeCode = () => {
     const styles: string[] = [];
@@ -883,7 +884,38 @@ function EmbedCodeDialog({ form, onClose, getFormUrl, copyToClipboard, t }: {
     return `<iframe ${attrs.join(" ")}></iframe>`;
   };
 
+  const buildResponsiveCode = () => {
+    const url = `${getFormUrl(form.slug)}?embed=1`;
+    return `<div style="position:relative;width:100%;max-width:${embedMaxWidth || 800}px;margin:0 auto;overflow:hidden">
+  <style>
+    .indexus-form-wrap iframe { width:100%; border:none; min-height:600px; }
+    @media(max-width:768px) {
+      .indexus-form-wrap iframe { min-height:500px; }
+      .indexus-form-wrap { padding:0 8px; }
+    }
+    @media(max-width:480px) {
+      .indexus-form-wrap iframe { min-height:450px; }
+      .indexus-form-wrap { padding:0 4px; }
+    }
+  </style>
+  <div class="indexus-form-wrap">
+    <iframe src="${url}" height="${embedHeight}" frameborder="0" allowfullscreen loading="lazy"
+      style="border:none;width:100%;${embedBorderRadius !== "0" ? `border-radius:${embedBorderRadius}px;` : ""}${embedShadow ? "box-shadow:0 4px 24px rgba(0,0,0,0.12);" : ""}"
+      allow="clipboard-write"></iframe>
+  </div>
+  <script>
+    window.addEventListener("message",function(e){
+      if(e.data&&e.data.type==="indexus-form-resize"){
+        var f=document.querySelector(".indexus-form-wrap iframe");
+        if(f)f.style.height=e.data.height+"px";
+      }
+    });
+  </script>
+</div>`;
+  };
+
   const iframeCode = buildIframeCode();
+  const responsiveCode = buildResponsiveCode();
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -950,16 +982,33 @@ function EmbedCodeDialog({ form, onClose, getFormUrl, copyToClipboard, t }: {
                 <input type="checkbox" checked={embedLazy} onChange={e => setEmbedLazy(e.target.checked)} className="rounded" />
                 Lazy loading
               </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer" data-testid="check-embed-responsive">
+                <input type="checkbox" checked={embedResponsive} onChange={e => setEmbedResponsive(e.target.checked)} className="rounded" />
+                📱 Mobile optimized
+              </label>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs font-medium">{t.webForms.iframeRecommended}</Label>
-            <Textarea readOnly rows={4} className="font-mono text-xs bg-gray-50" value={iframeCode} data-testid="textarea-embed-iframe" />
-            <Button size="sm" variant="outline" onClick={() => copyToClipboard(iframeCode)} data-testid="btn-copy-iframe">
-              <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
-            </Button>
-          </div>
+          {embedResponsive ? (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">📱 Responsive embed (mobile optimized)</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Auto-adjusts width for mobile devices, includes dynamic height resize and touch-friendly padding.
+              </p>
+              <Textarea readOnly rows={8} className="font-mono text-[10px] bg-gray-50 leading-relaxed" value={responsiveCode} data-testid="textarea-embed-responsive" />
+              <Button size="sm" variant="outline" onClick={() => copyToClipboard(responsiveCode)} data-testid="btn-copy-responsive">
+                <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">{t.webForms.iframeRecommended}</Label>
+              <Textarea readOnly rows={4} className="font-mono text-xs bg-gray-50" value={iframeCode} data-testid="textarea-embed-iframe" />
+              <Button size="sm" variant="outline" onClick={() => copyToClipboard(iframeCode)} data-testid="btn-copy-iframe">
+                <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
+              </Button>
+            </div>
+          )}
 
           <Separator />
 
@@ -1787,20 +1836,23 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
   const { data: formDetail, isLoading: detailLoading } = useQuery<any>({
     queryKey: ["/api/web-forms", form.id],
-    staleTime: Infinity,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   useEffect(() => {
-    if (formDetail && !hydrated) {
+    if (formDetail) {
       const { sections, fields, id, createdAt, updatedAt, createdBy, ...editableData } = formDetail;
-      setFormData(editableData);
-      setEditSections((sections || []).map((s: any) => ({ ...s, columns: s.columns || 2 })));
-      setEditFields((fields || []).map((f: any, i: number) => ({
-        ...f,
-        columnSpan: f.columnSpan || 1,
-        _key: f.id || `field-${Date.now()}-${i}`,
-      })));
-      setHydrated(true);
+      if (!hydrated) {
+        setFormData(editableData);
+        setEditSections((sections || []).map((s: any) => ({ ...s, columns: s.columns || 2 })));
+        setEditFields((fields || []).map((f: any, i: number) => ({
+          ...f,
+          columnSpan: f.columnSpan || 1,
+          _key: f.id || `field-${Date.now()}-${i}`,
+        })));
+        setHydrated(true);
+      }
     }
   }, [formDetail, hydrated]);
 

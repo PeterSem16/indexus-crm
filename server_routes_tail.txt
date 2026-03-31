@@ -1,291 +1,14 @@
-      const articles = await storage.getSopArticlesByCampaign(req.params.campaignId);
-      res.json(articles);
-    } catch (error) {
-      console.error("Error fetching campaign SOP articles:", error);
-      res.status(500).json({ error: "Failed to fetch campaign SOP articles" });
-    }
-  });
 
-  app.get("/api/sop/articles/:id", requireAuth, async (req, res) => {
-    try {
-      const article = await storage.getSopArticle(req.params.id);
-      if (!article) return res.status(404).json({ error: "Article not found" });
-      res.json(article);
-    } catch (error) {
-      console.error("Error fetching SOP article:", error);
-      res.status(500).json({ error: "Failed to fetch SOP article" });
-    }
-  });
+      const { fillPdfForm } = await import("./template-processor");
+      await fillPdfForm(templatePath, pdfFields, outputPath, true);
 
-  app.post("/api/sop/articles", requireAuth, async (req, res) => {
-    try {
-      const parsed = insertSopArticleSchema.parse({ ...req.body, createdBy: req.session.user?.id?.toString() });
-      const article = await storage.createSopArticle(parsed);
-      res.status(201).json(article);
-    } catch (error: any) {
-      if (error?.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: error.errors });
-      console.error("Error creating SOP article:", error);
-      res.status(500).json({ error: "Failed to create SOP article" });
-    }
-  });
-
-  app.patch("/api/sop/articles/:id", requireAuth, async (req, res) => {
-    try {
-      const parsed = insertSopArticleSchema.partial().parse(req.body);
-      const updated = await storage.updateSopArticle(req.params.id, parsed);
-      if (!updated) return res.status(404).json({ error: "Article not found" });
-      res.json(updated);
-    } catch (error: any) {
-      if (error?.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: error.errors });
-      console.error("Error updating SOP article:", error);
-      res.status(500).json({ error: "Failed to update SOP article" });
-    }
-  });
-
-  app.delete("/api/sop/articles/:id", requireAuth, async (req, res) => {
-    try {
-      const deleted = await storage.deleteSopArticle(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Article not found" });
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting SOP article:", error);
-      res.status(500).json({ error: "Failed to delete SOP article" });
-    }
-  });
-
-  app.post("/api/sop/articles/:id/read", requireAuth, async (req, res) => {
-    try {
-      const userId = req.session.user?.id;
-      if (!userId) return res.status(401).json({ error: "Unauthorized" });
-      const read = await storage.markSopArticleRead(req.params.id, userId);
-      res.json(read);
-    } catch (error) {
-      console.error("Error marking SOP article as read:", error);
-      res.status(500).json({ error: "Failed to mark article as read" });
-    }
-  });
-
-
-  app.post("/api/sop/articles/:id/copy-translate", requireAuth, async (req, res) => {
-    try {
-      const { targetCountryCode, translate } = req.body;
-      const VALID_CODES = ["SK", "CZ", "US", "HU", "RO", "IT", "DE", "GB"];
-      if (!targetCountryCode || !VALID_CODES.includes(targetCountryCode)) return res.status(400).json({ error: "Invalid targetCountryCode" });
-
-      const source = await storage.getSopArticle(req.params.id);
-      if (!source) return res.status(404).json({ error: "Article not found" });
-
-      const LANG_NAMES: Record<string, string> = {
-        SK: "Slovak", CZ: "Czech", US: "English", HU: "Hungarian",
-        RO: "Romanian", IT: "Italian", DE: "German", GB: "English"
-      };
-      const sourceLangName = LANG_NAMES[(source.countryCode || "SK").toUpperCase()] || source.countryCode || "Slovak";
-      const targetLangName = LANG_NAMES[targetCountryCode.toUpperCase()] || targetCountryCode;
-
-      let title = source.title;
-      let content = source.content;
-      let summary = source.summary || "";
-
-      if (translate) {
-        const openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const prompt = `Translate the following from ${sourceLangName} to ${targetLangName}. Keep all HTML tags exactly as they are. Return ONLY the translated text, nothing else.`;
-
-        const translateText = async (text: string, isHtml: boolean): Promise<string> => {
-          if (!text || text.trim().length === 0) return text;
-          const completion = await openaiInstance.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: prompt + (isHtml ? " The text contains HTML markup - preserve all HTML tags exactly." : "") },
-              { role: "user", content: text }
-            ],
-            temperature: 0.3,
-          });
-          return completion.choices[0]?.message?.content || text;
-        };
-
-        const [translatedTitle, translatedContent, translatedSummary] = await Promise.all([
-          translateText(title, false),
-          translateText(content, true),
-          summary ? translateText(summary, false) : Promise.resolve(""),
-        ]);
-
-        title = translatedTitle;
-        content = translatedContent;
-        summary = translatedSummary;
-      }
-
-      const newArticle = await storage.createSopArticle({
-        categoryId: source.categoryId,
-        title,
-        content,
-        summary: summary || null,
-        priority: source.priority,
-        countryCode: targetCountryCode,
-        isPublished: source.isPublished,
-        isPinned: false,
-        tags: source.tags || [],
-        createdBy: req.session.user?.id?.toString(),
+      res.download(outputPath, safeFileName, (err) => {
+        if (err) console.error("[PDF Fill] Download error:", err);
       });
-
-      res.status(201).json(newArticle);
-    } catch (error) {
-      console.error("Error copying/translating SOP article:", error);
-      res.status(500).json({ error: "Failed to copy article" });
-    }
-  });
-
-  app.get("/api/sop/articles/:id/reads", requireAuth, async (req, res) => {
-    try {
-      const reads = await storage.getSopArticleReads(req.params.id);
-      res.json(reads);
-    } catch (error) {
-      console.error("Error fetching SOP article reads:", error);
-      res.status(500).json({ error: "Failed to fetch article reads" });
-    }
-  });
-
-  app.get("/api/sop/user-reads", requireAuth, async (req, res) => {
-    try {
-      const userId = req.session.user?.id;
-      if (!userId) return res.status(401).json({ error: "Unauthorized" });
-      const reads = await storage.getUserSopReads(userId);
-      res.json(reads);
-    } catch (error) {
-      console.error("Error fetching user SOP reads:", error);
-      res.status(500).json({ error: "Failed to fetch user reads" });
-    }
-  });
-
-  app.post("/api/sop/articles/:id/campaigns", requireAuth, async (req, res) => {
-    try {
-      const { campaignId } = req.body;
-      if (!campaignId) return res.status(400).json({ error: "campaignId required" });
-      await storage.linkSopArticleToCampaign(req.params.id, campaignId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error linking SOP article to campaign:", error);
-      res.status(500).json({ error: "Failed to link article to campaign" });
-    }
-  });
-
-  app.delete("/api/sop/articles/:id/campaigns/:campaignId", requireAuth, async (req, res) => {
-    try {
-      await storage.unlinkSopArticleFromCampaign(req.params.id, req.params.campaignId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error unlinking SOP article from campaign:", error);
-      res.status(500).json({ error: "Failed to unlink article from campaign" });
-    }
-  });
-
-  app.get("/api/sop/articles/:id/campaigns", requireAuth, async (req, res) => {
-    try {
-      const campaignIds = await storage.getSopCampaignLinks(req.params.id);
-      res.json(campaignIds);
-    } catch (error) {
-      console.error("Error fetching SOP campaign links:", error);
-      res.status(500).json({ error: "Failed to fetch campaign links" });
-    }
-  });
-
-  registerInboundRoutes(app, requireAuth);
-
-  app.get("/api/web-forms", requireAuth, async (_req, res) => {
-    try { res.json(await storage.getWebForms()); }
-    catch (e: any) { res.status(500).json({ error: e.message }); }
-  });
-
-  app.get("/api/web-forms/:id", requireAuth, async (req, res) => {
-    try {
-      const form = await storage.getWebForm(req.params.id);
-      if (!form) return res.status(404).json({ error: "Form not found" });
-      const sections = await storage.getWebFormSections(form.id);
-      const fields = await storage.getWebFormFields(form.id);
-      res.json({ ...form, sections, fields });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
-  });
-
-  app.post("/api/web-forms", requireAuth, async (req, res) => {
-    try {
-      const { sections, fields, ...formData } = req.body;
-      const userId = req.session.user!.id;
-      const form = await storage.createWebForm({ ...formData, createdBy: userId });
-      if (sections && Array.isArray(sections)) {
-        for (const s of sections) await storage.createWebFormSection({ ...s, formId: form.id });
-      }
-      if (fields && Array.isArray(fields)) {
-        for (const f of fields) await storage.createWebFormField({ ...f, formId: form.id });
-      }
-      res.json(form);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
-  });
-
-  app.patch("/api/web-forms/:id", requireAuth, async (req, res) => {
-    try {
-      const { sections, fields, ...raw } = req.body;
-      const ALLOWED_FORM_KEYS = [
-        "name","slug","countryCode","language","description","headerTitle","headerSubtitle",
-        "gdprText","gdprMarketingText","gdprPregnancyText","successMessage",
-        "brandColor","textColor","headingColor","sectionColor","bgColor","formWidth","formLayout","logoUrl","isActive","contactInfo",
-        "titleFontSize","titleFontWeight","titleFontStyle","titleFontFamily",
-        "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
-        "sectionFontSize","sectionFontWeight","sectionFontStyle",
-        "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
-      ];
-      const formData: Record<string, any> = {};
-      for (const k of ALLOWED_FORM_KEYS) {
-        if (k in raw) formData[k] = raw[k];
-      }
-      console.log("[WebForm PATCH]", req.params.id, "keys:", Object.keys(formData).join(","), "sections:", sections?.length, "fields:", fields?.length);
-      const form = await storage.updateWebForm(req.params.id, formData as any);
-      if (sections && Array.isArray(sections)) {
-        await storage.deleteWebFormSectionsByFormId(form.id);
-        const oldToNewSectionId = new Map<string, string>();
-        for (const s of sections) {
-          const { id: oldSectionId, ...sData } = s;
-          const created = await storage.createWebFormSection({ ...sData, formId: form.id });
-          if (oldSectionId && created?.id) {
-            oldToNewSectionId.set(oldSectionId, created.id);
-          }
-        }
-        if (fields && Array.isArray(fields)) {
-          await storage.deleteWebFormFieldsByFormId(form.id);
-          for (const f of fields) {
-            const { id: _fId, ...fData } = f;
-            if (fData.sectionId && oldToNewSectionId.has(fData.sectionId)) {
-              fData.sectionId = oldToNewSectionId.get(fData.sectionId);
-            }
-            await storage.createWebFormField({ ...fData, formId: form.id });
-          }
-        }
-      } else if (fields && Array.isArray(fields)) {
-        await storage.deleteWebFormFieldsByFormId(form.id);
-        for (const f of fields) {
-          const { id: _fId, ...fData } = f;
-          await storage.createWebFormField({ ...fData, formId: form.id });
-        }
-      }
-      const updatedSections = await storage.getWebFormSections(form.id);
-      const updatedFields = await storage.getWebFormFields(form.id);
-      res.json({ ...form, sections: updatedSections, fields: updatedFields });
     } catch (e: any) {
-      console.error("[WebForm PATCH ERROR]", e.message, e.stack);
+      console.error("[PDF Fill] Error:", e);
       res.status(500).json({ error: e.message });
     }
-  });
-
-  app.delete("/api/web-forms/:id", requireAuth, async (req, res) => {
-    try {
-      await storage.deleteWebFormFieldsByFormId(req.params.id);
-      await storage.deleteWebFormSectionsByFormId(req.params.id);
-      await storage.deleteWebForm(req.params.id);
-      res.json({ success: true });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
-  });
-
-  app.get("/api/web-forms/:id/submissions", requireAuth, async (req, res) => {
-    try { res.json(await storage.getWebFormSubmissions(req.params.id)); }
-    catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.get("/api/web-forms/:id/audit-log", requireAuth, async (req, res) => {
@@ -305,11 +28,18 @@
         .where(and(eq((await import("@shared/schema")).hospitals.countryCode, form.countryCode), eq((await import("@shared/schema")).hospitals.isActive, true)));
       const productSetsRaw = await db.select().from((await import("@shared/schema")).productSets)
         .where(and(eq((await import("@shared/schema")).productSets.countryCode, form.countryCode), eq((await import("@shared/schema")).productSets.isActive, true)));
+      const productsRaw = await db.select().from((await import("@shared/schema")).products)
+        .where(eq((await import("@shared/schema")).products.isActive, true));
+      const countryProducts = productsRaw.filter(p => p.countries && p.countries.includes(form.countryCode));
+      const clinicsRaw = await db.select().from((await import("@shared/schema")).clinics)
+        .where(and(eq((await import("@shared/schema")).clinics.countryCode, form.countryCode), eq((await import("@shared/schema")).clinics.isActive, true)));
       res.json({
         form: { ...form, sections, fields },
         healthInsuranceCompanies: hicsRaw,
         hospitals: hospitalsRaw.map(h => ({ id: h.id, name: h.name, fullName: h.fullName, city: h.city })),
         productSets: productSetsRaw.map(p => ({ id: p.id, name: p.name, totalGrossAmount: p.totalGrossAmount, currency: p.currency })),
+        products: countryProducts.map(p => ({ id: p.id, name: p.name, description: p.description })),
+        clinics: clinicsRaw.map(c => ({ id: c.id, name: c.name, doctorName: c.doctorName, doctorTitle: c.doctorTitle, doctorFirstName: c.doctorFirstName, doctorLastName: c.doctorLastName, city: c.city })),
       });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -345,18 +75,31 @@
       await storage.createWebFormOtp({ formId: form.id, email, code, expiresAt });
       await storage.createWebFormAuditLog({ formId: form.id, action: "otp_sent", details: JSON.stringify({ email }), ipAddress: req.ip || null });
       try {
-        const userId = await db.select({ id: (await import("@shared/schema")).users.id }).from((await import("@shared/schema")).users).limit(1);
-        if (userId.length > 0) {
-          const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
-          if (ms365Connection?.isConnected) {
-            const { decryptTokenSafe } = await import("./lib/token-crypto");
-            const accessToken = decryptTokenSafe(ms365Connection.accessToken);
-            const { getValidAccessToken, sendEmail } = await import("./lib/ms365");
-            const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
-            if (tokenResult) {
-              await sendEmail(tokenResult.accessToken, [email], "Overovací kód - Cord Blood Center", `<div style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;text-align:center"><h2>Váš overovací kód</h2><p style="font-size:32px;font-weight:bold;letter-spacing:8px;padding:20px;background:#f0f9ff;border-radius:8px">${code}</p><p>Kód platí 10 minút.</p></div>`, true);
+        const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+        if (systemConnection && systemConnection.isConnected) {
+          const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+          const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+          const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+          const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+          const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+          if (tokenResult) {
+            if (tokenResult.refreshed) {
+              await storage.updateSystemMs365Connection(form.countryCode, {
+                accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                tokenExpiresAt: tokenResult.expiresOn
+              });
             }
+            const brandColor = form.brandColor || "#16a34a";
+            const otpHtml = `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:400px;margin:0 auto;padding:32px;text-align:center;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08)"><div style="width:48px;height:48px;margin:0 auto 16px;background:${brandColor}15;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:24px">🔐</span></div><h2 style="color:#111827;margin:0 0 8px 0;font-size:20px;">Overovací kód</h2><p style="color:#6b7280;font-size:14px;margin:0 0 24px 0;">Použite tento kód na overenie vašej identity</p><p style="font-size:36px;font-weight:bold;letter-spacing:8px;padding:20px;background:${brandColor}08;border:2px dashed ${brandColor}30;border-radius:12px;color:${brandColor};margin:0 0 24px 0">${code}</p><p style="color:#9ca3af;font-size:12px;margin:0">Kód platí 10 minút. Ak ste ho nevyžiadali, ignorujte tento email.</p></div>`;
+            const fromEmail = systemConnection.email;
+            await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [email], "Overovací kód - Cord Blood Center", otpHtml, true);
+            console.log(`[WebForm OTP] Code sent to ${email} from ${fromEmail} via system email`);
+          } else {
+            console.error("[WebForm OTP] Failed to get valid access token for system email");
           }
+        } else {
+          console.error("[WebForm OTP] System email not configured/connected for country", form.countryCode);
         }
       } catch (emailError) {
         console.error("[WebForm OTP] Failed to send email:", emailError);
@@ -401,12 +144,35 @@
     try {
       const form = await storage.getWebFormBySlug(req.params.slug);
       if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
-      const { formData, customerId, verificationToken } = req.body;
+      const { formData, customerId, verificationToken, clientMetadata } = req.body;
+      console.log(`[WebForm Submit] slug=${req.params.slug}, customerId=${customerId || 'none'}, hasToken=${!!verificationToken}, email=${formData?.email}`);
       if (!formData) return res.status(400).json({ error: "No form data" });
+
+      const schema = await import("@shared/schema");
+      let resolvedHospitalName = formData.hospitalName || null;
+      if (formData.hospitalId && !resolvedHospitalName) {
+        const [hosp] = await db.select().from(schema.hospitals).where(eq(schema.hospitals.id, formData.hospitalId)).limit(1);
+        if (hosp) resolvedHospitalName = hosp.name || null;
+      }
+      let resolvedGynName = formData.gynecologistName || null;
+      let resolvedGynPhone = formData.gynecologistPhone || null;
+      let resolvedGynEmail = formData.gynecologistEmail || null;
+      if (formData.gynecologistClinicId) {
+        const [clinic] = await db.select().from(schema.clinics).where(eq(schema.clinics.id, formData.gynecologistClinicId)).limit(1);
+        if (clinic) {
+          if (!resolvedGynName) {
+            const parts = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean);
+            resolvedGynName = parts.length > 0 ? parts.join(" ") : (clinic.doctorName || clinic.name || null);
+          }
+          if (!resolvedGynPhone && clinic.phone) resolvedGynPhone = clinic.phone;
+          if (!resolvedGynEmail && clinic.email) resolvedGynEmail = clinic.email;
+        }
+      }
 
       let isOtpVerified = false;
       if (customerId && verificationToken) {
         const auditLogs = await storage.getWebFormAuditLogs(form.id);
+        console.log(`[WebForm Submit] Found ${auditLogs.length} audit logs, searching for token match...`);
         const matchingLog = auditLogs.find(log => {
           if (log.action !== "otp_verified") return false;
           try {
@@ -414,106 +180,1340 @@
             return details.verificationToken === verificationToken;
           } catch { return false; }
         });
-        if (!matchingLog) return res.status(403).json({ error: "Invalid verification token" });
+        if (!matchingLog) {
+          console.error(`[WebForm Submit] Token verification FAILED - no matching audit log`);
+          return res.status(403).json({ error: "Invalid verification token" });
+        }
         isOtpVerified = true;
+        console.log(`[WebForm Submit] OTP verified successfully for customer ${customerId}`);
       }
 
-      const schema = await import("@shared/schema");
       let targetCustomerId: string | null = null;
       let isNewCustomer = false;
 
+      // No auto-create/update - just identify if existing or new customer
       if (customerId && isOtpVerified) {
         targetCustomerId = customerId;
-        const [existing] = await db.select().from(schema.customers).where(eq(schema.customers.id, targetCustomerId!)).limit(1);
-        if (existing) {
-          const updateData: any = {};
-          if (formData.phone && !existing.phone) updateData.phone = formData.phone;
-          if (formData.mobile && !existing.mobile) updateData.mobile = formData.mobile;
-          if (formData.address) updateData.address = formData.address;
-          if (formData.city) updateData.city = formData.city;
-          if (formData.postalCode) updateData.postalCode = formData.postalCode;
-          if (formData.dateOfBirth) updateData.dateOfBirth = new Date(formData.dateOfBirth);
-          if (formData.nationalId) updateData.nationalId = formData.nationalId;
-          if (formData.healthInsuranceId) updateData.healthInsuranceId = formData.healthInsuranceId;
-          if (formData.bankAccount) updateData.bankAccount = formData.bankAccount;
-          if (formData.bankName) updateData.bankName = formData.bankName;
-          if (formData.bankSwift) updateData.bankSwift = formData.bankSwift;
-          updateData.status = "web_request";
-          if (Object.keys(updateData).length > 0) {
-            await db.update(schema.customers).set(updateData).where(eq(schema.customers.id, targetCustomerId));
-          }
-          await storage.createActivityLog({
-            userId: "system",
-            action: "web_form_submission",
-            entityType: "customer",
-            entityId: targetCustomerId,
-            entityName: `${existing.firstName} ${existing.lastName}`,
-            details: JSON.stringify({ formId: form.id, formName: form.name, type: "existing_customer", status: "web_request", data: formData }),
-          });
-        }
+        isNewCustomer = false;
+        console.log('[WebForm Submit] Existing customer identified via OTP: ' + customerId);
       } else {
-        if (!formData.firstName || !formData.lastName || !formData.email) {
-          return res.status(400).json({ error: "Missing required customer fields" });
+        // Check if email matches existing customer
+        if (formData.email) {
+          const [existingByEmail] = await db.select().from(schema.customers)
+            .where(eq(schema.customers.email, formData.email)).limit(1);
+          if (existingByEmail) {
+            targetCustomerId = existingByEmail.id;
+            isNewCustomer = false;
+            console.log('[WebForm Submit] Existing customer matched by email: ' + existingByEmail.id);
+          } else {
+            isNewCustomer = true;
+            console.log('[WebForm Submit] New customer (no email match), pending approval');
+          }
+        } else {
+          isNewCustomer = true;
+          console.log('[WebForm Submit] New customer (no email), pending approval');
         }
-        const [newCustomer] = await db.insert(schema.customers).values({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          maidenName: formData.maidenName || null,
-          titleBefore: formData.titleBefore || null,
-          titleAfter: formData.titleAfter || null,
-          email: formData.email,
-          phone: formData.phone || null,
-          mobile: formData.mobile || null,
-          dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
-          nationalId: formData.nationalId || null,
-          country: form.countryCode,
-          city: formData.city || null,
-          address: formData.address || null,
-          postalCode: formData.postalCode || null,
-          region: formData.region || null,
-          healthInsuranceId: formData.healthInsuranceId || null,
-          bankAccount: formData.bankAccount || null,
-          bankName: formData.bankName || null,
-          bankSwift: formData.bankSwift || null,
-          clientStatus: "potential",
-          status: "pending",
-          serviceType: formData.serviceType || null,
-          newsletter: formData.newsletter || false,
-        }).returning();
-        targetCustomerId = newCustomer.id;
-        isNewCustomer = true;
-        await storage.createActivityLog({
-          userId: "system",
-          action: "web_form_submission",
-          entityType: "customer",
-          entityId: newCustomer.id,
-          entityName: `${newCustomer.firstName} ${newCustomer.lastName}`,
-          details: JSON.stringify({ formId: form.id, formName: form.name, type: "new_customer", status: "potential/pending", data: formData }),
-        });
       }
 
+      const forwardedFor = req.headers["x-forwarded-for"];
+      const realIp = typeof forwardedFor === "string" ? forwardedFor.split(",")[0].trim() : (req.ip || req.socket?.remoteAddress || null);
+      const serverMetadata: Record<string, any> = {
+        ip: realIp,
+        forwardedFor: forwardedFor || null,
+        userAgent: req.headers["user-agent"] || null,
+        acceptLanguage: req.headers["accept-language"] || null,
+        origin: req.headers["origin"] || null,
+        referer: req.headers["referer"] || null,
+        host: req.headers["host"] || null,
+        contentLength: req.headers["content-length"] || null,
+        secChUa: req.headers["sec-ch-ua"] || null,
+        secChUaPlatform: req.headers["sec-ch-ua-platform"] || null,
+        secChUaMobile: req.headers["sec-ch-ua-mobile"] || null,
+        serverTimestamp: new Date().toISOString(),
+        formSlug: req.params.slug,
+        formCountry: form.countryCode,
+      };
+      const combinedMetadata = { server: serverMetadata, client: clientMetadata || {} };
       const submission = await storage.createWebFormSubmission({
         formId: form.id,
         data: JSON.stringify({ ...formData, productSetId: formData.productSetId, hospitalId: formData.hospitalId, howDidYouHear: formData.howDidYouHear }),
-        ipAddress: req.ip || null,
+        ipAddress: realIp,
         userAgent: req.headers["user-agent"] || null,
-        status: "processed",
+        metadata: JSON.stringify(combinedMetadata),
+        status: "pending",
         customerId: targetCustomerId,
         isNewCustomer,
         isOtpVerified: isOtpVerified || false,
-        processedAt: new Date(),
+        processedAt: null,
       });
       await storage.createWebFormAuditLog({
         formId: form.id, submissionId: submission.id,
         action: "form_submitted",
         details: JSON.stringify({ customerId: targetCustomerId, isNewCustomer, isOtpVerified }),
-        ipAddress: req.ip || null,
+        ipAddress: realIp || null,
       });
+      if (targetCustomerId) {
+        await storage.createActivityLog({
+          userId: "system",
+          action: "marketing_action",
+          entityType: "customer",
+          entityId: targetCustomerId,
+          entityName: `${formData.firstName || ""} ${formData.lastName || ""}`.trim(),
+          details: JSON.stringify({
+            type: "web_form_registration",
+            source: "Internet",
+            formName: form.name,
+            formSlug: req.params.slug,
+            formCountry: form.countryCode,
+            isNewCustomer,
+            message: `Registrácia cez webový formulár "${form.name}"`,
+          }),
+        });
+      }
+      console.log(`[WebForm] Confirm email check: enabled=${form.confirmEmailEnabled}, email=${formData.email}`);
+      if (form.confirmEmailEnabled !== false && formData.email) {
+        try {
+          console.log(`[WebForm] Starting confirmation email for ${formData.email}, country=${form.countryCode}`);
+          const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
+          const billingCompany = billingCompanies.find(b => b.webFromEmail) || billingCompanies[0];
+          const companyName = billingCompany?.companyName || "Cord Blood Center";
+
+          const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+          console.log(`[WebForm] systemConnection: connected=${systemConnection?.isConnected}, email=${systemConnection?.email}`);
+          if (systemConnection && systemConnection.isConnected) {
+            const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+            const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+            const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+            const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+            const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+            console.log(`[WebForm] tokenResult: ${tokenResult ? 'valid' : 'null/invalid'}`);
+            if (tokenResult) {
+              if (tokenResult.refreshed) {
+                await storage.updateSystemMs365Connection(form.countryCode, {
+                  accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                  refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                  tokenExpiresAt: tokenResult.expiresOn
+                });
+              }
+              const fromEmail = systemConnection.email;
+                const brandColor = form.brandColor || "#16a34a";
+                const lastName = formData.lastName || "";
+                const greeting = (form.confirmEmailGreeting || `Dobrý deň p. {{priezvisko}},`).replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
+                const bodyText = (form.confirmEmailBody || "ďakujeme za Váš záujem. Čoskoro Vás budeme kontaktovať.").replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
+                const footerText = form.confirmEmailFooter || `V prípade akýchkoľvek otázok nás neváhajte kontaktovať.`;
+                const signatureText = form.confirmEmailSignature || companyName;
+                const subject = (form.confirmEmailSubject || `Potvrdenie registrácie - ${companyName}`).replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
+
+                const formFieldsSections = form.confirmEmailShowData !== false ? await (async () => {
+                  const sections = await storage.getWebFormSections(form.id);
+                  const fields = await storage.getWebFormFields(form.id);
+                  const sorted = fields.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                  let html = "";
+                  const sectionMap = new Map(sections.map((s: any) => [s.id, s]));
+                  const grouped: Record<string, any[]> = {};
+                  for (const field of sorted) {
+                    const key = field.sectionId || "__none";
+                    if (!grouped[key]) grouped[key] = [];
+                    grouped[key].push(field);
+                  }
+                  const insuranceCompanies = await db.select().from(schema.healthInsuranceCompanies)
+                    .where(eq(schema.healthInsuranceCompanies.countryCode, form.countryCode));
+                  const hospitals = await db.select().from(schema.hospitals)
+                    .where(eq(schema.hospitals.countryCode, form.countryCode));
+                  const productSets = await db.select().from(schema.productSets)
+                    .where(eq(schema.productSets.countryCode, form.countryCode));
+                  const allProducts = await db.select().from(schema.products)
+                    .where(eq(schema.products.isActive, true));
+                  const allClinics = await db.select().from(schema.clinics)
+                    .where(eq(schema.clinics.countryCode, form.countryCode));
+                  const insuranceMap = new Map(insuranceCompanies.map((c: any) => [c.id, c.name]));
+                  const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h.name]));
+                  const productSetMap = new Map(productSets.map((p: any) => [p.id, p.name]));
+                  const productMap = new Map(allProducts.map((p: any) => [p.id, p.name]));
+                  const clinicMap = new Map(allClinics.map((c: any) => [c.id, c.doctorName ? `${c.doctorName} — ${c.name}` : c.name]));
+                  const paymentMethodLabels: Record<string, string> = {
+                    bank_transfer: "Bankový prevod", cash: "Hotovosť", card: "Kartou",
+                    invoice: "Faktúra", installments: "Splátky", other: "Iné",
+                  };
+                  const resolveDisplayValue = (val: any, customerField: string): string => {
+                    if (!val) return "";
+                    const strVal = String(val);
+                    if (customerField === "healthInsuranceId") return insuranceMap.get(strVal) || strVal;
+                    if (customerField === "hospitalId") return hospitalMap.get(strVal) || strVal;
+                    if (customerField === "gynecologistClinicId") return clinicMap.get(strVal) || strVal;
+                    if (customerField === "productSetId") return productSetMap.get(strVal) || productMap.get(strVal) || strVal;
+                    if (customerField === "paymentMethod") return paymentMethodLabels[strVal] || strVal;
+                    if ((customerField === "dateOfBirth" || customerField === "expectedDueDate" || customerField === "expectedDeliveryDate") && strVal.match(/^\d{4}-\d{2}-\d{2}/)) {
+                      const parts = strVal.substring(0, 10).split("-");
+                      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+                    }
+                    return strVal;
+                  };
+                  for (const [secId, secFields] of Object.entries(grouped)) {
+                    const sec = sectionMap.get(secId);
+                    if (sec?.title) {
+                      html += `<tr><td colspan="2" style="padding:16px 0 8px 0;border-bottom:2px solid ${brandColor}22;"><strong style="color:${brandColor};text-transform:uppercase;font-size:12px;letter-spacing:1px;">${sec.title}</strong></td></tr>`;
+                    }
+                    for (const field of secFields) {
+                      const rawVal = formData[field.customerField || field.label] || formData[field.id] || "";
+                      const val = resolveDisplayValue(rawVal, field.customerField || "");
+                      if (val) {
+                        html += `<tr><td style="padding:6px 12px 6px 0;color:#6b7280;font-size:13px;white-space:nowrap;vertical-align:top;">${field.label}</td><td style="padding:6px 0;color:#111827;font-size:13px;">${val}</td></tr>`;
+                      }
+                    }
+                  }
+                  return html;
+                })() : "";
+
+                const emailLayout = form.confirmEmailLayout || "modern";
+                const companyLine = billingCompany?.postalName || companyName;
+                const phoneLine = billingCompany?.phone ? `<p style="margin:4px 0 0 0;color:#6b7280;font-size:12px;">Tel: ${billingCompany.phone}</p>` : '';
+                const emailLine = billingCompany?.email ? `<p style="margin:2px 0 0 0;color:#6b7280;font-size:12px;">${billingCompany.email}</p>` : '';
+                const dataBlock = formFieldsSections ? `<div style="margin:24px 0;padding:20px;background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb;"><p style="margin:0 0 12px 0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Kópia vyplnených údajov</p><table width="100%" cellpadding="0" cellspacing="0">${formFieldsSections}</table></div>` : '';
+                const footerBlock = `<p style="margin:24px 0 0 0;color:#6b7280;font-size:13px;line-height:1.6;">${footerText}</p><div style="margin:24px 0 0 0;padding:16px 0 0 0;border-top:1px solid #e5e7eb;"><p style="margin:0;color:#111827;font-size:13px;font-weight:600;">${signatureText}</p>${phoneLine}${emailLine}</div>`;
+                const copyright = `<p style="margin:0;color:#9ca3af;font-size:11px;">&copy; ${new Date().getFullYear()} ${companyName}. Tento e-mail bol odoslaný automaticky.</p>`;
+                const title = form.headerTitle || 'Potvrdenie registrácie';
+
+                let emailBody = '';
+                if (emailLayout === 'minimal') {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr><td style="padding:40px;background:#ffffff;">
+  <h1 style="margin:0 0 24px 0;color:${brandColor};font-size:20px;font-weight:700;border-bottom:2px solid ${brandColor};padding-bottom:12px;">${title}</h1>
+  <p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p>
+  <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+  ${dataBlock}${footerBlock}
+</td></tr>
+<tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                } else if (emailLayout === 'sidebar') {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr>
+  <td width="8" style="background:${brandColor};border-radius:8px 0 0 8px;"></td>
+  <td style="background:#ffffff;padding:40px;border-radius:0 8px 8px 0;">
+    <p style="margin:0 0 4px 0;color:${brandColor};font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">${companyLine}</p>
+    <h1 style="margin:0 0 24px 0;color:#111827;font-size:20px;font-weight:700;">${title}</h1>
+    <p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p>
+    <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+    ${dataBlock}${footerBlock}
+  </td>
+</tr>
+<tr><td colspan="2" style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                } else if (emailLayout === 'elegant') {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr><td style="padding:32px 40px;text-align:center;">
+  <p style="margin:0;color:${brandColor};font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${companyLine}</p>
+</td></tr>
+<tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,${brandColor},transparent);"></div></td></tr>
+<tr><td style="padding:32px 40px;background:#ffffff;">
+  <h1 style="margin:0 0 24px 0;color:#111827;font-size:22px;font-weight:300;text-align:center;">${title}</h1>
+  <p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p>
+  <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+  ${dataBlock}${footerBlock}
+</td></tr>
+<tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,${brandColor},transparent);"></div></td></tr>
+<tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                } else if (emailLayout === 'bold') {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr><td style="background:${brandColor};padding:48px 40px;text-align:center;border-radius:16px 16px 0 0;">
+  ${billingCompany?.postalName ? `<p style="margin:0 0 8px 0;color:#ffffffbb;font-size:11px;text-transform:uppercase;letter-spacing:2px;">${billingCompany.postalName}</p>` : ''}
+  <h1 style="margin:0 0 12px 0;color:#ffffff;font-size:26px;font-weight:800;">${title}</h1>
+  <p style="margin:0;color:#ffffffdd;font-size:14px;">${greeting}</p>
+</td></tr>
+<tr><td style="background:#ffffff;padding:40px;border-radius:0 0 16px 16px;">
+  <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+  ${dataBlock}${footerBlock}
+</td></tr>
+<tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                } else {
+                  emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<tr><td style="background:linear-gradient(135deg,${brandColor},${brandColor}dd);padding:32px 40px;border-radius:16px 16px 0 0;text-align:center;">
+  ${billingCompany?.postalName ? `<p style="margin:0 0 4px 0;color:#ffffffbb;font-size:12px;text-transform:uppercase;letter-spacing:2px;">${billingCompany.postalName}</p>` : ''}
+  <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">${title}</h1>
+</td></tr>
+<tr><td style="background:#ffffff;padding:40px;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+  <p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p>
+  <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+  ${dataBlock}${footerBlock}
+</td></tr>
+<tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+                }
+
+                const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px;">
+<tr><td align="center">${emailBody}</td></tr></table></body></html>`;
+
+                await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [formData.email], subject, emailHtml, true);
+                console.log(`[WebForm] Confirmation email sent to ${formData.email} from ${fromEmail} via system email`);
+            }
+          }
+        } catch (emailError) {
+          console.error("[WebForm] Failed to send confirmation email:", emailError);
+        }
+      }
+
       res.json({ success: true, submissionId: submission.id, isNewCustomer, customerId: targetCustomerId });
     } catch (e: any) {
       console.error("[WebForm Submit] Error:", e);
       res.status(500).json({ error: e.message });
     }
+  });
+
+  const aiRateLimits = new Map<string, { count: number; resetAt: number }>();
+  app.post("/api/public/web-form/:slug/ai-validate", async (req, res) => {
+    try {
+      const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+      const rateLimitKey = `${clientIp}:${req.params.slug}`;
+      const now = Date.now();
+      const rateEntry = aiRateLimits.get(rateLimitKey);
+      if (rateEntry && rateEntry.resetAt > now) {
+        if (rateEntry.count >= 30) {
+          return res.status(429).json({ error: "Too many requests", suggestions: [] });
+        }
+        rateEntry.count++;
+      } else {
+        aiRateLimits.set(rateLimitKey, { count: 1, resetAt: now + 60000 });
+      }
+      if (aiRateLimits.size > 10000) {
+        for (const [k, v] of aiRateLimits) { if (v.resetAt < now) aiRateLimits.delete(k); }
+      }
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive || !form.aiAssistantEnabled) {
+        return res.status(404).json({ error: "AI not available" });
+      }
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: "AI not configured" });
+      }
+      const { fieldKey, fieldLabel, fieldType, value, allValues } = req.body;
+      if (!fieldKey || typeof fieldKey !== "string" || fieldKey.length > 100) return res.json({ suggestions: [] });
+      if (value === undefined || value === null || value === "") return res.json({ suggestions: [] });
+      const valStr = String(value).slice(0, 500);
+      if (typeof fieldLabel !== "string" || typeof fieldType !== "string") return res.json({ suggestions: [] });
+      const safeLabel = String(fieldLabel).slice(0, 100);
+      const safeType = String(fieldType).slice(0, 50);
+      const ALLOWED_FIELD_TYPES = ["text","email","tel","date","number","textarea"];
+      if (!ALLOWED_FIELD_TYPES.includes(safeType)) return res.json({ suggestions: [] });
+      const contextFields: string[] = [];
+      if (allValues) {
+        if (allValues.firstName) contextFields.push(`Meno: ${String(allValues.firstName).slice(0, 100)}`);
+        if (allValues.lastName) contextFields.push(`Priezvisko: ${String(allValues.lastName).slice(0, 100)}`);
+        if (allValues.email) contextFields.push(`Email: ${String(allValues.email).slice(0, 100)}`);
+        if (allValues.phone) contextFields.push(`Telefón: ${String(allValues.phone).slice(0, 50)}`);
+        if (allValues.expectedDeliveryDate) contextFields.push(`Predpokladaný dátum pôrodu: ${String(allValues.expectedDeliveryDate).slice(0, 20)}`);
+        if (allValues.address) contextFields.push(`Ulica: ${String(allValues.address).slice(0, 200)}`);
+        if (allValues.city) contextFields.push(`Mesto: ${String(allValues.city).slice(0, 100)}`);
+        if (allValues.postalCode) contextFields.push(`PSČ: ${String(allValues.postalCode).slice(0, 20)}`);
+        if (allValues.region) contextFields.push(`Kraj: ${String(allValues.region).slice(0, 100)}`);
+        if (allValues.nationalId) contextFields.push(`Rodné číslo: ${String(allValues.nationalId).slice(0, 20)}`);
+        if (allValues.birthNumber) contextFields.push(`Rodné číslo: ${String(allValues.birthNumber).slice(0, 20)}`);
+        if (allValues.corrName) contextFields.push(`Korešpondenčná adresa — Meno: ${String(allValues.corrName).slice(0, 100)}`);
+        if (allValues.corrAddress) contextFields.push(`Korešpondenčná adresa — Ulica: ${String(allValues.corrAddress).slice(0, 200)}`);
+        if (allValues.corrCity) contextFields.push(`Korešpondenčná adresa — Mesto: ${String(allValues.corrCity).slice(0, 100)}`);
+        if (allValues.corrPostalCode) contextFields.push(`Korešpondenčná adresa — PSČ: ${String(allValues.corrPostalCode).slice(0, 20)}`);
+      }
+      const today = new Date().toISOString().split("T")[0];
+      const countryCode = form.countryCode || "SK";
+      const prompt = `Si Laura — priateľská AI asistentka pre registračný formulár krvnej banky pupočníkovej krvi v krajine ${countryCode}. Dnes je ${today}.
+
+Používateľ vyplnil pole "${safeLabel}" (typ: ${safeType}, kľúč: ${fieldKey}) s hodnotou: "${valStr}"
+
+${contextFields.length > 0 ? `Kontext ostatných vyplnených polí:\n${contextFields.join("\n")}` : ""}
+
+Analyzuj zadanú hodnotu a vráť JSON pole s návrhmi (suggestions). Každý návrh musí mať:
+- "type": "error" | "warning" | "info" | "tip"
+- "message": krátka správa v slovenčine (max 120 znakov)
+- "suggestion": IBA opravená hodnota pripravená na vloženie do poľa (napr. "Jana", "421912345678", "seman@gmail.com"). NIKDY nepíš vety ako "Opraviť na..." alebo "Zmeniť na..." — iba čistú hodnotu. Ak oprava nie je možná, daj null.
+
+Pravidlá kontroly:
+1. MENO/PRIEZVISKO: Skontroluj veľké písmeno na začiatku, žiadne čísla, diakritika OK. VŽDY porovnaj so zoznamom bežných slovenských/českých mien. Ak je meno podobné bežnému menu ale má zdvojené písmená, chýbajúce písmená alebo preklep, navrhni opravu na najbližšie reálne meno. Príklady opráv: "Jankoo"→"Janko", "Marria"→"Mária", "Petrr"→"Peter", "Jann"→"Ján", "Zuzzana"→"Zuzana", "Miichal"→"Michal", "Katrína"→"Katarína". Ak meno neexistuje v žiadnej bežnej databáze mien, upozorni používateľa. Ak je meno reálne existujúce (aj keď nezvyčajné), neopravuj.
+2. TELEFÓN: Pre SK formát s medzinárodnou predvoľbou BEZ plus znaku: 421 9XX XXX XXX (napr. 421948519143). Pre CZ: 420 XXX XXX XXX. Ak používateľ zadá s + na začiatku, navrhni opravu bez +. Ak zadá iba národný formát (09XX...), pridaj predvoľbu 421. Vždy BEZ znaku +.
+3. EMAIL: Skontroluj základný formát, bežné preklepy domén (gmial->gmail, hotmal->hotmail).
+4. DÁTUM PÔRODU: Musí byť v budúcnosti (po ${today}). Ak je viac ako 9 mesiacov v budúcnosti, upozorni. Ak je v minulosti, chyba. Ak je blízko, daj tip o príprave.
+5. PSČ: Pre SK 5-miestne (napr. 81101), pre CZ 5-miestne (napr. 11000). Ak poznáš mesto z kontextu, navrhni správne PSČ.
+6. ADRESA/ULICA: Prvé písmeno MUSÍ byť veľké (napr. "hlavná 5" → "Hlavná 5", "štefánikova 12" → "Štefánikova 12"). Vždy navrhni opravu ak prvé písmeno je malé. Skontroluj preklepy. Ak poznáš ulicu a mesto, navrhni PSČ cez autoFill.
+7. MESTO: Prvé písmeno musí byť veľké (napr. "bratislava" → "Bratislava", "košice" → "Košice"). Skontroluj preklepy v názve mesta. Ak poznáš mesto, navrhni PSČ cez autoFill (kľúč "postalCode").
+10. DÁTUM NARODENIA (dateOfBirth): Dátum narodenia je VŽDY v minulosti — to je normálne, NIKDY neupozorňuj že dátum je v minulosti. Skontroluj iba či je dátum reálny (napr. nie budúci dátum, nie starší ako 120 rokov).
+8. KOREŠPONDENČNÁ ADRESA (corrName/corrAddress/corrCity/corrPostalCode): Rovnaké pravidlá ako pre hlavnú adresu. Skontroluj meno, ulicu, mesto, PSČ. Ak poznáš mesto, navrhni PSČ cez autoFill (kľúč "corrPostalCode"). Ak poznáš ulicu a mesto korešpondenčnej adresy, navrhni PSČ.
+9. RODNÉ ČÍSLO (nationalId/birthNumber): Pre SK/CZ formát XXXXXX/XXXX (6 číslic lomka 3-4 číslice, napr. 690516/9183). Ak chýba lomka, navrhni opravu s lomkou. Skontroluj dátum v prvých 6 čísliciach. Pre HU formát je 11-miestne číslo. Pre iné krajiny skontroluj bežný formát.
+
+Každý návrh môže mať aj voliteľné pole:
+- "autoFill": objekt s kľúčmi polí a hodnotami na automatické vyplnenie (napr. {"postalCode": "81101", "city": "Bratislava"}). Použi ak z kontextu vieš doplniť súvisiace polia.
+
+Ak je všetko v poriadku, vráť prázdne pole [].
+Ak máš tip alebo radu súvisiacu s tehotenstvom/odberom pupočníkovej krvi, pridaj ho ako "tip".
+DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+      const content = response.choices[0]?.message?.content?.trim() || "[]";
+      let suggestions: any[] = [];
+      try {
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        const raw = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+        if (Array.isArray(raw)) {
+          suggestions = raw.slice(0, 5).filter((s: any) =>
+            s && typeof s.type === "string" && ["error","warning","info","tip"].includes(s.type)
+            && typeof s.message === "string" && s.message.length <= 200
+          ).map((s: any) => {
+            let sug = s.suggestion && typeof s.suggestion === "string" ? String(s.suggestion).slice(0, 200) : null;
+            if (sug) {
+              sug = sug.replace(/^(Opravi[tť]\s+(na\s+)?|Zmeni[tť]\s+(na\s+)?|Použi[tť]\s+)/i, "").replace(/^['"""„]+|['"""]+$/g, "").trim();
+              if (!sug) sug = null;
+            }
+            let autoFill: Record<string, string> | null = null;
+            if (s.autoFill && typeof s.autoFill === "object") {
+              autoFill = {};
+              for (const [k, v] of Object.entries(s.autoFill)) {
+                if (typeof k === "string" && typeof v === "string" && k.length < 50 && v.length < 200) {
+                  autoFill[k] = v;
+                }
+              }
+              if (Object.keys(autoFill).length === 0) autoFill = null;
+            }
+            return { type: s.type, message: String(s.message).slice(0, 200), suggestion: sug, autoFill };
+          });
+        }
+      } catch { suggestions = []; }
+      res.json({ suggestions, lauraAvatarUrl: form.lauraAvatarUrl || null });
+    } catch (e: any) {
+      console.error("[WebForm AI Validate]", e.message);
+      res.json({ suggestions: [] });
+    }
+  });
+
+  app.post("/api/web-forms/:id/laura-avatar", requireAuth, uploadAvatar.single("avatar"), async (req, res) => {
+    try {
+      const form = await storage.getWebForm(req.params.id);
+      if (!form) return res.status(404).json({ error: "Form not found" });
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      await storage.updateWebForm(req.params.id, { lauraAvatarUrl: avatarUrl } as any);
+      res.json({ success: true, lauraAvatarUrl: avatarUrl });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/web-forms/:id/test-email", requireAuth, async (req, res) => {
+    try {
+      const { testEmail } = req.body;
+      if (!testEmail) return res.status(400).json({ error: "Email is required" });
+
+      const form = await storage.getWebForm(req.params.id);
+      if (!form) return res.status(404).json({ error: "Form not found" });
+
+      const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
+      const billingCompany = billingCompanies.find((b: any) => b.webFromEmail) || billingCompanies[0];
+      const companyName = billingCompany?.companyName || "Cord Blood Center";
+
+      const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+      if (!systemConnection || !systemConnection.isConnected) return res.status(400).json({ error: "System email not configured/connected for this country" });
+
+      const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+      const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+      const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+      const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+      if (!tokenResult) return res.status(400).json({ error: "System email MS365 token expired" });
+      if (tokenResult.refreshed) {
+        await storage.updateSystemMs365Connection(form.countryCode, {
+          accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+          refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+          tokenExpiresAt: tokenResult.expiresOn
+        });
+      }
+      const fromEmail = systemConnection.email;
+
+      const brandColor = form.brandColor || "#16a34a";
+      const greeting = (form.confirmEmailGreeting || `Dobrý deň p. {{priezvisko}},`).replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail);
+      const bodyText = (form.confirmEmailBody || "ďakujeme za Váš záujem. Čoskoro Vás budeme kontaktovať.").replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail);
+      const footerText = form.confirmEmailFooter || `V prípade akýchkoľvek otázok nás neváhajte kontaktovať.`;
+      const signatureText = form.confirmEmailSignature || companyName;
+      const subject = "[TEST] " + ((form.confirmEmailSubject || `Potvrdenie registrácie - ${companyName}`).replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail));
+
+      const title = "Potvrdenie registrácie";
+      const copyright = `<p style="margin:0;color:#9ca3af;font-size:11px;">&copy; ${new Date().getFullYear()} ${companyName}. Všetky práva vyhradené.</p>`;
+      const companyLine = billingCompany?.postalName || companyName;
+      const footerBlock = `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;"><p style="margin:0 0 4px 0;color:#6b7280;font-size:13px;line-height:1.6;">${footerText}</p><p style="margin:0;color:#374151;font-size:13px;font-weight:600;">${signatureText}</p></div>`;
+      const dataBlock = `<div style="margin:24px 0;padding:16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;"><p style="margin:0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Testovací údaje</p><table style="width:100%;margin-top:12px;"><tr><td style="padding:6px 8px;color:#6b7280;font-size:12px;width:40%;">Meno</td><td style="padding:6px 8px;color:#111827;font-size:13px;">Test Testovací</td></tr><tr><td style="padding:6px 8px;color:#6b7280;font-size:12px;width:40%;">Email</td><td style="padding:6px 8px;color:#111827;font-size:13px;">${testEmail}</td></tr></table></div>`;
+
+      const emailLayout = form.confirmEmailLayout || "modern";
+      let emailBody = "";
+      if (emailLayout === 'minimal') {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="background:#ffffff;padding:40px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><h1 style="margin:0 0 24px 0;color:${brandColor};font-size:22px;font-weight:700;">${title}</h1><p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      } else if (emailLayout === 'sidebar') {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td width="8" style="background:${brandColor};border-radius:16px 0 0 16px;"></td><td style="background:#ffffff;padding:40px;border-radius:0 16px 16px 0;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><p style="margin:0 0 8px 0;color:${brandColor};font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">${companyLine}</p><h1 style="margin:0 0 24px 0;color:#111827;font-size:22px;font-weight:700;">${title}</h1><p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td colspan="2" style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      } else if (emailLayout === 'elegant') {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="padding:32px 40px;text-align:center;"><p style="margin:0;color:${brandColor};font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${companyLine}</p></td></tr><tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,${brandColor},transparent);"></div></td></tr><tr><td style="padding:32px 40px;background:#ffffff;"><h1 style="margin:0 0 24px 0;color:#111827;font-size:22px;font-weight:300;text-align:center;">${title}</h1><p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,${brandColor},transparent);"></div></td></tr><tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      } else if (emailLayout === 'bold') {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="background:${brandColor};padding:48px 40px;text-align:center;border-radius:16px 16px 0 0;">${billingCompany?.postalName ? `<p style="margin:0 0 8px 0;color:#ffffffbb;font-size:11px;text-transform:uppercase;letter-spacing:2px;">${billingCompany.postalName}</p>` : ''}<h1 style="margin:0 0 12px 0;color:#ffffff;font-size:26px;font-weight:800;">${title}</h1><p style="margin:0;color:#ffffffdd;font-size:14px;">${greeting}</p></td></tr><tr><td style="background:#ffffff;padding:40px;border-radius:0 0 16px 16px;"><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      } else {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="background:linear-gradient(135deg,${brandColor},${brandColor}dd);padding:32px 40px;border-radius:16px 16px 0 0;text-align:center;">${billingCompany?.postalName ? `<p style="margin:0 0 4px 0;color:#ffffffbb;font-size:12px;text-transform:uppercase;letter-spacing:2px;">${billingCompany.postalName}</p>` : ''}<h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">${title}</h1></td></tr><tr><td style="background:#ffffff;padding:40px;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      }
+
+      const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px;"><tr><td align="center">${emailBody}</td></tr></table></body></html>`;
+
+      await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [testEmail], subject, emailHtml, true);
+      console.log(`[WebForm] Test email sent to ${testEmail} from ${fromEmail} via system email`);
+      res.json({ success: true, fromEmail });
+    } catch (e: any) {
+      console.error("[WebForm TestEmail] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ============ MEDICAL PARTNER NETWORK API ============
+
+  // --- Partner Categories ---
+  app.get("/api/mpn/categories", requireAuth, async (req, res) => {
+    try {
+      const rows = await db.select().from(partnerCategories).orderBy(asc(partnerCategories.sortOrder));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/categories", requireAuth, async (req, res) => {
+    try {
+      const data = insertPartnerCategorySchema.parse(req.body);
+      const [row] = await db.insert(partnerCategories).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/categories/:id", requireAuth, async (req, res) => {
+    try {
+      const [row] = await db.update(partnerCategories).set(req.body).where(eq(partnerCategories.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/categories/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(partnerCategories).where(eq(partnerCategories.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Contact Assignments ---
+  app.get("/api/mpn/assignments", requireAuth, async (req, res) => {
+    try {
+      const { personId, entityType, entityId } = req.query;
+      let conditions: any[] = [];
+      if (personId) conditions.push(eq(contactAssignments.personId, personId as string));
+      if (entityType) conditions.push(eq(contactAssignments.entityType, entityType as string));
+      if (entityId) conditions.push(eq(contactAssignments.entityId, entityId as string));
+
+      const rows = await db.select({
+        assignment: contactAssignments,
+        categoryName: partnerCategories.name,
+        categoryCode: partnerCategories.code,
+      })
+      .from(contactAssignments)
+      .leftJoin(partnerCategories, eq(contactAssignments.categoryId, partnerCategories.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(contactAssignments.createdAt));
+
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/assignments", requireAuth, async (req, res) => {
+    try {
+      const data = insertContactAssignmentSchema.parse(req.body);
+      const insertData: any = { ...data };
+      if (data.startDate) insertData.startDate = new Date(data.startDate);
+      if (data.endDate) insertData.endDate = new Date(data.endDate);
+      const [row] = await db.insert(contactAssignments).values(insertData).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/assignments/:id", requireAuth, async (req, res) => {
+    try {
+      const updateData: any = { ...req.body, updatedAt: new Date() };
+      if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
+      if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
+      const [row] = await db.update(contactAssignments).set(updateData).where(eq(contactAssignments.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/assignments/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(contactAssignments).where(eq(contactAssignments.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Contact Channels ---
+  app.get("/api/mpn/channels", requireAuth, async (req, res) => {
+    try {
+      const { personId } = req.query;
+      let conditions: any[] = [];
+      if (personId) conditions.push(eq(contactChannels.personId, personId as string));
+
+      const rows = await db.select().from(contactChannels)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(contactChannels.isPrimary), asc(contactChannels.channelType));
+
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/channels", requireAuth, async (req, res) => {
+    try {
+      const data = insertContactChannelSchema.parse(req.body);
+      const [row] = await db.insert(contactChannels).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/channels/:id", requireAuth, async (req, res) => {
+    try {
+      const [row] = await db.update(contactChannels).set(req.body).where(eq(contactChannels.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/channels/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(contactChannels).where(eq(contactChannels.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Communication Schedules ---
+  app.get("/api/mpn/schedules", requireAuth, async (req, res) => {
+    try {
+      const rows = await db.select({
+        schedule: communicationSchedules,
+        categoryName: partnerCategories.name,
+        categoryCode: partnerCategories.code,
+      })
+      .from(communicationSchedules)
+      .leftJoin(partnerCategories, eq(communicationSchedules.categoryId, partnerCategories.id))
+      .orderBy(asc(partnerCategories.sortOrder), asc(communicationSchedules.subcategory));
+
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/schedules", requireAuth, async (req, res) => {
+    try {
+      const data = insertCommunicationScheduleSchema.parse(req.body);
+      const [row] = await db.insert(communicationSchedules).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      const [row] = await db.update(communicationSchedules).set(req.body).where(eq(communicationSchedules.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(communicationSchedules).where(eq(communicationSchedules.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- First Contact Protocols ---
+  app.get("/api/mpn/protocols", requireAuth, async (req, res) => {
+    try {
+      const { categoryId } = req.query;
+      let conditions: any[] = [];
+      if (categoryId) conditions.push(eq(firstContactProtocols.categoryId, categoryId as string));
+
+      const rows = await db.select({
+        protocol: firstContactProtocols,
+        categoryName: partnerCategories.name,
+        categoryCode: partnerCategories.code,
+      })
+      .from(firstContactProtocols)
+      .leftJoin(partnerCategories, eq(firstContactProtocols.categoryId, partnerCategories.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(partnerCategories.sortOrder), asc(firstContactProtocols.stepOrder));
+
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/protocols", requireAuth, async (req, res) => {
+    try {
+      const data = insertFirstContactProtocolSchema.parse(req.body);
+      const [row] = await db.insert(firstContactProtocols).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/protocols/:id", requireAuth, async (req, res) => {
+    try {
+      const [row] = await db.update(firstContactProtocols).set(req.body).where(eq(firstContactProtocols.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/protocols/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(firstContactProtocols).where(eq(firstContactProtocols.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN Institutions (all, no country filter, with search & pagination) ---
+  app.get("/api/mpn/institutions", requireAuth, async (req, res) => {
+    try {
+      const search = (req.query.search as string || "").trim().toLowerCase();
+      const typeFilter = req.query.type as string || "";
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const offset = (page - 1) * limit;
+
+      let hospitalRows: any[] = [];
+      let clinicRows: any[] = [];
+
+      if (!typeFilter || typeFilter === "hospital") {
+        const hConditions: any[] = [];
+        if (search) {
+          hConditions.push(or(
+            sql`lower(${hospitals.name}) LIKE ${`%${search}%`}`,
+            sql`lower(${hospitals.city}) LIKE ${`%${search}%`}`
+          ));
+        }
+        hospitalRows = await db.select({
+          id: hospitals.id,
+          name: hospitals.name,
+          city: hospitals.city,
+          countryCode: hospitals.countryCode,
+          isActive: hospitals.isActive,
+          phone: hospitals.phone,
+          email: hospitals.email,
+        }).from(hospitals)
+          .where(hConditions.length > 0 ? and(...hConditions) : undefined)
+          .orderBy(asc(hospitals.name));
+      }
+
+      if (!typeFilter || typeFilter === "clinic") {
+        const cConditions: any[] = [];
+        if (search) {
+          cConditions.push(or(
+            sql`lower(${clinics.name}) LIKE ${`%${search}%`}`,
+            sql`lower(${clinics.city}) LIKE ${`%${search}%`}`
+          ));
+        }
+        clinicRows = await db.select({
+          id: clinics.id,
+          name: clinics.name,
+          city: clinics.city,
+          countryCode: clinics.countryCode,
+          isActive: clinics.isActive,
+          phone: clinics.phone,
+          email: clinics.email,
+        }).from(clinics)
+          .where(cConditions.length > 0 ? and(...cConditions) : undefined)
+          .orderBy(asc(clinics.name));
+      }
+
+      const all = [
+        ...hospitalRows.map(h => ({ ...h, type: "hospital" as const })),
+        ...clinicRows.map(c => ({ ...c, type: "clinic" as const })),
+      ];
+
+      all.sort((a, b) => a.name.localeCompare(b.name));
+
+      res.json({
+        data: all.slice(offset, offset + limit),
+        total: all.length,
+        page,
+        totalPages: Math.ceil(all.length / limit),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN Persons (merged: collaborators with institution links + clinic doctors + hospital contacts) ---
+  app.get("/api/mpn/persons", requireAuth, async (req, res) => {
+    try {
+      const search = (req.query.search as string || "").trim().toLowerCase();
+      const sourceFilter = req.query.source as string || "";
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const offset = (page - 1) * limit;
+
+      type MpnPerson = {
+        id: string;
+        source: "collaborator" | "clinic" | "hospital";
+        titleBefore: string;
+        firstName: string;
+        lastName: string;
+        titleAfter: string;
+        fullName: string;
+        phone: string;
+        mobile: string;
+        email: string;
+        isActive: boolean;
+        countryCode: string;
+        institutionName: string;
+        institutionId: string;
+        linkedInstitutions: { type: string; id: string; name: string }[];
+        collaboratorType: string;
+      };
+
+      const persons: MpnPerson[] = [];
+
+      // --- Helper: build hospital name lookup ---
+      const allHospitalRows = await db.select({ id: hospitals.id, name: hospitals.name }).from(hospitals);
+      const hospitalNameMap = new Map(allHospitalRows.map(h => [h.id, h.name]));
+
+      // --- Helper: build clinic name lookup ---
+      const allClinicRows = await db.select({ id: clinics.id, name: clinics.name }).from(clinics);
+      const clinicNameMap = new Map(allClinicRows.map(c => [c.id, c.name]));
+
+      if (!sourceFilter || sourceFilter === "collaborator") {
+        const collabRows = await db.select({
+          id: collaborators.id,
+          titleBefore: collaborators.titleBefore,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          titleAfter: collaborators.titleAfter,
+          phone: collaborators.phone,
+          mobile: collaborators.mobile,
+          email: collaborators.email,
+          isActive: collaborators.isActive,
+          countryCode: collaborators.countryCode,
+          hospitalId: collaborators.hospitalId,
+          hospitalIds: collaborators.hospitalIds,
+          collaboratorType: collaborators.collaboratorType,
+        }).from(collaborators);
+
+        const assignmentRows = await db.select({
+          personId: contactAssignments.personId,
+          entityType: contactAssignments.entityType,
+          entityId: contactAssignments.entityId,
+        }).from(contactAssignments);
+
+        const assignmentsByPerson = new Map<string, { type: string; id: string }[]>();
+        for (const a of assignmentRows) {
+          if (!assignmentsByPerson.has(a.personId)) assignmentsByPerson.set(a.personId, []);
+          assignmentsByPerson.get(a.personId)!.push({ type: a.entityType, id: a.entityId });
+        }
+
+        for (const c of collabRows) {
+          const linkedInstitutions: { type: string; id: string; name: string }[] = [];
+          const seenIds = new Set<string>();
+
+          if (c.hospitalId && !seenIds.has(c.hospitalId)) {
+            seenIds.add(c.hospitalId);
+            linkedInstitutions.push({ type: "hospital", id: c.hospitalId, name: hospitalNameMap.get(c.hospitalId) || c.hospitalId });
+          }
+
+          if (c.hospitalIds && Array.isArray(c.hospitalIds)) {
+            for (const hid of c.hospitalIds) {
+              if (hid && !seenIds.has(hid)) {
+                seenIds.add(hid);
+                linkedInstitutions.push({ type: "hospital", id: hid, name: hospitalNameMap.get(hid) || hid });
+              }
+            }
+          }
+
+          const assignments = assignmentsByPerson.get(c.id) || [];
+          for (const a of assignments) {
+            if (!seenIds.has(a.id)) {
+              seenIds.add(a.id);
+              const name = a.type === "hospital" ? (hospitalNameMap.get(a.id) || a.id) : (clinicNameMap.get(a.id) || a.id);
+              linkedInstitutions.push({ type: a.type, id: a.id, name });
+            }
+          }
+
+          const instNames = linkedInstitutions.map(i => i.name).join(", ");
+
+          persons.push({
+            id: c.id,
+            source: "collaborator",
+            titleBefore: c.titleBefore || "",
+            firstName: c.firstName || "",
+            lastName: c.lastName || "",
+            titleAfter: c.titleAfter || "",
+            fullName: [c.titleBefore, c.firstName, c.lastName, c.titleAfter].filter(Boolean).join(" "),
+            phone: c.phone || "",
+            mobile: c.mobile || "",
+            email: c.email || "",
+            isActive: c.isActive !== false,
+            countryCode: c.countryCode || "",
+            institutionName: instNames,
+            institutionId: linkedInstitutions[0]?.id || "",
+            linkedInstitutions,
+            collaboratorType: c.collaboratorType || "",
+          });
+        }
+      }
+
+      if (!sourceFilter || sourceFilter === "clinic") {
+        const clinicRows = await db.select({
+          id: clinics.id,
+          name: clinics.name,
+          doctorName: clinics.doctorName,
+          doctorTitle: clinics.doctorTitle,
+          doctorFirstName: clinics.doctorFirstName,
+          doctorLastName: clinics.doctorLastName,
+          phone: clinics.phone,
+          email: clinics.email,
+          isActive: clinics.isActive,
+          countryCode: clinics.countryCode,
+        }).from(clinics)
+          .where(or(
+            and(isNotNull(clinics.doctorName), sql`${clinics.doctorName} != ''`),
+            and(isNotNull(clinics.doctorFirstName), sql`${clinics.doctorFirstName} != ''`)
+          ));
+
+        for (const cl of clinicRows) {
+          const firstName = cl.doctorFirstName || "";
+          const lastName = cl.doctorLastName || "";
+          const title = cl.doctorTitle || "";
+          let fullName = "";
+          if (firstName || lastName) {
+            fullName = [title, firstName, lastName].filter(Boolean).join(" ");
+          } else {
+            fullName = cl.doctorName || "";
+          }
+          persons.push({
+            id: `clinic-${cl.id}`,
+            source: "clinic",
+            titleBefore: title,
+            firstName: firstName || (cl.doctorName ? cl.doctorName.replace(/^(MUDr\.|doc\.|prof\.|Dr\.)\s*/i, "").split(" ")[0] || "" : ""),
+            lastName: lastName || (cl.doctorName ? cl.doctorName.replace(/^(MUDr\.|doc\.|prof\.|Dr\.)\s*/i, "").split(" ").slice(1).join(" ") || "" : ""),
+            titleAfter: "",
+            fullName,
+            phone: cl.phone || "",
+            mobile: "",
+            email: cl.email || "",
+            isActive: cl.isActive !== false,
+            countryCode: cl.countryCode || "",
+            institutionName: cl.name || "",
+            institutionId: cl.id,
+            linkedInstitutions: [{ type: "clinic", id: cl.id, name: cl.name || "" }],
+            collaboratorType: "",
+          });
+        }
+      }
+
+      if (!sourceFilter || sourceFilter === "hospital") {
+        const hospitalRows = await db.select({
+          id: hospitals.id,
+          name: hospitals.name,
+          contactPerson: hospitals.contactPerson,
+          phone: hospitals.phone,
+          email: hospitals.email,
+          isActive: hospitals.isActive,
+          countryCode: hospitals.countryCode,
+        }).from(hospitals)
+          .where(and(isNotNull(hospitals.contactPerson), sql`${hospitals.contactPerson} != ''`));
+
+        for (const h of hospitalRows) {
+          const parts = (h.contactPerson || "").split(" ");
+          persons.push({
+            id: `hospital-${h.id}`,
+            source: "hospital",
+            titleBefore: "",
+            firstName: parts[0] || "",
+            lastName: parts.slice(1).join(" ") || "",
+            titleAfter: "",
+            fullName: h.contactPerson || "",
+            phone: h.phone || "",
+            mobile: "",
+            email: h.email || "",
+            isActive: h.isActive !== false,
+            countryCode: h.countryCode || "",
+            institutionName: h.name || "",
+            institutionId: h.id,
+            linkedInstitutions: [{ type: "hospital", id: h.id, name: h.name || "" }],
+            collaboratorType: "",
+          });
+        }
+      }
+
+      let filtered = persons;
+      if (search) {
+        filtered = persons.filter(p => {
+          const text = `${p.fullName} ${p.email} ${p.phone} ${p.mobile} ${p.institutionName} ${p.countryCode} ${p.collaboratorType}`.toLowerCase();
+          return text.includes(search);
+        });
+      }
+
+      filtered.sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+      res.json({
+        data: filtered.slice(offset, offset + limit),
+        total: filtered.length,
+        page,
+        totalPages: Math.ceil(filtered.length / limit),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN Dashboard Stats ---
+  app.get("/api/mpn/stats", requireAuth, async (req, res) => {
+    try {
+      const [hospitalsCount] = await db.select({ count: count() }).from(hospitals);
+      const [clinicsCount] = await db.select({ count: count() }).from(clinics);
+      const [collaboratorsCount] = await db.select({ count: count() }).from(collaborators);
+      const [assignmentsCount] = await db.select({ count: count() }).from(contactAssignments).where(eq(contactAssignments.isActive, true));
+      const [channelsCount] = await db.select({ count: count() }).from(contactChannels).where(eq(contactChannels.isActive, true));
+      const [categoriesCount] = await db.select({ count: count() }).from(partnerCategories).where(eq(partnerCategories.isActive, true));
+
+      const unassignedPersons = await db.execute(sql`
+        SELECT count(*)::int as count FROM collaborators c
+        WHERE NOT EXISTS (SELECT 1 FROM contact_assignments ca WHERE ca.person_id = c.id AND ca.is_active = true)
+      `);
+
+      const unassignedInstitutions = await db.execute(sql`
+        SELECT count(*)::int as count FROM (
+          SELECT h.id FROM hospitals h WHERE NOT EXISTS (SELECT 1 FROM contact_assignments ca WHERE ca.entity_id = h.id AND ca.entity_type = 'hospital' AND ca.is_active = true)
+          UNION ALL
+          SELECT cl.id FROM clinics cl WHERE NOT EXISTS (SELECT 1 FROM contact_assignments ca WHERE ca.entity_id = cl.id AND ca.entity_type = 'clinic' AND ca.is_active = true)
+        ) unassigned
+      `);
+
+      res.json({
+        totalHospitals: hospitalsCount.count,
+        totalClinics: clinicsCount.count,
+        totalPersons: collaboratorsCount.count,
+        totalAssignments: assignmentsCount.count,
+        totalChannels: channelsCount.count,
+        totalCategories: categoriesCount.count,
+        unassignedPersons: unassignedPersons.rows?.[0]?.count || 0,
+        unassignedInstitutions: unassignedInstitutions.rows?.[0]?.count || 0,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN: Get full institution detail (info + linked collaborators from all sources) ---
+  app.get("/api/mpn/institution/:entityType/:entityId/detail", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      let info: any = null;
+
+      if (entityType === "hospital") {
+        const [row] = await db.select().from(hospitals).where(eq(hospitals.id, entityId));
+        if (row) info = { ...row, type: "hospital" };
+      } else if (entityType === "clinic") {
+        const [row] = await db.select().from(clinics).where(eq(clinics.id, entityId));
+        if (row) info = { ...row, type: "clinic" };
+      }
+
+      if (!info) return res.status(404).json({ error: "Institution not found" });
+
+      const assignmentRows = await db.execute(sql`
+        SELECT
+          ca.id as assignment_id, ca.department, ca.position, ca.role, ca.subcategory,
+          ca.is_primary, ca.is_active, ca.notes, ca.start_date, ca.end_date,
+          pc.code as category_code, pc.name as category_name, pc.sort_order,
+          c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
+          c.email, c.phone, c.mobile, c.collaborator_type,
+          json_agg(json_build_object(
+            'id', ch.id, 'channelType', ch.channel_type, 'value', ch.value,
+            'label', ch.label, 'isPrimary', ch.is_primary, 'isActive', ch.is_active
+          )) FILTER (WHERE ch.id IS NOT NULL) as channels
+        FROM contact_assignments ca
+        JOIN collaborators c ON c.id = ca.person_id
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        LEFT JOIN contact_channels ch ON ch.person_id = c.id AND ch.is_active = true
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        GROUP BY ca.id, pc.code, pc.name, pc.sort_order, c.id
+        ORDER BY ca.is_primary DESC, pc.sort_order, c.last_name
+      `);
+
+      const collabsViaHospitalId = await db.select({
+        id: collaborators.id,
+        titleBefore: collaborators.titleBefore,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+        titleAfter: collaborators.titleAfter,
+        phone: collaborators.phone,
+        mobile: collaborators.mobile,
+        email: collaborators.email,
+        isActive: collaborators.isActive,
+        collaboratorType: collaborators.collaboratorType,
+        hospitalId: collaborators.hospitalId,
+        hospitalIds: collaborators.hospitalIds,
+      }).from(collaborators);
+
+      const assignedPersonIds = new Set((assignmentRows.rows || []).map((r: any) => r.person_id));
+      const extraCollabs: any[] = [];
+      for (const c of collabsViaHospitalId) {
+        if (assignedPersonIds.has(c.id)) continue;
+        const linkedIds: string[] = [];
+        if (c.hospitalId) linkedIds.push(c.hospitalId);
+        if (c.hospitalIds && Array.isArray(c.hospitalIds)) linkedIds.push(...c.hospitalIds);
+        if (entityType === "hospital" && linkedIds.includes(entityId)) {
+          extraCollabs.push({
+            assignment_id: `legacy-${c.id}`,
+            department: null, position: null, role: null, subcategory: null,
+            is_primary: false, is_active: c.isActive, notes: null,
+            start_date: null, end_date: null,
+            category_code: null, category_name: null, sort_order: 999,
+            person_id: c.id,
+            title_before: c.titleBefore, first_name: c.firstName,
+            last_name: c.lastName, title_after: c.titleAfter,
+            email: c.email, phone: c.phone, mobile: c.mobile,
+            collaborator_type: c.collaboratorType,
+            channels: null,
+            source: "legacy_link",
+          });
+        }
+      }
+
+      let doctorPerson: any = null;
+      if (entityType === "clinic" && info.doctorName) {
+        doctorPerson = {
+          fullName: info.doctorFirstName
+            ? [info.doctorTitle, info.doctorFirstName, info.doctorLastName].filter(Boolean).join(" ")
+            : info.doctorName,
+          title: info.doctorTitle || "",
+          firstName: info.doctorFirstName || "",
+          lastName: info.doctorLastName || "",
+          phone: info.phone || "",
+          email: info.email || "",
+        };
+      }
+
+      const scheduleRows = await db.select().from(communicationSchedules)
+        .where(eq(communicationSchedules.entityType, entityType === "hospital" ? "hospital" : "clinic"));
+
+      const protocolRows = await db.select().from(firstContactProtocols)
+        .where(eq(firstContactProtocols.entityType, entityType === "hospital" ? "hospital" : "clinic"))
+        .orderBy(asc(firstContactProtocols.stepOrder));
+
+      res.json({
+        info,
+        assignedPersonnel: assignmentRows.rows || [],
+        legacyLinkedCollaborators: extraCollabs,
+        clinicDoctor: doctorPerson,
+        communicationSchedules: scheduleRows,
+        firstContactProtocols: protocolRows,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN: Get institution personnel (persons assigned to a hospital or clinic) ---
+  app.get("/api/mpn/institution/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      const rows = await db.execute(sql`
+        SELECT
+          ca.id as assignment_id, ca.department, ca.position, ca.role, ca.subcategory, ca.is_primary, ca.is_active, ca.notes,
+          ca.start_date, ca.end_date,
+          pc.code as category_code, pc.name as category_name,
+          c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after, c.email, c.phone, c.mobile,
+          json_agg(json_build_object(
+            'id', ch.id, 'channelType', ch.channel_type, 'value', ch.value, 'label', ch.label, 'isPrimary', ch.is_primary, 'isActive', ch.is_active, 'notes', ch.notes
+          )) FILTER (WHERE ch.id IS NOT NULL) as channels
+        FROM contact_assignments ca
+        JOIN collaborators c ON c.id = ca.person_id
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        LEFT JOIN contact_channels ch ON ch.person_id = c.id AND ch.is_active = true
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        GROUP BY ca.id, pc.code, pc.name, c.id
+        ORDER BY pc.sort_order, c.last_name
+      `);
+      res.json(rows.rows || []);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN: Get person's assignments (institutions where a person works) ---
+  app.get("/api/mpn/person/:personId/assignments", requireAuth, async (req, res) => {
+    try {
+      const { personId } = req.params;
+      const rows = await db.execute(sql`
+        SELECT
+          ca.*,
+          pc.code as category_code, pc.name as category_name,
+          CASE
+            WHEN ca.entity_type = 'hospital' THEN h.name
+            WHEN ca.entity_type = 'clinic' THEN cl.name
+          END as entity_name,
+          CASE
+            WHEN ca.entity_type = 'hospital' THEN h.city
+            WHEN ca.entity_type = 'clinic' THEN cl.city
+          END as entity_city
+        FROM contact_assignments ca
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        LEFT JOIN hospitals h ON ca.entity_type = 'hospital' AND h.id = ca.entity_id
+        LEFT JOIN clinics cl ON ca.entity_type = 'clinic' AND cl.id = ca.entity_id
+        WHERE ca.person_id = ${personId}
+        ORDER BY ca.is_active DESC, ca.created_at DESC
+      `);
+      res.json(rows.rows || []);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Hospital/Clinic Personnel: Get collaborators linked to an institution ---
+  app.get("/api/institutions/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      if (!["hospital", "clinic"].includes(entityType)) {
+        return res.status(400).json({ error: "Invalid entity type" });
+      }
+
+      // 1. Get collaborators via contact_assignments
+      const assignmentRows = await db.execute(sql`
+        SELECT
+          ca.id as assignment_id, ca.department, ca.position, ca.role, ca.subcategory,
+          ca.is_primary, ca.is_active, ca.notes, ca.start_date, ca.end_date,
+          ca.category_id,
+          pc.code as category_code, pc.name as category_name,
+          c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
+          c.email, c.phone, c.mobile, c.collaborator_type, c.is_active as person_active,
+          c.country_code
+        FROM contact_assignments ca
+        JOIN collaborators c ON c.id = ca.person_id
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        ORDER BY ca.is_primary DESC, c.last_name, c.first_name
+      `);
+
+      // 2. Get legacy-linked collaborators (hospital_id / hospital_ids) for hospitals
+      const assignedPersonIds = new Set((assignmentRows.rows || []).map((r: any) => r.person_id));
+      let legacyRows: any[] = [];
+      if (entityType === "hospital") {
+        const allCollabs = await db.select({
+          id: collaborators.id,
+          titleBefore: collaborators.titleBefore,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          titleAfter: collaborators.titleAfter,
+          phone: collaborators.phone,
+          mobile: collaborators.mobile,
+          email: collaborators.email,
+          isActive: collaborators.isActive,
+          collaboratorType: collaborators.collaboratorType,
+          hospitalId: collaborators.hospitalId,
+          hospitalIds: collaborators.hospitalIds,
+          countryCode: collaborators.countryCode,
+        }).from(collaborators);
+        for (const c of allCollabs) {
+          if (assignedPersonIds.has(c.id)) continue;
+          const linkedIds: string[] = [];
+          if (c.hospitalId) linkedIds.push(c.hospitalId);
+          if (c.hospitalIds && Array.isArray(c.hospitalIds)) linkedIds.push(...c.hospitalIds);
+          if (linkedIds.includes(entityId)) {
+            legacyRows.push({
+              assignment_id: null,
+              department: null, position: null, role: null, subcategory: null,
+              is_primary: false, is_active: c.isActive, notes: null,
+              start_date: null, end_date: null, category_id: null,
+              category_code: null, category_name: null,
+              person_id: c.id,
+              title_before: c.titleBefore, first_name: c.firstName,
+              last_name: c.lastName, title_after: c.titleAfter,
+              email: c.email, phone: c.phone, mobile: c.mobile,
+              collaborator_type: c.collaboratorType,
+              person_active: c.isActive,
+              country_code: c.countryCode,
+              source: "legacy_link",
+            });
+          }
+        }
+      }
+
+      // 3. For clinics, also include embedded doctor as a virtual person
+      let clinicDoctor: any = null;
+      if (entityType === "clinic") {
+        const [clinic] = await db.select().from(clinics).where(eq(clinics.id, entityId));
+        if (clinic && clinic.doctorName) {
+          clinicDoctor = {
+            fullName: (clinic as any).doctorFirstName
+              ? [(clinic as any).doctorTitle, (clinic as any).doctorFirstName, (clinic as any).doctorLastName].filter(Boolean).join(" ")
+              : clinic.doctorName,
+            phone: clinic.phone || "",
+            email: clinic.email || "",
+          };
+        }
+      }
+
+      res.json({
+        assigned: assignmentRows.rows || [],
+        legacy: legacyRows,
+        clinicDoctor,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Hospital/Clinic Personnel: Assign existing collaborator to institution ---
+  app.post("/api/institutions/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      if (!["hospital", "clinic"].includes(entityType)) {
+        return res.status(400).json({ error: "Invalid entity type" });
+      }
+      const { personId, department, position, role, categoryId, isPrimary, notes } = req.body;
+      if (!personId) return res.status(400).json({ error: "personId is required" });
+
+      // Check if assignment already exists
+      const existing = await db.execute(sql`
+        SELECT id FROM contact_assignments
+        WHERE person_id = ${personId} AND entity_type = ${entityType} AND entity_id = ${entityId} AND is_active = true
+      `);
+      if ((existing.rows || []).length > 0) {
+        return res.status(409).json({ error: "Person is already assigned to this institution" });
+      }
+
+      const [row] = await db.insert(contactAssignments).values({
+        personId,
+        entityType,
+        entityId,
+        department: department || null,
+        position: position || null,
+        role: role || null,
+        categoryId: categoryId || null,
+        isPrimary: isPrimary || false,
+        notes: notes || null,
+        isActive: true,
+      }).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Hospital/Clinic Personnel: Update assignment ---
+  app.put("/api/institutions/:entityType/:entityId/personnel/:assignmentId", requireAuth, async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const { department, position, role, categoryId, isPrimary, notes, isActive } = req.body;
+      const [row] = await db.update(contactAssignments)
+        .set({
+          ...(department !== undefined && { department }),
+          ...(position !== undefined && { position }),
+          ...(role !== undefined && { role }),
+          ...(categoryId !== undefined && { categoryId }),
+          ...(isPrimary !== undefined && { isPrimary }),
+          ...(notes !== undefined && { notes }),
+          ...(isActive !== undefined && { isActive }),
+          updatedAt: new Date(),
+        })
+        .where(eq(contactAssignments.id, assignmentId))
+        .returning();
+      if (!row) return res.status(404).json({ error: "Assignment not found" });
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Hospital/Clinic Personnel: Remove assignment ---
+  app.delete("/api/institutions/:entityType/:entityId/personnel/:assignmentId", requireAuth, async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const [row] = await db.update(contactAssignments)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(contactAssignments.id, assignmentId))
+        .returning();
+      if (!row) return res.status(404).json({ error: "Assignment not found" });
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   setTimeout(() => {

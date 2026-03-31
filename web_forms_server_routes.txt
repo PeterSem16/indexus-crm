@@ -1,0 +1,801 @@
+  });
+
+  app.get("/api/sop/articles/:id/campaigns", requireAuth, async (req, res) => {
+    try {
+      const campaignIds = await storage.getSopCampaignLinks(req.params.id);
+      res.json(campaignIds);
+    } catch (error) {
+      console.error("Error fetching SOP campaign links:", error);
+      res.status(500).json({ error: "Failed to fetch campaign links" });
+    }
+  });
+
+  registerInboundRoutes(app, requireAuth);
+
+  app.get("/api/web-forms", requireAuth, async (_req, res) => {
+    try { res.json(await storage.getWebForms()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/web-forms/stats", requireAuth, async (_req, res) => {
+    try {
+      const [forms, submissions] = await Promise.all([
+        storage.getWebForms(),
+        storage.getAllWebFormSubmissions(),
+      ]);
+      const formMap = new Map(forms.map(f => [f.id, f]));
+      const stats = submissions.map(sub => {
+        const form = formMap.get(sub.formId);
+        return {
+          id: sub.id,
+          formId: sub.formId,
+          formName: form?.name || sub.formId,
+          countryCode: form?.countryCode || null,
+          status: sub.status,
+          isNewCustomer: sub.isNewCustomer,
+          isOtpVerified: sub.isOtpVerified,
+          createdAt: sub.createdAt,
+        };
+      });
+      res.json(stats);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/web-forms/:id", requireAuth, async (req, res) => {
+    try {
+      const form = await storage.getWebForm(req.params.id);
+      if (!form) return res.status(404).json({ error: "Form not found" });
+      const sections = await storage.getWebFormSections(form.id);
+      const fields = await storage.getWebFormFields(form.id);
+      res.json({ ...form, sections, fields });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/web-forms", requireAuth, async (req, res) => {
+    try {
+      const { sections, fields, ...formData } = req.body;
+      const userId = req.session.user!.id;
+      const form = await storage.createWebForm({ ...formData, createdBy: userId });
+      if (sections && Array.isArray(sections)) {
+        for (const s of sections) await storage.createWebFormSection({ ...s, formId: form.id });
+      }
+      if (fields && Array.isArray(fields)) {
+        for (const f of fields) await storage.createWebFormField({ ...f, formId: form.id });
+      }
+      res.json(form);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/web-forms/:id", requireAuth, async (req, res) => {
+    try {
+      const { sections, fields, ...raw } = req.body;
+      const ALLOWED_FORM_KEYS = [
+        "name","slug","countryCode","language","description","headerTitle","headerSubtitle",
+        "gdprText","gdprMarketingText","gdprPregnancyText","successMessage",
+        "brandColor","textColor","headingColor","sectionColor","bgColor","formWidth","formLayout","logoUrl","isActive","contactInfo",
+        "titleFontSize","titleFontWeight","titleFontStyle","titleFontFamily",
+        "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
+        "sectionFontSize","sectionFontWeight","sectionFontStyle",
+        "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
+        "showProgressPipeline","pregnancyAdviceEnabled","aiAssistantEnabled","lauraAvatarUrl",
+        "confirmEmailEnabled","confirmEmailLayout","confirmEmailSubject","confirmEmailGreeting","confirmEmailBody",
+        "confirmEmailShowData","confirmEmailFooter","confirmEmailSignature",
+      ];
+      const formData: Record<string, any> = {};
+      for (const k of ALLOWED_FORM_KEYS) {
+        if (k in raw) formData[k] = raw[k];
+      }
+      console.log("[WebForm PATCH]", req.params.id, "keys:", Object.keys(formData).join(","), "sections:", sections?.length, "fields:", fields?.length);
+      const form = await storage.updateWebForm(req.params.id, formData as any);
+      if (sections && Array.isArray(sections)) {
+        await storage.deleteWebFormSectionsByFormId(form.id);
+        const oldToNewSectionId = new Map<string, string>();
+        for (const s of sections) {
+          const { id: oldSectionId, ...sData } = s;
+          const created = await storage.createWebFormSection({ ...sData, formId: form.id });
+          if (oldSectionId && created?.id) {
+            oldToNewSectionId.set(oldSectionId, created.id);
+          }
+        }
+        if (fields && Array.isArray(fields)) {
+          await storage.deleteWebFormFieldsByFormId(form.id);
+          for (const f of fields) {
+            const { id: _fId, ...fData } = f;
+            if (fData.sectionId && oldToNewSectionId.has(fData.sectionId)) {
+              fData.sectionId = oldToNewSectionId.get(fData.sectionId);
+            }
+            await storage.createWebFormField({ ...fData, formId: form.id });
+          }
+        }
+      } else if (fields && Array.isArray(fields)) {
+        await storage.deleteWebFormFieldsByFormId(form.id);
+        for (const f of fields) {
+          const { id: _fId, ...fData } = f;
+          await storage.createWebFormField({ ...fData, formId: form.id });
+        }
+      }
+      const updatedSections = await storage.getWebFormSections(form.id);
+      const updatedFields = await storage.getWebFormFields(form.id);
+      res.json({ ...form, sections: updatedSections, fields: updatedFields });
+    } catch (e: any) {
+      console.error("[WebForm PATCH ERROR]", e.message, e.stack);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/web-forms/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteWebFormFieldsByFormId(req.params.id);
+      await storage.deleteWebFormSectionsByFormId(req.params.id);
+      await storage.deleteWebForm(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/web-forms/:id/submissions", requireAuth, async (req, res) => {
+    try { res.json(await storage.getWebFormSubmissions(req.params.id)); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/web-forms/submissions/:submissionId/status", requireAuth, async (req, res) => {
+    try {
+      const { submissionId } = req.params;
+      const { status } = req.body;
+      if (!['approved', 'rejected', 'pending'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status. Use: approved, rejected, pending' });
+      }
+      const updated = await storage.updateWebFormSubmission(submissionId, {
+        status,
+        processedAt: status === 'approved' ? new Date() : null,
+      } as any);
+      await storage.createWebFormAuditLog({
+        formId: updated.formId,
+        submissionId: updated.id,
+        action: `submission_${status}`,
+        details: JSON.stringify({ status, userId: req.session.user!.id }),
+        ipAddress: req.ip || null,
+      });
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/web-forms/submissions/:submissionId/approve", requireAuth, async (req, res) => {
+    try {
+      const { submissionId } = req.params;
+      const { fieldsToUpdate } = req.body;
+
+      const { webFormSubmissions } = await import("@shared/schema");
+      const allSubs = await db.select().from(webFormSubmissions).where(eq(webFormSubmissions.id, submissionId));
+      if (allSubs.length === 0) return res.status(404).json({ error: "Submission not found" });
+      const submission = allSubs[0];
+      const data = JSON.parse(submission.data || "{}");
+
+      const fieldMapping: Record<string, string> = {
+        firstName: "firstName", lastName: "lastName", maidenName: "maidenName",
+        titleBefore: "titleBefore", titleAfter: "titleAfter",
+        email: "email", phone: "phone", mobile: "mobile",
+        dateOfBirth: "dateOfBirth", nationalId: "nationalId",
+        address: "address", city: "city", postalCode: "postalCode",
+        region: "region", country: "country",
+        corrName: "corrName", corrAddress: "corrAddress", corrCity: "corrCity", corrPostalCode: "corrPostalCode",
+        healthInsuranceId: "healthInsuranceId",
+        hospitalName: "hospitalName", gynecologistName: "gynecologistName",
+        gynecologistPhone: "gynecologistPhone", gynecologistEmail: "gynecologistEmail",
+        expectedDeliveryDate: "expectedDeliveryDate",
+        serviceType: "serviceType", bankAccount: "bankAccount", bankName: "bankName", bankSwift: "bankSwift",
+        newsletter: "newsletter", personalId: "nationalId",
+      };
+
+      const inferFieldType = (key: string, _value: any): string => {
+        const lower = key.toLowerCase();
+        if (lower.includes("firstname") || lower.includes("first_name") || lower === "meno") return "firstName";
+        if (lower.includes("lastname") || lower.includes("last_name") || lower === "priezvisko") return "lastName";
+        if (lower.includes("maidenname") || lower.includes("maiden")) return "maidenName";
+        if (lower.includes("email") || lower.includes("e-mail")) return "email";
+        if (lower.includes("phone") || lower.includes("telefon") || lower.includes("tel")) return "phone";
+        if (lower.includes("mobile") || lower.includes("mobil")) return "mobile";
+        if (lower.includes("dateofbirth") || lower.includes("date_of_birth") || lower.includes("datum_narodenia") || lower === "dob") return "dateOfBirth";
+        if (lower.includes("nationalid") || lower.includes("personal_id") || lower.includes("rodne_cislo") || lower.includes("personalid")) return "nationalId";
+        if (lower.includes("address") || lower.includes("adresa") || lower.includes("ulica")) return "address";
+        if (lower.includes("city") || lower.includes("mesto")) return "city";
+        if (lower.includes("postal") || lower.includes("zip") || lower.includes("psc")) return "postalCode";
+        if (lower.includes("region") || lower.includes("kraj")) return "region";
+        if (lower.includes("country") || lower.includes("krajina") || lower.includes("stat")) return "country";
+        if (lower.includes("expecteddelivery") || lower.includes("delivery_date") || lower.includes("termin_porodu")) return "expectedDeliveryDate";
+        if (lower.includes("hospital") || lower.includes("nemocnica") || lower.includes("porodnica")) return "hospitalName";
+        if (lower.includes("gynecolog") && lower.includes("name")) return "gynecologistName";
+        if (lower.includes("gynecolog") && lower.includes("phone")) return "gynecologistPhone";
+        if (lower.includes("gynecolog") && lower.includes("email")) return "gynecologistEmail";
+        if (lower.includes("service") || lower.includes("sluzba")) return "serviceType";
+        if (lower.includes("insurance") || lower.includes("poistovna")) return "healthInsuranceId";
+        if (lower.includes("newsletter")) return "newsletter";
+        if (lower.includes("titulpred") || lower.includes("title_before")) return "titleBefore";
+        if (lower.includes("titulza") || lower.includes("title_after")) return "titleAfter";
+        if (lower.includes("corrname") || lower.includes("corr_name")) return "corrName";
+        if (lower.includes("corraddress") || lower.includes("corr_address")) return "corrAddress";
+        if (lower.includes("corrcity") || lower.includes("corr_city")) return "corrCity";
+        if (lower.includes("corrpostal") || lower.includes("corr_postal")) return "corrPostalCode";
+        if (lower.includes("bankaccount") || lower.includes("bank_account") || lower.includes("iban")) return "bankAccount";
+        if (lower.includes("bankname") || lower.includes("bank_name")) return "bankName";
+        if (lower.includes("bankswift") || lower.includes("bank_swift") || lower.includes("swift")) return "bankSwift";
+        return key;
+      };
+
+      const dateFields = ["dateOfBirth", "expectedDeliveryDate"];
+      const buildCustomerData = (fields?: string[]) => {
+        const customerData: Record<string, any> = {};
+        for (const [rawKey, rawValue] of Object.entries(data)) {
+          if (rawValue === null || rawValue === undefined || rawValue === "") continue;
+          const inferred = inferFieldType(rawKey, rawValue);
+          const custField = fieldMapping[inferred];
+          if (!custField) continue;
+          if (fields && !fields.includes(inferred)) continue;
+          if (dateFields.includes(custField) && typeof rawValue === "string") {
+            customerData[custField] = new Date(rawValue);
+          } else {
+            customerData[custField] = rawValue;
+          }
+        }
+        return customerData;
+      };
+
+      const { webForms } = await import("@shared/schema");
+      const [approveForm] = await db.select().from(webForms).where(eq(webForms.id, submission.formId));
+      const formName = approveForm?.name || "Neznámy formulár";
+
+      let hospitalName = "";
+      if (data.hospitalId) {
+        const hospital = await storage.getHospital(data.hospitalId);
+        hospitalName = hospital?.name || "";
+      }
+
+      let gynecologistName = "";
+      let gynecologistPhone = "";
+      let gynecologistEmail = "";
+      if (data.gynecologistClinicId) {
+        const clinic = await storage.getClinic(data.gynecologistClinicId);
+        if (clinic) {
+          gynecologistName = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean).join(" ") || clinic.doctorName || clinic.name || "";
+          gynecologistPhone = clinic.phone || "";
+          gynecologistEmail = clinic.email || "";
+        }
+      }
+
+      let customerId = submission.customerId;
+
+      if (submission.isNewCustomer || !customerId) {
+        const customerData = buildCustomerData();
+        customerData.clientStatus = "in_process";
+        customerData.status = "active";
+        if (!customerData.firstName) customerData.firstName = "N/A";
+        if (!customerData.lastName) customerData.lastName = "N/A";
+        if (!customerData.country) {
+          customerData.country = approveForm?.countryCode || "SK";
+        }
+        if (hospitalName) customerData.hospitalName = hospitalName;
+        if (gynecologistName) customerData.gynecologistName = gynecologistName;
+        if (gynecologistPhone) customerData.gynecologistPhone = gynecologistPhone;
+        if (gynecologistEmail) customerData.gynecologistEmail = gynecologistEmail;
+        customerData.registrationSource = "web_form";
+        customerData.registrationDate = new Date();
+        const newCustomer = await storage.createCustomer(customerData);
+        customerId = newCustomer.id;
+        await storage.updateWebFormSubmission(submissionId, { customerId, isNewCustomer: false } as any);
+      } else if (fieldsToUpdate && fieldsToUpdate.length > 0) {
+        const updateData = buildCustomerData(fieldsToUpdate);
+        if (hospitalName) updateData.hospitalName = hospitalName;
+        if (gynecologistName) updateData.gynecologistName = gynecologistName;
+        if (gynecologistPhone) updateData.gynecologistPhone = gynecologistPhone;
+        if (gynecologistEmail) updateData.gynecologistEmail = gynecologistEmail;
+        updateData.registrationSource = "web_form";
+        if (Object.keys(updateData).length > 0) {
+          await storage.updateCustomer(customerId, updateData);
+        }
+      }
+
+      if (customerId) {
+        const expectedDate = data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : null;
+        const caseData: any = {
+          customerId,
+          caseStatus: "in_progress",
+          salesChannel: "I",
+          infoSource: data.howDidYouHear || null,
+          marketingAction: `Webový formulár - ${formName}`,
+          newsletterOptIn: data.newsletter === true || data.newsletter === "true",
+        };
+        if (data.hospitalId) caseData.hospitalId = data.hospitalId;
+        if (data.gynecologistClinicId) caseData.obstetricianId = data.gynecologistClinicId;
+        if (expectedDate && !isNaN(expectedDate.getTime())) {
+          caseData.expectedDateDay = expectedDate.getDate();
+          caseData.expectedDateMonth = expectedDate.getMonth() + 1;
+          caseData.expectedDateYear = expectedDate.getFullYear();
+        }
+        if (data.productSetId) caseData.productId = data.productSetId;
+        if (data.paymentMethod) caseData.paymentType = data.paymentMethod;
+        await storage.upsertCustomerPotentialCase(caseData);
+      }
+
+      await storage.updateWebFormSubmission(submissionId, {
+        status: "approved",
+        processedAt: new Date(),
+      } as any);
+
+      await storage.createWebFormAuditLog({
+        formId: submission.formId,
+        submissionId: submission.id,
+        action: "submission_approved",
+        details: JSON.stringify({
+          userId: req.session.user!.id,
+          customerId,
+          isNewCustomer: submission.isNewCustomer,
+          fieldsUpdated: fieldsToUpdate || [],
+        }),
+        ipAddress: req.ip || null,
+      });
+
+      if (customerId) {
+        await storage.createActivityLog({
+          userId: req.session.user!.id,
+          action: "marketing_action",
+          entityType: "customer",
+          entityId: customerId,
+          entityName: `${data.firstName || ""} ${data.lastName || ""}`.trim() || "N/A",
+          details: JSON.stringify({
+            type: "web_form_approval",
+            source: "Webový formulár",
+            formName: formName,
+            approvedBy: req.session.user!.fullName || req.session.user!.username,
+            isNewCustomer: submission.isNewCustomer,
+            message: `Schválenie registrácie z webového formulára "${formName}"`,
+          }),
+        });
+      }
+
+      res.json({ success: true, customerId });
+    } catch (e: any) {
+      console.error("[Approve] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/web-forms/submissions/:submissionId/social-check", requireAuth, async (req, res) => {
+    console.log("[SocialCheck] Request received for submission:", req.params.submissionId);
+    try {
+      const { submissionId } = req.params;
+      const { webFormSubmissions } = await import("@shared/schema");
+      const allSubs = await db.select().from(webFormSubmissions)
+        .where(eq(webFormSubmissions.id, submissionId));
+      if (allSubs.length === 0) return res.status(404).json({ error: "Submission not found" });
+      const submission = allSubs[0];
+      const data = JSON.parse(submission.data || "{}");
+
+      let customerData: any = null;
+      if (submission.customerId) {
+        const cust = await storage.getCustomer(submission.customerId);
+        if (cust) customerData = cust;
+      }
+
+      const firstName = data.firstName || customerData?.firstName || "";
+      const lastName = data.lastName || customerData?.lastName || "";
+      const email = data.email || customerData?.email || "";
+      const city = data.city || customerData?.city || "";
+      const fullName = `${firstName} ${lastName}`.trim();
+
+      const searchLinks = [
+        { platform: "Google", url: `https://www.google.com/search?q=${encodeURIComponent(`"${fullName}" cord blood OR pupočníková krv OR "Cord Blood Center"`)}`, icon: "search" },
+        { platform: "Modrý koník", url: `https://www.google.com/search?q=site:modrykonik.sk+${encodeURIComponent(`"${fullName}" OR "${firstName}" cord blood OR pupočníková`)}`, icon: "baby" },
+        { platform: "Modrý koník (téma)", url: `https://www.google.com/search?q=site:modrykonik.sk+${encodeURIComponent(`"Cord Blood Center" OR "cord blood" OR pupočníková krv`)}`, icon: "message" },
+        { platform: "Facebook", url: `https://www.facebook.com/search/posts/?q=${encodeURIComponent(`${fullName} cord blood`)}`, icon: "facebook" },
+        { platform: "Instagram", url: `https://www.google.com/search?q=site:instagram.com+${encodeURIComponent(fullName)}`, icon: "instagram" },
+      ];
+
+      let aiAnalysis = "";
+      try {
+        const aiResponse = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          temperature: 0.3,
+          max_tokens: 800,
+          messages: [
+            {
+              role: "system",
+              content: `Ste analytik CRM systému pre banku pupočníkovej krvi (Cord Blood Center). Na základe údajov o klientke poskytnite stručnú analýzu v slovenčine:
+1. Odporúčania na overenie klientky na sociálnych sieťach
+2. Na čo si dať pozor pri overovaní (zmena priezviska, viaceré profily)
+3. Kľúčové frázy na vyhľadávanie na Modrom koníku
+4. Celkové odporúčanie pre operátora
+
+Buďte struční, praktickí a priamo k veci. Formátujte pomocou bodov.`
+            },
+            {
+              role: "user",
+              content: `Údaje o klientke:
+Meno: ${fullName}
+Email: ${email}
+Mesto: ${city}
+Existujúci zákazník: ${submission.isNewCustomer ? "Nie" : "Áno"}
+${customerData ? `Meno na karte: ${customerData.firstName} ${customerData.lastName}` : ""}
+${data.expectedDeliveryDate ? `Predpokladaný termín pôrodu: ${data.expectedDeliveryDate}` : ""}
+${data.hospitalName || data.hospitalId ? `Nemocnica: ${data.hospitalName || data.hospitalId}` : ""}`
+            }
+          ]
+        });
+        aiAnalysis = aiResponse.choices[0]?.message?.content || "";
+      } catch (aiErr: any) {
+        aiAnalysis = "AI analýza nie je momentálne dostupná: " + aiErr.message;
+      }
+
+      res.json({
+        customerName: fullName,
+        email,
+        city,
+        searchLinks,
+        aiAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (e: any) { console.error("[SocialCheck] Error:", e.message, e.stack); res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/web-forms/submissions/:submissionId/fill-pdf", requireAuth, async (req, res) => {
+    try {
+      const { submissionId } = req.params;
+      const allSubs = await db.select().from((await import("@shared/schema")).webFormSubmissions)
+        .where(eq((await import("@shared/schema")).webFormSubmissions.id, submissionId));
+      if (allSubs.length === 0) return res.status(404).json({ error: "Submission not found" });
+      const submission = allSubs[0];
+      const data = JSON.parse(submission.data || "{}");
+
+      const formRows = await db.select().from((await import("@shared/schema")).webForms)
+        .where(eq((await import("@shared/schema")).webForms.id, submission.formId));
+      const form = formRows[0];
+
+      let hospitalName = "";
+      if (data.hospitalId) {
+        const hRows = await db.select().from((await import("@shared/schema")).hospitals)
+          .where(eq((await import("@shared/schema")).hospitals.id, data.hospitalId));
+        if (hRows.length > 0) hospitalName = hRows[0].name;
+      }
+
+      let productSetName = "";
+      if (data.productSetId) {
+        const psRows = await db.select().from((await import("@shared/schema")).productSets)
+          .where(eq((await import("@shared/schema")).productSets.id, data.productSetId));
+        if (psRows.length > 0) productSetName = psRows[0].name;
+      }
+
+      const motherName = [data.firstName, data.lastName].filter(Boolean).join(" ");
+      const motherAddress = [data.address, data.postalCode, data.city].filter(Boolean).join(", ");
+      const fatherName = data.partnerName || "";
+      const fatherAddress = "";
+
+      const formatDate = (val: string | undefined) => {
+        if (!val) return "";
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return val;
+        return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+      };
+
+      const addressMatch = (data.address || "").match(/^(.+?)\s+(\d+\S*)$/);
+      const streetName = addressMatch ? addressMatch[1] : (data.address || "");
+      const houseNumber = addressMatch ? addressMatch[2] : "";
+
+      const productLower = (productSetName || "").toLowerCase();
+      const isStandard = productLower.includes("standard") && !productLower.includes("plus");
+      const isPremium = productLower.includes("premium") && !productLower.includes("plus");
+      const isStandardPlus = productLower.includes("standard") && productLower.includes("plus");
+      const isPremiumPlus = productLower.includes("premium") && productLower.includes("plus");
+
+      let fatherFirstName = "";
+      let fatherLastName = "";
+      if (data.partnerName) {
+        const parts = String(data.partnerName).trim().split(/\s+/);
+        fatherFirstName = parts[0] || "";
+        fatherLastName = parts.length > 1 ? parts.slice(1).join(" ") : "";
+      }
+
+      const gynecologistName = data.gynecologist || "";
+
+      const pdfFields: Record<string, string | boolean> = {
+        "001 Cotract ID": data.contractNumber || "",
+        "002 Mother Full Name": motherName,
+        "003 Mother Living In": motherAddress,
+        "004 Mother Birth Date": formatDate(data.dateOfBirth),
+        "005 Father Full Name": fatherName,
+        "006 Father Living In": fatherAddress,
+        "007 Father Birth Date": "",
+
+        "008 Collection - Standard": isStandard,
+        "008 Collection - Premium": isPremium,
+        "008 Collection - Standar Plus": isStandardPlus,
+        "008 Collection - Premium Plsus": isPremiumPlus,
+
+        "009 Payment - 1": data.paymentMethod === "single" || data.paymentMethod === "bank_transfer" || data.paymentMethod === "1",
+        "009 Payment - 4": data.paymentMethod === "installments_4" || data.paymentMethod === "4",
+        "009 Payment - 8": data.paymentMethod === "installments" || data.paymentMethod === "installments_8" || data.paymentMethod === "8",
+
+        "Nachname": data.lastName || "",
+        "Vorname": data.firstName || "",
+        "Geburtsdatum_3": formatDate(data.dateOfBirth),
+        "VornameGeburtsdatum": formatDate(data.dateOfBirth),
+        "Straße": streetName,
+        "Hausnummer": houseNumber,
+        "PLZ": data.postalCode || "",
+        "Ort": data.city || "",
+        "Telefon 1": data.phone || data.mobile || "",
+        "Telefon 2": data.mobile && data.phone ? data.mobile : "",
+        "EMail 1": data.email || "",
+        "Geplante Entbindungsanstalt": hospitalName,
+        "Errechneter Entbindungstermin TTMMJJJJ": formatDate(data.expectedDeliveryDate || data.expectedDueDate),
+        "ambulanter Gynäkologe Name des Arztes": gynecologistName,
+
+        "Nachname_2": data.lastName || "",
+        "Vorname_2": data.firstName || "",
+        "Geburtsdatum_4": formatDate(data.dateOfBirth),
+        "VornameGeburtsdatum_2": formatDate(data.dateOfBirth),
+        "Straße_2": streetName,
+        "Hausnummer_2": houseNumber,
+        "PLZ_2": data.postalCode || "",
+        "Wohnort": data.city || "",
+        "Telefon": data.phone || data.mobile || "",
+        "EMail": data.email || "",
+
+        "Nachname_3": fatherLastName,
+        "Vorname_3": fatherFirstName,
+        "Telefon_2": data.partnerPhone || "",
+        "EMail_2": data.partnerEmail || "",
+
+        "In 1": motherName,
+        "In 2": motherAddress,
+        "am": formatDate(data.dateOfBirth),
+        "In 1_2": fatherName,
+        "In 2_2": fatherAddress,
+        "am_2": "",
+      };
+
+      const templatePath = path.join(process.cwd(), "attached_assets/Balik_Rodicka_-_AT_-_Premium_003_2026-03-24_1774454239289.pdf");
+      if (!fs.existsSync(templatePath)) {
+        return res.status(404).json({ error: "PDF template not found" });
+      }
+
+      const outputDir = path.join(process.cwd(), "uploads/filled-forms");
+      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+      const safeFileName = `Balik_Rodicka_${(data.lastName || "unknown").replace(/[^a-zA-Z0-9]/g, "_")}_${submissionId.slice(0, 8)}.pdf`;
+      const outputPath = path.join(outputDir, safeFileName);
+
+      const { fillPdfForm } = await import("./template-processor");
+      await fillPdfForm(templatePath, pdfFields, outputPath, true);
+
+      res.download(outputPath, safeFileName, (err) => {
+        if (err) console.error("[PDF Fill] Download error:", err);
+      });
+    } catch (e: any) {
+      console.error("[PDF Fill] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/web-forms/:id/audit-log", requireAuth, async (req, res) => {
+    try { res.json(await storage.getWebFormAuditLogs(req.params.id)); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/public/web-form/:slug", async (req, res) => {
+    try {
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const sections = await storage.getWebFormSections(form.id);
+      const fields = await storage.getWebFormFields(form.id);
+      const hicsRaw = await db.select().from((await import("@shared/schema")).healthInsuranceCompanies)
+        .where(eq((await import("@shared/schema")).healthInsuranceCompanies.countryCode, form.countryCode));
+      const hospitalsRaw = await db.select().from((await import("@shared/schema")).hospitals)
+        .where(and(eq((await import("@shared/schema")).hospitals.countryCode, form.countryCode), eq((await import("@shared/schema")).hospitals.isActive, true)));
+      const productSetsRaw = await db.select().from((await import("@shared/schema")).productSets)
+        .where(and(eq((await import("@shared/schema")).productSets.countryCode, form.countryCode), eq((await import("@shared/schema")).productSets.isActive, true)));
+      const productsRaw = await db.select().from((await import("@shared/schema")).products)
+        .where(eq((await import("@shared/schema")).products.isActive, true));
+      const countryProducts = productsRaw.filter(p => p.countries && p.countries.includes(form.countryCode));
+      const clinicsRaw = await db.select().from((await import("@shared/schema")).clinics)
+        .where(and(eq((await import("@shared/schema")).clinics.countryCode, form.countryCode), eq((await import("@shared/schema")).clinics.isActive, true)));
+      res.json({
+        form: { ...form, sections, fields },
+        healthInsuranceCompanies: hicsRaw,
+        hospitals: hospitalsRaw.map(h => ({ id: h.id, name: h.name, fullName: h.fullName, city: h.city })),
+        productSets: productSetsRaw.map(p => ({ id: p.id, name: p.name, totalGrossAmount: p.totalGrossAmount, currency: p.currency })),
+        products: countryProducts.map(p => ({ id: p.id, name: p.name, description: p.description })),
+        clinics: clinicsRaw.map(c => ({ id: c.id, name: c.name, doctorName: c.doctorName, doctorTitle: c.doctorTitle, doctorFirstName: c.doctorFirstName, doctorLastName: c.doctorLastName, city: c.city })),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/check-customer", async (req, res) => {
+    try {
+      const { firstName, lastName, email } = req.body;
+      if (!firstName || !lastName || !email) return res.status(400).json({ error: "Missing fields" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const results = await db.select().from((await import("@shared/schema")).customers)
+        .where(and(
+          sql`LOWER(${(await import("@shared/schema")).customers.firstName}) = LOWER(${firstName})`,
+          sql`LOWER(${(await import("@shared/schema")).customers.lastName}) = LOWER(${lastName})`,
+          sql`LOWER(${(await import("@shared/schema")).customers.email}) = LOWER(${email})`,
+        )).limit(1);
+      if (results.length > 0) {
+        res.json({ found: true });
+      } else {
+        res.json({ found: false });
+      }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/send-otp", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ error: "Email required" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      await storage.createWebFormOtp({ formId: form.id, email, code, expiresAt });
+      await storage.createWebFormAuditLog({ formId: form.id, action: "otp_sent", details: JSON.stringify({ email }), ipAddress: req.ip || null });
+      try {
+        const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+        if (systemConnection && systemConnection.isConnected) {
+          const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+          const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+          const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+          const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+          const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+          if (tokenResult) {
+            if (tokenResult.refreshed) {
+              await storage.updateSystemMs365Connection(form.countryCode, {
+                accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                tokenExpiresAt: tokenResult.expiresOn
+              });
+            }
+            const brandColor = form.brandColor || "#16a34a";
+            const otpHtml = `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:400px;margin:0 auto;padding:32px;text-align:center;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08)"><div style="width:48px;height:48px;margin:0 auto 16px;background:${brandColor}15;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:24px">🔐</span></div><h2 style="color:#111827;margin:0 0 8px 0;font-size:20px;">Overovací kód</h2><p style="color:#6b7280;font-size:14px;margin:0 0 24px 0;">Použite tento kód na overenie vašej identity</p><p style="font-size:36px;font-weight:bold;letter-spacing:8px;padding:20px;background:${brandColor}08;border:2px dashed ${brandColor}30;border-radius:12px;color:${brandColor};margin:0 0 24px 0">${code}</p><p style="color:#9ca3af;font-size:12px;margin:0">Kód platí 10 minút. Ak ste ho nevyžiadali, ignorujte tento email.</p></div>`;
+            const fromEmail = systemConnection.email;
+            await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [email], "Overovací kód - Cord Blood Center", otpHtml, true);
+            console.log(`[WebForm OTP] Code sent to ${email} from ${fromEmail} via system email`);
+          } else {
+            console.error("[WebForm OTP] Failed to get valid access token for system email");
+          }
+        } else {
+          console.error("[WebForm OTP] System email not configured/connected for country", form.countryCode);
+        }
+      } catch (emailError) {
+        console.error("[WebForm OTP] Failed to send email:", emailError);
+      }
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/verify-otp", async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) return res.status(400).json({ error: "Missing fields" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const otp = await storage.getWebFormOtp(form.id, email, code);
+      if (!otp) return res.status(400).json({ error: "Invalid code" });
+      if (new Date() > otp.expiresAt) return res.status(400).json({ error: "Code expired" });
+      await storage.markWebFormOtpUsed(otp.id);
+      const crypto = await import("crypto");
+      const verificationToken = crypto.randomBytes(32).toString("hex");
+      await storage.createWebFormAuditLog({ formId: form.id, action: "otp_verified", details: JSON.stringify({ email, verificationToken }), ipAddress: req.ip || null });
+      const schema = await import("@shared/schema");
+      const [customer] = await db.select().from(schema.customers)
+        .where(sql`LOWER(${schema.customers.email}) = LOWER(${email})`)
+        .limit(1);
+      if (customer) {
+        const safeData = {
+          phone: customer.phone, mobile: customer.mobile, address: customer.address,
+          city: customer.city, postalCode: customer.postalCode, country: customer.country,
+          dateOfBirth: customer.dateOfBirth, nationalId: customer.nationalId,
+          healthInsuranceId: customer.healthInsuranceId, bankAccount: customer.bankAccount,
+          bankName: customer.bankName, bankSwift: customer.bankSwift,
+        };
+        res.json({ verified: true, customerData: safeData, customerId: customer.id, clientStatus: customer.clientStatus, verificationToken });
+      } else {
+        res.json({ verified: true, verificationToken });
+      }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/submit", async (req, res) => {
+    try {
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const { formData, customerId, verificationToken, clientMetadata } = req.body;
+      console.log(`[WebForm Submit] slug=${req.params.slug}, customerId=${customerId || 'none'}, hasToken=${!!verificationToken}, email=${formData?.email}`);
+      if (!formData) return res.status(400).json({ error: "No form data" });
+
+      const schema = await import("@shared/schema");
+      let resolvedHospitalName = formData.hospitalName || null;
+      if (formData.hospitalId && !resolvedHospitalName) {
+        const [hosp] = await db.select().from(schema.hospitals).where(eq(schema.hospitals.id, formData.hospitalId)).limit(1);
+        if (hosp) resolvedHospitalName = hosp.name || null;
+      }
+      let resolvedGynName = formData.gynecologistName || null;
+      let resolvedGynPhone = formData.gynecologistPhone || null;
+      let resolvedGynEmail = formData.gynecologistEmail || null;
+      if (formData.gynecologistClinicId) {
+        const [clinic] = await db.select().from(schema.clinics).where(eq(schema.clinics.id, formData.gynecologistClinicId)).limit(1);
+        if (clinic) {
+          if (!resolvedGynName) {
+            const parts = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean);
+            resolvedGynName = parts.length > 0 ? parts.join(" ") : (clinic.doctorName || clinic.name || null);
+          }
+          if (!resolvedGynPhone && clinic.phone) resolvedGynPhone = clinic.phone;
+          if (!resolvedGynEmail && clinic.email) resolvedGynEmail = clinic.email;
+        }
+      }
+
+      let isOtpVerified = false;
+      if (customerId && verificationToken) {
+        const auditLogs = await storage.getWebFormAuditLogs(form.id);
+        console.log(`[WebForm Submit] Found ${auditLogs.length} audit logs, searching for token match...`);
+        const matchingLog = auditLogs.find(log => {
+          if (log.action !== "otp_verified") return false;
+          try {
+            const details = JSON.parse(log.details || "{}");
+            return details.verificationToken === verificationToken;
+          } catch { return false; }
+        });
+        if (!matchingLog) {
+          console.error(`[WebForm Submit] Token verification FAILED - no matching audit log`);
+          return res.status(403).json({ error: "Invalid verification token" });
+        }
+        isOtpVerified = true;
+        console.log(`[WebForm Submit] OTP verified successfully for customer ${customerId}`);
+      }
+
+      let targetCustomerId: string | null = null;
+      let isNewCustomer = false;
+
+      // No auto-create/update - just identify if existing or new customer
+      if (customerId && isOtpVerified) {
+        targetCustomerId = customerId;
+        isNewCustomer = false;
+        console.log('[WebForm Submit] Existing customer identified via OTP: ' + customerId);
+      } else {
+        // Check if email matches existing customer
+        if (formData.email) {
+          const [existingByEmail] = await db.select().from(schema.customers)
+            .where(eq(schema.customers.email, formData.email)).limit(1);
+          if (existingByEmail) {
+            targetCustomerId = existingByEmail.id;
+            isNewCustomer = false;
+            console.log('[WebForm Submit] Existing customer matched by email: ' + existingByEmail.id);
+          } else {
+            isNewCustomer = true;
+            console.log('[WebForm Submit] New customer (no email match), pending approval');
+          }
+        } else {
+          isNewCustomer = true;
+          console.log('[WebForm Submit] New customer (no email), pending approval');
+        }
+      }
+
+      const forwardedFor = req.headers["x-forwarded-for"];
+      const realIp = typeof forwardedFor === "string" ? forwardedFor.split(",")[0].trim() : (req.ip || req.socket?.remoteAddress || null);
+      const serverMetadata: Record<string, any> = {
+        ip: realIp,
+        forwardedFor: forwardedFor || null,
+        userAgent: req.headers["user-agent"] || null,
+        acceptLanguage: req.headers["accept-language"] || null,
+        origin: req.headers["origin"] || null,
+        referer: req.headers["referer"] || null,
+        host: req.headers["host"] || null,
+        contentLength: req.headers["content-length"] || null,
+        secChUa: req.headers["sec-ch-ua"] || null,
+        secChUaPlatform: req.headers["sec-ch-ua-platform"] || null,
+        secChUaMobile: req.headers["sec-ch-ua-mobile"] || null,
+        serverTimestamp: new Date().toISOString(),
+        formSlug: req.params.slug,
+        formCountry: form.countryCode,
+      };
+      const combinedMetadata = { server: serverMetadata, client: clientMetadata || {} };

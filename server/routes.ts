@@ -38977,7 +38977,7 @@ Return ONLY the JSON object.`
         "titleFontSize","titleFontWeight","titleFontStyle","titleFontFamily",
         "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
         "sectionFontSize","sectionFontWeight","sectionFontStyle",
-        "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
+        "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight","dateFormat","placeholderColor",
         "showProgressPipeline","pregnancyAdviceEnabled","aiAssistantEnabled","lauraAvatarUrl",
         "confirmEmailEnabled","confirmEmailLayout","confirmEmailSubject","confirmEmailGreeting","confirmEmailBody",
         "confirmEmailShowData","confirmEmailFooter","confirmEmailSignature",
