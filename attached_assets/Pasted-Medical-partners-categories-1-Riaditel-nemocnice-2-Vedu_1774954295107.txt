@@ -1,0 +1,125 @@
+Medical partners categories
+
+
+1.	Riaditel nemocnice
+2.	Veduci pôrodnickeho oddelenia
+3.	Hlavna/vrchna sestra pôrodníckeho oddelenia
+4.	Porodne asistentky/hebamme porodnického oddelenia
+5.	Lekari pôrodnickeho oddelenia
+6.	Sestry pôrodnickeho oddelenia
+7.	Ambulantni gynekologovia
+8.	Ambulantne sestry
+9.	Midwives/Hebamme – samostatne podnikajuce
+10.	Lekár = nedefinovaný
+
+Prvy kontakt
+
+1.	Riaditeľ nemocnice
+1.1.	Oslovenie a navrh na spolupracu pri zabezpečeni odberov pupočníkovej krvi (CB), tkaniva pupočníka (CT) a placenty (PT) s vysvetlenim navrhovanych podmienok spoluprace.
+Potrebne dokumenty formulare:
+1.1.1.	Navrh zmluvy s prilohami
+1.1.2.	Informacia o privatnom bankingu CB, CT, PT.
+1.2.	Komunikacia s Nemocnicou podľa požiadaviek riaditeľa do uzavretia zmluvy
+1.3.	Poďakovanie za uzavretie zmluvy
+2.	Veduci oddelenia
+2.1.	Stretnutie po dohode s riaditeľom nemocnice informovanie o spoločnosti, vysvetlenie podmienok spoluprace, predloženie SOP, vysvetlenie postupu pri odbere, postup pri auditoch a postup pri zaškolovani odberovych pracovnikov.
+Podmienky spoluprace s pracovnikmi oddelenia.
+Potrebne dokumenty a formulare:
+2.1.1.	SOP pre odber
+2.1.2.	Instruktažny material k odberu
+2.1.3.	Ine
+3.	Hlavna/vrchná sestra
+3.1.	Stretnutie po dohode s veducim pôrodnickeho oddelenia informovanie o spoločnosti, vysvetlenie podmienok spoluprace, predloženie SOP, vysvetlenie postupu pri odbere, postup pri auditoch a postup pri zaškolovani odberovych pracovnikov.
+Podmienky spoluprace s pracovnikmi oddelenia.
+Potrebne dokumenty a formulare:
+3.1.1.	SOP pre odber
+3.1.2.	Instruktažny material k odberu
+3.1.3.	Informacny material o firme a poskytovanej sluzbe pre gynekologa
+3.1.4.	Ine
+4.	Lekari porodnickeho oddelenia
+4.1.	Stretnutie po dohode s veducim oddelenia informovanie o spoločnosti, vysvetlenie podmienok spoluprace, predloženie SOP, vysvetlenie postupu pri odbere.
+Podmienky spoluprace s pracovnikmi oddelenia.
+Potrebne dokumenty a formulare:
+4.1.1.	SOP pre odber
+4.1.2.	Instruktažny material k odberu
+4.1.3.	Informacny material o firme a poskytovanej sluzbe pre gynekologa
+4.1.4.	Ine
+5.	Sestry porodneho oddelenia
+5.1.	Stretnutie po dohode s veducim oddelenia informovanie o spoločnosti, vysvetlenie podmienok spoluprace, predloženie SOP, vysvetlenie postupu pri odbere.
+Podmienky spoluprace s pracovnikmi oddelenia.
+Potrebne dokumenty a formulare:
+5.1.1.	SOP pre odber
+5.1.2.	Instruktažny material k odberu
+5.1.3.	Informacny material o firme a poskytovanej sluzbe pre gynekologa
+5.1.4.	Ine
+6.	Ambulantni gynekologovia
+6.1.	Oslovenie (listom alebo telefonicky alebo osobne) a informovanie o cinnosti spoločnosti, vratane noviniek medicinskych a firemnych
+6.2.	Spytat sa ci by spolocnost mohla distribuovat informacne materialy v jeho ambulancii
+6.3.	V pripade, ze mame zaujem o inu spolupracu (distribucia odberovych kitov, vysetrenia klientke pred porodom a po porode) , predstavit ju.
+Potrebne dokumenty:
+Templat listu pre gynekologa
+Informacny material o firme a sluzbe pre gynekologa
+Formular (v CRM) o navsteve
+Informacny material k inym formam spoluprace.
+7.	Midwives
+7.1.	Oslovenie (listom alebo telefonicky alebo osobne) a informovanie o cinnosti spoločnosti, vratane noviniek medicinskych a firemnych
+7.2.	Spytat sa ci by spolocnost mohla distribuovat informacne materialy v jeho ambulancii
+7.3.	V pripade, ze mame zaujem o inu spolupracu (distribucia odberovych kitov, vysetrenia klientke pred porodom a po porode) , predstavit ju.
+Potrebne dokumenty:
+Templat listu pre gynekologa
+Informacny material o firme a sluzbe pre gynekologa
+Formular (v CRM) o navsteve
+Informacny material k inym formam spoluprace.
+
+Standardna navsteva/kontakt (Email, list, telefon, face to face)
+1.	Riaditeľ nemocnice
+1.1.	Zdvorilostne stretnutie
+Oboznamit s vysledkami spoluprace za posledne obdobie.
+Opytat sa ci je spokojnost so spolupracou s firmou a co mozeme zlepsit.
+1.1.1.	Formular v CRM o navsteve
+2.	Veduci oddelenia
+2.1.	Zdvorilostne stretnutie
+Oboznamit s vysledkami spoluprace za posledne obdobie.
+Opytat sa ci je spokojnost so spolupracou s firmou a co mozeme zlepsit
+2.1.1.	Formular v CRM o navsteve 
+3.	Hlavna/vrchná sestra
+3.1.	Zdvorilostne stretnutie
+Oboznamit s vysledkami spoluprace za posledne obdobie.
+Opytat sa ci je spokojnost so spolupracou s firmou a co mozeme zlepsit.
+3.1.1.	Formular v CRM o navsteve 
+4.	Lekari porodnickeho oddelenia
+4.1.	Zdvorilostne stretnutie
+Oboznamit s vysledkami spoluprace za posledne obdobie.
+Opytat sa ci je spokojnost so spolupracou s firmou a co mozeme zlepsit.
+4.1.1.	Formular v CRM o navsteve 
+5.	Sestry porodneho oddelenia
+5.1.	Zdvorilostne stretnutie
+Opytat sa ci je spokojnost so spolupracou s firmou a co mozeme zlepsit.
+5.1.1.	Formular v CRM o navsteve
+6.	Ambulantni gynekologovia
+6.1.	Zdvorilostne stretnutie
+Oboznamit s vysledkami spoluprace za posledne obdobie.
+Opytat sa ci je spokojnost so spolupracou s firmou a co mozeme zlepsit.
+6.1.1.	Formular v CRM o navsteve
+7.	Midwives
+7.1.	Zdvorilostne stretnutie
+Oboznamit s vysledkami spoluprace za posledne obdobie.
+Opytat sa ci je spokojnost so spolupracou s firmou a co mozeme zlepsit.
+7.1.1.	Formular v CRM o navsteve
+
+Frekvencia pravidelnych komunikacie
+
+frekvencia navstev (v mesiacoch)
+kategoria	email	telefonicky	osobne
+riaditel	-	-	12
+veduci oddelenia	-	-	12
+Hlavna sestra v nemocnici	-	3	12
+lekar v nemocnici	-	3	12
+sestra v nemocnici	-	-	-
+ambulantny lekar A	-	3	6
+ambulantny lekar B	-	3	12
+ambulantny lekar C	12	12	-
+midwife A	-	3	6
+midwife B	-	3	12
+midwife C	12	12	-
+
