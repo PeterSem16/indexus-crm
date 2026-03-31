@@ -2429,16 +2429,16 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
     },
   });
 
-  const { data: refData } = useQuery<{ hospitals: any[]; healthInsuranceCompanies: any[]; productSets: any[] }>({
+  const { data: refData } = useQuery<{ hospitals: any[]; clinics: any[]; healthInsuranceCompanies: any[]; productSets: any[] }>({
     queryKey: ["/api/web-forms", formId, "ref-data", formDetail?.countryCode],
     queryFn: async () => {
-      const countryCode = formDetail?.countryCode || "";
-      const [h, hi, ps] = await Promise.all([
-        fetch(`/api/hospitals${countryCode ? `?countries=${countryCode}` : ""}`, { credentials: "include" }).then(r => r.ok ? r.json() : []),
+      const [h, cl, hi, ps] = await Promise.all([
+        fetch("/api/hospitals", { credentials: "include" }).then(r => r.ok ? r.json() : []),
+        fetch("/api/clinics", { credentials: "include" }).then(r => r.ok ? r.json() : []),
         fetch("/api/config/health-insurance", { credentials: "include" }).then(r => r.ok ? r.json() : []),
         fetch("/api/product-sets", { credentials: "include" }).then(r => r.ok ? r.json() : []),
       ]);
-      return { hospitals: h, healthInsuranceCompanies: hi, productSets: ps };
+      return { hospitals: h, clinics: cl, healthInsuranceCompanies: hi, productSets: ps };
     },
     enabled: !!formDetail,
   });
@@ -2508,8 +2508,16 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
     partnerPhone: t.webForms.submPartnerPhone,
     partnerEmail: t.webForms.submPartnerEmail,
     gynecologist: t.webForms.submGynecologist,
+    gynecologistClinicId: t.webForms.fieldGynecologist || "Gynekológ",
     gynecologistPhone: t.webForms.submGynecologistPhone,
     iban: t.webForms.submIban,
+    bankAccount: t.webForms.iban,
+    bankName: t.webForms.bankName,
+    bankSwift: t.webForms.swift,
+    titleBefore: t.webForms.titleBefore,
+    titleAfter: t.webForms.titleAfter,
+    maidenName: t.webForms.maidenName,
+    idCardNumber: t.webForms.idCardNumber,
   };
 
   const paymentLabels: Record<string, string> = {
@@ -2523,19 +2531,26 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
     if (value === null || value === undefined || value === "") return "—";
 
     if (key === "healthInsuranceId" && refData?.healthInsuranceCompanies) {
-      const found = refData.healthInsuranceCompanies.find((c: any) => c.id === value);
-      if (found) return found.name;
+      const found = refData.healthInsuranceCompanies.find((c: any) => c.id === value || c.code === value);
+      if (found) return found.shortName || found.name || String(value);
     }
     if (key === "hospitalId" && refData?.hospitals) {
       const found = refData.hospitals.find((h: any) => h.id === value);
       if (found) return found.name;
+    }
+    if (key === "gynecologistClinicId" && refData?.clinics) {
+      const found = refData.clinics.find((c: any) => c.id === value);
+      if (found) return [found.name, found.doctorName].filter(Boolean).join(" — ");
     }
     if (key === "productSetId" && refData?.productSets) {
       const found = refData.productSets.find((p: any) => p.id === value);
       if (found) return found.name;
     }
     if (key === "paymentMethod") {
-      return paymentLabels[value] || String(value);
+      const payLabel = paymentLabels[value];
+      if (payLabel) return payLabel;
+      const payMap: Record<string, string> = { invoice: "Faktúra", bank_transfer: "Bankový prevod", cash: "Hotovosť", card: "Kartou" };
+      return payMap[value] || String(value);
     }
     if ((key === "dateOfBirth" || key === "expectedDeliveryDate" || key === "expectedDueDate") && typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
       const d = new Date(value);
@@ -2551,6 +2566,9 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
     }
     if (key === "country") {
       return getCountryName(value, "sk") || String(value);
+    }
+    if (typeof value === "boolean") {
+      return value ? t.webForms.yes : t.webForms.no;
     }
     return String(value);
   };
