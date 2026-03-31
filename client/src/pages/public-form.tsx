@@ -61,6 +61,22 @@ function formatDateByFormat(dateStr: string, fmt: string): string {
   }
 }
 
+function parseDateInput(text: string, fmt: string): string {
+  const cleaned = text.replace(/[^\d]/g, "");
+  if (cleaned.length < 4) return "";
+  let d = "", m = "", y = "";
+  if (fmt === "mm/dd/yyyy" || fmt === "mm.dd.yyyy") {
+    m = cleaned.slice(0, 2); d = cleaned.slice(2, 4); y = cleaned.slice(4, 8);
+  } else if (fmt === "yyyy-mm-dd") {
+    y = cleaned.slice(0, 4); m = cleaned.slice(4, 6); d = cleaned.slice(6, 8);
+  } else {
+    d = cleaned.slice(0, 2); m = cleaned.slice(2, 4); y = cleaned.slice(4, 8);
+  }
+  const di = parseInt(d), mi = parseInt(m), yi = parseInt(y);
+  if (!di || !mi || !yi || di < 1 || di > 31 || mi < 1 || mi > 12 || yi < 1900 || yi > 2100) return "";
+  return `${y.padStart(4, "0")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
 function FormDateInput({ value, onChange, onBlur, className, placeholder, dateFormat, dataTestId, hasError }: {
   value: string;
   onChange: (val: string) => void;
@@ -72,32 +88,67 @@ function FormDateInput({ value, onChange, onBlur, className, placeholder, dateFo
   hasError?: boolean;
 }) {
   const hiddenRef = useRef<HTMLInputElement>(null);
-  const displayVal = value ? formatDateByFormat(value, dateFormat) : "";
+  const [textVal, setTextVal] = useState(() => value ? formatDateByFormat(value, dateFormat) : "");
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) {
+      setTextVal(value ? formatDateByFormat(value, dateFormat) : "");
+    }
+  }, [value, dateFormat, editing]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTextVal(e.target.value);
+  };
+
+  const handleTextBlur = () => {
+    setEditing(false);
+    if (textVal.trim() === "") {
+      onChange("");
+      onBlur();
+      return;
+    }
+    const parsed = parseDateInput(textVal, dateFormat);
+    if (parsed) {
+      onChange(parsed);
+      setTextVal(formatDateByFormat(parsed, dateFormat));
+    } else {
+      setTextVal(value ? formatDateByFormat(value, dateFormat) : "");
+    }
+    onBlur();
+  };
+
   const placeholderText = placeholder || dateFormat.toUpperCase();
 
   return (
     <div className="relative">
-      <input
+      <Input
         type="text"
-        readOnly
-        value={displayVal}
+        value={textVal}
+        onChange={handleTextChange}
+        onFocus={() => setEditing(true)}
+        onBlur={handleTextBlur}
         placeholder={placeholderText}
-        className={className}
-        style={{ color: value ? "#1a1a1a" : undefined, cursor: "pointer" }}
-        onClick={() => hiddenRef.current?.showPicker?.() || hiddenRef.current?.click()}
+        className={`${className || ""} pr-10`}
+        style={{ color: "#1a1a1a" }}
         data-testid={dataTestId}
       />
-      <Calendar
-        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none"
-      />
+      <button
+        type="button"
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-100 transition-colors"
+        onClick={() => hiddenRef.current?.showPicker?.() || hiddenRef.current?.click()}
+        tabIndex={-1}
+      >
+        <Calendar className="h-4 w-4 text-gray-400" />
+      </button>
       <input
         ref={hiddenRef}
         type="date"
         value={value || ""}
-        onChange={e => onChange(e.target.value)}
-        onBlur={onBlur}
-        className="absolute inset-0 opacity-0 cursor-pointer"
+        onChange={e => { onChange(e.target.value); setEditing(false); }}
+        className="sr-only"
         tabIndex={-1}
+        aria-hidden="true"
       />
     </div>
   );
