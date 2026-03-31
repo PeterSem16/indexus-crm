@@ -21728,6 +21728,33 @@ Return ONLY valid JSON, no markdown code blocks.`,
           { dispositionCode: updatePayload.dispositionCode, status: updatePayload.status || existingContact.status }
         );
       }
+
+      const emailDispositions = ["email1_sent", "email2_sent", "pdf_email_sent"];
+      const completionDispositions = ["completed", "converted", "contract_signed", "not_interested", "dnd"];
+      const dispositionCode = updatePayload.dispositionCode || "";
+      if (emailDispositions.includes(dispositionCode) || completionDispositions.includes(dispositionCode) || 
+          updatePayload.status === "contacted" || updatePayload.status === "completed" || updatePayload.status === "callback_scheduled") {
+        try {
+          const phases = await storage.getCampaignPhases(req.params.campaignId);
+          const activePhase = phases.find(p => p.status === "active");
+          if (activePhase) {
+            const contactPhases = await storage.getContactPhaseHistory(req.params.campaignId, existingContact.contactId || existingContact.customerId || req.params.contactId);
+            const phaseEntry = contactPhases.find(cp => cp.phaseId === activePhase.id);
+            if (phaseEntry && phaseEntry.status !== "completed") {
+              const isComplete = completionDispositions.includes(dispositionCode) || updatePayload.status === "completed";
+              await storage.updateCampaignContactPhase(phaseEntry.id, {
+                status: isComplete ? "completed" : "in_progress",
+                result: dispositionCode || undefined,
+                emailResult: emailDispositions.includes(dispositionCode) ? { disposition: dispositionCode, sentAt: new Date().toISOString() } : undefined,
+                completedAt: isComplete ? new Date() : undefined,
+              });
+              console.log(`[Phase] Updated contact phase ${phaseEntry.id} to ${isComplete ? "completed" : "in_progress"} (disposition: ${dispositionCode})`);
+            }
+          }
+        } catch (phaseErr) {
+          console.error("[Phase] Failed to update contact phase:", phaseErr);
+        }
+      }
       
       res.json(contact);
     } catch (error) {

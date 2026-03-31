@@ -5236,9 +5236,32 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "contact-history"] });
       }
-      if (currentCampaignContactId) {
-        setDispositionChannelFilter("email");
-        setDispositionModalOpen(true);
+      if (currentCampaignContactId && selectedCampaignId) {
+        const currentStatus = currentCampaignContact?.dispositionCode || currentCampaignContact?.status || "pending";
+        let autoDisposition = "email1_sent";
+        if (currentStatus === "email1_sent") {
+          autoDisposition = "email2_sent";
+        } else if (currentStatus === "email2_sent") {
+          autoDisposition = "pdf_email_sent";
+        } else if (currentStatus === "pdf_email_sent") {
+          autoDisposition = "pdf_email_sent";
+        }
+        const hasDisposition = campaignDispositions.some(d => d.code === autoDisposition);
+        if (hasDisposition) {
+          disposeMutation.mutate({
+            contactId: currentCampaignContactId,
+            campaignId: selectedCampaignId,
+            disposition: autoDisposition,
+            notes: `Email odoslaný na ${variables.to.join(", ")} — ${variables.subject}`,
+          });
+          toast({
+            title: "Disposition nastavená",
+            description: `Automaticky nastavená: ${autoDisposition}, callback o 2 dni`,
+          });
+        } else {
+          setDispositionChannelFilter("email");
+          setDispositionModalOpen(true);
+        }
       }
     },
     onError: (error: Error) => {
