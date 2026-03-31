@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, GraduationCap, Users, ListFilter } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
@@ -1120,6 +1120,8 @@ export default function HospitalsPage() {
     total: number;
     active: number;
     inactive: number;
+    withPersonnel: number;
+    withoutPersonnel: number;
     byCountry: Record<string, number>;
   }>({
     queryKey: ["/api/hospitals/stats", hospitalStatsParams],
@@ -1771,25 +1773,78 @@ export default function HospitalsPage() {
         <TabsContent value="hospital" className="mt-6">
           <Card>
             <CardHeader className="pb-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-blue-950/30 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" data-testid="hospitals-summary-bar">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10">
-                    <ListFilter className="h-3.5 w-3.5 text-primary" />
+              {serverHospitalStats && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" data-testid="hospitals-summary-bar">
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                    !hasActiveHospitalFilters
+                      ? 'bg-gradient-to-br from-blue-50 to-blue-100/80 dark:from-blue-950/40 dark:to-blue-900/30 border-blue-300 dark:border-blue-700 ring-2 ring-blue-400/30'
+                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600'
+                  }`} onClick={() => { setHospitalStatusFilter("all"); handleHospitalFilterChange(); }} data-testid="stat-hospitals-total">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/15 dark:bg-blue-500/20">
+                      <Hospital className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-blue-700 dark:text-blue-300 leading-tight">{serverHospitalStats.total}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.common as any).total || "Total"}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      {hasActiveHospitalFilters
-                        ? `${filteredAndSortedHospitals.length} ${(t.common as any).found || "found"}`
-                        : `${serverHospitalStats?.total ?? serverHospitalsTotal} ${t.common.records}`
-                      }
-                    </span>
-                    {hasActiveHospitalFilters && (serverHospitalStats?.total ?? serverHospitalsTotal) > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        / {serverHospitalStats?.total ?? serverHospitalsTotal} {(t.common as any).total || "total"}
-                      </span>
-                    )}
+
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                    hospitalStatusFilter === 'active'
+                      ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/30 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30'
+                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
+                  }`} onClick={() => { setHospitalStatusFilter(hospitalStatusFilter === 'active' ? 'all' : 'active'); handleHospitalFilterChange(); }} data-testid="stat-hospitals-active">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
+                      <UserCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{serverHospitalStats.active}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any)?.active || "Active"}</span>
+                    </div>
+                  </div>
+
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                    hospitalStatusFilter === 'inactive'
+                      ? 'bg-gradient-to-br from-rose-50 to-rose-100/80 dark:from-rose-950/40 dark:to-rose-900/30 border-rose-300 dark:border-rose-700 ring-2 ring-rose-400/30'
+                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-600'
+                  }`} onClick={() => { setHospitalStatusFilter(hospitalStatusFilter === 'inactive' ? 'all' : 'inactive'); handleHospitalFilterChange(); }} data-testid="stat-hospitals-inactive">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-rose-500/15 dark:bg-rose-500/20">
+                      <UserX className="h-4.5 w-4.5 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-rose-700 dark:text-rose-300 leading-tight">{serverHospitalStats.inactive}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any)?.inactive || "Inactive"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-hospitals-with-personnel">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-500/15 dark:bg-violet-500/20">
+                      <Users className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-violet-700 dark:text-violet-300 leading-tight">{serverHospitalStats.withPersonnel}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.hospitals as any)?.withPersonnel || "With Personnel"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-hospitals-without-personnel">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-500/15 dark:bg-amber-500/20">
+                      <ShieldOff className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-amber-700 dark:text-amber-300 leading-tight">{serverHospitalStats.withoutPersonnel}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.hospitals as any)?.withoutPersonnel || "No Personnel"}</span>
+                    </div>
                   </div>
                 </div>
+              )}
+              {hasActiveHospitalFilters && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
+                  <ListFilter className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-sm font-medium text-primary">{serverHospitalsTotal} {(t.common as any).found || "found"}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -1991,25 +2046,92 @@ export default function HospitalsPage() {
         <TabsContent value="clinics" className="mt-6">
           <Card>
             <CardHeader className="pb-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-slate-50 to-teal-50/50 dark:from-slate-900 dark:to-teal-950/30 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" data-testid="clinics-summary-bar">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10">
-                    <ListFilter className="h-3.5 w-3.5 text-primary" />
+              {serverClinicStats && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="clinics-summary-bar">
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                    !hasActiveClinicFilters
+                      ? 'bg-gradient-to-br from-teal-50 to-teal-100/80 dark:from-teal-950/40 dark:to-teal-900/30 border-teal-300 dark:border-teal-700 ring-2 ring-teal-400/30'
+                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-600'
+                  }`} onClick={() => { setClinicPipelineFilter("all"); handleClinicFilterChange(); }} data-testid="stat-clinics-total">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-teal-500/15 dark:bg-teal-500/20">
+                      <Stethoscope className="h-4.5 w-4.5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-teal-700 dark:text-teal-300 leading-tight">{serverClinicStats.total}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.common as any).total || "Total"}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      {hasActiveClinicFilters
-                        ? `${filteredAndSortedClinics.length} ${(t.common as any).found || "found"}`
-                        : `${serverClinicsTotal} ${t.common.records}`
-                      }
-                    </span>
-                    {hasActiveClinicFilters && serverClinicsTotal > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        / {serverClinicsTotal} {(t.common as any).total || "total"}
-                      </span>
-                    )}
+
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                    clinicPipelineFilter === 'contract:active'
+                      ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/30 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30'
+                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
+                  }`} onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === 'contract:active' ? 'all' : 'contract:active'); handleClinicFilterChange(); }} data-testid="stat-clinics-contracted">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
+                      <ShieldCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{serverClinicStats.pipeline?.['contract:active'] || 0}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).pipeline?.activeContract || "Active Contract"}</span>
+                    </div>
+                  </div>
+
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                    clinicPipelineFilter === 'coop:interested'
+                      ? 'bg-gradient-to-br from-blue-50 to-blue-100/80 dark:from-blue-950/40 dark:to-blue-900/30 border-blue-300 dark:border-blue-700 ring-2 ring-blue-400/30'
+                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600'
+                  }`} onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === 'coop:interested' ? 'all' : 'coop:interested'); handleClinicFilterChange(); }} data-testid="stat-clinics-interested">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/15 dark:bg-blue-500/20">
+                      <Activity className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-blue-700 dark:text-blue-300 leading-tight">{serverClinicStats.pipeline?.['coop:interested'] || 0}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).pipeline?.interested || "Interested"}</span>
+                    </div>
+                  </div>
+
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                    clinicPipelineFilter === 'initial:not_contacted'
+                      ? 'bg-gradient-to-br from-slate-100 to-slate-200/80 dark:from-slate-800/60 dark:to-slate-700/40 border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/30'
+                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
+                  }`} onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === 'initial:not_contacted' ? 'all' : 'initial:not_contacted'); handleClinicFilterChange(); }} data-testid="stat-clinics-not-contacted">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-500/15 dark:bg-slate-500/20">
+                      <ShieldOff className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-slate-600 dark:text-slate-300 leading-tight">{serverClinicStats.pipeline?.['initial:not_contacted'] || 0}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).pipeline?.notContacted || "Not Contacted"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-clinics-referrals">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-500/15 dark:bg-purple-500/20">
+                      <UserCheck className="h-4.5 w-4.5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-purple-700 dark:text-purple-300 leading-tight">{serverClinicStats.referralCount}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">Referrals</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-clinics-conferences">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-500/15 dark:bg-amber-500/20">
+                      <GraduationCap className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-amber-700 dark:text-amber-300 leading-tight">{serverClinicStats.conferenceCount}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">Conferences</span>
+                    </div>
                   </div>
                 </div>
+              )}
+              {hasActiveClinicFilters && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
+                  <ListFilter className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-sm font-medium text-primary">{serverClinicsTotal} {(t.common as any).found || "found"}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"

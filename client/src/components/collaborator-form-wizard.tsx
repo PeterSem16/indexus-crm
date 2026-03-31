@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { COUNTRIES, VISIT_SUBJECTS, VISIT_PLACE_OPTIONS, REWARD_TYPES as SERVICE_TYPES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance, Role, CollaboratorActivity } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3, Sparkles, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,6 +52,92 @@ const MARITAL_STATUSES = [
   { value: "widowed", labelKey: "widowed" },
 ] as const;
 
+const PARTNER_CATEGORIES = [
+  { value: "key_opinion_leader", label: "Key Opinion Leader (KOL)", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
+  { value: "strategic_partner", label: "Strategic Partner", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+  { value: "referral_source", label: "Referral Source", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" },
+  { value: "training_partner", label: "Training Partner", color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
+  { value: "hospital_director", label: "Hospital Director", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200" },
+  { value: "department_head", label: "Department Head", color: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200" },
+  { value: "head_nurse", label: "Head Nurse", color: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200" },
+  { value: "delivery_midwife", label: "Delivery Midwife", color: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200" },
+  { value: "ambulant_gynecologist", label: "Ambulatory Gynecologist", color: "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200" },
+  { value: "inactive_prospect", label: "Inactive Prospect", color: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200" },
+] as const;
+
+function PartnerCategoryField({ value, onChange, collaboratorId, t }: {
+  value: string;
+  onChange: (val: string) => void;
+  collaboratorId?: string;
+  t: any;
+}) {
+  const [suggesting, setSuggesting] = useState(false);
+  const [aiResult, setAiResult] = useState<{ category: string; confidence: number; reasoning: string } | null>(null);
+
+  const suggestCategory = async () => {
+    if (!collaboratorId) return;
+    setSuggesting(true);
+    setAiResult(null);
+    try {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/suggest-category`, { method: "POST", credentials: "include" });
+      const data = await res.json();
+      setAiResult(data);
+      if (data.category && data.category !== "uncategorized") {
+        onChange(data.category);
+      }
+    } catch { }
+    setSuggesting(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Label>Partner Category</Label>
+        {collaboratorId && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs gap-1 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950"
+            onClick={suggestCategory}
+            disabled={suggesting}
+            data-testid="button-ai-suggest-category"
+          >
+            {suggesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            AI Suggest
+          </Button>
+        )}
+      </div>
+      <Select
+        value={value || "_none"}
+        onValueChange={(val) => onChange(val === "_none" ? "" : val)}
+      >
+        <SelectTrigger data-testid="wizard-select-partner-category">
+          <SelectValue placeholder="Partner Category" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="_none">{t.common.noData}</SelectItem>
+          {PARTNER_CATEGORIES.map((pc) => (
+            <SelectItem key={pc.value} value={pc.value}>{pc.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {aiResult && (
+        <div className="flex items-start gap-2 p-2 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 text-xs">
+          <Sparkles className="h-3.5 w-3.5 text-violet-500 mt-0.5 shrink-0" />
+          <div>
+            <span className="font-medium text-violet-700 dark:text-violet-300">
+              {PARTNER_CATEGORIES.find(c => c.value === aiResult.category)?.label || aiResult.category}
+            </span>
+            <span className="text-muted-foreground ml-1">({Math.round(aiResult.confidence * 100)}%)</span>
+            <p className="text-muted-foreground mt-0.5">{aiResult.reasoning}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface CollaboratorFormData {
   legacyId: string;
   countryCode: string;
@@ -69,6 +155,7 @@ interface CollaboratorFormData {
   healthInsuranceId: string;
   maritalStatus: string;
   collaboratorType: string;
+  partnerCategory: string;
   phone: string;
   mobile: string;
   mobile2: string;
@@ -2549,6 +2636,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           healthInsuranceId: initialData.healthInsuranceId || "",
           maritalStatus: initialData.maritalStatus || "",
           collaboratorType: initialData.collaboratorType || "",
+          partnerCategory: initialData.partnerCategory || "",
           phone: initialData.phone || "",
           mobile: initialData.mobile || "",
           mobile2: initialData.mobile2 || "",
@@ -2593,6 +2681,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           healthInsuranceId: "",
           maritalStatus: "",
           collaboratorType: "",
+          partnerCategory: "",
           phone: "",
           mobile: "",
           mobile2: "",
@@ -3011,6 +3100,12 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   </SelectContent>
                 </Select>
               </div>
+              <PartnerCategoryField
+                value={formData.partnerCategory}
+                onChange={(val) => setFormData({ ...formData, partnerCategory: val })}
+                collaboratorId={initialData?.id}
+                t={t}
+              />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-4">

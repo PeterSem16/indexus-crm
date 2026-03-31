@@ -14053,6 +14053,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (countries.length > 0) conditions.push(inArray(hospitals.countryCode, countries));
       const where = conditions.length > 0 ? and(...conditions) : undefined;
       const allHospitals = await db.select({
+        id: hospitals.id,
         isActive: hospitals.isActive,
         countryCode: hospitals.countryCode,
       }).from(hospitals).where(where);
@@ -14062,7 +14063,22 @@ Return ONLY valid JSON, no markdown code blocks.`,
         if (h.isActive) active++; else inactive++;
         byCountry[h.countryCode] = (byCountry[h.countryCode] || 0) + 1;
       }
-      res.json({ total: allHospitals.length, active, inactive, byCountry });
+      const hospitalIds = allHospitals.map(h => h.id);
+      let withPersonnel = 0;
+      if (hospitalIds.length > 0) {
+        const assignedHospitals = await db.selectDistinct({ entityId: contactAssignments.entityId })
+          .from(contactAssignments)
+          .where(and(eq(contactAssignments.entityType, 'hospital'), eq(contactAssignments.isActive, true)));
+        const assignedSet = new Set(assignedHospitals.map(a => a.entityId));
+        const legacyLinked = await db.selectDistinct({ hospitalId: collaborators.hospitalId })
+          .from(collaborators)
+          .where(sql`${collaborators.hospitalId} IS NOT NULL`);
+        for (const l of legacyLinked) {
+          if (l.hospitalId) assignedSet.add(l.hospitalId);
+        }
+        withPersonnel = hospitalIds.filter(id => assignedSet.has(id)).length;
+      }
+      res.json({ total: allHospitals.length, active, inactive, withPersonnel, withoutPersonnel: allHospitals.length - withPersonnel, byCountry });
     } catch (error) {
       console.error("Error fetching hospital stats:", error);
       res.status(500).json({ error: "Failed to fetch hospital stats" });
@@ -14300,6 +14316,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         id: collaborators.id,
         isActive: collaborators.isActive,
         collaboratorType: collaborators.collaboratorType,
+        partnerCategory: collaborators.partnerCategory,
       }).from(collaborators);
 
       const today = new Date();
@@ -14330,6 +14347,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
         else noAgreementCount++;
       }
 
+      const categoryCounts: Record<string, number> = {};
+      for (const c of allCollabs) {
+        const cat = (c as any).partnerCategory || "uncategorized";
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+      }
+
       res.json({
         total: allCollabs.length,
         active: activeCount,
@@ -14338,7 +14361,90 @@ Return ONLY valid JSON, no markdown code blocks.`,
         expiredAgreement: expiredAgreementCount,
         noAgreement: noAgreementCount,
         types: typeCounts,
+        categories: categoryCounts,
       });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/collaborators/:id/suggest-category", requireAuth, async (req, res) => {
+    try {
+      const collab = await storage.getCollaborator(req.params.id);
+      if (!collab) return res.status(404).json({ error: "Not found" });
+
+      const assignments = await db.select({
+        entityType: contactAssignments.entityType,
+        categoryId: contactAssignments.categoryId,
+        role: contactAssignments.role,
+        position: contactAssignments.position,
+        department: contactAssignments.department,
+      }).from(contactAssignments).where(and(eq(contactAssignments.personId, collab.id), eq(contactAssignments.isActive, true)));
+
+      const categories = await db.select().from(partnerCategories).where(eq(partnerCategories.isActive, true));
+      const catMap = Object.fromEntries(categories.map(c => [c.id, c]));
+
+      const agreements = await storage.getCollaboratorAgreements(collab.id);
+      const hasHospitalLinks = !!(collab.hospitalId || (collab.hospitalIds && collab.hospitalIds.length > 0));
+
+      const prompt = `You are a CRM categorization expert for a cord blood banking company. Based on the following collaborator profile, suggest the BEST partner category from the predefined list.
+
+Collaborator Profile:
+- Name: ${collab.titleBefore || ''} ${collab.firstName} ${collab.lastName} ${collab.titleAfter || ''}
+- Type: ${collab.collaboratorType || 'not set'}
+- Active: ${collab.isActive}
+- Country: ${collab.countryCode}
+- Has hospital links: ${hasHospitalLinks}
+- Number of agreements: ${agreements.length}
+- Has valid agreement: ${agreements.some(a => a.isValid)}
+- Contact assignments: ${assignments.map(a => `${a.entityType} - role: ${a.role || 'n/a'}, position: ${a.position || 'n/a'}, category: ${a.categoryId ? (catMap[a.categoryId]?.nameEn || a.categoryId) : 'n/a'}`).join('; ') || 'none'}
+
+Available Partner Categories:
+${categories.map(c => `- "${c.code}": ${c.nameEn || c.name} (scope: ${c.entityScope})`).join('\n')}
+
+Additional custom categories you can suggest:
+- "key_opinion_leader": Key Opinion Leader (KOL) - influential medical professional
+- "strategic_partner": Strategic Partner - long-term high-value partnership
+- "referral_source": Referral Source - regularly refers patients
+- "training_partner": Training Partner - involved in education/training
+- "inactive_prospect": Inactive Prospect - no current activity
+
+Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0-1.0, "reasoning": "brief explanation in English"}`;
+
+      if (!process.env.OPENAI_API_KEY) {
+        let suggested = "uncategorized";
+        if (collab.collaboratorType === "doctor") suggested = assignments.length > 0 ? "key_opinion_leader" : "referral_source";
+        else if (collab.collaboratorType === "nurse") suggested = "head_nurse";
+        else if (collab.collaboratorType === "representative") suggested = "strategic_partner";
+        return res.json({ category: suggested, confidence: 0.5, reasoning: "Fallback suggestion based on collaborator type" });
+      }
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        max_tokens: 200,
+      });
+
+      const text = response.choices[0]?.message?.content || "";
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0]);
+        res.json(result);
+      } else {
+        res.json({ category: "uncategorized", confidence: 0.3, reasoning: "Could not parse AI response" });
+      }
+    } catch (err: any) {
+      console.error("[AI Category] Error:", err.message);
+      res.json({ category: "uncategorized", confidence: 0.3, reasoning: "AI suggestion unavailable" });
+    }
+  });
+
+  app.patch("/api/collaborators/:id/category", requireAuth, async (req, res) => {
+    try {
+      const { category } = req.body;
+      await db.update(collaborators).set({ partnerCategory: category }).where(eq(collaborators.id, req.params.id));
+      res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

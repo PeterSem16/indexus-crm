@@ -1908,6 +1908,7 @@ export const collaborators = pgTable("collaborators", {
   healthInsuranceId: varchar("health_insurance_id"),
   maritalStatus: text("marital_status"),
   collaboratorType: text("collaborator_type"),
+  partnerCategory: text("partner_category"),
   
   // Contact info
   phone: text("phone"),

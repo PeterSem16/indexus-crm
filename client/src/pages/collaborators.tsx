@@ -1938,6 +1938,7 @@ export default function CollaboratorsPage() {
     total: number; active: number; inactive: number;
     validAgreement: number; expiredAgreement: number; noAgreement: number;
     types: Record<string, number>;
+    categories: Record<string, number>;
   }>({
     queryKey: ["/api/collaborators/stats"],
     refetchInterval: 120000,
@@ -2180,6 +2181,43 @@ export default function CollaboratorsPage() {
       key: "type",
       header: <SortableHeader field="type" label={t.collaborators.fields.collaboratorType} />,
       cell: (c: Collaborator) => getCollaboratorTypeName(c.collaboratorType),
+    },
+    {
+      key: "partnerCategory",
+      header: "Partner Category",
+      cell: (c: Collaborator) => {
+        const cat = (c as any).partnerCategory;
+        if (!cat) return <span className="text-muted-foreground text-xs">-</span>;
+        const CATEGORY_COLORS: Record<string, string> = {
+          key_opinion_leader: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700",
+          strategic_partner: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700",
+          referral_source: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700",
+          training_partner: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700",
+          hospital_director: "bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-200 dark:border-indigo-700",
+          department_head: "bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-900 dark:text-cyan-200 dark:border-cyan-700",
+          head_nurse: "bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900 dark:text-pink-200 dark:border-pink-700",
+          delivery_midwife: "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900 dark:text-rose-200 dark:border-rose-700",
+          ambulant_gynecologist: "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900 dark:text-violet-200 dark:border-violet-700",
+          inactive_prospect: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
+        };
+        const CATEGORY_LABELS: Record<string, string> = {
+          key_opinion_leader: "KOL",
+          strategic_partner: "Strategic",
+          referral_source: "Referral",
+          training_partner: "Training",
+          hospital_director: "Director",
+          department_head: "Dept. Head",
+          head_nurse: "Head Nurse",
+          delivery_midwife: "Midwife",
+          ambulant_gynecologist: "Gynecologist",
+          inactive_prospect: "Inactive",
+        };
+        return (
+          <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 font-medium border ${CATEGORY_COLORS[cat] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
+            {CATEGORY_LABELS[cat] || cat}
+          </Badge>
+        );
+      },
     },
     {
       key: "mobileApp",
