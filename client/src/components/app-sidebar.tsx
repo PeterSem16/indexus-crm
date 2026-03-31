@@ -26,7 +26,8 @@ import {
   ArrowDown,
   Headphones,
   Zap,
-  Target
+  Target,
+  HeartPulse
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -80,6 +81,7 @@ export function AppSidebar() {
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: t.nav.hospitalsAndClinics, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
+    { title: t.nav.medicalPartnerNetwork, url: "/medical-partner-network", icon: HeartPulse, testId: "mpn", moduleKey: "hospitals" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
     { title: "Reports", url: "/reports", icon: BarChart3, testId: "reports", moduleKey: "reports" },
   ];

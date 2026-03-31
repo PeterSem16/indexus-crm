@@ -52,6 +52,7 @@ import CampaignReportsPage from "@/pages/campaign-reports";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
 import SopManagementPage from "@/pages/sop-management";
+import MedicalPartnerNetworkPage from "@/pages/medical-partner-network";
 import ReportsPage from "@/pages/reports";
 import PublicFormPage from "@/pages/public-form";
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
@@ -220,6 +221,7 @@ function AuthenticatedApp() {
                     <Route path="/notifications" component={NotificationCenterPage} />
                     <Route path="/mobile-preview" component={MobilePreview} />
                     <Route path="/sop" component={SopManagementPage} />
+                    <Route path="/medical-partner-network" component={MedicalPartnerNetworkPage} />
                     <Route path="/agent-workspace">
                       <ErrorBoundary>
                         <AgentSessionProvider>
