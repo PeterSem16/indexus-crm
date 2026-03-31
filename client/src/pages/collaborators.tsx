@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { Button } from "@/components/ui/button";
@@ -1934,6 +1934,16 @@ export default function CollaboratorsPage() {
   const collaborators = collaboratorsPaginatedResult?.data || [];
   const serverCollaboratorsTotal = collaboratorsPaginatedResult?.total || 0;
 
+  const { data: collabStats } = useQuery<{
+    total: number; active: number; inactive: number;
+    validAgreement: number; expiredAgreement: number; noAgreement: number;
+    types: Record<string, number>;
+  }>({
+    queryKey: ["/api/collaborators/stats"],
+    refetchInterval: 120000,
+    staleTime: 60000,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/collaborators/${id}`),
     onSuccess: () => {
@@ -2415,16 +2425,99 @@ export default function CollaboratorsPage() {
               </div>
             )}
           </div>
-          {!isLoading && (
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-slate-50 to-indigo-50/50 dark:from-slate-900 dark:to-indigo-950/30 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" data-testid="collaborators-summary-bar">
-              <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10">
-                <ListFilter className="h-4 w-4 text-primary" />
+          {!isLoading && collabStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3" data-testid="collaborators-summary-bar">
+              <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                !hasActiveFilters
+                  ? 'bg-gradient-to-br from-indigo-50 to-indigo-100/80 dark:from-indigo-950/40 dark:to-indigo-900/30 border-indigo-300 dark:border-indigo-700 ring-2 ring-indigo-400/30'
+                  : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600'
+              }`} onClick={() => { setFilterStatus(""); setFilterAgreement(""); handleFilterChange(); }} data-testid="stat-total">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-500/15 dark:bg-indigo-500/20">
+                  <Users className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-bold text-indigo-700 dark:text-indigo-300 leading-tight">{collabStats.total}</span>
+                  <span className="text-[11px] text-muted-foreground leading-tight">{(t.common as any).total || "Total"}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">
-                  {`${serverCollaboratorsTotal} ${hasActiveFilters ? ((t.common as any).found || "found") : t.common.records}`}
-                </span>
+
+              <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                filterStatus === 'active'
+                  ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/30 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30'
+                  : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
+              }`} onClick={() => { setFilterStatus(filterStatus === 'active' ? '' : 'active'); setFilterAgreement(""); handleFilterChange(); }} data-testid="stat-active">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
+                  <UserCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{collabStats.active}</span>
+                  <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).active || "Active"}</span>
+                </div>
               </div>
+
+              <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                filterStatus === 'inactive'
+                  ? 'bg-gradient-to-br from-rose-50 to-rose-100/80 dark:from-rose-950/40 dark:to-rose-900/30 border-rose-300 dark:border-rose-700 ring-2 ring-rose-400/30'
+                  : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-600'
+              }`} onClick={() => { setFilterStatus(filterStatus === 'inactive' ? '' : 'inactive'); setFilterAgreement(""); handleFilterChange(); }} data-testid="stat-inactive">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-rose-500/15 dark:bg-rose-500/20">
+                  <UserX className="h-4.5 w-4.5 text-rose-600 dark:text-rose-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-bold text-rose-700 dark:text-rose-300 leading-tight">{collabStats.inactive}</span>
+                  <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).inactive || "Inactive"}</span>
+                </div>
+              </div>
+
+              <div className="hidden lg:block w-px bg-slate-200 dark:bg-slate-700 self-stretch" />
+
+              <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                filterAgreement === 'valid'
+                  ? 'bg-gradient-to-br from-green-50 to-green-100/80 dark:from-green-950/40 dark:to-green-900/30 border-green-300 dark:border-green-700 ring-2 ring-green-400/30'
+                  : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-600'
+              }`} onClick={() => { setFilterAgreement(filterAgreement === 'valid' ? '' : 'valid'); setFilterStatus(""); handleFilterChange(); }} data-testid="stat-valid-agreement">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-green-500/15 dark:bg-green-500/20">
+                  <ShieldCheck className="h-4.5 w-4.5 text-green-600 dark:text-green-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-bold text-green-700 dark:text-green-300 leading-tight">{collabStats.validAgreement}</span>
+                  <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).validAgreement || "Valid"}</span>
+                </div>
+              </div>
+
+              <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                filterAgreement === 'expired'
+                  ? 'bg-gradient-to-br from-amber-50 to-amber-100/80 dark:from-amber-950/40 dark:to-amber-900/30 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/30'
+                  : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600'
+              }`} onClick={() => { setFilterAgreement(filterAgreement === 'expired' ? '' : 'expired'); setFilterStatus(""); handleFilterChange(); }} data-testid="stat-expired-agreement">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-500/15 dark:bg-amber-500/20">
+                  <ShieldAlert className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-bold text-amber-700 dark:text-amber-300 leading-tight">{collabStats.expiredAgreement}</span>
+                  <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).expired || "Expired"}</span>
+                </div>
+              </div>
+
+              <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
+                filterAgreement === 'none'
+                  ? 'bg-gradient-to-br from-slate-100 to-slate-200/80 dark:from-slate-800/60 dark:to-slate-700/40 border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/30'
+                  : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
+              }`} onClick={() => { setFilterAgreement(filterAgreement === 'none' ? '' : 'none'); setFilterStatus(""); handleFilterChange(); }} data-testid="stat-no-agreement">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-500/15 dark:bg-slate-500/20">
+                  <ShieldOff className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-bold text-slate-600 dark:text-slate-300 leading-tight">{collabStats.noAgreement}</span>
+                  <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).noAgreement || "No agreement"}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {hasActiveFilters && !isLoading && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
+              <ListFilter className="h-3.5 w-3.5 text-primary" />
+              <span className="text-sm font-medium text-primary">{serverCollaboratorsTotal} {(t.common as any).found || "found"}</span>
             </div>
           )}
         </CardHeader>

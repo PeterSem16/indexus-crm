@@ -14294,6 +14294,56 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
   // Collaborators routes
+  app.get("/api/collaborators/stats", requireAuth, async (req, res) => {
+    try {
+      const allCollabs = await db.select({
+        id: collaborators.id,
+        isActive: collaborators.isActive,
+        collaboratorType: collaborators.collaboratorType,
+      }).from(collaborators);
+
+      const today = new Date();
+      let activeCount = 0;
+      let inactiveCount = 0;
+      let validAgreementCount = 0;
+      let expiredAgreementCount = 0;
+      let noAgreementCount = 0;
+      const typeCounts: Record<string, number> = {};
+
+      for (const c of allCollabs) {
+        if (c.isActive) activeCount++; else inactiveCount++;
+        if (c.collaboratorType) {
+          typeCounts[c.collaboratorType] = (typeCounts[c.collaboratorType] || 0) + 1;
+        }
+        const agreements = await storage.getCollaboratorAgreements(c.id);
+        if (agreements.length === 0) { noAgreementCount++; continue; }
+        let hasValid = false;
+        let hasExpired = false;
+        for (const ag of agreements) {
+          if (ag.validToYear && ag.validToMonth && ag.validToDay) {
+            const validTo = new Date(ag.validToYear, ag.validToMonth - 1, ag.validToDay);
+            if (validTo < today) hasExpired = true; else if (ag.isValid) hasValid = true;
+          } else if (ag.isValid) hasValid = true;
+        }
+        if (hasValid) validAgreementCount++;
+        else if (hasExpired) expiredAgreementCount++;
+        else noAgreementCount++;
+      }
+
+      res.json({
+        total: allCollabs.length,
+        active: activeCount,
+        inactive: inactiveCount,
+        validAgreement: validAgreementCount,
+        expiredAgreement: expiredAgreementCount,
+        noAgreement: noAgreementCount,
+        types: typeCounts,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/collaborators", requireAuth, async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 0;
