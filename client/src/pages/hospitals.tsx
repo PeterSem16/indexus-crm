@@ -89,24 +89,20 @@ const defaultFormData: HospitalFormData = {
 
 function PersonnelTabContent({ entityType, entityId, entityName }: { entityType: string; entityId: string; entityName: string }) {
   const { t } = useI18n();
-  const { data: assignments = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/mpn/assignments", { entityType, entityId }],
+  const { data: personnelData, isLoading } = useQuery<any>({
+    queryKey: ["/api/institutions", entityType, entityId, "personnel"],
+    queryFn: () => fetch(`/api/institutions/${entityType}/${entityId}/personnel`, { credentials: "include" }).then(r => r.json()),
   });
-  const { data: collaborators = [] } = useQuery<any[]>({
-    queryKey: ["/api/collaborators"],
-  });
-
-  const collabMap = useMemo(() => {
-    const m: Record<string, any> = {};
-    (Array.isArray(collaborators) ? collaborators : []).forEach((c: any) => { m[c.id] = c; });
-    return m;
-  }, [collaborators]);
 
   if (isLoading) {
     return <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}</div>;
   }
 
-  if (assignments.length === 0) {
+  const assigned: any[] = personnelData?.assigned || [];
+  const legacy: any[] = personnelData?.legacy || [];
+  const allPersonnel = [...assigned, ...legacy];
+
+  if (allPersonnel.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
@@ -120,40 +116,41 @@ function PersonnelTabContent({ entityType, entityId, entityName }: { entityType:
       <div className="flex items-center gap-2 mb-4">
         <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
           <Users className="h-3 w-3 mr-1" />
-          {assignments.length}
+          {allPersonnel.length}
         </Badge>
         <span className="text-sm text-muted-foreground">{(t as any).medicalPartnerNetwork?.personnelAssigned || "personnel assigned"}</span>
       </div>
-      {assignments.map((row: any) => {
-        const a = row.assignment || row;
-        const collab = collabMap[a.personId];
+      {allPersonnel.map((row: any) => {
+        const fullName = `${row.title_before || ""} ${row.first_name || ""} ${row.last_name || ""} ${row.title_after || ""}`.trim();
         return (
-          <div key={a.id} className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow" data-testid={`personnel-row-${a.id}`}>
+          <div key={row.assignment_id || row.person_id} className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow" data-testid={`personnel-row-${row.assignment_id || row.person_id}`}>
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center">
               <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
             </div>
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-sm">
-                  {collab ? `${collab.titleBefore || ""} ${collab.firstName || ""} ${collab.lastName || ""}`.trim() : a.personId}
-                </span>
-                {row.categoryName && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.categoryName}</Badge>
+                <span className="font-medium text-sm">{fullName || row.person_id}</span>
+                {row.category_name && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.category_name}</Badge>
                 )}
-                {a.isPrimary && (
+                {row.is_primary && (
                   <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 border-amber-300">{(t.common as any).primary || "Primary"}</Badge>
+                )}
+                {row.source === "legacy_link" && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700">Link</Badge>
                 )}
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                {a.department && <span>{(t as any).medicalPartnerNetwork?.department || "Dept"}: {a.department}</span>}
-                {a.position && <span>{(t as any).medicalPartnerNetwork?.position || "Position"}: {a.position}</span>}
-                {a.role && <span>{(t as any).medicalPartnerNetwork?.role || "Role"}: {a.role}</span>}
-                {collab?.email && <span>{collab.email}</span>}
-                {collab?.phone && <span>{collab.phone}</span>}
+                {row.department && <span>{(t as any).medicalPartnerNetwork?.department || "Dept"}: {row.department}</span>}
+                {row.position && <span>{(t as any).medicalPartnerNetwork?.position || "Position"}: {row.position}</span>}
+                {row.role && <span>{(t as any).medicalPartnerNetwork?.role || "Role"}: {row.role}</span>}
+                {row.email && <span>{row.email}</span>}
+                {row.phone && <span>{row.phone}</span>}
+                {row.mobile && <span>{row.mobile}</span>}
               </div>
             </div>
-            <Badge variant={a.isActive !== false ? "default" : "secondary"} className="text-[10px] shrink-0">
-              {a.isActive !== false ? t.common.active : t.common.inactive}
+            <Badge variant={row.is_active !== false ? "default" : "secondary"} className="text-[10px] shrink-0">
+              {row.is_active !== false ? t.common.active : t.common.inactive}
             </Badge>
           </div>
         );

@@ -40174,19 +40174,42 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
 
   app.get("/api/mpn/entity-personnel-counts", requireAuth, async (req, res) => {
     try {
+      const result: Record<string, number> = {};
+      const assignmentPairs = new Set<string>();
+
       const rows = await db.select({
+        personId: contactAssignments.personId,
         entityType: contactAssignments.entityType,
         entityId: contactAssignments.entityId,
-        count: count(),
       }).from(contactAssignments)
-        .where(eq(contactAssignments.isActive, true))
-        .groupBy(contactAssignments.entityType, contactAssignments.entityId);
-      const result: Record<string, number> = {};
+        .where(eq(contactAssignments.isActive, true));
       for (const r of rows) {
-        result[`${r.entityType}:${r.entityId}`] = Number(r.count);
+        const key = `${r.entityType}:${r.entityId}`;
+        result[key] = (result[key] || 0) + 1;
+        assignmentPairs.add(`${r.personId}:${r.entityType}:${r.entityId}`);
       }
+
+      const allCollabs = await db.select({
+        id: collaborators.id,
+        hospitalId: collaborators.hospitalId,
+        hospitalIds: collaborators.hospitalIds,
+      }).from(collaborators);
+      for (const c of allCollabs) {
+        const linkedIds: string[] = [];
+        if (c.hospitalId) linkedIds.push(c.hospitalId);
+        if (c.hospitalIds && Array.isArray(c.hospitalIds)) linkedIds.push(...c.hospitalIds);
+        for (const hId of linkedIds) {
+          if (!assignmentPairs.has(`${c.id}:hospital:${hId}`)) {
+            const key = `hospital:${hId}`;
+            result[key] = (result[key] || 0) + 1;
+          }
+        }
+      }
+
       res.json(result);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // --- Contact Assignments ---
