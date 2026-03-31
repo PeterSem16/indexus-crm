@@ -11822,6 +11822,9 @@ function MessageTemplatesTab() {
       setTemplateSubject(template.subject || "");
       setTemplateContent(template.content || "");
       setTemplateContentHtml(template.contentHtml || "");
+      const rawHtml = template.contentHtml || "";
+      const hasComplexHtml = /<table[\s>]|style\s*=\s*["'][^"']*(?:background|padding|margin|border|font-family|linear-gradient)/i.test(rawHtml);
+      setHtmlSourceMode(hasComplexHtml);
       setTemplateCategoryId(template.categoryId || "");
       setTemplateLanguage(template.language);
       setTemplateTags((template.tags || []).join(", "));
@@ -12414,6 +12417,21 @@ function MessageTemplatesTab() {
                       <Code className="h-3 w-3" />
                       <span>Zadajte kompletný HTML kód emailu vrátane inline štýlov. Premenné: {"{{clinic.doctorLastName}}"}, {"{{user.fullName}}"}, atď.</span>
                     </div>
+                    {templateContentHtml && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Náhľad emailu</Label>
+                        <div className="border rounded-md overflow-hidden bg-gray-100">
+                          <iframe
+                            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;padding:0;}</style></head><body>${templateContentHtml.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')}</body></html>`}
+                            className="w-full border-0"
+                            style={{ minHeight: "400px", width: "100%" }}
+                            sandbox="allow-same-origin"
+                            title="Email náhľad"
+                            data-testid="iframe-template-preview"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="border rounded-md" data-testid="input-template-content-html">
