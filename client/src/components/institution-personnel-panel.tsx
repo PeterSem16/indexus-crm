@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useToast } from "@/hooks/use-toast";
@@ -73,17 +73,20 @@ export function InstitutionPersonnelPanel({
     enabled: open && showAssignForm,
   });
 
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(collabSearch), 300);
+    return () => clearTimeout(timer);
+  }, [collabSearch]);
+
   const collabLookupQuery = useQuery<any[]>({
-    queryKey: ["/api/collaborators/lookup"],
-    enabled: open && showAssignForm,
+    queryKey: ["/api/collaborators/lookup", debouncedSearch],
+    queryFn: () => fetch(`/api/collaborators/lookup?q=${encodeURIComponent(debouncedSearch)}`, { credentials: "include" }).then(r => r.json()),
+    enabled: open && showAssignForm && debouncedSearch.length >= 2,
   });
 
-  const filteredCollabs = (collabLookupQuery.data || []).filter((c: any) => {
-    if (collabSearch.length < 2) return false;
-    const search = collabSearch.toLowerCase();
-    const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
-    return fullName.includes(search) || c.lastName?.toLowerCase().includes(search) || c.firstName?.toLowerCase().includes(search);
-  }).slice(0, 20);
+  const filteredCollabs = collabLookupQuery.data || [];
 
   const assignMutation = useMutation({
     mutationFn: (data: any) =>
@@ -185,27 +188,41 @@ export function InstitutionPersonnelPanel({
                       data-testid="input-search-collaborator"
                     />
                   </div>
-                  {collabSearch.length >= 2 && !selectedCollabId && (
-                    <div className="mt-1 border rounded max-h-40 overflow-y-auto bg-background">
-                      {filteredCollabs.length === 0 ? (
-                        <div className="p-2 text-xs text-muted-foreground">{t.common?.noResults || "No results"}</div>
+                  {debouncedSearch.length >= 2 && !selectedCollabId && (
+                    <div className="mt-1 border rounded max-h-48 overflow-y-auto bg-background shadow-md">
+                      {collabLookupQuery.isLoading ? (
+                        <div className="p-3 text-xs text-muted-foreground flex items-center gap-2">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {t.common?.loading || "Loading..."}
+                        </div>
+                      ) : filteredCollabs.length === 0 ? (
+                        <div className="p-3 text-xs text-muted-foreground">{t.common?.noResults || "No results"}</div>
                       ) : (
-                        filteredCollabs.map((c: any) => (
-                          <button
-                            key={c.id}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted border-b last:border-b-0 flex items-center justify-between"
-                            onClick={() => {
-                              setSelectedCollabId(c.id);
-                              setCollabSearch(`${c.firstName} ${c.lastName}`.trim());
-                            }}
-                            data-testid={`option-collaborator-${c.id}`}
-                          >
-                            <span className="font-medium">
-                              {[c.firstName, c.lastName].filter(Boolean).join(" ")}
-                            </span>
-                            <span className="text-xs text-muted-foreground">{c.countryCode || ""}</span>
-                          </button>
-                        ))
+                        filteredCollabs.map((c: any) => {
+                          const fullName = [c.titleBefore, c.firstName, c.lastName, c.titleAfter].filter(Boolean).join(" ");
+                          const contact = c.email || c.phone || c.mobile || "";
+                          return (
+                            <button
+                              key={c.id}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-muted border-b last:border-b-0"
+                              onClick={() => {
+                                setSelectedCollabId(c.id);
+                                setCollabSearch(fullName);
+                              }}
+                              data-testid={`option-collaborator-${c.id}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{fullName}</span>
+                                {c.collaboratorType && (
+                                  <Badge variant="outline" className="text-[9px] ml-2">{c.collaboratorType}</Badge>
+                                )}
+                              </div>
+                              {contact && (
+                                <div className="text-xs text-muted-foreground mt-0.5">{contact}</div>
+                              )}
+                            </button>
+                          );
+                        })
                       )}
                     </div>
                   )}

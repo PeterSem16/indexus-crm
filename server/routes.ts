@@ -2192,6 +2192,31 @@ export async function registerRoutes(
 
   app.get("/api/collaborators/lookup", requireAuth, async (req, res) => {
     try {
+      const q = (req.query.q as string || "").trim();
+      if (q && q.length >= 2) {
+        const s = `%${q}%`;
+        const rows = await db.select({
+          id: collaborators.id,
+          titleBefore: collaborators.titleBefore,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          titleAfter: collaborators.titleAfter,
+          email: collaborators.email,
+          phone: collaborators.phone,
+          mobile: collaborators.mobile,
+          countryCode: collaborators.countryCode,
+          collaboratorType: collaborators.collaboratorType,
+        }).from(collaborators)
+          .where(sql`(
+            ${collaborators.firstName} ILIKE ${s} OR ${collaborators.lastName} ILIKE ${s}
+            OR ${collaborators.email} ILIKE ${s} OR ${collaborators.phone} ILIKE ${s}
+            OR ${collaborators.mobile} ILIKE ${s}
+            OR (${collaborators.firstName} || ' ' || ${collaborators.lastName}) ILIKE ${s}
+          )`)
+          .orderBy(collaborators.lastName, collaborators.firstName)
+          .limit(30);
+        return res.json(rows);
+      }
       const data = await storage.getCollaboratorsLookup();
       res.json(data);
     } catch (error) {
