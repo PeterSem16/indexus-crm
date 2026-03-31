@@ -1583,6 +1583,7 @@ function CommunicationCanvas({
   const { toast } = useToast();
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
+  const [emailIsRawHtml, setEmailIsRawHtml] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
@@ -1622,6 +1623,7 @@ function CommunicationCanvas({
     setSelectedPhones(contact?.phone ? [contact.phone] : []);
     setEmailSubject("");
     setEmailMessage("");
+    setEmailIsRawHtml(false);
     setSmsMessage("");
     setSelectedFromAccount("");
     setEmailAttachment(null);
@@ -1883,9 +1885,12 @@ function CommunicationCanvas({
     const template = emailTemplates.find(t => t.id === templateId);
     if (template) {
       const subject = replaceTemplateVars(template.subject || "");
-      const content = replaceTemplateVars(template.contentHtml || template.content || "");
+      const rawHtml = template.contentHtml || "";
+      const hasComplexHtml = /<table[\s>]|style\s*=\s*["'][^"']*(?:background|padding|margin|border|font-family|linear-gradient)/i.test(rawHtml);
+      const content = replaceTemplateVars(rawHtml || template.content || "");
       setEmailSubject(subject);
       setEmailMessage(content);
+      setEmailIsRawHtml(hasComplexHtml);
       setSelectedEmailTemplateName(template.name);
       setEmailTemplateSearch("");
       setEmailTemplatePopoverOpen(false);
@@ -1948,6 +1953,7 @@ function CommunicationCanvas({
     });
     setEmailSubject("");
     setEmailMessage("");
+    setEmailIsRawHtml(false);
     setSelectedEmails([]);
     setEmailAttachment(null);
     setTemplateAttachments([]);
@@ -2559,27 +2565,52 @@ function CommunicationCanvas({
                   <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder={t.customers?.details?.emailSubjectPlaceholder || "Email subject..."} disabled={isSendingEmail} data-testid="input-email-subject" />
                 </div>
                 <div className="space-y-1.5 flex-1 flex flex-col">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.message || "Message"}</Label>
-                  <div className="border rounded-md flex-1" data-testid="wysiwyg-email-message">
-                    <ReactQuill
-                      theme="snow"
-                      value={emailMessage}
-                      onChange={setEmailMessage}
-                      placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
-                      modules={{ toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ 'color': [] }, { 'background': [] }],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['link'],
-                        ['clean']
-                      ]}}
-                      style={{ minHeight: '200px' }}
-                    />
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.message || "Message"}</Label>
+                    {emailMessage && (
+                      <Button
+                        variant={emailIsRawHtml ? "default" : "outline"}
+                        size="sm"
+                        className="h-6 text-[10px] px-2"
+                        onClick={() => setEmailIsRawHtml(!emailIsRawHtml)}
+                        data-testid="button-toggle-raw-html-email"
+                      >
+                        HTML
+                      </Button>
+                    )}
                   </div>
+                  {emailIsRawHtml ? (
+                    <div className="border rounded-md flex-1 overflow-hidden" data-testid="iframe-email-preview">
+                      <iframe
+                        srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;padding:0;}</style></head><body>${emailMessage.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')}</body></html>`}
+                        className="w-full border-0"
+                        style={{ minHeight: "350px", width: "100%" }}
+                        sandbox="allow-same-origin"
+                        title="Email náhľad"
+                      />
+                    </div>
+                  ) : (
+                    <div className="border rounded-md flex-1" data-testid="wysiwyg-email-message">
+                      <ReactQuill
+                        theme="snow"
+                        value={emailMessage}
+                        onChange={setEmailMessage}
+                        placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
+                        modules={{ toolbar: [
+                          [{ 'header': [1, 2, 3, false] }],
+                          ['bold', 'italic', 'underline', 'strike'],
+                          [{ 'color': [] }, { 'background': [] }],
+                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                          ['link'],
+                          ['clean']
+                        ]}}
+                        style={{ minHeight: '200px' }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
+                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsRawHtml(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
                     {t.common?.cancel || "Cancel"}
                   </Button>
                   <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} data-testid="btn-send-email">

@@ -1,0 +1,201 @@
+<div style="margin:0;padding:24px 0;background-color:#eef3f8;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#eef3f8;margin:0;padding:0;">
+    <tr>
+      <td align="center">
+
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="720" style="width:720px;max-width:720px;border-collapse:separate;border-spacing:0;background-color:#ffffff;border:1px solid #d9e2ec;border-radius:16px;overflow:hidden;">
+          
+          <tr>
+            <td style="padding:0;margin:0;background:linear-gradient(135deg,#0f4c81 0%,#1d70b8 100%);">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+                <tr>
+                  <td style="padding:28px 36px 24px 36px;">
+                    <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;letter-spacing:1.5px;text-transform:uppercase;color:#dbeafe;font-weight:bold;">
+                      Cord Blood Center
+                    </div>
+                    <div style="font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:36px;color:#ffffff;font-weight:bold;margin-top:4px;">
+                      Laboratories
+                    </div>
+                    <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#eaf4ff;margin-top:10px;">
+                      Podrobnejšie informácie o spolupráci a prehľad odborných služieb
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:36px 36px 12px 36px;">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#1f2937;margin:0 0 16px 0;">
+                Vážený pán/pani MUDr. <strong>{{clinic.doctorLastName}}</strong>,
+              </div>
+
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:26px;color:#475467;margin:0 0 16px 0;">
+                na základe nášho telefonického dohovoru Vám zasielam podrobnejšie informácie o službách, ktoré by sme si chceli pre naše klientky objednávať.
+              </div>
+
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:26px;color:#475467;margin:0 0 16px 0;">
+                V prílohe emailu Vám zasielame dokument <strong>Manual for Medical Partner</strong>, ktorý obsahuje odporúčaný postup k jednotlivým činnostiam.
+              </div>
+
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:26px;color:#475467;margin:0 0 20px 0;">
+                Jednotlivé služby pre jednu klientku by si naša spoločnosť objednávala v cene od <strong>300 € do 450 €</strong>, v závislosti od rozsahu objednaných služieb
+                (odber pupočníkovej krvi, placentárnej krvi, tkaniva pupočníka a tkaniva placenty).
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 36px 8px 36px;">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:26px;font-weight:bold;color:#12344d;margin:0 0 14px 0;">
+                Prehľad služieb a cien
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 36px 22px 36px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;border-spacing:0;width:100%;background-color:#ffffff;border:1px solid #d9e2ec;border-radius:14px;overflow:hidden;">
+                
+                <tr>
+                  <td style="padding:14px 18px;background-color:#eaf3ff;border-bottom:1px solid #d9e2ec;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;font-weight:bold;color:#12344d;">
+                    Služba
+                  </td>
+                  <td style="padding:14px 18px;background-color:#eaf3ff;border-bottom:1px solid #d9e2ec;width:120px;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;font-weight:bold;color:#12344d;">
+                    Cena (€)
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#344054;">
+                    Medicínska odborná konzultácia odberu pupočníkovej krvi
+                  </td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#111827;font-weight:bold;">
+                    130
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;background-color:#fbfdff;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#344054;">
+                    Medicínska odborná konzultácia odberu placentárnej krvi
+                  </td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;background-color:#fbfdff;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#111827;font-weight:bold;">
+                    25
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#344054;">
+                    Medicínska odborná konzultácia odberu tkaniva pupočníka
+                  </td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#111827;font-weight:bold;">
+                    25
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;background-color:#fbfdff;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#344054;">
+                    Medicínska odborná konzultácia odberu placenty
+                  </td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;background-color:#fbfdff;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#111827;font-weight:bold;">
+                    25
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#344054;">
+                    Konzultačná odborná pohotovosť do odberu krvi a tkanív
+                  </td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#111827;font-weight:bold;">
+                    40
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;background-color:#fbfdff;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#344054;">
+                    Medicínska odborná konzultácia s klientkou o výsledkoch odberu, spracovania a vyšetrenia pupočníkovej krvi
+                  </td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;background-color:#fbfdff;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#111827;font-weight:bold;">
+                    130
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#344054;">
+                    Medicínska odborná konzultácia s klientkou o výsledkoch odberu, spracovania a vyšetrenia placentárnej krvi
+                  </td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#111827;font-weight:bold;">
+                    25
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;background-color:#fbfdff;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#344054;">
+                    Medicínska odborná konzultácia s klientkou o výsledkoch odberu, spracovania a vyšetrenia tkaniva pupočníka
+                  </td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #e6edf3;background-color:#fbfdff;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#111827;font-weight:bold;">
+                    25
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:13px 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#344054;">
+                    Medicínska odborná konzultácia s klientkou o výsledkoch odberu, spracovania a vyšetrenia tkaniva placenty
+                  </td>
+                  <td style="padding:13px 18px;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:21px;color:#111827;font-weight:bold;">
+                    25
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 36px 8px 36px;">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:26px;color:#475467;margin:0 0 16px 0;">
+                Takúto spoluprácu spoločnosť Cord Blood Center uzatvára s gynekologickými ambulanciami v krajinách Európskej únie, v ktorých pôsobí, s cieľom zabezpečiť presné a odborné informovanie klientiek, ktoré sú v zmysle zákona darkyňami.
+              </div>
+
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:26px;color:#475467;margin:0 0 16px 0;">
+                Nová regulácia <strong>SoHO</strong>, účinná od <strong>7. augusta 2027</strong>, okrem iného kladie dôraz na správne a presné informovanie darcov krvi, tkanív a buniek.
+              </div>
+
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:26px;color:#475467;margin:0 0 16px 0;">
+                Veríme, že budeme môcť využiť Vaše služby a tešíme sa na spoluprácu.
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:4px 36px 36px 36px;">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:26px;color:#1f2937;">
+                S pozdravom
+              </div>
+
+              <div style="height:14px;line-height:14px;font-size:14px;">&nbsp;</div>
+
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#111827;font-weight:bold;">
+                {{user.fullName}}
+              </div>
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#667085;">
+                Koordinátor odberov pupočníkovej krvi a perinatálnych tkanív
+              </div>
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#667085;">
+                Cord Blood Center Laboratories
+              </div>
+              <div style="height:10px;line-height:10px;font-size:10px;">&nbsp;</div>
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#475467;">
+                Tel.: <a href="tel:{{user.phone}}" style="color:#1d70b8;text-decoration:none;">{{user.phone}}</a><br>
+                Email: <a href="mailto:{{user.email}}" style="color:#1d70b8;text-decoration:none;">{{user.email}}</a>
+              </div>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</div>
