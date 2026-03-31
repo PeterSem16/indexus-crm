@@ -5237,28 +5237,30 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "contact-history"] });
       }
       if (currentCampaignContactId && selectedCampaignId) {
-        const currentStatus = currentCampaignContact?.dispositionCode || currentCampaignContact?.status || "pending";
-        let autoDisposition = "email1_sent";
-        if (currentStatus === "email1_sent") {
-          autoDisposition = "email2_sent";
-        } else if (currentStatus === "email2_sent") {
-          autoDisposition = "pdf_email_sent";
-        } else if (currentStatus === "pdf_email_sent") {
-          autoDisposition = "pdf_email_sent";
-        }
-        const hasDisposition = campaignDispositions.some(d => d.code === autoDisposition);
-        if (hasDisposition) {
-          disposeMutation.mutate({
-            contactId: currentCampaignContactId,
-            campaignId: selectedCampaignId,
-            disposition: autoDisposition,
-            notes: `Email odoslaný na ${variables.to.join(", ")} — ${variables.subject}`,
-          });
-          toast({
-            title: "Disposition nastavená",
-            description: `Automaticky nastavená: ${autoDisposition}, callback o 2 dni`,
-          });
-        } else {
+        try {
+          const currentStatus = currentCampaignContact?.dispositionCode || currentCampaignContact?.status || "pending";
+          let autoDisposition = "email1_sent";
+          if (currentStatus === "email1_sent") {
+            autoDisposition = "email2_sent";
+          } else if (currentStatus === "email2_sent") {
+            autoDisposition = "pdf_email_sent";
+          } else if (currentStatus === "pdf_email_sent") {
+            autoDisposition = "pdf_email_sent";
+          }
+          const hasDisposition = campaignDispositions && campaignDispositions.length > 0 && campaignDispositions.some(d => d.code === autoDisposition);
+          if (hasDisposition) {
+            dispositionMutation.mutate({
+              contactId: currentCampaignContactId,
+              campaignId: selectedCampaignId,
+              disposition: autoDisposition,
+              notes: `Email odoslaný na ${variables.to.join(", ")} — ${variables.subject}`,
+            });
+          } else {
+            setDispositionChannelFilter("email");
+            setDispositionModalOpen(true);
+          }
+        } catch (dispErr) {
+          console.error("Auto-disposition error:", dispErr);
           setDispositionChannelFilter("email");
           setDispositionModalOpen(true);
         }
