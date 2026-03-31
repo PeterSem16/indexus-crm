@@ -40376,22 +40376,164 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // --- MPN Persons (all collaborators, no country filter) ---
+  // --- MPN Persons (merged: collaborators + clinic doctors + hospital contacts) ---
   app.get("/api/mpn/persons", requireAuth, async (req, res) => {
     try {
-      const allPersons = await db.select({
-        id: collaborators.id,
-        titleBefore: collaborators.titleBefore,
-        firstName: collaborators.firstName,
-        lastName: collaborators.lastName,
-        titleAfter: collaborators.titleAfter,
-        phone: collaborators.phone,
-        mobile: collaborators.mobile,
-        email: collaborators.email,
-        isActive: collaborators.isActive,
-        countryCode: collaborators.countryCode,
-      }).from(collaborators).orderBy(asc(collaborators.lastName), asc(collaborators.firstName));
-      res.json(allPersons);
+      const search = (req.query.search as string || "").trim().toLowerCase();
+      const sourceFilter = req.query.source as string || "";
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const offset = (page - 1) * limit;
+
+      type MpnPerson = {
+        id: string;
+        source: "collaborator" | "clinic" | "hospital";
+        titleBefore: string;
+        firstName: string;
+        lastName: string;
+        titleAfter: string;
+        fullName: string;
+        phone: string;
+        mobile: string;
+        email: string;
+        isActive: boolean;
+        countryCode: string;
+        institutionName: string;
+        institutionId: string;
+      };
+
+      const persons: MpnPerson[] = [];
+
+      if (!sourceFilter || sourceFilter === "collaborator") {
+        const collabRows = await db.select({
+          id: collaborators.id,
+          titleBefore: collaborators.titleBefore,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          titleAfter: collaborators.titleAfter,
+          phone: collaborators.phone,
+          mobile: collaborators.mobile,
+          email: collaborators.email,
+          isActive: collaborators.isActive,
+          countryCode: collaborators.countryCode,
+        }).from(collaborators);
+
+        for (const c of collabRows) {
+          persons.push({
+            id: c.id,
+            source: "collaborator",
+            titleBefore: c.titleBefore || "",
+            firstName: c.firstName || "",
+            lastName: c.lastName || "",
+            titleAfter: c.titleAfter || "",
+            fullName: [c.titleBefore, c.firstName, c.lastName, c.titleAfter].filter(Boolean).join(" "),
+            phone: c.phone || "",
+            mobile: c.mobile || "",
+            email: c.email || "",
+            isActive: c.isActive !== false,
+            countryCode: c.countryCode || "",
+            institutionName: "",
+            institutionId: "",
+          });
+        }
+      }
+
+      if (!sourceFilter || sourceFilter === "clinic") {
+        const clinicRows = await db.select({
+          id: clinics.id,
+          name: clinics.name,
+          doctorName: clinics.doctorName,
+          doctorTitle: clinics.doctorTitle,
+          doctorFirstName: clinics.doctorFirstName,
+          doctorLastName: clinics.doctorLastName,
+          phone: clinics.phone,
+          email: clinics.email,
+          isActive: clinics.isActive,
+          countryCode: clinics.countryCode,
+        }).from(clinics)
+          .where(or(
+            and(isNotNull(clinics.doctorName), sql`${clinics.doctorName} != ''`),
+            and(isNotNull(clinics.doctorFirstName), sql`${clinics.doctorFirstName} != ''`)
+          ));
+
+        for (const cl of clinicRows) {
+          const firstName = cl.doctorFirstName || "";
+          const lastName = cl.doctorLastName || "";
+          const title = cl.doctorTitle || "";
+          let fullName = "";
+          if (firstName || lastName) {
+            fullName = [title, firstName, lastName].filter(Boolean).join(" ");
+          } else {
+            fullName = cl.doctorName || "";
+          }
+          persons.push({
+            id: `clinic-${cl.id}`,
+            source: "clinic",
+            titleBefore: title,
+            firstName: firstName || (cl.doctorName ? cl.doctorName.replace(/^(MUDr\.|doc\.|prof\.|Dr\.)\s*/i, "").split(" ")[0] || "" : ""),
+            lastName: lastName || (cl.doctorName ? cl.doctorName.replace(/^(MUDr\.|doc\.|prof\.|Dr\.)\s*/i, "").split(" ").slice(1).join(" ") || "" : ""),
+            titleAfter: "",
+            fullName,
+            phone: cl.phone || "",
+            mobile: "",
+            email: cl.email || "",
+            isActive: cl.isActive !== false,
+            countryCode: cl.countryCode || "",
+            institutionName: cl.name || "",
+            institutionId: cl.id,
+          });
+        }
+      }
+
+      if (!sourceFilter || sourceFilter === "hospital") {
+        const hospitalRows = await db.select({
+          id: hospitals.id,
+          name: hospitals.name,
+          contactPerson: hospitals.contactPerson,
+          phone: hospitals.phone,
+          email: hospitals.email,
+          isActive: hospitals.isActive,
+          countryCode: hospitals.countryCode,
+        }).from(hospitals)
+          .where(and(isNotNull(hospitals.contactPerson), sql`${hospitals.contactPerson} != ''`));
+
+        for (const h of hospitalRows) {
+          const parts = (h.contactPerson || "").split(" ");
+          persons.push({
+            id: `hospital-${h.id}`,
+            source: "hospital",
+            titleBefore: "",
+            firstName: parts[0] || "",
+            lastName: parts.slice(1).join(" ") || "",
+            titleAfter: "",
+            fullName: h.contactPerson || "",
+            phone: h.phone || "",
+            mobile: "",
+            email: h.email || "",
+            isActive: h.isActive !== false,
+            countryCode: h.countryCode || "",
+            institutionName: h.name || "",
+            institutionId: h.id,
+          });
+        }
+      }
+
+      let filtered = persons;
+      if (search) {
+        filtered = persons.filter(p => {
+          const text = `${p.fullName} ${p.email} ${p.phone} ${p.mobile} ${p.institutionName} ${p.countryCode}`.toLowerCase();
+          return text.includes(search);
+        });
+      }
+
+      filtered.sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+      res.json({
+        data: filtered.slice(offset, offset + limit),
+        total: filtered.length,
+        page,
+        totalPages: Math.ceil(filtered.length / limit),
+      });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
