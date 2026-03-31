@@ -1924,6 +1924,9 @@ export default function CollaboratorsPage() {
   if (debouncedSearch) collabQueryParams.search = debouncedSearch;
   if (filterCountry) collabQueryParams.country = filterCountry;
   if (selectedCountries.length > 0) collabQueryParams.countries = selectedCountries.join(",");
+  if (filterStatus) collabQueryParams.status = filterStatus;
+  if (filterType) collabQueryParams.type = filterType;
+  if (filterAgreement) collabQueryParams.agreement = filterAgreement;
   const { data: collaboratorsPaginatedResult, isLoading, refetch: refetchCollaborators } = useQuery<{ data: Collaborator[], total: number }>({
     queryKey: ["/api/collaborators", collabQueryParams],
     refetchInterval: 60000,
@@ -1944,22 +1947,9 @@ export default function CollaboratorsPage() {
     },
   });
 
-  // Filtered and sorted collaborators
   const filteredAndSortedCollaborators = (() => {
-    let result = collaborators.filter((c) => {
-      const typeMatch = filterType === "" || c.collaboratorType === filterType;
-      const statusMatch = filterStatus === "" || 
-        (filterStatus === "active" && c.isActive) || 
-        (filterStatus === "inactive" && !c.isActive);
-      let agreementMatch = true;
-      if (filterAgreement === "valid") agreementMatch = (c as any).hasValidAgreement === true;
-      else if (filterAgreement === "expired") agreementMatch = (c as any).hasExpiredAgreement === true;
-      else if (filterAgreement === "none") agreementMatch = (c as any).hasNoAgreement === true;
-      
-      return typeMatch && statusMatch && agreementMatch;
-    });
+    let result = [...collaborators];
     
-    // Then sort
     result.sort((a, b) => {
       let aVal: any;
       let bVal: any;
@@ -2432,16 +2422,8 @@ export default function CollaboratorsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">
-                  {hasActiveFilters 
-                    ? `${filteredAndSortedCollaborators.length} ${(t.common as any).found || "found"}`
-                    : `${serverCollaboratorsTotal} ${t.common.records}`
-                  }
+                  {`${serverCollaboratorsTotal} ${hasActiveFilters ? ((t.common as any).found || "found") : t.common.records}`}
                 </span>
-                {hasActiveFilters && serverCollaboratorsTotal > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    / {serverCollaboratorsTotal} {(t.common as any).total || "total"}
-                  </span>
-                )}
               </div>
             </div>
           )}

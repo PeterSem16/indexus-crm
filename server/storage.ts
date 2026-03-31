@@ -3099,7 +3099,7 @@ export class DatabaseStorage implements IStorage {
     return db.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName, countryCode: collaborators.countryCode }).from(collaborators).orderBy(collaborators.lastName, collaborators.firstName);
   }
 
-  async getCollaboratorsPaginated(page: number, limit: number, search?: string, countryCode?: string, countries?: string[]): Promise<{ data: Collaborator[], total: number }> {
+  async getCollaboratorsPaginated(page: number, limit: number, search?: string, countryCode?: string, countries?: string[], status?: string, collabType?: string): Promise<{ data: Collaborator[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -3116,6 +3116,14 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`(${sql.join(countrySql, sql` OR `)})`);
     } else if (countryCode && countryCode.trim()) {
       conditions.push(sql`(${collaborators.countryCode} = ${countryCode.trim()} OR ${countryCode.trim()} = ANY(${collaborators.countryCodes}))`);
+    }
+    if (status === "active") {
+      conditions.push(eq(collaborators.isActive, true));
+    } else if (status === "inactive") {
+      conditions.push(eq(collaborators.isActive, false));
+    }
+    if (collabType && collabType.trim()) {
+      conditions.push(eq(collaborators.collaboratorType, collabType.trim()));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(collaborators).where(where);

@@ -14301,8 +14301,54 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const search = req.query.search as string;
       const country = req.query.country as string;
       const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
+      const status = req.query.status as string;
+      const collabType = req.query.type as string;
+      const agreement = req.query.agreement as string;
       if (req.query.page || req.query.search) {
-        const result = await storage.getCollaboratorsPaginated(page || 1, limit, search, country, countries);
+        const needsAgreementFilter = agreement === "valid" || agreement === "expired" || agreement === "none";
+
+        if (needsAgreementFilter) {
+          const allResult = await storage.getCollaboratorsPaginated(1, 10000, search, country, countries, status, collabType);
+          const today = new Date();
+          const allAssignments = await db.select({
+            personId: contactAssignments.personId,
+            entityType: contactAssignments.entityType,
+          }).from(contactAssignments).where(eq(contactAssignments.isActive, true));
+          const assignmentMap: Record<string, { hospitalCount: number; clinicCount: number }> = {};
+          for (const a of allAssignments) {
+            if (!assignmentMap[a.personId]) assignmentMap[a.personId] = { hospitalCount: 0, clinicCount: 0 };
+            if (a.entityType === 'hospital') assignmentMap[a.personId].hospitalCount++;
+            else if (a.entityType === 'clinic') assignmentMap[a.personId].clinicCount++;
+          }
+          const enrichedAll = await Promise.all(
+            allResult.data.map(async (collab) => {
+              try {
+                const agreements = await storage.getCollaboratorAgreements(collab.id);
+                let hasExpiredAgreement = false;
+                let hasValidAgreement = false;
+                const hasNoAgreement = agreements.length === 0;
+                for (const ag of agreements) {
+                  if (ag.validToYear && ag.validToMonth && ag.validToDay) {
+                    const validTo = new Date(ag.validToYear, ag.validToMonth - 1, ag.validToDay);
+                    if (validTo < today) { hasExpiredAgreement = true; } else if (ag.isValid) { hasValidAgreement = true; }
+                  } else if (ag.isValid) { hasValidAgreement = true; }
+                }
+                const counts = assignmentMap[collab.id] || { hospitalCount: 0, clinicCount: 0 };
+                return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
+              } catch { return { ...collab, hasExpiredAgreement: false, hasValidAgreement: false, hasNoAgreement: true, hospitalCount: 0, clinicCount: 0 }; }
+            })
+          );
+          const filtered = enrichedAll.filter((c: any) => {
+            if (agreement === "valid") return c.hasValidAgreement === true;
+            if (agreement === "expired") return c.hasExpiredAgreement === true;
+            if (agreement === "none") return c.hasNoAgreement === true;
+            return true;
+          });
+          const offset = ((page || 1) - 1) * limit;
+          return res.json({ data: filtered.slice(offset, offset + limit), total: filtered.length });
+        }
+
+        const result = await storage.getCollaboratorsPaginated(page || 1, limit, search, country, countries, status, collabType);
         const today = new Date();
         const allAssignments = await db.select({
           personId: contactAssignments.personId,
@@ -14321,11 +14367,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
               let hasExpiredAgreement = false;
               let hasValidAgreement = false;
               const hasNoAgreement = agreements.length === 0;
-              for (const agreement of agreements) {
-                if (agreement.validToYear && agreement.validToMonth && agreement.validToDay) {
-                  const validTo = new Date(agreement.validToYear, agreement.validToMonth - 1, agreement.validToDay);
-                  if (validTo < today) { hasExpiredAgreement = true; } else if (agreement.isValid) { hasValidAgreement = true; }
-                } else if (agreement.isValid) { hasValidAgreement = true; }
+              for (const ag of agreements) {
+                if (ag.validToYear && ag.validToMonth && ag.validToDay) {
+                  const validTo = new Date(ag.validToYear, ag.validToMonth - 1, ag.validToDay);
+                  if (validTo < today) { hasExpiredAgreement = true; } else if (ag.isValid) { hasValidAgreement = true; }
+                } else if (ag.isValid) { hasValidAgreement = true; }
               }
               const counts = assignmentMap[collab.id] || { hospitalCount: 0, clinicCount: 0 };
               return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
