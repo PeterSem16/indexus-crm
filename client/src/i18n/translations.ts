@@ -113,6 +113,11 @@ export interface Translations {
     contactInfo: string;
     primaryContact: string;
     workplaces: string;
+    institutions: string;
+    filtered: string;
+    page: string;
+    previous: string;
+    next: string;
   };
   collaboratorReports: {
     title: string;
@@ -5524,6 +5529,11 @@ export const translations: Record<Locale, Translations> = {
       contactInfo: 'Contact Info',
       primaryContact: 'Primary Contact',
       workplaces: 'Workplaces',
+      institutions: 'institutions',
+      filtered: 'filtered',
+      page: 'Page',
+      previous: 'Previous',
+      next: 'Next',
     },
     collaboratorReports: {
       title: 'Collaborator Reports',
@@ -10817,6 +10827,11 @@ export const translations: Record<Locale, Translations> = {
       contactInfo: 'Kontaktné údaje',
       primaryContact: 'Primárny kontakt',
       workplaces: 'Pôsobiská',
+      institutions: 'inštitúcií',
+      filtered: 'filtrované',
+      page: 'Strana',
+      previous: 'Predchádzajúca',
+      next: 'Nasledujúca',
     },
     collaboratorReports: {
       title: 'Reporty spolupracovnikov',
@@ -16063,6 +16078,11 @@ export const translations: Record<Locale, Translations> = {
       contactInfo: 'Kontaktní údaje',
       primaryContact: 'Primární kontakt',
       workplaces: 'Pracoviště',
+      institutions: 'institucí',
+      filtered: 'filtrováno',
+      page: 'Strana',
+      previous: 'Předchozí',
+      next: 'Další',
     },
     collaboratorReports: {
       title: 'Reporty spolupracovniku',
@@ -21234,6 +21254,11 @@ export const translations: Record<Locale, Translations> = {
       contactInfo: 'Elérhetőségek',
       primaryContact: 'Elsődleges kapcsolat',
       workplaces: 'Munkahelyek',
+      institutions: 'intézmény',
+      filtered: 'szűrt',
+      page: 'Oldal',
+      previous: 'Előző',
+      next: 'Következő',
     },
     collaboratorReports: {
       title: 'Munkatárs jelentések',
@@ -26405,6 +26430,11 @@ export const translations: Record<Locale, Translations> = {
       contactInfo: 'Informații contact',
       primaryContact: 'Contact principal',
       workplaces: 'Locuri de muncă',
+      institutions: 'instituții',
+      filtered: 'filtrat',
+      page: 'Pagina',
+      previous: 'Anterioară',
+      next: 'Următoarea',
     },
     collaboratorReports: {
       title: 'Rapoarte colaboratori',
@@ -31498,6 +31528,11 @@ export const translations: Record<Locale, Translations> = {
       contactInfo: 'Informazioni contatto',
       primaryContact: 'Contatto principale',
       workplaces: 'Luoghi di lavoro',
+      institutions: 'istituzioni',
+      filtered: 'filtrato',
+      page: 'Pagina',
+      previous: 'Precedente',
+      next: 'Successiva',
     },
     collaboratorReports: {
       title: 'Report collaboratori',
@@ -36592,6 +36627,11 @@ export const translations: Record<Locale, Translations> = {
       contactInfo: 'Kontaktinformationen',
       primaryContact: 'Hauptansprechpartner',
       workplaces: 'Arbeitsstätten',
+      institutions: 'Institutionen',
+      filtered: 'gefiltert',
+      page: 'Seite',
+      previous: 'Vorherige',
+      next: 'Nächste',
     },
     collaboratorReports: {
       title: 'Mitarbeiterberichte',

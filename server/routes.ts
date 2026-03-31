@@ -40306,6 +40306,95 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // --- MPN Institutions (all, no country filter, with search & pagination) ---
+  app.get("/api/mpn/institutions", requireAuth, async (req, res) => {
+    try {
+      const search = (req.query.search as string || "").trim().toLowerCase();
+      const typeFilter = req.query.type as string || "";
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const offset = (page - 1) * limit;
+
+      let hospitalRows: any[] = [];
+      let clinicRows: any[] = [];
+
+      if (!typeFilter || typeFilter === "hospital") {
+        const hConditions: any[] = [];
+        if (search) {
+          hConditions.push(or(
+            sql`lower(${hospitals.name}) LIKE ${`%${search}%`}`,
+            sql`lower(${hospitals.city}) LIKE ${`%${search}%`}`
+          ));
+        }
+        hospitalRows = await db.select({
+          id: hospitals.id,
+          name: hospitals.name,
+          city: hospitals.city,
+          countryCode: hospitals.countryCode,
+          isActive: hospitals.isActive,
+          phone: hospitals.phone,
+          email: hospitals.email,
+        }).from(hospitals)
+          .where(hConditions.length > 0 ? and(...hConditions) : undefined)
+          .orderBy(asc(hospitals.name));
+      }
+
+      if (!typeFilter || typeFilter === "clinic") {
+        const cConditions: any[] = [];
+        if (search) {
+          cConditions.push(or(
+            sql`lower(${clinics.name}) LIKE ${`%${search}%`}`,
+            sql`lower(${clinics.city}) LIKE ${`%${search}%`}`
+          ));
+        }
+        clinicRows = await db.select({
+          id: clinics.id,
+          name: clinics.name,
+          city: clinics.city,
+          countryCode: clinics.countryCode,
+          isActive: clinics.isActive,
+          phone: clinics.phone,
+          email: clinics.email,
+        }).from(clinics)
+          .where(cConditions.length > 0 ? and(...cConditions) : undefined)
+          .orderBy(asc(clinics.name));
+      }
+
+      const all = [
+        ...hospitalRows.map(h => ({ ...h, type: "hospital" as const })),
+        ...clinicRows.map(c => ({ ...c, type: "clinic" as const })),
+      ];
+
+      all.sort((a, b) => a.name.localeCompare(b.name));
+
+      res.json({
+        data: all.slice(offset, offset + limit),
+        total: all.length,
+        page,
+        totalPages: Math.ceil(all.length / limit),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN Persons (all collaborators, no country filter) ---
+  app.get("/api/mpn/persons", requireAuth, async (req, res) => {
+    try {
+      const allPersons = await db.select({
+        id: collaborators.id,
+        titleBefore: collaborators.titleBefore,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+        titleAfter: collaborators.titleAfter,
+        phone: collaborators.phone,
+        mobile: collaborators.mobile,
+        email: collaborators.email,
+        isActive: collaborators.isActive,
+        countryCode: collaborators.countryCode,
+      }).from(collaborators).orderBy(asc(collaborators.lastName), asc(collaborators.firstName));
+      res.json(allPersons);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // --- MPN Dashboard Stats ---
   app.get("/api/mpn/stats", requireAuth, async (req, res) => {
     try {

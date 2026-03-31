@@ -18,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Building2, Users, Settings, LayoutDashboard, Plus, Edit, Trash2,
   Phone, Mail, MessageCircle, Star, Search, Filter, Hospital, Stethoscope,
-  UserCheck, UserX, Link2, ChevronRight, Building, Clock
+  UserCheck, UserX, Link2, ChevronRight, Building, Clock, Loader2
 } from "lucide-react";
 
 type PartnerCategory = {
@@ -171,22 +171,29 @@ function OverviewTab() {
 function InstitutionsTab() {
   const { t } = useI18n();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [selectedInstitution, setSelectedInstitution] = useState<{ type: string; id: string; name: string } | null>(null);
 
-  const { data: hospitals = [] } = useQuery<any[]>({ queryKey: ["/api/hospitals"] });
-  const { data: clinics = [] } = useQuery<any[]>({ queryKey: ["/api/clinics"] });
+  const searchTimeout = useState<any>(null);
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimeout[0]) clearTimeout(searchTimeout[0]);
+    searchTimeout[1] = setTimeout(() => { setDebouncedSearch(val); setPage(1); }, 300);
+  };
 
-  const allInstitutions: Institution[] = [
-    ...hospitals.map((h: any) => ({ ...h, type: "hospital" as const })),
-    ...clinics.map((c: any) => ({ ...c, type: "clinic" as const })),
-  ];
+  const queryParams: Record<string, string> = { page: String(page), limit: "100" };
+  if (debouncedSearch) queryParams.search = debouncedSearch;
+  if (typeFilter !== "all") queryParams.type = typeFilter;
 
-  const filtered = allInstitutions.filter((inst) => {
-    if (typeFilter !== "all" && inst.type !== typeFilter) return false;
-    if (search && !inst.name.toLowerCase().includes(search.toLowerCase()) && !(inst.city || "").toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
+  const { data: result, isLoading } = useQuery<{ data: Institution[]; total: number; page: number; totalPages: number }>({
+    queryKey: ["/api/mpn/institutions", queryParams],
   });
+
+  const filtered = result?.data || [];
+  const total = result?.total || 0;
+  const totalPages = result?.totalPages || 1;
 
   return (
     <div className="space-y-4">
@@ -196,12 +203,12 @@ function InstitutionsTab() {
           <Input
             placeholder={`${t.mpn.name}, ${t.mpn.city}...`}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="pl-9"
             data-testid="input-search-institutions"
           />
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
           <SelectTrigger className="w-48" data-testid="select-type-filter">
             <SelectValue />
           </SelectTrigger>
@@ -213,7 +220,18 @@ function InstitutionsTab() {
         </Select>
       </div>
 
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground" data-testid="text-institutions-count">
+          {total} {t.mpn.institutions || "institutions"} {debouncedSearch && `(${t.mpn.filtered || "filtered"})`}
+        </p>
+      </div>
+
       <Card>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -228,7 +246,7 @@ function InstitutionsTab() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t.mpn.noData}</TableCell></TableRow>
-            ) : filtered.slice(0, 100).map((inst) => (
+            ) : filtered.map((inst) => (
               <TableRow key={`${inst.type}-${inst.id}`} className="cursor-pointer hover:bg-muted/50" data-testid={`row-institution-${inst.id}`}>
                 <TableCell>
                   {inst.type === "hospital" ? (
@@ -255,7 +273,24 @@ function InstitutionsTab() {
             ))}
           </TableBody>
         </Table>
+        )}
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {t.mpn.page || "Page"} {page} / {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)} data-testid="btn-prev-page">
+              ← {t.mpn.previous || "Previous"}
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} data-testid="btn-next-page">
+              {t.mpn.next || "Next"} →
+            </Button>
+          </div>
+        </div>
+      )}
 
       {selectedInstitution && (
         <PersonnelDialog
@@ -349,9 +384,9 @@ function PersonsTab() {
   const [search, setSearch] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
 
-  const { data: collaborators = [] } = useQuery<Person[]>({ queryKey: ["/api/collaborators"] });
+  const { data: allPersons = [] } = useQuery<Person[]>({ queryKey: ["/api/mpn/persons"] });
 
-  const filtered = collaborators.filter((p) => {
+  const filtered = allPersons.filter((p) => {
     if (!search) return true;
     const full = `${p.titleBefore || ""} ${p.firstName} ${p.lastName} ${p.email || ""} ${p.phone || ""} ${p.mobile || ""}`.toLowerCase();
     return full.includes(search.toLowerCase());
