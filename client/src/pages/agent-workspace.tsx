@@ -5078,6 +5078,15 @@ export default function AgentWorkspacePage() {
           updateData.assignedTo = data.callbackAssignedTo;
         }
       }
+
+      const autoCallbackCodes = ["email1_sent", "email2_sent", "pdf_email_sent"];
+      if (autoCallbackCodes.includes(data.disposition) && !data.callbackDateTime) {
+        const callbackDate = new Date();
+        callbackDate.setDate(callbackDate.getDate() + 2);
+        callbackDate.setHours(9, 0, 0, 0);
+        updateData.callbackDate = callbackDate.toISOString();
+        updateData.status = "callback_scheduled";
+      }
       
       const res = await apiRequest("PATCH", `/api/campaigns/${data.campaignId}/contacts/${data.contactId}`, updateData);
       if (!res.ok) {
