@@ -69,7 +69,7 @@ export interface SipCallInfo {
 
 type SipEventCallback = (event: string, data?: any) => void;
 
-const KEEPALIVE_INTERVAL = 15000;
+const KEEPALIVE_INTERVAL = 25000;
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_ATTEMPTS = 10;
 
@@ -205,8 +205,6 @@ class MobileSipEngine {
         uri,
         transportOptions: {
           server: wsServer,
-          keepAliveInterval: 15,
-          keepAliveDebounce: 5,
         },
         authorizationUsername: this.credentials!.username,
         authorizationPassword: this.credentials!.password,
@@ -357,14 +355,6 @@ class MobileSipEngine {
         this.emit('debug', `Keepalive: transport=${transportState}, triggering reconnect`);
         this.scheduleReconnect();
         return;
-      }
-
-      try {
-        if (this.ua.transport && typeof this.ua.transport.send === 'function') {
-          this.ua.transport.send('\r\n\r\n');
-        }
-      } catch (e: any) {
-        this.emit('debug', `Keepalive ping error: ${e?.message}`);
       }
 
       if (this._registrationState !== 'registered' && this._registrationState !== 'registering') {
