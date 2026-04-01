@@ -249,6 +249,7 @@ elif [ "$BUILD_TYPE" = "ipa" ]; then
         -configuration "$CONFIGURATION" \
         -destination "generic/platform=iOS" \
         -archivePath "$ARCHIVE_PATH" \
+        -allowProvisioningUpdates \
         DEVELOPMENT_TEAM=23GFY6JMPH \
         CODE_SIGN_STYLE=Automatic \
         archive 2>&1 | tail -30
