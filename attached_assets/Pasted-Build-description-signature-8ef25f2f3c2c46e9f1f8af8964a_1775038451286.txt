@@ -1,0 +1,15 @@
+Build description signature: 8ef25f2f3c2c46e9f1f8af8964afb5d7
+Build description path: /Users/dialcom/Library/Developer/Xcode/DerivedData/INDEXUSConnect-bgnofiashujlkrbtxwpmxrvctxzg/Build/Intermediates.noindex/ArchiveIntermediates/INDEXUSConnect/IntermediateBuildFilesPath/XCBuildData/8ef25f2f3c2c46e9f1f8af8964afb5d7.xcbuilddata
+warning: Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+/Users/dialcom/indexus-crm/mobile-app/ios/INDEXUSConnect.xcodeproj: error: Signing for "INDEXUSConnect" requires a development team. Select a development team in the Signing & Capabilities editor. (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+note: Run script build phase 'Bundle React Native code and images' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+note: Run script build phase '[Expo] Configure project' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+warning: Run script build phase '[CP-User] Generate app.config for prebuilt Constants.manifest' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'EXConstants' from project 'Pods')
+** ARCHIVE FAILED **
+
+
+The following build commands failed:
+	Archiving workspace INDEXUSConnect with scheme INDEXUSConnect
+(1 failure)
+ERROR: Archive failed.
+MacBook-M3-Air:mobile-app dialcom$ 
