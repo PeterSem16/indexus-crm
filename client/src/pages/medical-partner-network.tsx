@@ -408,24 +408,34 @@ function NetworkExplorer() {
     enabled: searchType === "person" && debouncedSearch.length >= 2,
   });
 
-  const networkUrl = selectedResult
-    ? (selectedResult.type === "person"
-      ? `/api/mpn/network/person/${selectedResult.id}`
-      : `/api/mpn/network/institution/${selectedResult.entityType}/${selectedResult.id}`)
-    : null;
+  const [networkData, setNetworkData] = useState<any>(null);
+  const [networkLoading, setNetworkLoading] = useState(false);
 
-  const { data: networkData, isLoading: networkLoading } = useQuery<any>({
-    queryKey: ["mpn-network", networkUrl],
-    queryFn: async () => {
-      if (!networkUrl) return null;
-      const res = await fetch(networkUrl, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load network data");
-      return res.json();
-    },
-    enabled: !!networkUrl,
-    staleTime: 0,
-    gcTime: 0,
-  });
+  useEffect(() => {
+    if (!selectedResult) {
+      setNetworkData(null);
+      return;
+    }
+    const url = selectedResult.type === "person"
+      ? `/api/mpn/network/person/${selectedResult.id}`
+      : `/api/mpn/network/institution/${selectedResult.entityType}/${selectedResult.id}`;
+
+    setNetworkLoading(true);
+    setNetworkData(null);
+    fetch(url, { credentials: "include" })
+      .then(res => {
+        if (!res.ok) throw new Error("Failed");
+        return res.json();
+      })
+      .then(data => {
+        setNetworkData(data);
+        setNetworkLoading(false);
+      })
+      .catch(() => {
+        setNetworkData(null);
+        setNetworkLoading(false);
+      });
+  }, [selectedResult]);
 
   const { nodes, edges } = useMemo(() => {
     if (!networkData || !selectedResult) return { nodes: [], edges: [] };
