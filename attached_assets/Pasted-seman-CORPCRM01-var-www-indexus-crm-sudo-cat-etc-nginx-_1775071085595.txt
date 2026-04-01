@@ -1,0 +1,155 @@
+seman@CORPCRM01:/var/www/indexus-crm$ sudo cat /etc/nginx/sites-enabled/indexus*
+server {
+    listen 80;
+    server_name indexus.cordbloodcenter.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name indexus.cordbloodcenter.com;
+
+    # SSL certifikáty
+    ssl_certificate /etc/nginx/ssl/fullchain.crt;
+    ssl_certificate_key /etc/nginx/ssl/wildcard-cordbloodcenter-com.key;
+
+    # SSL nastavenia
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # pgAdmin
+    location /pgadmin4/ {
+        proxy_pass http://127.0.0.1:5050/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Script-Name /pgadmin4;
+    }
+
+    # Hlavná aplikácia
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300;
+        proxy_connect_timeout 300;
+        proxy_send_timeout 300;
+    }
+
+    # WebSocket pre notifikácie
+    location /ws/ {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 86400;
+    }
+
+    # WebSocket proxy pre mobilny SIP
+    location /wss-asterisk/ {
+        proxy_pass https://mediagtw.cordbloodcenter.com:8089/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host mediagtw.cordbloodcenter.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+    }
+
+    location /mobile-app/ {
+       alias /var/www/indexus-crm/data/mobile-app/;
+       add_header Content-Disposition 'attachment';
+    }
+
+    client_max_body_size 250M;
+}
+seman@CORPCRM01:/var/www/indexus-crm$ curl -v -k --include \
+  --header "Connection: Upgrade" \
+  --header "Upgrade: websocket" \
+  --header "Sec-WebSocket-Version: 13" \
+  --header "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  https://indexus.cordbloodcenter.com/wss-asterisk/
+* Host indexus.cordbloodcenter.com:443 was resolved.
+* IPv6: (none)
+* IPv4: 10.1.2.111
+*   Trying 10.1.2.111:443...
+* Connected to indexus.cordbloodcenter.com (10.1.2.111) port 443
+* ALPN: curl offers h2,http/1.1
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+* TLSv1.3 (IN), TLS handshake, CERT verify (15):
+* TLSv1.3 (IN), TLS handshake, Finished (20):
+* TLSv1.3 (OUT), TLS change cipher, Change cipher spec (1):
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+* SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384 / X25519 / RSASSA-PSS
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=*.cordbloodcenter.com
+*  start date: Nov 25 00:00:00 2025 GMT
+*  expire date: Dec  3 23:59:59 2026 GMT
+*  issuer: C=US; O=DigiCert Inc; OU=www.digicert.com; CN=RapidSSL TLS RSA CA G1
+*  SSL certificate verify result: unable to get local issuer certificate (20), continuing anyway.
+*   Certificate level 0: Public key type RSA (2048/112 Bits/secBits), signed using sha256WithRSAEncryption
+*   Certificate level 1: Public key type RSA (2048/112 Bits/secBits), signed using sha256WithRSAEncryption
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* old SSL session ID is stale, removing
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://indexus.cordbloodcenter.com/wss-asterisk/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: indexus.cordbloodcenter.com]
+* [HTTP/2] [1] [:path: /wss-asterisk/]
+* [HTTP/2] [1] [user-agent: curl/8.5.0]
+* [HTTP/2] [1] [accept: */*]
+* [HTTP/2] [1] [sec-websocket-version: 13]
+* [HTTP/2] [1] [sec-websocket-key: dGhlIHNhbXBsZSBub25jZQ==]
+> GET /wss-asterisk/ HTTP/2
+> Host: indexus.cordbloodcenter.com
+> User-Agent: curl/8.5.0
+> Accept: */*
+> Connection: Upgrade
+> Upgrade: websocket
+> Sec-WebSocket-Version: 13
+> Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+>
+< HTTP/2 426
+HTTP/2 426
+< server: nginx/1.24.0 (Ubuntu)
+server: nginx/1.24.0 (Ubuntu)
+< date: Wed, 01 Apr 2026 19:17:46 GMT
+date: Wed, 01 Apr 2026 19:17:46 GMT
+< content-type: text/html
+content-type: text/html
+< content-length: 207
+content-length: 207
+< cache-control: no-cache, no-store
+cache-control: no-cache, no-store
+
+<
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>426 Upgrade Required</title>
+</head><body>
+<h1>Upgrade Required</h1>
+<p></p>
+<hr />
+<address>Asterisk</address>
+</body></html>
+* Connection #0 to host indexus.cordbloodcenter.com left intact
+seman@CORPCRM01:/var/www/indexus-crm$
