@@ -265,6 +265,7 @@ function getColorIndexForEntity(entityId: string): number {
 }
 
 function MedicalNetworkContent({ personId, personName }: { personId: string; personName: string }) {
+  const { toast } = useToast();
   const { data: assignments, isLoading, isError } = useQuery<any[]>({
     queryKey: ["/api/mpn/person", personId, "assignments"],
     queryFn: async () => {
@@ -274,6 +275,63 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
     },
     enabled: !!personId,
   });
+
+  const categoriesQuery = useQuery<any[]>({
+    queryKey: ["/api/mpn/categories"],
+  });
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<{
+    department: string; position: string; role: string;
+    categoryId: string; notes: string; isPrimary: boolean; isActive: boolean;
+  }>({ department: "", position: "", role: "", categoryId: "", notes: "", isPrimary: false, isActive: true });
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = (a: any) => {
+    setEditingId(a.id);
+    setEditData({
+      department: a.department || "",
+      position: a.position || "",
+      role: a.role || "",
+      categoryId: a.category_id || "",
+      notes: a.notes || "",
+      isPrimary: !!a.is_primary,
+      isActive: a.is_active !== false,
+    });
+  };
+
+  const cancelEdit = () => { setEditingId(null); };
+
+  const saveEdit = async (assignment: any) => {
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `/api/institutions/${assignment.entity_type}/${assignment.entity_id}/personnel/${assignment.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            department: editData.department || null,
+            position: editData.position || null,
+            role: editData.role || null,
+            categoryId: editData.categoryId && editData.categoryId !== "_none" ? editData.categoryId : null,
+            notes: editData.notes || null,
+            isPrimary: editData.isPrimary,
+            isActive: editData.isActive,
+          }),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to update");
+      toast({ title: "Zaradenie aktualizované" });
+      setEditingId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/mpn/person", personId, "assignments"] });
+    } catch {
+      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (isError) {
     return (
@@ -323,8 +381,9 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
 
   const renderAssignmentCard = (assignment: any) => {
     const colors = INSTITUTION_COLORS[getColorIndexForEntity(assignment.entity_id)];
-    const isHospital = assignment.entity_type === "hospital";
-    const EntityIcon = isHospital ? HospitalIcon : Building2;
+    const isHospitalType = assignment.entity_type === "hospital";
+    const EntityIcon = isHospitalType ? HospitalIcon : Building2;
+    const isEditing = editingId === assignment.id;
 
     return (
       <div
@@ -353,60 +412,175 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0", colors.badge)}>
-                {isHospital ? "Nemocnica" : "Ambulancia"}
+                {isHospitalType ? "Nemocnica" : "Ambulancia"}
               </Badge>
-              {assignment.is_primary && (
+              {!isEditing && assignment.is_primary && (
                 <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              )}
+              {!isEditing && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => startEdit(assignment)}
+                  data-testid={`medical-network-edit-${assignment.id}`}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-            {assignment.category_name && (
-              <div>
-                <span className="text-muted-foreground">Kategória:</span>
-                <span className="ml-1 font-medium">{assignment.category_name}</span>
+          {isEditing ? (
+            <div className="space-y-3 mt-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Oddelenie</Label>
+                  <Input
+                    value={editData.department}
+                    onChange={e => setEditData({ ...editData, department: e.target.value })}
+                    placeholder="Oddelenie"
+                    className="h-8 text-xs"
+                    data-testid={`medical-network-edit-department-${assignment.id}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Pozícia</Label>
+                  <Input
+                    value={editData.position}
+                    onChange={e => setEditData({ ...editData, position: e.target.value })}
+                    placeholder="Pozícia"
+                    className="h-8 text-xs"
+                    data-testid={`medical-network-edit-position-${assignment.id}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Rola</Label>
+                  <Input
+                    value={editData.role}
+                    onChange={e => setEditData({ ...editData, role: e.target.value })}
+                    placeholder="Rola"
+                    className="h-8 text-xs"
+                    data-testid={`medical-network-edit-role-${assignment.id}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Kategória</Label>
+                  <Select value={editData.categoryId || "_none"} onValueChange={v => setEditData({ ...editData, categoryId: v })}>
+                    <SelectTrigger className="h-8 text-xs" data-testid={`medical-network-edit-category-${assignment.id}`}>
+                      <SelectValue placeholder="Vyberte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— Žiadna —</SelectItem>
+                      {(categoriesQuery.data || []).map((cat: any) => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            )}
-            {assignment.department && (
-              <div>
-                <span className="text-muted-foreground">Oddelenie:</span>
-                <span className="ml-1 font-medium">{assignment.department}</span>
+              <div className="space-y-1">
+                <Label className="text-xs">Poznámka</Label>
+                <Textarea
+                  value={editData.notes}
+                  onChange={e => setEditData({ ...editData, notes: e.target.value })}
+                  placeholder="Poznámka k zaradeniu"
+                  className="text-xs min-h-[60px]"
+                  data-testid={`medical-network-edit-notes-${assignment.id}`}
+                />
               </div>
-            )}
-            {assignment.position && (
-              <div>
-                <span className="text-muted-foreground">Pozícia:</span>
-                <span className="ml-1 font-medium">{assignment.position}</span>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Checkbox
+                    checked={editData.isPrimary}
+                    onCheckedChange={(v: boolean) => setEditData({ ...editData, isPrimary: v })}
+                    data-testid={`medical-network-edit-primary-${assignment.id}`}
+                  />
+                  <Star className="h-3.5 w-3.5 text-amber-500" />
+                  Primárne zaradenie
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Checkbox
+                    checked={editData.isActive}
+                    onCheckedChange={(v: boolean) => setEditData({ ...editData, isActive: v })}
+                    data-testid={`medical-network-edit-active-${assignment.id}`}
+                  />
+                  Aktívne
+                </label>
               </div>
-            )}
-            {assignment.role && (
-              <div>
-                <span className="text-muted-foreground">Rola:</span>
-                <span className="ml-1 font-medium">{assignment.role}</span>
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  size="sm"
+                  className="h-7 text-xs px-3"
+                  onClick={() => saveEdit(assignment)}
+                  disabled={saving}
+                  data-testid={`medical-network-save-${assignment.id}`}
+                >
+                  {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                  Uložiť
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs px-3"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                  data-testid={`medical-network-cancel-${assignment.id}`}
+                >
+                  Zrušiť
+                </Button>
               </div>
-            )}
-            {assignment.subcategory && (
-              <div>
-                <span className="text-muted-foreground">Podkategória:</span>
-                <span className="ml-1 font-medium">{assignment.subcategory}</span>
-              </div>
-            )}
-          </div>
-
-          {assignment.notes && (
-            <div className="mt-2.5 text-xs bg-white/60 dark:bg-black/20 rounded px-2.5 py-1.5 border border-dashed border-muted-foreground/20">
-              <span className="text-muted-foreground">Poznámka: </span>
-              <span>{assignment.notes}</span>
             </div>
-          )}
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                {assignment.category_name && (
+                  <div>
+                    <span className="text-muted-foreground">Kategória:</span>
+                    <span className="ml-1 font-medium">{assignment.category_name}</span>
+                  </div>
+                )}
+                {assignment.department && (
+                  <div>
+                    <span className="text-muted-foreground">Oddelenie:</span>
+                    <span className="ml-1 font-medium">{assignment.department}</span>
+                  </div>
+                )}
+                {assignment.position && (
+                  <div>
+                    <span className="text-muted-foreground">Pozícia:</span>
+                    <span className="ml-1 font-medium">{assignment.position}</span>
+                  </div>
+                )}
+                {assignment.role && (
+                  <div>
+                    <span className="text-muted-foreground">Rola:</span>
+                    <span className="ml-1 font-medium">{assignment.role}</span>
+                  </div>
+                )}
+                {assignment.subcategory && (
+                  <div>
+                    <span className="text-muted-foreground">Podkategória:</span>
+                    <span className="ml-1 font-medium">{assignment.subcategory}</span>
+                  </div>
+                )}
+              </div>
 
-          {(assignment.start_date || assignment.end_date) && (
-            <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              {assignment.start_date && <span>Od: {new Date(assignment.start_date).toLocaleDateString("sk-SK")}</span>}
-              {assignment.end_date && <span>Do: {new Date(assignment.end_date).toLocaleDateString("sk-SK")}</span>}
-            </div>
+              {assignment.notes && (
+                <div className="mt-2.5 text-xs bg-white/60 dark:bg-black/20 rounded px-2.5 py-1.5 border border-dashed border-muted-foreground/20">
+                  <span className="text-muted-foreground">Poznámka: </span>
+                  <span>{assignment.notes}</span>
+                </div>
+              )}
+
+              {(assignment.start_date || assignment.end_date) && (
+                <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  {assignment.start_date && <span>Od: {new Date(assignment.start_date).toLocaleDateString("sk-SK")}</span>}
+                  {assignment.end_date && <span>Do: {new Date(assignment.end_date).toLocaleDateString("sk-SK")}</span>}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
