@@ -1,0 +1,30 @@
+seman@CORPCRM01:/var/www/indexus-crm$ ls -la /var/www/indexus-crm/data/mobil-app/
+total 2391708
+drwxrwxr-x  2 seman seman      4096 Apr  1 11:13 .
+drwxr-xr-x 27 seman seman      4096 Mar 30 11:44 ..
+-rw-rw-r--  1 seman seman      1045 Apr  1 11:13 indexus-connect-ios-manifest.plist
+lrwxrwxrwx  1 seman seman        27 Mar  9 12:57 indexus-connect-latest.apk -> indexus-connect-v1.2.11.apk
+-rw-rw-r--  1 seman seman  14551719 Apr  1 11:05 indexus-connect-latest.ipa
+-rw-rw-r--  1 seman seman  86256985 Jan 18 17:40 indexus-connect-v1.1.10.apk
+-rw-rw-r--  1 seman seman  86257893 Jan 18 18:05 indexus-connect-v1.1.11.apk
+-rw-rw-r--  1 seman seman  86438881 Mar  6 07:48 indexus-connect-v1.1.12.apk
+-rw-rw-r--  1 seman seman  86249796 Jan 18 09:21 indexus-connect-v1.1.4.apk
+-rw-rw-r--  1 seman seman  86251612 Jan 18 10:24 indexus-connect-v1.1.5.apk
+-rw-rw-r--  1 seman seman  86254021 Jan 18 11:16 indexus-connect-v1.1.6.apk
+-rw-rw-r--  1 seman seman  86254178 Jan 18 15:49 indexus-connect-v1.1.7.apk
+-rw-rw-r--  1 seman seman  86254475 Jan 18 16:55 indexus-connect-v1.1.8.apk
+-rw-rw-r--  1 seman seman  86254902 Jan 18 17:15 indexus-connect-v1.1.9.apk
+-rw-rw-r--  1 seman seman  86439334 Mar  6 10:10 indexus-connect-v1.2.0.apk
+-rw-rw-r--  1 seman seman  86439395 Mar  6 10:50 indexus-connect-v1.2.1.apk
+-rw-rw-r--  1 seman seman 127189129 Mar  6 15:20 indexus-connect-v1.2.10.apk
+-rw-rw-r--  1 seman seman 127205490 Mar 30 11:35 indexus-connect-v1.2.11.apk
+-rw-rw-r--  1 seman seman 127196389 Mar  9 10:36 indexus-connect-v1.2.12.apk
+-rw-rw-r--  1 seman seman 127159899 Mar  6 11:15 indexus-connect-v1.2.2.apk
+-rw-rw-r--  1 seman seman 127160094 Mar  6 11:25 indexus-connect-v1.2.3.apk
+-rw-rw-r--  1 seman seman 127161053 Mar  6 11:49 indexus-connect-v1.2.4.apk
+-rw-rw-r--  1 seman seman 127161313 Mar  6 12:08 indexus-connect-v1.2.5.apk
+-rw-rw-r--  1 seman seman 127161645 Mar  6 12:43 indexus-connect-v1.2.6.apk
+-rw-rw-r--  1 seman seman 127161531 Mar  6 13:33 indexus-connect-v1.2.7.apk
+-rw-rw-r--  1 seman seman 127161916 Mar  6 13:41 indexus-connect-v1.2.8.apk
+-rw-rw-r--  1 seman seman 127162064 Mar  6 13:53 indexus-connect-v1.2.9.apk
+-rw-rw-r--  1 seman seman  86249796 Jan 18 09:04 indexus-connect.apk
