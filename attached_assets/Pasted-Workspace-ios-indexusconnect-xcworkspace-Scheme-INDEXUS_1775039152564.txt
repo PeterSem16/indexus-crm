@@ -1,0 +1,38 @@
+Workspace: ios/indexusconnect.xcworkspace
+Scheme: INDEXUSConnect
+Configuration: Release
+
+This may take 10-30 minutes depending on your hardware...
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk -x objective-c++ -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/libtool -V
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/ibtool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/dialcom/indexus-crm/mobile-app/ios/INDEXUSConnect/Images.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk -x assembler-with-cpp -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 7bf696e52b3eb492aef62b497777705d
+Build description path: /Users/dialcom/Library/Developer/Xcode/DerivedData/INDEXUSConnect-bgnofiashujlkrbtxwpmxrvctxzg/Build/Intermediates.noindex/ArchiveIntermediates/INDEXUSConnect/IntermediateBuildFilesPath/XCBuildData/7bf696e52b3eb492aef62b497777705d.xcbuilddata
+warning: Run script build phase '[CP-User] Generate app.config for prebuilt Constants.manifest' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'EXConstants' from project 'Pods')
+warning: Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+/Users/dialcom/indexus-crm/mobile-app/ios/INDEXUSConnect.xcodeproj: error: Communication with Apple failed: Your team has no devices from which to generate a provisioning profile. Connect a device to use or manually add device IDs in Certificates, Identifiers & Profiles. https://developer.apple.com/account/ (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+/Users/dialcom/indexus-crm/mobile-app/ios/INDEXUSConnect.xcodeproj: error: No profiles for 'com.cordbloodcenter.indexusconnect' were found: Xcode couldn't find any iOS App Development provisioning profiles matching 'com.cordbloodcenter.indexusconnect'. (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+note: Run script build phase '[Expo] Configure project' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+note: Run script build phase 'Bundle React Native code and images' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+** ARCHIVE FAILED **
+
+
+The following build commands failed:
+	Archiving workspace INDEXUSConnect with scheme INDEXUSConnect
+(1 failure)
+ERROR: Archive failed.
+MacBook-M3-Air:mobile-app dialcom$ 
