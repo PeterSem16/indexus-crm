@@ -1,0 +1,36 @@
+The following build commands failed:
+	Archiving workspace INDEXUSConnect with scheme INDEXUSConnect
+(1 failure)
+ERROR: Archive failed.
+MacBook-M3-Air:mobile-app dialcom$ cd ~/indexus-crm
+MacBook-M3-Air:indexus-crm dialcom$ git pull origin main
+remote: Enumerating objects: 12, done.
+remote: Counting objects: 100% (12/12), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 12 (delta 9), reused 12 (delta 9), pack-reused 0 (from 0)
+Unpacking objects: 100% (12/12), done.
+From https://github.com/PeterSem16/indexus-crm
+ * branch              main       -> FETCH_HEAD
+   7f87ab19..f27dfe3c  main       -> origin/main
+Updating 7f87ab19..f27dfe3c
+Fast-forward
+ .../Pasted-Build-description-signature-8ef25f2f3c2c46e9f1f8af8964a_1775038451286.txt   | 15 ++++++++++++
+ .../Pasted-MacBook-M3-Air-mobile-app-dialcom-open-a-Simulator-MacB_1775037423795.txt   | 53 +++++++++++++++++++++++++++++++++++++++++++
+ .../Pasted-RegisterExecutionPolicyException-Users-dialcom-indexus-_1775038314558.txt   | 19 ++++++++++++++++
+ 3 files changed, 87 insertions(+)
+ create mode 100644 attached_assets/Pasted-Build-description-signature-8ef25f2f3c2c46e9f1f8af8964a_1775038451286.txt
+ create mode 100644 attached_assets/Pasted-MacBook-M3-Air-mobile-app-dialcom-open-a-Simulator-MacB_1775037423795.txt
+ create mode 100644 attached_assets/Pasted-RegisterExecutionPolicyException-Users-dialcom-indexus-_1775038314558.txt
+MacBook-M3-Air:indexus-crm dialcom$ cd mobile-app
+MacBook-M3-Air:mobile-app dialcom$ 
+MacBook-M3-Air:mobile-app dialcom$ # Pregenerujte iOS projekt s novým Team ID
+MacBook-M3-Air:mobile-app dialcom$ rm -rf ios
+MacBook-M3-Air:mobile-app dialcom$ npx expo prebuild --platform ios --clean --no-install
+cd ios && pod install && cd ..
+
+# Spustite IPA build
+Warning! Your git working tree is dirty.
+It's recommended to commit all your changes before proceeding, so you can revert the changes made by this command if necessary.
+
+✔ Would you like to proceed? … no
+MacBook-M3-Air:mobile-app dialcom$ 
