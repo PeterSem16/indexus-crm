@@ -32,13 +32,37 @@ xcodebuild -version
 # Expected: Xcode 15.x or 16.x
 ```
 
-### Step 2: Install CocoaPods
+### Step 2: Install Ruby 3.x & CocoaPods
+
+macOS ships with an old Ruby (2.6.x) that cannot install modern CocoaPods.
+You must install Ruby 3.x first via Homebrew:
 
 ```bash
-sudo gem install cocoapods
+# Install Homebrew (if not installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install Ruby 3.x via Homebrew
+brew install ruby
+
+# Add Homebrew Ruby to your PATH (add to ~/.zshrc for persistence)
+echo 'export PATH="/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/opt/ruby/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Verify you are using the new Ruby (must show 3.x, NOT 2.6.x)
+ruby --version
+# Expected: ruby 3.3.x or 3.4.x
+
+# Now install CocoaPods
+gem install cocoapods
 pod --version
-# Expected: 1.14.x or newer
+# Expected: 1.16.x or newer
 ```
+
+> **Important:** If `ruby --version` still shows 2.6.x after the above steps,
+> close the Terminal completely and open a new one, then check again.
+> On Apple Silicon Macs, Homebrew installs to `/opt/homebrew/`.
+> On Intel Macs, it installs to `/usr/local/` — adjust the PATH accordingly:
+> `export PATH="/usr/local/opt/ruby/bin:$PATH"`
 
 ### Step 3: Install Node.js & EAS CLI
 

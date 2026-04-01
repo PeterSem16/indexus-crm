@@ -75,8 +75,23 @@ if [ ! -d "node_modules" ]; then
 fi
 
 if ! command -v pod &> /dev/null; then
+    echo "CocoaPods not found. Checking Ruby version..."
+    RUBY_MAJOR=$(ruby -e 'puts RUBY_VERSION.split(".")[0].to_i')
+    if [ "$RUBY_MAJOR" -lt 3 ]; then
+        echo ""
+        echo "ERROR: Ruby $(ruby --version | head -1) is too old for CocoaPods."
+        echo ""
+        echo "Install Ruby 3.x via Homebrew first:"
+        echo "  brew install ruby"
+        echo '  echo '\''export PATH="/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/opt/ruby/bin:$PATH"'\'' >> ~/.zshrc'
+        echo "  source ~/.zshrc"
+        echo "  gem install cocoapods"
+        echo ""
+        echo "See IOS_BUILD_SETUP.md Step 2 for details."
+        exit 1
+    fi
     echo "Installing CocoaPods..."
-    sudo gem install cocoapods
+    gem install cocoapods
     echo ""
 fi
 
