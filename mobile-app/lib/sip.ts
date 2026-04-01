@@ -204,6 +204,7 @@ class MobileSipEngine {
         uri,
         transportOptions: {
           server: wsServer,
+          keepAliveInterval: 10,
         },
         authorizationUsername: this.credentials!.username,
         authorizationPassword: this.credentials!.password,
