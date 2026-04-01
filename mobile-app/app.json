@@ -18,6 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cordbloodcenter.indexusconnect",
+      "appleTeamId": "23GFY6JMPH",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "INDEXUS Connect needs access to your location to track hospital visits.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "INDEXUS Connect needs access to your location to track hospital visits in the background.",

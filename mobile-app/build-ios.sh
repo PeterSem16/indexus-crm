@@ -207,6 +207,8 @@ elif [ "$BUILD_TYPE" = "device" ]; then
         -configuration "$CONFIGURATION" \
         -destination "generic/platform=iOS" \
         -derivedDataPath "$DERIVED_DATA" \
+        DEVELOPMENT_TEAM=23GFY6JMPH \
+        CODE_SIGN_STYLE=Automatic \
         build 2>&1 | tail -20
 
     APP_PATH=$(find "$DERIVED_DATA" -name "*.app" -path "*/Release-iphoneos/*" -type d 2>/dev/null | head -n 1)
@@ -231,7 +233,9 @@ elif [ "$BUILD_TYPE" = "ipa" ]; then
         -configuration "$CONFIGURATION" \
         -destination "generic/platform=iOS" \
         -archivePath "$ARCHIVE_PATH" \
-        archive 2>&1 | tail -20
+        DEVELOPMENT_TEAM=23GFY6JMPH \
+        CODE_SIGN_STYLE=Automatic \
+        archive 2>&1 | tail -30
 
     if [ -d "$ARCHIVE_PATH" ]; then
         cat > /tmp/ExportOptions.plist << 'EXPORTPLIST'
