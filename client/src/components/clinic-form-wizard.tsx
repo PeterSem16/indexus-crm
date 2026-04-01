@@ -46,8 +46,11 @@ import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CallCustomerButton } from "@/components/sip-phone";
+import { InstitutionPersonnelManager } from "@/components/institution-personnel-panel";
+import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { getQueryFn } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { Settings as SettingsIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 
@@ -684,6 +687,16 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
       </div>
     );
   };
+
+  const clinicEditTabs = [
+    { key: "source", icon: CircleDot, label: t.clinics.steps?.source || "Zdroj" },
+    { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
+    { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Adresa" },
+    { key: "settings", icon: SettingsIcon, label: t.clinics.steps?.settings || "Nastavenia" },
+    { key: "history", icon: History, label: t.clinics.steps?.history || "História" },
+    { key: "personnel", icon: Users, label: (t as any).medicalPartnerNetwork?.personnel || "Personnel" },
+    { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
+  ];
 
   const HeaderWrapper = mode === "inline" ? "div" : SheetHeader;
   const TitleWrapper = mode === "inline" ? "h3" : SheetTitle;
@@ -1908,6 +1921,459 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         {formContent}
         {mapDialog}
       </div>
+    );
+  }
+
+  if (initialData) {
+    return (
+      <>
+        <Sheet open={open} onOpenChange={onOpenChange}>
+          <SheetContent className="w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="shrink-0 border-b px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
+                  <Stethoscope className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-base font-semibold">{t.clinics.editClinic}</span>
+                  {doctorFullName && (
+                    <p className="text-xs text-muted-foreground font-normal truncate">{doctorFullName} • {initialData.name}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0 ml-3">
+                  {initialData.email && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-clinic-email-drawer"
+                            onClick={() => {
+                              const params = new URLSearchParams();
+                              if (initialData.email) params.set("compose", initialData.email);
+                              params.set("contactSearch", initialData.email || initialData.phone || "");
+                              onOpenChange(false);
+                              setLocation(`/email?${params.toString()}`);
+                            }}
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{initialData.email}</p></TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {initialData.phone && (
+                    <CallCustomerButton phoneNumber={initialData.phone} customerName={doctorFullName || initialData.name} variant="icon" />
+                  )}
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => onOpenChange(false)} data-testid="button-close-clinic-drawer">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="shrink-0 mx-5 my-2 px-2 py-2.5 rounded-lg bg-muted/40 border" data-testid="clinic-status-bar-drawer">
+              <ProgressBar />
+              {currentPipelineOption && (
+                <div className="flex items-center justify-center mt-1.5">
+                  <div className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-semibold border",
+                    currentPipelineOption.sentiment === "positive" ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700"
+                      : currentPipelineOption.sentiment === "negative" ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700"
+                        : "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
+                  )}>
+                    {currentPipelineCategory && <span className="opacity-70">{(t.clinics as any).pipeline?.[currentPipelineCategory.labelKey] || currentPipelineCategory.labelKey}:</span>}
+                    <span>{(t.clinics as any).pipeline?.[currentPipelineOption.labelKey] || currentPipelineOption.labelKey}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-1 min-h-0">
+              <div className="w-44 border-r bg-muted/20 flex flex-col py-3 shrink-0 overflow-y-auto">
+                {clinicEditTabs.map((tab) => {
+                  const TabIcon = tab.icon;
+                  const isActive = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={cn(
+                        "flex items-center gap-2.5 px-4 py-2 mx-2 rounded-md text-sm transition-colors text-left",
+                        isActive ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      )}
+                      data-testid={`tab-clinic-${tab.key}-drawer`}
+                    >
+                      <TabIcon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-5">
+                {activeTab === "source" && (
+                  <div className="space-y-4 pb-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900">
+                          <CircleDot className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <h3 className="text-sm font-semibold tracking-wide">{t.clinics.leadSource}</h3>
+                      </div>
+                      <div className="grid gap-1.5">
+                        {MAIN_SOURCE_TYPES.map((type) => {
+                          const Icon = LEAD_SOURCE_ICONS[type];
+                          const selected = formData.leadSource === type;
+                          const isExpanded = selected && pipelineMenuOpen;
+                          return (
+                            <div key={type}>
+                              <button type="button" className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left", selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border", isExpanded && "rounded-b-none")}
+                                onClick={() => { if (selected) { setPipelineMenuOpen(!pipelineMenuOpen); setExpandedCategory(null); } else { setFormData(prev => ({ ...prev, leadSource: type })); setPipelineMenuOpen(true); setExpandedCategory(null); } }} data-testid={`source-card-${type}`}>
+                                <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG[type])}><Icon className="h-4 w-4" /></div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-sm">{t.clinics.leadSourceTypes?.[type] || type}</div>
+                                  {selected && currentPipelineOption && !isExpanded && (
+                                    <div className={cn("text-xs mt-0.5 font-medium", currentPipelineOption.color)}>
+                                      {(t.clinics as any).pipeline?.[currentPipelineCategory?.labelKey] || currentPipelineCategory?.labelKey}: {(t.clinics as any).pipeline?.[currentPipelineOption.labelKey] || currentPipelineOption.labelKey}
+                                    </div>
+                                  )}
+                                </div>
+                                {selected && (<div className="flex items-center gap-1.5 shrink-0"><CheckCircle2 className="h-4 w-4 text-primary" /><ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} /></div>)}
+                              </button>
+                              {isExpanded && (
+                                <div className="border border-t-0 rounded-b-lg bg-muted/20 dark:bg-muted/10 overflow-hidden" data-testid="pipeline-submenu">
+                                  {PIPELINE_CATEGORIES.map((cat) => {
+                                    const CatIcon = cat.icon;
+                                    const isCatExpanded = expandedCategory === cat.key;
+                                    const selectedInCat = cat.options.find(o => o.value === currentPipelineValue);
+                                    return (
+                                      <div key={cat.key}>
+                                        <button type="button" className={cn("flex items-center gap-2.5 w-full px-4 py-2.5 text-left transition-all hover:bg-muted/50", isCatExpanded && "bg-muted/40", selectedInCat && "bg-primary/5")}
+                                          onClick={() => setExpandedCategory(isCatExpanded ? null : cat.key)} data-testid={`pipeline-cat-${cat.key}`}>
+                                          <CatIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                          <span className="text-sm font-medium flex-1">{(t.clinics as any).pipeline?.[cat.labelKey] || cat.labelKey}</span>
+                                          {selectedInCat && (
+                                            <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border",
+                                              selectedInCat.sentiment === "positive" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700"
+                                                : selectedInCat.sentiment === "negative" ? "bg-red-100 text-red-600 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700"
+                                                  : "bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600"
+                                            )}>{(t.clinics as any).pipeline?.[selectedInCat.labelKey] || selectedInCat.labelKey}</span>
+                                          )}
+                                          <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", isCatExpanded && "rotate-90")} />
+                                        </button>
+                                        {isCatExpanded && (
+                                          <div className="px-4 pb-2 pt-1 space-y-1">
+                                            {cat.options.map((opt) => {
+                                              const OptIcon = opt.icon;
+                                              const isSelected = currentPipelineValue === opt.value;
+                                              return (
+                                                <button key={opt.value} type="button" className={cn("flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-left transition-all",
+                                                  isSelected ? opt.sentiment === "positive" ? "bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/40 dark:border-green-700 dark:text-green-200"
+                                                    : opt.sentiment === "negative" ? "bg-red-100 border border-red-300 text-red-700 dark:bg-red-900/40 dark:border-red-700 dark:text-red-200"
+                                                      : "bg-primary/10 border border-primary/30 text-foreground" : "hover:bg-muted/60 border border-transparent"
+                                                )} onClick={() => selectPipelineOption(opt.value)} data-testid={`pipeline-opt-${opt.value}`}>
+                                                  <OptIcon className={cn("h-4 w-4 shrink-0", opt.color)} />
+                                                  <span className="text-sm font-medium flex-1">{(t.clinics as any).pipeline?.[opt.labelKey] || opt.labelKey}</span>
+                                                  {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {formData.leadSource && (
+                        <Button type="button" variant="ghost" size="sm" className="text-muted-foreground text-xs" onClick={() => {
+                          setFormData(prev => ({ ...prev, leadSource: "", initialStatus: "", interestCooperation: "", interestContract: "", contractStatus: "" }));
+                          setPipelineMenuOpen(false); setExpandedCategory(null);
+                        }} data-testid="button-clear-source"><X className="h-3 w-3 mr-1" /> {(t.clinics as any).pipeline?.clearSelection || t.common.clear || "Clear"}</Button>
+                      )}
+                    </div>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900"><UserCheck className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" /></div>
+                        <h3 className="text-sm font-semibold tracking-wide">{(t.clinics as any).pipeline?.referralAndConference || "Referral & Conference"}</h3>
+                      </div>
+                      <div className={cn("border rounded-lg px-3 py-2.5 transition-all cursor-pointer", formData.isReferredByDoctor ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.doctor_referral) : "hover:bg-muted/50 border-border")}
+                        onClick={() => setFormData({ ...formData, isReferredByDoctor: !formData.isReferredByDoctor })}>
+                        <div className="flex items-center gap-3">
+                          <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG.doctor_referral)}><UserCheck className="h-4 w-4" /></div>
+                          <div className="flex-1 min-w-0"><div className="font-medium text-sm">{t.clinics.leadSourceTypes?.doctor_referral || "Doctor referral"}</div></div>
+                          <Checkbox checked={formData.isReferredByDoctor} onCheckedChange={(checked) => setFormData({ ...formData, isReferredByDoctor: !!checked })} data-testid="checkbox-doctor-referral" className="shrink-0" onClick={(e) => e.stopPropagation()} />
+                        </div>
+                      </div>
+                      {formData.isReferredByDoctor && (
+                        <div className="ml-3 pl-3 border-l-2 border-purple-200 dark:border-purple-800 space-y-2">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input value={referralSearch} onChange={(e) => setReferralSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-referral-search" />
+                          </div>
+                          {referralSearch && filteredClinics.length > 0 && (
+                            <div className="border rounded-lg max-h-36 overflow-y-auto">
+                              {filteredClinics.slice(0, 10).map((clinic) => (
+                                <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "doctor_referral")} data-testid={`referral-option-${clinic.id}`}>
+                                  <div><span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span><span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span></div>
+                                  <Plus className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {doctorReferrals.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {doctorReferrals.map((ref) => (
+                                <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
+                                  <div className="flex items-center gap-2"><UserCheck className="h-3.5 w-3.5 text-purple-500" /><span className="text-sm font-medium">{ref.clinicName}</span></div>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-referral-${ref.clinicId}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (<p className="text-xs text-muted-foreground italic pl-1">{t.clinics.noReferrals}</p>)}
+                        </div>
+                      )}
+                      <div className={cn("border rounded-lg px-3 py-2.5 transition-all cursor-pointer", formData.isFromConference ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.conference) : "hover:bg-muted/50 border-border")}
+                        onClick={() => setFormData({ ...formData, isFromConference: !formData.isFromConference })}>
+                        <div className="flex items-center gap-3">
+                          <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG.conference)}><GraduationCap className="h-4 w-4" /></div>
+                          <div className="flex-1 min-w-0"><div className="font-medium text-sm">{t.clinics.leadSourceTypes?.conference || "Conference / Seminar"}</div></div>
+                          <Checkbox checked={formData.isFromConference} onCheckedChange={(checked) => setFormData({ ...formData, isFromConference: !!checked })} data-testid="checkbox-conference" className="shrink-0" onClick={(e) => e.stopPropagation()} />
+                        </div>
+                      </div>
+                      {formData.isFromConference && (
+                        <div className="ml-3 pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-2">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1"><Label className="text-xs">{t.clinics.conferenceName}</Label><Input value={formData.conferenceName} onChange={(e) => setFormData({ ...formData, conferenceName: e.target.value })} placeholder={t.clinics.conferenceName} className="h-9" data-testid="input-conference-name" /></div>
+                            <div className="space-y-1"><Label className="text-xs">{t.clinics.conferenceDate}</Label><DateTimePicker value={formData.conferenceDate} onChange={(v) => setFormData({ ...formData, conferenceDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-conference-date" /></div>
+                          </div>
+                          <Separator className="my-1" />
+                          <Label className="text-xs">{t.clinics.referringDoctors}</Label>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input value={confReferralSearch} onChange={(e) => setConfReferralSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-conf-referral-search" />
+                          </div>
+                          {confReferralSearch && filteredClinicsConf.length > 0 && (
+                            <div className="border rounded-lg max-h-36 overflow-y-auto">
+                              {filteredClinicsConf.slice(0, 10).map((clinic) => (
+                                <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "conference")} data-testid={`conf-referral-option-${clinic.id}`}>
+                                  <div><span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span><span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span></div>
+                                  <Plus className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {conferenceReferrals.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {conferenceReferrals.map((ref) => (
+                                <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-rose-50/50 dark:bg-rose-950/30">
+                                  <div className="flex items-center gap-2"><GraduationCap className="h-3.5 w-3.5 text-rose-500" /><span className="text-sm font-medium">{ref.clinicName}</span></div>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-conf-referral-${ref.clinicId}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (<p className="text-xs text-muted-foreground italic pl-1">{t.clinics.noReferrals}</p>)}
+                        </div>
+                      )}
+                    </div>
+                    {formData.leadSource && (
+                      <>
+                        <Separator />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1"><Label className="text-xs">{t.clinics.leadSourceDate}</Label><DateTimePicker value={formData.leadSourceDate} onChange={(v) => setFormData({ ...formData, leadSourceDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-lead-source-date" /></div>
+                        </div>
+                        <div className="space-y-1"><Label className="text-xs">{t.clinics.leadSourceNotes}</Label><Textarea value={formData.leadSourceNotes} onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })} placeholder={t.clinics.leadSourceNotes} rows={2} data-testid="input-lead-source-notes" /></div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "basic" && (
+                  <div className="space-y-5 pb-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900"><Building2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /></div><h3 className="text-sm font-semibold tracking-wide">Ambulancia</h3></div>
+                      <div className="grid gap-3 sm:grid-cols-2 pl-1">
+                        <div className="space-y-1"><Label className="text-xs">{t.clinics.name} *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.clinics.name} className="h-9" data-testid="input-clinic-name" /></div>
+                        <div className="space-y-1"><Label className="text-xs">{t.common.country} *</Label>
+                          <Select value={formData.countryCode} onValueChange={(value) => setFormData({ ...formData, countryCode: value })}>
+                            <SelectTrigger data-testid="select-clinic-country" className="h-9"><SelectValue placeholder={t.common.country} /></SelectTrigger>
+                            <SelectContent>{COUNTRIES.map((country) => (<SelectItem key={country.code} value={country.code}>{getCountryFlag(country.code)} {country.name}</SelectItem>))}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900"><Stethoscope className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" /></div><h3 className="text-sm font-semibold tracking-wide">Lekár</h3></div>
+                      <div className="grid gap-3 sm:grid-cols-3 pl-1">
+                        <div className="space-y-1"><Label className="text-xs">Titul</Label><Input value={formData.doctorTitle} onChange={(e) => setFormData({ ...formData, doctorTitle: e.target.value })} placeholder="MUDr." className="h-9" data-testid="input-doctor-title" /></div>
+                        <div className="space-y-1"><Label className="text-xs">Meno</Label><Input value={formData.doctorFirstName} onChange={(e) => setFormData({ ...formData, doctorFirstName: e.target.value })} placeholder="Meno" className="h-9" data-testid="input-doctor-firstname" /></div>
+                        <div className="space-y-1"><Label className="text-xs">Priezvisko</Label><Input value={formData.doctorLastName} onChange={(e) => setFormData({ ...formData, doctorLastName: e.target.value })} placeholder="Priezvisko" className="h-9" data-testid="input-doctor-lastname" /></div>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-sky-100 dark:bg-sky-900"><Phone className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" /></div><h3 className="text-sm font-semibold tracking-wide">Kontakt</h3></div>
+                      <div className="grid gap-3 sm:grid-cols-2 pl-1">
+                        <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label><Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder={t.clinics.phone} className="h-9" data-testid="input-clinic-phone" /></div>
+                        <div className="space-y-1"><Label className="text-xs">{t.clinics.email}</Label><Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-9" data-testid="input-clinic-email" /></div>
+                      </div>
+                      <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.website}</Label>
+                        <div className="flex gap-2">
+                          <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="www.example.com" className="flex-1 h-9" data-testid="input-clinic-website" />
+                          {formData.website && (<Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => window.open(getWebsiteUrl(formData.website), "_blank")} data-testid="button-open-website"><ExternalLink className="h-4 w-4" /></Button>)}
+                        </div>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900"><PhoneCall className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /></div><h3 className="text-sm font-semibold tracking-wide">Hovory & Kontakt</h3></div>
+                      <div className="grid gap-3 sm:grid-cols-2 pl-1">
+                        <div className="space-y-1"><Label className="text-xs">Posledný výsledok hovoru</Label><Input value={formData.lastCallResult} onChange={(e) => setFormData({ ...formData, lastCallResult: e.target.value })} placeholder="Výsledok hovoru" className="h-9" data-testid="input-last-call-result" /></div>
+                        <div className="space-y-1"><Label className="text-xs">Dátum ďalšieho kontaktu</Label><DateTimePicker value={formData.nextContactDate} onChange={(v) => setFormData({ ...formData, nextContactDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-next-contact-date" /></div>
+                      </div>
+                      <div className="space-y-1 pl-1"><Label className="text-xs">Poznámka z hovoru</Label><Textarea value={formData.lastCallNote} onChange={(e) => setFormData({ ...formData, lastCallNote: e.target.value })} placeholder="Poznámka z posledného hovoru" rows={2} className="text-sm" data-testid="input-last-call-note" /></div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900"><FileSignature className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /></div><h3 className="text-sm font-semibold tracking-wide">Zmluva</h3></div>
+                      <div className="grid gap-3 sm:grid-cols-2 pl-1">
+                        <div className="space-y-1"><Label className="text-xs">Dátum odoslania zmluvy</Label><DateTimePicker value={formData.contractSentDate} onChange={(v) => setFormData({ ...formData, contractSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-sent-date" /></div>
+                        <div className="space-y-1"><Label className="text-xs">Dátum vrátenia zmluvy</Label><DateTimePicker value={formData.contractReturnedDate} onChange={(v) => setFormData({ ...formData, contractReturnedDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-returned-date" /></div>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900"><Newspaper className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" /></div><h3 className="text-sm font-semibold tracking-wide">Letáky & Postery</h3></div>
+                      <div className="pl-1 space-y-2">
+                        <div className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all", formData.hasFlyers ? "border-2 shadow-sm bg-rose-50 border-rose-200 dark:bg-rose-950 dark:border-rose-800" : "hover:bg-muted/50 border-border")} onClick={() => setFormData({ ...formData, hasFlyers: !formData.hasFlyers })}>
+                          <Checkbox checked={formData.hasFlyers} onCheckedChange={(checked) => setFormData({ ...formData, hasFlyers: !!checked })} data-testid="checkbox-flyers" onClick={(e) => e.stopPropagation()} />
+                          <span className="text-sm font-medium">Umiestnenie letákov / posterov</span>
+                        </div>
+                        {formData.hasFlyers && (
+                          <div className="ml-3 pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-2">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="space-y-1"><Label className="text-xs">Dátum odoslania</Label><DateTimePicker value={formData.flyersSentDate} onChange={(v) => setFormData({ ...formData, flyersSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-flyers-sent-date" /></div>
+                              <div className="space-y-1"><Label className="text-xs">Umiestnenie</Label><Input value={formData.flyersLocation} onChange={(e) => setFormData({ ...formData, flyersLocation: e.target.value })} placeholder="Kde boli umiestnené" className="h-9" data-testid="input-flyers-location" /></div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "address" && (
+                  <div className="space-y-4 pb-4">
+                    <div className="space-y-1"><Label className="text-xs">{t.clinics.address}</Label><Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder={t.clinics.address} className="h-9" data-testid="input-clinic-address" /></div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1"><Label className="text-xs">{t.clinics.city}</Label><Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} placeholder={t.clinics.city} className="h-9" data-testid="input-clinic-city" /></div>
+                      <div className="space-y-1"><Label className="text-xs">{t.clinics.postalCode}</Label><Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} placeholder={t.clinics.postalCode} className="h-9" data-testid="input-clinic-postal" /></div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-2">
+                      <Label className="text-xs">{t.clinics.gpsCoordinates || "GPS suradnice"}</Label>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1"><Label className="text-[11px] text-muted-foreground">{t.clinics.latitude || "Zemepisna sirka"}</Label><Input value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} placeholder="48.1486" className="h-9" data-testid="input-clinic-lat" /></div>
+                        <div className="space-y-1"><Label className="text-[11px] text-muted-foreground">{t.clinics.longitude || "Zemepisna dlzka"}</Label><Input value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="17.1077" className="h-9" data-testid="input-clinic-lng" /></div>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button type="button" variant="outline" size="sm" onClick={handleGetCurrentLocation} disabled={isLoadingLocation} data-testid="button-get-gps">
+                          {isLoadingLocation ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Navigation className="h-4 w-4 mr-2" />}
+                          {t.clinics.getCurrentLocation || "Ziskat aktualnu polohu"}
+                        </Button>
+                        {formData.latitude && formData.longitude && (
+                          <Button type="button" variant="outline" size="sm" onClick={() => setShowMapDialog(true)} data-testid="button-show-map"><MapPin className="h-4 w-4 mr-2" />{t.clinics.showOnMap || "Zobrazit na mape"}</Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "settings" && (
+                  <div className="space-y-4 pb-4">
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div><Label>{t.clinics.isActive || "Aktivna ambulancia"}</Label><p className="text-sm text-muted-foreground">{t.clinics.isActiveDesc || "Ambulancia je aktivna a zobrazuje sa v zoznamoch"}</p></div>
+                      <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-clinic-active" />
+                    </div>
+                    <div className="space-y-1"><Label className="text-xs">{t.clinics.notes}</Label><Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={6} data-testid="input-clinic-notes" /></div>
+                  </div>
+                )}
+
+                {activeTab === "history" && (
+                  <div className="pb-4" data-testid="tab-content-history-drawer">
+                    {eventsLoading ? (
+                      <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                    ) : !clinicEventsData || clinicEventsData.length === 0 ? (
+                      <div className="text-center py-12">
+                        <History className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+                        <p className="text-sm text-muted-foreground">{t.clinics.noHistory || "Zatiaľ žiadna história"}</p>
+                        <p className="text-xs text-muted-foreground/60 mt-1">{t.clinics.noHistoryDesc || "Udalosti sa začnú zaznamenávať po prvej zmene"}</p>
+                      </div>
+                    ) : (
+                      <div className="relative pl-6" data-testid="clinic-history-timeline">
+                        <div className="absolute left-[11px] top-2 bottom-2 w-px bg-border" />
+                        <div className="space-y-0">
+                          {clinicEventsData.map((event) => {
+                            const eventDate = new Date(event.createdAt);
+                            const isToday = new Date().toDateString() === eventDate.toDateString();
+                            const timeStr = eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                            const dateStr = isToday ? timeStr : `${eventDate.toLocaleDateString()} ${timeStr}`;
+                            let IconComp = FileText;
+                            let iconColor = "text-gray-500 bg-gray-100 dark:bg-gray-800";
+                            if (event.eventType === "status_change") { IconComp = ArrowRightLeft; iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-950"; }
+                            else if (event.eventType === "referral_added") { IconComp = UserCheck; iconColor = "text-purple-500 bg-purple-50 dark:bg-purple-950"; }
+                            else if (event.eventType === "referral_given") { IconComp = UserPlus; iconColor = "text-indigo-500 bg-indigo-50 dark:bg-indigo-950"; }
+                            else if (event.eventType === "email_sent" || event.eventType === "email_received") { IconComp = Mail; iconColor = "text-sky-500 bg-sky-50 dark:bg-sky-950"; }
+                            else if (event.eventType === "sms_sent" || event.eventType === "sms_received") { IconComp = MessageSquare; iconColor = "text-green-500 bg-green-50 dark:bg-green-950"; }
+                            else if (event.eventType === "campaign") { IconComp = Megaphone; iconColor = "text-orange-500 bg-orange-50 dark:bg-orange-950"; }
+                            else if (event.eventType === "call") { IconComp = PhoneCall; iconColor = "text-emerald-500 bg-emerald-50 dark:bg-emerald-950"; }
+                            else if (event.eventType === "clinic_created") { IconComp = Plus; iconColor = "text-green-600 bg-green-50 dark:bg-green-950"; }
+                            return (
+                              <div key={event.id} className="relative flex gap-3 pb-5" data-testid={`history-event-${event.id}`}>
+                                <div className={cn("relative z-10 flex items-center justify-center w-6 h-6 rounded-full shrink-0 -ml-6", iconColor)}><IconComp className="h-3 w-3" /></div>
+                                <div className="flex-1 min-w-0 pt-0.5">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0"><p className="text-sm font-medium leading-tight">{event.title}</p>{event.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{event.description}</p>}</div>
+                                    <span className="text-[10px] text-muted-foreground/60 shrink-0 pt-0.5">{dateStr}</span>
+                                  </div>
+                                  {event.createdByName && <p className="text-[10px] text-muted-foreground/50 mt-0.5">{event.createdByName}</p>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "personnel" && (
+                  <InstitutionPersonnelManager entityType="clinic" entityId={initialData.id} entityName={initialData.name} />
+                )}
+
+                {activeTab === "campaigns" && (
+                  <EntityCampaignTimeline entityType="clinic" entityId={initialData.id} entityName={initialData.name} />
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic-drawer">{t.common.cancel}</Button>
+              <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-clinic-drawer">
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                {t.common.save}
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+        {mapDialog}
+      </>
     );
   }
 
