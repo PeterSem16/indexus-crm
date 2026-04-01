@@ -1,28 +1,45 @@
-import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
+let secureStoreModule: typeof import('expo-secure-store') | null = null;
 let useAsyncStorageFallback = false;
 
+async function getSecureStore() {
+  if (useAsyncStorageFallback) return null;
+  if (!secureStoreModule) {
+    try {
+      secureStoreModule = require('expo-secure-store');
+    } catch {
+      useAsyncStorageFallback = true;
+      return null;
+    }
+  }
+  return secureStoreModule;
+}
+
 export async function setItem(key: string, value: string): Promise<void> {
-  if (useAsyncStorageFallback) {
+  const store = await getSecureStore();
+  if (!store) {
     await AsyncStorage.setItem(key, value);
     return;
   }
   try {
-    await SecureStore.setItemAsync(key, value);
+    await store.setItemAsync(key, value, {
+      keychainAccessible: store.WHEN_UNLOCKED,
+    });
   } catch {
-    console.warn('[SecureStorage] SecureStore failed, falling back to AsyncStorage');
     useAsyncStorageFallback = true;
     await AsyncStorage.setItem(key, value);
   }
 }
 
 export async function getItem(key: string): Promise<string | null> {
-  if (useAsyncStorageFallback) {
+  const store = await getSecureStore();
+  if (!store) {
     return AsyncStorage.getItem(key);
   }
   try {
-    return await SecureStore.getItemAsync(key);
+    return await store.getItemAsync(key);
   } catch {
     useAsyncStorageFallback = true;
     return AsyncStorage.getItem(key);
@@ -30,12 +47,13 @@ export async function getItem(key: string): Promise<string | null> {
 }
 
 export async function deleteItem(key: string): Promise<void> {
-  if (useAsyncStorageFallback) {
+  const store = await getSecureStore();
+  if (!store) {
     await AsyncStorage.removeItem(key);
     return;
   }
   try {
-    await SecureStore.deleteItemAsync(key);
+    await store.deleteItemAsync(key);
   } catch {
     useAsyncStorageFallback = true;
     await AsyncStorage.removeItem(key);

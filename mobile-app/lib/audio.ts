@@ -107,9 +107,9 @@ export async function uploadVoiceNote(
 }
 
 async function getToken(): Promise<string | null> {
-  const SecureStore = await import('expo-secure-store');
+  const { getItem } = await import('./secureStorage');
   const { TOKEN_KEY } = await import('@/constants/config');
-  return SecureStore.getItemAsync(TOKEN_KEY);
+  return getItem(TOKEN_KEY);
 }
 
 export async function playAudio(uri: string): Promise<Audio.Sound | null> {

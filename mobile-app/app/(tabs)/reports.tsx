@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from '@/lib/secureStorage';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { API_BASE_URL, TOKEN_KEY } from '@/constants/config';
@@ -92,7 +92,7 @@ export default function ReportsScreen() {
     setLoadingReport(reportType);
 
     try {
-      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      const token = await getItem(TOKEN_KEY);
       if (!token) {
         Alert.alert(translations.common.error, translations.reports.downloadError);
         setLoadingReport(null);

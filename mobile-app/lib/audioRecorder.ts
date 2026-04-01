@@ -171,8 +171,8 @@ class MobileAudioRecorder {
 
   private async getToken(): Promise<string | null> {
     try {
-      const SecureStore = await import('expo-secure-store');
-      return await SecureStore.getItemAsync('auth_token');
+      const { getItem } = await import('./secureStorage');
+      return await getItem('auth_token');
     } catch {
       return null;
     }
