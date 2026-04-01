@@ -109,6 +109,22 @@ fi
 
 npx expo prebuild --platform ios --clean --no-install
 
+PBXPROJ="ios/INDEXUSConnect.xcodeproj/project.pbxproj"
+if [ ! -f "$PBXPROJ" ]; then
+    PBXPROJ=$(find ios -name "project.pbxproj" | head -n 1)
+fi
+
+if [ -f "$PBXPROJ" ]; then
+    echo ""
+    echo "Injecting Apple Developer Team ID into Xcode project..."
+    sed -i '' 's/LastSwiftMigration = 1250;/LastSwiftMigration = 1250;\
+                                        DevelopmentTeam = 23GFY6JMPH;/' "$PBXPROJ"
+    sed -i '' '/buildSettings = {/a\
+                                DEVELOPMENT_TEAM = 23GFY6JMPH;
+' "$PBXPROJ"
+    echo "Team ID 23GFY6JMPH injected into $(grep -c 'DEVELOPMENT_TEAM\|DevelopmentTeam' "$PBXPROJ") locations."
+fi
+
 echo ""
 echo "=============================================="
 echo "Step 2: Installing CocoaPods dependencies..."
