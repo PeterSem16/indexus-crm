@@ -41069,6 +41069,101 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // --- MPN Network Graph: Get network data for visualization ---
+  app.get("/api/mpn/network/institution/:entityType/:entityId", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      if (!["hospital", "clinic"].includes(entityType)) return res.status(400).json({ error: "Invalid entity type" });
+
+      // Get institution info
+      let instInfo: any = null;
+      if (entityType === "hospital") {
+        const r = await db.execute(sql`SELECT id, name, city, country_code FROM hospitals WHERE id = ${entityId}`);
+        instInfo = r.rows?.[0];
+      } else {
+        const r = await db.execute(sql`SELECT id, name, city, country_code FROM clinics WHERE id = ${entityId}`);
+        instInfo = r.rows?.[0];
+      }
+      if (!instInfo) return res.status(404).json({ error: "Not found" });
+
+      // Get all persons assigned to this institution
+      const personsRes = await db.execute(sql`
+        SELECT ca.person_id, ca.department, ca.position, ca.role, ca.is_primary, ca.category_id,
+               pc.name as category_name,
+               c.first_name, c.last_name, c.title_before, c.title_after, c.type as collaborator_type
+        FROM contact_assignments ca
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        LEFT JOIN collaborators c ON c.id = ca.person_id
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId} AND ca.is_active = true
+      `);
+      const persons = personsRes.rows || [];
+
+      // For each person, get their other institution assignments
+      const personIds = persons.map((p: any) => p.person_id).filter(Boolean);
+      let otherAssignments: any[] = [];
+      if (personIds.length > 0) {
+        const otherRes = await db.execute(sql`
+          SELECT ca.person_id, ca.entity_type, ca.entity_id, ca.department, ca.position, ca.role,
+                 CASE WHEN ca.entity_type = 'hospital' THEN h.name WHEN ca.entity_type = 'clinic' THEN cl.name END as entity_name,
+                 CASE WHEN ca.entity_type = 'hospital' THEN h.city WHEN ca.entity_type = 'clinic' THEN cl.city END as entity_city
+          FROM contact_assignments ca
+          LEFT JOIN hospitals h ON ca.entity_type = 'hospital' AND h.id = ca.entity_id
+          LEFT JOIN clinics cl ON ca.entity_type = 'clinic' AND cl.id = ca.entity_id
+          WHERE ca.person_id = ANY(${personIds}) AND ca.is_active = true
+            AND NOT (ca.entity_type = ${entityType} AND ca.entity_id = ${entityId})
+        `);
+        otherAssignments = otherRes.rows || [];
+      }
+
+      res.json({ institution: { ...instInfo, entityType }, persons, otherAssignments });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/mpn/network/person/:personId", requireAuth, async (req, res) => {
+    try {
+      const { personId } = req.params;
+
+      // Get person info
+      const pRes = await db.execute(sql`
+        SELECT id, first_name, last_name, title_before, title_after, type as collaborator_type
+        FROM collaborators WHERE id = ${personId}
+      `);
+      const person = pRes.rows?.[0];
+      if (!person) return res.status(404).json({ error: "Not found" });
+
+      // Get all institution assignments for this person
+      const assignRes = await db.execute(sql`
+        SELECT ca.entity_type, ca.entity_id, ca.department, ca.position, ca.role, ca.is_primary, ca.category_id,
+               pc.name as category_name,
+               CASE WHEN ca.entity_type = 'hospital' THEN h.name WHEN ca.entity_type = 'clinic' THEN cl.name END as entity_name,
+               CASE WHEN ca.entity_type = 'hospital' THEN h.city WHEN ca.entity_type = 'clinic' THEN cl.city END as entity_city
+        FROM contact_assignments ca
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        LEFT JOIN hospitals h ON ca.entity_type = 'hospital' AND h.id = ca.entity_id
+        LEFT JOIN clinics cl ON ca.entity_type = 'clinic' AND cl.id = ca.entity_id
+        WHERE ca.person_id = ${personId} AND ca.is_active = true
+      `);
+      const institutions = assignRes.rows || [];
+
+      // For each institution, get other persons
+      const instKeys = institutions.map((i: any) => ({ type: i.entity_type, id: i.entity_id }));
+      let otherPersons: any[] = [];
+      if (instKeys.length > 0) {
+        const entityIds = instKeys.map((k: any) => k.id);
+        const otherRes = await db.execute(sql`
+          SELECT ca.entity_type, ca.entity_id, ca.person_id, ca.department, ca.position, ca.role, ca.is_primary,
+                 c.first_name, c.last_name, c.title_before, c.title_after, c.type as collaborator_type
+          FROM contact_assignments ca
+          LEFT JOIN collaborators c ON c.id = ca.person_id
+          WHERE ca.entity_id = ANY(${entityIds}) AND ca.is_active = true AND ca.person_id != ${personId}
+        `);
+        otherPersons = otherRes.rows || [];
+      }
+
+      res.json({ person, institutions, otherPersons });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // --- Hospital/Clinic Personnel: Get collaborators linked to an institution ---
   app.get("/api/institutions/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
     try {

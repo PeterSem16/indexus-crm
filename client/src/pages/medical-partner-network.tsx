@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -15,10 +15,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import {
   Building2, Users, Settings, LayoutDashboard, Plus, Edit, Trash2,
   Phone, Mail, MessageCircle, Star, Search, Filter, Hospital, Stethoscope,
-  UserCheck, UserX, Link2, ChevronRight, Building, Clock, Loader2
+  UserCheck, UserX, Link2, ChevronRight, Building, Clock, Loader2,
+  Network, MapPin, X, User, Sparkles, ZoomIn, ZoomOut, Maximize2
 } from "lucide-react";
 
 type PartnerCategory = {
@@ -29,44 +31,6 @@ type PartnerCategory = {
   entityScope: string;
   sortOrder: number;
   isActive: boolean;
-};
-
-type ContactChannel = {
-  id: string;
-  personId: string;
-  channelType: string;
-  value: string;
-  label: string | null;
-  isPrimary: boolean;
-  isActive: boolean;
-  notes: string | null;
-  assignmentId: string | null;
-};
-
-type CommunicationScheduleRow = {
-  schedule: {
-    id: string;
-    categoryId: string;
-    subcategory: string | null;
-    channelType: string;
-    frequencyMonths: number;
-    isActive: boolean;
-  };
-  categoryName: string;
-  categoryCode: string;
-};
-
-type ProtocolRow = {
-  protocol: {
-    id: string;
-    categoryId: string;
-    stepOrder: number;
-    description: string;
-    requiredDocuments: string[];
-    isActive: boolean;
-  };
-  categoryName: string;
-  categoryCode: string;
 };
 
 type MpnStats = {
@@ -110,34 +74,665 @@ type Person = {
   collaboratorType: string;
 };
 
-function channelIcon(type: string) {
-  switch (type) {
-    case "phone": case "landline": return <Phone className="h-4 w-4" />;
-    case "mobile": return <Phone className="h-4 w-4" />;
-    case "email": return <Mail className="h-4 w-4" />;
-    case "whatsapp": case "viber": case "signal": return <MessageCircle className="h-4 w-4" />;
-    default: return <Phone className="h-4 w-4" />;
-  }
+type NetworkNode = {
+  id: string;
+  type: "hospital" | "clinic" | "person";
+  label: string;
+  sublabel?: string;
+  x: number;
+  y: number;
+  isPrimary?: boolean;
+  isCenter?: boolean;
+  role?: string;
+  department?: string;
+  position?: string;
+  categoryName?: string;
+};
+
+type NetworkEdge = {
+  from: string;
+  to: string;
+  label?: string;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// NETWORK EXPLORER - search-first + SVG network visualization
+// ═══════════════════════════════════════════════════════════════
+
+const NODE_COLORS = {
+  hospital: { fill: "#3b82f6", stroke: "#2563eb", text: "#ffffff", glow: "rgba(59,130,246,0.3)" },
+  clinic: { fill: "#10b981", stroke: "#059669", text: "#ffffff", glow: "rgba(16,185,129,0.3)" },
+  person: { fill: "#8b5cf6", stroke: "#7c3aed", text: "#ffffff", glow: "rgba(139,92,246,0.3)" },
+};
+
+function layoutNodes(
+  center: { id: string; type: string; label: string; sublabel?: string },
+  ring1: { id: string; type: string; label: string; sublabel?: string; role?: string; department?: string; position?: string; categoryName?: string; isPrimary?: boolean }[],
+  ring2Map: Map<string, { id: string; type: string; label: string; sublabel?: string }[]>,
+): { nodes: NetworkNode[]; edges: NetworkEdge[] } {
+  const nodes: NetworkNode[] = [];
+  const edges: NetworkEdge[] = [];
+  const cx = 450, cy = 300;
+
+  nodes.push({ ...center, x: cx, y: cy, isCenter: true } as NetworkNode);
+
+  const ring1Radius = Math.max(180, ring1.length * 25);
+  ring1.forEach((item, i) => {
+    const angle = (2 * Math.PI * i) / Math.max(ring1.length, 1) - Math.PI / 2;
+    const nx = cx + ring1Radius * Math.cos(angle);
+    const ny = cy + ring1Radius * Math.sin(angle);
+    nodes.push({ ...item, x: nx, y: ny } as NetworkNode);
+    edges.push({ from: center.id, to: item.id, label: item.role || item.position || "" });
+
+    const ring2Items = ring2Map.get(item.id) || [];
+    const ring2Radius = 100;
+    ring2Items.forEach((r2, j) => {
+      if (nodes.some(n => n.id === r2.id)) {
+        edges.push({ from: item.id, to: r2.id });
+        return;
+      }
+      const spread = Math.min(Math.PI * 0.6, ring2Items.length * 0.3);
+      const baseAngle = angle;
+      const a2 = baseAngle - spread / 2 + (spread * j) / Math.max(ring2Items.length - 1, 1);
+      const r2x = nx + ring2Radius * Math.cos(a2);
+      const r2y = ny + ring2Radius * Math.sin(a2);
+      nodes.push({ ...r2, x: r2x, y: r2y } as NetworkNode);
+      edges.push({ from: item.id, to: r2.id });
+    });
+  });
+
+  return { nodes, edges };
 }
 
-function scopeBadge(scope: string, t: any) {
-  const colors: Record<string, string> = {
-    hospital: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-    clinic: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-    independent: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges: NetworkEdge[]; onNodeClick?: (node: NetworkNode) => void }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 900, h: 600 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (nodes.length === 0) return;
+    const minX = Math.min(...nodes.map(n => n.x)) - 80;
+    const minY = Math.min(...nodes.map(n => n.y)) - 60;
+    const maxX = Math.max(...nodes.map(n => n.x)) + 80;
+    const maxY = Math.max(...nodes.map(n => n.y)) + 60;
+    setViewBox({ x: minX, y: minY, w: Math.max(maxX - minX, 400), h: Math.max(maxY - minY, 300) });
+  }, [nodes]);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const scale = e.deltaY > 0 ? 1.1 : 0.9;
+    setViewBox(vb => ({
+      x: vb.x + vb.w * (1 - scale) / 2,
+      y: vb.y + vb.h * (1 - scale) / 2,
+      w: vb.w * scale,
+      h: vb.h * scale,
+    }));
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    setDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragging || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const dx = (e.clientX - dragStart.x) * (viewBox.w / rect.width);
+    const dy = (e.clientY - dragStart.y) * (viewBox.h / rect.height);
+    setViewBox(vb => ({ ...vb, x: vb.x - dx, y: vb.y - dy }));
+    setDragStart({ x: e.clientX, y: e.clientY });
+  }, [dragging, dragStart, viewBox]);
+
+  const handleMouseUp = useCallback(() => { setDragging(false); }, []);
+
+  const zoom = (factor: number) => {
+    setViewBox(vb => ({
+      x: vb.x + vb.w * (1 - factor) / 2,
+      y: vb.y + vb.h * (1 - factor) / 2,
+      w: vb.w * factor,
+      h: vb.h * factor,
+    }));
   };
-  const labels: Record<string, string> = { hospital: t.mpn.hospital, clinic: t.mpn.clinic, independent: t.mpn.independent };
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[scope] || ""}`}>{labels[scope] || scope}</span>;
+
+  const fitAll = () => {
+    if (nodes.length === 0) return;
+    const minX = Math.min(...nodes.map(n => n.x)) - 80;
+    const minY = Math.min(...nodes.map(n => n.y)) - 60;
+    const maxX = Math.max(...nodes.map(n => n.x)) + 80;
+    const maxY = Math.max(...nodes.map(n => n.y)) + 60;
+    setViewBox({ x: minX, y: minY, w: Math.max(maxX - minX, 400), h: Math.max(maxY - minY, 300) });
+  };
+
+  const getNodeRadius = (node: NetworkNode) => node.isCenter ? 38 : 28;
+
+  const getIcon = (type: string) => {
+    if (type === "hospital") return "H";
+    if (type === "clinic") return "C";
+    return "P";
+  };
+
+  const truncateLabel = (label: string, max: number) =>
+    label.length > max ? label.slice(0, max - 1) + "…" : label;
+
+  if (nodes.length === 0) return null;
+
+  return (
+    <div className="relative w-full border rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 overflow-hidden" style={{ height: 500 }}>
+      <div className="absolute top-3 right-3 z-10 flex gap-1">
+        <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => zoom(0.8)} data-testid="btn-zoom-in">
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => zoom(1.25)} data-testid="btn-zoom-out">
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <Button variant="secondary" size="icon" className="h-8 w-8" onClick={fitAll} data-testid="btn-fit-all">
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <svg
+        ref={svgRef}
+        className="w-full h-full cursor-grab active:cursor-grabbing"
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        <defs>
+          <filter id="glow-hospital" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feFlood floodColor={NODE_COLORS.hospital.glow} result="color" />
+            <feComposite in="color" in2="blur" operator="in" result="glow" />
+            <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="glow-clinic" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feFlood floodColor={NODE_COLORS.clinic.glow} result="color" />
+            <feComposite in="color" in2="blur" operator="in" result="glow" />
+            <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="glow-person" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feFlood floodColor={NODE_COLORS.person.glow} result="color" />
+            <feComposite in="color" in2="blur" operator="in" result="glow" />
+            <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
+          </marker>
+        </defs>
+
+        {edges.map((edge, i) => {
+          const fromNode = nodes.find(n => n.id === edge.from);
+          const toNode = nodes.find(n => n.id === edge.to);
+          if (!fromNode || !toNode) return null;
+          const isHovered = hoveredNode === edge.from || hoveredNode === edge.to;
+          const dx = toNode.x - fromNode.x;
+          const dy = toNode.y - fromNode.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const fromR = getNodeRadius(fromNode);
+          const toR = getNodeRadius(toNode);
+          const x1 = fromNode.x + (dx / dist) * fromR;
+          const y1 = fromNode.y + (dy / dist) * fromR;
+          const x2 = toNode.x - (dx / dist) * toR;
+          const y2 = toNode.y - (dy / dist) * toR;
+
+          return (
+            <g key={`edge-${i}`}>
+              <line
+                x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={isHovered ? "#64748b" : "#cbd5e1"}
+                strokeWidth={isHovered ? 2.5 : 1.5}
+                strokeDasharray={isHovered ? "" : ""}
+                opacity={hoveredNode && !isHovered ? 0.2 : 1}
+                className="transition-all duration-200"
+              />
+              {edge.label && isHovered && (
+                <text
+                  x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 6}
+                  textAnchor="middle"
+                  className="text-[9px] fill-slate-500 dark:fill-slate-400 pointer-events-none"
+                >
+                  {edge.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {nodes.map(node => {
+          const colors = NODE_COLORS[node.type];
+          const r = getNodeRadius(node);
+          const isHovered = hoveredNode === node.id;
+          const dimmed = hoveredNode && !isHovered && !edges.some(
+            e => (e.from === hoveredNode && e.to === node.id) || (e.to === hoveredNode && e.from === node.id)
+          );
+
+          return (
+            <g
+              key={node.id}
+              className="cursor-pointer transition-all duration-200"
+              opacity={dimmed ? 0.25 : 1}
+              onMouseEnter={() => setHoveredNode(node.id)}
+              onMouseLeave={() => setHoveredNode(null)}
+              onClick={() => onNodeClick?.(node)}
+            >
+              <circle
+                cx={node.x} cy={node.y} r={r + (isHovered ? 4 : 0)}
+                fill={colors.fill}
+                stroke={isHovered ? "#fff" : colors.stroke}
+                strokeWidth={isHovered ? 3 : 2}
+                filter={node.isCenter ? `url(#glow-${node.type})` : undefined}
+              />
+              {node.isPrimary && (
+                <polygon
+                  points={`${node.x},${node.y - r - 8} ${node.x + 5},${node.y - r - 2} ${node.x + 3},${node.y - r + 4} ${node.x - 3},${node.y - r + 4} ${node.x - 5},${node.y - r - 2}`}
+                  fill="#fbbf24" stroke="#f59e0b" strokeWidth="0.5"
+                />
+              )}
+              <text
+                x={node.x} y={node.y + 1}
+                textAnchor="middle" dominantBaseline="middle"
+                className="pointer-events-none font-bold"
+                fill={colors.text}
+                fontSize={node.isCenter ? 16 : 12}
+              >
+                {getIcon(node.type)}
+              </text>
+              <text
+                x={node.x} y={node.y + r + 14}
+                textAnchor="middle"
+                className="pointer-events-none font-medium"
+                fill="currentColor"
+                fontSize={node.isCenter ? 12 : 10}
+              >
+                {truncateLabel(node.label, node.isCenter ? 30 : 20)}
+              </text>
+              {node.sublabel && (
+                <text
+                  x={node.x} y={node.y + r + 26}
+                  textAnchor="middle"
+                  className="pointer-events-none"
+                  fill="#94a3b8"
+                  fontSize={9}
+                >
+                  {truncateLabel(node.sublabel, 25)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+
+      <div className="absolute bottom-3 left-3 flex gap-2 text-[10px]">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ background: NODE_COLORS.hospital.fill }} /> Nemocnica</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ background: NODE_COLORS.clinic.fill }} /> Ambulancia</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ background: NODE_COLORS.person.fill }} /> Osoba</span>
+      </div>
+    </div>
+  );
 }
 
-function channelLabel(type: string, t: any) {
-  const map: Record<string, string> = {
-    phone: t.mpn.phone, mobile: t.mpn.mobile, landline: t.mpn.landline,
-    email: t.mpn.email, whatsapp: t.mpn.whatsapp, viber: t.mpn.viber, signal: t.mpn.signal,
-    in_person: t.mpn.inPerson,
+function NetworkExplorer() {
+  const { t } = useI18n();
+  const [searchType, setSearchType] = useState<"institution" | "person">("institution");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedResult, setSelectedResult] = useState<{ type: "institution" | "person"; entityType?: string; id: string; name: string } | null>(null);
+
+  const searchTimeout = useRef<any>(null);
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => { setDebouncedSearch(val); }, 300);
   };
-  return map[type] || type;
+
+  const instQueryParams: Record<string, string> = { page: "1", limit: "15" };
+  if (debouncedSearch) instQueryParams.search = debouncedSearch;
+
+  const personQueryParams: Record<string, string> = { page: "1", limit: "15" };
+  if (debouncedSearch) personQueryParams.search = debouncedSearch;
+
+  const { data: instResults, isLoading: instLoading } = useQuery<{ data: Institution[] }>({
+    queryKey: ["/api/mpn/institutions", instQueryParams],
+    enabled: searchType === "institution" && debouncedSearch.length >= 2,
+  });
+
+  const { data: personResults, isLoading: personLoading } = useQuery<{ data: Person[] }>({
+    queryKey: ["/api/mpn/persons", personQueryParams],
+    enabled: searchType === "person" && debouncedSearch.length >= 2,
+  });
+
+  const { data: networkData, isLoading: networkLoading } = useQuery<any>({
+    queryKey: selectedResult?.type === "person"
+      ? ["/api/mpn/network/person", selectedResult.id]
+      : ["/api/mpn/network/institution", selectedResult?.entityType, selectedResult?.id],
+    queryFn: async () => {
+      if (!selectedResult) return null;
+      const url = selectedResult.type === "person"
+        ? `/api/mpn/network/person/${selectedResult.id}`
+        : `/api/mpn/network/institution/${selectedResult.entityType}/${selectedResult.id}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!selectedResult,
+  });
+
+  const { nodes, edges } = useMemo(() => {
+    if (!networkData || !selectedResult) return { nodes: [], edges: [] };
+
+    if (selectedResult.type === "institution") {
+      const inst = networkData.institution;
+      const center = {
+        id: `inst-${inst.entityType}-${inst.id}`,
+        type: inst.entityType as "hospital" | "clinic",
+        label: inst.name,
+        sublabel: inst.city || "",
+      };
+      const ring1 = (networkData.persons || []).map((p: any) => ({
+        id: `person-${p.person_id}`,
+        type: "person" as const,
+        label: [p.title_before, p.first_name, p.last_name].filter(Boolean).join(" "),
+        sublabel: p.collaborator_type || "",
+        role: p.role,
+        department: p.department,
+        position: p.position,
+        categoryName: p.category_name,
+        isPrimary: p.is_primary,
+      }));
+      const ring2Map = new Map<string, any[]>();
+      for (const oa of (networkData.otherAssignments || [])) {
+        const personKey = `person-${oa.person_id}`;
+        const item = {
+          id: `inst-${oa.entity_type}-${oa.entity_id}`,
+          type: oa.entity_type as "hospital" | "clinic",
+          label: oa.entity_name || "?",
+          sublabel: oa.entity_city || "",
+        };
+        if (!ring2Map.has(personKey)) ring2Map.set(personKey, []);
+        const existing = ring2Map.get(personKey)!;
+        if (!existing.some(x => x.id === item.id)) existing.push(item);
+      }
+      return layoutNodes(center, ring1, ring2Map);
+    } else {
+      const person = networkData.person;
+      const center = {
+        id: `person-${person.id}`,
+        type: "person" as const,
+        label: [person.title_before, person.first_name, person.last_name].filter(Boolean).join(" "),
+        sublabel: person.collaborator_type || "",
+      };
+      const ring1 = (networkData.institutions || []).map((inst: any) => ({
+        id: `inst-${inst.entity_type}-${inst.entity_id}`,
+        type: inst.entity_type as "hospital" | "clinic",
+        label: inst.entity_name || "?",
+        sublabel: inst.entity_city || "",
+        role: inst.role,
+        department: inst.department,
+        position: inst.position,
+        categoryName: inst.category_name,
+        isPrimary: inst.is_primary,
+      }));
+      const ring2Map = new Map<string, any[]>();
+      for (const op of (networkData.otherPersons || [])) {
+        const instKey = `inst-${op.entity_type}-${op.entity_id}`;
+        const item = {
+          id: `person-${op.person_id}`,
+          type: "person" as const,
+          label: [op.title_before, op.first_name, op.last_name].filter(Boolean).join(" "),
+          sublabel: op.collaborator_type || "",
+        };
+        if (!ring2Map.has(instKey)) ring2Map.set(instKey, []);
+        const existing = ring2Map.get(instKey)!;
+        if (!existing.some(x => x.id === item.id)) existing.push(item);
+      }
+      return layoutNodes(center, ring1, ring2Map);
+    }
+  }, [networkData, selectedResult]);
+
+  const [detailNode, setDetailNode] = useState<NetworkNode | null>(null);
+
+  const searchResults = searchType === "institution"
+    ? (instResults?.data || [])
+    : (personResults?.data || []);
+  const isSearching = searchType === "institution" ? instLoading : personLoading;
+  const showResults = debouncedSearch.length >= 2 && !selectedResult;
+
+  return (
+    <div className="space-y-4" data-testid="network-explorer">
+      <div className="flex gap-3 items-start">
+        <div className="flex-1 space-y-2">
+          <div className="flex gap-2 items-center">
+            <div className="flex bg-muted rounded-lg p-0.5">
+              <button
+                className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  searchType === "institution" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
+                onClick={() => { setSearchType("institution"); setSearch(""); setDebouncedSearch(""); setSelectedResult(null); }}
+                data-testid="btn-search-institution"
+              >
+                <Building2 className="h-3.5 w-3.5 inline mr-1" />
+                Inštitúcia
+              </button>
+              <button
+                className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  searchType === "person" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
+                onClick={() => { setSearchType("person"); setSearch(""); setDebouncedSearch(""); setSelectedResult(null); }}
+                data-testid="btn-search-person"
+              >
+                <User className="h-3.5 w-3.5 inline mr-1" />
+                Osoba
+              </button>
+            </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={searchType === "institution" ? "Vyhľadajte nemocnicu alebo ambulanciu..." : "Vyhľadajte osobu (meno, priezvisko)..."}
+                value={search}
+                onChange={e => { handleSearch(e.target.value); if (selectedResult) setSelectedResult(null); }}
+                className="pl-9"
+                data-testid="input-network-search"
+              />
+            </div>
+            {selectedResult && (
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedResult(null); setSearch(""); setDebouncedSearch(""); setDetailNode(null); }} data-testid="btn-clear-selection">
+                <X className="h-4 w-4 mr-1" /> Zrušiť
+              </Button>
+            )}
+          </div>
+
+          {showResults && (
+            <Card className="absolute z-50 w-[calc(100%-2rem)] max-w-2xl max-h-80 overflow-y-auto shadow-xl border-2">
+              {isSearching ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  {debouncedSearch.length < 2 ? "Zadajte aspoň 2 znaky" : "Žiadne výsledky"}
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {searchType === "institution" ? (
+                    (searchResults as Institution[]).map((inst) => (
+                      <button
+                        key={`${inst.type}-${inst.id}`}
+                        className="w-full text-left px-4 py-3 hover:bg-muted/50 flex items-center gap-3 transition-colors"
+                        onClick={() => {
+                          setSelectedResult({ type: "institution", entityType: inst.type, id: inst.id, name: inst.name });
+                          setSearch(inst.name);
+                          setDebouncedSearch("");
+                        }}
+                        data-testid={`search-result-${inst.id}`}
+                      >
+                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                          inst.type === "hospital" ? "bg-blue-100 text-blue-600" : "bg-emerald-100 text-emerald-600")}>
+                          {inst.type === "hospital" ? <Hospital className="h-4 w-4" /> : <Stethoscope className="h-4 w-4" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate">{inst.name}</div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            {inst.city && <span><MapPin className="h-3 w-3 inline" /> {inst.city}</span>}
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">{inst.type === "hospital" ? "Nemocnica" : "Ambulancia"}</Badge>
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    (searchResults as Person[]).map((person) => (
+                      <button
+                        key={person.id}
+                        className="w-full text-left px-4 py-3 hover:bg-muted/50 flex items-center gap-3 transition-colors"
+                        onClick={() => {
+                          setSelectedResult({ type: "person", id: person.id, name: person.fullName || `${person.firstName} ${person.lastName}` });
+                          setSearch(person.fullName || `${person.firstName} ${person.lastName}`);
+                          setDebouncedSearch("");
+                        }}
+                        data-testid={`search-result-${person.id}`}
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
+                          <User className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate">
+                            {person.fullName || [person.titleBefore, person.firstName, person.lastName, person.titleAfter].filter(Boolean).join(" ")}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            {person.collaboratorType && <span>{person.collaboratorType}</span>}
+                            {person.linkedInstitutions?.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <Link2 className="h-3 w-3" />
+                                {person.linkedInstitutions.length} {person.linkedInstitutions.length === 1 ? "inštitúcia" : "inštitúcie"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {!selectedResult && !showResults && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-violet-100 dark:from-blue-900/30 dark:to-violet-900/30 flex items-center justify-center mb-6">
+            <Network className="h-10 w-10 text-blue-500" />
+          </div>
+          <h3 className="text-xl font-semibold mb-2">Medical Partner Network</h3>
+          <p className="text-sm text-muted-foreground max-w-md">
+            Vyhľadajte nemocnicu, ambulanciu alebo osobu pre zobrazenie medicínskej siete a vzťahov.
+          </p>
+          <div className="flex gap-6 mt-8 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full" style={{ background: NODE_COLORS.hospital.fill }} /> Nemocnica</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full" style={{ background: NODE_COLORS.clinic.fill }} /> Ambulancia</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full" style={{ background: NODE_COLORS.person.fill }} /> Osoba</span>
+          </div>
+        </div>
+      )}
+
+      {selectedResult && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="text-sm px-3 py-1 gap-1.5">
+              {selectedResult.type === "person" ? (
+                <><User className="h-4 w-4" /> {selectedResult.name}</>
+              ) : selectedResult.entityType === "hospital" ? (
+                <><Hospital className="h-4 w-4" /> {selectedResult.name}</>
+              ) : (
+                <><Stethoscope className="h-4 w-4" /> {selectedResult.name}</>
+              )}
+            </Badge>
+            {nodes.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {nodes.length} uzlov · {edges.length} prepojení
+              </span>
+            )}
+          </div>
+
+          {networkLoading ? (
+            <div className="flex items-center justify-center py-20 border rounded-xl bg-muted/20">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Načítavam sieť...</p>
+              </div>
+            </div>
+          ) : nodes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 border rounded-xl bg-muted/20 text-center">
+              <Network className="h-12 w-12 text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground">Žiadne prepojenia v sieti</p>
+            </div>
+          ) : (
+            <div className="flex gap-4">
+              <div className="flex-1 min-w-0">
+                <NetworkSVG nodes={nodes} edges={edges} onNodeClick={setDetailNode} />
+              </div>
+              {detailNode && (
+                <Card className="w-72 shrink-0 self-start">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold",
+                          detailNode.type === "hospital" ? "bg-blue-500" : detailNode.type === "clinic" ? "bg-emerald-500" : "bg-violet-500")}>
+                          {detailNode.type === "hospital" ? "H" : detailNode.type === "clinic" ? "C" : "P"}
+                        </div>
+                        <div>
+                          <CardTitle className="text-sm">{detailNode.label}</CardTitle>
+                          {detailNode.sublabel && <CardDescription className="text-xs">{detailNode.sublabel}</CardDescription>}
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDetailNode(null)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-2 text-xs">
+                    <Badge variant="outline" className="text-[10px]">
+                      {detailNode.type === "hospital" ? "Nemocnica" : detailNode.type === "clinic" ? "Ambulancia" : "Osoba"}
+                    </Badge>
+                    {detailNode.isPrimary && (
+                      <Badge className="text-[10px] bg-amber-100 text-amber-800 border-amber-300 ml-1">
+                        <Star className="h-3 w-3 mr-0.5" /> Primárne
+                      </Badge>
+                    )}
+                    {detailNode.department && (
+                      <div><span className="text-muted-foreground">Oddelenie:</span> <span className="font-medium">{detailNode.department}</span></div>
+                    )}
+                    {detailNode.position && (
+                      <div><span className="text-muted-foreground">Pozícia:</span> <span className="font-medium">{detailNode.position}</span></div>
+                    )}
+                    {detailNode.role && (
+                      <div><span className="text-muted-foreground">Rola:</span> <span className="font-medium">{detailNode.role}</span></div>
+                    )}
+                    {detailNode.categoryName && (
+                      <div><span className="text-muted-foreground">Kategória:</span> <span className="font-medium">{detailNode.categoryName}</span></div>
+                    )}
+                    <Separator />
+                    <div className="text-muted-foreground">
+                      Prepojenia: {edges.filter(e => e.from === detailNode.id || e.to === detailNode.id).length}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
+
+// ═══════════════════════════════════════════════════════════════
+// OVERVIEW TAB
+// ═══════════════════════════════════════════════════════════════
 
 function OverviewTab() {
   const { t } = useI18n();
@@ -174,812 +769,108 @@ function OverviewTab() {
   );
 }
 
-function InstitutionsTab() {
-  const { t } = useI18n();
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [selectedInstitution, setSelectedInstitution] = useState<{ type: string; id: string; name: string } | null>(null);
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS TAB (categories, schedules, protocols)
+// ═══════════════════════════════════════════════════════════════
 
-  const searchTimeout = useState<any>(null);
-  const handleSearch = (val: string) => {
-    setSearch(val);
-    if (searchTimeout[0]) clearTimeout(searchTimeout[0]);
-    searchTimeout[1] = setTimeout(() => { setDebouncedSearch(val); setPage(1); }, 300);
-  };
-
-  const queryParams: Record<string, string> = { page: String(page), limit: "100" };
-  if (debouncedSearch) queryParams.search = debouncedSearch;
-  if (typeFilter !== "all") queryParams.type = typeFilter;
-
-  const { data: result, isLoading } = useQuery<{ data: Institution[]; total: number; page: number; totalPages: number }>({
-    queryKey: ["/api/mpn/institutions", queryParams],
-  });
-
-  const filtered = result?.data || [];
-  const total = result?.total || 0;
-  const totalPages = result?.totalPages || 1;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-4 items-center" data-testid="institutions-filters">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={`${t.mpn.name}, ${t.mpn.city}...`}
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-institutions"
-          />
-        </div>
-        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-48" data-testid="select-type-filter">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t.mpn.allTypes}</SelectItem>
-            <SelectItem value="hospital">{t.mpn.hospital}</SelectItem>
-            <SelectItem value="clinic">{t.mpn.clinic}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground" data-testid="text-institutions-count">
-          {total} {t.mpn.institutions || "institutions"} {debouncedSearch && `(${t.mpn.filtered || "filtered"})`}
-        </p>
-      </div>
-
-      <Card>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t.mpn.type}</TableHead>
-              <TableHead>{t.mpn.name}</TableHead>
-              <TableHead>{t.mpn.city}</TableHead>
-              <TableHead>{t.mpn.country}</TableHead>
-              <TableHead>{t.mpn.status}</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t.mpn.noData}</TableCell></TableRow>
-            ) : filtered.map((inst) => (
-              <TableRow key={`${inst.type}-${inst.id}`} className="cursor-pointer hover:bg-muted/50" data-testid={`row-institution-${inst.id}`}>
-                <TableCell>
-                  {inst.type === "hospital" ? (
-                    <Badge variant="outline" className="gap-1"><Hospital className="h-3 w-3" />{t.mpn.hospital}</Badge>
-                  ) : (
-                    <Badge variant="outline" className="gap-1 border-green-300"><Stethoscope className="h-3 w-3" />{t.mpn.clinic}</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="font-medium">{inst.name}</TableCell>
-                <TableCell>{inst.city || "—"}</TableCell>
-                <TableCell><Badge variant="secondary">{inst.countryCode}</Badge></TableCell>
-                <TableCell>
-                  <Badge variant={inst.isActive ? "default" : "secondary"}>
-                    {inst.isActive ? t.mpn.active : t.mpn.inactive}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedInstitution({ type: inst.type, id: inst.id, name: inst.name })} data-testid={`btn-view-detail-${inst.id}`}>
-                    <Building2 className="h-4 w-4 mr-1" /> {t.mpn.detail || "Detail"}
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        )}
-      </Card>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {t.mpn.page || "Page"} {page} / {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)} data-testid="btn-prev-page">
-              ← {t.mpn.previous || "Previous"}
-            </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} data-testid="btn-next-page">
-              {t.mpn.next || "Next"} →
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {selectedInstitution && (
-        <InstitutionDetailDialog
-          entityType={selectedInstitution.type}
-          entityId={selectedInstitution.id}
-          entityName={selectedInstitution.name}
-          onClose={() => setSelectedInstitution(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-function InstitutionDetailDialog({ entityType, entityId, entityName, onClose }: { entityType: string; entityId: string; entityName: string; onClose: () => void }) {
-  const { t } = useI18n();
-  const [detailTab, setDetailTab] = useState("info");
-
-  const { data: detail, isLoading } = useQuery<any>({
-    queryKey: ["/api/mpn/institution", entityType, entityId, "detail"],
-    queryFn: async () => {
-      const res = await fetch(`/api/mpn/institution/${entityType}/${entityId}/detail`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
-  });
-
-  const info = detail?.info;
-  const assignedPersonnel: any[] = detail?.assignedPersonnel || [];
-  const legacyCollabs: any[] = detail?.legacyLinkedCollaborators || [];
-  const clinicDoctor = detail?.clinicDoctor;
-  const schedules: any[] = detail?.communicationSchedules || [];
-  const protocols: any[] = detail?.firstContactProtocols || [];
-
-  const allPersonnel = [...assignedPersonnel, ...legacyCollabs];
-  const totalPersons = allPersonnel.length + (clinicDoctor ? 1 : 0);
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {entityType === "hospital" ? <Hospital className="h-5 w-5 text-orange-500" /> : <Stethoscope className="h-5 w-5 text-green-500" />}
-            {entityName}
-            <Badge variant="outline" className="ml-2">{entityType === "hospital" ? t.mpn.hospital : t.mpn.clinic}</Badge>
-          </DialogTitle>
-        </DialogHeader>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : !info ? (
-          <p className="text-center text-muted-foreground py-8">{t.mpn.noData}</p>
-        ) : (
-          <Tabs value={detailTab} onValueChange={setDetailTab}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="info" data-testid="tab-detail-info">
-                <Building2 className="h-4 w-4 mr-1" /> {t.mpn.info || "Info"}
-              </TabsTrigger>
-              <TabsTrigger value="personnel" data-testid="tab-detail-personnel">
-                <Users className="h-4 w-4 mr-1" /> {t.mpn.personnel} ({totalPersons})
-              </TabsTrigger>
-              <TabsTrigger value="schedule" data-testid="tab-detail-schedule">
-                <Clock className="h-4 w-4 mr-1" /> {t.mpn.communicationPlan || "Communication"}
-              </TabsTrigger>
-              <TabsTrigger value="protocol" data-testid="tab-detail-protocol">
-                <Link2 className="h-4 w-4 mr-1" /> {t.mpn.firstContact}
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="info">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="p-4 space-y-3">
-                  <h4 className="text-sm font-semibold">{t.mpn.contactInfo}</h4>
-                  <div className="space-y-2 text-sm">
-                    {info.phone && <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> {info.phone}</div>}
-                    {info.email && <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /> {info.email}</div>}
-                    {info.website && <div className="flex items-center gap-2"><Link2 className="h-4 w-4 text-muted-foreground" /> {info.website}</div>}
-                  </div>
-                </Card>
-                <Card className="p-4 space-y-3">
-                  <h4 className="text-sm font-semibold">{t.mpn.address || "Address"}</h4>
-                  <div className="space-y-1 text-sm">
-                    {(info.address || info.streetNumber) && <div>{info.address || info.streetNumber}</div>}
-                    <div>{[info.postalCode, info.city].filter(Boolean).join(" ")}</div>
-                    {info.region && <div>{info.region}</div>}
-                    <Badge variant="secondary">{info.countryCode}</Badge>
-                  </div>
-                </Card>
-                {entityType === "clinic" && (
-                  <Card className="p-4 space-y-3">
-                    <h4 className="text-sm font-semibold">{t.mpn.contractStatus || "Contract"}</h4>
-                    <div className="space-y-1 text-sm">
-                      {info.contractStatus && <div className="flex items-center gap-2"><Badge>{info.contractStatus}</Badge></div>}
-                      {info.interestCooperation !== undefined && <div>{t.mpn.interestCooperation || "Interest"}: {info.interestCooperation ? "✓" : "—"}</div>}
-                      {info.interestContract !== undefined && <div>{t.mpn.interestContract || "Contract interest"}: {info.interestContract ? "✓" : "—"}</div>}
-                      {info.hasFlyers !== undefined && <div>{t.mpn.flyers || "Flyers"}: {info.hasFlyers ? "✓" : "—"}</div>}
-                    </div>
-                  </Card>
-                )}
-                <Card className="p-4 space-y-3">
-                  <h4 className="text-sm font-semibold">{t.mpn.status}</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={info.isActive ? "default" : "secondary"}>
-                        {info.isActive ? t.mpn.active : t.mpn.inactive}
-                      </Badge>
-                    </div>
-                    {info.notes && <div className="mt-2 text-muted-foreground">{info.notes}</div>}
-                  </div>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="personnel">
-              <div className="space-y-4">
-                {clinicDoctor && (
-                  <Card className="p-4 border-green-200 bg-green-50/50 dark:bg-green-950/20">
-                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <Stethoscope className="h-4 w-4 text-green-600" /> {t.mpn.clinicDoctors}
-                    </h4>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{clinicDoctor.fullName}</div>
-                        <div className="text-xs text-muted-foreground space-x-3 mt-1">
-                          {clinicDoctor.phone && <span><Phone className="h-3 w-3 inline mr-1" />{clinicDoctor.phone}</span>}
-                          {clinicDoctor.email && <span><Mail className="h-3 w-3 inline mr-1" />{clinicDoctor.email}</span>}
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="border-green-300 text-green-700">{t.mpn.clinicDoctors}</Badge>
-                    </div>
-                  </Card>
-                )}
-
-                {allPersonnel.length === 0 && !clinicDoctor ? (
-                  <p className="text-muted-foreground text-center py-8">{t.mpn.noData}</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t.mpn.name}</TableHead>
-                        <TableHead>{t.mpn.role || "Role"}</TableHead>
-                        <TableHead>{t.mpn.category}</TableHead>
-                        <TableHead>{t.mpn.contactInfo}</TableHead>
-                        <TableHead>{t.mpn.status}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {allPersonnel.map((p: any) => (
-                        <TableRow key={p.assignment_id} data-testid={`row-personnel-${p.person_id}`}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-1">
-                              {[p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ")}
-                              {p.is_primary && <Star className="h-3 w-3 text-amber-500" />}
-                            </div>
-                            {p.collaborator_type && <span className="text-xs text-muted-foreground">{p.collaborator_type}</span>}
-                            {p.source === "legacy_link" && <Badge variant="outline" className="text-xs ml-1 border-blue-200 text-blue-600">legacy</Badge>}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              {p.position && <div>{p.position}</div>}
-                              {p.department && <div className="text-xs text-muted-foreground">{p.department}</div>}
-                            </div>
-                          </TableCell>
-                          <TableCell>{p.category_name || "—"}</TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              {(p.channels || []).slice(0, 3).map((ch: any) => (
-                                <div key={ch.id} className="flex items-center gap-1 text-xs">
-                                  {channelIcon(ch.channelType)}
-                                  <span>{ch.value}</span>
-                                  {ch.isPrimary && <Star className="h-3 w-3 text-amber-400" />}
-                                </div>
-                              ))}
-                              {(!p.channels || p.channels.length === 0) && (
-                                <span className="text-xs text-muted-foreground">
-                                  {p.email || p.phone || p.mobile || "—"}
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={p.is_active ? "default" : "secondary"}>
-                              {p.is_active ? t.mpn.active : t.mpn.inactive}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="schedule">
-              {schedules.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">{t.mpn.noData}</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {schedules.map((s: any) => (
-                    <Card key={s.id} className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="font-medium text-sm">{s.name}</div>
-                          {s.description && <div className="text-xs text-muted-foreground mt-1">{s.description}</div>}
-                        </div>
-                        <Badge variant="outline">
-                          {s.frequencyMonths === 1 ? (t.mpn.monthly || "Monthly") :
-                           s.frequencyMonths === 3 ? (t.mpn.quarterly || "Quarterly") :
-                           s.frequencyMonths === 6 ? (t.mpn.semiAnnual || "Semi-annual") :
-                           s.frequencyMonths === 12 ? (t.mpn.annual || "Annual") :
-                           `${s.frequencyMonths}m`}
-                        </Badge>
-                      </div>
-                      <div className="mt-2 text-xs text-muted-foreground space-x-3">
-                        {s.channelType && <span className="flex items-center gap-1 inline-flex">{channelIcon(s.channelType)} {s.channelType}</span>}
-                        {s.isInPerson && <span>👤 {t.mpn.inPerson}</span>}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="protocol">
-              {protocols.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">{t.mpn.noData}</p>
-              ) : (
-                <div className="space-y-3">
-                  {protocols.map((p: any, idx: number) => (
-                    <Card key={p.id} className="p-4">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
-                          {p.stepOrder || idx + 1}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">{p.name}</div>
-                          {p.description && <div className="text-xs text-muted-foreground mt-1">{p.description}</div>}
-                          {p.requiredDocuments && (
-                            <div className="mt-2 text-xs">
-                              <span className="font-medium">{t.mpn.requiredDocuments}:</span> {p.requiredDocuments}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function sourceLabel(source: string, t: any) {
-  switch (source) {
-    case "collaborator": return t.mpn.collaborator || "Collaborator";
-    case "clinic": return t.mpn.clinic;
-    case "hospital": return t.mpn.hospital;
-    default: return source;
+function channelIcon(type: string) {
+  switch (type) {
+    case "phone": case "landline": return <Phone className="h-4 w-4" />;
+    case "mobile": return <Phone className="h-4 w-4" />;
+    case "email": return <Mail className="h-4 w-4" />;
+    case "whatsapp": case "viber": case "signal": return <MessageCircle className="h-4 w-4" />;
+    default: return <Phone className="h-4 w-4" />;
   }
 }
 
-function sourceBadgeColor(source: string) {
-  switch (source) {
-    case "collaborator": return "border-blue-300 text-blue-700";
-    case "clinic": return "border-green-300 text-green-700";
-    case "hospital": return "border-orange-300 text-orange-700";
-    default: return "";
-  }
-}
-
-function PersonsTab() {
-  const { t } = useI18n();
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
-
-  const searchTimeout = useState<any>(null);
-  const handleSearch = (val: string) => {
-    setSearch(val);
-    if (searchTimeout[0]) clearTimeout(searchTimeout[0]);
-    searchTimeout[1] = setTimeout(() => { setDebouncedSearch(val); setPage(1); }, 300);
+function scopeBadge(scope: string, t: any) {
+  const colors: Record<string, string> = {
+    hospital: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    clinic: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    independent: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
   };
-
-  const queryParams: Record<string, string> = { page: String(page), limit: "100" };
-  if (debouncedSearch) queryParams.search = debouncedSearch;
-  if (sourceFilter !== "all") queryParams.source = sourceFilter;
-
-  const { data: result, isLoading } = useQuery<{ data: Person[]; total: number; page: number; totalPages: number }>({
-    queryKey: ["/api/mpn/persons", queryParams],
-  });
-
-  const filtered = result?.data || [];
-  const total = result?.total || 0;
-  const totalPages = result?.totalPages || 1;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-4 items-center" data-testid="persons-filters">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={`${t.mpn.name}, ${t.mpn.email}...`}
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-persons"
-          />
-        </div>
-        <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-52" data-testid="select-source-filter">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t.mpn.allSources || "All Sources"}</SelectItem>
-            <SelectItem value="collaborator">{t.mpn.collaborator || "Collaborator"}</SelectItem>
-            <SelectItem value="clinic">{t.mpn.clinicDoctors || "Clinic Doctors"}</SelectItem>
-            <SelectItem value="hospital">{t.mpn.hospitalContacts || "Hospital Contacts"}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground" data-testid="text-persons-count">
-          {total} {t.mpn.persons || "persons"} {debouncedSearch && `(${t.mpn.filtered})`}
-        </p>
-      </div>
-
-      <Card>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t.mpn.source || "Source"}</TableHead>
-              <TableHead>{t.mpn.name}</TableHead>
-              <TableHead>{t.mpn.institutionName}</TableHead>
-              <TableHead>{t.mpn.contactInfo}</TableHead>
-              <TableHead>{t.mpn.country}</TableHead>
-              <TableHead>{t.mpn.status}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t.mpn.noData}</TableCell></TableRow>
-            ) : filtered.map((p) => (
-              <TableRow key={p.id} className="hover:bg-muted/50" data-testid={`row-person-${p.id}`}>
-                <TableCell>
-                  <Badge variant="outline" className={`gap-1 ${sourceBadgeColor(p.source)}`}>
-                    {p.source === "collaborator" && <UserCheck className="h-3 w-3" />}
-                    {p.source === "clinic" && <Stethoscope className="h-3 w-3" />}
-                    {p.source === "hospital" && <Hospital className="h-3 w-3" />}
-                    {sourceLabel(p.source, t)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="font-medium">
-                  <div>{p.fullName || [p.titleBefore, p.firstName, p.lastName, p.titleAfter].filter(Boolean).join(" ")}</div>
-                  {p.collaboratorType && <span className="text-xs text-muted-foreground">{p.collaboratorType}</span>}
-                </TableCell>
-                <TableCell className="text-sm">
-                  {p.linkedInstitutions && p.linkedInstitutions.length > 0 ? (
-                    <div className="space-y-0.5">
-                      {p.linkedInstitutions.slice(0, 3).map((inst, i) => (
-                        <div key={i} className="flex items-center gap-1 text-xs">
-                          {inst.type === "hospital" ? <Hospital className="h-3 w-3 text-orange-500" /> : <Stethoscope className="h-3 w-3 text-green-500" />}
-                          <span className="truncate max-w-[200px]">{inst.name}</span>
-                        </div>
-                      ))}
-                      {p.linkedInstitutions.length > 3 && (
-                        <span className="text-xs text-muted-foreground">+{p.linkedInstitutions.length - 3} {t.mpn.more || "more"}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="space-y-0.5 text-xs">
-                    {p.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" /> {p.email}</div>}
-                    {p.mobile && <div className="flex items-center gap-1"><Phone className="h-3 w-3" /> {p.mobile}</div>}
-                    {p.phone && !p.mobile && <div className="flex items-center gap-1"><Phone className="h-3 w-3" /> {p.phone}</div>}
-                  </div>
-                </TableCell>
-                <TableCell><Badge variant="secondary">{p.countryCode}</Badge></TableCell>
-                <TableCell>
-                  <Badge variant={p.isActive ? "default" : "secondary"}>
-                    {p.isActive ? t.mpn.active : t.mpn.inactive}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        )}
-      </Card>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {t.mpn.page} {page} / {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)} data-testid="btn-persons-prev">
-              ← {t.mpn.previous}
-            </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} data-testid="btn-persons-next">
-              {t.mpn.next} →
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {selectedPerson && (
-        <PersonDetailDialog person={selectedPerson} onClose={() => setSelectedPerson(null)} />
-      )}
-    </div>
-  );
-}
-
-function PersonDetailDialog({ person, onClose }: { person: Person; onClose: () => void }) {
-  const { t } = useI18n();
-  const fullName = [person.titleBefore, person.firstName, person.lastName, person.titleAfter].filter(Boolean).join(" ");
-
-  const { data: assignments = [] } = useQuery<any[]>({
-    queryKey: ["/api/mpn/person", person.id, "assignments"],
-    queryFn: async () => {
-      const res = await fetch(`/api/mpn/person/${person.id}/assignments`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
-  });
-
-  const { data: channels = [] } = useQuery<ContactChannel[]>({
-    queryKey: ["/api/mpn/channels", { personId: person.id }],
-    queryFn: async () => {
-      const res = await fetch(`/api/mpn/channels?personId=${person.id}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
-  });
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserCheck className="h-5 w-5" />
-            {fullName}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Building2 className="h-4 w-4" /> {t.mpn.workplaces}
-            </h3>
-            {assignments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.mpn.noData}</p>
-            ) : (
-              <div className="space-y-2">
-                {assignments.map((a: any) => (
-                  <Card key={a.id} className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
-                          {a.entity_type === "hospital" ? <Hospital className="h-4 w-4 text-blue-600" /> : <Stethoscope className="h-4 w-4 text-green-600" />}
-                          {a.entity_name || "—"}
-                          {a.is_primary && <Star className="h-3 w-3 text-amber-500" />}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1 space-x-3">
-                          {a.category_name && <span>{a.category_name}</span>}
-                          {a.department && <span>• {a.department}</span>}
-                          {a.entity_city && <span>• {a.entity_city}</span>}
-                        </div>
-                      </div>
-                      <Badge variant={a.is_active ? "default" : "secondary"}>
-                        {a.is_active ? t.mpn.active : t.mpn.inactive}
-                      </Badge>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <Separator />
-
-          <div>
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Phone className="h-4 w-4" /> {t.mpn.channels}
-            </h3>
-            {channels.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.mpn.noData}</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {channels.map((ch) => (
-                  <div key={ch.id} className="flex items-center gap-3 p-2 rounded-md border bg-card">
-                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted">
-                      {channelIcon(ch.channelType)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{ch.value}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {channelLabel(ch.channelType, t)}
-                        {ch.label && ` — ${ch.label}`}
-                      </div>
-                    </div>
-                    {ch.isPrimary && <Star className="h-4 w-4 text-amber-500 shrink-0" />}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+  const labels: Record<string, string> = { hospital: t.mpn.hospital, clinic: t.mpn.clinic, independent: t.mpn.independent };
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[scope] || ""}`}>{labels[scope] || scope}</span>;
 }
 
 function SettingsTab() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const [editingCategory, setEditingCategory] = useState<PartnerCategory | null>(null);
-  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [settingsTab, setSettingsTab] = useState("categories");
+  const [editCategory, setEditCategory] = useState<PartnerCategory | null>(null);
+  const [addCategory, setAddCategory] = useState(false);
 
-  const { data: categories = [] } = useQuery<PartnerCategory[]>({ queryKey: ["/api/mpn/categories"] });
-  const { data: schedulesData = [] } = useQuery<CommunicationScheduleRow[]>({ queryKey: ["/api/mpn/schedules"] });
-  const { data: protocolsData = [] } = useQuery<ProtocolRow[]>({ queryKey: ["/api/mpn/protocols"] });
+  const { data: categories } = useQuery<PartnerCategory[]>({ queryKey: ["/api/mpn/categories"] });
 
-  const deleteCategoryMut = useMutation({
+  const deleteCatMut = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/mpn/categories/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/mpn/categories"] });
-      toast({ title: "OK" });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/mpn/categories"] }); toast({ title: "OK" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   return (
-    <div className="space-y-8">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
+    <Tabs value={settingsTab} onValueChange={setSettingsTab}>
+      <TabsList className="mb-4">
+        <TabsTrigger value="categories" data-testid="tab-categories">
+          <Star className="h-4 w-4 mr-1" /> {t.mpn.categories}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="categories">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">{t.mpn.categories}</CardTitle>
-            <CardDescription>{t.mpn.description}</CardDescription>
-          </div>
-          <Button size="sm" onClick={() => setShowAddCategory(true)} data-testid="btn-add-category">
-            <Plus className="h-4 w-4 mr-1" /> {t.mpn.addCategory}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t.mpn.sortOrder}</TableHead>
-                <TableHead>{t.mpn.categoryCode}</TableHead>
-                <TableHead>{t.mpn.categoryName}</TableHead>
-                <TableHead>{t.mpn.entityScope}</TableHead>
-                <TableHead>{t.mpn.status}</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {categories.map((cat) => (
-                <TableRow key={cat.id} data-testid={`row-category-${cat.code}`}>
-                  <TableCell>{cat.sortOrder}</TableCell>
-                  <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{cat.code}</code></TableCell>
-                  <TableCell className="font-medium">{cat.name}</TableCell>
-                  <TableCell>{scopeBadge(cat.entityScope, t)}</TableCell>
-                  <TableCell>
-                    <Badge variant={cat.isActive ? "default" : "secondary"}>
-                      {cat.isActive ? t.mpn.active : t.mpn.inactive}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="icon" onClick={() => setEditingCategory(cat)} data-testid={`btn-edit-category-${cat.code}`}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteCategoryMut.mutate(cat.id)} data-testid={`btn-delete-category-${cat.code}`}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
+            <Button size="sm" onClick={() => setAddCategory(true)} data-testid="btn-add-category">
+              <Plus className="h-4 w-4 mr-1" /> {t.mpn.addCategory}
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.mpn.categoryCode}</TableHead>
+                  <TableHead>{t.mpn.categoryName}</TableHead>
+                  <TableHead>{t.mpn.entityScope}</TableHead>
+                  <TableHead>{t.mpn.sortOrder}</TableHead>
+                  <TableHead>{t.mpn.status}</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {(categories || []).map((cat) => (
+                  <TableRow key={cat.id} data-testid={`row-category-${cat.id}`}>
+                    <TableCell className="font-mono">{cat.code}</TableCell>
+                    <TableCell className="font-medium">{cat.name}</TableCell>
+                    <TableCell>{scopeBadge(cat.entityScope, t)}</TableCell>
+                    <TableCell>{cat.sortOrder}</TableCell>
+                    <TableCell>
+                      <Badge variant={cat.isActive ? "default" : "secondary"}>
+                        {cat.isActive ? t.mpn.active : t.mpn.inactive}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button variant="ghost" size="icon" onClick={() => setEditCategory(cat)} data-testid={`btn-edit-category-${cat.id}`}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteCatMut.mutate(cat.id)} data-testid={`btn-delete-category-${cat.id}`}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </TabsContent>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{t.mpn.schedules}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t.mpn.category}</TableHead>
-                <TableHead>{t.mpn.subcategory}</TableHead>
-                <TableHead>{t.mpn.channelType}</TableHead>
-                <TableHead>{t.mpn.frequencyMonths}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {schedulesData.map((row) => (
-                <TableRow key={row.schedule.id} data-testid={`row-schedule-${row.schedule.id}`}>
-                  <TableCell className="font-medium">{row.categoryName}</TableCell>
-                  <TableCell>{row.schedule.subcategory || "—"}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      {channelIcon(row.schedule.channelType)}
-                      {channelLabel(row.schedule.channelType, t)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {row.schedule.frequencyMonths} {t.mpn.frequencyMonths.split("(")[1]?.replace(")", "") || "m"}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{t.mpn.protocols}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {Array.from(new Set(protocolsData.map((r) => r.categoryName))).map((catName) => {
-              const catProtocols = protocolsData.filter((r) => r.categoryName === catName);
-              return (
-                <div key={catName}>
-                  <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                    {scopeBadge(catProtocols[0]?.categoryCode?.includes("midwife") ? "independent" :
-                      catProtocols[0]?.categoryCode?.includes("ambulant") ? "clinic" : "hospital", t)}
-                    {catName}
-                  </h4>
-                  <div className="space-y-2 ml-4">
-                    {catProtocols.map((row) => (
-                      <div key={row.protocol.id} className="flex gap-3 p-2 rounded-md border bg-card" data-testid={`row-protocol-${row.protocol.id}`}>
-                        <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">
-                          {row.protocol.stepOrder}
-                        </div>
-                        <div>
-                          <p className="text-sm">{row.protocol.description}</p>
-                          {row.protocol.requiredDocuments.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {row.protocol.requiredDocuments.map((doc, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">{doc}</Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {(showAddCategory || editingCategory) && (
+      {(editCategory || addCategory) && (
         <CategoryFormDialog
-          category={editingCategory}
-          onClose={() => { setShowAddCategory(false); setEditingCategory(null); }}
+          category={editCategory}
+          onClose={() => { setEditCategory(null); setAddCategory(false); }}
         />
       )}
-    </div>
+    </Tabs>
   );
 }
 
@@ -1064,33 +955,33 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════════════════════
+
 export default function MedicalPartnerNetworkPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("network");
 
   return (
     <div className="p-6 space-y-6" data-testid="mpn-page">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-mpn-title">
-          <Building2 className="h-6 w-6" />
+          <Network className="h-6 w-6" />
           {t.mpn.title}
         </h1>
         <p className="text-muted-foreground mt-1">{t.mpn.description}</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full max-w-lg grid-cols-4" data-testid="mpn-tabs">
+        <TabsList className="grid w-full max-w-md grid-cols-3" data-testid="mpn-tabs">
+          <TabsTrigger value="network" className="gap-1" data-testid="tab-network">
+            <Network className="h-4 w-4" />
+            <span className="hidden sm:inline">Sieť</span>
+          </TabsTrigger>
           <TabsTrigger value="overview" className="gap-1" data-testid="tab-overview">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">{t.mpn.overview}</span>
-          </TabsTrigger>
-          <TabsTrigger value="institutions" className="gap-1" data-testid="tab-institutions">
-            <Building2 className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.mpn.institutions}</span>
-          </TabsTrigger>
-          <TabsTrigger value="persons" className="gap-1" data-testid="tab-persons">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.mpn.persons}</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="gap-1" data-testid="tab-settings">
             <Settings className="h-4 w-4" />
@@ -1098,9 +989,8 @@ export default function MedicalPartnerNetworkPage() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="network"><NetworkExplorer /></TabsContent>
         <TabsContent value="overview"><OverviewTab /></TabsContent>
-        <TabsContent value="institutions"><InstitutionsTab /></TabsContent>
-        <TabsContent value="persons"><PersonsTab /></TabsContent>
         <TabsContent value="settings"><SettingsTab /></TabsContent>
       </Tabs>
     </div>
