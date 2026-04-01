@@ -1,0 +1,53 @@
+MacBook-M3-Air:mobile-app dialcom$ open -a Simulator
+MacBook-M3-Air:mobile-app dialcom$ xcrun simctl install booted builds/indexus-connect-v1.2.12-20260401_114837-simulator.app
+An error was encountered processing the command (domain=IXErrorDomain, code=13):
+Simulator device failed to install the application.
+Missing bundle ID.
+Underlying error (domain=IXErrorDomain, code=13):
+	Failed to get bundle ID from /Users/dialcom/indexus-crm/mobile-app/builds/indexus-connect-v1.2.12-20260401_114837-simulator.app
+	Missing bundle ID.
+MacBook-M3-Air:mobile-app dialcom$ # Pozrime sa čo je v tom .app súbore
+MacBook-M3-Air:mobile-app dialcom$ ls builds/indexus-connect-v1.2.12-20260401_114837-simulator.app/
+Frameworks
+MacBook-M3-Air:mobile-app dialcom$ 
+MacBook-M3-Air:mobile-app dialcom$ # A spustite build znova s plným logom chýb
+MacBook-M3-Air:mobile-app dialcom$ cd ~/indexus-crm/mobile-app
+MacBook-M3-Air:mobile-app dialcom$ xcodebuild \
+>   -workspace ios/indexusconnect.xcworkspace \
+>   -scheme INDEXUSConnect \
+>   -configuration Debug \
+>   -destination "generic/platform=iOS Simulator" \
+>   -derivedDataPath ios/DerivedData \
+>   CODE_SIGNING_ALLOWED=NO \
+>   build 2>&1 | grep -E "error:|BUILD|failed" | head -30
+
+    export ALLOW_BUILD_REQUEST_OVERRIDES\=NO
+    export BUILD_ACTIVE_RESOURCES_ONLY\=NO
+    export BUILD_COMPONENTS\=headers\ build
+    export BUILD_DIR\=/Users/dialcom/indexus-crm/mobile-app/ios/DerivedData/Build/Products
+    export BUILD_LIBRARY_FOR_DISTRIBUTION\=NO
+    export BUILD_ONLY_KNOWN_LOCALIZATIONS\=NO
+    export BUILD_ROOT\=/Users/dialcom/indexus-crm/mobile-app/ios/DerivedData/Build/Products
+    export BUILD_STYLE\=
+    export BUILD_VARIANTS\=normal
+    export CLANG_MODULES_BUILD_SESSION_FILE\=/Users/dialcom/indexus-crm/mobile-app/ios/DerivedData/ModuleCache.noindex/Session.modulevalidation
+    export CONFIGURATION_BUILD_DIR\=/Users/dialcom/indexus-crm/mobile-app/ios/DerivedData/Build/Products/Debug-iphonesimulator/hermes-engine
+    export FUSE_BUILD_PHASES\=YES
+    export FUSE_BUILD_SCRIPT_PHASES\=NO
+    export INFOPLIST_EXPAND_BUILD_SETTINGS\=YES
+    export IS_UNOPTIMIZED_BUILD\=YES
+    export MAC_OS_X_PRODUCT_BUILD_VERSION\=25D2128
+    export PLATFORM_PRODUCT_BUILD_VERSION\=23E237
+    export PODS_BUILD_DIR\=/Users/dialcom/indexus-crm/mobile-app/ios/DerivedData/Build/Products
+    export PODS_CONFIGURATION_BUILD_DIR\=/Users/dialcom/indexus-crm/mobile-app/ios/DerivedData/Build/Products/Debug-iphonesimulator
+    export PODS_XCFRAMEWORKS_BUILD_DIR\=/Users/dialcom/indexus-crm/mobile-app/ios/DerivedData/Build/Products/Debug-iphonesimulator/XCFrameworkIntermediates
+    export SDK_PRODUCT_BUILD_VERSION\=23E237
+    export TARGET_BUILD_DIR\=/Users/dialcom/indexus-crm/mobile-app/ios/DerivedData/Build/Products/Debug-iphonesimulator/hermes-engine
+    export VERSION_INFO_BUILDER\=dialcom
+    export XCODE_PRODUCT_BUILD_VERSION\=17E192
+/Users/dialcom/indexus-crm/mobile-app/node_modules/expo-device/ios/UIDevice.swift:188:12: error: cannot find 'TARGET_OS_SIMULATOR' in scope
+/Users/dialcom/indexus-crm/mobile-app/node_modules/expo-device/ios/UIDevice.swift:188:12: error: cannot find 'TARGET_OS_SIMULATOR' in scope
+** BUILD FAILED **
+The following build commands failed:
+MacBook-M3-Air:mobile-app dialcom$ 
+MacBook-M3-Air:mobile-app dialcom$ 
