@@ -41102,6 +41102,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       const personIds = persons.map((p: any) => p.person_id).filter(Boolean);
       let otherAssignments: any[] = [];
       if (personIds.length > 0) {
+        const idList = sql.join(personIds.map((id: string) => sql`${id}`), sql`, `);
         const otherRes = await db.execute(sql`
           SELECT ca.person_id, ca.entity_type, ca.entity_id, ca.department, ca.position, ca.role, ca.is_active,
                  CASE WHEN ca.entity_type = 'hospital' THEN h.name WHEN ca.entity_type = 'clinic' THEN cl.name END as entity_name,
@@ -41109,7 +41110,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
           FROM contact_assignments ca
           LEFT JOIN hospitals h ON ca.entity_type = 'hospital' AND h.id = ca.entity_id
           LEFT JOIN clinics cl ON ca.entity_type = 'clinic' AND cl.id = ca.entity_id
-          WHERE ca.person_id = ANY(${personIds})
+          WHERE ca.person_id IN (${idList})
             AND NOT (ca.entity_type = ${entityType} AND ca.entity_id = ${entityId})
         `);
         otherAssignments = otherRes.rows || [];
@@ -41150,12 +41151,13 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       let otherPersons: any[] = [];
       if (instKeys.length > 0) {
         const entityIds = instKeys.map((k: any) => k.id);
+        const eidList = sql.join(entityIds.map((id: string) => sql`${id}`), sql`, `);
         const otherRes = await db.execute(sql`
           SELECT ca.entity_type, ca.entity_id, ca.person_id, ca.department, ca.position, ca.role, ca.is_primary, ca.is_active,
                  c.first_name, c.last_name, c.title_before, c.title_after, c.collaborator_type
           FROM contact_assignments ca
           LEFT JOIN collaborators c ON c.id = ca.person_id
-          WHERE ca.entity_id = ANY(${entityIds}) AND ca.person_id != ${personId}
+          WHERE ca.entity_id IN (${eidList}) AND ca.person_id != ${personId}
         `);
         otherPersons = otherRes.rows || [];
       }
