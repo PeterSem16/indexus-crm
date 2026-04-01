@@ -434,8 +434,7 @@ export default function LandingPage() {
                       variant="outline"
                       className="w-full gap-2"
                       onClick={() => {
-                        const timestamp = Date.now();
-                        window.open(`/data/mobil-app/indexus-connect-latest.ipa?v=${timestamp}`, '_blank');
+                        window.location.href = 'itms-services://?action=download-manifest&url=https://indexus.cordbloodcenter.com/data/mobil-app/indexus-connect-ios-manifest.plist';
                       }}
                       data-testid="button-download-ios"
                     >
