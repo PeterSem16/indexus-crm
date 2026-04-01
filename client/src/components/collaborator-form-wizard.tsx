@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { COUNTRIES, VISIT_SUBJECTS, VISIT_PLACE_OPTIONS, REWARD_TYPES as SERVICE_TYPES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance, Role, CollaboratorActivity } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3, Sparkles, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3, Sparkles, Loader2, Network, Hospital as HospitalIcon, Star } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -240,8 +240,213 @@ const WIZARD_STEPS = [
   { id: "actions", icon: Activity },
   { id: "history", icon: History },
   { id: "connect", icon: Wifi },
+  { id: "medicalNetwork", icon: Network },
   { id: "mobile", icon: Smartphone },
 ];
+
+const INSTITUTION_COLORS = [
+  { bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-800", accent: "bg-blue-500", text: "text-blue-700 dark:text-blue-300", badge: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200" },
+  { bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-200 dark:border-emerald-800", accent: "bg-emerald-500", text: "text-emerald-700 dark:text-emerald-300", badge: "bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200" },
+  { bg: "bg-violet-50 dark:bg-violet-950/30", border: "border-violet-200 dark:border-violet-800", accent: "bg-violet-500", text: "text-violet-700 dark:text-violet-300", badge: "bg-violet-100 dark:bg-violet-900 text-violet-800 dark:text-violet-200" },
+  { bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-200 dark:border-amber-800", accent: "bg-amber-500", text: "text-amber-700 dark:text-amber-300", badge: "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200" },
+  { bg: "bg-rose-50 dark:bg-rose-950/30", border: "border-rose-200 dark:border-rose-800", accent: "bg-rose-500", text: "text-rose-700 dark:text-rose-300", badge: "bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200" },
+  { bg: "bg-cyan-50 dark:bg-cyan-950/30", border: "border-cyan-200 dark:border-cyan-800", accent: "bg-cyan-500", text: "text-cyan-700 dark:text-cyan-300", badge: "bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200" },
+  { bg: "bg-orange-50 dark:bg-orange-950/30", border: "border-orange-200 dark:border-orange-800", accent: "bg-orange-500", text: "text-orange-700 dark:text-orange-300", badge: "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200" },
+  { bg: "bg-indigo-50 dark:bg-indigo-950/30", border: "border-indigo-200 dark:border-indigo-800", accent: "bg-indigo-500", text: "text-indigo-700 dark:text-indigo-300", badge: "bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200" },
+];
+
+function getColorIndexForEntity(entityId: string): number {
+  let hash = 0;
+  for (let i = 0; i < entityId.length; i++) {
+    hash = ((hash << 5) - hash) + entityId.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) % INSTITUTION_COLORS.length;
+}
+
+function MedicalNetworkContent({ personId, personName }: { personId: string; personName: string }) {
+  const { data: assignments, isLoading, isError } = useQuery<any[]>({
+    queryKey: ["/api/mpn/person", personId, "assignments"],
+    queryFn: async () => {
+      const res = await fetch(`/api/mpn/person/${personId}/assignments`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch assignments");
+      return res.json();
+    },
+    enabled: !!personId,
+  });
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-16 h-16 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center mb-4">
+          <Network className="h-8 w-8 text-red-400" />
+        </div>
+        <h3 className="font-medium text-lg mb-1">Chyba pri načítaní</h3>
+        <p className="text-sm text-muted-foreground">Nepodarilo sa načítať zaradenia. Skúste to znova neskôr.</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2].map(i => (
+          <div key={i} className="rounded-lg border p-4 space-y-3">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-32" />
+            <div className="grid grid-cols-2 gap-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!assignments || assignments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <Network className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="font-medium text-lg mb-1">Žiadne zaradenie</h3>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          {personName} nie je zaradený/á v žiadnej nemocnici ani ambulancii. Zaradenie je možné pridať cez záložku Personál v karte nemocnice alebo ambulancie.
+        </p>
+      </div>
+    );
+  }
+
+  const activeAssignments = assignments.filter((a: any) => a.is_active !== false);
+  const inactiveAssignments = assignments.filter((a: any) => a.is_active === false);
+
+  const renderAssignmentCard = (assignment: any) => {
+    const colors = INSTITUTION_COLORS[getColorIndexForEntity(assignment.entity_id)];
+    const isHospital = assignment.entity_type === "hospital";
+    const EntityIcon = isHospital ? HospitalIcon : Building2;
+
+    return (
+      <div
+        key={assignment.id}
+        className={cn("relative rounded-lg border-2 overflow-hidden transition-all", colors.border, colors.bg)}
+        data-testid={`medical-network-card-${assignment.id}`}
+      >
+        <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", colors.accent)} />
+        <div className="pl-5 pr-4 py-4">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={cn("shrink-0 w-9 h-9 rounded-lg flex items-center justify-center", colors.badge)}>
+                <EntityIcon className="h-4.5 w-4.5" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="font-semibold text-sm leading-tight truncate" data-testid={`medical-network-name-${assignment.id}`}>
+                  {assignment.entity_name || "—"}
+                </h4>
+                {assignment.entity_city && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3 w-3" />
+                    {assignment.entity_city}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0", colors.badge)}>
+                {isHospital ? "Nemocnica" : "Ambulancia"}
+              </Badge>
+              {assignment.is_primary && (
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+            {assignment.category_name && (
+              <div>
+                <span className="text-muted-foreground">Kategória:</span>
+                <span className="ml-1 font-medium">{assignment.category_name}</span>
+              </div>
+            )}
+            {assignment.department && (
+              <div>
+                <span className="text-muted-foreground">Oddelenie:</span>
+                <span className="ml-1 font-medium">{assignment.department}</span>
+              </div>
+            )}
+            {assignment.position && (
+              <div>
+                <span className="text-muted-foreground">Pozícia:</span>
+                <span className="ml-1 font-medium">{assignment.position}</span>
+              </div>
+            )}
+            {assignment.role && (
+              <div>
+                <span className="text-muted-foreground">Rola:</span>
+                <span className="ml-1 font-medium">{assignment.role}</span>
+              </div>
+            )}
+            {assignment.subcategory && (
+              <div>
+                <span className="text-muted-foreground">Podkategória:</span>
+                <span className="ml-1 font-medium">{assignment.subcategory}</span>
+              </div>
+            )}
+          </div>
+
+          {assignment.notes && (
+            <div className="mt-2.5 text-xs bg-white/60 dark:bg-black/20 rounded px-2.5 py-1.5 border border-dashed border-muted-foreground/20">
+              <span className="text-muted-foreground">Poznámka: </span>
+              <span>{assignment.notes}</span>
+            </div>
+          )}
+
+          {(assignment.start_date || assignment.end_date) && (
+            <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+              <Calendar className="h-3 w-3" />
+              {assignment.start_date && <span>Od: {new Date(assignment.start_date).toLocaleDateString("sk-SK")}</span>}
+              {assignment.end_date && <span>Do: {new Date(assignment.end_date).toLocaleDateString("sk-SK")}</span>}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4" data-testid="medical-network-tab">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-xs">
+            {assignments.length} {assignments.length === 1 ? "zaradenie" : assignments.length < 5 ? "zaradenia" : "zaradení"}
+          </Badge>
+          {activeAssignments.length > 0 && (
+            <Badge variant="outline" className="text-xs text-green-600 border-green-300">
+              {activeAssignments.length} aktívne
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {activeAssignments.length > 0 && (
+        <div className="space-y-3">
+          {activeAssignments.map((a: any) => renderAssignmentCard(a))}
+        </div>
+      )}
+
+      {inactiveAssignments.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-2">Neaktívne zaradenia</h4>
+          {inactiveAssignments.map((a: any) => (
+            <div key={a.id} className="opacity-50">
+              {renderAssignmentCard(a)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Pending Addresses component for Add mode
 function PendingAddressesContent({ 
@@ -2595,7 +2800,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   
   const wizardSteps = isEditMode 
     ? WIZARD_STEPS 
-    : WIZARD_STEPS.filter(step => step.id !== "history" && step.id !== "connect" && step.id !== "actions");
+    : WIZARD_STEPS.filter(step => step.id !== "history" && step.id !== "connect" && step.id !== "actions" && step.id !== "medicalNetwork");
   
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -2957,6 +3162,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       actions: t.collaborators.tabs.actions || "Úkony",
       history: t.collaborators.tabs.history,
       connect: t.common.indexusConnect,
+      medicalNetwork: "Medical Network",
       mobile: steps.mobile,
     };
     return stepTitles[stepId] || stepId;
@@ -2973,6 +3179,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       actions: t.collaborators.actionsDesc || "Prehľad úkonov spolupracovníka",
       history: t.collaborators.historyDescription,
       connect: t.collaborators.connectDescription || "Call history, visits and activities from INDEXUS Connect",
+      medicalNetwork: "Prehľad nemocníc a ambulancií kde je spolupracovník zaradený",
       mobile: steps.mobileDesc,
     };
     return stepDescs[stepId] || "";
@@ -3636,6 +3843,19 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <History className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">{t.wizard.completePreviousSteps}</p>
+          </div>
+        );
+
+      case "medicalNetwork":
+        return initialData ? (
+          <MedicalNetworkContent
+            personId={initialData.id}
+            personName={`${initialData.titleBefore || ""} ${initialData.firstName} ${initialData.lastName}`.trim()}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Network className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">{t.wizard?.completePreviousSteps || "Najprv uložte spolupracovníka"}</p>
           </div>
         );
       
