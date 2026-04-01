@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
@@ -155,6 +157,663 @@ function PersonnelTabContent({ entityType, entityId, entityName }: { entityType:
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospital; onClose: () => void; onSuccess: () => void }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [activeSection, setActiveSection] = useState("basic");
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [showMapDialog, setShowMapDialog] = useState(false);
+
+  const [formData, setFormData] = useState<HospitalFormData>({
+    isActive: hospital.isActive,
+    name: hospital.name,
+    fullName: hospital.fullName || "",
+    streetNumber: hospital.streetNumber || "",
+    representativeId: hospital.representativeId || "",
+    city: hospital.city || "",
+    laboratoryId: hospital.laboratoryId || "",
+    postalCode: hospital.postalCode || "",
+    autoRecruiting: hospital.autoRecruiting,
+    region: hospital.region || "",
+    responsiblePersonId: hospital.responsiblePersonId || "",
+    countryCode: hospital.countryCode,
+    contactPerson: hospital.contactPerson || "",
+    svetZdravia: hospital.svetZdravia,
+    latitude: hospital.latitude || "",
+    longitude: hospital.longitude || "",
+  });
+
+  const { data: users = [] } = useQuery<SafeUser[]>({ queryKey: ["/api/users"] });
+  const { data: laboratories = [] } = useQuery<Laboratory[]>({ queryKey: ["/api/config/laboratories"] });
+  const filteredLaboratories = formData.countryCode ? laboratories.filter((lab) => lab.countryCode === formData.countryCode) : laboratories;
+
+  const saveMutation = useMutation({
+    mutationFn: (data: HospitalFormData) => apiRequest("PUT", `/api/hospitals/${hospital.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+      toast({ title: t.success.saved });
+      onSuccess();
+    },
+    onError: () => { toast({ title: t.errors.saveFailed, variant: "destructive" }); },
+  });
+
+  const handleSubmit = () => {
+    if (!formData.name || !formData.countryCode) {
+      toast({ title: t.errors.required, variant: "destructive" });
+      return;
+    }
+    saveMutation.mutate(formData);
+  };
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) { toast({ title: t.clinics.gpsNotSupported, variant: "destructive" }); return; }
+    setIsLoadingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData({ ...formData, latitude: position.coords.latitude.toFixed(7), longitude: position.coords.longitude.toFixed(7) });
+        setIsLoadingLocation(false);
+        toast({ title: t.clinics.gpsLoaded });
+      },
+      (error) => {
+        setIsLoadingLocation(false);
+        toast({ title: error.code === error.PERMISSION_DENIED ? t.clinics.gpsPermissionDenied : t.clinics.gpsError, variant: "destructive" });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const mpnT = (t as any).medicalPartnerNetwork || {};
+  const sections = [
+    { id: "basic", label: t.clinics.steps.basic, icon: Building2 },
+    { id: "address", label: t.clinics.steps.address, icon: MapPin },
+    { id: "contacts", label: t.clinics.steps.web, icon: FileText },
+    { id: "settings", label: t.clinics.steps.settings, icon: Settings },
+    { id: "personnel", label: mpnT.personnel || "Personnel", icon: Users },
+    { id: "campaigns", label: "Kampane", icon: Target },
+  ];
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={onClose} data-testid="hospital-edit-backdrop" />
+      <div className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+        <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Building2 className="h-4.5 w-4.5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold" data-testid="text-hospital-drawer-name">{hospital.name}</h2>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0" data-testid="badge-hospital-drawer-country">
+                  {getCountryFlag(hospital.countryCode)} {getCountryName(hospital.countryCode)}
+                </Badge>
+                {hospital.city && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{hospital.city}</Badge>}
+                <Badge className={`text-[10px] px-1.5 py-0 ${hospital.isActive ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"}`}>
+                  {hospital.isActive ? t.common.active : t.common.inactive}
+                </Badge>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="default" size="sm" onClick={handleSubmit} disabled={saveMutation.isPending} data-testid="button-save-hospital-drawer">
+              {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+              {t.common.save}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} data-testid="button-close-hospital-drawer">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-1 min-h-0">
+          <div className="w-44 border-r bg-muted/20 flex flex-col py-3 shrink-0 overflow-y-auto">
+            {sections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    "flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left",
+                    activeSection === section.id
+                      ? "bg-primary/10 text-primary font-medium border-r-2 border-primary"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  )}
+                  data-testid={`nav-hospital-section-${section.id}`}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{section.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5">
+            {activeSection === "basic" && (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="ed-name">{t.hospitals.name} *</Label>
+                    <Input id="ed-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.hospitals.name} data-testid="input-ed-hospital-name" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ed-fullName">{t.hospitals.fullName}</Label>
+                    <Input id="ed-fullName" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-ed-hospital-fullname" />
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="ed-country">{t.common.country} *</Label>
+                    <Select value={formData.countryCode} onValueChange={(value) => setFormData({ ...formData, countryCode: value, laboratoryId: "" })}>
+                      <SelectTrigger data-testid="select-ed-hospital-country"><SelectValue placeholder={t.common.country} /></SelectTrigger>
+                      <SelectContent>
+                        {COUNTRIES.map((country) => (<SelectItem key={country.code} value={country.code}>{getCountryFlag(country.code)} {country.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ed-laboratory">{t.hospitals.laboratory}</Label>
+                    <Select value={formData.laboratoryId || "_none"} onValueChange={(value) => setFormData({ ...formData, laboratoryId: value === "_none" ? "" : value })}>
+                      <SelectTrigger data-testid="select-ed-hospital-laboratory"><SelectValue placeholder={t.hospitals.laboratory} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">{t.common.noData}</SelectItem>
+                        {filteredLaboratories.map((lab) => (<SelectItem key={lab.id} value={lab.id}>{lab.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "address" && (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.streetNumber}</Label>
+                    <Input value={formData.streetNumber} onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })} data-testid="input-ed-hospital-street" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.city}</Label>
+                    <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} data-testid="input-ed-hospital-city" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.postalCode}</Label>
+                    <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} data-testid="input-ed-hospital-postalcode" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.hospitals.region}</Label>
+                  <Input value={formData.region} onChange={(e) => setFormData({ ...formData, region: e.target.value })} data-testid="input-ed-hospital-region" />
+                </div>
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-base font-medium">{t.clinics.gpsCoordinates}</Label>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={handleGetCurrentLocation} disabled={isLoadingLocation} data-testid="button-ed-get-location">
+                        <Navigation className={`h-4 w-4 mr-2 ${isLoadingLocation ? 'animate-spin' : ''}`} />
+                        {isLoadingLocation ? t.common.loading : t.clinics.getCurrentLocation}
+                      </Button>
+                      {formData.latitude && formData.longitude && (
+                        <Button type="button" variant="outline" size="sm" onClick={() => setShowMapDialog(true)} data-testid="button-ed-show-on-map">
+                          <ExternalLink className="h-4 w-4 mr-2" />{t.clinics.showOnMap}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>{t.clinics.latitude}</Label>
+                      <Input type="number" step="0.0000001" value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} placeholder="48.7164" data-testid="input-ed-hospital-latitude" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.clinics.longitude}</Label>
+                      <Input type="number" step="0.0000001" value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="21.2611" data-testid="input-ed-hospital-longitude" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "contacts" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>{t.hospitals.contactPerson}</Label>
+                  <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} data-testid="input-ed-hospital-contact" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.representative}</Label>
+                    <Select value={formData.representativeId || "_none"} onValueChange={(value) => setFormData({ ...formData, representativeId: value === "_none" ? "" : value })}>
+                      <SelectTrigger data-testid="select-ed-hospital-representative"><SelectValue placeholder={t.hospitals.representative} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">{t.common.noData}</SelectItem>
+                        {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.responsiblePerson}</Label>
+                    <Select value={formData.responsiblePersonId || "_none"} onValueChange={(value) => setFormData({ ...formData, responsiblePersonId: value === "_none" ? "" : value })}>
+                      <SelectTrigger data-testid="select-ed-hospital-responsible"><SelectValue placeholder={t.hospitals.responsiblePerson} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">{t.common.noData}</SelectItem>
+                        {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "settings" && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch id="ed-isActive" checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-ed-hospital-active" />
+                  <Label htmlFor="ed-isActive">{t.common.active}</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch id="ed-autoRecruiting" checked={formData.autoRecruiting} onCheckedChange={(checked) => setFormData({ ...formData, autoRecruiting: checked })} data-testid="switch-ed-hospital-autorecruiting" />
+                  <Label htmlFor="ed-autoRecruiting">{t.hospitals.autoRecruiting}</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch id="ed-svetZdravia" checked={formData.svetZdravia} onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })} data-testid="switch-ed-hospital-svetzdravia" />
+                  <Label htmlFor="ed-svetZdravia">{t.hospitals.svetZdravia}</Label>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "personnel" && (
+              <HospitalPersonnelManager entityType="hospital" entityId={hospital.id} entityName={hospital.name} />
+            )}
+
+            {activeSection === "campaigns" && (
+              <EntityCampaignTimeline entityType="hospital" entityId={hospital.id} entityName={hospital.name} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              {formData.name || "Nemocnica"} - Poloha na mape
+            </DialogTitle>
+          </DialogHeader>
+          <div className="w-full h-[400px] rounded-lg overflow-hidden border">
+            {formData.latitude && formData.longitude && (
+              <iframe title="Hospital Location Map" width="100%" height="100%" frameBorder="0" style={{ border: 0 }}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(formData.longitude) - 0.01}%2C${parseFloat(formData.latitude) - 0.01}%2C${parseFloat(formData.longitude) + 0.01}%2C${parseFloat(formData.latitude) + 0.01}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`}
+                allowFullScreen />
+            )}
+          </div>
+          <div className="flex justify-between items-center text-sm text-muted-foreground">
+            <span>GPS: {formData.latitude}, {formData.longitude}</span>
+            <Button variant="outline" size="sm" onClick={() => window.open(`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`, '_blank')} data-testid="button-ed-open-google-maps">
+              <ExternalLink className="h-4 w-4 mr-2" />{t.clinics.openInNewTab}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function HospitalPersonnelManager({ entityType, entityId, entityName }: { entityType: string; entityId: string; entityName: string }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const mpnT = (t as any).medicalPartnerNetwork || {};
+
+  const [showAssignForm, setShowAssignForm] = useState(false);
+  const [collabSearch, setCollabSearch] = useState("");
+  const [selectedCollabId, setSelectedCollabId] = useState("");
+  const [assignDepartment, setAssignDepartment] = useState("");
+  const [assignPosition, setAssignPosition] = useState("");
+  const [assignRole, setAssignRole] = useState("");
+  const [assignCategoryId, setAssignCategoryId] = useState("");
+  const [assignIsPrimary, setAssignIsPrimary] = useState(false);
+  const [assignNotes, setAssignNotes] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<any>({});
+
+  const personnelQuery = useQuery<any>({
+    queryKey: ["/api/institutions", entityType, entityId, "personnel"],
+    queryFn: () => fetch(`/api/institutions/${entityType}/${entityId}/personnel`, { credentials: "include" }).then(r => r.json()),
+  });
+
+  const categoriesQuery = useQuery<any[]>({
+    queryKey: ["/api/mpn/categories"],
+    enabled: showAssignForm || !!editingId,
+  });
+
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(collabSearch), 300);
+    return () => clearTimeout(timer);
+  }, [collabSearch]);
+
+  const collabLookupQuery = useQuery<any[]>({
+    queryKey: ["/api/collaborators/lookup", debouncedSearch],
+    queryFn: () => fetch(`/api/collaborators/lookup?q=${encodeURIComponent(debouncedSearch)}`, { credentials: "include" }).then(r => r.json()),
+    enabled: showAssignForm && debouncedSearch.length >= 2,
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", `/api/institutions/${entityType}/${entityId}/personnel`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
+      toast({ title: t.success?.saved || "Saved" });
+      resetAssignForm();
+    },
+    onError: (err: any) => { toast({ title: err.message || "Error", variant: "destructive" }); },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ assignmentId, data }: { assignmentId: string; data: any }) =>
+      apiRequest("PUT", `/api/institutions/${entityType}/${entityId}/personnel/${assignmentId}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
+      toast({ title: t.success?.saved || "Saved" });
+      setEditingId(null);
+    },
+    onError: (err: any) => { toast({ title: err.message || "Error", variant: "destructive" }); },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (assignmentId: string) => apiRequest("DELETE", `/api/institutions/${entityType}/${entityId}/personnel/${assignmentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
+      toast({ title: t.success?.saved || "Removed" });
+    },
+  });
+
+  function resetAssignForm() {
+    setShowAssignForm(false);
+    setCollabSearch("");
+    setSelectedCollabId("");
+    setAssignDepartment("");
+    setAssignPosition("");
+    setAssignRole("");
+    setAssignCategoryId("");
+    setAssignIsPrimary(false);
+    setAssignNotes("");
+  }
+
+  function handleAssign() {
+    if (!selectedCollabId) return;
+    assignMutation.mutate({
+      personId: selectedCollabId,
+      department: assignDepartment || null,
+      position: assignPosition || null,
+      role: assignRole || null,
+      categoryId: assignCategoryId || null,
+      isPrimary: assignIsPrimary,
+      notes: assignNotes || null,
+    });
+  }
+
+  function startEditing(p: any) {
+    setEditingId(p.assignment_id);
+    setEditData({
+      department: p.department || "",
+      position: p.position || "",
+      role: p.role || "",
+      categoryId: p.category_id || "",
+      isPrimary: !!p.is_primary,
+      notes: p.notes || "",
+    });
+  }
+
+  function saveEdit() {
+    if (!editingId) return;
+    updateMutation.mutate({
+      assignmentId: editingId,
+      data: {
+        department: editData.department || null,
+        position: editData.position || null,
+        role: editData.role || null,
+        categoryId: editData.categoryId && editData.categoryId !== "_none" ? editData.categoryId : null,
+        isPrimary: editData.isPrimary,
+        notes: editData.notes || null,
+      },
+    });
+  }
+
+  const data = personnelQuery.data;
+  const assigned = data?.assigned || [];
+  const legacy = data?.legacy || [];
+  const allPersonnel = [...assigned, ...legacy];
+
+  if (personnelQuery.isLoading) {
+    return <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}</div>;
+  }
+
+  return (
+    <div className="space-y-4" data-testid="hospital-personnel-manager">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
+            <Users className="h-3 w-3 mr-1" />{allPersonnel.length}
+          </Badge>
+          <span className="text-sm text-muted-foreground">{mpnT.personnelAssigned || "personnel assigned"}</span>
+        </div>
+        <Button size="sm" onClick={() => setShowAssignForm(!showAssignForm)} data-testid="button-add-personnel-drawer">
+          {showAssignForm ? (<><X className="h-4 w-4 mr-1.5" />{t.common?.cancel || "Cancel"}</>) : (<><UserPlus className="h-4 w-4 mr-1.5" />{mpnT.addPerson || "Add person"}</>)}
+        </Button>
+      </div>
+
+      {showAssignForm && (
+        <div className="border rounded-lg p-4 space-y-3 bg-muted/30" data-testid="form-assign-personnel-drawer">
+          <div>
+            <Label className="text-xs font-medium">{mpnT.searchCollaborator || "Search collaborator"}</Label>
+            <div className="relative mt-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input className="pl-8 h-9" placeholder={mpnT.searchCollaboratorPlaceholder || "Name, email..."} value={collabSearch}
+                onChange={e => { setCollabSearch(e.target.value); setSelectedCollabId(""); }} data-testid="input-search-collab-drawer" />
+            </div>
+            {debouncedSearch.length >= 2 && !selectedCollabId && (
+              <div className="mt-1 border rounded max-h-48 overflow-y-auto bg-background shadow-md">
+                {collabLookupQuery.isLoading ? (
+                  <div className="p-3 text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />{t.common?.loading || "Loading..."}</div>
+                ) : (collabLookupQuery.data || []).length === 0 ? (
+                  <div className="p-3 text-xs text-muted-foreground">{t.common?.noResults || "No results"}</div>
+                ) : (
+                  (collabLookupQuery.data || []).map((c: any) => {
+                    const fullName = [c.titleBefore, c.firstName, c.lastName, c.titleAfter].filter(Boolean).join(" ");
+                    return (
+                      <button key={c.id} className="w-full text-left px-3 py-2 text-sm hover:bg-muted border-b last:border-b-0"
+                        onClick={() => { setSelectedCollabId(c.id); setCollabSearch(fullName); }} data-testid={`option-collab-drawer-${c.id}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{fullName}</span>
+                          {c.collaboratorType && <Badge variant="outline" className="text-[9px] ml-2">{c.collaboratorType}</Badge>}
+                        </div>
+                        {(c.email || c.phone) && <div className="text-xs text-muted-foreground mt-0.5">{c.email || c.phone}</div>}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+            {selectedCollabId && <Badge variant="secondary" className="mt-1">{collabSearch}</Badge>}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs">{mpnT.department || "Department"}</Label>
+              <Input className="h-8 mt-1" value={assignDepartment} onChange={e => setAssignDepartment(e.target.value)} data-testid="input-assign-department" />
+            </div>
+            <div>
+              <Label className="text-xs">{mpnT.position || "Position"}</Label>
+              <Input className="h-8 mt-1" value={assignPosition} onChange={e => setAssignPosition(e.target.value)} data-testid="input-assign-position" />
+            </div>
+            <div>
+              <Label className="text-xs">{mpnT.role || "Role"}</Label>
+              <Input className="h-8 mt-1" value={assignRole} onChange={e => setAssignRole(e.target.value)} data-testid="input-assign-role" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">{mpnT.category || "Category"}</Label>
+              <Select value={assignCategoryId} onValueChange={setAssignCategoryId}>
+                <SelectTrigger className="h-8 mt-1" data-testid="select-assign-category"><SelectValue placeholder="-" /></SelectTrigger>
+                <SelectContent>
+                  {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end gap-2">
+              <label className="flex items-center gap-2 cursor-pointer text-sm h-8">
+                <input type="checkbox" checked={assignIsPrimary} onChange={e => setAssignIsPrimary(e.target.checked)} data-testid="checkbox-assign-primary" />
+                <Star className="h-3.5 w-3.5 text-amber-500" />
+                {mpnT.primaryContact || "Primary"}
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">{mpnT.notes || "Notes"}</Label>
+            <Textarea className="mt-1 h-16 text-sm" value={assignNotes} onChange={e => setAssignNotes(e.target.value)} placeholder={mpnT.notesPlaceholder || "Notes..."} data-testid="textarea-assign-notes" />
+          </div>
+
+          <Button size="sm" onClick={handleAssign} disabled={!selectedCollabId || assignMutation.isPending} data-testid="button-confirm-assign-drawer">
+            {assignMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+            <Plus className="h-4 w-4 mr-1.5" />
+            {mpnT.assignPerson || "Assign"}
+          </Button>
+        </div>
+      )}
+
+      {allPersonnel.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p className="text-sm">{mpnT.noPersonnel || "No personnel assigned"}</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {allPersonnel.map((p: any, idx: number) => {
+          const fullName = [p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ");
+          const isLegacy = p.source === "legacy_link";
+          const isEditing = editingId === p.assignment_id;
+
+          if (isEditing) {
+            return (
+              <div key={p.assignment_id} className="border-2 border-primary/30 rounded-lg p-4 bg-primary/5 space-y-3" data-testid={`card-edit-person-${p.person_id}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center">
+                      <Users className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <span className="font-medium text-sm">{fullName}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="default" onClick={saveEdit} disabled={updateMutation.isPending} data-testid="button-save-edit-person">
+                      {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                      {t.common.save}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} data-testid="button-cancel-edit-person">
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs">{mpnT.department || "Department"}</Label>
+                    <Input className="h-8 mt-1" value={editData.department} onChange={e => setEditData({ ...editData, department: e.target.value })} data-testid="input-edit-department" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{mpnT.position || "Position"}</Label>
+                    <Input className="h-8 mt-1" value={editData.position} onChange={e => setEditData({ ...editData, position: e.target.value })} data-testid="input-edit-position" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{mpnT.role || "Role"}</Label>
+                    <Input className="h-8 mt-1" value={editData.role} onChange={e => setEditData({ ...editData, role: e.target.value })} data-testid="input-edit-role" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">{mpnT.category || "Category"}</Label>
+                    <Select value={editData.categoryId} onValueChange={v => setEditData({ ...editData, categoryId: v })}>
+                      <SelectTrigger className="h-8 mt-1" data-testid="select-edit-category"><SelectValue placeholder="-" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">-</SelectItem>
+                        {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm h-8">
+                      <input type="checkbox" checked={editData.isPrimary} onChange={e => setEditData({ ...editData, isPrimary: e.target.checked })} data-testid="checkbox-edit-primary" />
+                      <Star className="h-3.5 w-3.5 text-amber-500" />
+                      {mpnT.primaryContact || "Primary"}
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">{mpnT.notes || "Notes"}</Label>
+                  <Textarea className="mt-1 h-16 text-sm" value={editData.notes} onChange={e => setEditData({ ...editData, notes: e.target.value })} data-testid="textarea-edit-notes" />
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div key={p.assignment_id || `legacy-${idx}`} className="border rounded-lg p-3 hover:bg-muted/30 transition-colors" data-testid={`card-person-drawer-${p.person_id}`}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center mt-0.5">
+                    <Users className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{fullName}</span>
+                      {p.is_primary && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />}
+                      {p.category_name && <Badge variant="outline" className="text-[10px]">{p.category_name}</Badge>}
+                      {isLegacy && <Badge variant="secondary" className="text-[10px]">Legacy</Badge>}
+                      {p.is_active === false && <Badge variant="destructive" className="text-[10px]">{t.common?.inactive || "Inactive"}</Badge>}
+                    </div>
+                    <div className="flex items-center gap-4 mt-0.5 flex-wrap">
+                      {(p.department || p.position || p.role) && (
+                        <span className="text-xs text-muted-foreground">{[p.department, p.position, p.role].filter(Boolean).join(" · ")}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
+                      {p.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{p.phone}</span>}
+                      {p.mobile && <span className="flex items-center gap-1"><Smartphone className="h-3 w-3" />{p.mobile}</span>}
+                      {p.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{p.email}</span>}
+                    </div>
+                    {p.notes && (
+                      <div className="mt-1 text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1 flex items-start gap-1.5">
+                        <StickyNote className="h-3 w-3 mt-0.5 shrink-0" />
+                        <span>{p.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {p.assignment_id && !isLegacy && (
+                  <div className="flex gap-0.5 shrink-0 ml-2">
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary"
+                      onClick={() => startEditing(p)} data-testid={`button-edit-person-${p.person_id}`}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeMutation.mutate(p.assignment_id)} disabled={removeMutation.isPending} data-testid={`button-remove-person-drawer-${p.person_id}`}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1397,9 +2056,10 @@ export default function HospitalsPage() {
     return lab?.name || "-";
   };
 
+  const [editingHospital, setEditingHospital] = useState<Hospital | null>(null);
+
   const handleEdit = (hospital: Hospital) => {
-    setSelectedHospital(hospital);
-    setIsFormOpen(true);
+    setEditingHospital(hospital);
   };
 
   const handleDelete = (hospital: Hospital) => {
@@ -1408,7 +2068,6 @@ export default function HospitalsPage() {
   };
 
   const handleAddNew = () => {
-    setSelectedHospital(undefined);
     setIsFormOpen(true);
   };
 
@@ -2479,55 +3138,64 @@ export default function HospitalsPage() {
       </Tabs>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className={!selectedHospital && useWizardForm ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-2xl max-h-[90vh] overflow-y-auto"}>
+        <DialogContent className={useWizardForm ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-2xl max-h-[90vh] overflow-y-auto"}>
           <DialogHeader>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <DialogTitle>
-                  {selectedHospital ? t.hospitals.editHospital : t.hospitals.addHospital}
+                  {t.hospitals.addHospital}
                 </DialogTitle>
                 <DialogDescription>
-                  {selectedHospital ? t.hospitals.editHospitalDesc : t.hospitals.addHospitalDesc}
+                  {t.hospitals.addHospitalDesc}
                 </DialogDescription>
               </div>
-              {!selectedHospital && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={useWizardForm ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setUseWizardForm(true)}
-                    data-testid="button-wizard-mode"
-                  >
-                    <ListChecks className="h-4 w-4 mr-1" />
-                    Wizard
-                  </Button>
-                  <Button
-                    variant={!useWizardForm ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setUseWizardForm(false)}
-                    data-testid="button-simple-mode"
-                  >
-                    <FileEdit className="h-4 w-4 mr-1" />
-                    {t.common?.form || "Form"}
-                  </Button>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={useWizardForm ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUseWizardForm(true)}
+                  data-testid="button-wizard-mode"
+                >
+                  <ListChecks className="h-4 w-4 mr-1" />
+                  Wizard
+                </Button>
+                <Button
+                  variant={!useWizardForm ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUseWizardForm(false)}
+                  data-testid="button-simple-mode"
+                >
+                  <FileEdit className="h-4 w-4 mr-1" />
+                  {t.common?.form || "Form"}
+                </Button>
+              </div>
             </div>
           </DialogHeader>
-          {!selectedHospital && useWizardForm ? (
+          {useWizardForm ? (
             <HospitalFormWizard
               onSuccess={() => setIsFormOpen(false)}
               onCancel={() => setIsFormOpen(false)}
             />
           ) : (
             <HospitalForm
-              hospital={selectedHospital}
+              hospital={undefined}
               onClose={() => setIsFormOpen(false)}
               onSuccess={() => setIsFormOpen(false)}
             />
           )}
         </DialogContent>
       </Dialog>
+
+      {editingHospital && (
+        <HospitalEditDrawer
+          hospital={editingHospital}
+          onClose={() => setEditingHospital(null)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+            setEditingHospital(null);
+          }}
+        />
+      )}
 
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
