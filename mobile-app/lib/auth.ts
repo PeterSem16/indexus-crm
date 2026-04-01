@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { setItem, getItem, deleteItem } from './secureStorage';
 import { api } from './api';
 import { TOKEN_KEY, USER_KEY } from '@/constants/config';
 
@@ -26,8 +26,8 @@ export async function login(username: string, password: string): Promise<LoginRe
     password,
   });
 
-  await SecureStore.setItemAsync(TOKEN_KEY, response.token);
-  await SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.collaborator));
+  await setItem(TOKEN_KEY, response.token);
+  await setItem(USER_KEY, JSON.stringify(response.collaborator));
 
   return response;
 }
@@ -38,13 +38,13 @@ export async function logout(): Promise<void> {
   } catch {
   }
 
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
-  await SecureStore.deleteItemAsync(USER_KEY);
+  await deleteItem(TOKEN_KEY);
+  await deleteItem(USER_KEY);
 }
 
 export async function verifyToken(): Promise<boolean> {
   try {
-    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    const token = await getItem(TOKEN_KEY);
     if (!token) return false;
 
     await api.get('/api/mobile/auth/verify');
@@ -56,7 +56,7 @@ export async function verifyToken(): Promise<boolean> {
 
 export async function getStoredUser(): Promise<AuthUser | null> {
   try {
-    const userData = await SecureStore.getItemAsync(USER_KEY);
+    const userData = await getItem(USER_KEY);
     if (!userData) return null;
     return JSON.parse(userData);
   } catch {
@@ -65,6 +65,6 @@ export async function getStoredUser(): Promise<AuthUser | null> {
 }
 
 export async function isAuthenticated(): Promise<boolean> {
-  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  const token = await getItem(TOKEN_KEY);
   return !!token;
 }

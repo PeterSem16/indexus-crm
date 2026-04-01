@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from './secureStorage';
 import { API_BASE_URL, API_TIMEOUT, TOKEN_KEY } from '@/constants/config';
 
 class ApiClient {
@@ -10,7 +10,7 @@ class ApiClient {
 
   async getToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(TOKEN_KEY);
+      return await getItem(TOKEN_KEY);
     } catch {
       return null;
     }
