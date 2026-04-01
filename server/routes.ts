@@ -41090,7 +41090,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       const personsRes = await db.execute(sql`
         SELECT ca.person_id, ca.department, ca.position, ca.role, ca.is_primary, ca.is_active, ca.category_id,
                pc.name as category_name,
-               c.first_name, c.last_name, c.title_before, c.title_after, c.type as collaborator_type
+               c.first_name, c.last_name, c.title_before, c.title_after, c.collaborator_type
         FROM contact_assignments ca
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
         LEFT JOIN collaborators c ON c.id = ca.person_id
@@ -41125,7 +41125,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
 
       // Get person info
       const pRes = await db.execute(sql`
-        SELECT id, first_name, last_name, title_before, title_after, type as collaborator_type
+        SELECT id, first_name, last_name, title_before, title_after, collaborator_type
         FROM collaborators WHERE id = ${personId}
       `);
       const person = pRes.rows?.[0];
@@ -41152,7 +41152,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
         const entityIds = instKeys.map((k: any) => k.id);
         const otherRes = await db.execute(sql`
           SELECT ca.entity_type, ca.entity_id, ca.person_id, ca.department, ca.position, ca.role, ca.is_primary, ca.is_active,
-                 c.first_name, c.last_name, c.title_before, c.title_after, c.type as collaborator_type
+                 c.first_name, c.last_name, c.title_before, c.title_after, c.collaborator_type
           FROM contact_assignments ca
           LEFT JOIN collaborators c ON c.id = ca.person_id
           WHERE ca.entity_id = ANY(${entityIds}) AND ca.person_id != ${personId}
