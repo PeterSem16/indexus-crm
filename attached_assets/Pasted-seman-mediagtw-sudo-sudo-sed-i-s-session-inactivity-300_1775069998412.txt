@@ -1,0 +1,41 @@
+seman@mediagtw:~$ sudo sudo sed -i 's/session_inactivity=30000/session_inactivity=300000/' /etc/asterisk/http.conf
+sudo asterisk -rx "core reload"
+seman@mediagtw:~$ cat /etc/asterisk/http.conf | grep session_
+session_keep_alive=15000
+session_inactivity=300000
+seman@mediagtw:~$ sudo asterisk -r
+Asterisk 22.8.2, Copyright (C) 1999 - 2025, Sangoma Technologies Corporation and others.
+Created by Mark Spencer <markster@digium.com>
+Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.
+This is free software, with components licensed under the GNU General Public
+License version 2 and other licenses; you are welcome to redistribute it under
+certain conditions. Type 'core show license' for details.
+=========================================================================
+Running as user 'asterisk'
+Running under group 'asterisk'
+Connected to Asterisk 22.8.2 currently running on mediagtw (pid = 1007)
+mediagtw*CLI> core set verbose 21
+Console verbose was OFF and is now 21.
+[Apr  1 18:58:11] NOTICE[1078]: res_pjsip/pjsip_transport_management.c:170 idle_sched_cb: Shutting down transport 'WSS to 10.9.20.1:55345' since no request was received in 32 seconds
+[Apr  1 18:58:11] ERROR[1400]: res_http_websocket.c:583 ws_safe_read: Error reading from web socket: Broken pipe
+[Apr  1 18:58:11] ERROR[1072]: iostream.c:563 ast_iostream_close: SSL_shutdown() failed: error:00000001:lib(0)::reason(1), Internal SSL error
+mediagtw*CLI> exit
+Asterisk cleanly ending (0).
+Executing last minute cleanups
+seman@mediagtw:~$ # Overte že zmena je v súbore
+cat /etc/asterisk/http.conf | grep session_
+
+# Plný reštart Asterisk (nie len reload)
+sudo systemctl restart asterisk
+
+# Počkajte 10 sekúnd, potom overte že beží
+sleep 10 && sudo asterisk -rx "core show uptime"
+session_keep_alive=15000
+session_inactivity=300000
+
+
+System uptime: 10 seconds
+Last reload: 10 seconds
+seman@mediagtw:~$ sudo asterisk -rvvv 2>&1 | grep -i "shutting\|websocket\|idle\|request was received"
+[Apr  1 18:59:48] NOTICE[1473]: res_pjsip/pjsip_transport_management.c:170 idle_sched_cb: Shutting down transport 'WSS to 10.9.20.1:55408' since no request was received in 32 seconds
+[Apr  1 18:59:48] ERROR[1531]: res_http_websocket.c:583 ws_safe_read: Error reading from web socket: Broken pipe
