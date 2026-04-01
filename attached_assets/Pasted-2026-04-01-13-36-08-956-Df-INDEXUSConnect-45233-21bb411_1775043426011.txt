@@ -1,0 +1,19 @@
+2026-04-01 13:36:08.956 Df INDEXUSConnect[45233:21bb411] [com.apple.xpc:connection] [0x103ba8640] Re-initialization successful; calling out to event handler with XPC_ERROR_CONNECTION_INTERRUPTED
+2026-04-01 13:36:08.956 E  INDEXUSConnect[45233:21bb408] [com.apple.CFNetwork:Default] BackgroundSession <85E766E2-7F14-4C03-AD89-9512C86235C8> an error occurred on the xpc connection to setup the background session: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.nsurlsessiond" UserInfo={NSDebugDescription=connection to service named com.apple.nsurlsessiond}
+2026-04-01 13:36:08.992 E  INDEXUSConnect[45233:21bb419] [com.facebook.react.log:javascript] Error: Cannot find native module 'ExpoDevice', js engine: hermes
+2026-04-01 13:36:08.992 E  INDEXUSConnect[45233:21bb419] [com.facebook.react.log:javascript] Error: Cannot find native module 'ExpoDevice', js engine: hermes
+2026-04-01 13:36:08.992 E  INDEXUSConnect[45233:21bb419] [com.facebook.react.log:javascript] TypeError: Cannot read property 'ErrorBoundary' of undefined
+This error is located at:
+2026-04-01 13:36:08.992 E  INDEXUSConnect[45233:21bb419] [com.facebook.react.log:javascript] TypeError: Cannot read property 'ErrorBoundary' of undefined
+This error is located at:
+2026-04-01 13:36:08.993 E  INDEXUSConnect[45233:21bb40e] [com.facebook.react.log:native] Unhandled JS Exception: Error: Cannot find native module 'ExpoDevice', js engine: hermes
+2026-04-01 13:36:09.003 Df INDEXUSConnect[45233:21bb40e] (CoreFoundation) *** Terminating app due to uncaught exception 'RCTFatalException: Unhandled JS Exception: Error: Cannot find native module 'ExpoDevice', js engine: hermes', reason: 'Unhandled JS Exception: Error: Cannot find native module 'ExpoDevice', js engine: hermes, stack:
+2026-04-01 13:36:10.347 Df INDEXUSConnect[45234:21bb46e] [com.apple.BoardServices:XPCErrors] [C:1] Alloc com.apple.frontboard.systemappservices
+2026-04-01 13:36:10.365 Df INDEXUSConnect[45234:21bb468] [com.apple.BoardServices:XPCErrors] [C:2] Alloc com.apple.backboard.hid-services.xpc
+2026-04-01 13:36:10.526 Df INDEXUSConnect[45234:21bb471] [com.apple.xpc:connection] [0x103ba4640] Re-initialization successful; calling out to event handler with XPC_ERROR_CONNECTION_INTERRUPTED
+2026-04-01 13:36:10.526 E  INDEXUSConnect[45234:21bb468] [com.apple.CFNetwork:Default] BackgroundSession <7B032DA3-DB2F-414F-955D-99FD2B5E348E> an error occurred on the xpc connection to setup the background session: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.nsurlsessiond" UserInfo={NSDebugDescription=connection to service named com.apple.nsurlsessiond}
+2026-04-01 13:36:10.561 E  INDEXUSConnect[45234:21bb474] [com.facebook.react.log:javascript] Error: Cannot find native module 'ExpoDevice', js engine: hermes
+2026-04-01 13:36:10.561 E  INDEXUSConnect[45234:21bb474] [com.facebook.react.log:javascript] Error: Cannot find native module 'ExpoDevice', js engine: hermes
+2026-04-01 13:36:10.561 E  INDEXUSConnect[45234:21bb474] [com.facebook.react.log:javascript] TypeError: Cannot read property 'ErrorBoundary' of undefined
+This error is located at:
+MacBook-M3-Air:mobile-app dialcom$ 
