@@ -138,7 +138,17 @@ if [ -z "$WORKSPACE" ]; then
     exit 1
 fi
 
-SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null | awk '/Schemes:/{found=1; next} found && NF{print $1; exit}')
+ALL_SCHEMES=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null | awk '/Schemes:/{found=1; next} found && NF{gsub(/^[ \t]+/, ""); print}')
+
+echo "Available schemes:"
+echo "$ALL_SCHEMES"
+echo ""
+
+SCHEME=$(echo "$ALL_SCHEMES" | grep -i "indexus" | head -n 1)
+
+if [ -z "$SCHEME" ]; then
+    SCHEME=$(echo "$ALL_SCHEMES" | grep -iv "boost\|hermes\|flipper\|yoga\|react\|glog\|double\|fmt\|socket\|folly" | head -n 1)
+fi
 
 if [ -z "$SCHEME" ]; then
     SCHEME="indexusconnect"
