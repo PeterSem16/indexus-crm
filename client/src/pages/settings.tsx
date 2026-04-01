@@ -832,7 +832,7 @@ function SipSettingsTab() {
 
   const handleSave = async () => {
     if (!formData.server.trim()) {
-      toast({ title: "Adresa servera je povinná", variant: "destructive" });
+      toast({ title: t.settings.sipServer.serverRequired, variant: "destructive" });
       return;
     }
 
@@ -840,11 +840,11 @@ function SipSettingsTab() {
     try {
       await apiRequest("POST", "/api/sip-settings", formData);
       queryClient.invalidateQueries({ queryKey: ["/api/sip-settings"] });
-      toast({ title: "SIP nastavenia boli uložené" });
+      toast({ title: t.settings.sipServer.settingsSaved });
     } catch (error: any) {
       toast({ 
-        title: "Chyba pri ukladaní", 
-        description: error.message || "Nepodarilo sa uložiť nastavenia",
+        title: t.settings.sipServer.saveError, 
+        description: error.message || t.settings.sipServer.saveErrorDesc,
         variant: "destructive" 
       });
     } finally {
@@ -870,9 +870,9 @@ function SipSettingsTab() {
             <Phone className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <CardTitle>Nastavenia SIP servera</CardTitle>
+            <CardTitle>{t.settings.sipServer.title}</CardTitle>
             <CardDescription>
-              Konfigurácia pripojenia k Asterisk PBX serveru pre VoIP hovory
+              {t.settings.sipServer.description}
             </CardDescription>
           </div>
         </CardHeader>
@@ -886,7 +886,7 @@ function SipSettingsTab() {
               data-testid="switch-sip-enabled"
             />
             <Label htmlFor="sip-enabled">
-              Povoliť SIP telefóniu
+              {t.settings.sipServer.enableSip}
             </Label>
           </div>
 
@@ -894,22 +894,22 @@ function SipSettingsTab() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="server-address">Adresa servera</Label>
+              <Label htmlFor="server-address">{t.settings.sipServer.serverAddress}</Label>
               <Input
                 id="server-address"
-                placeholder="pbx.example.com"
+                placeholder={t.settings.sipServer.serverAddressPlaceholder}
                 value={formData.server}
                 onChange={(e) => setFormData({ ...formData, server: e.target.value })}
                 disabled={!isAdmin}
                 data-testid="input-sip-server-address"
               />
               <p className="text-xs text-muted-foreground">
-                Doménové meno alebo IP adresa Asterisk servera
+                {t.settings.sipServer.serverAddressHint}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="server-port">Port</Label>
+              <Label htmlFor="server-port">{t.settings.sipServer.port}</Label>
               <Input
                 id="server-port"
                 type="number"
@@ -920,12 +920,12 @@ function SipSettingsTab() {
                 data-testid="input-sip-server-port"
               />
               <p className="text-xs text-muted-foreground">
-                Predvolený port je 5060 pre SIP
+                {t.settings.sipServer.portHint}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="ws-path">WebSocket cesta</Label>
+              <Label htmlFor="ws-path">{t.settings.sipServer.wsPath}</Label>
               <Input
                 id="ws-path"
                 placeholder="/ws"
@@ -935,12 +935,12 @@ function SipSettingsTab() {
                 data-testid="input-sip-ws-path"
               />
               <p className="text-xs text-muted-foreground">
-                Cesta k WebSocket endpointu (napr. /ws)
+                {t.settings.sipServer.wsPathHint}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="realm">Realm</Label>
+              <Label htmlFor="realm">{t.settings.sipServer.realm}</Label>
               <Input
                 id="realm"
                 placeholder="asterisk"
@@ -950,19 +950,19 @@ function SipSettingsTab() {
                 data-testid="input-sip-realm"
               />
               <p className="text-xs text-muted-foreground">
-                SIP realm pre autentifikáciu (zvyčajne názov servera)
+                {t.settings.sipServer.realmHint}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="transport">Protokol</Label>
+              <Label htmlFor="transport">{t.settings.sipServer.protocol}</Label>
               <Select
                 value={formData.transport}
                 onValueChange={(value) => setFormData({ ...formData, transport: value })}
                 disabled={!isAdmin}
               >
                 <SelectTrigger id="transport" data-testid="select-sip-transport">
-                  <SelectValue placeholder="Vyberte protokol" />
+                  <SelectValue placeholder={t.settings.sipServer.protocolPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="wss">WSS (WebSocket Secure)</SelectItem>
@@ -970,7 +970,7 @@ function SipSettingsTab() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Odporúčame WSS pre bezpečné pripojenie
+                {t.settings.sipServer.protocolHint}
               </p>
             </div>
           </div>
@@ -985,12 +985,12 @@ function SipSettingsTab() {
                 {isSaving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Ukladám...
+                    {t.settings.sipServer.saving}
                   </>
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    Uložiť nastavenia
+                    {t.settings.sipServer.saveSettings}
                   </>
                 )}
               </Button>
@@ -1000,8 +1000,7 @@ function SipSettingsTab() {
           {!isAdmin && (
             <div className="rounded-lg bg-muted/50 p-4">
               <p className="text-sm text-muted-foreground">
-                Len administrátori môžu meniť nastavenia SIP servera. 
-                Kontaktujte administrátora pre zmeny konfigurácie.
+                {t.settings.sipServer.adminOnly}
               </p>
             </div>
           )}
@@ -1015,15 +1014,15 @@ function SipSettingsTab() {
               <Upload className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <CardTitle>{t.settings.sipImport?.title || "Import SIP liniek"}</CardTitle>
+              <CardTitle>{t.settings.sipImport.title}</CardTitle>
               <CardDescription>
-                {t.settings.sipImport?.description || "Nahrajte CSV súbor s extensions, krajinami a heslami"}
+                {t.settings.sipImport.description}
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>{t.settings.sipImport?.csvFile || "CSV súbor"}</Label>
+              <Label>{t.settings.sipImport.csvFile}</Label>
               <div className="flex gap-2">
                 <Input
                   type="file"
@@ -1048,7 +1047,7 @@ function SipSettingsTab() {
                   ) : (
                     <>
                       <Upload className="mr-2 h-4 w-4" />
-                      {t.settings.sipImport?.importButton || "Importovať"}
+                      {t.settings.sipImport.importButton}
                     </>
                   )}
                 </Button>
@@ -1059,11 +1058,11 @@ function SipSettingsTab() {
               <div className="rounded-lg bg-muted/50 p-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="font-medium">{t.settings.sipImport?.importComplete || "Import dokončený"}</span>
+                  <span className="font-medium">{t.settings.sipImport.importComplete}</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  <p>{t.settings.sipImport?.created || "Vytvorených"}: {importResult.created}</p>
-                  <p>{t.settings.sipImport?.updated || "Aktualizovaných"}: {importResult.updated}</p>
+                  <p>{t.settings.sipImport.created}: {importResult.created}</p>
+                  <p>{t.settings.sipImport.updated}: {importResult.updated}</p>
                 </div>
                 {importResult.errors && importResult.errors.length > 0 && (
                   <div className="mt-2 p-2 rounded bg-destructive/10 text-sm">
@@ -1087,10 +1086,10 @@ function SipSettingsTab() {
             <div className="rounded-lg bg-muted/50 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t.settings.sipImport?.csvFormat || "Formát CSV súboru"}</span>
+                <span className="text-sm font-medium">{t.settings.sipImport.csvFormat}</span>
               </div>
               <p className="text-sm text-muted-foreground mb-2">
-                {t.settings.sipImport?.formatDescription || "CSV súbor musí obsahovať hlavičku a stĺpce:"}
+                {t.settings.sipImport.formatDescription}
               </p>
               <code className="block text-xs bg-background p-2 rounded">
                 country,extension,sip_username,sip_password<br/>
@@ -1104,9 +1103,9 @@ function SipSettingsTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Ako to funguje</CardTitle>
+          <CardTitle>{t.settings.sipServer.howItWorks}</CardTitle>
           <CardDescription>
-            Informácie o integrácii SIP telefónie
+            {t.settings.sipServer.howItWorksDesc}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1114,36 +1113,36 @@ function SipSettingsTab() {
             <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
               <Badge>1</Badge>
               <div>
-                <p className="font-medium text-sm">Globálne nastavenia</p>
+                <p className="font-medium text-sm">{t.settings.sipServer.step1Title}</p>
                 <p className="text-sm text-muted-foreground">
-                  Administrátor nakonfiguruje adresu Asterisk servera a pripojenie
+                  {t.settings.sipServer.step1Desc}
                 </p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
               <Badge>2</Badge>
               <div>
-                <p className="font-medium text-sm">Používateľské účty</p>
+                <p className="font-medium text-sm">{t.settings.sipServer.step2Title}</p>
                 <p className="text-sm text-muted-foreground">
-                  Každému používateľovi sa priradí SIP linka (extension a heslo) v správe používateľov
+                  {t.settings.sipServer.step2Desc}
                 </p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
               <Badge>3</Badge>
               <div>
-                <p className="font-medium text-sm">Volanie</p>
+                <p className="font-medium text-sm">{t.settings.sipServer.step3Title}</p>
                 <p className="text-sm text-muted-foreground">
-                  Používatelia môžu telefonovať priamo z CRM pomocou vstavaného SIP telefónu
+                  {t.settings.sipServer.step3Desc}
                 </p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
               <Badge>4</Badge>
               <div>
-                <p className="font-medium text-sm">Záznamy hovorov</p>
+                <p className="font-medium text-sm">{t.settings.sipServer.step4Title}</p>
                 <p className="text-sm text-muted-foreground">
-                  Všetky hovory sa automaticky zaznamenávajú a prepájajú so zákazníkmi a kampaňami
+                  {t.settings.sipServer.step4Desc}
                 </p>
               </div>
             </div>
@@ -1155,13 +1154,14 @@ function SipSettingsTab() {
 }
 
 function SipPhoneSection() {
+  const { t } = useI18n();
   const [sipSubTab, setSipSubTab] = useState("sip-server");
   return (
     <Tabs value={sipSubTab} onValueChange={setSipSubTab}>
       <TabsList>
         <TabsTrigger value="sip-server" data-testid="tab-sip-server">
           <Phone className="h-4 w-4 mr-2" />
-          SIP Server
+          {t.settings.sipServer.title}
         </TabsTrigger>
         <TabsTrigger value="asterisk-ari" data-testid="tab-asterisk-ari">
           <Server className="h-4 w-4 mr-2" />
@@ -1225,7 +1225,7 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="sip" data-testid="tab-sip">
             <Phone className="h-4 w-4 mr-2" />
-            SIP telefónia
+            {t.settings.sipServer.sipTelephony}
           </TabsTrigger>
         </TabsList>
 

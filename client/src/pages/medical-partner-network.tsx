@@ -530,7 +530,7 @@ function NetworkExplorer() {
                 data-testid="btn-search-institution"
               >
                 <Building2 className="h-3.5 w-3.5 inline mr-1" />
-                Inštitúcia
+                {t.mpn.institution}
               </button>
               <button
                 className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all",
@@ -539,13 +539,13 @@ function NetworkExplorer() {
                 data-testid="btn-search-person"
               >
                 <User className="h-3.5 w-3.5 inline mr-1" />
-                Osoba
+                {t.mpn.person}
               </button>
             </div>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder={searchType === "institution" ? "Vyhľadajte nemocnicu alebo ambulanciu..." : "Vyhľadajte osobu (meno, priezvisko)..."}
+                placeholder={searchType === "institution" ? t.mpn.searchInstitution : t.mpn.searchPerson}
                 value={search}
                 onChange={e => { handleSearch(e.target.value); if (selectedResult) setSelectedResult(null); }}
                 className="pl-9"
@@ -554,7 +554,7 @@ function NetworkExplorer() {
             </div>
             {selectedResult && (
               <Button variant="ghost" size="sm" onClick={() => { setSelectedResult(null); setSearch(""); setDebouncedSearch(""); setDetailNode(null); }} data-testid="btn-clear-selection">
-                <X className="h-4 w-4 mr-1" /> Zrušiť
+                <X className="h-4 w-4 mr-1" /> {t.mpn.clearSelection}
               </Button>
             )}
           </div>
@@ -567,7 +567,7 @@ function NetworkExplorer() {
                 </div>
               ) : searchResults.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  {debouncedSearch.length < 2 ? "Zadajte aspoň 2 znaky" : "Žiadne výsledky"}
+                  {debouncedSearch.length < 2 ? t.mpn.minChars : t.mpn.noResults}
                 </div>
               ) : (
                 <div className="divide-y">
@@ -591,7 +591,7 @@ function NetworkExplorer() {
                           <div className="font-medium text-sm truncate">{inst.name}</div>
                           <div className="text-xs text-muted-foreground flex items-center gap-2">
                             {inst.city && <span><MapPin className="h-3 w-3 inline" /> {inst.city}</span>}
-                            <Badge variant="outline" className="text-[10px] px-1 py-0">{inst.type === "hospital" ? "Nemocnica" : "Ambulancia"}</Badge>
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">{inst.type === "hospital" ? t.mpn.hospital : t.mpn.clinic}</Badge>
                           </div>
                         </div>
                       </button>
@@ -620,7 +620,7 @@ function NetworkExplorer() {
                             {person.linkedInstitutions?.length > 0 && (
                               <span className="flex items-center gap-1">
                                 <Link2 className="h-3 w-3" />
-                                {person.linkedInstitutions.length} {person.linkedInstitutions.length === 1 ? "inštitúcia" : "inštitúcie"}
+                                {person.linkedInstitutions.length} {t.mpn.institutions.toLowerCase()}
                               </span>
                             )}
                           </div>
@@ -640,14 +640,14 @@ function NetworkExplorer() {
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-violet-100 dark:from-blue-900/30 dark:to-violet-900/30 flex items-center justify-center mb-6">
             <Network className="h-10 w-10 text-blue-500" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">Medical Partner Network</h3>
+          <h3 className="text-xl font-semibold mb-2">{t.mpn.title}</h3>
           <p className="text-sm text-muted-foreground max-w-md">
-            Vyhľadajte nemocnicu, ambulanciu alebo osobu pre zobrazenie medicínskej siete a vzťahov.
+            {t.mpn.networkIntro}
           </p>
           <div className="flex gap-6 mt-8 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full" style={{ background: NODE_COLORS.hospital.fill }} /> Nemocnica</span>
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full" style={{ background: NODE_COLORS.clinic.fill }} /> Ambulancia</span>
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full" style={{ background: NODE_COLORS.person.fill }} /> Osoba</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full" style={{ background: NODE_COLORS.hospital.fill }} /> {t.mpn.hospital}</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full" style={{ background: NODE_COLORS.clinic.fill }} /> {t.mpn.clinic}</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-full" style={{ background: NODE_COLORS.person.fill }} /> {t.mpn.person}</span>
           </div>
         </div>
       )}
@@ -666,7 +666,7 @@ function NetworkExplorer() {
             </Badge>
             {nodes.length > 0 && (
               <span className="text-xs text-muted-foreground">
-                {nodes.length} uzlov · {edges.length} prepojení
+                {nodes.length} {t.mpn.nodes} · {edges.length} {t.mpn.connections}
               </span>
             )}
           </div>
@@ -675,13 +675,13 @@ function NetworkExplorer() {
             <div className="flex items-center justify-center py-20 border rounded-xl bg-muted/20">
               <div className="text-center">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Načítavam sieť...</p>
+                <p className="text-sm text-muted-foreground">{t.mpn.loadingNetwork}</p>
               </div>
             </div>
           ) : nodes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 border rounded-xl bg-muted/20 text-center">
               <Network className="h-12 w-12 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">Žiadne prepojenia v sieti</p>
+              <p className="text-sm text-muted-foreground">{t.mpn.noConnections}</p>
             </div>
           ) : (
             <div className="flex gap-4">
@@ -709,28 +709,28 @@ function NetworkExplorer() {
                   </CardHeader>
                   <CardContent className="pt-0 space-y-2 text-xs">
                     <Badge variant="outline" className="text-[10px]">
-                      {detailNode.type === "hospital" ? "Nemocnica" : detailNode.type === "clinic" ? "Ambulancia" : "Osoba"}
+                      {detailNode.type === "hospital" ? t.mpn.hospital : detailNode.type === "clinic" ? t.mpn.clinic : t.mpn.person}
                     </Badge>
                     {detailNode.isPrimary && (
                       <Badge className="text-[10px] bg-amber-100 text-amber-800 border-amber-300 ml-1">
-                        <Star className="h-3 w-3 mr-0.5" /> Primárne
+                        <Star className="h-3 w-3 mr-0.5" /> {t.mpn.primary}
                       </Badge>
                     )}
                     {detailNode.department && (
-                      <div><span className="text-muted-foreground">Oddelenie:</span> <span className="font-medium">{detailNode.department}</span></div>
+                      <div><span className="text-muted-foreground">{t.mpn.department}:</span> <span className="font-medium">{detailNode.department}</span></div>
                     )}
                     {detailNode.position && (
-                      <div><span className="text-muted-foreground">Pozícia:</span> <span className="font-medium">{detailNode.position}</span></div>
+                      <div><span className="text-muted-foreground">{t.mpn.position}:</span> <span className="font-medium">{detailNode.position}</span></div>
                     )}
                     {detailNode.role && (
-                      <div><span className="text-muted-foreground">Rola:</span> <span className="font-medium">{detailNode.role}</span></div>
+                      <div><span className="text-muted-foreground">{t.mpn.role}:</span> <span className="font-medium">{detailNode.role}</span></div>
                     )}
                     {detailNode.categoryName && (
-                      <div><span className="text-muted-foreground">Kategória:</span> <span className="font-medium">{detailNode.categoryName}</span></div>
+                      <div><span className="text-muted-foreground">{t.mpn.category}:</span> <span className="font-medium">{detailNode.categoryName}</span></div>
                     )}
                     <Separator />
                     <div className="text-muted-foreground">
-                      Prepojenia: {edges.filter(e => e.from === detailNode.id || e.to === detailNode.id).length}
+                      {t.mpn.connectionCount}: {edges.filter(e => e.from === detailNode.id || e.to === detailNode.id).length}
                     </div>
                   </CardContent>
                 </Card>
@@ -990,7 +990,7 @@ export default function MedicalPartnerNetworkPage() {
         <TabsList className="grid w-full max-w-md grid-cols-3" data-testid="mpn-tabs">
           <TabsTrigger value="network" className="gap-1" data-testid="tab-network">
             <Network className="h-4 w-4" />
-            <span className="hidden sm:inline">Sieť</span>
+            <span className="hidden sm:inline">{t.mpn.network}</span>
           </TabsTrigger>
           <TabsTrigger value="overview" className="gap-1" data-testid="tab-overview">
             <LayoutDashboard className="h-4 w-4" />
