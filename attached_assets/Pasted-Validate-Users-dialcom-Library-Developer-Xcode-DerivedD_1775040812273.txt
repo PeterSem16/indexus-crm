@@ -1,0 +1,33 @@
+Validate /Users/dialcom/Library/Developer/Xcode/DerivedData/INDEXUSConnect-bgnofiashujlkrbtxwpmxrvctxzg/Build/Intermediates.noindex/ArchiveIntermediates/INDEXUSConnect/InstallationBuildProductsLocation/Applications/INDEXUSConnect.app (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+    cd /Users/dialcom/indexus-crm/mobile-app/ios
+    builtin-validationUtility /Users/dialcom/Library/Developer/Xcode/DerivedData/INDEXUSConnect-bgnofiashujlkrbtxwpmxrvctxzg/Build/Intermediates.noindex/ArchiveIntermediates/INDEXUSConnect/InstallationBuildProductsLocation/Applications/INDEXUSConnect.app -validate-for-store -shallow-bundle -infoplist-subpath Info.plist
+
+Touch /Users/dialcom/Library/Developer/Xcode/DerivedData/INDEXUSConnect-bgnofiashujlkrbtxwpmxrvctxzg/Build/Intermediates.noindex/ArchiveIntermediates/INDEXUSConnect/InstallationBuildProductsLocation/Applications/INDEXUSConnect.app (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+    cd /Users/dialcom/indexus-crm/mobile-app/ios
+    /usr/bin/touch -c /Users/dialcom/Library/Developer/Xcode/DerivedData/INDEXUSConnect-bgnofiashujlkrbtxwpmxrvctxzg/Build/Intermediates.noindex/ArchiveIntermediates/INDEXUSConnect/InstallationBuildProductsLocation/Applications/INDEXUSConnect.app
+
+warning: Run script build phase '[CP-User] [Hermes] Replace Hermes for the right configuration, if needed' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'hermes-engine' from project 'Pods')
+note: Run script build phase '[Expo] Configure project' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+note: Run script build phase 'Bundle React Native code and images' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'INDEXUSConnect' from project 'INDEXUSConnect')
+warning: Run script build phase '[CP-User] Generate app.config for prebuilt Constants.manifest' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'EXConstants' from project 'Pods')
+** ARCHIVE SUCCEEDED **
+
+error: exportArchive No signing certificate "iOS Distribution" found
+
+error: exportArchive No profiles for 'com.cordbloodcenter.indexusconnect' were found
+
+error: exportArchive No signing certificate "iOS Distribution" found
+
+error: exportArchive No signing certificate "iOS Distribution" found
+
+** EXPORT FAILED **
+
+
+==============================================
+Build Complete!
+==============================================
+
+Archive: builds/indexus-connect-v1.2.12-20260401_124221.xcarchive
+
+Done!
+MacBook-M3-Air:mobile-app dialcom$ 
