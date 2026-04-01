@@ -2989,10 +2989,10 @@ export class DatabaseStorage implements IStorage {
         OR ${hospitals.region} ILIKE ${s}
       )`);
     }
-    if (countries && countries.length > 0) {
-      conditions.push(inArray(hospitals.countryCode, countries));
-    } else if (countryCode && countryCode.trim()) {
+    if (countryCode && countryCode.trim()) {
       conditions.push(eq(hospitals.countryCode, countryCode.trim()));
+    } else if (countries && countries.length > 0) {
+      conditions.push(inArray(hospitals.countryCode, countries));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(hospitals).where(where);
@@ -3050,10 +3050,10 @@ export class DatabaseStorage implements IStorage {
         OR ${clinics.email} ILIKE ${s} OR ${clinics.address} ILIKE ${s}
       )`);
     }
-    if (countries && countries.length > 0) {
-      conditions.push(inArray(clinics.countryCode, countries));
-    } else if (countryCode && countryCode.trim()) {
+    if (countryCode && countryCode.trim()) {
       conditions.push(eq(clinics.countryCode, countryCode.trim()));
+    } else if (countries && countries.length > 0) {
+      conditions.push(inArray(clinics.countryCode, countries));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(clinics).where(where);
@@ -3111,11 +3111,11 @@ export class DatabaseStorage implements IStorage {
         OR CONCAT(${collaborators.firstName}, ' ', ${collaborators.lastName}) ILIKE ${s}
       )`);
     }
-    if (countries && countries.length > 0) {
+    if (countryCode && countryCode.trim()) {
+      conditions.push(sql`(${collaborators.countryCode} = ${countryCode.trim()} OR ${countryCode.trim()} = ANY(${collaborators.countryCodes}))`);
+    } else if (countries && countries.length > 0) {
       const countrySql = countries.map(c => sql`(${collaborators.countryCode} = ${c} OR ${c} = ANY(${collaborators.countryCodes}))`);
       conditions.push(sql`(${sql.join(countrySql, sql` OR `)})`);
-    } else if (countryCode && countryCode.trim()) {
-      conditions.push(sql`(${collaborators.countryCode} = ${countryCode.trim()} OR ${countryCode.trim()} = ANY(${collaborators.countryCodes}))`);
     }
     if (status === "active") {
       conditions.push(eq(collaborators.isActive, true));

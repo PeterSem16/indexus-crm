@@ -1891,7 +1891,7 @@ export default function CollaboratorsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
   useEffect(() => {
-    if (selectedCountries.length > 0) setFilterCountry("");
+    setFilterCountry("");
   }, [selectedCountries]);
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
