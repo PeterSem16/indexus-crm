@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 echo "=============================================="
-echo "INDEXUS Connect - iOS Local Build"
+echo "INDEXUS Connect - iOS Local Build (no Expo account needed)"
 echo "=============================================="
 echo ""
 
@@ -37,34 +37,37 @@ echo "  $XCODE_VERSION"
 echo "  macOS: $(sw_vers -productVersion)"
 echo ""
 
-BUILD_TYPE="${1:-preview}"
+BUILD_TYPE="${1:-simulator}"
 
 case $BUILD_TYPE in
     simulator)
-        PROFILE="development"
-        OUTPUT_DESC="Simulator build (testing)"
+        OUTPUT_DESC="Simulator build (.app) — no signing needed"
+        DESTINATION="generic/platform=iOS Simulator"
+        CONFIGURATION="Debug"
         ;;
-    preview)
-        PROFILE="preview"
-        OUTPUT_DESC="IPA (internal testing / Ad Hoc)"
+    device)
+        OUTPUT_DESC="Device build (.app) — requires signing"
+        DESTINATION="generic/platform=iOS"
+        CONFIGURATION="Release"
         ;;
-    production)
-        PROFILE="production"
-        OUTPUT_DESC="IPA (App Store)"
+    ipa)
+        OUTPUT_DESC="IPA archive — requires signing + provisioning"
+        DESTINATION="generic/platform=iOS"
+        CONFIGURATION="Release"
         ;;
     *)
-        echo "Usage: ./build-ios.sh [simulator|preview|production]"
+        echo "Usage: ./build-ios.sh [simulator|device|ipa]"
         echo ""
-        echo "  simulator  - Build for iOS Simulator (no signing needed)"
-        echo "  preview    - Build IPA for internal testing (Ad Hoc)"
-        echo "  production - Build IPA for App Store submission"
+        echo "  simulator - Build for iOS Simulator (default, no signing needed)"
+        echo "  device    - Build for real device (requires Apple Developer signing)"
+        echo "  ipa       - Build IPA for distribution (requires signing + provisioning)"
         echo ""
         exit 1
         ;;
 esac
 
 echo "Build configuration:"
-echo "  Profile: $PROFILE"
+echo "  Type: $BUILD_TYPE"
 echo "  Output: $OUTPUT_DESC"
 echo ""
 
@@ -81,13 +84,12 @@ if ! command -v pod &> /dev/null; then
         echo ""
         echo "ERROR: Ruby $(ruby --version | head -1) is too old for CocoaPods."
         echo ""
-        echo "Install Ruby 3.x via Homebrew first:"
+        echo "Install Ruby 3.x+ via Homebrew first:"
         echo "  brew install ruby"
-        echo '  echo '\''export PATH="/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/opt/ruby/bin:$PATH"'\'' >> ~/.zshrc'
-        echo "  source ~/.zshrc"
+        echo '  echo '\''export PATH="/opt/homebrew/opt/ruby/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:$PATH"'\'' >> ~/.bash_profile'
+        echo "  source ~/.bash_profile"
         echo "  gem install cocoapods"
         echo ""
-        echo "See IOS_BUILD_SETUP.md Step 2 for details."
         exit 1
     fi
     echo "Installing CocoaPods..."
@@ -95,57 +97,174 @@ if ! command -v pod &> /dev/null; then
     echo ""
 fi
 
-echo "Starting local build..."
-echo "This may take 15-45 minutes depending on your hardware."
-echo ""
-
-npx eas build --platform ios --profile "$PROFILE" --local --non-interactive
-
-echo ""
 echo "=============================================="
-echo "Build Complete!"
+echo "Step 1: Generating native iOS project..."
 echo "=============================================="
 echo ""
 
-OUTPUT_FILE=""
+if [ -d "ios" ]; then
+    echo "Removing old ios/ directory..."
+    rm -rf ios
+fi
 
-for search_dir in "." "./dist" "./ios/build"; do
-    if [ -d "$search_dir" ]; then
-        if [ "$BUILD_TYPE" = "simulator" ]; then
-            FOUND=$(find "$search_dir" -maxdepth 5 -name "*.app" -type d 2>/dev/null | head -n 1)
-        else
-            FOUND=$(find "$search_dir" -maxdepth 5 -name "*.ipa" -type f 2>/dev/null | head -n 1)
-        fi
-        if [ -n "$FOUND" ]; then
-            OUTPUT_FILE="$FOUND"
-            break
-        fi
-    fi
-done
+npx expo prebuild --platform ios --clean --no-install
 
-if [ -n "$OUTPUT_FILE" ]; then
-    echo "Output file: $OUTPUT_FILE"
-    if [ -f "$OUTPUT_FILE" ]; then
-        echo "Size: $(du -h "$OUTPUT_FILE" | cut -f1)"
-    fi
-    echo ""
+echo ""
+echo "=============================================="
+echo "Step 2: Installing CocoaPods dependencies..."
+echo "=============================================="
+echo ""
 
-    mkdir -p builds
-    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    VERSION=$(grep '"version"' app.json | head -1 | cut -d'"' -f4)
-    
-    if [ "$BUILD_TYPE" = "simulator" ]; then
+cd ios
+pod install
+cd ..
+
+echo ""
+echo "=============================================="
+echo "Step 3: Building with xcodebuild..."
+echo "=============================================="
+echo ""
+
+WORKSPACE="ios/indexusconnect.xcworkspace"
+
+if [ ! -d "$WORKSPACE" ]; then
+    WORKSPACE=$(find ios -name "*.xcworkspace" -maxdepth 1 | head -n 1)
+fi
+
+if [ -z "$WORKSPACE" ]; then
+    echo "ERROR: Could not find .xcworkspace in ios/ directory."
+    echo "Contents of ios/:"
+    ls -la ios/
+    exit 1
+fi
+
+SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null | awk '/Schemes:/{found=1; next} found && NF{print $1; exit}')
+
+if [ -z "$SCHEME" ]; then
+    SCHEME="indexusconnect"
+fi
+
+echo "Workspace: $WORKSPACE"
+echo "Scheme: $SCHEME"
+echo "Configuration: $CONFIGURATION"
+echo ""
+
+mkdir -p builds
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+VERSION=$(grep '"version"' app.json | head -1 | cut -d'"' -f4)
+DERIVED_DATA="$(pwd)/ios/DerivedData"
+
+echo "This may take 10-30 minutes depending on your hardware..."
+echo ""
+
+if [ "$BUILD_TYPE" = "simulator" ]; then
+    xcodebuild \
+        -workspace "$WORKSPACE" \
+        -scheme "$SCHEME" \
+        -configuration "$CONFIGURATION" \
+        -destination "generic/platform=iOS Simulator" \
+        -derivedDataPath "$DERIVED_DATA" \
+        CODE_SIGNING_ALLOWED=NO \
+        build 2>&1 | tail -20
+
+    APP_PATH=$(find "$DERIVED_DATA" -name "*.app" -path "*/Debug-iphonesimulator/*" -type d 2>/dev/null | head -n 1)
+
+    if [ -n "$APP_PATH" ]; then
         NEW_NAME="builds/indexus-connect-v${VERSION}-${TIMESTAMP}-simulator.app"
-        cp -r "$OUTPUT_FILE" "$NEW_NAME"
+        cp -r "$APP_PATH" "$NEW_NAME"
+        echo ""
+        echo "=============================================="
+        echo "Build Complete!"
+        echo "=============================================="
+        echo ""
+        echo "Output: $NEW_NAME"
+        echo ""
+        echo "To install in Simulator:"
+        echo "  1. Open Simulator: open -a Simulator"
+        echo "  2. Drag & drop the .app file onto the Simulator window"
+        echo "  OR run: xcrun simctl install booted '$NEW_NAME'"
+        echo ""
     else
-        EXT="ipa"
-        NEW_NAME="builds/indexus-connect-v${VERSION}-${TIMESTAMP}.${EXT}"
-        cp "$OUTPUT_FILE" "$NEW_NAME"
+        echo ""
+        echo "Build finished. Looking for output..."
+        find "$DERIVED_DATA" -name "*.app" -type d 2>/dev/null
     fi
-    echo "Copied to: $NEW_NAME"
-else
-    echo "Warning: Could not locate output file automatically."
-    echo "Check the build output above for the file location."
+
+elif [ "$BUILD_TYPE" = "device" ]; then
+    xcodebuild \
+        -workspace "$WORKSPACE" \
+        -scheme "$SCHEME" \
+        -configuration "$CONFIGURATION" \
+        -destination "generic/platform=iOS" \
+        -derivedDataPath "$DERIVED_DATA" \
+        build 2>&1 | tail -20
+
+    APP_PATH=$(find "$DERIVED_DATA" -name "*.app" -path "*/Release-iphoneos/*" -type d 2>/dev/null | head -n 1)
+
+    if [ -n "$APP_PATH" ]; then
+        NEW_NAME="builds/indexus-connect-v${VERSION}-${TIMESTAMP}-device.app"
+        cp -r "$APP_PATH" "$NEW_NAME"
+        echo ""
+        echo "=============================================="
+        echo "Build Complete!"
+        echo "=============================================="
+        echo ""
+        echo "Output: $NEW_NAME"
+    fi
+
+elif [ "$BUILD_TYPE" = "ipa" ]; then
+    ARCHIVE_PATH="builds/indexus-connect-v${VERSION}-${TIMESTAMP}.xcarchive"
+
+    xcodebuild \
+        -workspace "$WORKSPACE" \
+        -scheme "$SCHEME" \
+        -configuration "$CONFIGURATION" \
+        -destination "generic/platform=iOS" \
+        -archivePath "$ARCHIVE_PATH" \
+        archive 2>&1 | tail -20
+
+    if [ -d "$ARCHIVE_PATH" ]; then
+        cat > /tmp/ExportOptions.plist << 'EXPORTPLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>ad-hoc</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>compileBitcode</key>
+    <false/>
+</dict>
+</plist>
+EXPORTPLIST
+
+        xcodebuild \
+            -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "builds/" \
+            -exportOptionsPlist /tmp/ExportOptions.plist 2>&1 | tail -10
+
+        IPA_PATH=$(find builds -name "*.ipa" -newer "$ARCHIVE_PATH" 2>/dev/null | head -n 1)
+
+        if [ -z "$IPA_PATH" ]; then
+            IPA_PATH=$(find builds -name "*.ipa" 2>/dev/null | sort -t/ -k2 | tail -n 1)
+        fi
+
+        echo ""
+        echo "=============================================="
+        echo "Build Complete!"
+        echo "=============================================="
+        echo ""
+        echo "Archive: $ARCHIVE_PATH"
+        if [ -n "$IPA_PATH" ]; then
+            echo "IPA: $IPA_PATH"
+            echo "Size: $(du -h "$IPA_PATH" | cut -f1)"
+        fi
+    else
+        echo "ERROR: Archive failed."
+        exit 1
+    fi
 fi
 
 echo ""
