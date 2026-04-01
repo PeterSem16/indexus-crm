@@ -408,20 +408,23 @@ function NetworkExplorer() {
     enabled: searchType === "person" && debouncedSearch.length >= 2,
   });
 
+  const networkUrl = selectedResult
+    ? (selectedResult.type === "person"
+      ? `/api/mpn/network/person/${selectedResult.id}`
+      : `/api/mpn/network/institution/${selectedResult.entityType}/${selectedResult.id}`)
+    : null;
+
   const { data: networkData, isLoading: networkLoading } = useQuery<any>({
-    queryKey: selectedResult?.type === "person"
-      ? ["/api/mpn/network/person", selectedResult.id]
-      : ["/api/mpn/network/institution", selectedResult?.entityType, selectedResult?.id],
+    queryKey: ["mpn-network", networkUrl],
     queryFn: async () => {
-      if (!selectedResult) return null;
-      const url = selectedResult.type === "person"
-        ? `/api/mpn/network/person/${selectedResult.id}`
-        : `/api/mpn/network/institution/${selectedResult.entityType}/${selectedResult.id}`;
-      const res = await fetch(url, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
+      if (!networkUrl) return null;
+      const res = await fetch(networkUrl, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load network data");
       return res.json();
     },
-    enabled: !!selectedResult,
+    enabled: !!networkUrl,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const { nodes, edges } = useMemo(() => {
