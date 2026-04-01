@@ -41088,13 +41088,13 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
 
       // Get all persons assigned to this institution
       const personsRes = await db.execute(sql`
-        SELECT ca.person_id, ca.department, ca.position, ca.role, ca.is_primary, ca.category_id,
+        SELECT ca.person_id, ca.department, ca.position, ca.role, ca.is_primary, ca.is_active, ca.category_id,
                pc.name as category_name,
                c.first_name, c.last_name, c.title_before, c.title_after, c.type as collaborator_type
         FROM contact_assignments ca
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
         LEFT JOIN collaborators c ON c.id = ca.person_id
-        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId} AND ca.is_active = true
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
       `);
       const persons = personsRes.rows || [];
 
@@ -41103,13 +41103,13 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       let otherAssignments: any[] = [];
       if (personIds.length > 0) {
         const otherRes = await db.execute(sql`
-          SELECT ca.person_id, ca.entity_type, ca.entity_id, ca.department, ca.position, ca.role,
+          SELECT ca.person_id, ca.entity_type, ca.entity_id, ca.department, ca.position, ca.role, ca.is_active,
                  CASE WHEN ca.entity_type = 'hospital' THEN h.name WHEN ca.entity_type = 'clinic' THEN cl.name END as entity_name,
                  CASE WHEN ca.entity_type = 'hospital' THEN h.city WHEN ca.entity_type = 'clinic' THEN cl.city END as entity_city
           FROM contact_assignments ca
           LEFT JOIN hospitals h ON ca.entity_type = 'hospital' AND h.id = ca.entity_id
           LEFT JOIN clinics cl ON ca.entity_type = 'clinic' AND cl.id = ca.entity_id
-          WHERE ca.person_id = ANY(${personIds}) AND ca.is_active = true
+          WHERE ca.person_id = ANY(${personIds})
             AND NOT (ca.entity_type = ${entityType} AND ca.entity_id = ${entityId})
         `);
         otherAssignments = otherRes.rows || [];
@@ -41133,7 +41133,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
 
       // Get all institution assignments for this person
       const assignRes = await db.execute(sql`
-        SELECT ca.entity_type, ca.entity_id, ca.department, ca.position, ca.role, ca.is_primary, ca.category_id,
+        SELECT ca.entity_type, ca.entity_id, ca.department, ca.position, ca.role, ca.is_primary, ca.is_active, ca.category_id,
                pc.name as category_name,
                CASE WHEN ca.entity_type = 'hospital' THEN h.name WHEN ca.entity_type = 'clinic' THEN cl.name END as entity_name,
                CASE WHEN ca.entity_type = 'hospital' THEN h.city WHEN ca.entity_type = 'clinic' THEN cl.city END as entity_city
@@ -41141,7 +41141,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
         LEFT JOIN hospitals h ON ca.entity_type = 'hospital' AND h.id = ca.entity_id
         LEFT JOIN clinics cl ON ca.entity_type = 'clinic' AND cl.id = ca.entity_id
-        WHERE ca.person_id = ${personId} AND ca.is_active = true
+        WHERE ca.person_id = ${personId}
       `);
       const institutions = assignRes.rows || [];
 
@@ -41151,11 +41151,11 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       if (instKeys.length > 0) {
         const entityIds = instKeys.map((k: any) => k.id);
         const otherRes = await db.execute(sql`
-          SELECT ca.entity_type, ca.entity_id, ca.person_id, ca.department, ca.position, ca.role, ca.is_primary,
+          SELECT ca.entity_type, ca.entity_id, ca.person_id, ca.department, ca.position, ca.role, ca.is_primary, ca.is_active,
                  c.first_name, c.last_name, c.title_before, c.title_after, c.type as collaborator_type
           FROM contact_assignments ca
           LEFT JOIN collaborators c ON c.id = ca.person_id
-          WHERE ca.entity_id = ANY(${entityIds}) AND ca.is_active = true AND ca.person_id != ${personId}
+          WHERE ca.entity_id = ANY(${entityIds}) AND ca.person_id != ${personId}
         `);
         otherPersons = otherRes.rows || [];
       }
