@@ -1,0 +1,18 @@
+/home/seman/.pm2/logs/indexus-crm-out.log last 5 lines:
+0|indexus- | rror":"Unauthorized"}
+0|indexus- | 7:47:59 PM [express] GET /api/notifications/unread-count 401 in 3ms :: {"error":"Unauthorized"}
+0|indexus- | 7:48:00 PM [express] GET /api/mobile/visit-events 304 in 21ms :: [{"id":"d2f9a172-bec4-4c9c-9a99-e189e928e083","collaboratorId":"ebd30fe7-2878-424d-a124-93ab53ac4b61","countryCode":"SK","subject":"Personal Visit","startTime":"2026-04-05T07:00:00.000Z","endTime":"2026-04-05T08:00:00.000Z","isAllDay":false,"latitude":null,"longitude":null,"locationAddress":null,"hospitalId":"10958790-cb90-497d-9592-3b01ca94efc5","remark":"Rozhovor o predĺžení spolupráce","remarkVoiceUrl":null,"remarkDetail":"3","visitType":"1","place":"1","status":"scheduled","actualStart":null,"actualEnd":null,"startLatitude":null,"startLongitude":null,"endLatitude":null,"endLongitude":null,"isCancelled":false,"isNotRealized":false,"syncedFromMobile":true,"mobileDeviceInfo":null,"createdAt":"2026-04-01T13:21:02.331Z","updatedAt":"2026-04-01T13:21:02.331Z","hospitalName":"FN s poliklinikou Žilina"}]
+
+0|indexus-crm  | [ARI AutoConnect] Connecting to Asterisk at mediagtw.cordbloodcenter.com:8088 (app: indexus-inbound)...
+0|indexus-crm  | [ARI] Testing connection to: http://mediagtw.cordbloodcenter.com:8088
+0|indexus-crm  | [ARI] /httpstatus returned: 200
+0|indexus-crm  | [ARI] Testing ARI endpoint: http://mediagtw.cordbloodcenter.com:8088/ari/asterisk/info
+0|indexus-crm  | [ARI] Basic auth response: 200
+0|indexus-crm  | [ARI] WebSocket connected to Asterisk
+0|indexus-crm  | [QueueEngine] Loaded agent 7ac88279-644f-42f3-b16e-35ad9f404dee: busy, queues: []
+0|indexus-crm  | [QueueEngine] Loaded agent 62b874a9-d7b5-4432-bf74-8a62c0815218: offline, queues: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Loaded agent 5a8e126d-f542-4431-ade4-9e645c194bba: offline, queues: []
+0|indexus-crm  | [QueueEngine] Loaded agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: offline, queues: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Loaded 4 agent states total
+0|indexus-crm  | [QueueEngine] Started
+0|indexus-crm  | [ARI AutoConnect] Successfully connected to Asterisk and started queue engine
