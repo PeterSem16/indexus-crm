@@ -179,7 +179,7 @@ export function registerUdidRoutes(app: Express) {
   <style>${PAGE_STYLE}</style>
 </head>
 <body>
-  <div id="mainView" class="page-wrap">
+  <div class="page-wrap">
     <div class="page-header">
       <div class="logo">INDEXUS Connect</div>
       <div class="subtitle">iOS app for Cord Blood Center staff</div>
@@ -191,16 +191,14 @@ export function registerUdidRoutes(app: Express) {
         <div class="card-sub">First time? Register your iPhone to get access to the app.</div>
         <div class="safari-warn">&#9888;&#65039; Open this page in <strong>Safari</strong></div>
 
-        <form id="regForm" onsubmit="return startRegistration()">
+        <form action="/udid/profile" method="GET">
           <div class="form-group">
             <label for="firstName">First Name *</label>
             <input type="text" id="firstName" name="firstName" placeholder="e.g. John" required autocomplete="given-name" />
-            <div class="error" id="fnError">Please enter your first name</div>
           </div>
           <div class="form-group">
             <label for="lastName">Last Name *</label>
             <input type="text" id="lastName" name="lastName" placeholder="e.g. Smith" required autocomplete="family-name" />
-            <div class="error" id="lnError">Please enter your last name</div>
           </div>
 
           <div class="steps">
@@ -239,83 +237,6 @@ export function registerUdidRoutes(app: Express) {
       </div>
     </div>
   </div>
-
-  <div id="calmView" style="display:none;">
-    <div class="card" style="max-width:480px; margin: 0 auto;">
-      <div class="logo">INDEXUS Connect</div>
-
-      <div style="margin: 20px 0 16px;">
-        <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6, #2563eb); border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 25px rgba(59,130,246,0.3);">
-          <svg style="width:32px;height:32px;fill:white" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-        </div>
-      </div>
-      <div class="title" id="calmTitle">Almost there!</div>
-      <div style="font-size: 14px; color: #94a3b8; margin-bottom: 16px;">Your registration request has been submitted.</div>
-
-      <div class="timeline">
-        <div class="tl-item">
-          <div class="tl-line"><div class="tl-dot done"></div><div class="tl-stem done"></div></div>
-          <div class="tl-content">
-            <div class="tl-title done">&#x2705; Device Registered</div>
-            <div class="tl-desc">Your iPhone has been successfully registered in our system.</div>
-          </div>
-        </div>
-        <div class="tl-item">
-          <div class="tl-line"><div class="tl-dot wait"></div><div class="tl-stem wait"></div></div>
-          <div class="tl-content">
-            <div class="tl-title wait">&#x23F3; Waiting for Approval</div>
-            <div class="tl-desc">An admin will approve your device &mdash; usually <strong style="color:#fbbf24">within minutes</strong>.</div>
-          </div>
-        </div>
-        <div class="tl-item">
-          <div class="tl-line"><div class="tl-dot next"></div></div>
-          <div class="tl-content">
-            <div class="tl-title next">&#x1F4E6; Download the App</div>
-            <div class="tl-desc">Once approved, install INDEXUS Connect on your iPhone.</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="reassure">
-        <div class="reassure-icon">&#x1F44D;</div>
-        <div class="reassure-text">
-          <strong>Don&rsquo;t worry!</strong> Device approvals are usually processed <strong>within minutes</strong>. 
-          You&rsquo;ll be able to install the app very soon.
-        </div>
-      </div>
-
-      <a href="${IOS_DOWNLOAD_URL}" class="download-btn" style="margin-top: 16px;">
-        ${APPLE_SVG.replace('<svg', '<svg style="width:20px;height:20px;fill:white"')}
-        Download INDEXUS Connect
-      </a>
-      <div style="margin-top:8px; font-size:12px; color:#64748b;">If the download doesn&rsquo;t start, your device may still need to be approved.</div>
-
-    </div>
-  </div>
-
-  <script>
-    function startRegistration() {
-      var fn = document.getElementById('firstName').value.trim();
-      var ln = document.getElementById('lastName').value.trim();
-      var ok = true;
-      if (!fn) { document.getElementById('fnError').style.display = 'block'; ok = false; }
-      else { document.getElementById('fnError').style.display = 'none'; }
-      if (!ln) { document.getElementById('lnError').style.display = 'block'; ok = false; }
-      else { document.getElementById('lnError').style.display = 'none'; }
-      if (!ok) return false;
-
-      var profileUrl = '/udid/profile?firstName=' + encodeURIComponent(fn) + '&lastName=' + encodeURIComponent(ln);
-      window.location.href = profileUrl;
-
-      setTimeout(function() {
-        document.getElementById('calmTitle').textContent = 'Hi ' + fn + ', almost there!';
-        document.getElementById('mainView').style.display = 'none';
-        document.getElementById('calmView').style.display = 'block';
-      }, 300);
-
-      return false;
-    }
-  </script>
 </body>
 </html>`);
   });
