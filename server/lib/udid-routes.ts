@@ -81,8 +81,6 @@ function extractPlistFromBody(raw: Buffer): string {
   return str;
 }
 
-const pendingNames = new Map<string, { firstName: string; lastName: string }>();
-
 const PAGE_STYLE = `
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -168,6 +166,14 @@ export function registerUdidRoutes(app: Express) {
     </form>
 
     <div class="note">Your device will be registered automatically. After approval you can install INDEXUS Connect.</div>
+
+    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #334155;">
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Already registered? Download the latest version:</p>
+      <a href="itms-services://?action=download-manifest&url=https://indexus.cordbloodcenter.com/data/mobil-app/indexus-connect-ios-manifest.plist" class="download-btn" style="display: inline-flex; align-items: center; gap: 8px; width: 100%; justify-content: center;">
+        <svg style="width:20px;height:20px" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        Download INDEXUS Connect
+      </a>
+    </div>
   </div>
   <script>
     function validateForm() {
@@ -191,11 +197,7 @@ export function registerUdidRoutes(app: Express) {
     const host = req.headers.host || "indexus.cordbloodcenter.com";
     const protocol = req.headers["x-forwarded-proto"] || "https";
 
-    const sessionId = randomUUID();
-    pendingNames.set(sessionId, { firstName, lastName });
-    setTimeout(() => pendingNames.delete(sessionId), 300000);
-
-    const callbackUrl = `${protocol}://${host}/udid/callback?sid=${sessionId}`;
+    const callbackUrl = `${protocol}://${host}/udid/callback?fn=${encodeURIComponent(firstName)}&ln=${encodeURIComponent(lastName)}`;
     const payloadUUID = randomUUID().toUpperCase();
 
     const mobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
@@ -239,8 +241,9 @@ export function registerUdidRoutes(app: Express) {
   app.post("/udid/callback", (req: Request, res: Response) => {
     try {
       const body = req.body as Buffer;
-      const sid = req.query.sid as string || "";
-      console.log(`[UDID] Callback received, body length: ${body.length}, sid: ${sid}`);
+      const fnParam = (req.query.fn as string || "").trim();
+      const lnParam = (req.query.ln as string || "").trim();
+      console.log(`[UDID] Callback received, body length: ${body.length}, name: ${fnParam} ${lnParam}`);
 
       const plistXml = extractPlistFromBody(body);
       console.log(`[UDID] Extracted plist (${plistXml.length} chars): ${plistXml.substring(0, 500)}`);
@@ -271,10 +274,8 @@ export function registerUdidRoutes(app: Express) {
         }
       }
 
-      const nameInfo = pendingNames.get(sid);
-      const firstName = nameInfo?.firstName || "";
-      const lastName = nameInfo?.lastName || "";
-      if (sid) pendingNames.delete(sid);
+      const firstName = fnParam;
+      const lastName = lnParam;
 
       if (udid) {
         console.log(`[UDID] SUCCESS - ${firstName} ${lastName} | UDID: ${udid} | Product: ${product} | Version: ${version} | Serial: ${serial}`);
@@ -311,7 +312,7 @@ export function registerUdidRoutes(app: Express) {
       const host = req.headers.host || "indexus.cordbloodcenter.com";
       const protocol = req.headers["x-forwarded-proto"] || "https";
       const success = udid ? "true" : "false";
-      res.redirect(301, `${protocol}://${host}/udid/result?success=${success}&product=${encodeURIComponent(product)}&version=${encodeURIComponent(version)}&fn=${encodeURIComponent(firstName)}`);
+      res.redirect(301, `${protocol}://${host}/udid/result?success=${success}&product=${encodeURIComponent(product)}&version=${encodeURIComponent(version)}&fn=${encodeURIComponent(firstName)}&ln=${encodeURIComponent(lastName)}`);
     } catch (error: any) {
       console.error("[UDID] Callback error:", error.message, error.stack);
       const host = req.headers.host || "indexus.cordbloodcenter.com";
