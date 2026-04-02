@@ -1,13 +1,37 @@
 import { Express, Request, Response } from "express";
 import { randomUUID } from "crypto";
+import path from "path";
+import fs from "fs";
 
-const collectedUdids: Array<{
+export interface UdidRecord {
+  id: string;
   udid: string;
   product: string;
   version: string;
   serial: string;
+  status: "pending" | "approved" | "rejected";
+  note: string;
   collectedAt: string;
-}> = [];
+}
+
+const DATA_DIR = path.join(process.cwd(), "uploads");
+const UDID_FILE = path.join(DATA_DIR, "udid-registrations.json");
+
+function loadUdids(): UdidRecord[] {
+  try {
+    if (fs.existsSync(UDID_FILE)) {
+      return JSON.parse(fs.readFileSync(UDID_FILE, "utf-8"));
+    }
+  } catch {}
+  return [];
+}
+
+function saveUdids(records: UdidRecord[]) {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  fs.writeFileSync(UDID_FILE, JSON.stringify(records, null, 2));
+}
 
 function extractPlistFromBody(raw: Buffer): string {
   const str = raw.toString("utf-8");
@@ -115,7 +139,6 @@ export function registerUdidRoutes(app: Express) {
     const protocol = req.headers["x-forwarded-proto"] || "https";
     const callbackUrl = `${protocol}://${host}/udid/callback`;
     const payloadUUID = randomUUID().toUpperCase();
-    const profileUUID = randomUUID().toUpperCase();
 
     const mobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -191,15 +214,20 @@ export function registerUdidRoutes(app: Express) {
 
       if (udid) {
         console.log(`[UDID] Collected: ${udid} | Product: ${product} | Version: ${version} | Serial: ${serial}`);
-        const existing = collectedUdids.find((d) => d.udid === udid);
+        const records = loadUdids();
+        const existing = records.find((d) => d.udid === udid);
         if (!existing) {
-          collectedUdids.push({
+          records.push({
+            id: randomUUID(),
             udid,
             product,
             version,
             serial,
+            status: "pending",
+            note: "",
             collectedAt: new Date().toISOString(),
           });
+          saveUdids(records);
         }
       } else {
         console.log("[UDID] Could not extract UDID from callback body");
@@ -234,7 +262,7 @@ export function registerUdidRoutes(app: Express) {
     .logo { font-size: 28px; font-weight: 700; color: #60a5fa; margin-bottom: 8px; }
     .success { font-size: 48px; margin-bottom: 16px; }
     .label { font-size: 13px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; margin-top: 20px; }
-    .udid-box { background: #0f172a; border: 2px solid #3b82f6; border-radius: 10px; padding: 14px; font-family: 'SF Mono', 'Courier New', monospace; font-size: 13px; word-break: break-all; color: #60a5fa; cursor: pointer; position: relative; }
+    .udid-box { background: #0f172a; border: 2px solid #3b82f6; border-radius: 10px; padding: 14px; font-family: 'SF Mono', 'Courier New', monospace; font-size: 13px; word-break: break-all; color: #60a5fa; cursor: pointer; }
     .udid-box:active { background: #1a2744; }
     .device-info { font-size: 14px; color: #94a3b8; margin-top: 8px; }
     .copy-btn { display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; border-radius: 10px; border: none; font-size: 15px; font-weight: 600; margin-top: 20px; cursor: pointer; }
@@ -289,65 +317,34 @@ export function registerUdidRoutes(app: Express) {
 </html>`);
   });
 
-  app.get("/udid/list", (_req: Request, res: Response) => {
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>INDEXUS Connect — Collected UDIDs</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 40px 20px; }
-    .container { max-width: 800px; margin: 0 auto; }
-    h1 { font-size: 24px; color: #60a5fa; margin-bottom: 8px; }
-    .count { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
-    table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; }
-    th { background: #334155; padding: 12px 16px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; }
-    td { padding: 12px 16px; border-top: 1px solid #334155; font-size: 13px; }
-    .udid-cell { font-family: 'SF Mono', 'Courier New', monospace; color: #60a5fa; word-break: break-all; }
-    .empty { text-align: center; padding: 60px 20px; color: #64748b; }
-    .json-link { margin-top: 16px; }
-    .json-link a { color: #3b82f6; font-size: 13px; text-decoration: none; }
-    .json-link a:hover { text-decoration: underline; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>INDEXUS Connect — Collected UDIDs</h1>
-    <div class="count">${collectedUdids.length} device(s) registered</div>
-    ${collectedUdids.length === 0 ? '<div class="empty">No devices registered yet.<br>Share the registration link with users: <strong>/udid</strong></div>' : `
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>UDID</th>
-          <th>Device</th>
-          <th>iOS</th>
-          <th>Serial</th>
-          <th>Collected</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${collectedUdids.map((d, i) => `
-        <tr>
-          <td>${i + 1}</td>
-          <td class="udid-cell">${d.udid}</td>
-          <td>${d.product || "-"}</td>
-          <td>${d.version || "-"}</td>
-          <td>${d.serial || "-"}</td>
-          <td>${new Date(d.collectedAt).toLocaleString("en-US")}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>`}
-    <div class="json-link"><a href="/udid/list.json">View as JSON</a></div>
-  </div>
-</body>
-</html>`);
+  app.get("/api/udid-registrations", (_req: Request, res: Response) => {
+    const records = loadUdids();
+    res.json(records);
   });
 
-  app.get("/udid/list.json", (_req: Request, res: Response) => {
-    res.json(collectedUdids);
+  app.patch("/api/udid-registrations/:id", (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status, note } = req.body;
+    const records = loadUdids();
+    const record = records.find((r) => r.id === id);
+    if (!record) {
+      return res.status(404).json({ error: "Not found" });
+    }
+    if (status) record.status = status;
+    if (note !== undefined) record.note = note;
+    saveUdids(records);
+    res.json(record);
+  });
+
+  app.delete("/api/udid-registrations/:id", (req: Request, res: Response) => {
+    const { id } = req.params;
+    let records = loadUdids();
+    const idx = records.findIndex((r) => r.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: "Not found" });
+    }
+    records.splice(idx, 1);
+    saveUdids(records);
+    res.json({ ok: true });
   });
 }

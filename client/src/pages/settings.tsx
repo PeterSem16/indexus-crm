@@ -7,7 +7,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check, Server, Eye, EyeOff, Link2 } from "lucide-react";
+import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check, Server, Eye, EyeOff, Link2, Smartphone, Copy, XCircle, Clock, CheckCircle2 } from "lucide-react";
 import { AriSettingsTab } from "@/components/configurator/AriSettingsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -1153,6 +1153,230 @@ function SipSettingsTab() {
   );
 }
 
+interface UdidRegistration {
+  id: string;
+  udid: string;
+  product: string;
+  version: string;
+  serial: string;
+  status: "pending" | "approved" | "rejected";
+  note: string;
+  collectedAt: string;
+}
+
+function IosDevicesTab() {
+  const { toast } = useToast();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const { data: registrations = [], isLoading } = useQuery<UdidRegistration[]>({
+    queryKey: ["/api/udid-registrations"],
+    refetchInterval: 15000,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, status, note }: { id: string; status?: string; note?: string }) =>
+      apiRequest("PATCH", `/api/udid-registrations/${id}`, { status, note }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/udid-registrations"] });
+      toast({ title: "Device updated" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/udid-registrations/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/udid-registrations"] });
+      toast({ title: "Device removed" });
+    },
+  });
+
+  const copyUdid = (udid: string, id: string) => {
+    navigator.clipboard.writeText(udid);
+    setCopiedId(id);
+    toast({ title: "UDID copied to clipboard" });
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const pending = registrations.filter((r) => r.status === "pending");
+  const approved = registrations.filter((r) => r.status === "approved");
+  const rejected = registrations.filter((r) => r.status === "rejected");
+
+  const statusIcon = (status: string) => {
+    if (status === "pending") return <Clock className="h-4 w-4 text-yellow-500" />;
+    if (status === "approved") return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+    return <XCircle className="h-4 w-4 text-red-500" />;
+  };
+
+  const statusBadge = (status: string) => {
+    const variant = status === "pending" ? "outline" : status === "approved" ? "default" : "destructive";
+    return <Badge variant={variant as any}>{status}</Badge>;
+  };
+
+  const renderDevice = (reg: UdidRegistration) => (
+    <div key={reg.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`udid-device-${reg.id}`}>
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {statusIcon(reg.status)}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <code className="text-xs font-mono bg-muted px-2 py-1 rounded break-all" data-testid={`udid-value-${reg.id}`}>
+              {reg.udid}
+            </code>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={() => copyUdid(reg.udid, reg.id)}
+              data-testid={`button-copy-udid-${reg.id}`}
+            >
+              {copiedId === reg.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {reg.product && <span>{reg.product}</span>}
+            {reg.version && <span> &middot; iOS {reg.version}</span>}
+            {reg.serial && <span> &middot; S/N: {reg.serial}</span>}
+            <span> &middot; {new Date(reg.collectedAt).toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0 ml-2">
+        {reg.status !== "approved" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-green-600 border-green-200 hover:bg-green-50"
+            onClick={() => updateMutation.mutate({ id: reg.id, status: "approved" })}
+            disabled={updateMutation.isPending}
+            data-testid={`button-approve-${reg.id}`}
+          >
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            Approve
+          </Button>
+        )}
+        {reg.status !== "rejected" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-red-600 border-red-200 hover:bg-red-50"
+            onClick={() => updateMutation.mutate({ id: reg.id, status: "rejected" })}
+            disabled={updateMutation.isPending}
+            data-testid={`button-reject-${reg.id}`}
+          >
+            <XCircle className="h-3 w-3 mr-1" />
+            Reject
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+          onClick={() => deleteMutation.mutate(reg.id)}
+          disabled={deleteMutation.isPending}
+          data-testid={`button-delete-udid-${reg.id}`}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5" />
+                iOS Device Registrations
+              </CardTitle>
+              <CardDescription>
+                Manage UDID registration requests for Ad Hoc distribution (max 100 devices).
+                Share the registration link with users who need the app installed on their iPhone.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/udid`);
+                  toast({ title: "Registration link copied" });
+                }}
+                data-testid="button-copy-udid-link"
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                Copy Registration Link
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              <div className="text-2xl font-bold text-yellow-600" data-testid="count-pending">{pending.length}</div>
+              <div className="text-xs text-muted-foreground">Pending</div>
+            </div>
+            <div className="text-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="text-2xl font-bold text-green-600" data-testid="count-approved">{approved.length}</div>
+              <div className="text-xs text-muted-foreground">Approved</div>
+            </div>
+            <div className="text-center p-3 bg-muted rounded-lg border">
+              <div className="text-2xl font-bold" data-testid="count-total">{registrations.length}</div>
+              <div className="text-xs text-muted-foreground">Total / 100</div>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : registrations.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Smartphone className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No device registrations yet</p>
+              <p className="text-sm mt-1">Share the registration link with users to collect their device UDIDs</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pending.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-yellow-600 mb-2 flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Pending Approval ({pending.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {pending.map(renderDevice)}
+                  </div>
+                </div>
+              )}
+              {approved.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-green-600 mb-2 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Approved ({approved.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {approved.map(renderDevice)}
+                  </div>
+                </div>
+              )}
+              {rejected.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-red-600 mb-2 flex items-center gap-1">
+                    <XCircle className="h-3 w-3" /> Rejected ({rejected.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {rejected.map(renderDevice)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function SipPhoneSection() {
   const { t } = useI18n();
   const [sipSubTab, setSipSubTab] = useState("sip-server");
@@ -1167,12 +1391,19 @@ function SipPhoneSection() {
           <Server className="h-4 w-4 mr-2" />
           Asterisk ARI
         </TabsTrigger>
+        <TabsTrigger value="ios-devices" data-testid="tab-ios-devices">
+          <Smartphone className="h-4 w-4 mr-2" />
+          iOS Devices
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="sip-server" className="mt-4">
         <SipSettingsTab />
       </TabsContent>
       <TabsContent value="asterisk-ari" className="mt-4">
         <AriSettingsTab />
+      </TabsContent>
+      <TabsContent value="ios-devices" className="mt-4">
+        <IosDevicesTab />
       </TabsContent>
     </Tabs>
   );
