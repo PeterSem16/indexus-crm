@@ -246,7 +246,8 @@ export function registerUdidRoutes(app: Express) {
     const host = req.headers.host || "indexus.cordbloodcenter.com";
     const protocol = req.headers["x-forwarded-proto"] || "https";
 
-    const callbackUrl = `${protocol}://${host}/udid/callback?fn=${encodeURIComponent(firstName)}&amp;ln=${encodeURIComponent(lastName)}`;
+    const nameData = Buffer.from(JSON.stringify({ fn: firstName, ln: lastName })).toString("base64url");
+    const callbackUrl = `${protocol}://${host}/udid/callback?n=${nameData}`;
     const payloadUUID = randomUUID().toUpperCase();
 
     const mobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
@@ -290,8 +291,20 @@ export function registerUdidRoutes(app: Express) {
   app.post("/udid/callback", (req: Request, res: Response) => {
     try {
       const body = req.body as Buffer;
-      const fnParam = (req.query.fn as string || "").trim();
-      const lnParam = (req.query.ln as string || "").trim();
+      let fnParam = "";
+      let lnParam = "";
+      const nParam = req.query.n as string || "";
+      if (nParam) {
+        try {
+          const decoded = JSON.parse(Buffer.from(nParam, "base64url").toString("utf-8"));
+          fnParam = (decoded.fn || "").trim();
+          lnParam = (decoded.ln || "").trim();
+        } catch (e) {
+          console.log(`[UDID] Could not decode name param: ${nParam}`);
+        }
+      }
+      if (!fnParam) fnParam = (req.query.fn as string || "").trim();
+      if (!lnParam) lnParam = (req.query.ln as string || "").trim();
       console.log(`[UDID] Callback received, body length: ${body.length}, name: ${fnParam} ${lnParam}`);
 
       const plistXml = extractPlistFromBody(body);
