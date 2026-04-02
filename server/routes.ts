@@ -1268,7 +1268,6 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  app.use("/udid/callback", express.raw({ type: "*/*", limit: "1mb" }));
   const { registerUdidRoutes } = await import("./lib/udid-routes");
   registerUdidRoutes(app);
 

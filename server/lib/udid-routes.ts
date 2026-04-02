@@ -287,8 +287,8 @@ export function registerUdidRoutes(app: Express) {
     
     <div class="instructions">
       <strong>What's next?</strong><br>
-      1. Copy the UDID and send it to the administrator<br>
-      2. Once your device is registered, you can install INDEXUS Connect<br>
+      1. Your device has been <strong>automatically registered</strong> — the administrator has been notified<br>
+      2. Once your device is approved, you will be able to install INDEXUS Connect<br>
       3. You can remove this profile in <strong>Settings &rarr; General &rarr; VPN & Device Management</strong>
     </div>
   </div>
