@@ -1156,6 +1156,8 @@ function SipSettingsTab() {
 interface UdidRegistration {
   id: string;
   udid: string;
+  firstName: string;
+  lastName: string;
   product: string;
   version: string;
   serial: string;
@@ -1231,7 +1233,12 @@ function IosDevicesTab() {
               {copiedId === reg.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
             </Button>
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
+          {(reg.firstName || reg.lastName) && (
+            <div className="text-sm font-medium mt-1">
+              {reg.firstName} {reg.lastName}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground mt-0.5">
             {reg.product && <span>{reg.product}</span>}
             {reg.version && <span> &middot; iOS {reg.version}</span>}
             {reg.serial && <span> &middot; S/N: {reg.serial}</span>}

@@ -434,7 +434,7 @@ export default function LandingPage() {
                       variant="outline"
                       className="w-full gap-2"
                       onClick={() => {
-                        window.location.href = 'itms-services://?action=download-manifest&url=https://indexus.cordbloodcenter.com/data/mobil-app/indexus-connect-ios-manifest.plist';
+                        window.location.href = '/udid';
                       }}
                       data-testid="button-download-ios"
                     >
@@ -448,33 +448,6 @@ export default function LandingPage() {
                   <p className="text-xs text-center text-muted-foreground">
                     Available for Android & iOS devices
                   </p>
-
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 text-center">
-                      <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
-                        First time installing on iOS?
-                      </p>
-                      <p className="text-[11px] text-blue-600/70 dark:text-blue-400/70 mb-2">
-                        Your device must be registered before you can install the app
-                      </p>
-                      <a
-                        href="/udid"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
-                        data-testid="link-udid-registration"
-                      >
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-                          <line x1="12" y1="18" x2="12" y2="18"/>
-                        </svg>
-                        Register your iPhone
-                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="9 18 15 12 9 6"/>
-                        </svg>
-                      </a>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             </div>
