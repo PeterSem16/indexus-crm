@@ -243,9 +243,106 @@ export function registerUdidRoutes(app: Express) {
   app.get("/udid/enroll", (req: Request, res: Response) => {
     const firstName = (req.query.firstName as string || "").trim();
     const lastName = (req.query.lastName as string || "").trim();
+    const nameData = Buffer.from(JSON.stringify({ fn: firstName, ln: lastName })).toString("base64url");
+    const displayName = firstName || "there";
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>INDEXUS Connect — Installing Profile</title>
+  <style>${PAGE_STYLE}
+    .result-card { max-width: 480px; }
+  </style>
+</head>
+<body>
+  <div class="card result-card">
+    <div class="logo">INDEXUS Connect</div>
+
+    <div style="margin: 20px 0 16px;">
+      <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6, #2563eb); border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 25px rgba(59,130,246,0.3);">
+        <svg style="width:32px;height:32px;fill:white" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+      </div>
+    </div>
+    <div class="title">Hi ${displayName}, almost there!</div>
+    <div style="font-size: 14px; color: #94a3b8; margin-bottom: 16px;">A configuration profile has been downloaded.</div>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-line"><div class="tl-dot done"></div><div class="tl-stem done"></div></div>
+        <div class="tl-content">
+          <div class="tl-title done">&#x2705; Profile Downloaded</div>
+          <div class="tl-desc">The registration profile has been sent to your iPhone.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-line"><div class="tl-dot wait"></div><div class="tl-stem wait"></div></div>
+        <div class="tl-content">
+          <div class="tl-title wait">&#x1F4F1; Install the Profile</div>
+          <div class="tl-desc">
+            Open <strong style="color:#fbbf24">Settings</strong> &rarr; tap <strong style="color:#fbbf24">&ldquo;Profile Downloaded&rdquo;</strong> &rarr; tap <strong style="color:#fbbf24">&ldquo;Install&rdquo;</strong>
+          </div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-line"><div class="tl-dot next"></div><div class="tl-stem" style="background:#334155;"></div></div>
+        <div class="tl-content">
+          <div class="tl-title next">&#x23F3; Wait for Approval</div>
+          <div class="tl-desc">An admin will approve your device &mdash; usually within minutes.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-line"><div class="tl-dot next"></div></div>
+        <div class="tl-content">
+          <div class="tl-title next">&#x1F4E6; Download the App</div>
+          <div class="tl-desc">Once approved, install INDEXUS Connect on your iPhone.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="reassure">
+      <div class="reassure-icon">&#x1F44D;</div>
+      <div class="reassure-text">
+        <strong>Don&rsquo;t worry!</strong> Device approvals are usually processed <strong>within minutes</strong>. 
+        You&rsquo;ll be able to install the app very soon.
+      </div>
+    </div>
+
+    <a href="${IOS_DOWNLOAD_URL}" class="download-btn" style="margin-top: 16px;">
+      ${APPLE_SVG.replace('<svg', '<svg style="width:20px;height:20px;fill:white"')}
+      Download INDEXUS Connect
+    </a>
+    <div style="margin-top:8px; font-size:12px; color:#64748b;">If the download doesn&rsquo;t start, your device may still need to be approved.</div>
+
+    <div class="cleanup">
+      <strong>&#x1F9F9; Tip:</strong> After registration, you can remove the profile from<br>
+      <strong>Settings &rarr; General &rarr; VPN &amp; Device Management</strong>
+    </div>
+  </div>
+  <script>
+    setTimeout(function() {
+      window.location.href = '/udid/profile?n=${nameData}';
+    }, 500);
+  </script>
+</body>
+</html>`);
+  });
+
+  app.get("/udid/profile", (req: Request, res: Response) => {
+    const nParam = req.query.n as string || "";
+    let firstName = "";
+    let lastName = "";
+    if (nParam) {
+      try {
+        const decoded = JSON.parse(Buffer.from(nParam, "base64url").toString("utf-8"));
+        firstName = (decoded.fn || "").trim();
+        lastName = (decoded.ln || "").trim();
+      } catch {}
+    }
     const host = req.headers.host || "indexus.cordbloodcenter.com";
     const protocol = req.headers["x-forwarded-proto"] || "https";
-
     const nameData = Buffer.from(JSON.stringify({ fn: firstName, ln: lastName })).toString("base64url");
     const callbackUrl = `${protocol}://${host}/udid/callback?n=${nameData}`;
     const payloadUUID = randomUUID().toUpperCase();
