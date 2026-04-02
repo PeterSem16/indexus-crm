@@ -87,48 +87,50 @@ export function registerUdidRoutes(app: Express) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>INDEXUS Connect — Device Registration</title>
+  <title>INDEXUS Connect — Register Your iPhone</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
     .card { background: #1e293b; border-radius: 16px; padding: 40px 30px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
     .logo { font-size: 28px; font-weight: 700; color: #60a5fa; margin-bottom: 8px; }
-    .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 30px; }
+    .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
     .steps { text-align: left; margin-bottom: 30px; }
     .step { display: flex; align-items: flex-start; margin-bottom: 16px; }
     .step-num { background: #3b82f6; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex-shrink: 0; margin-right: 12px; margin-top: 2px; }
     .step-text { font-size: 15px; line-height: 1.5; color: #cbd5e1; }
-    .btn { display: inline-block; background: #3b82f6; color: white; padding: 14px 36px; border-radius: 12px; text-decoration: none; font-size: 17px; font-weight: 600; transition: background 0.2s; }
+    .btn { display: inline-block; background: #3b82f6; color: white; padding: 16px 40px; border-radius: 12px; text-decoration: none; font-size: 18px; font-weight: 600; transition: background 0.2s; }
     .btn:hover { background: #2563eb; }
     .note { margin-top: 20px; font-size: 12px; color: #64748b; line-height: 1.5; }
-    .safari-warn { background: #fef3c7; color: #92400e; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 20px; }
+    .safari-warn { background: #fef3c7; color: #92400e; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 24px; }
+    .auto-badge { background: #059669; color: white; display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 20px; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">INDEXUS Connect</div>
-    <div class="subtitle">Device registration for app installation</div>
-    <div class="safari-warn">This page must be opened in <strong>Safari</strong> on your iPhone</div>
+    <div class="subtitle">Register your iPhone to install the app</div>
+    <div class="auto-badge">Fully automatic — no technical knowledge needed</div>
+    <div class="safari-warn">Please open this page in <strong>Safari</strong></div>
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
-        <div class="step-text">Tap the button below</div>
+        <div class="step-text">Tap <strong>"Register My iPhone"</strong> below</div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
-        <div class="step-text">Allow the configuration profile to download</div>
+        <div class="step-text">When prompted, tap <strong>"Allow"</strong></div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
-        <div class="step-text">Open <strong>Settings &rarr; Downloaded Profile</strong> and install it</div>
+        <div class="step-text">Go to <strong>Settings</strong> &rarr; you will see <strong>"Profile Downloaded"</strong> at the top &rarr; tap <strong>"Install"</strong></div>
       </div>
       <div class="step">
         <div class="step-num">4</div>
-        <div class="step-text">After installation, your UDID will be displayed — send it to the administrator</div>
+        <div class="step-text"><strong>Done!</strong> Your device is automatically registered. You will be notified when the app is ready to install.</div>
       </div>
     </div>
-    <a href="/udid/enroll" class="btn">Get My UDID</a>
-    <div class="note">This profile only retrieves your device identifier.<br>You can remove it from Settings after the UDID is displayed.</div>
+    <a href="/udid/enroll" class="btn">Register My iPhone</a>
+    <div class="note">This is a one-time registration. Your device information is sent securely and automatically to the administrator. No action needed on your part after step 3.</div>
   </div>
 </body>
 </html>`);
@@ -159,7 +161,7 @@ export function registerUdidRoutes(app: Express) {
     <key>PayloadOrganization</key>
     <string>Cord Blood Center</string>
     <key>PayloadDisplayName</key>
-    <string>INDEXUS Connect - Device Registration</string>
+    <string>INDEXUS Connect</string>
     <key>PayloadVersion</key>
     <integer>1</integer>
     <key>PayloadUUID</key>
@@ -167,14 +169,14 @@ export function registerUdidRoutes(app: Express) {
     <key>PayloadIdentifier</key>
     <string>com.cordbloodcenter.udid-enrollment</string>
     <key>PayloadDescription</key>
-    <string>This profile retrieves your device identifier (UDID) for INDEXUS Connect app installation.</string>
+    <string>Registers your iPhone for INDEXUS Connect app installation.</string>
     <key>PayloadType</key>
     <string>Profile Service</string>
 </dict>
 </plist>`;
 
     res.setHeader("Content-Type", "application/x-apple-aspen-config");
-    res.setHeader("Content-Disposition", 'attachment; filename="INDEXUSConnect-UDID.mobileconfig"');
+    res.setHeader("Content-Disposition", 'attachment; filename="INDEXUSConnect.mobileconfig"');
     res.send(mobileconfig);
   });
 
@@ -184,7 +186,7 @@ export function registerUdidRoutes(app: Express) {
       console.log(`[UDID] Callback received, body length: ${body.length}, content-type: ${req.headers["content-type"]}`);
 
       const plistXml = extractPlistFromBody(body);
-      console.log(`[UDID] Extracted plist (${plistXml.length} chars): ${plistXml.substring(0, 300)}...`);
+      console.log(`[UDID] Extracted plist (${plistXml.length} chars): ${plistXml.substring(0, 500)}`);
 
       let udid = "";
       let product = "";
@@ -213,7 +215,7 @@ export function registerUdidRoutes(app: Express) {
       }
 
       if (udid) {
-        console.log(`[UDID] Collected: ${udid} | Product: ${product} | Version: ${version} | Serial: ${serial}`);
+        console.log(`[UDID] SUCCESS - Collected: ${udid} | Product: ${product} | Version: ${version} | Serial: ${serial}`);
         const records = loadUdids();
         const existing = records.find((d) => d.udid === udid);
         if (!existing) {
@@ -228,23 +230,30 @@ export function registerUdidRoutes(app: Express) {
             collectedAt: new Date().toISOString(),
           });
           saveUdids(records);
+          console.log(`[UDID] Saved to file. Total registrations: ${records.length}`);
+        } else {
+          console.log(`[UDID] Device already registered (duplicate)`);
         }
       } else {
-        console.log("[UDID] Could not extract UDID from callback body");
-        console.log(`[UDID] Raw body hex (first 200 bytes): ${body.subarray(0, 200).toString("hex")}`);
+        console.log("[UDID] FAILED - Could not extract UDID from callback body");
+        console.log(`[UDID] Raw body hex (first 500 bytes): ${body.subarray(0, 500).toString("hex")}`);
+        console.log(`[UDID] Raw body string (first 500 chars): ${body.toString("utf-8").substring(0, 500)}`);
       }
 
       const host = req.headers.host || "indexus.cordbloodcenter.com";
       const protocol = req.headers["x-forwarded-proto"] || "https";
-      res.redirect(301, `${protocol}://${host}/udid/result?udid=${encodeURIComponent(udid)}&product=${encodeURIComponent(product)}&version=${encodeURIComponent(version)}`);
+      const success = udid ? "true" : "false";
+      res.redirect(301, `${protocol}://${host}/udid/result?success=${success}&product=${encodeURIComponent(product)}&version=${encodeURIComponent(version)}`);
     } catch (error: any) {
-      console.error("[UDID] Callback error:", error.message);
-      res.status(500).send("Error processing device information");
+      console.error("[UDID] Callback error:", error.message, error.stack);
+      const host = req.headers.host || "indexus.cordbloodcenter.com";
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      res.redirect(301, `${protocol}://${host}/udid/result?success=false&error=server`);
     }
   });
 
   app.get("/udid/result", (req: Request, res: Response) => {
-    const udid = (req.query.udid as string) || "Could not retrieve";
+    const success = req.query.success === "true";
     const product = (req.query.product as string) || "";
     const version = (req.query.version as string) || "";
 
@@ -254,65 +263,51 @@ export function registerUdidRoutes(app: Express) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>INDEXUS Connect — Your UDID</title>
+  <title>INDEXUS Connect — ${success ? "Registration Complete" : "Registration Issue"}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
     .card { background: #1e293b; border-radius: 16px; padding: 40px 30px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
     .logo { font-size: 28px; font-weight: 700; color: #60a5fa; margin-bottom: 8px; }
-    .success { font-size: 48px; margin-bottom: 16px; }
-    .label { font-size: 13px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; margin-top: 20px; }
-    .udid-box { background: #0f172a; border: 2px solid #3b82f6; border-radius: 10px; padding: 14px; font-family: 'SF Mono', 'Courier New', monospace; font-size: 13px; word-break: break-all; color: #60a5fa; cursor: pointer; }
-    .udid-box:active { background: #1a2744; }
-    .device-info { font-size: 14px; color: #94a3b8; margin-top: 8px; }
-    .copy-btn { display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; border-radius: 10px; border: none; font-size: 15px; font-weight: 600; margin-top: 20px; cursor: pointer; }
-    .copy-btn:active { background: #2563eb; }
-    .instructions { margin-top: 24px; text-align: left; font-size: 13px; color: #64748b; line-height: 1.6; }
-    .instructions strong { color: #94a3b8; }
-    .copied { color: #22c55e; font-size: 14px; margin-top: 8px; display: none; }
+    .icon { font-size: 64px; margin: 20px 0; }
+    .title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+    .message { font-size: 15px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; }
+    .device-info { font-size: 13px; color: #64748b; margin-bottom: 16px; }
+    .success-box { background: #064e3b; border: 1px solid #059669; border-radius: 10px; padding: 16px; margin: 20px 0; }
+    .success-box p { color: #6ee7b7; font-size: 14px; line-height: 1.5; }
+    .error-box { background: #7f1d1d; border: 1px solid #dc2626; border-radius: 10px; padding: 16px; margin: 20px 0; }
+    .error-box p { color: #fca5a5; font-size: 14px; line-height: 1.5; }
+    .cleanup { margin-top: 20px; font-size: 12px; color: #64748b; line-height: 1.6; text-align: left; background: #0f172a; border-radius: 8px; padding: 12px 16px; }
+    .cleanup strong { color: #94a3b8; }
+    .retry-btn { display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; border-radius: 10px; text-decoration: none; font-size: 15px; font-weight: 600; margin-top: 16px; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">INDEXUS Connect</div>
-    <div class="success">${udid && udid !== "Could not retrieve" ? "&#x2705;" : "&#x274C;"}</div>
-    <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">${udid && udid !== "Could not retrieve" ? "Device successfully identified" : "Could not identify device"}</div>
-    
-    <div class="label">Your UDID</div>
-    <div class="udid-box" id="udid" onclick="copyUdid()">${udid}</div>
-    <div class="copied" id="copied">Copied!</div>
-    ${product ? `<div class="device-info">Device: ${product} | iOS ${version}</div>` : ""}
-    
-    <button class="copy-btn" onclick="copyUdid()">Copy UDID</button>
-    
-    <div class="instructions">
-      <strong>What's next?</strong><br>
-      1. Your device has been <strong>automatically registered</strong> — the administrator has been notified<br>
-      2. Once your device is approved, you will be able to install INDEXUS Connect<br>
-      3. You can remove this profile in <strong>Settings &rarr; General &rarr; VPN & Device Management</strong>
+    ${success ? `
+    <div class="icon">&#x2705;</div>
+    <div class="title">Registration successful!</div>
+    ${product ? `<div class="device-info">${product}${version ? " &middot; iOS " + version : ""}</div>` : ""}
+    <div class="success-box">
+      <p>Your iPhone has been <strong>automatically registered</strong>. The administrator will add your device and you will be notified when the app is ready to install.</p>
     </div>
+    <div class="message">There is nothing else you need to do.</div>
+    <div class="cleanup">
+      <strong>Optional cleanup:</strong> You can remove the registration profile from<br>
+      <strong>Settings &rarr; General &rarr; VPN & Device Management</strong><br>
+      It is no longer needed.
+    </div>
+    ` : `
+    <div class="icon">&#x26A0;&#xFE0F;</div>
+    <div class="title">Registration could not be completed</div>
+    <div class="error-box">
+      <p>We could not read your device information. This can happen if the profile was not fully installed, or if it was cancelled.</p>
+    </div>
+    <div class="message">Please try again — make sure to tap "Allow" and then install the profile in Settings.</div>
+    <a href="/udid" class="retry-btn">Try Again</a>
+    `}
   </div>
-  <script>
-    function copyUdid() {
-      var udid = document.getElementById('udid').textContent;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(udid).then(function() { showCopied(); });
-      } else {
-        var ta = document.createElement('textarea');
-        ta.value = udid;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        showCopied();
-      }
-    }
-    function showCopied() {
-      var el = document.getElementById('copied');
-      el.style.display = 'block';
-      setTimeout(function() { el.style.display = 'none'; }, 2000);
-    }
-  </script>
 </body>
 </html>`);
   });
