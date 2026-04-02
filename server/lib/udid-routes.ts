@@ -153,6 +153,21 @@ const APPLE_SVG = `<svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 
 const IOS_DOWNLOAD_URL = "itms-services://?action=download-manifest&url=https://indexus.cordbloodcenter.com/data/mobil-app/indexus-connect-ios-manifest.plist";
 
 export function registerUdidRoutes(app: Express) {
+  app.all("/udid/callback", (req: Request, res: Response, next: Function) => {
+    if (req.method === "POST") return next();
+    console.log(`[UDID-DEBUG] Non-POST to /udid/callback: method=${req.method}, url=${req.originalUrl}, headers=${JSON.stringify(req.headers)}`);
+    return next();
+  });
+
+  app.use("/udid", (req: Request, _res: Response, next: Function) => {
+    console.log(`[UDID-DEBUG] ${req.method} ${req.originalUrl} content-type=${req.headers["content-type"] || "none"} content-length=${req.headers["content-length"] || "0"}`);
+    next();
+  });
+
+  app.get("/udid/ping", (_req: Request, res: Response) => {
+    res.status(200).send("UDID endpoint OK");
+  });
+
   app.get("/udid", (_req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(`<!DOCTYPE html>
