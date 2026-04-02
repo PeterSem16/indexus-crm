@@ -304,16 +304,14 @@ export function registerUdidRoutes(app: Express) {
       else { document.getElementById('lnError').style.display = 'none'; }
       if (!ok) return false;
 
-      document.getElementById('calmTitle').textContent = 'Hi ' + fn + ', almost there!';
-      document.getElementById('mainView').style.display = 'none';
-      document.getElementById('calmView').style.display = 'block';
-
       var profileUrl = '/udid/profile?firstName=' + encodeURIComponent(fn) + '&lastName=' + encodeURIComponent(ln);
-      var a = document.createElement('a');
-      a.href = profileUrl;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
+      window.location.href = profileUrl;
+
+      setTimeout(function() {
+        document.getElementById('calmTitle').textContent = 'Hi ' + fn + ', almost there!';
+        document.getElementById('mainView').style.display = 'none';
+        document.getElementById('calmView').style.display = 'block';
+      }, 300);
 
       return false;
     }
