@@ -235,30 +235,21 @@ export function registerUdidRoutes(app: Express) {
         </div>
       </div>
       <div class="title" id="calmTitle">Almost there!</div>
-      <div style="font-size: 14px; color: #94a3b8; margin-bottom: 16px;">A configuration profile is being downloaded to your iPhone.</div>
+      <div style="font-size: 14px; color: #94a3b8; margin-bottom: 16px;">Your registration request has been submitted.</div>
 
       <div class="timeline">
         <div class="tl-item">
           <div class="tl-line"><div class="tl-dot done"></div><div class="tl-stem done"></div></div>
           <div class="tl-content">
-            <div class="tl-title done">&#x2705; Profile Downloaded</div>
-            <div class="tl-desc">The registration profile has been sent to your iPhone.</div>
+            <div class="tl-title done">&#x2705; Device Registered</div>
+            <div class="tl-desc">Your iPhone has been successfully registered in our system.</div>
           </div>
         </div>
         <div class="tl-item">
           <div class="tl-line"><div class="tl-dot wait"></div><div class="tl-stem wait"></div></div>
           <div class="tl-content">
-            <div class="tl-title wait">&#x1F4F1; Install the Profile Now</div>
-            <div class="tl-desc">
-              Open <strong style="color:#fbbf24">Settings</strong> &rarr; tap <strong style="color:#fbbf24">&ldquo;Profile Downloaded&rdquo;</strong> &rarr; tap <strong style="color:#fbbf24">&ldquo;Install&rdquo;</strong>
-            </div>
-          </div>
-        </div>
-        <div class="tl-item">
-          <div class="tl-line"><div class="tl-dot next"></div><div class="tl-stem" style="background:#334155;"></div></div>
-          <div class="tl-content">
-            <div class="tl-title next">&#x23F3; Wait for Approval</div>
-            <div class="tl-desc">An admin will approve your device &mdash; usually <strong style="color:#94a3b8">within minutes</strong>.</div>
+            <div class="tl-title wait">&#x23F3; Waiting for Approval</div>
+            <div class="tl-desc">An admin will approve your device &mdash; usually <strong style="color:#fbbf24">within minutes</strong>.</div>
           </div>
         </div>
         <div class="tl-item">
@@ -284,10 +275,6 @@ export function registerUdidRoutes(app: Express) {
       </a>
       <div style="margin-top:8px; font-size:12px; color:#64748b;">If the download doesn&rsquo;t start, your device may still need to be approved.</div>
 
-      <div class="cleanup">
-        <strong>&#x1F9F9; Tip:</strong> After registration, you can remove the profile from<br>
-        <strong>Settings &rarr; General &rarr; VPN &amp; Device Management</strong>
-      </div>
     </div>
   </div>
 
