@@ -293,9 +293,12 @@ export function registerUdidRoutes(app: Express) {
       document.getElementById('mainView').style.display = 'none';
       document.getElementById('calmView').style.display = 'block';
 
-      setTimeout(function() {
-        window.location.href = '/udid/profile?firstName=' + encodeURIComponent(fn) + '&lastName=' + encodeURIComponent(ln);
-      }, 600);
+      var profileUrl = '/udid/profile?firstName=' + encodeURIComponent(fn) + '&lastName=' + encodeURIComponent(ln);
+      var a = document.createElement('a');
+      a.href = profileUrl;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
 
       return false;
     }

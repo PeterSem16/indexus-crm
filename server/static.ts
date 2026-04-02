@@ -22,7 +22,7 @@ export function serveStatic(app: Express) {
   }));
 
   app.use("*", (_req, res, next) => {
-    if (_req.originalUrl.startsWith('/api/') || _req.originalUrl.startsWith('/ws/')) {
+    if (_req.originalUrl.startsWith('/api/') || _req.originalUrl.startsWith('/ws/') || _req.originalUrl.startsWith('/udid/')) {
       return next();
     }
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
