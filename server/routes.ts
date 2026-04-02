@@ -15699,16 +15699,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       console.log("[MobileSIP API] Found extension:", ext.extension, "username:", ext.sipUsername);
 
       const password = decryptSipPassword(ext.sipPasswordHash);
-      const sipServer = sipSettings.server;
-      const wsPort = sipSettings.wsPort || 8089;
-      const wsPath = sipSettings.wsPath || "/ws";
-      const realm = sipSettings.realm || sipServer;
-      console.log("[MobileSIP API] Returning credentials: server=" + sipServer + " wsPort=" + wsPort + " wsPath=" + wsPath + " realm=" + realm + " ext=" + ext.extension);
+      const realm = sipSettings.realm || sipSettings.server;
+
+      const proxyHost = req.hostname || "indexus.cordbloodcenter.com";
+      const mobileWsPort = 443;
+      const mobileWsPath = "/wss-asterisk/";
+
+      console.log("[MobileSIP API] Returning credentials via proxy: server=" + proxyHost + " wsPort=" + mobileWsPort + " wsPath=" + mobileWsPath + " realm=" + realm + " ext=" + ext.extension);
       res.json({
-        server: sipServer,
-        wsPort,
-        wsPath,
-        port: wsPort,
+        server: proxyHost,
+        wsPort: mobileWsPort,
+        wsPath: mobileWsPath,
+        port: mobileWsPort,
         transport: "wss",
         realm,
         extension: ext.extension,
