@@ -9,15 +9,61 @@ const collectedUdids: Array<{
   collectedAt: string;
 }> = [];
 
+function extractPlistFromBody(raw: Buffer): string {
+  const str = raw.toString("utf-8");
+  const plistStart = str.indexOf("<?xml");
+  if (plistStart !== -1) {
+    const plistEnd = str.indexOf("</plist>");
+    if (plistEnd !== -1) {
+      return str.substring(plistStart, plistEnd + "</plist>".length);
+    }
+  }
+
+  const binaryStr = raw.toString("binary");
+  const bStart = binaryStr.indexOf("<?xml");
+  if (bStart !== -1) {
+    const bEnd = binaryStr.indexOf("</plist>");
+    if (bEnd !== -1) {
+      return binaryStr.substring(bStart, bEnd + "</plist>".length);
+    }
+  }
+
+  for (let i = 0; i < raw.length - 5; i++) {
+    if (
+      raw[i] === 0x3c &&
+      raw[i + 1] === 0x3f &&
+      raw[i + 2] === 0x78 &&
+      raw[i + 3] === 0x6d &&
+      raw[i + 4] === 0x6c
+    ) {
+      const endMarker = Buffer.from("</plist>");
+      for (let j = i; j < raw.length - endMarker.length; j++) {
+        let found = true;
+        for (let k = 0; k < endMarker.length; k++) {
+          if (raw[j + k] !== endMarker[k]) {
+            found = false;
+            break;
+          }
+        }
+        if (found) {
+          return raw.subarray(i, j + endMarker.length).toString("utf-8");
+        }
+      }
+    }
+  }
+
+  return str;
+}
+
 export function registerUdidRoutes(app: Express) {
   app.get("/udid", (_req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(`<!DOCTYPE html>
-<html lang="sk">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>INDEXUS Connect — Registrácia zariadenia</title>
+  <title>INDEXUS Connect — Device Registration</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -37,28 +83,28 @@ export function registerUdidRoutes(app: Express) {
 <body>
   <div class="card">
     <div class="logo">INDEXUS Connect</div>
-    <div class="subtitle">Registrácia zariadenia pre inštaláciu aplikácie</div>
-    <div class="safari-warn">⚠️ Túto stránku otvorte v <strong>Safari</strong> na iPhone</div>
+    <div class="subtitle">Device registration for app installation</div>
+    <div class="safari-warn">This page must be opened in <strong>Safari</strong> on your iPhone</div>
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
-        <div class="step-text">Kliknite na tlačidlo nižšie</div>
+        <div class="step-text">Tap the button below</div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
-        <div class="step-text">Povoľte stiahnutie konfiguračného profilu</div>
+        <div class="step-text">Allow the configuration profile to download</div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
-        <div class="step-text">Otvorte <strong>Nastavenia → Stiahnutý profil</strong> a nainštalujte ho</div>
+        <div class="step-text">Open <strong>Settings &rarr; Downloaded Profile</strong> and install it</div>
       </div>
       <div class="step">
         <div class="step-num">4</div>
-        <div class="step-text">Po inštalácii sa zobrazí vaše UDID — pošlite ho administrátorovi</div>
+        <div class="step-text">After installation, your UDID will be displayed — send it to the administrator</div>
       </div>
     </div>
-    <a href="/udid/enroll" class="btn">Získať UDID</a>
-    <div class="note">Profil slúži iba na zistenie identifikátora zariadenia.<br>Po zobrazení UDID ho môžete z nastavení odstrániť.</div>
+    <a href="/udid/enroll" class="btn">Get My UDID</a>
+    <div class="note">This profile only retrieves your device identifier.<br>You can remove it from Settings after the UDID is displayed.</div>
   </div>
 </body>
 </html>`);
@@ -90,7 +136,7 @@ export function registerUdidRoutes(app: Express) {
     <key>PayloadOrganization</key>
     <string>Cord Blood Center</string>
     <key>PayloadDisplayName</key>
-    <string>INDEXUS Connect - Registrácia zariadenia</string>
+    <string>INDEXUS Connect - Device Registration</string>
     <key>PayloadVersion</key>
     <integer>1</integer>
     <key>PayloadUUID</key>
@@ -98,7 +144,7 @@ export function registerUdidRoutes(app: Express) {
     <key>PayloadIdentifier</key>
     <string>com.cordbloodcenter.udid-enrollment</string>
     <key>PayloadDescription</key>
-    <string>Tento profil zistí identifikátor vášho zariadenia (UDID) pre inštaláciu aplikácie INDEXUS Connect.</string>
+    <string>This profile retrieves your device identifier (UDID) for INDEXUS Connect app installation.</string>
     <key>PayloadType</key>
     <string>Profile Service</string>
 </dict>
@@ -112,45 +158,52 @@ export function registerUdidRoutes(app: Express) {
   app.post("/udid/callback", (req: Request, res: Response) => {
     try {
       const body = req.body as Buffer;
-      const bodyStr = body.toString("utf-8");
+      console.log(`[UDID] Callback received, body length: ${body.length}, content-type: ${req.headers["content-type"]}`);
+
+      const plistXml = extractPlistFromBody(body);
+      console.log(`[UDID] Extracted plist (${plistXml.length} chars): ${plistXml.substring(0, 300)}...`);
 
       let udid = "";
       let product = "";
       let version = "";
       let serial = "";
 
-      const udidMatch = bodyStr.match(/<key>UDID<\/key>\s*<string>([^<]+)<\/string>/);
+      const udidMatch = plistXml.match(/<key>UDID<\/key>\s*<string>([^<]+)<\/string>/);
       if (udidMatch) udid = udidMatch[1];
 
-      const productMatch = bodyStr.match(/<key>PRODUCT<\/key>\s*<string>([^<]+)<\/string>/);
+      const productMatch = plistXml.match(/<key>PRODUCT<\/key>\s*<string>([^<]+)<\/string>/);
       if (productMatch) product = productMatch[1];
 
-      const versionMatch = bodyStr.match(/<key>VERSION<\/key>\s*<string>([^<]+)<\/string>/);
+      const versionMatch = plistXml.match(/<key>VERSION<\/key>\s*<string>([^<]+)<\/string>/);
       if (versionMatch) version = versionMatch[1];
 
-      const serialMatch = bodyStr.match(/<key>SERIAL<\/key>\s*<string>([^<]+)<\/string>/);
+      const serialMatch = plistXml.match(/<key>SERIAL<\/key>\s*<string>([^<]+)<\/string>/);
       if (serialMatch) serial = serialMatch[1];
 
       if (!udid) {
-        const hexMatch = bodyStr.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{16}/);
+        const hexMatch = plistXml.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{16}/);
         if (hexMatch) udid = hexMatch[0];
         if (!udid) {
-          const hex40 = bodyStr.match(/[0-9a-fA-F]{40}/);
+          const hex40 = plistXml.match(/[0-9a-fA-F]{40}/);
           if (hex40) udid = hex40[0];
         }
       }
 
       if (udid) {
         console.log(`[UDID] Collected: ${udid} | Product: ${product} | Version: ${version} | Serial: ${serial}`);
-        collectedUdids.push({
-          udid,
-          product,
-          version,
-          serial,
-          collectedAt: new Date().toISOString(),
-        });
+        const existing = collectedUdids.find((d) => d.udid === udid);
+        if (!existing) {
+          collectedUdids.push({
+            udid,
+            product,
+            version,
+            serial,
+            collectedAt: new Date().toISOString(),
+          });
+        }
       } else {
-        console.log("[UDID] Could not extract UDID from callback");
+        console.log("[UDID] Could not extract UDID from callback body");
+        console.log(`[UDID] Raw body hex (first 200 bytes): ${body.subarray(0, 200).toString("hex")}`);
       }
 
       const host = req.headers.host || "indexus.cordbloodcenter.com";
@@ -163,17 +216,17 @@ export function registerUdidRoutes(app: Express) {
   });
 
   app.get("/udid/result", (req: Request, res: Response) => {
-    const udid = (req.query.udid as string) || "Nepodarilo sa zistiť";
+    const udid = (req.query.udid as string) || "Could not retrieve";
     const product = (req.query.product as string) || "";
     const version = (req.query.version as string) || "";
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(`<!DOCTYPE html>
-<html lang="sk">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>INDEXUS Connect — Vaše UDID</title>
+  <title>INDEXUS Connect — Your UDID</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -194,30 +247,30 @@ export function registerUdidRoutes(app: Express) {
 <body>
   <div class="card">
     <div class="logo">INDEXUS Connect</div>
-    <div class="success">✅</div>
-    <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">Zariadenie úspešne identifikované</div>
+    <div class="success">${udid && udid !== "Could not retrieve" ? "&#x2705;" : "&#x274C;"}</div>
+    <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">${udid && udid !== "Could not retrieve" ? "Device successfully identified" : "Could not identify device"}</div>
     
-    <div class="label">Vaše UDID</div>
+    <div class="label">Your UDID</div>
     <div class="udid-box" id="udid" onclick="copyUdid()">${udid}</div>
-    <div class="copied" id="copied">Skopírované!</div>
-    ${product ? `<div class="device-info">Zariadenie: ${product} | iOS ${version}</div>` : ""}
+    <div class="copied" id="copied">Copied!</div>
+    ${product ? `<div class="device-info">Device: ${product} | iOS ${version}</div>` : ""}
     
-    <button class="copy-btn" onclick="copyUdid()">Kopírovať UDID</button>
+    <button class="copy-btn" onclick="copyUdid()">Copy UDID</button>
     
     <div class="instructions">
-      <strong>Čo teraz?</strong><br>
-      1. Skopírujte UDID a pošlite ho administrátorovi<br>
-      2. Po pridaní vášho zariadenia budete môcť nainštalovať INDEXUS Connect<br>
-      3. Profil môžete odstrániť v <strong>Nastavenia → Všeobecné → VPN a správa zariadení</strong>
+      <strong>What's next?</strong><br>
+      1. Copy the UDID and send it to the administrator<br>
+      2. Once your device is registered, you can install INDEXUS Connect<br>
+      3. You can remove this profile in <strong>Settings &rarr; General &rarr; VPN & Device Management</strong>
     </div>
   </div>
   <script>
     function copyUdid() {
-      const udid = document.getElementById('udid').textContent;
+      var udid = document.getElementById('udid').textContent;
       if (navigator.clipboard) {
-        navigator.clipboard.writeText(udid).then(() => showCopied());
+        navigator.clipboard.writeText(udid).then(function() { showCopied(); });
       } else {
-        const ta = document.createElement('textarea');
+        var ta = document.createElement('textarea');
         ta.value = udid;
         document.body.appendChild(ta);
         ta.select();
@@ -227,16 +280,74 @@ export function registerUdidRoutes(app: Express) {
       }
     }
     function showCopied() {
-      const el = document.getElementById('copied');
+      var el = document.getElementById('copied');
       el.style.display = 'block';
-      setTimeout(() => { el.style.display = 'none'; }, 2000);
+      setTimeout(function() { el.style.display = 'none'; }, 2000);
     }
   </script>
 </body>
 </html>`);
   });
 
-  app.get("/udid/list", (req: Request, res: Response) => {
+  app.get("/udid/list", (_req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>INDEXUS Connect — Collected UDIDs</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 40px 20px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 24px; color: #60a5fa; margin-bottom: 8px; }
+    .count { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; }
+    th { background: #334155; padding: 12px 16px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; }
+    td { padding: 12px 16px; border-top: 1px solid #334155; font-size: 13px; }
+    .udid-cell { font-family: 'SF Mono', 'Courier New', monospace; color: #60a5fa; word-break: break-all; }
+    .empty { text-align: center; padding: 60px 20px; color: #64748b; }
+    .json-link { margin-top: 16px; }
+    .json-link a { color: #3b82f6; font-size: 13px; text-decoration: none; }
+    .json-link a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>INDEXUS Connect — Collected UDIDs</h1>
+    <div class="count">${collectedUdids.length} device(s) registered</div>
+    ${collectedUdids.length === 0 ? '<div class="empty">No devices registered yet.<br>Share the registration link with users: <strong>/udid</strong></div>' : `
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>UDID</th>
+          <th>Device</th>
+          <th>iOS</th>
+          <th>Serial</th>
+          <th>Collected</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${collectedUdids.map((d, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td class="udid-cell">${d.udid}</td>
+          <td>${d.product || "-"}</td>
+          <td>${d.version || "-"}</td>
+          <td>${d.serial || "-"}</td>
+          <td>${new Date(d.collectedAt).toLocaleString("en-US")}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`}
+    <div class="json-link"><a href="/udid/list.json">View as JSON</a></div>
+  </div>
+</body>
+</html>`);
+  });
+
+  app.get("/udid/list.json", (_req: Request, res: Response) => {
     res.json(collectedUdids);
   });
 }

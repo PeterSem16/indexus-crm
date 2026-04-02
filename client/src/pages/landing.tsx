@@ -448,6 +448,18 @@ export default function LandingPage() {
                   <p className="text-xs text-center text-muted-foreground">
                     Available for Android & iOS devices
                   </p>
+
+                  <div className="pt-3 border-t mt-3">
+                    <a
+                      href="/udid"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:text-blue-300 underline"
+                      data-testid="link-udid-registration"
+                    >
+                      iOS Device Registration (Get UDID)
+                    </a>
+                  </div>
                 </CardContent>
               </Card>
             </div>
