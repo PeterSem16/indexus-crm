@@ -196,15 +196,15 @@ class MobileSipEngine {
         throw new Error('Invalid SIP URI');
       }
 
-      const wsPort = this.credentials!.wsPort || this.credentials!.port || 8089;
-      const wsPath = this.credentials!.wsPath || '/ws';
-      const wsServer = `wss://${this.credentials!.server}:${wsPort}${wsPath}`;
-      console.log('[MobileSIP] Connecting to WebSocket:', wsServer);
+      const indexusHost = API_BASE_URL.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+      const wsServer = `wss://${indexusHost}/wss-asterisk/`;
+      console.log('[MobileSIP] Connecting to WebSocket via proxy:', wsServer);
 
       this.ua = new UserAgent({
         uri,
         transportOptions: {
           server: wsServer,
+          keepAliveInterval: 10,
         },
         authorizationUsername: this.credentials!.username,
         authorizationPassword: this.credentials!.password,
