@@ -246,7 +246,7 @@ export function registerUdidRoutes(app: Express) {
     const host = req.headers.host || "indexus.cordbloodcenter.com";
     const protocol = req.headers["x-forwarded-proto"] || "https";
 
-    const callbackUrl = `${protocol}://${host}/udid/callback?fn=${encodeURIComponent(firstName)}&ln=${encodeURIComponent(lastName)}`;
+    const callbackUrl = `${protocol}://${host}/udid/callback?fn=${encodeURIComponent(firstName)}&amp;ln=${encodeURIComponent(lastName)}`;
     const payloadUUID = randomUUID().toUpperCase();
 
     const mobileconfig = `<?xml version="1.0" encoding="UTF-8"?>
