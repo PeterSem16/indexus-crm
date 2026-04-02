@@ -351,7 +351,6 @@ export function registerUdidRoutes(app: Express) {
 </plist>`;
 
     res.setHeader("Content-Type", "application/x-apple-aspen-config");
-    res.setHeader("Content-Disposition", 'attachment; filename="INDEXUSConnect.mobileconfig"');
     res.send(mobileconfig);
   });
 
@@ -441,12 +440,16 @@ export function registerUdidRoutes(app: Express) {
       const host = req.headers.host || "indexus.cordbloodcenter.com";
       const protocol = req.headers["x-forwarded-proto"] || "https";
       const success = udid ? "true" : "false";
-      res.redirect(301, `${protocol}://${host}/udid/result?success=${success}&product=${encodeURIComponent(product)}&version=${encodeURIComponent(version)}&fn=${encodeURIComponent(firstName)}&ln=${encodeURIComponent(lastName)}`);
+      const resultUrl = `${protocol}://${host}/udid/result?success=${success}&product=${encodeURIComponent(product)}&version=${encodeURIComponent(version)}&fn=${encodeURIComponent(firstName)}&ln=${encodeURIComponent(lastName)}`;
+
+      res.setHeader("Content-Type", "text/html");
+      res.status(200).send(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${resultUrl}"></head><body><a href="${resultUrl}">Continue</a></body></html>`);
     } catch (error: any) {
       console.error("[UDID] Callback error:", error.message, error.stack);
       const host = req.headers.host || "indexus.cordbloodcenter.com";
       const protocol = req.headers["x-forwarded-proto"] || "https";
-      res.redirect(301, `${protocol}://${host}/udid/result?success=false`);
+      res.setHeader("Content-Type", "text/html");
+      res.status(200).send(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${protocol}://${host}/udid/result?success=false"></head><body><a href="${protocol}://${host}/udid/result?success=false">Continue</a></body></html>`);
     }
   });
 
