@@ -1,0 +1,196 @@
+seman@CORPCRM01:/var/www/indexus-crm$ cd /var/www/indexus-crm && source .env
+node -e "
+const { UserAgent, Registerer } = require('sip.js');
+const WebSocket = require('ws');
+global.WebSocket = WebSocket;
+
+const uri = UserAgent.makeURI('sip:2030@asterisk');
+const ua = new UserAgent({
+  uri,
+  transportOptions: { server: 'wss://mediagtw.cordbloodcenter.com:8089/ws' },
+  authorizationUsername: '2030',
+  authorizationPassword: 'sk2030!Indexus',
+});
+
+ua.transport.onConnect = () => console.log('WS CONNECTED');
+ua.transport.onDisconnect = (e) => console.log('WS DISCONNECTED:', e?.message);
+
+ua.start().then(() => {
+  console.log('UA started, transport:', ua.transport.state);
+  const reg = new Registerer(ua, { expires: 120 });
+  reg.stateChange.addListener(s => console.log('REG STATE:', s));
+  reg.register().then(() => console.log('REGISTER sent')).catch(e => console.log('REG ERR:', e.message));
+}).catch(e => console.log('UA START ERR:', e.message));
+
+setTimeout(() => { console.log('DONE'); process.exit(0); }, 10000);
+"
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | Configuration:
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · allowLegacyNotifications: false
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · authorizationHa1: ""
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · authorizationPassword: NOT SHOWN
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · authorizationUsername: "2030"
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · delegate: {}
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · contactName: ""
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · contactParams: {"transport":"ws"}
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · displayName: ""
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · forceRport: false
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · gracefulShutdown: true
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · hackAllowUnregisteredOptionTags: false
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · hackIpInContact: false
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · hackViaTcp: false
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · instanceId: ""
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · instanceIdAlwaysAdded: false
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · logBuiltinEnabled: true
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · logConfiguration: true
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · logConnector: undefined
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · logLevel: "log"
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · noAnswerTimeout: 60
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · preloadedRouteSet: []
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · reconnectionAttempts: 0
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · reconnectionDelay: 4
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · sendInitialProvisionalResponse: true
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · sessionDescriptionHandlerFactory: (session, options) => {
+        // provide a default media stream factory if need be
+        if (mediaStreamFactory === undefined) {
+            mediaStreamFactory = defaultMediaStreamFactory();
+        }
+        // make sure we allow `0` to be passed in so timeout can be disabled
+        const iceGatheringTimeout = (options === null || options === void 0 ? void 0 : options.iceGatheringTimeout) !== undefined ? options === null || options === void 0 ? void 0 : options.iceGatheringTimeout : 5000;
+        // merge passed factory options into default session description configuration
+        const sessionDescriptionHandlerConfiguration = {
+            iceGatheringTimeout,
+            peerConnectionConfiguration: Object.assign(Object.assign({}, defaultPeerConnectionConfiguration()), options === null || options === void 0 ? void 0 : options.peerConnectionConfiguration)
+        };
+        const logger = session.userAgent.getLogger("sip.SessionDescriptionHandler");
+        return new SessionDescriptionHandler(logger, mediaStreamFactory, sessionDescriptionHandlerConfiguration);
+    }
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · sessionDescriptionHandlerFactoryOptions: {}
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · sipExtension100rel: "Unsupported"
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · sipExtensionReplaces: "Unsupported"
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · sipExtensionExtraSupported: []
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · sipjsId: "fnghv"
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · transportConstructor: Transport
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · transportOptions: {"server":"wss://mediagtw.cordbloodcenter.com:8089/ws"}
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · uri: sip:2030@asterisk
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · userAgentString: "SIP.js/0.21.1"
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | · viaHost: "3mdj916pqev8.invalid"
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | Starting sip:2030@asterisk
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.UserAgent | Transitioned from Stopped to Started
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | Connecting wss://mediagtw.cordbloodcenter.com:8089/ws
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | Transitioned from Disconnected to Connecting
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | WebSocket opened wss://mediagtw.cordbloodcenter.com:8089/ws
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | Transitioned from Connecting to Connected
+WS CONNECTED
+UA started, transport: Connected
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | Configuration:
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | · expires: 120
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | · extraContactHeaderParams: []
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | · extraHeaders: []
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | · logConfiguration: true
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | · instanceId: ""
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | · params: {}
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | · regId: 0
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | · registrar: sip:asterisk
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | · refreshFrequency: 99
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | Waiting toggled to true
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | Sending WebSocket message:
+
+REGISTER sip:asterisk SIP/2.0
+Via: SIP/2.0/WSS 3mdj916pqev8.invalid;branch=z9hG4bK9815736
+To: <sip:2030@asterisk>
+From: <sip:2030@asterisk>;tag=4a3i8usl0t
+CSeq: 2 REGISTER
+Call-ID: fnghviqbfe8s0ohs8e29
+Max-Forwards: 70
+Contact: <sip:dvm67nb1@3mdj916pqev8.invalid;transport=ws>;expires=120
+Allow: ACK,CANCEL,INVITE,MESSAGE,BYE,OPTIONS,INFO,NOTIFY,REFER
+Supported: outbound, path, gruu
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+
+REGISTER sent
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | Received WebSocket text message:
+
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/WSS 3mdj916pqev8.invalid;rport=48290;received=10.1.2.111;branch=z9hG4bK9815736
+Call-ID: fnghviqbfe8s0ohs8e29
+From: <sip:2030@asterisk>;tag=4a3i8usl0t
+To: <sip:2030@asterisk>;tag=z9hG4bK9815736
+CSeq: 2 REGISTER
+WWW-Authenticate: Digest realm="asterisk",nonce="1775106056/52248610de0346688a9523d53cdb5d5e",opaque="718bf8e17726879e",algorithm=MD5,qop="auth"
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | Sending WebSocket message:
+
+REGISTER sip:asterisk SIP/2.0
+Via: SIP/2.0/WSS 3mdj916pqev8.invalid;branch=z9hG4bK7656461
+To: <sip:2030@asterisk>
+From: <sip:2030@asterisk>;tag=4a3i8usl0t
+CSeq: 3 REGISTER
+Call-ID: fnghviqbfe8s0ohs8e29
+Max-Forwards: 70
+Authorization: Digest algorithm=MD5, username="2030", realm="asterisk", nonce="1775106056/52248610de0346688a9523d53cdb5d5e", uri="sip:asterisk", response="3342a3e56c46db349342294b749df89a", opaque="718bf8e17726879e", qop=auth, cnonce="fks5e184iivk", nc=00000001
+Contact: <sip:dvm67nb1@3mdj916pqev8.invalid;transport=ws>;expires=120
+Allow: ACK,CANCEL,INVITE,MESSAGE,BYE,OPTIONS,INFO,NOTIFY,REFER
+Supported: outbound, path, gruu
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | Received WebSocket text message:
+
+SIP/2.0 200 OK
+Via: SIP/2.0/WSS 3mdj916pqev8.invalid;rport=48290;received=10.1.2.111;branch=z9hG4bK7656461
+Call-ID: fnghviqbfe8s0ohs8e29
+From: <sip:2030@asterisk>;tag=4a3i8usl0t
+To: <sip:2030@asterisk>;tag=z9hG4bK7656461
+CSeq: 3 REGISTER
+Date: Thu, 02 Apr 2026 05:00:56 GMT
+Contact: <sip:dvm67nb1@3mdj916pqev8.invalid;transport=ws>;expires=299
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | Registration transitioned to state Registered
+REG STATE: Registered
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Registerer | Waiting toggled to false
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | Received WebSocket text message:
+
+OPTIONS sip:dvm67nb1@10.1.2.111:48290;transport=ws SIP/2.0
+Via: SIP/2.0/WSS 10.1.2.112:8089;rport;branch=z9hG4bKPjcabd331d-0c4e-4ed9-b5ed-5d3a5e9a47ca;alias
+From: <sip:2030@mediagtw.cordbloodcenter.com>;tag=808c8cb1-999c-435e-b306-9ab599b11184
+To: <sip:dvm67nb1@10.1.2.111>
+Contact: <sip:2030@mediagtw.cordbloodcenter.com:5060;transport=ws>
+Call-ID: 2bc49b52-0c15-4deb-b721-ac929248fa20
+CSeq: 27595 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+
+Thu Apr 02 2026 05:00:56 GMT+0000 (Coordinated Universal Time) | sip.Transport | Sending WebSocket message:
+
+SIP/2.0 200 OK
+Via: SIP/2.0/WSS 10.1.2.112:8089;rport;branch=z9hG4bKPjcabd331d-0c4e-4ed9-b5ed-5d3a5e9a47ca;alias
+From: <sip:2030@mediagtw.cordbloodcenter.com>;tag=808c8cb1-999c-435e-b306-9ab599b11184
+To: <sip:dvm67nb1@10.1.2.111>;tag=bb2g7sikjq
+CSeq: 27595 OPTIONS
+Call-ID: 2bc49b52-0c15-4deb-b721-ac929248fa20
+Supported: outbound
+User-Agent: SIP.js/0.21.1
+Allow: ACK,BYE,CANCEL,INFO,INVITE,MESSAGE,NOTIFY,OPTIONS,PRACK,REFER,REGISTER,SUBSCRIBE
+Accept: application/sdp,application/dtmf-relay
+Content-Length: 0
+
+
+
+DONE
+seman@CORPCRM01:/var/www/indexus-crm$
