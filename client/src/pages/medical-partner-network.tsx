@@ -30,7 +30,7 @@ import {
   Phone, Mail, MessageCircle, Star, Search, Filter, Hospital, Stethoscope,
   UserCheck, UserX, Link2, ChevronLeft, ChevronRight, Building, Clock, Loader2,
   Network, MapPin, X, User, Sparkles, ZoomIn, ZoomOut, Maximize2,
-  Activity, Calendar, CheckCircle, XCircle, AlertCircle, LogIn, Database
+  Activity, Calendar, CheckCircle, XCircle, AlertCircle, LogIn, Database, Download
 } from "lucide-react";
 
 type PartnerCategory = {
@@ -1215,7 +1215,7 @@ const dateLocales: Record<string, Locale> = {
 };
 
 type ActivityType = "all" | "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "call_recording" | "call";
-type DateRange = "today" | "week" | "month" | "all";
+type DateRange = "today" | "yesterday" | "week" | "month" | "all";
 
 interface ActivityItem {
   id: string;
@@ -1497,6 +1497,7 @@ function ActivityTab() {
   const repLimit = 50;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [summaryRepId, setSummaryRepId] = useState<string | null>(null);
+  const [summaryDateRange, setSummaryDateRange] = useState<"today" | "yesterday" | "7days" | "30days" | "all">("all");
   const [onlineRefreshKey, setOnlineRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -1774,6 +1775,9 @@ function ActivityTab() {
     const now = new Date();
     if (dateRange === "today") {
       filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start: startOfDay(now), end: endOfDay(now) }));
+    } else if (dateRange === "yesterday") {
+      const yd = subDays(now, 1);
+      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start: startOfDay(yd), end: endOfDay(yd) }));
     } else if (dateRange === "week") {
       filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start: startOfDay(subDays(now, 7)), end: endOfDay(now) }));
     } else if (dateRange === "month") {
@@ -2180,7 +2184,8 @@ function ActivityTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="today">{t.common.today}</SelectItem>
+                    <SelectItem value="today">{t.common.today || "Today"}</SelectItem>
+                    <SelectItem value="yesterday">{t.common.yesterday || "Yesterday"}</SelectItem>
                     <SelectItem value="week">{t.common.last7days}</SelectItem>
                     <SelectItem value="month">{t.common.last30days}</SelectItem>
                     <SelectItem value="all">{t.common.allTime}</SelectItem>
@@ -2202,41 +2207,40 @@ function ActivityTab() {
                 {Object.keys(groupedActivities).length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground" data-testid="no-activities-message">{t.common.noResults}</div>
                 ) : (
-                  <div className="relative">
-                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                  <div className="space-y-6">
                     {Object.entries(groupedActivities).map(([dateKey, dayActivities]) => (
-                      <div key={dateKey} className="mb-8">
-                        <div className="sticky top-0 bg-background py-2 z-10">
-                          <Badge variant="secondary" className="ml-8">
+                      <div key={dateKey}>
+                        <div className="sticky top-0 bg-background py-2 z-10 mb-3">
+                          <Badge variant="secondary">
                             {format(new Date(dateKey), "EEEE, d. MMMM yyyy", { locale: dateFnsLocale })}
                           </Badge>
                         </div>
-                        <div className="space-y-4 mt-4">
+                        <div className="space-y-2">
                           {dayActivities.map((activity) => (
-                            <div key={activity.id} className="flex gap-4 ml-1" data-testid={`activity-item-${activity.id}`}>
-                              <div className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full ${getActivityColor(activity.type)}`}>
+                            <div key={activity.id} className="flex gap-3 items-start p-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors" data-testid={`activity-item-${activity.id}`}>
+                              <div className={`flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full ${getActivityColor(activity.type)}`}>
                                 {getActivityIcon(activity.type)}
                               </div>
-                              <div className="flex-1 pb-4">
+                              <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{activity.collaboratorName}</span>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-medium text-sm">{activity.collaboratorName}</span>
                                       <Badge variant="outline" className="text-xs">{getActivityLabel(activity.type)}</Badge>
                                     </div>
                                     {activity.details.hospitalName && (
-                                      <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                                        <Building2 className="h-3 w-3" />{activity.details.hospitalName}
+                                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                        <Building2 className="h-3 w-3 flex-shrink-0" />{activity.details.hospitalName}
                                       </div>
                                     )}
                                     {activity.details.visitType && (
-                                      <div className="text-sm text-muted-foreground">
+                                      <div className="text-xs text-muted-foreground">
                                         {activity.details.visitType}{activity.details.place && ` - ${activity.details.place}`}
                                       </div>
                                     )}
                                     {activity.type === "call_recording" && (
-                                      <div className="mt-2 p-3 bg-muted/50 rounded-lg space-y-2">
-                                        <div className="flex items-center gap-4 text-sm">
+                                      <div className="mt-2 p-2 bg-muted/50 rounded space-y-1.5">
+                                        <div className="flex items-center gap-3 text-xs flex-wrap">
                                           {activity.details.phoneNumber && (
                                             <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{activity.details.phoneNumber}</span>
                                           )}
@@ -2253,13 +2257,13 @@ function ActivityTab() {
                                           )}
                                         </div>
                                         {activity.details.transcriptionText && (
-                                          <div className="text-sm text-muted-foreground italic border-l-2 border-primary/20 pl-3 mt-2">
+                                          <div className="text-xs text-muted-foreground italic border-l-2 border-primary/20 pl-2">
                                             {activity.details.transcriptionText.slice(0, 200)}
                                             {activity.details.transcriptionText.length > 200 && "..."}
                                           </div>
                                         )}
                                         {activity.details.recordingId && (
-                                          <Button variant="outline" size="sm" onClick={() => playRecording(activity.details.recordingId!)} data-testid={`btn-play-${activity.details.recordingId}`}>
+                                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => playRecording(activity.details.recordingId!)} data-testid={`btn-play-${activity.details.recordingId}`}>
                                             {playingRecordingId === activity.details.recordingId ? (
                                               <><X className="h-3 w-3 mr-1" />{t.mpn.stopRecording}</>
                                             ) : (
@@ -2270,7 +2274,7 @@ function ActivityTab() {
                                       </div>
                                     )}
                                     {activity.type === "call" && (
-                                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
                                         <span className="flex items-center gap-1">
                                           <Phone className="h-3 w-3" />
                                           {activity.details.callDirection === "inbound" ? "←" : "→"} {activity.details.phoneNumber}
@@ -2281,19 +2285,22 @@ function ActivityTab() {
                                             {Math.floor(activity.details.callDuration / 60)}:{String(activity.details.callDuration % 60).padStart(2, "0")}
                                           </span>
                                         ) : null}
+                                        {activity.details.callStatus && (
+                                          <Badge variant="outline" className="text-xs">{activity.details.callStatus}</Badge>
+                                        )}
                                         {activity.details.notes && (
                                           <span className="italic text-xs border-l pl-2 border-muted-foreground/30">{activity.details.notes}</span>
                                         )}
                                       </div>
                                     )}
                                     {(activity.type === "visit_cancelled" || activity.type === "visit_not_realized") && (
-                                      <div className="mt-1 px-2 py-1 bg-red-50 dark:bg-red-950 rounded text-sm text-red-700 dark:text-red-300">
+                                      <div className="mt-1 px-2 py-1 bg-red-50 dark:bg-red-950 rounded text-xs text-red-700 dark:text-red-300">
                                         {activity.type === "visit_cancelled" ? t.common.cancelled : t.common.notRealized}
                                         {activity.details.reason && <span>: {activity.details.reason}</span>}
                                       </div>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground whitespace-nowrap">
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
                                     <Clock className="h-3 w-3" />{format(activity.timestamp, "HH:mm")}
                                   </div>
                                 </div>
@@ -2320,7 +2327,7 @@ function ActivityTab() {
         />
       )}
 
-      <Sheet open={!!summaryRepId} onOpenChange={(open) => { if (!open) setSummaryRepId(null); }}>
+      <Sheet open={!!summaryRepId} onOpenChange={(open) => { if (!open) { setSummaryRepId(null); setSummaryDateRange("all"); } }}>
         <SheetContent className="sm:max-w-2xl overflow-y-auto" data-testid="summary-report-sheet">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
@@ -2328,18 +2335,78 @@ function ActivityTab() {
               {t.common.report || "Report"}: {summaryRepId ? getCollaboratorName(summaryRepId) : ""}
             </SheetTitle>
           </SheetHeader>
-          {summaryData ? (
-            <div className="space-y-6 mt-4">
+          {summaryData ? (() => {
+            const getDateBounds = () => {
+              const now = new Date();
+              switch (summaryDateRange) {
+                case "today": return { start: startOfDay(now), end: endOfDay(now) };
+                case "yesterday": return { start: startOfDay(subDays(now, 1)), end: endOfDay(subDays(now, 1)) };
+                case "7days": return { start: startOfDay(subDays(now, 7)), end: endOfDay(now) };
+                case "30days": return { start: startOfDay(subDays(now, 30)), end: endOfDay(now) };
+                default: return null;
+              }
+            };
+            const bounds = getDateBounds();
+            const filteredVisits = bounds
+              ? summaryData.visits.filter((v: any) => { const d = new Date(v.startTime || v.visitDate || v.createdAt); return d >= bounds.start && d <= bounds.end; })
+              : summaryData.visits;
+            const filteredCalls = bounds
+              ? summaryData.calls.filter((c: any) => { const d = new Date(c.startedAt || c.createdAt); return d >= bounds.start && d <= bounds.end; })
+              : summaryData.calls;
+
+            const exportToXls = async () => {
+              const XLSX = await import("xlsx");
+              const visitRows = filteredVisits.map((v: any) => ({
+                [t.common.date || "Date"]: v.startTime ? format(new Date(v.startTime), "dd.MM.yyyy HH:mm") : v.visitDate ? format(new Date(v.visitDate), "dd.MM.yyyy HH:mm") : "—",
+                [t.common.hospital || "Hospital"]: getHospitalName(v.hospitalId),
+                [t.common.type || "Type"]: v.subject || v.visitType || "—",
+                [t.common.status || "Status"]: v.status || "—",
+                [t.mpn.remark || "Remark"]: v.remark || "",
+              }));
+              const callRows = filteredCalls.map((c: any) => ({
+                [t.common.date || "Date"]: c.startedAt ? format(new Date(c.startedAt), "dd.MM.yyyy HH:mm") : "—",
+                [t.common.phone || "Phone"]: c.phoneNumber || "—",
+                Direction: c.direction || "—",
+                Duration: c.durationSeconds ? `${Math.floor(c.durationSeconds / 60)}:${String(c.durationSeconds % 60).padStart(2, "0")}` : "—",
+                [t.common.status || "Status"]: c.status || "—",
+              }));
+              const wb = XLSX.utils.book_new();
+              if (visitRows.length > 0) {
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(visitRows), "Visits");
+              }
+              if (callRows.length > 0) {
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(callRows), "Calls");
+              }
+              if (visitRows.length === 0 && callRows.length === 0) {
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Info: "No data" }]), "Empty");
+              }
+              const repName = summaryRepId ? getCollaboratorName(summaryRepId).replace(/\s+/g, "_") : "report";
+              XLSX.writeFile(wb, `${repName}_report.xlsx`);
+            };
+
+            return (
+            <div className="space-y-4 mt-4">
+              <div className="flex flex-wrap items-center gap-2">
+                {(["today", "yesterday", "7days", "30days", "all"] as const).map((r) => (
+                  <Button key={r} size="sm" variant={summaryDateRange === r ? "default" : "outline"} onClick={() => setSummaryDateRange(r)} data-testid={`btn-summary-range-${r}`}>
+                    {r === "today" ? (t.common.today || "Today") : r === "yesterday" ? (t.common.yesterday || "Yesterday") : r === "7days" ? "7 " + (t.common.days || "days") : r === "30days" ? "30 " + (t.common.days || "days") : (t.common.all || "All")}
+                  </Button>
+                ))}
+                <Button size="sm" variant="outline" onClick={exportToXls} className="ml-auto" data-testid="btn-export-xls">
+                  <Download className="h-3 w-3 mr-1" /> XLS
+                </Button>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold" data-testid="text-summary-visits">{summaryData.visits.length}</div>
+                    <div className="text-2xl font-bold" data-testid="text-summary-visits">{filteredVisits.length}</div>
                     <div className="text-sm text-muted-foreground">{t.mpn.totalVisits}</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold" data-testid="text-summary-calls">{summaryData.calls.length}</div>
+                    <div className="text-2xl font-bold" data-testid="text-summary-calls">{filteredCalls.length}</div>
                     <div className="text-sm text-muted-foreground">{t.common.call || "Calls"}</div>
                   </CardContent>
                 </Card>
@@ -2347,9 +2414,9 @@ function ActivityTab() {
 
               <div>
                 <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <MapPin className="h-4 w-4" /> {t.mpn.totalVisits} ({summaryData.visits.length})
+                  <MapPin className="h-4 w-4" /> {t.mpn.totalVisits} ({filteredVisits.length})
                 </h4>
-                {summaryData.visits.length === 0 ? (
+                {filteredVisits.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t.common.noResults}</p>
                 ) : (
                   <Table>
@@ -2362,9 +2429,9 @@ function ActivityTab() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {summaryData.visits.slice(0, 50).map((v: any) => (
+                      {filteredVisits.slice(0, 100).map((v: any) => (
                         <TableRow key={v.id} data-testid={`summary-visit-${v.id}`}>
-                          <TableCell className="text-xs">{v.visitDate ? format(new Date(v.visitDate), "dd/MM/yyyy HH:mm") : "—"}</TableCell>
+                          <TableCell className="text-xs whitespace-nowrap">{v.startTime ? format(new Date(v.startTime), "dd.MM.yyyy HH:mm") : v.visitDate ? format(new Date(v.visitDate), "dd.MM.yyyy HH:mm") : "—"}</TableCell>
                           <TableCell className="text-xs">{getHospitalName(v.hospitalId)}</TableCell>
                           <TableCell className="text-xs">{v.subject || v.visitType || "—"}</TableCell>
                           <TableCell>
@@ -2381,9 +2448,9 @@ function ActivityTab() {
 
               <div>
                 <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <Phone className="h-4 w-4" /> {t.common.call || "Calls"} ({summaryData.calls.length})
+                  <Phone className="h-4 w-4" /> {t.common.call || "Calls"} ({filteredCalls.length})
                 </h4>
-                {summaryData.calls.length === 0 ? (
+                {filteredCalls.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t.common.noResults}</p>
                 ) : (
                   <Table>
@@ -2397,9 +2464,9 @@ function ActivityTab() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {summaryData.calls.slice(0, 50).map((c: any) => (
+                      {filteredCalls.slice(0, 100).map((c: any) => (
                         <TableRow key={c.id} data-testid={`summary-call-${c.id}`}>
-                          <TableCell className="text-xs">{c.startedAt ? format(new Date(c.startedAt), "dd/MM/yyyy HH:mm") : "—"}</TableCell>
+                          <TableCell className="text-xs whitespace-nowrap">{c.startedAt ? format(new Date(c.startedAt), "dd.MM.yyyy HH:mm") : "—"}</TableCell>
                           <TableCell className="text-xs">{c.phoneNumber || "—"}</TableCell>
                           <TableCell className="text-xs">{c.direction || "—"}</TableCell>
                           <TableCell className="text-xs">{c.durationSeconds ? `${Math.floor(c.durationSeconds / 60)}:${String(c.durationSeconds % 60).padStart(2, "0")}` : "—"}</TableCell>
@@ -2413,7 +2480,8 @@ function ActivityTab() {
                 )}
               </div>
             </div>
-          ) : summaryRepId ? (
+            );
+          })() : summaryRepId ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
             </div>
