@@ -21,6 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
+import { CollaboratorReportsContent } from "@/pages/collaborator-reports";
 import type { VisitEvent, Collaborator } from "@shared/schema";
 import { VISIT_SUBJECTS, VISIT_PLACE_OPTIONS, COUNTRIES } from "@shared/schema";
 import { getCountryFlag } from "@/lib/countries";
@@ -773,20 +774,26 @@ function OverviewTab() {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="mpn-overview-grid">
-      {cards.map((c) => (
-        <Card key={c.label} data-testid={`stat-card-${c.label.toLowerCase().replace(/\s+/g, '-')}`}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{c.label}</p>
-                <p className="text-3xl font-bold mt-1">{c.value}</p>
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="mpn-overview-grid">
+        {cards.map((c) => (
+          <Card key={c.label} data-testid={`stat-card-${c.label.toLowerCase().replace(/\s+/g, '-')}`}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{c.label}</p>
+                  <p className="text-3xl font-bold mt-1">{c.value}</p>
+                </div>
+                <c.icon className={`h-8 w-8 ${c.color} opacity-80`} />
               </div>
-              <c.icon className={`h-8 w-8 ${c.color} opacity-80`} />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Separator />
+
+      <CollaboratorReportsContent embedded={true} />
     </div>
   );
 }

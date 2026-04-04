@@ -69,7 +69,7 @@ interface CollaboratorStats {
 
 import { CHART_PALETTE, STATUS_COLORS } from '@/lib/chart-colors';
 
-export default function CollaboratorReportsPage() {
+export function CollaboratorReportsContent({ embedded = false }: { embedded?: boolean }) {
   const { selectedCountries } = useCountryFilter();
   const { t } = useI18n();
   const { toast } = useToast();
@@ -376,11 +376,13 @@ export default function CollaboratorReportsPage() {
   ];
 
   return (
-    <div className="space-y-6" data-testid="page-collaborator-reports">
-      <PageHeader
-        title={t.collaboratorReports.title}
-        description={t.collaboratorReports.description}
-      />
+    <div className={embedded ? "space-y-4" : "space-y-6"} data-testid="page-collaborator-reports">
+      {!embedded && (
+        <PageHeader
+          title={t.collaboratorReports.title}
+          description={t.collaboratorReports.description}
+        />
+      )}
 
       <Card data-testid="card-filters">
         <CardHeader>
@@ -704,4 +706,8 @@ export default function CollaboratorReportsPage() {
       </div>
     </div>
   );
+}
+
+export default function CollaboratorReportsPage() {
+  return <CollaboratorReportsContent embedded={false} />;
 }
