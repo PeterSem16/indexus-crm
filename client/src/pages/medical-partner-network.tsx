@@ -976,7 +976,7 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ACTIVITY MEDICAL REPRESENTANTS TAB
+// ACTIVITY MEDICAL REPRESENTANTS TAB (v2)
 // ═══════════════════════════════════════════════════════════════
 
 const dateLocales: Record<string, Locale> = {
@@ -1419,7 +1419,6 @@ function ActivityTab() {
 export default function MedicalPartnerNetworkPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("network");
-
   return (
     <div className="p-6 space-y-6" data-testid="mpn-page">
       <div>
