@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -1007,7 +1008,7 @@ interface ActivityItem {
   };
 }
 
-function MeetingScheduleDialog({ collaborator, hospitals, open, onClose }: {
+function MeetingScheduleDrawer({ collaborator, hospitals, open, onClose }: {
   collaborator: Collaborator;
   hospitals: any[];
   open: boolean;
@@ -1015,9 +1016,13 @@ function MeetingScheduleDialog({ collaborator, hospitals, open, onClose }: {
 }) {
   const { locale, t } = useI18n();
   const { toast } = useToast();
+  const [hospitalSearch, setHospitalSearch] = useState("");
+  const [hospitalDropdownOpen, setHospitalDropdownOpen] = useState(false);
+  const hospitalSearchRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     subject: "3",
     hospitalId: "",
+    hospitalName: "",
     startDate: format(new Date(), "yyyy-MM-dd"),
     startTime: "09:00",
     endTime: "10:00",
@@ -1025,6 +1030,25 @@ function MeetingScheduleDialog({ collaborator, hospitals, open, onClose }: {
     remark: "",
     locationAddress: "",
   });
+
+  const filteredHospitals = useMemo(() => {
+    if (hospitalSearch.length < 3) return [];
+    const q = hospitalSearch.toLowerCase();
+    return hospitals.filter((h: any) =>
+      h.name?.toLowerCase().includes(q) ||
+      h.city?.toLowerCase().includes(q)
+    ).slice(0, 15);
+  }, [hospitals, hospitalSearch]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (hospitalSearchRef.current && !hospitalSearchRef.current.contains(e.target as Node)) {
+        setHospitalDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const createMeeting = useMutation({
     mutationFn: async () => {
@@ -1051,30 +1075,50 @@ function MeetingScheduleDialog({ collaborator, hospitals, open, onClose }: {
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            {t.mpn.scheduleMeeting} — {collaborator.firstName} {collaborator.lastName}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
+            {t.mpn.scheduleMeeting}
+          </SheetTitle>
+        </SheetHeader>
+
+        <div className="mt-6 space-y-6">
+          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <div className="font-medium">{collaborator.firstName} {collaborator.lastName}</div>
+              <div className="text-sm text-muted-foreground flex items-center gap-3">
+                {collaborator.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{collaborator.phone}</span>}
+                {collaborator.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{collaborator.email}</span>}
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
             <Label>{t.mpn.meetingDate}</Label>
             <Input type="date" value={form.startDate} onChange={(e) => setForm({...form, startDate: e.target.value})} data-testid="input-meeting-date" />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label>{t.mpn.meetingTime}</Label>
               <Input type="time" value={form.startTime} onChange={(e) => setForm({...form, startTime: e.target.value})} data-testid="input-meeting-start" />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>{t.mpn.meetingEndTime}</Label>
               <Input type="time" value={form.endTime} onChange={(e) => setForm({...form, endTime: e.target.value})} data-testid="input-meeting-end" />
             </div>
           </div>
-          <div>
+
+          <Separator />
+
+          <div className="space-y-2">
             <Label>{t.common.type}</Label>
             <Select value={form.subject} onValueChange={(v) => setForm({...form, subject: v})}>
               <SelectTrigger data-testid="select-meeting-subject">
@@ -1087,37 +1131,111 @@ function MeetingScheduleDialog({ collaborator, hospitals, open, onClose }: {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>{t.mpn.meetingLocation}</Label>
-            <Select value={form.hospitalId} onValueChange={(v) => setForm({...form, hospitalId: v})}>
-              <SelectTrigger data-testid="select-meeting-hospital">
-                <SelectValue placeholder={t.common.select} />
+
+          <div className="space-y-2">
+            <Label>{t.mpn.place || "Place"}</Label>
+            <Select value={form.place} onValueChange={(v) => setForm({...form, place: v})}>
+              <SelectTrigger data-testid="select-meeting-place">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">{t.common.none || "—"}</SelectItem>
-                {hospitals.map((h: any) => (
-                  <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+                {VISIT_PLACE_OPTIONS.map((p) => (
+                  <SelectItem key={p.code} value={p.code}>{(p as any)[locale] || p.en}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>{t.mpn.meetingLocation} ({t.common.address || "Address"})</Label>
+
+          <Separator />
+
+          <div className="space-y-2" ref={hospitalSearchRef}>
+            <Label className="flex items-center gap-2">
+              <Hospital className="h-4 w-4" />
+              {t.mpn.hospital || "Hospital"}
+            </Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={hospitalSearch}
+                onChange={(e) => {
+                  setHospitalSearch(e.target.value);
+                  setHospitalDropdownOpen(e.target.value.length >= 3);
+                }}
+                onFocus={() => hospitalSearch.length >= 3 && setHospitalDropdownOpen(true)}
+                placeholder={t.mpn.searchInstitution}
+                className="pl-10"
+                data-testid="input-hospital-search"
+              />
+              {hospitalSearch.length > 0 && hospitalSearch.length < 3 && (
+                <div className="text-xs text-muted-foreground mt-1">{t.mpn.minChars}</div>
+              )}
+              {hospitalDropdownOpen && filteredHospitals.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[200px] overflow-y-auto">
+                  {filteredHospitals.map((h: any) => (
+                    <div
+                      key={h.id}
+                      className="px-3 py-2 hover:bg-muted cursor-pointer flex items-center gap-2 text-sm"
+                      onClick={() => {
+                        setForm({ ...form, hospitalId: h.id, hospitalName: h.name });
+                        setHospitalSearch(h.name);
+                        setHospitalDropdownOpen(false);
+                      }}
+                      data-testid={`hospital-option-${h.id}`}
+                    >
+                      <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <div>
+                        <div className="font-medium">{h.name}</div>
+                        {h.city && <div className="text-xs text-muted-foreground">{h.city}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {hospitalDropdownOpen && hospitalSearch.length >= 3 && filteredHospitals.length === 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg p-3 text-sm text-muted-foreground text-center">
+                  {t.common.noResults}
+                </div>
+              )}
+            </div>
+            {form.hospitalName && (
+              <div className="flex items-center gap-2 p-2 bg-muted/50 rounded text-sm">
+                <Building2 className="h-4 w-4 text-primary" />
+                <span className="flex-1">{form.hospitalName}</span>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => {
+                  setForm({ ...form, hospitalId: "", hospitalName: "" });
+                  setHospitalSearch("");
+                }}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              {t.common.address || "Address"}
+            </Label>
             <Input value={form.locationAddress} onChange={(e) => setForm({...form, locationAddress: e.target.value})} placeholder="..." data-testid="input-meeting-address" />
           </div>
-          <div>
+
+          <Separator />
+
+          <div className="space-y-2">
             <Label>{t.mpn.meetingNotes}</Label>
-            <Textarea value={form.remark} onChange={(e) => setForm({...form, remark: e.target.value})} rows={3} data-testid="input-meeting-notes" />
+            <Textarea value={form.remark} onChange={(e) => setForm({...form, remark: e.target.value})} rows={4} data-testid="input-meeting-notes" />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={onClose} className="flex-1">{t.common.cancel}</Button>
+            <Button onClick={() => createMeeting.mutate()} disabled={createMeeting.isPending} className="flex-1" data-testid="btn-schedule-meeting">
+              {createMeeting.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Calendar className="h-4 w-4 mr-2" />}
+              {t.mpn.scheduleMeeting}
+            </Button>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>{t.common.cancel}</Button>
-          <Button onClick={() => createMeeting.mutate()} disabled={createMeeting.isPending} data-testid="btn-schedule-meeting">
-            {createMeeting.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t.mpn.scheduleMeeting}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -1391,7 +1509,7 @@ function ActivityTab() {
   }, [visitEvents]);
 
   const filteredRepresentatives = useMemo(() => {
-    if (!searchQuery.trim()) return mobileEnabledCollabs;
+    if (!searchQuery.trim() || searchQuery.trim().length < 3) return mobileEnabledCollabs;
     const q = searchQuery.toLowerCase();
     return mobileEnabledCollabs.filter(c =>
       `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
@@ -1519,6 +1637,9 @@ function ActivityTab() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input placeholder={t.common.search} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="input-search-reps" />
                 </div>
+                {searchQuery.length > 0 && searchQuery.length < 3 && (
+                  <div className="text-xs text-muted-foreground mt-1 ml-1">{t.mpn.minChars}</div>
+                )}
               </div>
               <ScrollArea className="h-[calc(100vh-480px)]">
                 <Table>
@@ -1807,7 +1928,7 @@ function ActivityTab() {
       </Tabs>
 
       {meetingCollaborator && (
-        <MeetingScheduleDialog
+        <MeetingScheduleDrawer
           collaborator={meetingCollaborator}
           hospitals={hospitals}
           open={!!meetingCollaborator}
