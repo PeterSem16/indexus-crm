@@ -30,7 +30,7 @@ import {
   Phone, Mail, MessageCircle, Star, Search, Filter, Hospital, Stethoscope,
   UserCheck, UserX, Link2, ChevronRight, Building, Clock, Loader2,
   Network, MapPin, X, User, Sparkles, ZoomIn, ZoomOut, Maximize2,
-  Activity, Calendar, CheckCircle, XCircle, AlertCircle, LogIn
+  Activity, Calendar, CheckCircle, XCircle, AlertCircle, LogIn, Database
 } from "lucide-react";
 
 type PartnerCategory = {
@@ -38,9 +38,16 @@ type PartnerCategory = {
   code: string;
   name: string;
   nameEn: string | null;
+  nameSk: string | null;
+  nameCs: string | null;
+  nameHu: string | null;
+  nameRo: string | null;
+  nameIt: string | null;
+  nameDe: string | null;
   entityScope: string;
   sortOrder: number;
   isActive: boolean;
+  isDefault: boolean;
 };
 
 type MpnStats = {
@@ -923,8 +930,16 @@ function scopeBadge(scope: string, t: any) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[scope] || ""}`}>{labels[scope] || scope}</span>;
 }
 
+function getLocalizedCategoryName(cat: PartnerCategory, locale: string): string {
+  const localeMap: Record<string, string | null> = {
+    sk: cat.nameSk, cs: cat.nameCs, en: cat.nameEn,
+    hu: cat.nameHu, ro: cat.nameRo, it: cat.nameIt, de: cat.nameDe,
+  };
+  return localeMap[locale] || cat.name;
+}
+
 function SettingsTab() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const [settingsTab, setSettingsTab] = useState("categories");
   const [editCategory, setEditCategory] = useState<PartnerCategory | null>(null);
@@ -935,6 +950,16 @@ function SettingsTab() {
   const deleteCatMut = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/mpn/categories/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/mpn/categories"] }); toast({ title: "OK" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const seedDefaultsMut = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/mpn/categories/seed-defaults"),
+    onSuccess: async (res: any) => {
+      const data = typeof res === 'object' ? res : await res;
+      queryClient.invalidateQueries({ queryKey: ["/api/mpn/categories"] });
+      toast({ title: "OK", description: `Seeded: ${data?.seeded || 0}, Updated: ${data?.updated || 0}` });
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -950,9 +975,14 @@ function SettingsTab() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">{t.mpn.categories}</CardTitle>
-            <Button size="sm" onClick={() => setAddCategory(true)} data-testid="btn-add-category">
-              <Plus className="h-4 w-4 mr-1" /> {t.mpn.addCategory}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => seedDefaultsMut.mutate()} disabled={seedDefaultsMut.isPending} data-testid="btn-seed-default-categories">
+                <Database className="h-4 w-4 mr-1" /> {seedDefaultsMut.isPending ? "..." : ((t.mpn as any).seedDefaults || "Seed Defaults")}
+              </Button>
+              <Button size="sm" onClick={() => setAddCategory(true)} data-testid="btn-add-category">
+                <Plus className="h-4 w-4 mr-1" /> {t.mpn.addCategory}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -969,22 +999,34 @@ function SettingsTab() {
               <TableBody>
                 {(categories || []).map((cat) => (
                   <TableRow key={cat.id} data-testid={`row-category-${cat.id}`}>
-                    <TableCell className="font-mono">{cat.code}</TableCell>
-                    <TableCell className="font-medium">{cat.name}</TableCell>
+                    <TableCell className="font-mono text-xs">{cat.code}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{getLocalizedCategoryName(cat, locale)}</div>
+                      {locale !== "sk" && cat.nameSk && (
+                        <div className="text-xs text-muted-foreground">{cat.nameSk}</div>
+                      )}
+                    </TableCell>
                     <TableCell>{scopeBadge(cat.entityScope, t)}</TableCell>
                     <TableCell>{cat.sortOrder}</TableCell>
                     <TableCell>
-                      <Badge variant={cat.isActive ? "default" : "secondary"}>
-                        {cat.isActive ? t.mpn.active : t.mpn.inactive}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge variant={cat.isActive ? "default" : "secondary"}>
+                          {cat.isActive ? t.mpn.active : t.mpn.inactive}
+                        </Badge>
+                        {cat.isDefault && (
+                          <Badge variant="outline" className="text-xs">Default</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="icon" onClick={() => setEditCategory(cat)} data-testid={`btn-edit-category-${cat.id}`}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteCatMut.mutate(cat.id)} data-testid={`btn-delete-category-${cat.id}`}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
+                      {!cat.isDefault && (
+                        <Button variant="ghost" size="icon" onClick={() => deleteCatMut.mutate(cat.id)} data-testid={`btn-delete-category-${cat.id}`}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1008,11 +1050,18 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
   const { t } = useI18n();
   const { toast } = useToast();
   const isEdit = !!category;
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const [form, setForm] = useState({
     code: category?.code || "",
     name: category?.name || "",
     nameEn: category?.nameEn || "",
+    nameSk: category?.nameSk || "",
+    nameCs: category?.nameCs || "",
+    nameHu: category?.nameHu || "",
+    nameRo: category?.nameRo || "",
+    nameIt: category?.nameIt || "",
+    nameDe: category?.nameDe || "",
     entityScope: category?.entityScope || "hospital",
     sortOrder: category?.sortOrder || 0,
     isActive: category?.isActive ?? true,
@@ -1033,9 +1082,49 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const handleAiTranslate = async () => {
+    const sourceText = form.name || form.nameSk || form.nameEn;
+    if (!sourceText) {
+      toast({ title: "Error", description: "Enter a category name first", variant: "destructive" });
+      return;
+    }
+    setIsTranslating(true);
+    try {
+      const sourceLang = form.name ? "Slovak" : form.nameEn ? "English" : "Slovak";
+      const res = await apiRequest("POST", "/api/mpn/categories/ai-translate", { text: sourceText, sourceLang });
+      const data = res as Record<string, string>;
+      setForm(prev => ({
+        ...prev,
+        name: data.sk || prev.name,
+        nameSk: data.sk || prev.nameSk,
+        nameCs: data.cs || prev.nameCs,
+        nameEn: data.en || prev.nameEn,
+        nameHu: data.hu || prev.nameHu,
+        nameRo: data.ro || prev.nameRo,
+        nameIt: data.it || prev.nameIt,
+        nameDe: data.de || prev.nameDe,
+      }));
+      toast({ title: "OK", description: "Translations generated" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const langFields: { key: keyof typeof form; label: string; flag: string }[] = [
+    { key: "nameSk", label: "Slovenčina", flag: "🇸🇰" },
+    { key: "nameCs", label: "Čeština", flag: "🇨🇿" },
+    { key: "nameEn", label: "English", flag: "🇬🇧" },
+    { key: "nameHu", label: "Magyar", flag: "🇭🇺" },
+    { key: "nameRo", label: "Română", flag: "🇷🇴" },
+    { key: "nameIt", label: "Italiano", flag: "🇮🇹" },
+    { key: "nameDe", label: "Deutsch", flag: "🇩🇪" },
+  ];
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? t.mpn.editCategory : t.mpn.addCategory}</DialogTitle>
         </DialogHeader>
@@ -1051,12 +1140,8 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
             </div>
           </div>
           <div>
-            <Label>{t.mpn.categoryName} (SK)</Label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="input-category-name" />
-          </div>
-          <div>
-            <Label>{t.mpn.categoryName} (EN)</Label>
-            <Input value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} data-testid="input-category-name-en" />
+            <Label>{t.mpn.categoryName} (SK - Primary)</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, nameSk: e.target.value })} data-testid="input-category-name" />
           </div>
           <div>
             <Label>{t.mpn.entityScope}</Label>
@@ -1072,6 +1157,42 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
           <div className="flex items-center gap-2">
             <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} data-testid="switch-is-active" />
             <Label>{t.mpn.active}</Label>
+          </div>
+
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold">Localization</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleAiTranslate}
+                disabled={isTranslating}
+                className="gap-1.5"
+                data-testid="btn-ai-translate"
+              >
+                {isTranslating ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Translating...</>
+                ) : (
+                  <><Sparkles className="h-3.5 w-3.5" /> AI Translate</>
+                )}
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {langFields.map(({ key, label, flag }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="text-lg w-7 text-center flex-shrink-0">{flag}</span>
+                  <Label className="w-20 text-xs text-muted-foreground flex-shrink-0">{label}</Label>
+                  <Input
+                    value={(form[key] as string) || ""}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                    className="flex-1 h-8 text-sm"
+                    placeholder={label}
+                    data-testid={`input-category-${key}`}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <DialogFooter>

@@ -6842,9 +6842,16 @@ export const partnerCategories = pgTable("partner_categories", {
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   nameEn: text("name_en"),
+  nameSk: text("name_sk"),
+  nameCs: text("name_cs"),
+  nameHu: text("name_hu"),
+  nameRo: text("name_ro"),
+  nameIt: text("name_it"),
+  nameDe: text("name_de"),
   entityScope: text("entity_scope").notNull().default("hospital"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
