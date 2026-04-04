@@ -4,7 +4,6 @@ import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChe
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
-import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { CollaboratorsContent } from "@/pages/collaborators";
@@ -468,76 +467,28 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
   );
 }
 
-function HospitalForm({
-  hospital,
-  onClose,
-  onSuccess,
-}: {
-  hospital?: HospitalType;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
+function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
-  const [formTab, setFormTab] = useState("basic");
+  const [activeSection, setActiveSection] = useState("basic");
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [showMapDialog, setShowMapDialog] = useState(false);
-  
-  const [formData, setFormData] = useState<HospitalFormData>(() =>
-    hospital
-      ? {
-          isActive: hospital.isActive,
-          name: hospital.name,
-          fullName: hospital.fullName || "",
-          streetNumber: hospital.streetNumber || "",
-          representativeId: hospital.representativeId || "",
-          city: hospital.city || "",
-          laboratoryId: hospital.laboratoryId || "",
-          postalCode: hospital.postalCode || "",
-          autoRecruiting: hospital.autoRecruiting,
-          region: hospital.region || "",
-          responsiblePersonId: hospital.responsiblePersonId || "",
-          countryCode: hospital.countryCode,
-          contactPerson: hospital.contactPerson || "",
-          svetZdravia: hospital.svetZdravia,
-          latitude: hospital.latitude || "",
-          longitude: hospital.longitude || "",
-        }
-      : defaultFormData
-  );
+  const [formData, setFormData] = useState<HospitalFormData>(defaultFormData);
 
-  const { data: users = [] } = useQuery<SafeUser[]>({
-    queryKey: ["/api/users"],
-  });
-
-  const { data: laboratories = [] } = useQuery<Laboratory[]>({
-    queryKey: ["/api/config/laboratories"],
-  });
-
-  const filteredLaboratories = formData.countryCode
-    ? laboratories.filter((lab) => lab.countryCode === formData.countryCode)
-    : laboratories;
+  const { data: users = [] } = useQuery<SafeUser[]>({ queryKey: ["/api/users"] });
+  const { data: laboratories = [] } = useQuery<Laboratory[]>({ queryKey: ["/api/config/laboratories"] });
+  const filteredLaboratories = formData.countryCode ? laboratories.filter((lab) => lab.countryCode === formData.countryCode) : laboratories;
 
   const saveMutation = useMutation({
-    mutationFn: (data: HospitalFormData) => {
-      if (hospital) {
-        return apiRequest("PUT", `/api/hospitals/${hospital.id}`, data);
-      } else {
-        return apiRequest("POST", "/api/hospitals", data);
-      }
-    },
+    mutationFn: (data: HospitalFormData) => apiRequest("POST", "/api/hospitals", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
       toast({ title: t.success.saved });
       onSuccess();
     },
-    onError: () => {
-      toast({ title: t.errors.saveFailed, variant: "destructive" });
-    },
+    onError: () => { toast({ title: t.errors.saveFailed, variant: "destructive" }); },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = () => {
     if (!formData.name || !formData.countryCode) {
       toast({ title: t.errors.required, variant: "destructive" });
       return;
@@ -546,388 +497,240 @@ function HospitalForm({
   };
 
   const handleGetCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      toast({ title: t.clinics.gpsNotSupported, variant: "destructive" });
-      return;
-    }
-    
+    if (!navigator.geolocation) { toast({ title: t.clinics.gpsNotSupported, variant: "destructive" }); return; }
     setIsLoadingLocation(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setFormData({
-          ...formData,
-          latitude: position.coords.latitude.toFixed(7),
-          longitude: position.coords.longitude.toFixed(7),
-        });
+        setFormData({ ...formData, latitude: position.coords.latitude.toFixed(7), longitude: position.coords.longitude.toFixed(7) });
         setIsLoadingLocation(false);
         toast({ title: t.clinics.gpsLoaded });
       },
       (error) => {
         setIsLoadingLocation(false);
-        let message = t.clinics.gpsError;
-        if (error.code === error.PERMISSION_DENIED) {
-          message = t.clinics.gpsPermissionDenied;
-        }
-        toast({ title: message, variant: "destructive" });
+        toast({ title: error.code === error.PERMISSION_DENIED ? t.clinics.gpsPermissionDenied : t.clinics.gpsError, variant: "destructive" });
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
+  const sections = [
+    { id: "basic", label: t.clinics.steps.basic, icon: Building2 },
+    { id: "address", label: t.clinics.steps.address, icon: MapPin },
+    { id: "contacts", label: t.clinics.steps.web, icon: FileText },
+    { id: "settings", label: t.clinics.steps.settings, icon: Settings },
+  ];
+
   return (
     <>
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Tabs value={formTab} onValueChange={setFormTab}>
-        <TabsList className={`grid w-full ${hospital ? 'grid-cols-6' : 'grid-cols-4'}`}>
-          <TabsTrigger value="basic" data-testid="tab-form-basic">
-            <Building2 className="h-4 w-4 mr-2" />
-            {t.clinics.steps.basic}
-          </TabsTrigger>
-          <TabsTrigger value="address" data-testid="tab-form-address">
-            <MapPin className="h-4 w-4 mr-2" />
-            {t.clinics.steps.address}
-          </TabsTrigger>
-          <TabsTrigger value="contacts" data-testid="tab-form-contacts">
-            <FileText className="h-4 w-4 mr-2" />
-            {t.clinics.steps.web}
-          </TabsTrigger>
-          <TabsTrigger value="settings" data-testid="tab-form-settings">
-            <ListChecks className="h-4 w-4 mr-2" />
-            {t.clinics.steps.settings}
-          </TabsTrigger>
-          {hospital && (
-            <TabsTrigger value="campaigns" data-testid="tab-form-campaigns">
-              <Target className="h-4 w-4 mr-2" />
-              Kampane
-            </TabsTrigger>
-          )}
-          {hospital && (
-            <TabsTrigger value="personnel" data-testid="tab-form-personnel">
-              <Users className="h-4 w-4 mr-2" />
-              {(t as any).medicalPartnerNetwork?.personnel || "Personnel"}
-            </TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value="basic" className="space-y-4 mt-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">{t.hospitals.name} *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder={t.hospitals.name}
-                data-testid="input-hospital-name"
-              />
+      <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={onClose} data-testid="hospital-add-backdrop" />
+      <div className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+        <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Building2 className="h-4.5 w-4.5 text-primary" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="fullName">{t.hospitals.fullName}</Label>
-              <Input
-                id="fullName"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                placeholder={t.hospitals.fullName}
-                data-testid="input-hospital-fullname"
-              />
+            <div>
+              <h2 className="text-base font-semibold" data-testid="text-hospital-add-drawer-title">{t.hospitals.addHospital}</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{t.hospitals.addHospitalDesc}</p>
             </div>
           </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="countryCode">{t.common.country} *</Label>
-              <Select
-                value={formData.countryCode}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, countryCode: value, laboratoryId: "" })
-                }
-              >
-                <SelectTrigger data-testid="select-hospital-country">
-                  <SelectValue placeholder={t.common.country} />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map((country) => (
-                    <SelectItem key={country.code} value={country.code}>
-                      {getCountryFlag(country.code)} {country.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="laboratory">{t.hospitals.laboratory}</Label>
-              <Select
-                value={formData.laboratoryId || "_none"}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, laboratoryId: value === "_none" ? "" : value })
-                }
-              >
-                <SelectTrigger data-testid="select-hospital-laboratory">
-                  <SelectValue placeholder={t.hospitals.laboratory} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">{t.common.noData}</SelectItem>
-                  {filteredLaboratories.map((lab) => (
-                    <SelectItem key={lab.id} value={lab.id}>
-                      {lab.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="address" className="space-y-4 mt-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="streetNumber">{t.hospitals.streetNumber}</Label>
-              <Input
-                id="streetNumber"
-                value={formData.streetNumber}
-                onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })}
-                placeholder={t.hospitals.streetNumber}
-                data-testid="input-hospital-street"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="city">{t.hospitals.city}</Label>
-              <Input
-                id="city"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                placeholder={t.hospitals.city}
-                data-testid="input-hospital-city"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="postalCode">{t.hospitals.postalCode}</Label>
-              <Input
-                id="postalCode"
-                value={formData.postalCode}
-                onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                placeholder={t.hospitals.postalCode}
-                data-testid="input-hospital-postalcode"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="region">{t.hospitals.region}</Label>
-            <Input
-              id="region"
-              value={formData.region}
-              onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-              placeholder={t.hospitals.region}
-              data-testid="input-hospital-region"
-            />
-          </div>
-
-          <div className="border-t pt-4 mt-4">
-            <div className="flex items-center justify-between mb-3">
-              <Label className="text-base font-medium">{t.clinics.gpsCoordinates}</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGetCurrentLocation}
-                  disabled={isLoadingLocation}
-                  data-testid="button-get-location"
-                >
-                  <Navigation className={`h-4 w-4 mr-2 ${isLoadingLocation ? 'animate-spin' : ''}`} />
-                  {isLoadingLocation ? t.common.loading : t.clinics.getCurrentLocation}
-                </Button>
-                {formData.latitude && formData.longitude && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowMapDialog(true)}
-                    data-testid="button-show-on-map"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    {t.clinics.showOnMap}
-                  </Button>
-                )}
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="latitude">{t.clinics.latitude}</Label>
-                <Input
-                  id="latitude"
-                  type="number"
-                  step="0.0000001"
-                  value={formData.latitude}
-                  onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                  placeholder="48.7164"
-                  data-testid="input-hospital-latitude"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="longitude">{t.clinics.longitude}</Label>
-                <Input
-                  id="longitude"
-                  type="number"
-                  step="0.0000001"
-                  value={formData.longitude}
-                  onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                  placeholder="21.2611"
-                  data-testid="input-hospital-longitude"
-                />
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="contacts" className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="contactPerson">{t.hospitals.contactPerson}</Label>
-            <Input
-              id="contactPerson"
-              value={formData.contactPerson}
-              onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-              placeholder={t.hospitals.contactPerson}
-              data-testid="input-hospital-contact"
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="representative">{t.hospitals.representative}</Label>
-              <Select
-                value={formData.representativeId || "_none"}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, representativeId: value === "_none" ? "" : value })
-                }
-              >
-                <SelectTrigger data-testid="select-hospital-representative">
-                  <SelectValue placeholder={t.hospitals.representative} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">{t.common.noData}</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="responsiblePerson">{t.hospitals.responsiblePerson}</Label>
-              <Select
-                value={formData.responsiblePersonId || "_none"}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, responsiblePersonId: value === "_none" ? "" : value })
-                }
-              >
-                <SelectTrigger data-testid="select-hospital-responsible">
-                  <SelectValue placeholder={t.hospitals.responsiblePerson} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">{t.common.noData}</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4 mt-4">
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                data-testid="switch-hospital-active"
-              />
-              <Label htmlFor="isActive">{t.common.active}</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="autoRecruiting"
-                checked={formData.autoRecruiting}
-                onCheckedChange={(checked) => setFormData({ ...formData, autoRecruiting: checked })}
-                data-testid="switch-hospital-autorecruiting"
-              />
-              <Label htmlFor="autoRecruiting">{t.hospitals.autoRecruiting}</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="svetZdravia"
-                checked={formData.svetZdravia}
-                onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })}
-                data-testid="switch-hospital-svetzdravia"
-              />
-              <Label htmlFor="svetZdravia">{t.hospitals.svetZdravia}</Label>
-            </div>
-          </div>
-        </TabsContent>
-
-        {hospital && (
-          <TabsContent value="campaigns" className="space-y-4 mt-4">
-            <EntityCampaignTimeline entityType="hospital" entityId={hospital.id} entityName={hospital.name} />
-          </TabsContent>
-        )}
-        {hospital && (
-          <TabsContent value="personnel" className="space-y-4 mt-4">
-            <PersonnelTabContent entityType="hospital" entityId={hospital.id} entityName={hospital.name} />
-          </TabsContent>
-        )}
-      </Tabs>
-
-      <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel">
-          {t.common.cancel}
-        </Button>
-        <Button type="submit" disabled={saveMutation.isPending} data-testid="button-save-hospital">
-          {saveMutation.isPending ? t.common.loading : t.common.save}
-        </Button>
-      </div>
-    </form>
-
-    <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            {formData.name || "Nemocnica"} - Poloha na mape
-          </DialogTitle>
-        </DialogHeader>
-        <div className="w-full h-[400px] rounded-lg overflow-hidden border">
-          {formData.latitude && formData.longitude && (
-            <iframe
-              title="Hospital Location Map"
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              style={{ border: 0 }}
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(formData.longitude) - 0.01}%2C${parseFloat(formData.latitude) - 0.01}%2C${parseFloat(formData.longitude) + 0.01}%2C${parseFloat(formData.latitude) + 0.01}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`}
-              allowFullScreen
-            />
-          )}
-        </div>
-        <div className="flex justify-between items-center text-sm text-muted-foreground">
-          <span>GPS: {formData.latitude}, {formData.longitude}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.open(`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`, '_blank')}
-            data-testid="button-open-google-maps"
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            {t.clinics.openInNewTab}
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} data-testid="button-close-hospital-add-drawer">
+            <X className="h-4 w-4" />
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <div className="flex flex-1 min-h-0">
+          <div className="w-44 border-r bg-muted/20 flex flex-col py-3 shrink-0 overflow-y-auto">
+            {sections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    "flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left",
+                    activeSection === section.id
+                      ? "bg-primary/10 text-primary font-medium border-r-2 border-primary"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  )}
+                  data-testid={`nav-hospital-add-section-${section.id}`}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{section.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5">
+            {activeSection === "basic" && (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.name} *</Label>
+                    <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.hospitals.name} data-testid="input-hospital-name" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.fullName}</Label>
+                    <Input value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-hospital-fullname" />
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t.common.country} *</Label>
+                    <Select value={formData.countryCode} onValueChange={(value) => setFormData({ ...formData, countryCode: value, laboratoryId: "" })}>
+                      <SelectTrigger data-testid="select-hospital-country"><SelectValue placeholder={t.common.country} /></SelectTrigger>
+                      <SelectContent>
+                        {COUNTRIES.map((country) => (<SelectItem key={country.code} value={country.code}>{getCountryFlag(country.code)} {country.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.laboratory}</Label>
+                    <Select value={formData.laboratoryId || "_none"} onValueChange={(value) => setFormData({ ...formData, laboratoryId: value === "_none" ? "" : value })}>
+                      <SelectTrigger data-testid="select-hospital-laboratory"><SelectValue placeholder={t.hospitals.laboratory} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">{t.common.noData}</SelectItem>
+                        {filteredLaboratories.map((lab) => (<SelectItem key={lab.id} value={lab.id}>{lab.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "address" && (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.streetNumber}</Label>
+                    <Input value={formData.streetNumber} onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })} data-testid="input-hospital-street" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.city}</Label>
+                    <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} data-testid="input-hospital-city" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.postalCode}</Label>
+                    <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} data-testid="input-hospital-postalcode" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.hospitals.region}</Label>
+                  <Input value={formData.region} onChange={(e) => setFormData({ ...formData, region: e.target.value })} data-testid="input-hospital-region" />
+                </div>
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-base font-medium">{t.clinics.gpsCoordinates}</Label>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={handleGetCurrentLocation} disabled={isLoadingLocation} data-testid="button-get-location">
+                        <Navigation className={`h-4 w-4 mr-2 ${isLoadingLocation ? 'animate-spin' : ''}`} />
+                        {isLoadingLocation ? t.common.loading : t.clinics.getCurrentLocation}
+                      </Button>
+                      {formData.latitude && formData.longitude && (
+                        <Button type="button" variant="outline" size="sm" onClick={() => setShowMapDialog(true)} data-testid="button-show-on-map">
+                          <ExternalLink className="h-4 w-4 mr-2" />{t.clinics.showOnMap}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>{t.clinics.latitude}</Label>
+                      <Input type="number" step="0.0000001" value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} placeholder="48.7164" data-testid="input-hospital-latitude" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.clinics.longitude}</Label>
+                      <Input type="number" step="0.0000001" value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="21.2611" data-testid="input-hospital-longitude" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "contacts" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>{t.hospitals.contactPerson}</Label>
+                  <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} data-testid="input-hospital-contact" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.representative}</Label>
+                    <Select value={formData.representativeId || "_none"} onValueChange={(value) => setFormData({ ...formData, representativeId: value === "_none" ? "" : value })}>
+                      <SelectTrigger data-testid="select-hospital-representative"><SelectValue placeholder={t.hospitals.representative} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">{t.common.noData}</SelectItem>
+                        {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.hospitals.responsiblePerson}</Label>
+                    <Select value={formData.responsiblePersonId || "_none"} onValueChange={(value) => setFormData({ ...formData, responsiblePersonId: value === "_none" ? "" : value })}>
+                      <SelectTrigger data-testid="select-hospital-responsible"><SelectValue placeholder={t.hospitals.responsiblePerson} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">{t.common.noData}</SelectItem>
+                        {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "settings" && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-hospital-active" />
+                  <Label>{t.common.active}</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch checked={formData.autoRecruiting} onCheckedChange={(checked) => setFormData({ ...formData, autoRecruiting: checked })} data-testid="switch-hospital-autorecruiting" />
+                  <Label>{t.hospitals.autoRecruiting}</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch checked={formData.svetZdravia} onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })} data-testid="switch-hospital-svetzdravia" />
+                  <Label>{t.hospitals.svetZdravia}</Label>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
+          <Button variant="outline" onClick={onClose} data-testid="button-cancel-hospital-add">{t.common.cancel}</Button>
+          <Button onClick={handleSubmit} disabled={saveMutation.isPending} data-testid="button-save-hospital-add">
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+            {t.common.save}
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              {formData.name || "Nemocnica"} - Poloha na mape
+            </DialogTitle>
+          </DialogHeader>
+          <div className="w-full h-[400px] rounded-lg overflow-hidden border">
+            {formData.latitude && formData.longitude && (
+              <iframe title="Hospital Location Map" width="100%" height="100%" frameBorder="0" style={{ border: 0 }}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(formData.longitude) - 0.01}%2C${parseFloat(formData.latitude) - 0.01}%2C${parseFloat(formData.longitude) + 0.01}%2C${parseFloat(formData.latitude) + 0.01}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`}
+                allowFullScreen />
+            )}
+          </div>
+          <div className="flex justify-between items-center text-sm text-muted-foreground">
+            <span>GPS: {formData.latitude}, {formData.longitude}</span>
+            <Button variant="outline" size="sm" onClick={() => window.open(`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`, '_blank')} data-testid="button-open-google-maps">
+              <ExternalLink className="h-4 w-4 mr-2" />{t.clinics.openInNewTab}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -1275,7 +1078,6 @@ export default function HospitalsPage() {
   const [hospitalToDelete, setHospitalToDelete] = useState<Hospital | null>(null);
   const [clinicToDelete, setClinicToDelete] = useState<Clinic | null>(null);
   const [activeTab, setActiveTab] = useState("hospital");
-  const [useWizardForm, setUseWizardForm] = useState(true);
   const [personnelEntity, setPersonnelEntity] = useState<{ type: "hospital" | "clinic"; id: string; name: string } | null>(null);
   const [clinicCountryTab, setClinicCountryTab] = useState<string>("ALL");
   const [countryTab, setCountryTab] = useState<string>("ALL");
@@ -2736,54 +2538,15 @@ export default function HospitalsPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className={useWizardForm ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-2xl max-h-[90vh] overflow-y-auto"}>
-          <DialogHeader>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <DialogTitle>
-                  {t.hospitals.addHospital}
-                </DialogTitle>
-                <DialogDescription>
-                  {t.hospitals.addHospitalDesc}
-                </DialogDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={useWizardForm ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setUseWizardForm(true)}
-                  data-testid="button-wizard-mode"
-                >
-                  <ListChecks className="h-4 w-4 mr-1" />
-                  Wizard
-                </Button>
-                <Button
-                  variant={!useWizardForm ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setUseWizardForm(false)}
-                  data-testid="button-simple-mode"
-                >
-                  <FileEdit className="h-4 w-4 mr-1" />
-                  {t.common?.form || "Form"}
-                </Button>
-              </div>
-            </div>
-          </DialogHeader>
-          {useWizardForm ? (
-            <HospitalFormWizard
-              onSuccess={() => setIsFormOpen(false)}
-              onCancel={() => setIsFormOpen(false)}
-            />
-          ) : (
-            <HospitalForm
-              hospital={undefined}
-              onClose={() => setIsFormOpen(false)}
-              onSuccess={() => setIsFormOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {isFormOpen && (
+        <HospitalAddDrawer
+          onClose={() => setIsFormOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+            setIsFormOpen(false);
+          }}
+        />
+      )}
 
       {editingHospital && (
         <HospitalEditDrawer
