@@ -2271,7 +2271,7 @@ function ActivityTab() {
                               )}
                             </div>
                             <div>
-                              <span>{c.firstName} {c.lastName}</span>
+                              <button className="text-primary hover:underline cursor-pointer font-medium text-left" onClick={() => setRepDrawerId(c.id)} data-testid={`btn-open-rep-${c.id}`}>{c.firstName} {c.lastName}</button>
                             </div>
                           </div>
                         </TableCell>
@@ -2297,9 +2297,6 @@ function ActivityTab() {
                         <TableCell className="text-center">{repVisitStats[c.id]?.completed || 0}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Button variant="outline" size="sm" onClick={() => setRepDrawerId(c.id)} data-testid={`btn-detail-${c.id}`} title={t.common.detail || "Detail"}>
-                              <User className="h-3 w-3" />
-                            </Button>
                             <Button variant="outline" size="sm" onClick={() => setMeetingCollaborator(c)} data-testid={`btn-plan-meeting-${c.id}`}>
                               <Calendar className="h-3 w-3 mr-1" />
                               {t.mpn.planMeeting}
