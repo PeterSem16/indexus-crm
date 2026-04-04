@@ -40,7 +40,7 @@ import type {
   CollaboratorAgreement,
   CollaboratorActivity,
   SafeUser,
-  Hospital,
+  Hospital as HospitalType,
   HealthInsurance,
   BillingDetails,
   ActivityLog,

@@ -38,7 +38,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange, ExchangeRate, EmailRoutingRule, EmailTag, GsmSenderConfig } from "@shared/schema";
 import { EMAIL_PRIORITIES, EMAIL_IMPORTANCE, EMAIL_CONDITION_TYPES, EMAIL_ACTION_TYPES, GSM_SENDER_ID_TYPES } from "@shared/schema";
 import { CRM_MODULES, MODULE_CATEGORIES, DEPARTMENTS, getModulesByCategory, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
-import { Building2, User, Mail, Phone, Smartphone, RefreshCw, Wallet, MessageSquare, Calendar, Clock, Star, Heart, Users, Folder, Send, Inbox, Archive, Bookmark, Tag, Gift, Briefcase, Building, ShoppingCart, Truck, Zap, Award } from "lucide-react";
+import { Smartphone, Wallet, MessageSquare, Calendar, Clock, Star, Heart, Folder, Send, Inbox, Archive, Bookmark, Tag, Gift, Briefcase, Building, ShoppingCart, Truck } from "lucide-react";
 import { DepartmentTree } from "@/components/department-tree";
 import { NotificationRulesManager } from "@/components/notification-center";
 import WebFormsPage from "@/pages/web-forms";
