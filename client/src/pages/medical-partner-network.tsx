@@ -22,7 +22,8 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import type { VisitEvent, Collaborator } from "@shared/schema";
-import { VISIT_SUBJECTS, VISIT_PLACE_OPTIONS } from "@shared/schema";
+import { VISIT_SUBJECTS, VISIT_PLACE_OPTIONS, COUNTRIES } from "@shared/schema";
+import { getCountryFlag } from "@/lib/countries";
 import {
   Building2, Users, Settings, LayoutDashboard, Plus, Edit, Trash2,
   Phone, Mail, MessageCircle, Star, Search, Filter, Hospital, Stethoscope,
@@ -1182,9 +1183,18 @@ function MeetingScheduleDrawer({ collaborator, hospitals, open, onClose }: {
                       }}
                       data-testid={`hospital-option-${h.id}`}
                     >
-                      <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                      <div>
-                        <div className="font-medium">{h.name}</div>
+                      {h._type === "clinic" ? (
+                        <Stethoscope className="h-3 w-3 text-teal-600 flex-shrink-0" />
+                      ) : (
+                        <Building2 className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-medium flex items-center gap-1.5">
+                          {h.name}
+                          <Badge variant="outline" className={cn("text-[9px] px-1 py-0", h._type === "clinic" ? "text-teal-700 border-teal-300" : "text-blue-700 border-blue-300")}>
+                            {h._type === "clinic" ? "Clinic" : "Hospital"}
+                          </Badge>
+                        </div>
                         {h.city && <div className="text-xs text-muted-foreground">{h.city}</div>}
                       </div>
                     </div>
@@ -1245,6 +1255,7 @@ function ActivityTab() {
   const { toast } = useToast();
   const [subTab, setSubTab] = useState("representatives");
   const [searchQuery, setSearchQuery] = useState("");
+  const [repCountryFilter, setRepCountryFilter] = useState<string>("all");
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>("all");
   const [activityType, setActivityType] = useState<ActivityType>("all");
   const [dateRange, setDateRange] = useState<DateRange>("week");
@@ -1287,6 +1298,22 @@ function ActivityTab() {
       return res.json();
     }
   });
+
+  const { data: clinics = [] } = useQuery<any[]>({
+    queryKey: ["/api/clinics", selectedCountries.join(",")],
+    queryFn: async () => {
+      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
+      const res = await fetch(`/api/clinics${params}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+
+  const hospitalsAndClinics = useMemo(() => {
+    const h = hospitals.map((item: any) => ({ ...item, _type: "hospital" }));
+    const c = clinics.map((item: any) => ({ ...item, _type: "clinic" }));
+    return [...h, ...c];
+  }, [hospitals, clinics]);
 
   const { data: callRecordings = [] } = useQuery<any[]>({
     queryKey: ["/api/collaborators", selectedCollaborator, "call-recordings"],
@@ -1509,14 +1536,20 @@ function ActivityTab() {
   }, [visitEvents]);
 
   const filteredRepresentatives = useMemo(() => {
-    if (!searchQuery.trim() || searchQuery.trim().length < 3) return mobileEnabledCollabs;
-    const q = searchQuery.toLowerCase();
-    return mobileEnabledCollabs.filter(c =>
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
-      c.email?.toLowerCase().includes(q) ||
-      c.phone?.toLowerCase().includes(q)
-    );
-  }, [mobileEnabledCollabs, searchQuery]);
+    let result = mobileEnabledCollabs;
+    if (repCountryFilter !== "all") {
+      result = result.filter(c => c.countryCode === repCountryFilter);
+    }
+    if (searchQuery.trim() && searchQuery.trim().length >= 3) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(c =>
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q) ||
+        c.phone?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [mobileEnabledCollabs, searchQuery, repCountryFilter]);
 
   const repVisitStats = useMemo(() => {
     const stats: Record<string, { total: number; completed: number }> = {};
@@ -1632,14 +1665,27 @@ function ActivityTab() {
               <CardDescription>{t.mpn.indexusConnectEnabled}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder={t.common.search} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="input-search-reps" />
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder={t.common.search} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="input-search-reps" />
+                  </div>
+                  {searchQuery.length > 0 && searchQuery.length < 3 && (
+                    <div className="text-xs text-muted-foreground mt-1 ml-1">{t.mpn.minChars}</div>
+                  )}
                 </div>
-                {searchQuery.length > 0 && searchQuery.length < 3 && (
-                  <div className="text-xs text-muted-foreground mt-1 ml-1">{t.mpn.minChars}</div>
-                )}
+                <Select value={repCountryFilter} onValueChange={setRepCountryFilter}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-rep-country-filter">
+                    <SelectValue placeholder={t.common.country} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+                    {COUNTRIES.map(c => (
+                      <SelectItem key={c.code} value={c.code}>{getCountryFlag(c.code)} {c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <ScrollArea className="h-[calc(100vh-480px)]">
                 <Table>
@@ -1930,7 +1976,7 @@ function ActivityTab() {
       {meetingCollaborator && (
         <MeetingScheduleDrawer
           collaborator={meetingCollaborator}
-          hospitals={hospitals}
+          hospitals={hospitalsAndClinics}
           open={!!meetingCollaborator}
           onClose={() => setMeetingCollaborator(null)}
         />

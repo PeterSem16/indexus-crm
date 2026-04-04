@@ -1882,7 +1882,7 @@ function CollaboratorForm({
   );
 }
 
-export default function CollaboratorsPage() {
+export function CollaboratorsContent({ embedded = false }: { embedded?: boolean }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2287,15 +2287,26 @@ export default function CollaboratorsPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={t.collaborators.title} description={t.collaborators.description}>
-        {canAdd("collaborators") && (
-          <Button onClick={handleAddNew} data-testid="button-add-collaborator">
+    <div className={embedded ? "space-y-4" : "space-y-6"}>
+      {!embedded && (
+        <PageHeader title={t.collaborators.title} description={t.collaborators.description}>
+          {canAdd("collaborators") && (
+            <Button onClick={handleAddNew} data-testid="button-add-collaborator">
+              <Plus className="h-4 w-4 mr-2" />
+              {t.collaborators.addCollaborator}
+            </Button>
+          )}
+        </PageHeader>
+      )}
+
+      {embedded && canAdd("collaborators") && (
+        <div className="flex justify-end">
+          <Button onClick={handleAddNew} data-testid="button-add-collaborator-embedded">
             <Plus className="h-4 w-4 mr-2" />
             {t.collaborators.addCollaborator}
           </Button>
-        )}
-      </PageHeader>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-4">
@@ -2670,4 +2681,8 @@ export default function CollaboratorsPage() {
       </AlertDialog>
     </div>
   );
+}
+
+export default function CollaboratorsPage() {
+  return <CollaboratorsContent embedded={false} />;
 }

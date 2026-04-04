@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
+import { CollaboratorsContent } from "@/pages/collaborators";
 import { InstitutionPersonnelPanel, InstitutionPersonnelManager } from "@/components/institution-personnel-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -2062,6 +2063,10 @@ export default function HospitalsPage() {
             <Stethoscope className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.clinics}
           </TabsTrigger>
+          <TabsTrigger value="collaborators" data-testid="tab-collaborators">
+            <Users className="h-4 w-4 mr-2" />
+            {t.nav?.collaborators || "Collaborators"}
+          </TabsTrigger>
           <TabsTrigger value="agreements" data-testid="tab-agreements">
             <FileText className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.agreements}
@@ -2741,6 +2746,10 @@ export default function HospitalsPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="collaborators" className="mt-6">
+          <CollaboratorsContent embedded={true} />
         </TabsContent>
 
         <TabsContent value="agreements" className="mt-6">
