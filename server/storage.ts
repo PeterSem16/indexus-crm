@@ -3122,7 +3122,9 @@ export class DatabaseStorage implements IStorage {
     } else if (status === "inactive") {
       conditions.push(eq(collaborators.isActive, false));
     }
-    if (collabType && collabType.trim()) {
+    if (collabType === "mobile_enabled") {
+      conditions.push(eq(collaborators.mobileAppEnabled, true));
+    } else if (collabType && collabType.trim()) {
       conditions.push(eq(collaborators.collaboratorType, collabType.trim()));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;

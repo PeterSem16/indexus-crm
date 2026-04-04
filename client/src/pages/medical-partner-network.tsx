@@ -28,7 +28,7 @@ import { getCountryFlag } from "@/lib/countries";
 import {
   Building2, Users, Settings, LayoutDashboard, Plus, Edit, Trash2,
   Phone, Mail, MessageCircle, Star, Search, Filter, Hospital, Stethoscope,
-  UserCheck, UserX, Link2, ChevronRight, Building, Clock, Loader2,
+  UserCheck, UserX, Link2, ChevronLeft, ChevronRight, Building, Clock, Loader2,
   Network, MapPin, X, User, Sparkles, ZoomIn, ZoomOut, Maximize2,
   Activity, Calendar, CheckCircle, XCircle, AlertCircle, LogIn, Database
 } from "lucide-react";
@@ -1484,55 +1484,72 @@ function ActivityTab() {
   const { toast } = useToast();
   const [subTab, setSubTab] = useState("representatives");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [repCountryFilter, setRepCountryFilter] = useState<string>("all");
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>("all");
   const [activityType, setActivityType] = useState<ActivityType>("all");
   const [dateRange, setDateRange] = useState<DateRange>("week");
   const [meetingCollaborator, setMeetingCollaborator] = useState<Collaborator | null>(null);
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
+  const [repPage, setRepPage] = useState(1);
+  const repLimit = 50;
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const dateFnsLocale = dateLocales[locale] || enUS;
 
-  const { data: collaborators = [], isLoading: collabLoading } = useQuery<Collaborator[]>({
-    queryKey: ["/api/collaborators", selectedCountries.join(",")],
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => { setRepPage(1); }, [debouncedSearch, repCountryFilter, selectedCountries]);
+
+  const repCountryParam = repCountryFilter !== "all" ? repCountryFilter : (selectedCountries.length > 0 ? selectedCountries.join(",") : "");
+
+  const { data: collabResult, isLoading: collabLoading } = useQuery<{ data: Collaborator[]; total: number }>({
+    queryKey: ["/api/collaborators", "paginated", repPage, repLimit, debouncedSearch, repCountryParam],
     queryFn: async () => {
-      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
-      const res = await fetch(`/api/collaborators${params}`, { credentials: "include" });
+      const params = new URLSearchParams();
+      params.set("page", String(repPage));
+      params.set("limit", String(repLimit));
+      if (debouncedSearch.length >= 3) params.set("search", debouncedSearch);
+      if (repCountryParam) params.set("countries", repCountryParam);
+      params.set("type", "mobile_enabled");
+      const res = await fetch(`/api/collaborators?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     }
   });
 
-  const mobileEnabledCollabs = useMemo(() =>
-    collaborators.filter(c => c.mobileAppEnabled),
-  [collaborators]);
+  const collaborators = collabResult?.data || [];
+  const collabTotal = collabResult?.total || 0;
+  const totalRepPages = Math.ceil(collabTotal / repLimit);
 
-  const { data: visitEvents = [], isLoading: visitsLoading } = useQuery<VisitEvent[]>({
-    queryKey: ["/api/visit-events", selectedCountries.join(",")],
+  const { data: repVisitStats = {} } = useQuery<Record<string, { total: number; completed: number }>>({
+    queryKey: ["/api/mpn/rep-visit-stats", selectedCountries.join(",")],
     queryFn: async () => {
       const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
-      const res = await fetch(`/api/visit-events${params}`, { credentials: "include" });
+      const res = await fetch(`/api/mpn/rep-visit-stats${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     }
   });
 
   const { data: hospitals = [] } = useQuery<any[]>({
-    queryKey: ["/api/hospitals", selectedCountries.join(",")],
+    queryKey: ["/api/hospitals/lookup", selectedCountries.join(",")],
     queryFn: async () => {
       const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
-      const res = await fetch(`/api/hospitals${params}`, { credentials: "include" });
+      const res = await fetch(`/api/hospitals/lookup${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     }
   });
 
   const { data: clinics = [] } = useQuery<any[]>({
-    queryKey: ["/api/clinics", selectedCountries.join(",")],
+    queryKey: ["/api/clinics/lookup", selectedCountries.join(",")],
     queryFn: async () => {
       const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
-      const res = await fetch(`/api/clinics${params}`, { credentials: "include" });
+      const res = await fetch(`/api/clinics/lookup${params}`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     }
@@ -1543,6 +1560,19 @@ function ActivityTab() {
     const c = clinics.map((item: any) => ({ ...item, _type: "clinic" }));
     return [...h, ...c];
   }, [hospitals, clinics]);
+
+  const { data: visitEvents = [] } = useQuery<VisitEvent[]>({
+    queryKey: ["/api/visit-events", "activity-tab", selectedCountries.join(",")],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      params.set("limit", "500");
+      const res = await fetch(`/api/visit-events?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: subTab === "activity" || subTab === "meetings",
+  });
 
   const { data: callRecordings = [] } = useQuery<any[]>({
     queryKey: ["/api/collaborators", selectedCollaborator, "call-recordings"],
@@ -1764,31 +1794,7 @@ function ActivityTab() {
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [visitEvents]);
 
-  const filteredRepresentatives = useMemo(() => {
-    let result = mobileEnabledCollabs;
-    if (repCountryFilter !== "all") {
-      result = result.filter(c => c.countryCode === repCountryFilter);
-    }
-    if (searchQuery.trim() && searchQuery.trim().length >= 3) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(c =>
-        `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q) ||
-        c.phone?.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [mobileEnabledCollabs, searchQuery, repCountryFilter]);
-
-  const repVisitStats = useMemo(() => {
-    const stats: Record<string, { total: number; completed: number }> = {};
-    visitEvents.forEach(e => {
-      if (!stats[e.collaboratorId]) stats[e.collaboratorId] = { total: 0, completed: 0 };
-      stats[e.collaboratorId].total++;
-      if (e.status === "completed") stats[e.collaboratorId].completed++;
-    });
-    return stats;
-  }, [visitEvents]);
+  
 
   const playRecording = (recordingId: string) => {
     if (playingRecordingId === recordingId) {
@@ -1828,7 +1834,7 @@ function ActivityTab() {
               <Users className="h-5 w-5 text-blue-700 dark:text-blue-300" />
             </div>
             <div>
-              <div className="text-2xl font-bold" data-testid="stat-active-reps-value">{mobileEnabledCollabs.length}</div>
+              <div className="text-2xl font-bold" data-testid="stat-active-reps-value">{collabTotal}</div>
               <div className="text-sm text-muted-foreground">{t.mpn.activeRepresentatives}</div>
             </div>
           </CardContent>
@@ -1889,7 +1895,7 @@ function ActivityTab() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                {t.mpn.representativesList} ({mobileEnabledCollabs.length})
+                {t.mpn.representativesList} ({collabTotal})
               </CardTitle>
               <CardDescription>{t.mpn.indexusConnectEnabled}</CardDescription>
             </CardHeader>
@@ -1932,7 +1938,7 @@ function ActivityTab() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRepresentatives.map((c) => (
+                    {collaborators.map((c) => (
                       <TableRow key={c.id} data-testid={`rep-row-${c.id}`}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
@@ -1970,12 +1976,28 @@ function ActivityTab() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filteredRepresentatives.length === 0 && (
+                    {collaborators.length === 0 && (
                       <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">{t.common.noResults}</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
               </ScrollArea>
+              {totalRepPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    {t.common.showing || "Showing"} {((repPage - 1) * repLimit) + 1}–{Math.min(repPage * repLimit, collabTotal)} {t.common.of || "of"} {collabTotal}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" disabled={repPage <= 1} onClick={() => setRepPage(p => p - 1)} data-testid="btn-rep-prev">
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm font-medium">{repPage} / {totalRepPages}</span>
+                    <Button variant="outline" size="sm" disabled={repPage >= totalRepPages} onClick={() => setRepPage(p => p + 1)} data-testid="btn-rep-next">
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -2064,7 +2086,7 @@ function ActivityTab() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t.common.all}</SelectItem>
-                    {mobileEnabledCollabs.map((c) => (
+                    {collaborators.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
                     ))}
                   </SelectContent>

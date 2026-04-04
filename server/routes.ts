@@ -14584,9 +14584,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return res.json({ data: enrichedData, total: result.total });
       }
       const countryCodes = req.query.countries ? String(req.query.countries).split(",") : undefined;
-      const collaborators = countryCodes 
-        ? await storage.getCollaboratorsByCountry(countryCodes)
-        : await storage.getAllCollaborators();
+
+      const result = await storage.getCollaboratorsPaginated(1, 200, undefined, undefined, countryCodes, status, collabType);
       
       const today = new Date();
       const allAssignments2 = await db.select({
@@ -14599,26 +14598,29 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (a.entityType === 'hospital') assignmentMap2[a.personId].hospitalCount++;
         else if (a.entityType === 'clinic') assignmentMap2[a.personId].clinicCount++;
       }
-      const enrichedCollaborators = await Promise.all(
-        collaborators.map(async (collab) => {
-          try {
-            const agreements = await storage.getCollaboratorAgreements(collab.id);
-            let hasExpiredAgreement = false;
-            let hasValidAgreement = false;
-            const hasNoAgreement = agreements.length === 0;
-            for (const agreement of agreements) {
-              if (agreement.validToYear && agreement.validToMonth && agreement.validToDay) {
-                const validTo = new Date(agreement.validToYear, agreement.validToMonth - 1, agreement.validToDay);
-                if (validTo < today) { hasExpiredAgreement = true; } else if (agreement.isValid) { hasValidAgreement = true; }
-              } else if (agreement.isValid) { hasValidAgreement = true; }
-            }
-            const counts = assignmentMap2[collab.id] || { hospitalCount: 0, clinicCount: 0 };
-            return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
-          } catch {
-            return { ...collab, hasExpiredAgreement: false, hasValidAgreement: false, hasNoAgreement: true, hospitalCount: 0, clinicCount: 0 };
-          }
-        })
-      );
+
+      const allAgreements = await storage.getAllCollaboratorAgreements();
+      const agreementsByCollab = new Map<string, typeof allAgreements>();
+      for (const ag of allAgreements) {
+        const list = agreementsByCollab.get(ag.collaboratorId) || [];
+        list.push(ag);
+        agreementsByCollab.set(ag.collaboratorId, list);
+      }
+
+      const enrichedCollaborators = result.data.map((collab) => {
+        const agreements = agreementsByCollab.get(collab.id) || [];
+        let hasExpiredAgreement = false;
+        let hasValidAgreement = false;
+        const hasNoAgreement = agreements.length === 0;
+        for (const agreement of agreements) {
+          if (agreement.validToYear && agreement.validToMonth && agreement.validToDay) {
+            const validTo = new Date(agreement.validToYear, agreement.validToMonth - 1, agreement.validToDay);
+            if (validTo < today) { hasExpiredAgreement = true; } else if (agreement.isValid) { hasValidAgreement = true; }
+          } else if (agreement.isValid) { hasValidAgreement = true; }
+        }
+        const counts = assignmentMap2[collab.id] || { hospitalCount: 0, clinicCount: 0 };
+        return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
+      });
       res.json(enrichedCollaborators);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch collaborators" });
@@ -16793,9 +16795,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
       
       const countryCodes = countries ? (countries as string).split(",") : undefined;
-      const events = countryCodes
+      const limitParam = parseInt(req.query.limit as string) || 0;
+      let events = countryCodes
         ? await storage.getVisitEventsByCountry(countryCodes)
         : await storage.getAllVisitEvents();
+      
+      if (limitParam > 0) {
+        events = events.slice(0, limitParam);
+      }
       
       res.json(events);
     } catch (error) {
@@ -41134,6 +41141,30 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         unassignedPersons: unassignedPersons.rows?.[0]?.count || 0,
         unassignedInstitutions: unassignedInstitutions.rows?.[0]?.count || 0,
       });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/mpn/rep-visit-stats", requireAuth, async (req, res) => {
+    try {
+      const countryCodes = req.query.countries ? String(req.query.countries).split(",").filter(Boolean) : undefined;
+      let conditions = [];
+      if (countryCodes && countryCodes.length > 0) {
+        conditions.push(sql`ve.country_code IN (${sql.join(countryCodes.map(c => sql`${c}`), sql`, `)})`);
+      }
+      const whereClause = conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
+      const stats = await db.execute(sql`
+        SELECT ve.collaborator_id, 
+               COUNT(*)::int as total, 
+               COUNT(*) FILTER (WHERE ve.status = 'completed')::int as completed
+        FROM visit_events ve
+        ${whereClause}
+        GROUP BY ve.collaborator_id
+      `);
+      const result: Record<string, { total: number; completed: number }> = {};
+      for (const row of (stats.rows || [])) {
+        result[row.collaborator_id as string] = { total: row.total as number, completed: row.completed as number };
+      }
+      res.json(result);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
