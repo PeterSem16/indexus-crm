@@ -510,6 +510,7 @@ function NetworkExplorer() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedResult, setSelectedResult] = useState<{ type: "institution" | "person"; entityType?: string; id: string; name: string } | null>(null);
+  const [drawerEntity, setDrawerEntity] = useState<{ type: "hospital" | "clinic" | "person"; id: string } | null>(null);
 
   const searchTimeout = useRef<any>(null);
   const handleSearch = (val: string) => {
@@ -654,6 +655,25 @@ function NetworkExplorer() {
   }, [networkData, selectedResult]);
 
   const [detailNode, setDetailNode] = useState<NetworkNode | null>(null);
+
+  const { data: drawerData, isLoading: drawerLoading } = useQuery<any>({
+    queryKey: ["/api/mpn/drawer-entity", drawerEntity?.type, drawerEntity?.id],
+    queryFn: async () => {
+      if (!drawerEntity) return null;
+      if (drawerEntity.type === "person") {
+        const res = await fetch(`/api/collaborators/lookup?ids=${drawerEntity.id}`, { credentials: "include" });
+        if (!res.ok) return null;
+        const list = await res.json();
+        return list[0] || null;
+      } else {
+        const endpoint = drawerEntity.type === "hospital" ? "hospitals" : "clinics";
+        const res = await fetch(`/api/${endpoint}/${drawerEntity.id}`, { credentials: "include" });
+        if (!res.ok) return null;
+        return res.json();
+      }
+    },
+    enabled: !!drawerEntity,
+  });
 
   const searchResults = searchType === "institution"
     ? (instResults?.data || [])
@@ -929,13 +949,7 @@ function NetworkExplorer() {
                           size="sm"
                           className="w-full text-xs"
                           data-testid={`btn-open-detail-${detailNode.entityId}`}
-                          onClick={() => {
-                            if (detailNode.type === "hospital" || detailNode.type === "clinic") {
-                              window.open(`/hospitals?id=${detailNode.entityId}`, "_blank");
-                            } else {
-                              window.open(`/collaborators?id=${detailNode.entityId}`, "_blank");
-                            }
-                          }}
+                          onClick={() => setDrawerEntity({ type: detailNode.type, id: detailNode.entityId! })}
                         >
                           <Link2 className="h-3 w-3 mr-1" />
                           {detailNode.type === "hospital" ? t.mpn.hospital : detailNode.type === "clinic" ? t.mpn.clinic : t.mpn.person} — {t.common.detail || "Detail"}
@@ -949,6 +963,148 @@ function NetworkExplorer() {
           )}
         </div>
       )}
+
+      <Sheet open={!!drawerEntity} onOpenChange={(open) => { if (!open) setDrawerEntity(null); }}>
+        <SheetContent className="sm:max-w-xl overflow-y-auto" data-testid="entity-detail-drawer">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              {drawerEntity?.type === "hospital" ? <Hospital className="h-5 w-5 text-blue-600" /> :
+               drawerEntity?.type === "clinic" ? <Stethoscope className="h-5 w-5 text-emerald-600" /> :
+               <User className="h-5 w-5 text-violet-600" />}
+              {drawerLoading ? "..." : drawerData?.name || drawerData?.firstName ? `${drawerData.titleBefore || drawerData.title_before || ""} ${drawerData.firstName || drawerData.first_name || ""} ${drawerData.lastName || drawerData.last_name || ""}`.trim() : ""}
+            </SheetTitle>
+          </SheetHeader>
+          {drawerLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : drawerData ? (
+            <div className="space-y-4 mt-4">
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="outline">
+                  {drawerEntity?.type === "hospital" ? t.mpn.hospital : drawerEntity?.type === "clinic" ? t.mpn.clinic : t.mpn.person}
+                </Badge>
+                {drawerData.collaboratorType && <Badge variant="secondary">{drawerData.collaboratorType}</Badge>}
+                {drawerData.isActive === true && <Badge className="bg-green-600 text-white text-xs">{t.common.active}</Badge>}
+                {drawerData.isActive === false && <Badge variant="destructive" className="text-xs">{t.common.inactive}</Badge>}
+                {drawerData.countryCode && <Badge variant="outline">{getCountryFlag(drawerData.countryCode || drawerData.country_code)} {drawerData.countryCode || drawerData.country_code}</Badge>}
+              </div>
+
+              <Card>
+                <CardContent className="p-4 space-y-2 text-sm">
+                  {(drawerEntity?.type === "hospital" || drawerEntity?.type === "clinic") && (
+                    <>
+                      {drawerData.name && (
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium">{drawerData.name}</span>
+                        </div>
+                      )}
+                      {drawerData.city && (
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{[drawerData.address, drawerData.city, drawerData.zip].filter(Boolean).join(", ")}</span>
+                        </div>
+                      )}
+                      {drawerData.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{drawerData.phone}</span>
+                        </div>
+                      )}
+                      {drawerData.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{drawerData.email}</span>
+                        </div>
+                      )}
+                      {drawerData.website && (
+                        <div className="flex items-center gap-2">
+                          <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <a href={drawerData.website} target="_blank" rel="noopener noreferrer" className="text-primary underline truncate">{drawerData.website}</a>
+                        </div>
+                      )}
+                      {drawerData.type && (
+                        <div className="flex items-center gap-2">
+                          <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{t.common.type || "Type"}: <span className="font-medium">{drawerData.type}</span></span>
+                        </div>
+                      )}
+                      {drawerData.beds != null && (
+                        <div className="flex items-center gap-2">
+                          <Building className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{t.common.beds || "Beds"}: <span className="font-medium">{drawerData.beds}</span></span>
+                        </div>
+                      )}
+                      {drawerData.departments && (
+                        <div className="flex items-start gap-2">
+                          <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          <span>{t.mpn.department}: <span className="font-medium">{Array.isArray(drawerData.departments) ? drawerData.departments.join(", ") : drawerData.departments}</span></span>
+                        </div>
+                      )}
+                      {drawerData.notes && (
+                        <div className="flex items-start gap-2 mt-2">
+                          <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          <span className="text-muted-foreground italic">{drawerData.notes}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {drawerEntity?.type === "person" && (
+                    <>
+                      {(drawerData.titleBefore || drawerData.firstName || drawerData.lastName) && (
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium">
+                            {[drawerData.titleBefore, drawerData.firstName, drawerData.lastName, drawerData.titleAfter].filter(Boolean).join(" ")}
+                          </span>
+                        </div>
+                      )}
+                      {drawerData.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{drawerData.phone}</span>
+                        </div>
+                      )}
+                      {drawerData.mobile && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{drawerData.mobile}</span>
+                        </div>
+                      )}
+                      {drawerData.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{drawerData.email}</span>
+                        </div>
+                      )}
+                      {drawerData.collaboratorType && (
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{t.common.type || "Type"}: <span className="font-medium">{drawerData.collaboratorType}</span></span>
+                        </div>
+                      )}
+                      {drawerData.specialization && (
+                        <div className="flex items-center gap-2">
+                          <Stethoscope className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{drawerData.specialization}</span>
+                        </div>
+                      )}
+                      {drawerData.notes && (
+                        <div className="flex items-start gap-2 mt-2">
+                          <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          <span className="text-muted-foreground italic">{drawerData.notes}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
