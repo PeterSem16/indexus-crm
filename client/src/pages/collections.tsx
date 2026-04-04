@@ -269,7 +269,15 @@ export default function CollectionsPage() {
   });
 
   const { data: collaborators = [] } = useQuery<any[]>({
-    queryKey: ["/api/collaborators/lookup"],
+    queryKey: ["/api/collaborators/lookup", { countries: selectedCountries.join(",") }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      params.set("limit", "500");
+      const res = await fetch(`/api/collaborators/lookup?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
     staleTime: 5 * 60 * 1000,
     enabled: needsLookups,
   });

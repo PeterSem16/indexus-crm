@@ -23,12 +23,12 @@ const dateLocales: Record<string, Locale> = {
   sk, cs, hu, ro, it, de, en: enUS
 };
 
-type ActivityType = "all" | "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "login";
+type ActivityType = "all" | "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "call" | "login";
 type DateRange = "today" | "week" | "month" | "all";
 
 interface ActivityItem {
   id: string;
-  type: "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "visit_not_realized" | "login";
+  type: "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "visit_not_realized" | "call" | "login";
   collaboratorId: string;
   collaboratorName: string;
   timestamp: Date;
@@ -39,6 +39,10 @@ interface ActivityItem {
     remarkDetail?: string;
     reason?: string;
     deviceInfo?: string;
+    phoneNumber?: string;
+    callDirection?: string;
+    callDuration?: number;
+    callStatus?: string;
   };
 }
 
@@ -77,6 +81,16 @@ export default function CollaboratorActivityLogPage() {
     queryFn: async () => {
       const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
       const res = await fetch(`/api/hospitals${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    }
+  });
+
+  const { data: callLogsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborator-call-logs", selectedCountries.join(",")],
+    queryFn: async () => {
+      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
+      const res = await fetch(`/api/collaborator-call-logs${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     }
@@ -189,8 +203,26 @@ export default function CollaboratorActivityLogPage() {
       }
     });
 
+    callLogsList.forEach((call) => {
+      const collaboratorName = getCollaboratorName(call.collaboratorId);
+      const duration = call.durationSeconds || 0;
+      items.push({
+        id: `call-${call.id}`,
+        type: "call",
+        collaboratorId: call.collaboratorId,
+        collaboratorName,
+        timestamp: new Date(call.startedAt),
+        details: {
+          phoneNumber: call.phoneNumber,
+          callDirection: call.direction,
+          callDuration: duration,
+          callStatus: call.status,
+        },
+      });
+    });
+
     return items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [visitEvents, collaborators, hospitals, locale]);
+  }, [visitEvents, collaborators, hospitals, callLogsList, locale]);
 
   const filteredActivities = useMemo(() => {
     let filtered = activities;
@@ -208,7 +240,8 @@ export default function CollaboratorActivityLogPage() {
       filtered = filtered.filter(a => 
         a.collaboratorName.toLowerCase().includes(query) ||
         a.details.hospitalName?.toLowerCase().includes(query) ||
-        a.details.visitType?.toLowerCase().includes(query)
+        a.details.visitType?.toLowerCase().includes(query) ||
+        a.details.phoneNumber?.toLowerCase().includes(query)
       );
     }
 
@@ -237,6 +270,7 @@ export default function CollaboratorActivityLogPage() {
       case "visit_completed": return <CheckCircle className="h-4 w-4" />;
       case "visit_cancelled": return <XCircle className="h-4 w-4" />;
       case "visit_not_realized": return <AlertCircle className="h-4 w-4" />;
+      case "call": return <Phone className="h-4 w-4" />;
       case "login": return <LogIn className="h-4 w-4" />;
       default: return <Activity className="h-4 w-4" />;
     }
@@ -249,6 +283,7 @@ export default function CollaboratorActivityLogPage() {
       case "visit_completed": return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
       case "visit_cancelled": return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
       case "visit_not_realized": return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+      case "call": return "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300";
       case "login": return "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300";
       default: return "bg-gray-100 text-gray-700";
     }
@@ -261,6 +296,7 @@ export default function CollaboratorActivityLogPage() {
       case "visit_completed": return t.common.completed;
       case "visit_cancelled": return t.common.cancelled;
       case "visit_not_realized": return t.common.notRealized;
+      case "call": return t.common.call || "Call";
       case "login": return t.activity.login;
       default: return t.common.unknown;
     }
@@ -280,7 +316,8 @@ export default function CollaboratorActivityLogPage() {
     const scheduled = activities.filter(a => a.type === "visit_scheduled").length;
     const completed = activities.filter(a => a.type === "visit_completed").length;
     const cancelled = activities.filter(a => a.type === "visit_cancelled" || a.type === "visit_not_realized").length;
-    return { scheduled, completed, cancelled };
+    const calls = activities.filter(a => a.type === "call").length;
+    return { scheduled, completed, cancelled, calls };
   }, [activities]);
 
   return (
@@ -291,7 +328,7 @@ export default function CollaboratorActivityLogPage() {
       />
 
       <div className="flex-1 overflow-hidden p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card data-testid="stat-scheduled">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900">
@@ -311,6 +348,17 @@ export default function CollaboratorActivityLogPage() {
               <div>
                 <div className="text-2xl font-bold" data-testid="stat-completed-value">{stats.completed}</div>
                 <div className="text-sm text-muted-foreground" data-testid="stat-completed-label">{t.common.completed}</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card data-testid="stat-calls">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900">
+                <Phone className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold" data-testid="stat-calls-value">{stats.calls}</div>
+                <div className="text-sm text-muted-foreground" data-testid="stat-calls-label">{t.common.call || "Calls"}</div>
               </div>
             </CardContent>
           </Card>
@@ -366,6 +414,7 @@ export default function CollaboratorActivityLogPage() {
                   <SelectItem value="visit_scheduled">{t.common.scheduled}</SelectItem>
                   <SelectItem value="visit_completed">{t.common.completed}</SelectItem>
                   <SelectItem value="visit_cancelled">{t.common.cancelled}</SelectItem>
+                  <SelectItem value="call">{t.common.call || "Call"}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
@@ -432,6 +481,13 @@ export default function CollaboratorActivityLogPage() {
                                     <div className="text-sm text-muted-foreground" data-testid={`activity-visit-type-${activity.id}`}>
                                       {activity.details.visitType}
                                       {activity.details.place && ` - ${activity.details.place}`}
+                                    </div>
+                                  )}
+                                  {activity.type === "call" && activity.details.phoneNumber && (
+                                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1" data-testid={`activity-call-${activity.id}`}>
+                                      <Phone className="h-3 w-3" />
+                                      {activity.details.callDirection === "inbound" ? "←" : "→"} {activity.details.phoneNumber}
+                                      {activity.details.callDuration ? ` (${Math.floor(activity.details.callDuration / 60)}:${String(activity.details.callDuration % 60).padStart(2, "0")})` : ""}
                                     </div>
                                   )}
                                   {(activity.type === "visit_cancelled" || activity.type === "visit_not_realized") && (

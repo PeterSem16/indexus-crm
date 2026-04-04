@@ -75,6 +75,7 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
   const { toast } = useToast();
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>('all');
+  const [selectedCollabName, setSelectedCollabName] = useState<string>('');
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -101,38 +102,49 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
     return now;
   };
 
-  const { data: collaborators = [], isLoading: collaboratorsLoading, refetch: refetchCollaborators } = useQuery<any[]>({
-    queryKey: ["/api/collaborators/lookup"],
-  });
-
   const startDate = useMemo(() => getStartDate(period), [period]);
   const endDate = useMemo(() => getEndDate(period), [period]);
 
-  const { data: visitEvents = [], isLoading: eventsLoading, refetch: refetchEvents } = useQuery<VisitEvent[]>({
-    queryKey: ["/api/visit-events", { startDate: startDate.toISOString(), endDate: endDate.toISOString(), countries: selectedCountries.length > 0 ? selectedCountries.join(",") : undefined }],
+  const reportQueryKey = ["/api/collaborator-reports/stats", startDate.toISOString(), endDate.toISOString(), selectedCountries.join(","), selectedCollaborator];
+
+  const { data: reportData, isLoading: reportLoading, refetch: refetchReport } = useQuery<any>({
+    queryKey: reportQueryKey,
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("startDate", startDate.toISOString());
       params.set("endDate", endDate.toISOString());
       if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
-      const res = await fetch(`/api/visit-events?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) return [];
+      if (selectedCollaborator !== "all") params.set("collaboratorId", selectedCollaborator);
+      const res = await fetch(`/api/collaborator-reports/stats?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch report");
       return res.json();
     },
   });
 
-  const { data: hospitals = [], refetch: refetchHospitals } = useQuery<any[]>({
-    queryKey: ["/api/hospitals/lookup"],
+  const stats: ReportStats = reportData?.stats || {
+    totalCollaborators: 0, activeCollaborators: 0, totalVisits: 0,
+    completedVisits: 0, cancelledVisits: 0, scheduledVisits: 0,
+    inProgressVisits: 0, totalHours: 0, hospitalsVisited: 0,
+  };
+  const totalHospitals: number = reportData?.stats?.totalHospitals || 0;
+  const collaboratorStats: CollaboratorStats[] = reportData?.collaboratorStats || [];
+
+  const [collabSearch, setCollabSearch] = useState("");
+  const { data: collabSearchResults = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborators/lookup", collabSearch],
+    queryFn: async () => {
+      if (collabSearch.length < 2) return [];
+      const res = await fetch(`/api/collaborators/lookup?q=${encodeURIComponent(collabSearch)}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: collabSearch.length >= 2,
   });
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        refetchCollaborators(),
-        refetchEvents(),
-        refetchHospitals(),
-      ]);
+      await refetchReport();
       toast({
         title: t.common.success,
         description: t.collaboratorReports.dataRefreshed || 'Data refreshed',
@@ -148,99 +160,7 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
     }
   };
 
-  const filteredCollaborators = useMemo(() => {
-    return collaborators.filter(c => 
-      selectedCountries.length === 0 || selectedCountries.includes(c.countryCode as typeof selectedCountries[number])
-    );
-  }, [collaborators, selectedCountries]);
-
-  const filteredEvents = useMemo(() => {
-    return visitEvents.filter(e => {
-      if (selectedCollaborator !== 'all' && e.collaboratorId !== selectedCollaborator) return false;
-      return true;
-    });
-  }, [visitEvents, selectedCollaborator]);
-
-  const stats = useMemo((): ReportStats => {
-    const completedEvents = filteredEvents.filter(e => e.status === 'completed');
-    const cancelledEvents = filteredEvents.filter(e => e.isCancelled || e.status === 'cancelled' || e.status === 'not_realized');
-    const scheduledEvents = filteredEvents.filter(e => e.status === 'scheduled');
-    const inProgressEvents = filteredEvents.filter(e => e.status === 'in_progress');
-    
-    let totalHours = 0;
-    completedEvents.forEach(e => {
-      if (e.actualStart && e.actualEnd) {
-        totalHours += (new Date(e.actualEnd).getTime() - new Date(e.actualStart).getTime()) / 3600000;
-      }
-    });
-
-    const activeCollabIds = new Set(filteredEvents.map(e => e.collaboratorId));
-    const visitedHospitalIds = new Set(filteredEvents.map(e => e.hospitalId).filter(Boolean));
-
-    return {
-      totalCollaborators: filteredCollaborators.length,
-      activeCollaborators: activeCollabIds.size,
-      totalVisits: filteredEvents.length,
-      completedVisits: completedEvents.length,
-      cancelledVisits: cancelledEvents.length,
-      scheduledVisits: scheduledEvents.length,
-      inProgressVisits: inProgressEvents.length,
-      totalHours: Math.round(totalHours * 10) / 10,
-      hospitalsVisited: visitedHospitalIds.size,
-    };
-  }, [filteredEvents, filteredCollaborators]);
-
-  const collaboratorStats = useMemo((): CollaboratorStats[] => {
-    const statsMap = new Map<string, CollaboratorStats>();
-    
-    filteredCollaborators.forEach(c => {
-      statsMap.set(c.id, {
-        id: c.id,
-        name: `${c.firstName} ${c.lastName}`,
-        country: c.countryCode,
-        totalVisits: 0,
-        completedVisits: 0,
-        cancelledVisits: 0,
-        hoursWorked: 0,
-        hospitalsVisited: 0,
-      });
-    });
-
-    const hospitalsByCollab = new Map<string, Set<string>>();
-    
-    filteredEvents.forEach(e => {
-      const stat = statsMap.get(e.collaboratorId);
-      if (!stat) return;
-      
-      stat.totalVisits++;
-      if (e.status === 'completed') {
-        stat.completedVisits++;
-        if (e.actualStart && e.actualEnd) {
-          stat.hoursWorked += (new Date(e.actualEnd).getTime() - new Date(e.actualStart).getTime()) / 3600000;
-        }
-      }
-      if (e.isCancelled || e.status === 'cancelled' || e.status === 'not_realized') {
-        stat.cancelledVisits++;
-      }
-      if (e.hospitalId) {
-        if (!hospitalsByCollab.has(e.collaboratorId)) {
-          hospitalsByCollab.set(e.collaboratorId, new Set());
-        }
-        hospitalsByCollab.get(e.collaboratorId)!.add(e.hospitalId);
-      }
-    });
-
-    hospitalsByCollab.forEach((hospitals, collabId) => {
-      const stat = statsMap.get(collabId);
-      if (stat) {
-        stat.hospitalsVisited = hospitals.size;
-      }
-    });
-
-    return Array.from(statsMap.values())
-      .filter(s => s.totalVisits > 0)
-      .sort((a, b) => b.totalVisits - a.totalVisits);
-  }, [filteredCollaborators, filteredEvents]);
+  const eventsLoading = reportLoading;
 
   const visitTypeNames: Record<number, string> = {
     1: 'Personal visit',
@@ -260,23 +180,11 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
   };
 
   const visitTypeData = useMemo(() => {
-    const typeCount = new Map<number, number>();
-    filteredEvents.forEach(e => {
-      if (e.visitType !== null && e.visitType !== undefined) {
-        const visitTypeNum = typeof e.visitType === 'string' ? parseInt(e.visitType, 10) : e.visitType;
-        if (!isNaN(visitTypeNum)) {
-          typeCount.set(visitTypeNum, (typeCount.get(visitTypeNum) || 0) + 1);
-        }
-      }
-    });
-
-    return Array.from(typeCount.entries())
-      .map(([type, count]) => ({
-        name: visitTypeNames[type] || `Type ${type}`,
-        value: count,
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredEvents]);
+    return (reportData?.visitTypes || []).map((vt: any) => ({
+      name: visitTypeNames[vt.type] || `Type ${vt.type}`,
+      value: vt.count,
+    }));
+  }, [reportData]);
 
   const statusLabels = {
     completed: t.collaboratorReports?.completed || 'Completed',
@@ -341,7 +249,7 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
     }
   };
 
-  const isLoading = collaboratorsLoading || eventsLoading;
+  const isLoading = eventsLoading;
 
   const reportTypes = [
     {
@@ -413,19 +321,43 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
 
             <div className="space-y-2">
               <Label data-testid="label-collaborator">{t.collaboratorReports.collaborator}</Label>
-              <Select value={selectedCollaborator} onValueChange={setSelectedCollaborator}>
-                <SelectTrigger className="w-[250px]" data-testid="select-collaborator">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" data-testid="option-collaborator-all">{t.collaboratorReports.allCollaborators}</SelectItem>
-                  {filteredCollaborators.map(c => (
-                    <SelectItem key={c.id} value={c.id} data-testid={`option-collaborator-${c.id}`}>
-                      {getCountryFlag(c.countryCode)} {c.firstName} {c.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="relative w-[280px]">
+                {selectedCollaborator === "all" ? (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={collabSearch}
+                      onChange={e => setCollabSearch(e.target.value)}
+                      placeholder={t.collaboratorReports.allCollaborators}
+                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      data-testid="input-collaborator-search"
+                    />
+                    {collabSearch.length >= 2 && collabSearchResults.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover shadow-md">
+                        {collabSearchResults.map((c: any) => (
+                          <button
+                            key={c.id}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent cursor-pointer"
+                            onClick={() => { setSelectedCollaborator(c.id); setCollabSearch(""); setSelectedCollabName(`${c.firstName} ${c.lastName}`); }}
+                            data-testid={`option-collaborator-${c.id}`}
+                          >
+                            {getCountryFlag(c.countryCode)} {c.firstName} {c.lastName}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-10 px-3 rounded-md border border-input bg-muted/50 flex items-center text-sm">
+                      {selectedCollabName || selectedCollaborator}
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => { setSelectedCollaborator("all"); setSelectedCollabName(""); }} data-testid="btn-clear-collaborator">
+                      ✕
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {selectedCountries.length > 0 && (
@@ -528,7 +460,7 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
               <>
                 <div className="text-2xl font-bold" data-testid="text-hospitals-visited">{stats.hospitalsVisited}</div>
                 <p className="text-xs text-muted-foreground" data-testid="text-hospitals-total">
-                  {t.collaboratorReports.ofTotal} {hospitals.length} {t.collaboratorReports.inSystem}
+                  {t.collaboratorReports.ofTotal} {totalHospitals} {t.collaboratorReports.inSystem}
                 </p>
               </>
             )}

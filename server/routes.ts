@@ -2196,8 +2196,19 @@ export async function registerRoutes(
   app.get("/api/collaborators/lookup", requireAuth, async (req, res) => {
     try {
       const q = (req.query.q as string || "").trim();
+      const countryCodes = (req.query.countries as string || "").split(",").filter(Boolean);
+      const limitParam = Math.min(parseInt(req.query.limit as string) || 10000, 10000);
       if (q && q.length >= 2) {
         const s = `%${q}%`;
+        const conditions: any[] = [sql`(
+            ${collaborators.firstName} ILIKE ${s} OR ${collaborators.lastName} ILIKE ${s}
+            OR ${collaborators.email} ILIKE ${s} OR ${collaborators.phone} ILIKE ${s}
+            OR ${collaborators.mobile} ILIKE ${s}
+            OR (${collaborators.firstName} || ' ' || ${collaborators.lastName}) ILIKE ${s}
+          )`];
+        if (countryCodes.length > 0) {
+          conditions.push(inArray(collaborators.countryCode, countryCodes));
+        }
         const rows = await db.select({
           id: collaborators.id,
           titleBefore: collaborators.titleBefore,
@@ -2210,15 +2221,33 @@ export async function registerRoutes(
           countryCode: collaborators.countryCode,
           collaboratorType: collaborators.collaboratorType,
         }).from(collaborators)
-          .where(sql`(
-            ${collaborators.firstName} ILIKE ${s} OR ${collaborators.lastName} ILIKE ${s}
-            OR ${collaborators.email} ILIKE ${s} OR ${collaborators.phone} ILIKE ${s}
-            OR ${collaborators.mobile} ILIKE ${s}
-            OR (${collaborators.firstName} || ' ' || ${collaborators.lastName}) ILIKE ${s}
-          )`)
+          .where(and(...conditions))
           .orderBy(collaborators.lastName, collaborators.firstName)
           .limit(30);
         return res.json(rows);
+      }
+      if (countryCodes.length > 0) {
+        const data = await db.select({
+          id: collaborators.id,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          countryCode: collaborators.countryCode,
+        }).from(collaborators)
+          .where(inArray(collaborators.countryCode, countryCodes))
+          .orderBy(collaborators.lastName, collaborators.firstName)
+          .limit(limitParam);
+        return res.json(data);
+      }
+      if (limitParam < 10000) {
+        const data = await db.select({
+          id: collaborators.id,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          countryCode: collaborators.countryCode,
+        }).from(collaborators)
+          .orderBy(collaborators.lastName, collaborators.firstName)
+          .limit(limitParam);
+        return res.json(data);
       }
       const data = await storage.getCollaboratorsLookup();
       res.json(data);
@@ -10417,6 +10446,46 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/collaborator-call-logs", requireAuth, async (req, res) => {
+    try {
+      const countryCodes = (req.query.countries as string || "").split(",").filter(Boolean);
+      const conditions: any[] = [];
+      if (countryCodes.length > 0) {
+        const collabIds = await db.select({ id: collaborators.id })
+          .from(collaborators)
+          .where(inArray(collaborators.countryCode, countryCodes));
+        const ids = collabIds.map(c => c.id);
+        if (ids.length === 0) return res.json([]);
+        conditions.push(inArray(callLogs.userId, ids));
+      } else {
+        const collabIds = await db.select({ id: collaborators.id }).from(collaborators);
+        const ids = collabIds.map(c => c.id);
+        if (ids.length === 0) return res.json([]);
+        conditions.push(inArray(callLogs.userId, ids));
+      }
+      const logs = await db.select({
+        id: callLogs.id,
+        collaboratorId: callLogs.userId,
+        phoneNumber: callLogs.phoneNumber,
+        direction: callLogs.direction,
+        status: callLogs.status,
+        startedAt: callLogs.startedAt,
+        endedAt: callLogs.endedAt,
+        durationSeconds: callLogs.durationSeconds,
+        notes: callLogs.notes,
+        customerId: callLogs.customerId,
+        metadata: callLogs.metadata,
+      }).from(callLogs)
+        .where(and(...conditions))
+        .orderBy(desc(callLogs.startedAt))
+        .limit(500);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching collaborator call logs:", error);
+      res.status(500).json({ error: "Failed to fetch collaborator call logs" });
+    }
+  });
+
   // Comprehensive Contact History API - combines call logs, messages, campaign interactions
   app.get("/api/customers/:customerId/contact-history", requireAuth, async (req, res) => {
     try {
@@ -16390,6 +16459,129 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Mobile recording stream error:", error);
       res.status(500).json({ error: "Failed to stream recording" });
+    }
+  });
+
+  // ============================================================================
+  // INDEXUS Web - Collaborator Reports (Server-side aggregation)
+  // ============================================================================
+
+  app.get("/api/collaborator-reports/stats", requireAuth, async (req, res) => {
+    try {
+      const { startDate, endDate, countries, collaboratorId } = req.query;
+      if (!startDate || !endDate) return res.status(400).json({ error: "startDate and endDate required" });
+
+      const sd = new Date(startDate as string);
+      const ed = new Date(endDate as string);
+      const countryCodes = countries ? (countries as string).split(",").filter(Boolean) : undefined;
+
+      let countryFilter = sql``;
+      if (countryCodes && countryCodes.length > 0) {
+        countryFilter = sql`AND ve.country_code IN (${sql.join(countryCodes.map(c => sql`${c}`), sql`, `)})`;
+      }
+
+      let collabFilter = sql``;
+      if (collaboratorId && collaboratorId !== "all") {
+        collabFilter = sql`AND ve.collaborator_id = ${collaboratorId}`;
+      }
+
+      const overviewResult = await db.execute(sql`
+        SELECT
+          COUNT(*)::int as total_visits,
+          COUNT(*) FILTER (WHERE ve.status = 'completed')::int as completed_visits,
+          COUNT(*) FILTER (WHERE ve.status = 'scheduled')::int as scheduled_visits,
+          COUNT(*) FILTER (WHERE ve.status = 'in_progress')::int as in_progress_visits,
+          COUNT(*) FILTER (WHERE ve.is_cancelled = true OR ve.status = 'cancelled' OR ve.status = 'not_realized')::int as cancelled_visits,
+          COUNT(DISTINCT ve.collaborator_id)::int as active_collaborators,
+          COUNT(DISTINCT ve.hospital_id) FILTER (WHERE ve.hospital_id IS NOT NULL)::int as hospitals_visited,
+          COALESCE(SUM(
+            CASE WHEN ve.actual_start IS NOT NULL AND ve.actual_end IS NOT NULL AND ve.status = 'completed'
+            THEN EXTRACT(EPOCH FROM (ve.actual_end - ve.actual_start)) / 3600.0
+            ELSE 0 END
+          ), 0)::float as total_hours
+        FROM visit_events ve
+        WHERE ve.start_time >= ${sd} AND ve.start_time <= ${ed}
+        ${countryFilter} ${collabFilter}
+      `);
+
+      const totalCollabResult = await db.execute(sql`
+        SELECT COUNT(*)::int as total FROM collaborators
+        ${countryCodes && countryCodes.length > 0 
+          ? sql`WHERE country_code IN (${sql.join(countryCodes.map(c => sql`${c}`), sql`, `)})` 
+          : sql``}
+      `);
+
+      const totalHospitalsResult = await db.execute(sql`
+        SELECT COUNT(*)::int as total FROM hospitals
+        ${countryCodes && countryCodes.length > 0 
+          ? sql`WHERE country_code IN (${sql.join(countryCodes.map(c => sql`${c}`), sql`, `)})` 
+          : sql``}
+      `);
+
+      const visitTypeResult = await db.execute(sql`
+        SELECT ve.visit_type, COUNT(*)::int as count
+        FROM visit_events ve
+        WHERE ve.start_time >= ${sd} AND ve.start_time <= ${ed}
+          AND ve.visit_type IS NOT NULL
+          ${countryFilter} ${collabFilter}
+        GROUP BY ve.visit_type
+        ORDER BY count DESC
+      `);
+
+      const collabStatsResult = await db.execute(sql`
+        SELECT
+          ve.collaborator_id,
+          c.first_name, c.last_name, c.country_code,
+          COUNT(*)::int as total_visits,
+          COUNT(*) FILTER (WHERE ve.status = 'completed')::int as completed_visits,
+          COUNT(*) FILTER (WHERE ve.is_cancelled = true OR ve.status = 'cancelled' OR ve.status = 'not_realized')::int as cancelled_visits,
+          COUNT(DISTINCT ve.hospital_id) FILTER (WHERE ve.hospital_id IS NOT NULL)::int as hospitals_visited,
+          COALESCE(SUM(
+            CASE WHEN ve.actual_start IS NOT NULL AND ve.actual_end IS NOT NULL AND ve.status = 'completed'
+            THEN EXTRACT(EPOCH FROM (ve.actual_end - ve.actual_start)) / 3600.0
+            ELSE 0 END
+          ), 0)::float as hours_worked
+        FROM visit_events ve
+        JOIN collaborators c ON c.id = ve.collaborator_id
+        WHERE ve.start_time >= ${sd} AND ve.start_time <= ${ed}
+          ${countryFilter} ${collabFilter}
+        GROUP BY ve.collaborator_id, c.first_name, c.last_name, c.country_code
+        ORDER BY total_visits DESC
+        LIMIT 500
+      `);
+
+      const overview = overviewResult.rows?.[0] || {};
+      res.json({
+        stats: {
+          totalCollaborators: totalCollabResult.rows?.[0]?.total || 0,
+          activeCollaborators: overview.active_collaborators || 0,
+          totalVisits: overview.total_visits || 0,
+          completedVisits: overview.completed_visits || 0,
+          cancelledVisits: overview.cancelled_visits || 0,
+          scheduledVisits: overview.scheduled_visits || 0,
+          inProgressVisits: overview.in_progress_visits || 0,
+          totalHours: Math.round((overview.total_hours || 0) * 10) / 10,
+          hospitalsVisited: overview.hospitals_visited || 0,
+          totalHospitals: totalHospitalsResult.rows?.[0]?.total || 0,
+        },
+        visitTypes: (visitTypeResult.rows || []).map((r: any) => ({
+          type: r.visit_type,
+          count: r.count,
+        })),
+        collaboratorStats: (collabStatsResult.rows || []).map((r: any) => ({
+          id: r.collaborator_id,
+          name: `${r.first_name} ${r.last_name}`,
+          country: r.country_code,
+          totalVisits: r.total_visits,
+          completedVisits: r.completed_visits,
+          cancelledVisits: r.cancelled_visits,
+          hospitalsVisited: r.hospitals_visited,
+          hoursWorked: Math.round((r.hours_worked || 0) * 10) / 10,
+        })),
+      });
+    } catch (e: any) {
+      console.error("[CollaboratorReports] Stats error:", e);
+      res.status(500).json({ error: e.message });
     }
   });
 
