@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff, Phone, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { Button } from "@/components/ui/button";
@@ -1239,26 +1239,41 @@ function ActionsTab({
             <table className="w-full text-sm" data-testid="table-activities">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left p-2 font-medium">Typ dohody</th>
-                  <th className="text-left p-2 font-medium">Číslo zmluvy</th>
-                  <th className="text-left p-2 font-medium">Dátum úkonu</th>
-                  <th className="text-left p-2 font-medium">Číslo CBU</th>
-                  <th className="text-left p-2 font-medium">Odmena</th>
+                  <th className="text-left p-2 font-medium">Typ</th>
+                  <th className="text-left p-2 font-medium">Detail</th>
+                  <th className="text-left p-2 font-medium">Dátum</th>
+                  <th className="text-left p-2 font-medium">Info</th>
+                  <th className="text-left p-2 font-medium">Hodnota</th>
                 </tr>
               </thead>
               <tbody>
-                {activities.map((act) => (
+                {activities.map((act: any) => (
                   <tr key={act.id} className="border-b hover:bg-muted/50" data-testid={`row-activity-${act.id}`}>
                     <td className="p-2">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                        {act.name || "-"}
-                      </span>
+                      {act.isCall ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          {act.callDirection === "inbound" ? <PhoneIncoming className="h-3 w-3" /> : <PhoneOutgoing className="h-3 w-3" />}
+                          {act.name || "Hovor"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          {act.name || "-"}
+                        </span>
+                      )}
                     </td>
-                    <td className="p-2 text-muted-foreground">{act.internalNote || "-"}</td>
+                    <td className="p-2 text-muted-foreground">
+                      {act.isCall ? (act.publicNote || "-") : (act.internalNote || "-")}
+                    </td>
                     <td className="p-2">{formatDate(act.dueDate)}</td>
-                    <td className="p-2 font-mono text-xs">{act.publicNote || "-"}</td>
+                    <td className="p-2 font-mono text-xs">
+                      {act.isCall ? (act.internalNote || "-") : (act.publicNote || "-")}
+                    </td>
                     <td className="p-2">
-                      {act.amount ? (
+                      {act.isCall ? (
+                        <span className={`text-xs ${act.callStatus === "answered" ? "text-green-600 dark:text-green-400" : act.callStatus === "missed" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+                          {act.callStatus === "answered" ? "Zodvihnutý" : act.callStatus === "missed" ? "Zmeškaný" : act.callStatus || "-"}
+                        </span>
+                      ) : act.amount ? (
                         <span className="text-green-600 dark:text-green-400">
                           {act.amount} {act.currency || ""}
                         </span>

@@ -149,6 +149,10 @@ app.use((req, res, next) => {
       import("./variable-registry-seed").then(({ seedVariableRegistry }) => {
         seedVariableRegistry().catch(err => console.error("[Variable Registry] Seed error:", err));
       });
+
+      import("./partner-categories-seed").then(({ seedPartnerCategories }) => {
+        seedPartnerCategories().catch(err => console.error("[PartnerCategories] Seed error:", err));
+      });
     },
   );
 })();

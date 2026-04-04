@@ -14304,7 +14304,43 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Get collaborator activities (Úkony) - migrated from CBC CollectionCollaborators
   app.get("/api/collaborators/:id/activities", requireAuth, async (req, res) => {
     try {
-      const activities = await storage.getCollaboratorActivities(req.params.id);
+      const collaboratorId = req.params.id;
+      const includeCalls = req.query.includeCalls !== "false";
+
+      const activities = await storage.getCollaboratorActivities(collaboratorId);
+
+      if (includeCalls) {
+        const calls = await db.select().from(callLogs)
+          .where(eq(callLogs.userId, collaboratorId))
+          .orderBy(desc(callLogs.startedAt))
+          .limit(200);
+
+        const callActivities = calls.map(call => ({
+          id: `call-${call.id}`,
+          collaboratorId,
+          name: call.direction === "inbound" ? "Prichádzajúci hovor" : "Odchádzajúci hovor",
+          type: "call" as const,
+          dueDate: call.startedAt ? new Date(call.startedAt).toISOString() : null,
+          completedDate: call.endedAt ? new Date(call.endedAt).toISOString() : null,
+          status: call.status || "completed",
+          publicNote: call.phoneNumber || "",
+          internalNote: call.durationSeconds ? `${Math.floor(call.durationSeconds / 60)}m ${call.durationSeconds % 60}s` : "",
+          callDirection: call.direction,
+          callDuration: call.durationSeconds,
+          callStatus: call.status,
+          isCall: true,
+        }));
+
+        const merged = [...activities.map(a => ({ ...a, isCall: false })), ...callActivities];
+        merged.sort((a, b) => {
+          const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+          const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+          return dateB - dateA;
+        });
+
+        return res.json(merged);
+      }
+
       res.json(activities);
     } catch (error: any) {
       console.error(`[Activities] ERROR for ${req.params.id}:`, error?.message || error);
@@ -14330,12 +14366,20 @@ Return ONLY valid JSON, no markdown code blocks.`,
       let noAgreementCount = 0;
       const typeCounts: Record<string, number> = {};
 
+      const allAgreements = await storage.getAllCollaboratorAgreements();
+      const agreementsByCollab = new Map<string, typeof allAgreements>();
+      for (const ag of allAgreements) {
+        const list = agreementsByCollab.get(ag.collaboratorId) || [];
+        list.push(ag);
+        agreementsByCollab.set(ag.collaboratorId, list);
+      }
+
       for (const c of allCollabs) {
         if (c.isActive) activeCount++; else inactiveCount++;
         if (c.collaboratorType) {
           typeCounts[c.collaboratorType] = (typeCounts[c.collaboratorType] || 0) + 1;
         }
-        const agreements = await storage.getCollaboratorAgreements(c.id);
+        const agreements = agreementsByCollab.get(c.id) || [];
         if (agreements.length === 0) { noAgreementCount++; continue; }
         let hasValid = false;
         let hasExpired = false;

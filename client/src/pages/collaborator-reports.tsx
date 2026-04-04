@@ -78,12 +78,47 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const getStartDate = (periodType: PeriodType): Date => {
+    const now = new Date();
+    switch (periodType) {
+      case 'last_month':
+        return new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      case 'last_3_months':
+        return new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      case 'this_year':
+        return new Date(now.getFullYear(), 0, 1);
+      case 'this_month':
+      default:
+        return new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+  };
+
+  const getEndDate = (periodType: PeriodType): Date => {
+    const now = new Date();
+    if (periodType === 'last_month') {
+      return new Date(now.getFullYear(), now.getMonth(), 0);
+    }
+    return now;
+  };
+
   const { data: collaborators = [], isLoading: collaboratorsLoading, refetch: refetchCollaborators } = useQuery<any[]>({
     queryKey: ["/api/collaborators/lookup"],
   });
 
+  const startDate = useMemo(() => getStartDate(period), [period]);
+  const endDate = useMemo(() => getEndDate(period), [period]);
+
   const { data: visitEvents = [], isLoading: eventsLoading, refetch: refetchEvents } = useQuery<VisitEvent[]>({
-    queryKey: ["/api/visit-events"],
+    queryKey: ["/api/visit-events", { startDate: startDate.toISOString(), endDate: endDate.toISOString(), countries: selectedCountries.length > 0 ? selectedCountries.join(",") : undefined }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("startDate", startDate.toISOString());
+      params.set("endDate", endDate.toISOString());
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      const res = await fetch(`/api/visit-events?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
   });
 
   const { data: hospitals = [], refetch: refetchHospitals } = useQuery<any[]>({
@@ -113,29 +148,6 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
     }
   };
 
-  const getStartDate = (periodType: PeriodType): Date => {
-    const now = new Date();
-    switch (periodType) {
-      case 'last_month':
-        return new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      case 'last_3_months':
-        return new Date(now.getFullYear(), now.getMonth() - 3, 1);
-      case 'this_year':
-        return new Date(now.getFullYear(), 0, 1);
-      case 'this_month':
-      default:
-        return new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-  };
-
-  const getEndDate = (periodType: PeriodType): Date => {
-    const now = new Date();
-    if (periodType === 'last_month') {
-      return new Date(now.getFullYear(), now.getMonth(), 0);
-    }
-    return now;
-  };
-
   const filteredCollaborators = useMemo(() => {
     return collaborators.filter(c => 
       selectedCountries.length === 0 || selectedCountries.includes(c.countryCode as typeof selectedCountries[number])
@@ -143,21 +155,11 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
   }, [collaborators, selectedCountries]);
 
   const filteredEvents = useMemo(() => {
-    const startDate = getStartDate(period);
-    const endDate = getEndDate(period);
-    
     return visitEvents.filter(e => {
-      const eventDate = e.actualStart ? new Date(e.actualStart) : (e.startTime ? new Date(e.startTime) : null);
-      if (!eventDate) return false;
-      if (eventDate < startDate || eventDate > endDate) return false;
-      
       if (selectedCollaborator !== 'all' && e.collaboratorId !== selectedCollaborator) return false;
-      const collaborator = collaborators.find(c => c.id === e.collaboratorId);
-      if (!collaborator) return false;
-      if (selectedCountries.length > 0 && !selectedCountries.includes(collaborator.countryCode as typeof selectedCountries[number])) return false;
       return true;
     });
-  }, [visitEvents, collaborators, period, selectedCollaborator, selectedCountries]);
+  }, [visitEvents, selectedCollaborator]);
 
   const stats = useMemo((): ReportStats => {
     const completedEvents = filteredEvents.filter(e => e.status === 'completed');

@@ -3332,7 +3332,8 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(visitEvents)
       .where(and(...conditions))
-      .orderBy(desc(visitEvents.startTime));
+      .orderBy(desc(visitEvents.startTime))
+      .limit(5000);
   }
 
   async createVisitEvent(data: InsertVisitEvent): Promise<VisitEvent> {
