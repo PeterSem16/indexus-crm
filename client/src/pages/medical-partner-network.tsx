@@ -1214,12 +1214,12 @@ const dateLocales: Record<string, Locale> = {
   sk, cs, hu, ro, it, de, en: enUS
 };
 
-type ActivityType = "all" | "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "call_recording";
+type ActivityType = "all" | "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "call_recording" | "call";
 type DateRange = "today" | "week" | "month" | "all";
 
 interface ActivityItem {
   id: string;
-  type: "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "visit_not_realized" | "login" | "call_recording";
+  type: "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "visit_not_realized" | "login" | "call_recording" | "call";
   collaboratorId: string;
   collaboratorName: string;
   timestamp: Date;
@@ -1231,10 +1231,12 @@ interface ActivityItem {
     reason?: string;
     callDuration?: number;
     callDirection?: string;
+    callStatus?: string;
     phoneNumber?: string;
     recordingId?: string;
     transcriptionText?: string;
     sentiment?: string;
+    notes?: string;
   };
 }
 
@@ -1494,6 +1496,13 @@ function ActivityTab() {
   const [repPage, setRepPage] = useState(1);
   const repLimit = 50;
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [summaryRepId, setSummaryRepId] = useState<string | null>(null);
+  const [onlineRefreshKey, setOnlineRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => setOnlineRefreshKey(k => k + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const dateFnsLocale = dateLocales[locale] || enUS;
 
@@ -1583,6 +1592,31 @@ function ActivityTab() {
       return res.json();
     },
     enabled: selectedCollaborator !== "all",
+  });
+
+  const { data: repCallLogs = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborator-call-logs", selectedCountries.join(",")],
+    queryFn: async () => {
+      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
+      const res = await fetch(`/api/collaborator-call-logs${params}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: subTab === "activity",
+  });
+
+  const { data: summaryData } = useQuery<{ visits: any[]; calls: any[] }>({
+    queryKey: ["/api/mpn/rep-summary", summaryRepId],
+    queryFn: async () => {
+      const [visitsRes, callsRes] = await Promise.all([
+        fetch(`/api/visit-events?collaboratorId=${summaryRepId}`, { credentials: "include" }),
+        fetch(`/api/collaborator-call-logs?collaboratorId=${summaryRepId}`, { credentials: "include" }),
+      ]);
+      const visits = visitsRes.ok ? await visitsRes.json() : [];
+      const calls = callsRes.ok ? await callsRes.json() : [];
+      return { visits: Array.isArray(visits) ? visits : [], calls };
+    },
+    enabled: !!summaryRepId,
   });
 
   const cancelMeeting = useMutation({
@@ -1699,13 +1733,31 @@ function ActivityTab() {
       });
     });
 
+    repCallLogs.forEach((call: any) => {
+      const collaboratorName = getCollaboratorName(call.collaboratorId);
+      items.push({
+        id: `rep-call-${call.id}`,
+        type: "call",
+        collaboratorId: call.collaboratorId,
+        collaboratorName,
+        timestamp: new Date(call.startedAt),
+        details: {
+          phoneNumber: call.phoneNumber,
+          callDirection: call.direction,
+          callDuration: call.durationSeconds || 0,
+          callStatus: call.status,
+          notes: call.notes,
+        },
+      });
+    });
+
     return items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [visitEvents, collaborators, hospitals, callRecordings, locale, selectedCollaborator, getCollaboratorName, getHospitalName, getSubjectLabel, getPlaceLabel]);
+  }, [visitEvents, collaborators, hospitals, callRecordings, repCallLogs, locale, selectedCollaborator, getCollaboratorName, getHospitalName, getSubjectLabel, getPlaceLabel]);
 
   const filteredActivities = useMemo(() => {
     let filtered = activities;
     if (selectedCollaborator !== "all") {
-      filtered = filtered.filter(a => a.collaboratorId === selectedCollaborator || a.type === "call_recording");
+      filtered = filtered.filter(a => a.collaboratorId === selectedCollaborator || a.type === "call_recording" || a.type === "call");
     }
     if (activityType !== "all") {
       filtered = filtered.filter(a => a.type === activityType);
@@ -1739,6 +1791,7 @@ function ActivityTab() {
       case "visit_not_realized": return <AlertCircle className="h-4 w-4" />;
       case "login": return <LogIn className="h-4 w-4" />;
       case "call_recording": return <Phone className="h-4 w-4" />;
+      case "call": return <Phone className="h-4 w-4" />;
       default: return <Activity className="h-4 w-4" />;
     }
   };
@@ -1752,6 +1805,7 @@ function ActivityTab() {
       case "visit_not_realized": return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
       case "login": return "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300";
       case "call_recording": return "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300";
+      case "call": return "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300";
       default: return "bg-gray-100 text-gray-700";
     }
   };
@@ -1765,6 +1819,7 @@ function ActivityTab() {
       case "visit_not_realized": return t.common.notRealized;
       case "login": return t.activity?.login || "Login";
       case "call_recording": return t.mpn.callRecordings;
+      case "call": return t.common.call || "Call";
       default: return t.common.unknown;
     }
   };
@@ -1927,8 +1982,7 @@ function ActivityTab() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t.common.name}</TableHead>
-                      <TableHead>{t.common.phone || "Phone"}</TableHead>
-                      <TableHead>{t.common.email || "Email"}</TableHead>
+                      <TableHead>{t.common.status || "Status"}</TableHead>
                       <TableHead>Indexus Connect</TableHead>
                       <TableHead>{t.mpn.webrtcEnabled}</TableHead>
                       <TableHead>{t.mpn.callRecordingEnabled}</TableHead>
@@ -1938,21 +1992,29 @@ function ActivityTab() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {collaborators.map((c) => (
+                    {collaborators.map((c) => {
+                      const isOnline = c.mobileLastActiveAt && new Date(c.mobileLastActiveAt).getTime() > Date.now() - 5 * 60 * 1000;
+                      void onlineRefreshKey;
+                      return (
                       <TableRow key={c.id} data-testid={`rep-row-${c.id}`}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <div className="relative h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                               <User className="h-4 w-4 text-primary" />
+                              {isOnline && (
+                                <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                              )}
                             </div>
-                            {c.firstName} {c.lastName}
+                            <div>
+                              <span>{c.firstName} {c.lastName}</span>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          {c.phone ? <div className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</div> : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {c.email ? <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{c.email}</div> : "—"}
+                          <Badge variant={isOnline ? "default" : "secondary"} className={cn("text-xs", isOnline && "bg-green-600 hover:bg-green-700")}>
+                            <span className={cn("h-2 w-2 rounded-full mr-1.5", isOnline ? "bg-white animate-pulse" : "bg-gray-400")} />
+                            {isOnline ? "Online" : "Offline"}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant={c.mobileAppEnabled ? "default" : "secondary"} className="text-xs">
@@ -1969,15 +2031,22 @@ function ActivityTab() {
                         <TableCell className="text-center">{repVisitStats[c.id]?.total || 0}</TableCell>
                         <TableCell className="text-center">{repVisitStats[c.id]?.completed || 0}</TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => setMeetingCollaborator(c)} data-testid={`btn-plan-meeting-${c.id}`}>
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {t.mpn.planMeeting}
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="outline" size="sm" onClick={() => setMeetingCollaborator(c)} data-testid={`btn-plan-meeting-${c.id}`}>
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {t.mpn.planMeeting}
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setSummaryRepId(c.id)} data-testid={`btn-summary-${c.id}`}>
+                              <Database className="h-3 w-3 mr-1" />
+                              {t.common.report || "Report"}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                     {collaborators.length === 0 && (
-                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">{t.common.noResults}</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">{t.common.noResults}</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -2102,6 +2171,7 @@ function ActivityTab() {
                     <SelectItem value="visit_completed">{t.common.completed}</SelectItem>
                     <SelectItem value="visit_cancelled">{t.common.cancelled}</SelectItem>
                     <SelectItem value="call_recording">{t.mpn.callRecordings}</SelectItem>
+                    <SelectItem value="call">{t.common.call || "Call"}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
@@ -2199,6 +2269,23 @@ function ActivityTab() {
                                         )}
                                       </div>
                                     )}
+                                    {activity.type === "call" && (
+                                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                                        <span className="flex items-center gap-1">
+                                          <Phone className="h-3 w-3" />
+                                          {activity.details.callDirection === "inbound" ? "←" : "→"} {activity.details.phoneNumber}
+                                        </span>
+                                        {activity.details.callDuration ? (
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            {Math.floor(activity.details.callDuration / 60)}:{String(activity.details.callDuration % 60).padStart(2, "0")}
+                                          </span>
+                                        ) : null}
+                                        {activity.details.notes && (
+                                          <span className="italic text-xs border-l pl-2 border-muted-foreground/30">{activity.details.notes}</span>
+                                        )}
+                                      </div>
+                                    )}
                                     {(activity.type === "visit_cancelled" || activity.type === "visit_not_realized") && (
                                       <div className="mt-1 px-2 py-1 bg-red-50 dark:bg-red-950 rounded text-sm text-red-700 dark:text-red-300">
                                         {activity.type === "visit_cancelled" ? t.common.cancelled : t.common.notRealized}
@@ -2232,6 +2319,107 @@ function ActivityTab() {
           onClose={() => setMeetingCollaborator(null)}
         />
       )}
+
+      <Sheet open={!!summaryRepId} onOpenChange={(open) => { if (!open) setSummaryRepId(null); }}>
+        <SheetContent className="sm:max-w-2xl overflow-y-auto" data-testid="summary-report-sheet">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              {t.common.report || "Report"}: {summaryRepId ? getCollaboratorName(summaryRepId) : ""}
+            </SheetTitle>
+          </SheetHeader>
+          {summaryData ? (
+            <div className="space-y-6 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold" data-testid="text-summary-visits">{summaryData.visits.length}</div>
+                    <div className="text-sm text-muted-foreground">{t.mpn.totalVisits}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold" data-testid="text-summary-calls">{summaryData.calls.length}</div>
+                    <div className="text-sm text-muted-foreground">{t.common.call || "Calls"}</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <MapPin className="h-4 w-4" /> {t.mpn.totalVisits} ({summaryData.visits.length})
+                </h4>
+                {summaryData.visits.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t.common.noResults}</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t.common.date || "Date"}</TableHead>
+                        <TableHead>{t.common.hospital || "Hospital"}</TableHead>
+                        <TableHead>{t.common.type || "Type"}</TableHead>
+                        <TableHead>{t.common.status || "Status"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {summaryData.visits.slice(0, 50).map((v: any) => (
+                        <TableRow key={v.id} data-testid={`summary-visit-${v.id}`}>
+                          <TableCell className="text-xs">{v.visitDate ? format(new Date(v.visitDate), "dd/MM/yyyy HH:mm") : "—"}</TableCell>
+                          <TableCell className="text-xs">{getHospitalName(v.hospitalId)}</TableCell>
+                          <TableCell className="text-xs">{v.subject || v.visitType || "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant={v.status === "completed" ? "default" : v.status === "cancelled" ? "destructive" : "secondary"} className="text-xs">
+                              {v.status || "—"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Phone className="h-4 w-4" /> {t.common.call || "Calls"} ({summaryData.calls.length})
+                </h4>
+                {summaryData.calls.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t.common.noResults}</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t.common.date || "Date"}</TableHead>
+                        <TableHead>{t.common.phone || "Phone"}</TableHead>
+                        <TableHead>Direction</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>{t.common.status || "Status"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {summaryData.calls.slice(0, 50).map((c: any) => (
+                        <TableRow key={c.id} data-testid={`summary-call-${c.id}`}>
+                          <TableCell className="text-xs">{c.startedAt ? format(new Date(c.startedAt), "dd/MM/yyyy HH:mm") : "—"}</TableCell>
+                          <TableCell className="text-xs">{c.phoneNumber || "—"}</TableCell>
+                          <TableCell className="text-xs">{c.direction || "—"}</TableCell>
+                          <TableCell className="text-xs">{c.durationSeconds ? `${Math.floor(c.durationSeconds / 60)}:${String(c.durationSeconds % 60).padStart(2, "0")}` : "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">{c.status || "—"}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </div>
+          ) : summaryRepId ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

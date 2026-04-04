@@ -10449,8 +10449,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.get("/api/collaborator-call-logs", requireAuth, async (req, res) => {
     try {
       const countryCodes = (req.query.countries as string || "").split(",").filter(Boolean);
+      const singleCollaboratorId = req.query.collaboratorId as string | undefined;
       const conditions: any[] = [];
-      if (countryCodes.length > 0) {
+      if (singleCollaboratorId) {
+        conditions.push(eq(callLogs.userId, singleCollaboratorId));
+      } else if (countryCodes.length > 0) {
         const collabIds = await db.select({ id: collaborators.id })
           .from(collaborators)
           .where(inArray(collaborators.countryCode, countryCodes));
