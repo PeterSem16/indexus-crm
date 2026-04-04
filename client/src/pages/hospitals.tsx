@@ -37,7 +37,7 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
-import type { Hospital, Laboratory, SafeUser, Clinic } from "@shared/schema";
+import type { Hospital as HospitalType, Laboratory, SafeUser, Clinic } from "@shared/schema";
 import { COUNTRIES } from "@shared/schema";
 import {
   Select,
@@ -161,7 +161,7 @@ function PersonnelTabContent({ entityType, entityId, entityName }: { entityType:
   );
 }
 
-function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospital; onClose: () => void; onSuccess: () => void }) {
+function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: HospitalType; onClose: () => void; onSuccess: () => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState("basic");
@@ -472,7 +472,7 @@ function HospitalForm({
   onClose,
   onSuccess,
 }: {
-  hospital?: Hospital;
+  hospital?: HospitalType;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -1334,7 +1334,7 @@ export default function HospitalsPage() {
   if (debouncedHospitalSearch) hospitalQueryParams.search = debouncedHospitalSearch;
   if (countryTab !== "ALL") hospitalQueryParams.country = countryTab;
   if (selectedCountries.length > 0) hospitalQueryParams.countries = selectedCountries.join(",");
-  const { data: hospitalsPaginatedResult, isLoading } = useQuery<{ data: Hospital[], total: number }>({
+  const { data: hospitalsPaginatedResult, isLoading } = useQuery<{ data: HospitalType[], total: number }>({
     queryKey: ["/api/hospitals", hospitalQueryParams],
   });
   const hospitals = hospitalsPaginatedResult?.data || [];
@@ -1707,11 +1707,11 @@ export default function HospitalsPage() {
 
   const [editingHospital, setEditingHospital] = useState<Hospital | null>(null);
 
-  const handleEdit = (hospital: Hospital) => {
+  const handleEdit = (hospital: HospitalType) => {
     setEditingHospital(hospital);
   };
 
-  const handleDelete = (hospital: Hospital) => {
+  const handleDelete = (hospital: HospitalType) => {
     setHospitalToDelete(hospital);
     setIsDeleteOpen(true);
   };
@@ -1938,7 +1938,7 @@ export default function HospitalsPage() {
     {
       key: "name",
       header: <HospitalSortableHeader field="name" label={t.hospitals.name} />,
-      cell: (hospital: Hospital) => {
+      cell: (hospital: HospitalType) => {
         const pCount = personnelCounts[`hospital:${hospital.id}`] || 0;
         return (
           <div className="flex items-center gap-2">
@@ -1964,7 +1964,7 @@ export default function HospitalsPage() {
     {
       key: "country",
       header: <HospitalSortableHeader field="country" label={t.common.country} />,
-      cell: (hospital: Hospital) => (
+      cell: (hospital: HospitalType) => (
         <span>
           {getCountryFlag(hospital.countryCode)} {getCountryName(hospital.countryCode)}
         </span>
@@ -1973,22 +1973,22 @@ export default function HospitalsPage() {
     {
       key: "city",
       header: <HospitalSortableHeader field="city" label={t.hospitals.city} />,
-      cell: (hospital: Hospital) => hospital.city || "-",
+      cell: (hospital: HospitalType) => hospital.city || "-",
     },
     {
       key: "laboratory",
       header: t.hospitals.laboratory,
-      cell: (hospital: Hospital) => getLabName(hospital.laboratoryId),
+      cell: (hospital: HospitalType) => getLabName(hospital.laboratoryId),
     },
     {
       key: "representative",
       header: t.hospitals.representative,
-      cell: (hospital: Hospital) => getUserName(hospital.representativeId),
+      cell: (hospital: HospitalType) => getUserName(hospital.representativeId),
     },
     {
       key: "actions",
       header: t.common.actions,
-      cell: (hospital: Hospital) => (
+      cell: (hospital: HospitalType) => (
         <div className="flex items-center gap-2">
           <Button
             size="icon"
