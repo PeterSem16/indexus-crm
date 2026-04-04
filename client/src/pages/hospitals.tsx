@@ -89,11 +89,22 @@ const defaultFormData: HospitalFormData = {
   longitude: "",
 };
 
+function getLocalizedCategoryName(cat: any, locale: string): string {
+  const localeMap: Record<string, string | null> = {
+    sk: cat.nameSk || cat.name_sk, cs: cat.nameCs || cat.name_cs, en: cat.nameEn || cat.name_en,
+    hu: cat.nameHu || cat.name_hu, ro: cat.nameRo || cat.name_ro, it: cat.nameIt || cat.name_it, de: cat.nameDe || cat.name_de,
+  };
+  return localeMap[locale] || cat.name || "";
+}
+
 function PersonnelTabContent({ entityType, entityId, entityName }: { entityType: string; entityId: string; entityName: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { data: personnelData, isLoading } = useQuery<any>({
     queryKey: ["/api/institutions", entityType, entityId, "personnel"],
     queryFn: () => fetch(`/api/institutions/${entityType}/${entityId}/personnel`, { credentials: "include" }).then(r => r.json()),
+  });
+  const { data: categories = [] } = useQuery<any[]>({
+    queryKey: ["/api/mpn/categories"],
   });
 
   if (isLoading) {
@@ -133,7 +144,11 @@ function PersonnelTabContent({ entityType, entityId, entityName }: { entityType:
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-sm">{fullName || row.person_id}</span>
                 {row.category_name && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.category_name}</Badge>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{
+                    row.category_id
+                      ? getLocalizedCategoryName(categories.find((c: any) => c.id === row.category_id) || { name: row.category_name }, locale)
+                      : row.category_name
+                  }</Badge>
                 )}
                 {row.is_primary && (
                   <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 border-amber-300">{(t.common as any).primary || "Primary"}</Badge>

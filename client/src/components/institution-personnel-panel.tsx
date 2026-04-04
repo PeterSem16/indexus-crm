@@ -1,6 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
+
+function getLocalizedCategoryName(cat: any, locale: string): string {
+  const localeMap: Record<string, string | null> = {
+    sk: cat.nameSk || cat.name_sk, cs: cat.nameCs || cat.name_cs, en: cat.nameEn || cat.name_en,
+    hu: cat.nameHu || cat.name_hu, ro: cat.nameRo || cat.name_ro, it: cat.nameIt || cat.name_it, de: cat.nameDe || cat.name_de,
+  };
+  return localeMap[locale] || cat.name || "";
+}
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -55,7 +63,7 @@ export function InstitutionPersonnelPanel({
   open,
   onOpenChange,
 }: PersonnelPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [collabSearch, setCollabSearch] = useState("");
@@ -259,7 +267,7 @@ export function InstitutionPersonnelPanel({
                       </SelectTrigger>
                       <SelectContent>
                         {(categoriesQuery.data || []).map((cat: any) => (
-                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          <SelectItem key={cat.id} value={cat.id}>{getLocalizedCategoryName(cat, locale)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -327,7 +335,11 @@ export function InstitutionPersonnelPanel({
                             <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
                           )}
                           {p.category_name && (
-                            <Badge variant="outline" className="text-[10px]">{p.category_name}</Badge>
+                            <Badge variant="outline" className="text-[10px]">{
+                              p.category_id 
+                                ? getLocalizedCategoryName((categoriesQuery.data || []).find((c: any) => c.id === p.category_id) || { name: p.category_name }, locale)
+                                : p.category_name
+                            }</Badge>
                           )}
                           {isLegacy && (
                             <Badge variant="secondary" className="text-[10px]">Legacy</Badge>
@@ -374,7 +386,7 @@ export function InstitutionPersonnelPanel({
 }
 
 export function InstitutionPersonnelManager({ entityType, entityId, entityName }: { entityType: string; entityId: string; entityName: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const mpnT = (t as any).medicalPartnerNetwork || {};
 
@@ -572,7 +584,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
               <Select value={assignCategoryId} onValueChange={setAssignCategoryId}>
                 <SelectTrigger className="h-8 mt-1" data-testid="select-assign-category"><SelectValue placeholder="-" /></SelectTrigger>
                 <SelectContent>
-                  {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>))}
+                  {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}>{getLocalizedCategoryName(cat, locale)}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -652,7 +664,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
                       <SelectTrigger className="h-8 mt-1" data-testid="select-edit-category"><SelectValue placeholder="-" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="_none">-</SelectItem>
-                        {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>))}
+                        {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}>{getLocalizedCategoryName(cat, locale)}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -683,7 +695,11 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm">{fullName}</span>
                       {p.is_primary && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />}
-                      {p.category_name && <Badge variant="outline" className="text-[10px]">{p.category_name}</Badge>}
+                      {p.category_name && <Badge variant="outline" className="text-[10px]">{
+                        p.category_id 
+                          ? getLocalizedCategoryName((categoriesQuery.data || []).find((c: any) => c.id === p.category_id) || { name: p.category_name }, locale)
+                          : p.category_name
+                      }</Badge>}
                       {isLegacy && <Badge variant="secondary" className="text-[10px]">Legacy</Badge>}
                       {p.is_active === false && <Badge variant="destructive" className="text-[10px]">{t.common?.inactive || "Inactive"}</Badge>}
                     </div>
