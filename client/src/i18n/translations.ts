@@ -119,6 +119,7 @@ export interface Translations {
     previous: string;
     next: string;
     network: string;
+    activityMedicalRepresentants: string;
     searchInstitution: string;
     searchPerson: string;
     institution: string;
@@ -5618,6 +5619,7 @@ export const translations: Record<Locale, Translations> = {
       page: 'Page',
       previous: 'Previous',
       network: 'Network',
+      activityMedicalRepresentants: 'Activity Medical Representants',
       searchInstitution: 'Search hospital or clinic...',
       searchPerson: 'Search person (name, surname)...',
       institution: 'Institution',
@@ -11009,6 +11011,7 @@ export const translations: Record<Locale, Translations> = {
       page: 'Strana',
       previous: 'Predchádzajúca',
       network: 'Sieť',
+      activityMedicalRepresentants: 'Aktivita medicínskych reprezentantov',
       searchInstitution: 'Vyhľadajte nemocnicu alebo ambulanciu...',
       searchPerson: 'Vyhľadajte osobu (meno, priezvisko)...',
       institution: 'Inštitúcia',
@@ -16353,6 +16356,7 @@ export const translations: Record<Locale, Translations> = {
       page: 'Strana',
       previous: 'Předchozí',
       network: 'Síť',
+      activityMedicalRepresentants: 'Aktivita medicínských reprezentantů',
       searchInstitution: 'Vyhledejte nemocnici nebo ambulanci...',
       searchPerson: 'Vyhledejte osobu (jméno, příjmení)...',
       institution: 'Instituce',
@@ -21622,6 +21626,7 @@ export const translations: Record<Locale, Translations> = {
       page: 'Oldal',
       previous: 'Előző',
       network: 'Hálózat',
+      activityMedicalRepresentants: 'Orvosi képviselők tevékenysége',
       searchInstitution: 'Keressen kórházat vagy rendelőt...',
       searchPerson: 'Keressen személyt (név, vezetéknév)...',
       institution: 'Intézmény',
@@ -26893,6 +26898,7 @@ export const translations: Record<Locale, Translations> = {
       page: 'Pagina',
       previous: 'Anterioară',
       network: 'Rețea',
+      activityMedicalRepresentants: 'Activitate reprezentanți medicali',
       searchInstitution: 'Căutați spital sau ambulatoriu...',
       searchPerson: 'Căutați persoană (prenume, nume)...',
       institution: 'Instituție',
@@ -32086,6 +32092,7 @@ export const translations: Record<Locale, Translations> = {
       page: 'Pagina',
       previous: 'Precedente',
       network: 'Rete',
+      activityMedicalRepresentants: 'Attività rappresentanti medici',
       searchInstitution: 'Cerca ospedale o ambulatorio...',
       searchPerson: 'Cerca persona (nome, cognome)...',
       institution: 'Istituzione',
@@ -37280,6 +37287,7 @@ export const translations: Record<Locale, Translations> = {
       page: 'Seite',
       previous: 'Vorherige',
       network: 'Netzwerk',
+      activityMedicalRepresentants: 'Aktivität medizinischer Vertreter',
       searchInstitution: 'Krankenhaus oder Praxis suchen...',
       searchPerson: 'Person suchen (Vorname, Nachname)...',
       institution: 'Institution',
