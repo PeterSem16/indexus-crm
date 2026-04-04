@@ -16802,6 +16802,33 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  app.get("/api/collaborators/:id/call-recordings", requireAuth, async (req, res) => {
+    try {
+      const collaboratorId = req.params.id;
+      const collab = await storage.getCollaborator(collaboratorId);
+      if (!collab) return res.status(404).json({ error: "Collaborator not found" });
+      
+      const sipExtId = collab.mobileSipExtensionId;
+      if (!sipExtId) return res.json([]);
+      
+      const sipExt = await db.select().from(sipExtensions).where(eq(sipExtensions.id, sipExtId)).limit(1);
+      if (!sipExt.length) return res.json([]);
+      
+      const ext = sipExt[0].extension;
+      const recordings = await db.select().from(callRecordings)
+        .where(
+          sql`${callRecordings.phoneNumber} LIKE ${'%' + ext} OR ${callRecordings.agentName} LIKE ${'%' + (collab.firstName + ' ' + collab.lastName) + '%'}`
+        )
+        .orderBy(desc(callRecordings.createdAt))
+        .limit(50);
+      
+      res.json(recordings);
+    } catch (error) {
+      console.error("Error fetching collaborator call recordings:", error);
+      res.status(500).json({ error: "Failed to fetch call recordings" });
+    }
+  });
+
   // File upload for agreements
   app.post("/api/collaborators/:id/agreements/:agreementId/upload", requireAuth, uploadAgreement.single("file"), async (req, res) => {
     try {

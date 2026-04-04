@@ -976,19 +976,19 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ACTIVITY MEDICAL REPRESENTANTS TAB (v2)
+// MEDICAL REPRESENTATIVES TAB
 // ═══════════════════════════════════════════════════════════════
 
 const dateLocales: Record<string, Locale> = {
   sk, cs, hu, ro, it, de, en: enUS
 };
 
-type ActivityType = "all" | "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled";
+type ActivityType = "all" | "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "call_recording";
 type DateRange = "today" | "week" | "month" | "all";
 
 interface ActivityItem {
   id: string;
-  type: "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "visit_not_realized" | "login";
+  type: "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "visit_not_realized" | "login" | "call_recording";
   collaboratorId: string;
   collaboratorName: string;
   timestamp: Date;
@@ -998,34 +998,163 @@ interface ActivityItem {
     place?: string;
     remarkDetail?: string;
     reason?: string;
+    callDuration?: number;
+    callDirection?: string;
+    phoneNumber?: string;
+    recordingId?: string;
+    transcriptionText?: string;
+    sentiment?: string;
   };
+}
+
+function MeetingScheduleDialog({ collaborator, hospitals, open, onClose }: {
+  collaborator: Collaborator;
+  hospitals: any[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { locale, t } = useI18n();
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    subject: "3",
+    hospitalId: "",
+    startDate: format(new Date(), "yyyy-MM-dd"),
+    startTime: "09:00",
+    endTime: "10:00",
+    place: "1",
+    remark: "",
+    locationAddress: "",
+  });
+
+  const createMeeting = useMutation({
+    mutationFn: async () => {
+      const startTime = new Date(`${form.startDate}T${form.startTime}:00`);
+      const endTime = new Date(`${form.startDate}T${form.endTime}:00`);
+      return apiRequest("POST", "/api/visit-events", {
+        collaboratorId: collaborator.id,
+        countryCode: collaborator.countryCode || "SK",
+        subject: form.subject,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        hospitalId: form.hospitalId || null,
+        place: form.place,
+        remark: form.remark,
+        locationAddress: form.locationAddress,
+        status: "scheduled",
+      });
+    },
+    onSuccess: () => {
+      toast({ title: t.mpn.meetingScheduled });
+      queryClient.invalidateQueries({ queryKey: ["/api/visit-events"] });
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            {t.mpn.scheduleMeeting} — {collaborator.firstName} {collaborator.lastName}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>{t.mpn.meetingDate}</Label>
+            <Input type="date" value={form.startDate} onChange={(e) => setForm({...form, startDate: e.target.value})} data-testid="input-meeting-date" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>{t.mpn.meetingTime}</Label>
+              <Input type="time" value={form.startTime} onChange={(e) => setForm({...form, startTime: e.target.value})} data-testid="input-meeting-start" />
+            </div>
+            <div>
+              <Label>{t.mpn.meetingEndTime}</Label>
+              <Input type="time" value={form.endTime} onChange={(e) => setForm({...form, endTime: e.target.value})} data-testid="input-meeting-end" />
+            </div>
+          </div>
+          <div>
+            <Label>{t.common.type}</Label>
+            <Select value={form.subject} onValueChange={(v) => setForm({...form, subject: v})}>
+              <SelectTrigger data-testid="select-meeting-subject">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VISIT_SUBJECTS.map((s) => (
+                  <SelectItem key={s.code} value={s.code}>{(s as any)[locale] || s.en}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>{t.mpn.meetingLocation}</Label>
+            <Select value={form.hospitalId} onValueChange={(v) => setForm({...form, hospitalId: v})}>
+              <SelectTrigger data-testid="select-meeting-hospital">
+                <SelectValue placeholder={t.common.select} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t.common.none || "—"}</SelectItem>
+                {hospitals.map((h: any) => (
+                  <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>{t.mpn.meetingLocation} ({t.common.address || "Address"})</Label>
+            <Input value={form.locationAddress} onChange={(e) => setForm({...form, locationAddress: e.target.value})} placeholder="..." data-testid="input-meeting-address" />
+          </div>
+          <div>
+            <Label>{t.mpn.meetingNotes}</Label>
+            <Textarea value={form.remark} onChange={(e) => setForm({...form, remark: e.target.value})} rows={3} data-testid="input-meeting-notes" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>{t.common.cancel}</Button>
+          <Button onClick={() => createMeeting.mutate()} disabled={createMeeting.isPending} data-testid="btn-schedule-meeting">
+            {createMeeting.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t.mpn.scheduleMeeting}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function ActivityTab() {
   const { locale, t } = useI18n();
   const { selectedCountries } = useCountryFilter();
+  const { toast } = useToast();
+  const [subTab, setSubTab] = useState("representatives");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>("all");
   const [activityType, setActivityType] = useState<ActivityType>("all");
   const [dateRange, setDateRange] = useState<DateRange>("week");
+  const [meetingCollaborator, setMeetingCollaborator] = useState<Collaborator | null>(null);
+  const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const dateFnsLocale = dateLocales[locale] || enUS;
+
+  const { data: collaborators = [], isLoading: collabLoading } = useQuery<Collaborator[]>({
+    queryKey: ["/api/collaborators", selectedCountries.join(",")],
+    queryFn: async () => {
+      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
+      const res = await fetch(`/api/collaborators${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    }
+  });
+
+  const mobileEnabledCollabs = useMemo(() =>
+    collaborators.filter(c => c.mobileAppEnabled),
+  [collaborators]);
 
   const { data: visitEvents = [], isLoading: visitsLoading } = useQuery<VisitEvent[]>({
     queryKey: ["/api/visit-events", selectedCountries.join(",")],
     queryFn: async () => {
       const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
       const res = await fetch(`/api/visit-events${params}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    }
-  });
-
-  const { data: collaborators = [] } = useQuery<Collaborator[]>({
-    queryKey: ["/api/collaborators", selectedCountries.join(",")],
-    queryFn: async () => {
-      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
-      const res = await fetch(`/api/collaborators${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     }
@@ -1041,28 +1170,47 @@ function ActivityTab() {
     }
   });
 
-  const getCollaboratorName = (id: string) => {
+  const { data: callRecordings = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborators", selectedCollaborator, "call-recordings"],
+    queryFn: async () => {
+      if (selectedCollaborator === "all") return [];
+      const res = await fetch(`/api/collaborators/${selectedCollaborator}/call-recordings`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: selectedCollaborator !== "all",
+  });
+
+  const cancelMeeting = useMutation({
+    mutationFn: async (id: string) => apiRequest("PUT", `/api/visit-events/${id}`, { status: "cancelled", isCancelled: true }),
+    onSuccess: () => {
+      toast({ title: t.common.cancelled });
+      queryClient.invalidateQueries({ queryKey: ["/api/visit-events"] });
+    },
+  });
+
+  const getCollaboratorName = useCallback((id: string) => {
     const collaborator = collaborators.find(c => c.id === id);
     return collaborator ? `${collaborator.firstName} ${collaborator.lastName}` : t.common.unknown;
-  };
+  }, [collaborators, t]);
 
-  const getHospitalName = (id: string | null) => {
+  const getHospitalName = useCallback((id: string | null) => {
     if (!id) return null;
     const hospital = hospitals.find((h: any) => h.id === id);
     return hospital?.name || null;
-  };
+  }, [hospitals]);
 
-  const getSubjectLabel = (code: string) => {
+  const getSubjectLabel = useCallback((code: string) => {
     const subject = VISIT_SUBJECTS.find(s => s.code === code);
     if (!subject) return t.common.unknown;
     return (subject as any)[locale] || t.common.unknown;
-  };
+  }, [locale, t]);
 
-  const getPlaceLabel = (code: string) => {
+  const getPlaceLabel = useCallback((code: string) => {
     const place = VISIT_PLACE_OPTIONS.find(p => p.code === code);
     if (!place) return t.common.unknown;
     return (place as any)[locale] || t.common.unknown;
-  };
+  }, [locale, t]);
 
   const activities: ActivityItem[] = useMemo(() => {
     const items: ActivityItem[] = [];
@@ -1090,10 +1238,7 @@ function ActivityTab() {
           collaboratorId: event.collaboratorId,
           collaboratorName,
           timestamp: new Date(event.actualStart),
-          details: {
-            hospitalName: hospitalName || undefined,
-            visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
-          },
+          details: { hospitalName: hospitalName || undefined, visitType: event.subject ? getSubjectLabel(event.subject) : undefined },
         });
       }
 
@@ -1104,10 +1249,7 @@ function ActivityTab() {
           collaboratorId: event.collaboratorId,
           collaboratorName,
           timestamp: event.actualEnd ? new Date(event.actualEnd) : new Date(event.updatedAt),
-          details: {
-            hospitalName: hospitalName || undefined,
-            visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
-          },
+          details: { hospitalName: hospitalName || undefined, visitType: event.subject ? getSubjectLabel(event.subject) : undefined },
         });
       }
 
@@ -1118,11 +1260,7 @@ function ActivityTab() {
           collaboratorId: event.collaboratorId,
           collaboratorName,
           timestamp: new Date(event.updatedAt),
-          details: {
-            hospitalName: hospitalName || undefined,
-            visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
-            reason: (event as any).cancelReason || undefined,
-          },
+          details: { hospitalName: hospitalName || undefined, visitType: event.subject ? getSubjectLabel(event.subject) : undefined, reason: (event as any).cancelReason || undefined },
         });
       }
 
@@ -1133,21 +1271,37 @@ function ActivityTab() {
           collaboratorId: event.collaboratorId,
           collaboratorName,
           timestamp: new Date(event.updatedAt),
-          details: {
-            hospitalName: hospitalName || undefined,
-            visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
-            reason: (event as any).cancelReason || undefined,
-          },
+          details: { hospitalName: hospitalName || undefined, visitType: event.subject ? getSubjectLabel(event.subject) : undefined, reason: (event as any).cancelReason || undefined },
         });
       }
     });
+
+    callRecordings.forEach((rec: any) => {
+      const collabId = selectedCollaborator !== "all" ? selectedCollaborator : "";
+      items.push({
+        id: `call-${rec.id}`,
+        type: "call_recording",
+        collaboratorId: collabId,
+        collaboratorName: rec.agentName || getCollaboratorName(collabId),
+        timestamp: new Date(rec.createdAt),
+        details: {
+          callDuration: rec.durationSeconds,
+          callDirection: rec.direction || "outbound",
+          phoneNumber: rec.phoneNumber,
+          recordingId: rec.id,
+          transcriptionText: rec.transcriptionText,
+          sentiment: rec.sentiment,
+        },
+      });
+    });
+
     return items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [visitEvents, collaborators, hospitals, locale]);
+  }, [visitEvents, collaborators, hospitals, callRecordings, locale, selectedCollaborator, getCollaboratorName, getHospitalName, getSubjectLabel, getPlaceLabel]);
 
   const filteredActivities = useMemo(() => {
     let filtered = activities;
     if (selectedCollaborator !== "all") {
-      filtered = filtered.filter(a => a.collaboratorId === selectedCollaborator);
+      filtered = filtered.filter(a => a.collaboratorId === selectedCollaborator || a.type === "call_recording");
     }
     if (activityType !== "all") {
       filtered = filtered.filter(a => a.type === activityType);
@@ -1157,22 +1311,17 @@ function ActivityTab() {
       filtered = filtered.filter(a =>
         a.collaboratorName.toLowerCase().includes(query) ||
         a.details.hospitalName?.toLowerCase().includes(query) ||
-        a.details.visitType?.toLowerCase().includes(query)
+        a.details.visitType?.toLowerCase().includes(query) ||
+        a.details.phoneNumber?.toLowerCase().includes(query)
       );
     }
     const now = new Date();
     if (dateRange === "today") {
-      const start = startOfDay(now);
-      const end = endOfDay(now);
-      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start, end }));
+      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start: startOfDay(now), end: endOfDay(now) }));
     } else if (dateRange === "week") {
-      const start = startOfDay(subDays(now, 7));
-      const end = endOfDay(now);
-      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start, end }));
+      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start: startOfDay(subDays(now, 7)), end: endOfDay(now) }));
     } else if (dateRange === "month") {
-      const start = startOfDay(subDays(now, 30));
-      const end = endOfDay(now);
-      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start, end }));
+      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start: startOfDay(subDays(now, 30)), end: endOfDay(now) }));
     }
     return filtered;
   }, [activities, selectedCollaborator, activityType, searchQuery, dateRange]);
@@ -1185,6 +1334,7 @@ function ActivityTab() {
       case "visit_cancelled": return <XCircle className="h-4 w-4" />;
       case "visit_not_realized": return <AlertCircle className="h-4 w-4" />;
       case "login": return <LogIn className="h-4 w-4" />;
+      case "call_recording": return <Phone className="h-4 w-4" />;
       default: return <Activity className="h-4 w-4" />;
     }
   };
@@ -1197,6 +1347,7 @@ function ActivityTab() {
       case "visit_cancelled": return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
       case "visit_not_realized": return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
       case "login": return "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300";
+      case "call_recording": return "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300";
       default: return "bg-gray-100 text-gray-700";
     }
   };
@@ -1208,7 +1359,8 @@ function ActivityTab() {
       case "visit_completed": return t.common.completed;
       case "visit_cancelled": return t.common.cancelled;
       case "visit_not_realized": return t.common.notRealized;
-      case "login": return t.activity.login;
+      case "login": return t.activity?.login || "Login";
+      case "call_recording": return t.mpn.callRecordings;
       default: return t.common.unknown;
     }
   };
@@ -1227,10 +1379,59 @@ function ActivityTab() {
     const scheduled = activities.filter(a => a.type === "visit_scheduled").length;
     const completed = activities.filter(a => a.type === "visit_completed").length;
     const cancelled = activities.filter(a => a.type === "visit_cancelled" || a.type === "visit_not_realized").length;
-    return { scheduled, completed, cancelled };
+    const calls = activities.filter(a => a.type === "call_recording").length;
+    return { scheduled, completed, cancelled, calls };
   }, [activities]);
 
-  if (visitsLoading) {
+  const upcomingMeetings = useMemo(() => {
+    const now = new Date();
+    return visitEvents
+      .filter(e => new Date(e.startTime) > now && e.status === "scheduled" && !e.isCancelled)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [visitEvents]);
+
+  const filteredRepresentatives = useMemo(() => {
+    if (!searchQuery.trim()) return mobileEnabledCollabs;
+    const q = searchQuery.toLowerCase();
+    return mobileEnabledCollabs.filter(c =>
+      `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
+      c.email?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q)
+    );
+  }, [mobileEnabledCollabs, searchQuery]);
+
+  const repVisitStats = useMemo(() => {
+    const stats: Record<string, { total: number; completed: number }> = {};
+    visitEvents.forEach(e => {
+      if (!stats[e.collaboratorId]) stats[e.collaboratorId] = { total: 0, completed: 0 };
+      stats[e.collaboratorId].total++;
+      if (e.status === "completed") stats[e.collaboratorId].completed++;
+    });
+    return stats;
+  }, [visitEvents]);
+
+  const playRecording = (recordingId: string) => {
+    if (playingRecordingId === recordingId) {
+      audioRef.current?.pause();
+      setPlayingRecordingId(null);
+      return;
+    }
+    if (audioRef.current) audioRef.current.pause();
+    const audio = new Audio(`/api/call-recordings/${recordingId}/stream`);
+    audio.play();
+    audio.onended = () => setPlayingRecordingId(null);
+    audioRef.current = audio;
+    setPlayingRecordingId(recordingId);
+  };
+
+  const formatDuration = (seconds: number | null | undefined) => {
+    if (!seconds) return "—";
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  if (collabLoading || visitsLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -1239,12 +1440,23 @@ function ActivityTab() {
   }
 
   return (
-    <div className="space-y-4" data-testid="activity-medical-representants-tab">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card data-testid="stat-scheduled">
+    <div className="space-y-4" data-testid="medical-representatives-tab">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card data-testid="stat-active-reps">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900">
-              <Calendar className="h-5 w-5 text-blue-700 dark:text-blue-300" />
+              <Users className="h-5 w-5 text-blue-700 dark:text-blue-300" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold" data-testid="stat-active-reps-value">{mobileEnabledCollabs.length}</div>
+              <div className="text-sm text-muted-foreground">{t.mpn.activeRepresentatives}</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card data-testid="stat-scheduled">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 rounded-full bg-green-100 dark:bg-green-900">
+              <Calendar className="h-5 w-5 text-green-700 dark:text-green-300" />
             </div>
             <div>
               <div className="text-2xl font-bold" data-testid="stat-scheduled-value">{stats.scheduled}</div>
@@ -1254,8 +1466,8 @@ function ActivityTab() {
         </Card>
         <Card data-testid="stat-completed">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-full bg-green-100 dark:bg-green-900">
-              <CheckCircle className="h-5 w-5 text-green-700 dark:text-green-300" />
+            <div className="p-3 rounded-full bg-emerald-100 dark:bg-emerald-900">
+              <CheckCircle className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
             </div>
             <div>
               <div className="text-2xl font-bold" data-testid="stat-completed-value">{stats.completed}</div>
@@ -1263,151 +1475,345 @@ function ActivityTab() {
             </div>
           </CardContent>
         </Card>
-        <Card data-testid="stat-cancelled">
+        <Card data-testid="stat-calls">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-full bg-red-100 dark:bg-red-900">
-              <XCircle className="h-5 w-5 text-red-700 dark:text-red-300" />
+            <div className="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900">
+              <Phone className="h-5 w-5 text-indigo-700 dark:text-indigo-300" />
             </div>
             <div>
-              <div className="text-2xl font-bold" data-testid="stat-cancelled-value">{stats.cancelled}</div>
-              <div className="text-sm text-muted-foreground">{t.common.cancelled}</div>
+              <div className="text-2xl font-bold" data-testid="stat-calls-value">{stats.calls}</div>
+              <div className="text-sm text-muted-foreground">{t.mpn.callRecordings}</div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t.common.search}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-search-activities"
-                />
-              </div>
-            </div>
-            <Select value={selectedCollaborator} onValueChange={setSelectedCollaborator}>
-              <SelectTrigger className="w-[200px]" data-testid="select-collaborator">
-                <User className="h-4 w-4 mr-2" />
-                <SelectValue placeholder={t.nav.collaborators} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t.common.all}</SelectItem>
-                {collaborators.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.firstName} {c.lastName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={activityType} onValueChange={(v) => setActivityType(v as ActivityType)}>
-              <SelectTrigger className="w-[180px]" data-testid="select-activity-type">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder={t.common.status} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t.common.all}</SelectItem>
-                <SelectItem value="visit_scheduled">{t.common.scheduled}</SelectItem>
-                <SelectItem value="visit_completed">{t.common.completed}</SelectItem>
-                <SelectItem value="visit_cancelled">{t.common.cancelled}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-              <SelectTrigger className="w-[150px]" data-testid="select-date-range">
-                <Calendar className="h-4 w-4 mr-2" />
-                <SelectValue placeholder={t.common.dateFrom} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">{t.common.today}</SelectItem>
-                <SelectItem value="week">{t.common.last7days}</SelectItem>
-                <SelectItem value="month">{t.common.last30days}</SelectItem>
-                <SelectItem value="all">{t.common.allTime}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs value={subTab} onValueChange={setSubTab}>
+        <TabsList className="grid w-full max-w-xl grid-cols-3" data-testid="rep-sub-tabs">
+          <TabsTrigger value="representatives" className="gap-1" data-testid="sub-tab-representatives">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">{t.mpn.representativesList}</span>
+          </TabsTrigger>
+          <TabsTrigger value="meetings" className="gap-1" data-testid="sub-tab-meetings">
+            <Calendar className="h-4 w-4" />
+            <span className="hidden sm:inline">{t.mpn.meetingManagement}</span>
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="gap-1" data-testid="sub-tab-activity">
+            <Activity className="h-4 w-4" />
+            <span className="hidden sm:inline">{t.mpn.activityMedicalRepresentants}</span>
+          </TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            {t.mpn.activityMedicalRepresentants} ({filteredActivities.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[calc(100vh-520px)]">
-            {Object.keys(groupedActivities).length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground" data-testid="no-activities-message">
-                {t.common.noResults}
+        <TabsContent value="representatives">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                {t.mpn.representativesList} ({mobileEnabledCollabs.length})
+              </CardTitle>
+              <CardDescription>{t.mpn.indexusConnectEnabled}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder={t.common.search} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="input-search-reps" />
+                </div>
               </div>
-            ) : (
-              <div className="relative">
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-                {Object.entries(groupedActivities).map(([dateKey, dayActivities]) => (
-                  <div key={dateKey} className="mb-8">
-                    <div className="sticky top-0 bg-background py-2 z-10" data-testid={`date-header-${dateKey}`}>
-                      <Badge variant="secondary" className="ml-8">
-                        {format(new Date(dateKey), "EEEE, d. MMMM yyyy", { locale: dateFnsLocale })}
-                      </Badge>
-                    </div>
-                    <div className="space-y-4 mt-4">
-                      {dayActivities.map((activity) => (
-                        <div key={activity.id} className="flex gap-4 ml-1" data-testid={`activity-item-${activity.id}`}>
-                          <div className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full ${getActivityColor(activity.type)}`}>
-                            {getActivityIcon(activity.type)}
-                          </div>
-                          <div className="flex-1 pb-4">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium" data-testid={`activity-collaborator-${activity.id}`}>{activity.collaboratorName}</span>
-                                  <Badge variant="outline" className="text-xs" data-testid={`activity-type-badge-${activity.id}`}>
-                                    {getActivityLabel(activity.type)}
-                                  </Badge>
-                                </div>
-                                {activity.details.hospitalName && (
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1" data-testid={`activity-hospital-${activity.id}`}>
-                                    <Building2 className="h-3 w-3" />
-                                    {activity.details.hospitalName}
-                                  </div>
-                                )}
-                                {activity.details.visitType && (
-                                  <div className="text-sm text-muted-foreground" data-testid={`activity-visit-type-${activity.id}`}>
-                                    {activity.details.visitType}
-                                    {activity.details.place && ` - ${activity.details.place}`}
-                                  </div>
-                                )}
-                                {(activity.type === "visit_cancelled" || activity.type === "visit_not_realized") && (
-                                  <div className="mt-1 px-2 py-1 bg-red-50 dark:bg-red-950 rounded text-sm text-red-700 dark:text-red-300" data-testid={`activity-cancel-reason-${activity.id}`}>
-                                    {activity.type === "visit_cancelled" ? t.common.cancelled : t.common.notRealized}
-                                    {activity.details.reason && (
-                                      <span>: {activity.details.reason}</span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground whitespace-nowrap" data-testid={`activity-time-${activity.id}`}>
-                                <Clock className="h-3 w-3" />
-                                {format(activity.timestamp, "HH:mm")}
-                              </div>
+              <ScrollArea className="h-[calc(100vh-480px)]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.common.name}</TableHead>
+                      <TableHead>{t.common.phone || "Phone"}</TableHead>
+                      <TableHead>{t.common.email || "Email"}</TableHead>
+                      <TableHead>Indexus Connect</TableHead>
+                      <TableHead>{t.mpn.webrtcEnabled}</TableHead>
+                      <TableHead>{t.mpn.callRecordingEnabled}</TableHead>
+                      <TableHead>{t.mpn.totalVisits}</TableHead>
+                      <TableHead>{t.mpn.completedVisits}</TableHead>
+                      <TableHead>{t.common.actions}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRepresentatives.map((c) => (
+                      <TableRow key={c.id} data-testid={`rep-row-${c.id}`}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="h-4 w-4 text-primary" />
                             </div>
+                            {c.firstName} {c.lastName}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {c.phone ? <div className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</div> : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {c.email ? <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{c.email}</div> : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={c.mobileAppEnabled ? "default" : "secondary"} className="text-xs">
+                            {c.mobileAppEnabled ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
+                            {c.mobileAppEnabled ? t.common.active : t.common.inactive}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {c.mobileWebrtcEnabled ? <Badge variant="outline" className="text-xs text-green-600"><CheckCircle className="h-3 w-3 mr-1" />On</Badge> : <Badge variant="outline" className="text-xs text-gray-400">Off</Badge>}
+                        </TableCell>
+                        <TableCell>
+                          {c.mobileCallRecording ? <Badge variant="outline" className="text-xs text-green-600"><CheckCircle className="h-3 w-3 mr-1" />On</Badge> : <Badge variant="outline" className="text-xs text-gray-400">Off</Badge>}
+                        </TableCell>
+                        <TableCell className="text-center">{repVisitStats[c.id]?.total || 0}</TableCell>
+                        <TableCell className="text-center">{repVisitStats[c.id]?.completed || 0}</TableCell>
+                        <TableCell>
+                          <Button variant="outline" size="sm" onClick={() => setMeetingCollaborator(c)} data-testid={`btn-plan-meeting-${c.id}`}>
+                            <Calendar className="h-3 w-3 mr-1" />
+                            {t.mpn.planMeeting}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredRepresentatives.length === 0 && (
+                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">{t.common.noResults}</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="meetings">
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  {t.mpn.upcomingMeetings} ({upcomingMeetings.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[calc(100vh-480px)]">
+                  {upcomingMeetings.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">{t.mpn.noMeetingsScheduled}</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {upcomingMeetings.map((event) => (
+                        <div key={event.id} className="flex items-start gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors" data-testid={`meeting-card-${event.id}`}>
+                          <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900">
+                            <Calendar className="h-5 w-5 text-blue-700 dark:text-blue-300" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{t.mpn.meetingWith} {getCollaboratorName(event.collaboratorId)}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {event.subject ? getSubjectLabel(event.subject) : ""}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {format(new Date(event.startTime), "dd.MM.yyyy", { locale: dateFnsLocale })}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(new Date(event.startTime), "HH:mm")} — {format(new Date(event.endTime), "HH:mm")}
+                              </span>
+                            </div>
+                            {event.hospitalId && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                                <Building2 className="h-3 w-3" />
+                                {getHospitalName(event.hospitalId)}
+                              </div>
+                            )}
+                            {event.locationAddress && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <MapPin className="h-3 w-3" />
+                                {event.locationAddress}
+                              </div>
+                            )}
+                            {event.remark && (
+                              <div className="text-sm text-muted-foreground mt-1 italic">{event.remark}</div>
+                            )}
+                          </div>
+                          <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => cancelMeeting.mutate(event.id)} disabled={cancelMeeting.isPending} data-testid={`btn-cancel-meeting-${event.id}`}>
+                            <XCircle className="h-4 w-4 mr-1" />
+                            {t.mpn.cancelMeeting}
+                          </Button>
                         </div>
                       ))}
                     </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-4">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder={t.common.search} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="input-search-activities" />
                   </div>
-                ))}
+                </div>
+                <Select value={selectedCollaborator} onValueChange={setSelectedCollaborator}>
+                  <SelectTrigger className="w-[200px]" data-testid="select-collaborator">
+                    <User className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder={t.nav?.collaborators || "Collaborators"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.common.all}</SelectItem>
+                    {mobileEnabledCollabs.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={activityType} onValueChange={(v) => setActivityType(v as ActivityType)}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-activity-type">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder={t.common.status} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.common.all}</SelectItem>
+                    <SelectItem value="visit_scheduled">{t.common.scheduled}</SelectItem>
+                    <SelectItem value="visit_completed">{t.common.completed}</SelectItem>
+                    <SelectItem value="visit_cancelled">{t.common.cancelled}</SelectItem>
+                    <SelectItem value="call_recording">{t.mpn.callRecordings}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+                  <SelectTrigger className="w-[150px]" data-testid="select-date-range">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">{t.common.today}</SelectItem>
+                    <SelectItem value="week">{t.common.last7days}</SelectItem>
+                    <SelectItem value="month">{t.common.last30days}</SelectItem>
+                    <SelectItem value="all">{t.common.allTime}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                {t.mpn.activityMedicalRepresentants} ({filteredActivities.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[calc(100vh-580px)]">
+                {Object.keys(groupedActivities).length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground" data-testid="no-activities-message">{t.common.noResults}</div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                    {Object.entries(groupedActivities).map(([dateKey, dayActivities]) => (
+                      <div key={dateKey} className="mb-8">
+                        <div className="sticky top-0 bg-background py-2 z-10">
+                          <Badge variant="secondary" className="ml-8">
+                            {format(new Date(dateKey), "EEEE, d. MMMM yyyy", { locale: dateFnsLocale })}
+                          </Badge>
+                        </div>
+                        <div className="space-y-4 mt-4">
+                          {dayActivities.map((activity) => (
+                            <div key={activity.id} className="flex gap-4 ml-1" data-testid={`activity-item-${activity.id}`}>
+                              <div className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full ${getActivityColor(activity.type)}`}>
+                                {getActivityIcon(activity.type)}
+                              </div>
+                              <div className="flex-1 pb-4">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{activity.collaboratorName}</span>
+                                      <Badge variant="outline" className="text-xs">{getActivityLabel(activity.type)}</Badge>
+                                    </div>
+                                    {activity.details.hospitalName && (
+                                      <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                                        <Building2 className="h-3 w-3" />{activity.details.hospitalName}
+                                      </div>
+                                    )}
+                                    {activity.details.visitType && (
+                                      <div className="text-sm text-muted-foreground">
+                                        {activity.details.visitType}{activity.details.place && ` - ${activity.details.place}`}
+                                      </div>
+                                    )}
+                                    {activity.type === "call_recording" && (
+                                      <div className="mt-2 p-3 bg-muted/50 rounded-lg space-y-2">
+                                        <div className="flex items-center gap-4 text-sm">
+                                          {activity.details.phoneNumber && (
+                                            <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{activity.details.phoneNumber}</span>
+                                          )}
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />{formatDuration(activity.details.callDuration)}
+                                          </span>
+                                          <Badge variant="outline" className="text-xs">
+                                            {activity.details.callDirection === "inbound" ? t.mpn.inbound : t.mpn.outbound}
+                                          </Badge>
+                                          {activity.details.sentiment && (
+                                            <Badge variant={activity.details.sentiment === "positive" ? "default" : activity.details.sentiment === "negative" ? "destructive" : "secondary"} className="text-xs">
+                                              {activity.details.sentiment}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        {activity.details.transcriptionText && (
+                                          <div className="text-sm text-muted-foreground italic border-l-2 border-primary/20 pl-3 mt-2">
+                                            {activity.details.transcriptionText.slice(0, 200)}
+                                            {activity.details.transcriptionText.length > 200 && "..."}
+                                          </div>
+                                        )}
+                                        {activity.details.recordingId && (
+                                          <Button variant="outline" size="sm" onClick={() => playRecording(activity.details.recordingId!)} data-testid={`btn-play-${activity.details.recordingId}`}>
+                                            {playingRecordingId === activity.details.recordingId ? (
+                                              <><X className="h-3 w-3 mr-1" />{t.mpn.stopRecording}</>
+                                            ) : (
+                                              <><Activity className="h-3 w-3 mr-1" />{t.mpn.playRecording}</>
+                                            )}
+                                          </Button>
+                                        )}
+                                      </div>
+                                    )}
+                                    {(activity.type === "visit_cancelled" || activity.type === "visit_not_realized") && (
+                                      <div className="mt-1 px-2 py-1 bg-red-50 dark:bg-red-950 rounded text-sm text-red-700 dark:text-red-300">
+                                        {activity.type === "visit_cancelled" ? t.common.cancelled : t.common.notRealized}
+                                        {activity.details.reason && <span>: {activity.details.reason}</span>}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-sm text-muted-foreground whitespace-nowrap">
+                                    <Clock className="h-3 w-3" />{format(activity.timestamp, "HH:mm")}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {meetingCollaborator && (
+        <MeetingScheduleDialog
+          collaborator={meetingCollaborator}
+          hospitals={hospitals}
+          open={!!meetingCollaborator}
+          onClose={() => setMeetingCollaborator(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1437,7 +1843,7 @@ export default function MedicalPartnerNetworkPage() {
           </TabsTrigger>
           <TabsTrigger value="activity" className="gap-1" data-testid="tab-activity">
             <Activity className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.mpn.activityMedicalRepresentants}</span>
+            <span className="hidden sm:inline">{t.mpn.medicalRepresentatives}</span>
           </TabsTrigger>
           <TabsTrigger value="overview" className="gap-1" data-testid="tab-overview">
             <LayoutDashboard className="h-4 w-4" />
