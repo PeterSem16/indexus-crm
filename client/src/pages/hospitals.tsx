@@ -2027,31 +2027,7 @@ export default function HospitalsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t.hospitals.title} description={t.hospitals.description}>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button 
-              variant="outline" 
-              onClick={() => seedAllMutation.mutate()}
-              disabled={seedAllMutation.isPending}
-              data-testid="button-seed-all-hospitals"
-            >
-              {seedAllMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Database className="h-4 w-4 mr-2" />
-              )}
-              {seedAllMutation.isPending ? t.hospitals.seeding : t.hospitals.seedAll}
-            </Button>
-          )}
-          {canAdd("hospitals") && (
-            <Button onClick={handleAddNew} data-testid="button-add-hospital">
-              <Plus className="h-4 w-4 mr-2" />
-              {t.hospitals.addHospital}
-            </Button>
-          )}
-        </div>
-      </PageHeader>
+      <PageHeader title={t.nav?.hospitalsAndClinics || "Hospitals & Clinics & Collaborators"} description={t.hospitals.description} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex flex-wrap gap-1 h-auto">
@@ -2066,14 +2042,6 @@ export default function HospitalsPage() {
           <TabsTrigger value="collaborators" data-testid="tab-collaborators">
             <Users className="h-4 w-4 mr-2" />
             {t.nav?.collaborators || "Collaborators"}
-          </TabsTrigger>
-          <TabsTrigger value="agreements" data-testid="tab-agreements">
-            <FileText className="h-4 w-4 mr-2" />
-            {t.hospitals.tabs.agreements}
-          </TabsTrigger>
-          <TabsTrigger value="templates" data-testid="tab-templates">
-            <FileText className="h-4 w-4 mr-2" />
-            {t.hospitals.tabs.templates}
           </TabsTrigger>
           <TabsTrigger value="rewards" data-testid="tab-rewards">
             <Gift className="h-4 w-4 mr-2" />
@@ -2752,33 +2720,6 @@ export default function HospitalsPage() {
           <CollaboratorsContent embedded={true} />
         </TabsContent>
 
-        <TabsContent value="agreements" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.hospitals.tabs.agreements}</CardTitle>
-              <CardDescription>{t.hospitals.agreementsDesc}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                {t.hospitals.comingSoon}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="templates" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.hospitals.tabs.templates}</CardTitle>
-              <CardDescription>{t.hospitals.templatesDesc}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                {t.hospitals.comingSoon}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="rewards" className="mt-6">
           <Card>

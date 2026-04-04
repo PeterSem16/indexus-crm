@@ -2299,15 +2299,6 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
         </PageHeader>
       )}
 
-      {embedded && canAdd("collaborators") && (
-        <div className="flex justify-end">
-          <Button onClick={handleAddNew} data-testid="button-add-collaborator-embedded">
-            <Plus className="h-4 w-4 mr-2" />
-            {t.collaborators.addCollaborator}
-          </Button>
-        </div>
-      )}
-
       {!isLoading && collabStats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3" data-testid="collaborators-summary-bar">
           <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
@@ -2396,9 +2387,6 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
         <CardHeader className="pb-4">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                {serverCollaboratorsTotal} {t.common.records}
-              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -2406,7 +2394,7 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
                   onClick={() => exportToCsv(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
                   data-testid="button-export-collaborators-csv"
                 >
-                  <Download className="h-4 w-4 mr-2" />
+                  <Download className="h-4 w-4 mr-1.5" />
                   {t.common.exportCsv}
                 </Button>
                 <Button
@@ -2415,7 +2403,7 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
                   onClick={() => exportToExcel(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
                   data-testid="button-export-collaborators-excel"
                 >
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  <FileSpreadsheet className="h-4 w-4 mr-1.5" />
                   {t.common.exportExcel}
                 </Button>
                 <Button
@@ -2424,9 +2412,15 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
                   onClick={() => refetchCollaborators()}
                   data-testid="button-refresh-collaborators"
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <RefreshCw className="h-4 w-4 mr-1.5" />
                   {t.common.refresh}
                 </Button>
+                {canAdd("collaborators") && (
+                  <Button onClick={handleAddNew} className="bg-red-700 hover:bg-red-800 text-white" size="sm" data-testid="button-add-collaborator-inline">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    {t.collaborators.addCollaborator}
+                  </Button>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4">
