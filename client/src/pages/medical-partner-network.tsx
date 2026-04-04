@@ -110,9 +110,9 @@ type NetworkEdge = {
 // ═══════════════════════════════════════════════════════════════
 
 const NODE_COLORS = {
-  hospital: { fill: "#3b82f6", stroke: "#2563eb", text: "#ffffff", glow: "rgba(59,130,246,0.3)" },
-  clinic: { fill: "#10b981", stroke: "#059669", text: "#ffffff", glow: "rgba(16,185,129,0.3)" },
-  person: { fill: "#8b5cf6", stroke: "#7c3aed", text: "#ffffff", glow: "rgba(139,92,246,0.3)" },
+  hospital: { fill: "#3b82f6", fillEnd: "#1d4ed8", stroke: "#2563eb", text: "#ffffff", glow: "rgba(59,130,246,0.35)", shadow: "rgba(59,130,246,0.2)" },
+  clinic: { fill: "#10b981", fillEnd: "#047857", stroke: "#059669", text: "#ffffff", glow: "rgba(16,185,129,0.35)", shadow: "rgba(16,185,129,0.2)" },
+  person: { fill: "#8b5cf6", fillEnd: "#6d28d9", stroke: "#7c3aed", text: "#ffffff", glow: "rgba(139,92,246,0.35)", shadow: "rgba(139,92,246,0.2)" },
 };
 
 function layoutNodes(
@@ -216,12 +216,38 @@ function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges
     setViewBox({ x: minX, y: minY, w: Math.max(maxX - minX, 400), h: Math.max(maxY - minY, 300) });
   };
 
-  const getNodeRadius = (node: NetworkNode) => node.isCenter ? 38 : 28;
+  const getNodeRadius = (node: NetworkNode) => node.isCenter ? 32 : 24;
 
-  const getIcon = (type: string) => {
-    if (type === "hospital") return "H";
-    if (type === "clinic") return "C";
-    return "P";
+  const renderNodeIcon = (type: string, x: number, y: number, isCenter: boolean) => {
+    const size = isCenter ? 18 : 13;
+    const ox = x - size / 2;
+    const oy = y - size / 2;
+    if (type === "hospital") {
+      return (
+        <g transform={`translate(${ox},${oy})`}>
+          <rect x={size*0.15} y={size*0.05} width={size*0.7} height={size*0.85} rx={size*0.08} fill="none" stroke="#fff" strokeWidth={1.4} strokeLinecap="round" />
+          <line x1={size*0.5} y1={size*0.25} x2={size*0.5} y2={size*0.65} stroke="#fff" strokeWidth={1.6} strokeLinecap="round" />
+          <line x1={size*0.3} y1={size*0.45} x2={size*0.7} y2={size*0.45} stroke="#fff" strokeWidth={1.6} strokeLinecap="round" />
+          <line x1={size*0.15} y1={size*0.9} x2={size*0.85} y2={size*0.9} stroke="#fff" strokeWidth={1.4} strokeLinecap="round" />
+        </g>
+      );
+    }
+    if (type === "clinic") {
+      return (
+        <g transform={`translate(${ox},${oy})`}>
+          <circle cx={size*0.65} cy={size*0.2} r={size*0.12} fill="none" stroke="#fff" strokeWidth={1.3} />
+          <path d={`M${size*0.65} ${size*0.32} Q${size*0.65} ${size*0.55} ${size*0.35} ${size*0.75}`} fill="none" stroke="#fff" strokeWidth={1.5} strokeLinecap="round" />
+          <path d={`M${size*0.35} ${size*0.75} L${size*0.15} ${size*0.55}`} fill="none" stroke="#fff" strokeWidth={1.5} strokeLinecap="round" />
+          <path d={`M${size*0.35} ${size*0.75} L${size*0.55} ${size*0.95}`} fill="none" stroke="#fff" strokeWidth={1.5} strokeLinecap="round" />
+        </g>
+      );
+    }
+    return (
+      <g transform={`translate(${ox},${oy})`}>
+        <circle cx={size*0.5} cy={size*0.3} r={size*0.2} fill="none" stroke="#fff" strokeWidth={1.3} />
+        <path d={`M${size*0.15} ${size*0.95} Q${size*0.15} ${size*0.6} ${size*0.5} ${size*0.55} Q${size*0.85} ${size*0.6} ${size*0.85} ${size*0.95}`} fill="none" stroke="#fff" strokeWidth={1.3} strokeLinecap="round" />
+      </g>
+    );
   };
 
   const truncateLabel = (label: string, max: number) =>
@@ -230,16 +256,17 @@ function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges
   if (nodes.length === 0) return null;
 
   return (
-    <div className="relative w-full border rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 overflow-hidden" style={{ height: 500 }}>
-      <div className="absolute top-3 right-3 z-10 flex gap-1">
-        <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => zoom(0.8)} data-testid="btn-zoom-in">
-          <ZoomIn className="h-4 w-4" />
+    <div className="relative w-full border rounded-2xl bg-gradient-to-br from-white via-slate-50 to-blue-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 overflow-hidden shadow-sm" style={{ height: 500 }}>
+      <div className="absolute top-3 right-3 z-10 flex gap-1 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-slate-200/50 dark:border-slate-700/50">
+        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100 dark:hover:bg-slate-700" onClick={() => zoom(0.8)} data-testid="btn-zoom-in">
+          <ZoomIn className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => zoom(1.25)} data-testid="btn-zoom-out">
-          <ZoomOut className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100 dark:hover:bg-slate-700" onClick={() => zoom(1.25)} data-testid="btn-zoom-out">
+          <ZoomOut className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="secondary" size="icon" className="h-8 w-8" onClick={fitAll} data-testid="btn-fit-all">
-          <Maximize2 className="h-4 w-4" />
+        <div className="w-px bg-slate-200 dark:bg-slate-600 my-1" />
+        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100 dark:hover:bg-slate-700" onClick={fitAll} data-testid="btn-fit-all">
+          <Maximize2 className="h-3.5 w-3.5" />
         </Button>
       </div>
 
@@ -254,27 +281,44 @@ function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges
         onMouseLeave={handleMouseUp}
       >
         <defs>
-          <filter id="glow-hospital" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="6" result="blur" />
+          <linearGradient id="grad-hospital" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={NODE_COLORS.hospital.fill} />
+            <stop offset="100%" stopColor={NODE_COLORS.hospital.fillEnd} />
+          </linearGradient>
+          <linearGradient id="grad-clinic" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={NODE_COLORS.clinic.fill} />
+            <stop offset="100%" stopColor={NODE_COLORS.clinic.fillEnd} />
+          </linearGradient>
+          <linearGradient id="grad-person" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={NODE_COLORS.person.fill} />
+            <stop offset="100%" stopColor={NODE_COLORS.person.fillEnd} />
+          </linearGradient>
+          <filter id="node-shadow" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="rgba(0,0,0,0.12)" floodOpacity="1" />
+          </filter>
+          <filter id="glow-hospital" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="8" result="blur" />
             <feFlood floodColor={NODE_COLORS.hospital.glow} result="color" />
             <feComposite in="color" in2="blur" operator="in" result="glow" />
             <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
-          <filter id="glow-clinic" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="6" result="blur" />
+          <filter id="glow-clinic" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="8" result="blur" />
             <feFlood floodColor={NODE_COLORS.clinic.glow} result="color" />
             <feComposite in="color" in2="blur" operator="in" result="glow" />
             <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
-          <filter id="glow-person" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="6" result="blur" />
+          <filter id="glow-person" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="8" result="blur" />
             <feFlood floodColor={NODE_COLORS.person.glow} result="color" />
             <feComposite in="color" in2="blur" operator="in" result="glow" />
             <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
-          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-            <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
-          </marker>
+          <linearGradient id="edge-gradient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#94a3b8" stopOpacity="0.3" />
+            <stop offset="50%" stopColor="#94a3b8" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#94a3b8" stopOpacity="0.3" />
+          </linearGradient>
         </defs>
 
         {edges.map((edge, i) => {
@@ -292,24 +336,56 @@ function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges
           const x2 = toNode.x - (dx / dist) * toR;
           const y2 = toNode.y - (dy / dist) * toR;
 
+          const mx = (x1 + x2) / 2;
+          const my = (y1 + y2) / 2;
+          const perpX = -(y2 - y1) * 0.08;
+          const perpY = (x2 - x1) * 0.08;
+          const cx1 = mx + perpX;
+          const cy1 = my + perpY;
+
+          const fromColors = NODE_COLORS[fromNode.type];
+          const toColors = NODE_COLORS[toNode.type];
+          const gradId = `edge-grad-${i}`;
+
           return (
             <g key={`edge-${i}`}>
-              <line
-                x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={isHovered ? "#64748b" : "#cbd5e1"}
-                strokeWidth={isHovered ? 2.5 : 1.5}
-                strokeDasharray={isHovered ? "" : ""}
-                opacity={hoveredNode && !isHovered ? 0.2 : 1}
-                className="transition-all duration-200"
+              <defs>
+                <linearGradient id={gradId} x1={x1} y1={y1} x2={x2} y2={y2} gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor={isHovered ? fromColors.fill : "#cbd5e1"} stopOpacity={isHovered ? 0.8 : 0.5} />
+                  <stop offset="100%" stopColor={isHovered ? toColors.fill : "#cbd5e1"} stopOpacity={isHovered ? 0.8 : 0.5} />
+                </linearGradient>
+              </defs>
+              <path
+                d={`M${x1},${y1} Q${cx1},${cy1} ${x2},${y2}`}
+                fill="none"
+                stroke={`url(#${gradId})`}
+                strokeWidth={isHovered ? 2.5 : 1.8}
+                opacity={hoveredNode && !isHovered ? 0.15 : 1}
+                className="transition-all duration-300"
               />
+              {isHovered && (
+                <circle r="3" fill={toColors.fill}>
+                  <animateMotion dur="1.5s" repeatCount="indefinite" path={`M${x1},${y1} Q${cx1},${cy1} ${x2},${y2}`} />
+                </circle>
+              )}
               {edge.label && isHovered && (
-                <text
-                  x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 6}
-                  textAnchor="middle"
-                  className="text-[9px] fill-slate-500 dark:fill-slate-400 pointer-events-none"
-                >
-                  {edge.label}
-                </text>
+                <g>
+                  <rect
+                    x={mx - 30} y={my - 16} width={60} height={14} rx={4}
+                    fill="white" fillOpacity="0.9" stroke="#e2e8f0" strokeWidth="0.5"
+                  />
+                  <text
+                    x={mx} y={my - 7}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="pointer-events-none"
+                    fill="#64748b"
+                    fontSize={8}
+                    fontWeight={500}
+                  >
+                    {edge.label}
+                  </text>
+                </g>
               )}
             </g>
           );
@@ -322,54 +398,68 @@ function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges
           const dimmed = hoveredNode && !isHovered && !edges.some(
             e => (e.from === hoveredNode && e.to === node.id) || (e.to === hoveredNode && e.from === node.id)
           );
+          const hoverR = isHovered ? r + 3 : r;
 
           return (
             <g
               key={node.id}
-              className="cursor-pointer transition-all duration-200"
-              opacity={dimmed ? 0.25 : 1}
+              className="cursor-pointer"
+              opacity={dimmed ? 0.2 : 1}
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}
               onClick={() => onNodeClick?.(node)}
+              style={{ transition: 'opacity 0.3s ease' }}
             >
-              <circle
-                cx={node.x} cy={node.y} r={r + (isHovered ? 4 : 0)}
-                fill={colors.fill}
-                stroke={isHovered ? "#fff" : colors.stroke}
-                strokeWidth={isHovered ? 3 : 2}
-                filter={node.isCenter ? `url(#glow-${node.type})` : undefined}
-              />
-              {node.isPrimary && (
-                <polygon
-                  points={`${node.x},${node.y - r - 8} ${node.x + 5},${node.y - r - 2} ${node.x + 3},${node.y - r + 4} ${node.x - 3},${node.y - r + 4} ${node.x - 5},${node.y - r - 2}`}
-                  fill="#fbbf24" stroke="#f59e0b" strokeWidth="0.5"
-                />
+              {isHovered && (
+                <circle
+                  cx={node.x} cy={node.y} r={hoverR + 6}
+                  fill="none"
+                  stroke={colors.fill}
+                  strokeWidth={1}
+                  strokeDasharray="3 3"
+                  opacity={0.5}
+                >
+                  <animate attributeName="r" values={`${hoverR + 5};${hoverR + 8};${hoverR + 5}`} dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.5;0.2;0.5" dur="2s" repeatCount="indefinite" />
+                </circle>
               )}
-              <text
-                x={node.x} y={node.y + 1}
-                textAnchor="middle" dominantBaseline="middle"
-                className="pointer-events-none font-bold"
-                fill={colors.text}
-                fontSize={node.isCenter ? 16 : 12}
-              >
-                {getIcon(node.type)}
-              </text>
+
+              <circle
+                cx={node.x} cy={node.y} r={hoverR}
+                fill={`url(#grad-${node.type})`}
+                stroke={isHovered ? "rgba(255,255,255,0.8)" : colors.stroke}
+                strokeWidth={isHovered ? 2.5 : 1.5}
+                filter={node.isCenter ? `url(#glow-${node.type})` : "url(#node-shadow)"}
+              />
+
+              {node.isPrimary && (
+                <g transform={`translate(${node.x + r * 0.6}, ${node.y - r * 0.6})`}>
+                  <circle r="7" fill="#fbbf24" stroke="#f59e0b" strokeWidth="1" />
+                  <text textAnchor="middle" dominantBaseline="middle" fill="#92400e" fontSize="8" fontWeight="bold">★</text>
+                </g>
+              )}
+
+              {renderNodeIcon(node.type, node.x, node.y, !!node.isCenter)}
+
               <text
                 x={node.x} y={node.y + r + 14}
                 textAnchor="middle"
-                className="pointer-events-none font-medium"
+                className="pointer-events-none"
                 fill="currentColor"
-                fontSize={node.isCenter ? 12 : 10}
+                fontSize={node.isCenter ? 11 : 9.5}
+                fontWeight={600}
+                letterSpacing="0.01em"
               >
-                {truncateLabel(node.label, node.isCenter ? 30 : 20)}
+                {truncateLabel(node.label, node.isCenter ? 28 : 20)}
               </text>
               {node.sublabel && (
                 <text
-                  x={node.x} y={node.y + r + 26}
+                  x={node.x} y={node.y + r + 25}
                   textAnchor="middle"
                   className="pointer-events-none"
                   fill="#94a3b8"
-                  fontSize={9}
+                  fontSize={8}
+                  fontWeight={400}
                 >
                   {truncateLabel(node.sublabel, 25)}
                 </text>
@@ -379,10 +469,21 @@ function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges
         })}
       </svg>
 
-      <div className="absolute bottom-3 left-3 flex gap-2 text-[10px]">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ background: NODE_COLORS.hospital.fill }} /> Nemocnica</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ background: NODE_COLORS.clinic.fill }} /> Ambulancia</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ background: NODE_COLORS.person.fill }} /> Osoba</span>
+      <div className="absolute bottom-3 left-3 flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-sm border border-slate-200/50 dark:border-slate-700/50">
+        <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+          <span className="w-3 h-3 rounded-full shadow-sm" style={{ background: `linear-gradient(135deg, ${NODE_COLORS.hospital.fill}, ${NODE_COLORS.hospital.fillEnd})` }} />
+          Nemocnica
+        </span>
+        <span className="w-px h-3 bg-slate-200 dark:bg-slate-600" />
+        <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+          <span className="w-3 h-3 rounded-full shadow-sm" style={{ background: `linear-gradient(135deg, ${NODE_COLORS.clinic.fill}, ${NODE_COLORS.clinic.fillEnd})` }} />
+          Ambulancia
+        </span>
+        <span className="w-px h-3 bg-slate-200 dark:bg-slate-600" />
+        <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+          <span className="w-3 h-3 rounded-full shadow-sm" style={{ background: `linear-gradient(135deg, ${NODE_COLORS.person.fill}, ${NODE_COLORS.person.fillEnd})` }} />
+          Osoba
+        </span>
       </div>
     </div>
   );
