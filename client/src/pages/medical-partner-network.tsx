@@ -661,10 +661,9 @@ function NetworkExplorer() {
     queryFn: async () => {
       if (!drawerEntity) return null;
       if (drawerEntity.type === "person") {
-        const res = await fetch(`/api/collaborators/lookup?ids=${drawerEntity.id}`, { credentials: "include" });
+        const res = await fetch(`/api/collaborators/${drawerEntity.id}`, { credentials: "include" });
         if (!res.ok) return null;
-        const list = await res.json();
-        return list[0] || null;
+        return res.json();
       } else {
         const endpoint = drawerEntity.type === "hospital" ? "hospitals" : "clinics";
         const res = await fetch(`/api/${endpoint}/${drawerEntity.id}`, { credentials: "include" });
@@ -1871,12 +1870,11 @@ function ActivityTab() {
   });
 
   const { data: repDrawerData, isLoading: repDrawerLoading } = useQuery<any>({
-    queryKey: ["/api/collaborators/lookup", repDrawerId],
+    queryKey: ["/api/collaborators", repDrawerId],
     queryFn: async () => {
-      const res = await fetch(`/api/collaborators/lookup?ids=${repDrawerId}`, { credentials: "include" });
+      const res = await fetch(`/api/collaborators/${repDrawerId}`, { credentials: "include" });
       if (!res.ok) return null;
-      const list = await res.json();
-      return list[0] || null;
+      return res.json();
     },
     enabled: !!repDrawerId,
   });
@@ -2755,7 +2753,7 @@ function ActivityTab() {
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <User className="h-5 w-5 text-violet-600" />
-              {repDrawerLoading ? "..." : repDrawerData ? `${repDrawerData.titleBefore || ""} ${repDrawerData.firstName || ""} ${repDrawerData.lastName || ""}`.trim() : ""}
+              {repDrawerLoading ? "..." : repDrawerData ? [repDrawerData.titleBefore, repDrawerData.firstName, repDrawerData.lastName, repDrawerData.titleAfter].filter(Boolean).join(" ") : ""}
             </SheetTitle>
           </SheetHeader>
           {repDrawerLoading ? (
@@ -2765,67 +2763,160 @@ function ActivityTab() {
           ) : repDrawerData ? (
             <div className="space-y-4 mt-4">
               <div className="flex flex-wrap gap-1.5">
-                <Badge variant="outline">{t.mpn.person}</Badge>
                 {repDrawerData.collaboratorType && <Badge variant="secondary">{repDrawerData.collaboratorType}</Badge>}
+                {repDrawerData.partnerCategory && <Badge variant="outline">{repDrawerData.partnerCategory}</Badge>}
                 {repDrawerData.isActive === true && <Badge className="bg-green-600 text-white text-xs">{t.common.active}</Badge>}
                 {repDrawerData.isActive === false && <Badge variant="destructive" className="text-xs">{t.common.inactive}</Badge>}
                 {repDrawerData.countryCode && <Badge variant="outline">{getCountryFlag(repDrawerData.countryCode)} {repDrawerData.countryCode}</Badge>}
+                {repDrawerData.mobileAppEnabled && <Badge className="bg-blue-600 text-white text-xs">INDEXUS Connect</Badge>}
               </div>
 
               <Card>
-                <CardContent className="p-4 space-y-2 text-sm">
-                  {(repDrawerData.titleBefore || repDrawerData.firstName || repDrawerData.lastName) && (
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="font-medium">
-                        {[repDrawerData.titleBefore, repDrawerData.firstName, repDrawerData.lastName, repDrawerData.titleAfter].filter(Boolean).join(" ")}
-                      </span>
-                    </div>
-                  )}
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <h4 className="text-sm font-semibold text-muted-foreground">{t.common.contact || "Contact"}</h4>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 space-y-2 text-sm">
                   {repDrawerData.phone && (
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{repDrawerData.phone}</span>
+                      <span>{t.common.phone || "Phone"}: <span className="font-medium">{repDrawerData.phone}</span></span>
                     </div>
                   )}
                   {repDrawerData.mobile && (
                     <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{repDrawerData.mobile}</span>
+                      <Phone className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <span>{t.common.mobile || "Mobile"}: <span className="font-medium">{repDrawerData.mobile}</span></span>
+                    </div>
+                  )}
+                  {repDrawerData.mobile2 && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                      <span>{t.common.mobile || "Mobile"} 2: <span className="font-medium">{repDrawerData.mobile2}</span></span>
                     </div>
                   )}
                   {repDrawerData.email && (
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{repDrawerData.email}</span>
+                      <span className="font-medium">{repDrawerData.email}</span>
                     </div>
                   )}
-                  {repDrawerData.collaboratorType && (
+                  {repDrawerData.otherContact && (
                     <div className="flex items-center gap-2">
-                      <UserCheck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{t.common.type || "Type"}: <span className="font-medium">{repDrawerData.collaboratorType}</span></span>
-                    </div>
-                  )}
-                  {repDrawerData.specialization && (
-                    <div className="flex items-center gap-2">
-                      <Stethoscope className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{repDrawerData.specialization}</span>
-                    </div>
-                  )}
-                  {repDrawerData.address && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{[repDrawerData.address, repDrawerData.city, repDrawerData.zip].filter(Boolean).join(", ")}</span>
-                    </div>
-                  )}
-                  {repDrawerData.notes && (
-                    <div className="flex items-start gap-2 mt-2">
-                      <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                      <span className="text-muted-foreground italic">{repDrawerData.notes}</span>
+                      <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span>{repDrawerData.otherContact}</span>
                     </div>
                   )}
                 </CardContent>
               </Card>
+
+              {repDrawerData.companyName && (
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <h4 className="text-sm font-semibold text-muted-foreground">{t.common.company || "Company"}</h4>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="font-medium">{repDrawerData.companyName}</span>
+                    </div>
+                    {repDrawerData.ico && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-xs w-10">IČO:</span>
+                        <span>{repDrawerData.ico}</span>
+                      </div>
+                    )}
+                    {repDrawerData.dic && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-xs w-10">DIČ:</span>
+                        <span>{repDrawerData.dic}</span>
+                      </div>
+                    )}
+                    {repDrawerData.icDph && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-xs w-10">IČ DPH:</span>
+                        <span>{repDrawerData.icDph}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {(repDrawerData.bankAccountIban || repDrawerData.companyIban) && (
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <h4 className="text-sm font-semibold text-muted-foreground">{t.common.bank || "Bank"}</h4>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 space-y-2 text-sm">
+                    {repDrawerData.bankAccountIban && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-xs">IBAN:</span>
+                        <span className="font-mono text-xs">{repDrawerData.bankAccountIban}</span>
+                      </div>
+                    )}
+                    {repDrawerData.swiftCode && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-xs">SWIFT:</span>
+                        <span className="font-mono text-xs">{repDrawerData.swiftCode}</span>
+                      </div>
+                    )}
+                    {repDrawerData.companyIban && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-xs">{t.common.company || "Company"} IBAN:</span>
+                        <span className="font-mono text-xs">{repDrawerData.companyIban}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <h4 className="text-sm font-semibold text-muted-foreground">INDEXUS Connect</h4>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{t.common.status || "Status"}:</span>
+                    <Badge variant={repDrawerData.mobileAppEnabled ? "default" : "secondary"} className={cn("text-xs", repDrawerData.mobileAppEnabled && "bg-green-600")}>
+                      {repDrawerData.mobileAppEnabled ? t.common.active : t.common.inactive}
+                    </Badge>
+                  </div>
+                  {repDrawerData.mobileUsername && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t.common.username || "Username"}:</span>
+                      <span className="font-medium">{repDrawerData.mobileUsername}</span>
+                    </div>
+                  )}
+                  {repDrawerData.mobileWebrtcEnabled && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span>WebRTC {t.common.active}</span>
+                    </div>
+                  )}
+                  {repDrawerData.outboundCallerId && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Caller ID:</span>
+                      <span className="font-mono text-xs">{repDrawerData.outboundCallerId}</span>
+                    </div>
+                  )}
+                  {repDrawerData.lastMobileLogin && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t.common.lastLogin || "Last Login"}:</span>
+                      <span className="text-xs">{new Date(repDrawerData.lastMobileLogin).toLocaleString()}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {repDrawerData.note && (
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <h4 className="text-sm font-semibold text-muted-foreground">{t.common.notes || "Notes"}</h4>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 text-sm">
+                    <p className="text-muted-foreground italic whitespace-pre-wrap">{repDrawerData.note}</p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           ) : null}
         </SheetContent>
