@@ -104,6 +104,14 @@ type NetworkNode = {
   department?: string;
   position?: string;
   categoryName?: string;
+  entityId?: string;
+  entityType?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  countryCode?: string;
+  collaboratorType?: string;
 };
 
 type NetworkEdge = {
@@ -565,6 +573,13 @@ function NetworkExplorer() {
         type: inst.entityType as "hospital" | "clinic",
         label: inst.name,
         sublabel: inst.city || "",
+        entityId: inst.id,
+        entityType: inst.entityType,
+        phone: inst.phone,
+        email: inst.email,
+        address: inst.address,
+        city: inst.city,
+        countryCode: inst.countryCode,
       };
       const ring1 = (networkData.persons || []).map((p: any) => ({
         id: `person-${p.person_id}`,
@@ -576,6 +591,10 @@ function NetworkExplorer() {
         position: p.position,
         categoryName: p.category_name,
         isPrimary: p.is_primary,
+        entityId: p.person_id,
+        phone: p.phone,
+        email: p.email,
+        collaboratorType: p.collaborator_type,
       }));
       const ring2Map = new Map<string, any[]>();
       for (const oa of (networkData.otherAssignments || [])) {
@@ -598,6 +617,10 @@ function NetworkExplorer() {
         type: "person" as const,
         label: [person.title_before, person.first_name, person.last_name].filter(Boolean).join(" "),
         sublabel: person.collaborator_type || "",
+        entityId: person.id,
+        phone: person.phone,
+        email: person.email,
+        collaboratorType: person.collaborator_type,
       };
       const ring1 = (networkData.institutions || []).map((inst: any) => ({
         id: `inst-${inst.entity_type}-${inst.entity_id}`,
@@ -609,6 +632,9 @@ function NetworkExplorer() {
         position: inst.position,
         categoryName: inst.category_name,
         isPrimary: inst.is_primary,
+        entityId: inst.entity_id,
+        entityType: inst.entity_type,
+        city: inst.entity_city,
       }));
       const ring2Map = new Map<string, any[]>();
       for (const op of (networkData.otherPersons || [])) {
@@ -807,7 +833,7 @@ function NetworkExplorer() {
                 <NetworkSVG nodes={nodes} edges={edges} onNodeClick={setDetailNode} />
               </div>
               {detailNode && (
-                <Card className="w-72 shrink-0 self-start">
+                <Card className="w-80 shrink-0 self-start">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -815,41 +841,107 @@ function NetworkExplorer() {
                           detailNode.type === "hospital" ? "bg-blue-500" : detailNode.type === "clinic" ? "bg-emerald-500" : "bg-violet-500")}>
                           {detailNode.type === "hospital" ? "H" : detailNode.type === "clinic" ? "C" : "P"}
                         </div>
-                        <div>
-                          <CardTitle className="text-sm">{detailNode.label}</CardTitle>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-sm truncate">{detailNode.label}</CardTitle>
                           {detailNode.sublabel && <CardDescription className="text-xs">{detailNode.sublabel}</CardDescription>}
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDetailNode(null)}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => setDetailNode(null)}>
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-0 space-y-2 text-xs">
-                    <Badge variant="outline" className="text-[10px]">
-                      {detailNode.type === "hospital" ? t.mpn.hospital : detailNode.type === "clinic" ? t.mpn.clinic : t.mpn.person}
-                    </Badge>
-                    {detailNode.isPrimary && (
-                      <Badge className="text-[10px] bg-amber-100 text-amber-800 border-amber-300 ml-1">
-                        <Star className="h-3 w-3 mr-0.5" /> {t.mpn.primary}
+                  <CardContent className="pt-0 space-y-3 text-xs">
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="outline" className="text-[10px]">
+                        {detailNode.type === "hospital" ? t.mpn.hospital : detailNode.type === "clinic" ? t.mpn.clinic : t.mpn.person}
                       </Badge>
-                    )}
-                    {detailNode.department && (
-                      <div><span className="text-muted-foreground">{t.mpn.department}:</span> <span className="font-medium">{detailNode.department}</span></div>
-                    )}
-                    {detailNode.position && (
-                      <div><span className="text-muted-foreground">{t.mpn.position}:</span> <span className="font-medium">{detailNode.position}</span></div>
-                    )}
-                    {detailNode.role && (
-                      <div><span className="text-muted-foreground">{t.mpn.role}:</span> <span className="font-medium">{detailNode.role}</span></div>
-                    )}
-                    {detailNode.categoryName && (
-                      <div><span className="text-muted-foreground">{t.mpn.category}:</span> <span className="font-medium">{detailNode.categoryName}</span></div>
-                    )}
+                      {detailNode.isPrimary && (
+                        <Badge className="text-[10px] bg-amber-100 text-amber-800 border-amber-300">
+                          <Star className="h-3 w-3 mr-0.5" /> {t.mpn.primary}
+                        </Badge>
+                      )}
+                      {detailNode.collaboratorType && (
+                        <Badge variant="secondary" className="text-[10px]">{detailNode.collaboratorType}</Badge>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {detailNode.department && (
+                        <div className="flex items-start gap-1.5">
+                          <Building2 className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
+                          <div><span className="text-muted-foreground">{t.mpn.department}:</span> <span className="font-medium">{detailNode.department}</span></div>
+                        </div>
+                      )}
+                      {detailNode.position && (
+                        <div className="flex items-start gap-1.5">
+                          <UserCheck className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
+                          <div><span className="text-muted-foreground">{t.mpn.position}:</span> <span className="font-medium">{detailNode.position}</span></div>
+                        </div>
+                      )}
+                      {detailNode.role && (
+                        <div className="flex items-start gap-1.5">
+                          <User className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
+                          <div><span className="text-muted-foreground">{t.mpn.role}:</span> <span className="font-medium">{detailNode.role}</span></div>
+                        </div>
+                      )}
+                      {detailNode.categoryName && (
+                        <div className="flex items-start gap-1.5">
+                          <Filter className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
+                          <div><span className="text-muted-foreground">{t.mpn.category}:</span> <span className="font-medium">{detailNode.categoryName}</span></div>
+                        </div>
+                      )}
+                      {detailNode.phone && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium">{detailNode.phone}</span>
+                        </div>
+                      )}
+                      {detailNode.email && (
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium truncate">{detailNode.email}</span>
+                        </div>
+                      )}
+                      {detailNode.address && (
+                        <div className="flex items-start gap-1.5">
+                          <MapPin className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium">{detailNode.address}{detailNode.city ? `, ${detailNode.city}` : ""}</span>
+                        </div>
+                      )}
+                      {!detailNode.address && detailNode.city && (
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium">{detailNode.city}</span>
+                        </div>
+                      )}
+                    </div>
+
                     <Separator />
                     <div className="text-muted-foreground">
                       {t.mpn.connectionCount}: {edges.filter(e => e.from === detailNode.id || e.to === detailNode.id).length}
                     </div>
+
+                    {detailNode.entityId && (
+                      <div className="pt-1">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="w-full text-xs"
+                          data-testid={`btn-open-detail-${detailNode.entityId}`}
+                          onClick={() => {
+                            if (detailNode.type === "hospital" || detailNode.type === "clinic") {
+                              window.open(`/hospitals?id=${detailNode.entityId}`, "_blank");
+                            } else {
+                              window.open(`/collaborators?id=${detailNode.entityId}`, "_blank");
+                            }
+                          }}
+                        >
+                          <Link2 className="h-3 w-3 mr-1" />
+                          {detailNode.type === "hospital" ? t.mpn.hospital : detailNode.type === "clinic" ? t.mpn.clinic : t.mpn.person} — {t.common.detail || "Detail"}
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -1528,7 +1620,8 @@ function ActivityTab() {
       const res = await fetch(`/api/collaborators?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
-    }
+    },
+    refetchInterval: 30000,
   });
 
   const collaborators = collabResult?.data || [];

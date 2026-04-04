@@ -41532,10 +41532,10 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       // Get institution info
       let instInfo: any = null;
       if (entityType === "hospital") {
-        const r = await db.execute(sql`SELECT id, name, city, country_code FROM hospitals WHERE id = ${entityId}`);
+        const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email, address FROM hospitals WHERE id = ${entityId}`);
         instInfo = r.rows?.[0];
       } else {
-        const r = await db.execute(sql`SELECT id, name, city, country_code FROM clinics WHERE id = ${entityId}`);
+        const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email, address FROM clinics WHERE id = ${entityId}`);
         instInfo = r.rows?.[0];
       }
       if (!instInfo) return res.status(404).json({ error: "Not found" });
@@ -41544,7 +41544,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       const personsRes = await db.execute(sql`
         SELECT ca.person_id, ca.department, ca.position, ca.role, ca.is_primary, ca.is_active, ca.category_id,
                pc.name as category_name,
-               c.first_name, c.last_name, c.title_before, c.title_after, c.collaborator_type
+               c.first_name, c.last_name, c.title_before, c.title_after, c.collaborator_type, c.phone, c.email
         FROM contact_assignments ca
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
         LEFT JOIN collaborators c ON c.id = ca.person_id
@@ -41580,7 +41580,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
 
       // Get person info
       const pRes = await db.execute(sql`
-        SELECT id, first_name, last_name, title_before, title_after, collaborator_type
+        SELECT id, first_name, last_name, title_before, title_after, collaborator_type, phone, email
         FROM collaborators WHERE id = ${personId}
       `);
       const person = pRes.rows?.[0];
@@ -41608,7 +41608,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         const eidList = sql.join(entityIds.map((id: string) => sql`${id}`), sql`, `);
         const otherRes = await db.execute(sql`
           SELECT ca.entity_type, ca.entity_id, ca.person_id, ca.department, ca.position, ca.role, ca.is_primary, ca.is_active,
-                 c.first_name, c.last_name, c.title_before, c.title_after, c.collaborator_type
+                 c.first_name, c.last_name, c.title_before, c.title_after, c.collaborator_type, c.phone, c.email
           FROM contact_assignments ca
           LEFT JOIN collaborators c ON c.id = ca.person_id
           WHERE ca.entity_id IN (${eidList}) AND ca.person_id != ${personId}
