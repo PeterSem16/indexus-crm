@@ -1745,6 +1745,7 @@ function ActivityTab() {
   const repLimit = 50;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [summaryRepId, setSummaryRepId] = useState<string | null>(null);
+  const [repDrawerId, setRepDrawerId] = useState<string | null>(null);
   const [summaryDateRange, setSummaryDateRange] = useState<"today" | "yesterday" | "7days" | "30days" | "all">("all");
   const [onlineRefreshKey, setOnlineRefreshKey] = useState(0);
 
@@ -1867,6 +1868,17 @@ function ActivityTab() {
       return { visits: Array.isArray(visits) ? visits : [], calls };
     },
     enabled: !!summaryRepId,
+  });
+
+  const { data: repDrawerData, isLoading: repDrawerLoading } = useQuery<any>({
+    queryKey: ["/api/collaborators/lookup", repDrawerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborators/lookup?ids=${repDrawerId}`, { credentials: "include" });
+      if (!res.ok) return null;
+      const list = await res.json();
+      return list[0] || null;
+    },
+    enabled: !!repDrawerId,
   });
 
   const cancelMeeting = useMutation({
@@ -2285,6 +2297,9 @@ function ActivityTab() {
                         <TableCell className="text-center">{repVisitStats[c.id]?.completed || 0}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
+                            <Button variant="outline" size="sm" onClick={() => setRepDrawerId(c.id)} data-testid={`btn-detail-${c.id}`} title={t.common.detail || "Detail"}>
+                              <User className="h-3 w-3" />
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => setMeetingCollaborator(c)} data-testid={`btn-plan-meeting-${c.id}`}>
                               <Calendar className="h-3 w-3 mr-1" />
                               {t.mpn.planMeeting}
@@ -2733,6 +2748,87 @@ function ActivityTab() {
           })() : summaryRepId ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={!!repDrawerId} onOpenChange={(open) => { if (!open) setRepDrawerId(null); }}>
+        <SheetContent className="sm:max-w-xl overflow-y-auto" data-testid="rep-detail-drawer">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-violet-600" />
+              {repDrawerLoading ? "..." : repDrawerData ? `${repDrawerData.titleBefore || ""} ${repDrawerData.firstName || ""} ${repDrawerData.lastName || ""}`.trim() : ""}
+            </SheetTitle>
+          </SheetHeader>
+          {repDrawerLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : repDrawerData ? (
+            <div className="space-y-4 mt-4">
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="outline">{t.mpn.person}</Badge>
+                {repDrawerData.collaboratorType && <Badge variant="secondary">{repDrawerData.collaboratorType}</Badge>}
+                {repDrawerData.isActive === true && <Badge className="bg-green-600 text-white text-xs">{t.common.active}</Badge>}
+                {repDrawerData.isActive === false && <Badge variant="destructive" className="text-xs">{t.common.inactive}</Badge>}
+                {repDrawerData.countryCode && <Badge variant="outline">{getCountryFlag(repDrawerData.countryCode)} {repDrawerData.countryCode}</Badge>}
+              </div>
+
+              <Card>
+                <CardContent className="p-4 space-y-2 text-sm">
+                  {(repDrawerData.titleBefore || repDrawerData.firstName || repDrawerData.lastName) && (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="font-medium">
+                        {[repDrawerData.titleBefore, repDrawerData.firstName, repDrawerData.lastName, repDrawerData.titleAfter].filter(Boolean).join(" ")}
+                      </span>
+                    </div>
+                  )}
+                  {repDrawerData.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span>{repDrawerData.phone}</span>
+                    </div>
+                  )}
+                  {repDrawerData.mobile && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span>{repDrawerData.mobile}</span>
+                    </div>
+                  )}
+                  {repDrawerData.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span>{repDrawerData.email}</span>
+                    </div>
+                  )}
+                  {repDrawerData.collaboratorType && (
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span>{t.common.type || "Type"}: <span className="font-medium">{repDrawerData.collaboratorType}</span></span>
+                    </div>
+                  )}
+                  {repDrawerData.specialization && (
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span>{repDrawerData.specialization}</span>
+                    </div>
+                  )}
+                  {repDrawerData.address && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span>{[repDrawerData.address, repDrawerData.city, repDrawerData.zip].filter(Boolean).join(", ")}</span>
+                    </div>
+                  )}
+                  {repDrawerData.notes && (
+                    <div className="flex items-start gap-2 mt-2">
+                      <MessageCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <span className="text-muted-foreground italic">{repDrawerData.notes}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           ) : null}
         </SheetContent>
