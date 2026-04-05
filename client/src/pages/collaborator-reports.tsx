@@ -82,7 +82,7 @@ interface CollaboratorStats {
 import { CHART_PALETTE, STATUS_COLORS } from '@/lib/chart-colors';
 
 export function CollaboratorReportsContent({ embedded = false }: { embedded?: boolean }) {
-  const { selectedCountries } = useCountryFilter();
+  const { selectedCountries, toggleCountry, availableCountries } = useCountryFilter();
   const { t } = useI18n();
   const { toast } = useToast();
   const [period, setPeriod] = useState<PeriodType>('this_month');
@@ -374,20 +374,25 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
               </div>
             </div>
 
-            {selectedCountries.length > 0 && (
-              <div className="flex items-end gap-2">
-                <div className="space-y-2">
-                  <Label data-testid="label-countries">{t.collaboratorReports.countries}</Label>
-                  <div className="flex gap-1">
-                    {selectedCountries.map(code => (
-                      <Badge key={code} variant="secondary" data-testid={`badge-country-${code}`}>
-                        {getCountryFlag(code)} {getCountryName(code)}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+            <div className="space-y-2">
+              <Label data-testid="label-countries">{t.collaboratorReports.countries}</Label>
+              <div className="flex gap-1 flex-wrap">
+                {availableCountries.map(c => {
+                  const isSelected = selectedCountries.includes(c.code);
+                  return (
+                    <Badge
+                      key={c.code}
+                      variant={isSelected ? "default" : "outline"}
+                      className={`cursor-pointer select-none ${isSelected ? "" : "opacity-50"}`}
+                      onClick={() => toggleCountry(c.code)}
+                      data-testid={`badge-country-${c.code}`}
+                    >
+                      {getCountryFlag(c.code)} {c.code}
+                    </Badge>
+                  );
+                })}
               </div>
-            )}
+            </div>
 
             <div className="flex items-end ml-auto">
               <Button
