@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw, BarChart3, Target, Sparkles, MapPin, Layers, Filter, Brain, Network, ArrowRight, ClipboardList, Share2, ThumbsUp, ThumbsDown, Zap, GitMerge, Users, Building2, User, Mail, Phone, Award, SlidersHorizontal, Code } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw, BarChart3, Target, Sparkles, MapPin, Layers, Filter, Brain, Network, ArrowRight, ClipboardList, Share2, ThumbsUp, ThumbsDown, Zap, GitMerge, Users, Building2, User, Mail, Phone, Award, SlidersHorizontal, Code, Square } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { ContractTemplatesManager } from "@/components/contract-templates-manager";
@@ -18136,9 +18136,22 @@ function EntityGraphTab() {
             <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Share2 className="h-4 w-4" /> Znalostný graf entít</CardTitle></CardHeader>
             <CardContent>
               {loading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : filtered.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Share2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Žiadne entity. Spustite "Resolve entity" pre vytvorenie znalostného grafu z výsledkov vyhľadávania.</p>
+                <div className="text-center py-8 text-muted-foreground space-y-3">
+                  <Share2 className="h-10 w-10 mx-auto opacity-40" />
+                  <div>
+                    <p className="font-medium text-foreground mb-1">Znalostný graf entít</p>
+                    <p className="text-sm max-w-md mx-auto">
+                      Entity graf automaticky spája dáta z rôznych zdrojov do jedného záznamu.
+                      Napr. jedna nemocnica nájdená na webe, v katalógu aj v registri sa zlúči do 1 entity
+                      s viacerými dôkazmi a skóre dôveryhodnosti.
+                    </p>
+                  </div>
+                  <div className="text-xs space-y-1 max-w-sm mx-auto text-left bg-muted/50 rounded-lg p-3">
+                    <p className="font-medium text-foreground">Ako začať:</p>
+                    <p>1. Spustite vyhľadávanie v záložke "Lead Search"</p>
+                    <p>2. Po dokončení kliknite "Resolve entity" — systém zlúči duplicity</p>
+                    <p>3. Tu uvidíte graf so vzťahmi, skóre a zdrojmi</p>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-1 max-h-[600px] overflow-y-auto">
@@ -18658,9 +18671,15 @@ function LeadSearchTab() {
 
   const { data: results = [], refetch: refetchResults } = useQuery<any[]>({
     queryKey: ["/api/lead-search/jobs", selectedJobId, "results"],
-    queryFn: () => selectedJobId ? fetch(`/api/lead-search/jobs/${selectedJobId}/results`, { credentials: "include" }).then(r => r.json()) : Promise.resolve([]),
+    queryFn: async () => {
+      if (!selectedJobId) return [];
+      const resp = await fetch(`/api/lead-search/jobs/${selectedJobId}/results`, { credentials: "include" });
+      const data = await resp.json();
+      return Array.isArray(data) ? data : [];
+    },
     enabled: !!selectedJobId,
   });
+  const [stoppingJob, setStoppingJob] = useState(false);
 
   const selectedJob = jobs.find((j: any) => j.id === selectedJobId);
 
@@ -19937,12 +19956,14 @@ function LeadSearchTab() {
                           job.status === "completed" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
                           job.status === "running" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
                           job.status === "failed" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                          job.status === "cancelled" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" :
                           "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
                         }`}>
                           {job.status === "running" && <Loader2 className="h-3 w-3 animate-spin" />}
                           {job.status === "completed" && <CheckCircle2 className="h-3 w-3" />}
                           {job.status === "failed" && <XCircle className="h-3 w-3" />}
-                          {job.status}
+                          {job.status === "cancelled" && <Square className="h-3 w-3" />}
+                          {job.status === "cancelled" ? "zastavený" : job.status}
                         </span>
                         <span>{job.targetModule}</span>
                         <span>{job.totalResults || 0} výsledkov</span>
@@ -19964,6 +19985,21 @@ function LeadSearchTab() {
               <CardTitle className="text-base flex items-center gap-2">
                 Výsledky: {selectedJob?.name}
                 {selectedJob?.status === "running" && <Loader2 className="h-4 w-4 animate-spin" />}
+                {selectedJob?.status === "running" && (
+                  <Button variant="destructive" size="sm" className="h-7 text-xs ml-2" disabled={stoppingJob} data-testid="button-stop-search" onClick={async () => {
+                    setStoppingJob(true);
+                    try {
+                      await fetch(`/api/lead-search/jobs/${selectedJobId}/stop`, { method: "POST", credentials: "include" });
+                      toast({ title: "Vyhľadávanie zastavené" });
+                      refetchJobs();
+                      refetchResults();
+                    } catch { toast({ title: "Chyba pri zastavení", variant: "destructive" }); }
+                    setStoppingJob(false);
+                  }}>
+                    {stoppingJob ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
+                    Zastaviť
+                  </Button>
+                )}
               </CardTitle>
               <div className="flex items-center gap-2">
                 {results.length > 0 && (
@@ -19986,8 +20022,7 @@ function LeadSearchTab() {
                         <Button variant="outline" size="sm" className="text-xs h-7 text-green-600 border-green-200" data-testid="button-bulk-approve" onClick={async () => {
                           const ids = results.filter((r: any) => r.status === "new").map((r: any) => r.id);
                           await fetch("/api/search-results/bulk-review", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ids, status: "approved" }) });
-                          const data = await fetch(`/api/lead-search/results/${selectedJob?.id}`, { credentials: "include" }).then(r => r.json());
-                          setResults(data);
+                          await refetchResults();
                           toast({ title: `${ids.length} schválených` });
                         }}>
                           <Check className="h-3 w-3 mr-1" /> Schváliť všetky
@@ -20075,8 +20110,7 @@ function LeadSearchTab() {
                                 {r.status === "new" && (
                                   <Button size="sm" variant="outline" className="h-6 text-[10px] px-1.5 text-green-600 border-green-200 hover:bg-green-50" data-testid={`approve-result-${r.id}`} onClick={async () => {
                                     await fetch(`/api/search-results/${r.id}/review`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "approved" }) });
-                                    const j = jobs.find((j: any) => j.id === selectedJob);
-                                    if (j) { const data = await fetch(`/api/lead-search/results/${j.id}`, { credentials: "include" }).then(r => r.json()); setResults(data); }
+                                    await refetchResults();
                                   }}>
                                     <Check className="h-3 w-3" />
                                   </Button>
@@ -20084,8 +20118,7 @@ function LeadSearchTab() {
                                 {r.status === "new" && (
                                   <Button size="sm" variant="outline" className="h-6 text-[10px] px-1.5 text-red-600 border-red-200 hover:bg-red-50" data-testid={`reject-result-${r.id}`} onClick={async () => {
                                     await fetch(`/api/search-results/${r.id}/review`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "rejected" }) });
-                                    const j = jobs.find((j: any) => j.id === selectedJob);
-                                    if (j) { const data = await fetch(`/api/lead-search/results/${j.id}`, { credentials: "include" }).then(r => r.json()); setResults(data); }
+                                    await refetchResults();
                                   }}>
                                     <X className="h-3 w-3" />
                                   </Button>
@@ -20096,8 +20129,7 @@ function LeadSearchTab() {
                                     const data = await resp.json();
                                     if (data.success) {
                                       toast({ title: "Zlúčený do CRM", description: data.mergedTo });
-                                      const j = jobs.find((j: any) => j.id === selectedJob);
-                                      if (j) { const resData = await fetch(`/api/lead-search/results/${j.id}`, { credentials: "include" }).then(r => r.json()); setResults(resData); }
+                                      await refetchResults();
                                     }
                                   }}>
                                     CRM
@@ -20113,8 +20145,7 @@ function LeadSearchTab() {
                             {r.status === "rejected" && (
                               <Button size="sm" variant="ghost" className="h-6 text-[10px] px-1.5" data-testid={`restore-result-${r.id}`} onClick={async () => {
                                 await fetch(`/api/search-results/${r.id}/review`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "new" }) });
-                                const j = jobs.find((j: any) => j.id === selectedJob);
-                                if (j) { const data = await fetch(`/api/lead-search/results/${j.id}`, { credentials: "include" }).then(r => r.json()); setResults(data); }
+                                await refetchResults();
                               }}>
                                 Obnoviť
                               </Button>

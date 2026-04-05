@@ -28388,6 +28388,19 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
 
 
   // Lead Search System
+  const cancelledSearchJobs = new Set<number>();
+
+  app.post("/api/lead-search/jobs/:id/stop", requireAuth, async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      cancelledSearchJobs.add(jobId);
+      await storage.updateSearchJob(jobId, { status: "cancelled" } as any);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to stop job" });
+    }
+  });
+
   app.get("/api/lead-search/jobs", requireAuth, async (req, res) => {
     try {
       const jobs = await storage.getAllSearchJobs();
@@ -28636,6 +28649,14 @@ Odpovedz VÝLUČNE ako JSON objekt s kľúčom "suggestions" obsahujúcim pole s
 
   function runLeadSearchPipelineForJob(job: any, targetModule: string, country: string, segment: string, location: string, keywords: string, customParams: Partial<SearchPipelineParams> | null) {
     const SP: SearchPipelineParams = { ...DEFAULT_SEARCH_PARAMS, ...(customParams || {}) };
+      const isJobCancelled = () => cancelledSearchJobs.has(job.id);
+      const checkCancellation = async () => {
+        if (isJobCancelled()) {
+          console.log(`[LeadSearch] Job ${job.id}: CANCELLED by user`);
+          cancelledSearchJobs.delete(job.id);
+          throw new Error("CANCELLED_BY_USER");
+        }
+      };
       const MODULE_SCHEMAS: Record<string, { description: string; fields: string; searchFocus: string }> = {
         hospitals: {
           description: "Nemocnice - lôžkové zdravotnícke zariadenia, fakultné nemocnice, univerzitné nemocnice, špecializované ústavy",
@@ -28731,6 +28752,7 @@ Optional: titleBefore (MUDr., Ing., ...), titleAfter (PhD., CSc., ...), phone, m
           const normalizeStr = (s: string) => s?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim() || "";
 
           // ═══════════════════════════════════════════════════════════
+          await checkCancellation();
           // KROK 1: AI QUERY BUILDER — generovanie vyhľadávacích fráz
           // ═══════════════════════════════════════════════════════════
           console.log(`[LeadSearch] Job ${job.id}: Parametre: queries=${SP.queryCount}, googlePages=${SP.googlePages}, scrape=${SP.maxPagesToScrape}, deepCrawl=${SP.deepCrawlDirectories}x${SP.deepCrawlLinksPerDir}, pagination=${SP.paginationDepth}, contacts=${SP.contactPageDomains}, expansion=${SP.domainExpansionTopN}x${SP.domainExpansionLinksPerDomain}, aiFirstPass=${SP.aiFirstPassPages}, aiBatch=${SP.aiPassBatchSize}`);
@@ -28883,6 +28905,7 @@ Return ONLY a JSON array of ${SP.queryCount} search query strings.`;
           }
 
           // ═══════════════════════════════════════════════════════════
+          await checkCancellation();
           // KROK 2: DISCOVERY — nájdenie kandidátnych URL
           // ═══════════════════════════════════════════════════════════
           console.log(`[LeadSearch] Job ${job.id}: KROK 2 — Discovery (${searchQueries.length} queries)`);
@@ -29067,6 +29090,7 @@ Return ONLY a JSON array of query strings.`;
           console.log(`[LeadSearch] Job ${job.id}: Discovery hotový — ${allSnippets.length} kandidátnych URL`);
 
           // ═══════════════════════════════════════════════════════════
+          await checkCancellation();
           // KROK 3: FETCH — systematické stiahnutie stránok
           // ═══════════════════════════════════════════════════════════
           console.log(`[LeadSearch] Job ${job.id}: KROK 3 — Fetch & Parse (do 200 stránok)`);
@@ -29107,6 +29131,7 @@ Return ONLY a JSON array of query strings.`;
           }
 
           // ═══════════════════════════════════════════════════════════
+          await checkCancellation();
           // KROK 4: DEEP CRAWL — prehliadať podstránky directory stránok
           // ═══════════════════════════════════════════════════════════
           const directoryPages = scrapedPages.filter(p => p.isDirectory);
@@ -29153,6 +29178,7 @@ Return ONLY a JSON array of query strings.`;
           }
 
           // ═══════════════════════════════════════════════════════════
+          await checkCancellation();
           // KROK 5: CONTACT PAGE FOLLOW — hľadať kontaktné podstránky
           // ═══════════════════════════════════════════════════════════
           const contactSubpages: string[] = [];
@@ -29331,6 +29357,7 @@ Return ONLY a JSON array of query strings.`;
           } // end enableRuleExtraction
 
           // ═══════════════════════════════════════════════════════════
+          await checkCancellation();
           // KROK 6: AI EXTRACTION — štrukturovaná extrakcia kontaktov
           // ═══════════════════════════════════════════════════════════
           console.log(`[LeadSearch] Job ${job.id}: KROK 6 — AI Extraction`);
@@ -29826,11 +29853,16 @@ Return ONLY a JSON array of NEW contacts (same format: company_name, contact_per
           } as any);
 
         } catch (error: any) {
-          console.error("[LeadSearch] Job error:", error);
-          await storage.updateSearchJob(job.id, {
-            status: "failed",
-            errorMessage: error.message,
-          } as any);
+          if (error.message === "CANCELLED_BY_USER") {
+            console.log(`[LeadSearch] Job ${job.id}: Stopped by user, saving partial results`);
+            await storage.updateSearchJob(job.id, { status: "cancelled", completedAt: new Date() } as any);
+          } else {
+            console.error("[LeadSearch] Job error:", error);
+            await storage.updateSearchJob(job.id, {
+              status: "failed",
+              errorMessage: error.message,
+            } as any);
+          }
         }
       })();
   }
