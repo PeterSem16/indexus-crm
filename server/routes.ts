@@ -16531,6 +16531,30 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         ORDER BY count DESC
       `);
 
+      let callCountryFilter = sql``;
+      if (countryCodes && countryCodes.length > 0) {
+        callCountryFilter = sql`AND c.country_code IN (${sql.join(countryCodes.map(c => sql`${c}`), sql`, `)})`;
+      }
+      let callCollabFilter = sql``;
+      if (collaboratorId && collaboratorId !== "all") {
+        callCollabFilter = sql`AND cl.user_id = ${collaboratorId}`;
+      }
+
+      const callOverview = await db.execute(sql`
+        SELECT
+          COUNT(*)::int as total_calls,
+          COUNT(*) FILTER (WHERE cl.status = 'answered' OR cl.status = 'completed')::int as answered_calls,
+          COUNT(*) FILTER (WHERE cl.status = 'no_answer')::int as no_answer_calls,
+          COUNT(*) FILTER (WHERE cl.status = 'busy')::int as busy_calls,
+          COUNT(*) FILTER (WHERE cl.status = 'failed' OR cl.status = 'cancelled')::int as failed_calls,
+          COALESCE(SUM(cl.duration_seconds), 0)::int as total_call_seconds,
+          COALESCE(AVG(cl.duration_seconds) FILTER (WHERE cl.duration_seconds > 0), 0)::float as avg_call_duration
+        FROM call_logs cl
+        JOIN collaborators c ON c.id = cl.user_id
+        WHERE cl.started_at >= ${sd} AND cl.started_at <= ${ed}
+          ${callCountryFilter} ${callCollabFilter}
+      `);
+
       const collabStatsResult = await db.execute(sql`
         SELECT
           ve.collaborator_id,
@@ -16553,7 +16577,31 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         LIMIT 500
       `);
 
+      const collabCallStatsResult = await db.execute(sql`
+        SELECT
+          cl.user_id as collaborator_id,
+          COUNT(*)::int as total_calls,
+          COUNT(*) FILTER (WHERE cl.status = 'answered' OR cl.status = 'completed')::int as answered_calls,
+          COUNT(*) FILTER (WHERE cl.status = 'no_answer')::int as no_answer_calls,
+          COUNT(*) FILTER (WHERE cl.status = 'busy')::int as busy_calls,
+          COUNT(*) FILTER (WHERE cl.status = 'failed' OR cl.status = 'cancelled')::int as failed_calls,
+          COALESCE(SUM(cl.duration_seconds), 0)::int as total_seconds,
+          COALESCE(AVG(cl.duration_seconds) FILTER (WHERE cl.duration_seconds > 0), 0)::float as avg_duration
+        FROM call_logs cl
+        JOIN collaborators c ON c.id = cl.user_id
+        WHERE cl.started_at >= ${sd} AND cl.started_at <= ${ed}
+          ${callCountryFilter} ${callCollabFilter}
+        GROUP BY cl.user_id
+      `);
+
       const overview = overviewResult.rows?.[0] || {};
+      const callOv = callOverview.rows?.[0] || {};
+
+      const callStatsMap: Record<string, any> = {};
+      for (const r of (collabCallStatsResult.rows || []) as any[]) {
+        callStatsMap[r.collaborator_id] = r;
+      }
+
       res.json({
         stats: {
           totalCollaborators: totalCollabResult.rows?.[0]?.total || 0,
@@ -16566,21 +16614,40 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           totalHours: Math.round((overview.total_hours || 0) * 10) / 10,
           hospitalsVisited: overview.hospitals_visited || 0,
           totalHospitals: totalHospitalsResult.rows?.[0]?.total || 0,
+          totalCalls: callOv.total_calls || 0,
+          answeredCalls: callOv.answered_calls || 0,
+          noAnswerCalls: callOv.no_answer_calls || 0,
+          busyCalls: callOv.busy_calls || 0,
+          failedCalls: callOv.failed_calls || 0,
+          totalCallSeconds: callOv.total_call_seconds || 0,
+          avgCallDuration: Math.round((callOv.avg_call_duration || 0) * 10) / 10,
+          callSuccessRate: callOv.total_calls > 0
+            ? Math.round(((callOv.answered_calls || 0) / callOv.total_calls) * 1000) / 10
+            : 0,
         },
         visitTypes: (visitTypeResult.rows || []).map((r: any) => ({
           type: r.visit_type,
           count: r.count,
         })),
-        collaboratorStats: (collabStatsResult.rows || []).map((r: any) => ({
-          id: r.collaborator_id,
-          name: `${r.first_name} ${r.last_name}`,
-          country: r.country_code,
-          totalVisits: r.total_visits,
-          completedVisits: r.completed_visits,
-          cancelledVisits: r.cancelled_visits,
-          hospitalsVisited: r.hospitals_visited,
-          hoursWorked: Math.round((r.hours_worked || 0) * 10) / 10,
-        })),
+        collaboratorStats: (collabStatsResult.rows || []).map((r: any) => {
+          const cs = callStatsMap[r.collaborator_id] || {};
+          return {
+            id: r.collaborator_id,
+            name: `${r.first_name} ${r.last_name}`,
+            country: r.country_code,
+            totalVisits: r.total_visits,
+            completedVisits: r.completed_visits,
+            cancelledVisits: r.cancelled_visits,
+            hospitalsVisited: r.hospitals_visited,
+            hoursWorked: Math.round((r.hours_worked || 0) * 10) / 10,
+            totalCalls: cs.total_calls || 0,
+            answeredCalls: cs.answered_calls || 0,
+            callSuccessRate: cs.total_calls > 0
+              ? Math.round(((cs.answered_calls || 0) / cs.total_calls) * 1000) / 10
+              : 0,
+            avgCallDuration: Math.round((cs.avg_duration || 0) * 10) / 10,
+          };
+        }),
       });
     } catch (e: any) {
       console.error("[CollaboratorReports] Stats error:", e);

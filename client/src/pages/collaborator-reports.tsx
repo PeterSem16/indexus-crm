@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, FileText, Calendar, Building2, Clock, Users, Filter, BarChart3, TrendingUp, PieChart, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { Download, FileText, Calendar, Building2, Clock, Users, Filter, BarChart3, TrendingUp, PieChart, FileSpreadsheet, RefreshCw, Phone, PhoneOff, PhoneCall } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
@@ -54,6 +54,14 @@ interface ReportStats {
   inProgressVisits: number;
   totalHours: number;
   hospitalsVisited: number;
+  totalCalls: number;
+  answeredCalls: number;
+  noAnswerCalls: number;
+  busyCalls: number;
+  failedCalls: number;
+  totalCallSeconds: number;
+  avgCallDuration: number;
+  callSuccessRate: number;
 }
 
 interface CollaboratorStats {
@@ -65,6 +73,10 @@ interface CollaboratorStats {
   cancelledVisits: number;
   hoursWorked: number;
   hospitalsVisited: number;
+  totalCalls: number;
+  answeredCalls: number;
+  callSuccessRate: number;
+  avgCallDuration: number;
 }
 
 import { CHART_PALETTE, STATUS_COLORS } from '@/lib/chart-colors';
@@ -125,6 +137,8 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
     totalCollaborators: 0, activeCollaborators: 0, totalVisits: 0,
     completedVisits: 0, cancelledVisits: 0, scheduledVisits: 0,
     inProgressVisits: 0, totalHours: 0, hospitalsVisited: 0,
+    totalCalls: 0, answeredCalls: 0, noAnswerCalls: 0, busyCalls: 0,
+    failedCalls: 0, totalCallSeconds: 0, avgCallDuration: 0, callSuccessRate: 0,
   };
   const totalHospitals: number = reportData?.stats?.totalHospitals || 0;
   const collaboratorStats: CollaboratorStats[] = reportData?.collaboratorStats || [];
@@ -390,7 +404,7 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card data-testid="card-collaborators-stat">
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium" data-testid="text-collaborators-label">{t.collaboratorReports.collaborators}</CardTitle>
@@ -461,6 +475,44 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
                 <div className="text-2xl font-bold" data-testid="text-hospitals-visited">{stats.hospitalsVisited}</div>
                 <p className="text-xs text-muted-foreground" data-testid="text-hospitals-total">
                   {t.collaboratorReports.ofTotal} {totalHospitals} {t.collaboratorReports.inSystem}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-calls-stat">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium" data-testid="text-calls-label">{t.common.calls || "Calls"}</CardTitle>
+            <Phone className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold" data-testid="text-total-calls">{stats.totalCalls}</div>
+                <p className="text-xs text-muted-foreground" data-testid="text-answered-calls">
+                  {stats.answeredCalls} {t.common.answered || "answered"}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-call-success-stat">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium" data-testid="text-success-label">{t.common.successRate || "Success Rate"}</CardTitle>
+            <PhoneCall className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold" data-testid="text-call-success-rate">{stats.callSuccessRate}%</div>
+                <p className="text-xs text-muted-foreground" data-testid="text-avg-duration">
+                  ⌀ {stats.avgCallDuration}s / {t.common.call || "call"}
                 </p>
               </>
             )}
@@ -565,6 +617,9 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
                   <TableHead className="text-right">{t.common?.cancelled || 'Cancelled'}</TableHead>
                   <TableHead className="text-right">{t.collaboratorReports.hoursWorked}</TableHead>
                   <TableHead className="text-right">{t.collaboratorReports.hospitalsVisited}</TableHead>
+                  <TableHead className="text-right">{t.common.calls || "Calls"}</TableHead>
+                  <TableHead className="text-right">{t.common.answered || "Answered"}</TableHead>
+                  <TableHead className="text-right">{t.common.successRate || "Success %"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -590,6 +645,19 @@ export function CollaboratorReportsContent({ embedded = false }: { embedded?: bo
                     </TableCell>
                     <TableCell className="text-right">{Math.round(stat.hoursWorked * 10) / 10}</TableCell>
                     <TableCell className="text-right">{stat.hospitalsVisited}</TableCell>
+                    <TableCell className="text-right">{stat.totalCalls || '-'}</TableCell>
+                    <TableCell className="text-right">
+                      {stat.totalCalls > 0 ? (
+                        <Badge variant="default" className="bg-green-600">{stat.answeredCalls}</Badge>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {stat.totalCalls > 0 ? (
+                        <Badge variant={stat.callSuccessRate >= 50 ? "default" : "destructive"} className={stat.callSuccessRate >= 50 ? "bg-green-600" : ""}>
+                          {stat.callSuccessRate}%
+                        </Badge>
+                      ) : '-'}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
