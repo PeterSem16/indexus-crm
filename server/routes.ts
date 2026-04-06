@@ -22927,23 +22927,52 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  app.get("/api/campaigns/:campaignId/operator-settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await db.select().from(campaignOperatorSettings)
+        .where(eq(campaignOperatorSettings.campaignId, req.params.campaignId));
+      res.json(settings);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch operator settings" });
+    }
+  });
+
   app.patch("/api/campaigns/:campaignId/agents/:userId/quotas", requireAuth, async (req, res) => {
     try {
       const { dailyCallQuota, dailyEmailQuota, dailySmsQuota, maxContactsPerDay } = req.body;
-      const agents = await storage.getCampaignAgents(req.params.campaignId);
-      const agent = agents.find(a => a.userId === req.params.userId);
-      if (!agent) return res.status(404).json({ error: "Agent not found" });
-      await db.update(campaignOperatorSettings)
-        .set({
-          dailyCallQuota: dailyCallQuota === undefined ? undefined : dailyCallQuota,
-          dailyEmailQuota: dailyEmailQuota === undefined ? undefined : dailyEmailQuota,
-          dailySmsQuota: dailySmsQuota === undefined ? undefined : dailySmsQuota,
-          maxContactsPerDay: maxContactsPerDay === undefined ? undefined : maxContactsPerDay,
-          updatedAt: new Date(),
-        })
-        .where(eq(campaignOperatorSettings.id, agent.id));
-      const updated = await storage.getCampaignAgents(req.params.campaignId);
-      res.json(updated.find(a => a.userId === req.params.userId));
+      const { campaignId, userId } = req.params;
+      const existing = await db.select().from(campaignOperatorSettings)
+        .where(and(
+          eq(campaignOperatorSettings.campaignId, campaignId),
+          eq(campaignOperatorSettings.userId, userId)
+        ))
+        .limit(1);
+
+      let result;
+      if (existing.length > 0) {
+        [result] = await db.update(campaignOperatorSettings)
+          .set({
+            dailyCallQuota: dailyCallQuota !== undefined ? dailyCallQuota : existing[0].dailyCallQuota,
+            dailyEmailQuota: dailyEmailQuota !== undefined ? dailyEmailQuota : existing[0].dailyEmailQuota,
+            dailySmsQuota: dailySmsQuota !== undefined ? dailySmsQuota : existing[0].dailySmsQuota,
+            maxContactsPerDay: maxContactsPerDay !== undefined ? maxContactsPerDay : existing[0].maxContactsPerDay,
+            updatedAt: new Date(),
+          })
+          .where(eq(campaignOperatorSettings.id, existing[0].id))
+          .returning();
+      } else {
+        [result] = await db.insert(campaignOperatorSettings)
+          .values({
+            campaignId,
+            userId,
+            dailyCallQuota: dailyCallQuota ?? null,
+            dailyEmailQuota: dailyEmailQuota ?? null,
+            dailySmsQuota: dailySmsQuota ?? null,
+            maxContactsPerDay: maxContactsPerDay ?? 50,
+          })
+          .returning();
+      }
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to update quotas" });
     }

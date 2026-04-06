@@ -1951,22 +1951,26 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   return <TabsContent value="dispositions" className="space-y-4">{content}</TabsContent>;
 }
 
-function QuotasCard({ campaignId, assignedAgentIds, allUsers, campaignAgents, t }: {
+function QuotasCard({ campaignId, assignedAgentIds, allUsers, t }: {
   campaignId: string;
   assignedAgentIds: string[];
   allUsers: Array<{ id: string; fullName: string; role: string; roleId: string | null }>;
-  campaignAgents: Array<{ id: string; userId: string; campaignId: string; dailyCallQuota?: number | null; dailyEmailQuota?: number | null; dailySmsQuota?: number | null; maxContactsPerDay?: number | null }>;
   t: any;
 }) {
   const { toast } = useToast();
   const [quotaEdits, setQuotaEdits] = useState<Record<string, { calls?: string; emails?: string; sms?: string }>>({});
   const [savingQuotas, setSavingQuotas] = useState<Record<string, boolean>>({});
 
+  const { data: operatorSettings = [] } = useQuery<Array<{ id: string; userId: string; campaignId: string; dailyCallQuota?: number | null; dailyEmailQuota?: number | null; dailySmsQuota?: number | null; maxContactsPerDay?: number | null }>>({
+    queryKey: ["/api/campaigns", campaignId, "operator-settings"],
+    enabled: !!campaignId,
+  });
+
   const getQuotaValue = (userId: string, field: "calls" | "emails" | "sms") => {
     if (quotaEdits[userId]?.[field] !== undefined) return quotaEdits[userId][field]!;
-    const agentData = campaignAgents.find(a => a.userId === userId);
-    if (!agentData) return "";
-    const map: Record<string, any> = { calls: agentData.dailyCallQuota, emails: agentData.dailyEmailQuota, sms: agentData.dailySmsQuota };
+    const settings = operatorSettings.find(s => s.userId === userId);
+    if (!settings) return "";
+    const map: Record<string, any> = { calls: settings.dailyCallQuota, emails: settings.dailyEmailQuota, sms: settings.dailySmsQuota };
     return map[field] != null ? String(map[field]) : "";
   };
 
@@ -1978,16 +1982,16 @@ function QuotasCard({ campaignId, assignedAgentIds, allUsers, campaignAgents, t 
     setSavingQuotas(prev => ({ ...prev, [userId]: true }));
     try {
       const edits = quotaEdits[userId] || {};
-      const agentData = campaignAgents.find(a => a.userId === userId);
+      const settings = operatorSettings.find(s => s.userId === userId);
       const body: any = {};
       if (edits.calls !== undefined) body.dailyCallQuota = edits.calls === "" ? null : parseInt(edits.calls);
-      else if (agentData) body.dailyCallQuota = agentData.dailyCallQuota;
+      else if (settings) body.dailyCallQuota = settings.dailyCallQuota;
       if (edits.emails !== undefined) body.dailyEmailQuota = edits.emails === "" ? null : parseInt(edits.emails);
-      else if (agentData) body.dailyEmailQuota = agentData.dailyEmailQuota;
+      else if (settings) body.dailyEmailQuota = settings.dailyEmailQuota;
       if (edits.sms !== undefined) body.dailySmsQuota = edits.sms === "" ? null : parseInt(edits.sms);
-      else if (agentData) body.dailySmsQuota = agentData.dailySmsQuota;
+      else if (settings) body.dailySmsQuota = settings.dailySmsQuota;
       await apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, body);
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "operator-settings"] });
       setQuotaEdits(prev => { const n = { ...prev }; delete n[userId]; return n; });
       toast({ title: t.campaigns?.detail?.quotasSaved || "Quotas saved" });
     } catch (err: any) {
@@ -3420,7 +3424,6 @@ export default function CampaignDetailPage() {
                         campaignId={campaignId}
                         assignedAgentIds={assignedAgentIds}
                         allUsers={allUsers}
-                        campaignAgents={campaignAgents}
                         t={t}
                       />
                     )}
