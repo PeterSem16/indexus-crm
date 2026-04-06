@@ -12939,6 +12939,137 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/campaigns/:id/phases/analytics", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const phases = await storage.getCampaignPhases(campaignId);
+      const allCampaignContacts = await storage.getCampaignContacts(campaignId);
+      const allUsers = await storage.getUsers();
+      const dispositions = await db.select().from(campaignDispositions)
+        .where(eq(campaignDispositions.campaignId, campaignId));
+
+      const phaseAnalytics = await Promise.all(phases.map(async (phase) => {
+        const contactPhases = await storage.getCampaignContactPhases(phase.id);
+        const total = contactPhases.length;
+        const pending = contactPhases.filter(cp => cp.status === "pending").length;
+        const inProgress = contactPhases.filter(cp => cp.status === "in_progress").length;
+        const completed = contactPhases.filter(cp => cp.status === "completed").length;
+        const skipped = contactPhases.filter(cp => cp.status === "skipped").length;
+
+        const results: Record<string, number> = {};
+        contactPhases.forEach(cp => {
+          if (cp.result) results[cp.result] = (results[cp.result] || 0) + 1;
+        });
+
+        const agentStats: Record<string, { name: string; total: number; completed: number; pending: number; inProgress: number }> = {};
+        contactPhases.forEach(cp => {
+          const cc = allCampaignContacts.find(c => c.id === cp.contactId);
+          const agentId = cc?.assignedTo || "unassigned";
+          const agentUser = allUsers.find(u => u.id === agentId);
+          if (!agentStats[agentId]) {
+            agentStats[agentId] = { name: agentUser?.fullName || "Unassigned", total: 0, completed: 0, pending: 0, inProgress: 0 };
+          }
+          agentStats[agentId].total++;
+          if (cp.status === "completed") agentStats[agentId].completed++;
+          if (cp.status === "pending") agentStats[agentId].pending++;
+          if (cp.status === "in_progress") agentStats[agentId].inProgress++;
+        });
+
+        const attemptDistribution: Record<number, number> = {};
+        let totalAttempts = 0;
+        let contactsWithAttempts = 0;
+        contactPhases.forEach(cp => {
+          const cc = allCampaignContacts.find(c => c.id === cp.contactId);
+          if (cc) {
+            const attempts = cc.attemptCount || 0;
+            attemptDistribution[attempts] = (attemptDistribution[attempts] || 0) + 1;
+            totalAttempts += attempts;
+            if (attempts > 0) contactsWithAttempts++;
+          }
+        });
+        const avgAttempts = contactsWithAttempts > 0 ? totalAttempts / contactsWithAttempts : 0;
+
+        const completedPhases = contactPhases.filter(cp => cp.completedAt && cp.enteredAt);
+        let avgDaysToComplete = 0;
+        if (completedPhases.length > 0) {
+          const totalDays = completedPhases.reduce((sum, cp) => {
+            const entered = new Date(cp.enteredAt).getTime();
+            const done = new Date(cp.completedAt!).getTime();
+            return sum + (done - entered) / (1000 * 60 * 60 * 24);
+          }, 0);
+          avgDaysToComplete = totalDays / completedPhases.length;
+        }
+
+        const dailyProgress: Record<string, { completed: number; entered: number }> = {};
+        contactPhases.forEach(cp => {
+          const enteredDate = new Date(cp.enteredAt).toISOString().split('T')[0];
+          if (!dailyProgress[enteredDate]) dailyProgress[enteredDate] = { completed: 0, entered: 0 };
+          dailyProgress[enteredDate].entered++;
+          if (cp.completedAt) {
+            const completedDate = new Date(cp.completedAt).toISOString().split('T')[0];
+            if (!dailyProgress[completedDate]) dailyProgress[completedDate] = { completed: 0, entered: 0 };
+            dailyProgress[completedDate].completed++;
+          }
+        });
+
+        const resultsByCategory: Record<string, { count: number; actionType: string; color: string }> = {};
+        Object.entries(results).forEach(([code, count]) => {
+          const disp = dispositions.find(d => d.code === code);
+          const actionType = disp?.actionType || "other";
+          resultsByCategory[code] = { count, actionType, color: disp?.color || "#888" };
+        });
+
+        return {
+          id: phase.id,
+          phaseNumber: phase.phaseNumber,
+          name: phase.name,
+          type: phase.type,
+          status: phase.status,
+          transitionMode: phase.transitionMode,
+          targetCalls: phase.targetCalls,
+          targetEmails: phase.targetEmails,
+          targetConversions: phase.targetConversions,
+          targetResponseRate: phase.targetResponseRate,
+          stats: { total, pending, inProgress, completed, skipped, results },
+          agentPerformance: Object.values(agentStats).filter(a => a.name !== "Unassigned"),
+          attemptDistribution,
+          avgAttempts: Math.round(avgAttempts * 10) / 10,
+          avgDaysToComplete: Math.round(avgDaysToComplete * 10) / 10,
+          dailyProgress: Object.entries(dailyProgress)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .slice(-14)
+            .map(([date, data]) => ({ date, ...data })),
+          resultsByCategory,
+        };
+      }));
+
+      const conversionDispositions = dispositions.filter(d => d.actionType === "convert").map(d => d.code);
+      const totalConversions = phaseAnalytics.reduce((sum, p) => {
+        return sum + Object.entries(p.stats.results)
+          .filter(([code]) => conversionDispositions.includes(code))
+          .reduce((s, [, count]) => s + count, 0);
+      }, 0);
+      const totalContacts = phaseAnalytics.reduce((sum, p) => sum + p.stats.total, 0);
+
+      res.json({
+        phases: phaseAnalytics,
+        summary: {
+          totalPhases: phases.length,
+          totalContacts,
+          totalCompleted: phaseAnalytics.reduce((s, p) => s + p.stats.completed, 0),
+          totalPending: phaseAnalytics.reduce((s, p) => s + p.stats.pending, 0),
+          totalInProgress: phaseAnalytics.reduce((s, p) => s + p.stats.inProgress, 0),
+          totalConversions,
+          overallConversionRate: totalContacts > 0 ? Math.round(totalConversions / totalContacts * 1000) / 10 : 0,
+          conversionDispositions,
+        },
+      });
+    } catch (error: any) {
+      console.error("[PhaseAnalytics] Error:", error.message);
+      res.status(500).json({ error: error.message || "Failed to get phase analytics" });
+    }
+  });
+
   app.get("/api/campaigns/:id/phases/:phaseId/contacts", requireAuth, async (req, res) => {
     try {
       const phaseCheck = await storage.getCampaignPhase(req.params.phaseId);
