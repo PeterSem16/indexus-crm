@@ -1951,6 +1951,135 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   return <TabsContent value="dispositions" className="space-y-4">{content}</TabsContent>;
 }
 
+function QuotasCard({ campaignId, assignedAgentIds, allUsers, campaignAgents, t }: {
+  campaignId: string;
+  assignedAgentIds: string[];
+  allUsers: Array<{ id: string; fullName: string; role: string; roleId: string | null }>;
+  campaignAgents: Array<{ id: string; userId: string; campaignId: string; dailyCallQuota?: number | null; dailyEmailQuota?: number | null; dailySmsQuota?: number | null; maxContactsPerDay?: number | null }>;
+  t: any;
+}) {
+  const { toast } = useToast();
+  const [quotaEdits, setQuotaEdits] = useState<Record<string, { calls?: string; emails?: string; sms?: string }>>({});
+  const [savingQuotas, setSavingQuotas] = useState<Record<string, boolean>>({});
+
+  const getQuotaValue = (userId: string, field: "calls" | "emails" | "sms") => {
+    if (quotaEdits[userId]?.[field] !== undefined) return quotaEdits[userId][field]!;
+    const agentData = campaignAgents.find(a => a.userId === userId);
+    if (!agentData) return "";
+    const map: Record<string, any> = { calls: agentData.dailyCallQuota, emails: agentData.dailyEmailQuota, sms: agentData.dailySmsQuota };
+    return map[field] != null ? String(map[field]) : "";
+  };
+
+  const updateQuotaField = (userId: string, field: "calls" | "emails" | "sms", value: string) => {
+    setQuotaEdits(prev => ({ ...prev, [userId]: { ...prev[userId], [field]: value } }));
+  };
+
+  const saveQuotas = async (userId: string) => {
+    setSavingQuotas(prev => ({ ...prev, [userId]: true }));
+    try {
+      const edits = quotaEdits[userId] || {};
+      const agentData = campaignAgents.find(a => a.userId === userId);
+      const body: any = {};
+      if (edits.calls !== undefined) body.dailyCallQuota = edits.calls === "" ? null : parseInt(edits.calls);
+      else if (agentData) body.dailyCallQuota = agentData.dailyCallQuota;
+      if (edits.emails !== undefined) body.dailyEmailQuota = edits.emails === "" ? null : parseInt(edits.emails);
+      else if (agentData) body.dailyEmailQuota = agentData.dailyEmailQuota;
+      if (edits.sms !== undefined) body.dailySmsQuota = edits.sms === "" ? null : parseInt(edits.sms);
+      else if (agentData) body.dailySmsQuota = agentData.dailySmsQuota;
+      await apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, body);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] });
+      setQuotaEdits(prev => { const n = { ...prev }; delete n[userId]; return n; });
+      toast({ title: t.campaigns?.detail?.quotasSaved || "Quotas saved" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingQuotas(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Target className="w-5 h-5" />
+          {t.campaigns?.detail?.dailyQuotas || "Daily Quotas"}
+        </CardTitle>
+        <CardDescription>
+          {t.campaigns?.detail?.dailyQuotasDesc || "Set daily limits per agent for calls, emails and SMS. Leave empty for unlimited."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {assignedAgentIds.map((userId) => {
+            const user = allUsers.find(u => u.id === userId);
+            if (!user) return null;
+            const hasEdits = !!quotaEdits[userId];
+            return (
+              <div key={userId} className="border rounded-lg p-4 space-y-3" data-testid={`quota-card-${userId}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-4 h-4 text-primary" />
+                    </div>
+                    <p className="font-medium text-sm">{user.fullName}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => saveQuotas(userId)}
+                    disabled={!hasEdits || savingQuotas[userId]}
+                    data-testid={`button-save-quota-${userId}`}
+                  >
+                    {savingQuotas[userId] ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+                    {t.campaigns?.detail?.saveQuotas || "Save"}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs flex items-center gap-1"><Phone className="w-3 h-3" />{t.campaigns?.detail?.callQuota || "Calls"}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="∞"
+                      className="h-8 mt-1"
+                      value={getQuotaValue(userId, "calls")}
+                      onChange={(e) => updateQuotaField(userId, "calls", e.target.value)}
+                      data-testid={`input-call-quota-${userId}`}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs flex items-center gap-1"><Mail className="w-3 h-3" />{t.campaigns?.detail?.emailQuota || "Emails"}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="∞"
+                      className="h-8 mt-1"
+                      value={getQuotaValue(userId, "emails")}
+                      onChange={(e) => updateQuotaField(userId, "emails", e.target.value)}
+                      data-testid={`input-email-quota-${userId}`}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs flex items-center gap-1"><MessageSquare className="w-3 h-3" />SMS</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="∞"
+                      className="h-8 mt-1"
+                      value={getQuotaValue(userId, "sms")}
+                      onChange={(e) => updateQuotaField(userId, "sms", e.target.value)}
+                      data-testid={`input-sms-quota-${userId}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function CampaignDetailPage() {
   const [, params] = useRoute("/campaigns/:id");
   const campaignId = params?.id || "";
@@ -3287,86 +3416,13 @@ export default function CampaignDetailPage() {
                       </CardContent>
                     </Card>
                     {assignedAgentIds.length > 0 && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Target className="w-5 h-5" />
-                            {t.campaigns?.detail?.dailyQuotas || "Daily Quotas"}
-                          </CardTitle>
-                          <CardDescription>
-                            {t.campaigns?.detail?.dailyQuotasDesc || "Set daily limits per agent for calls, emails and SMS. Leave empty for unlimited."}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {assignedAgentIds.map((userId) => {
-                              const user = allUsers.find(u => u.id === userId);
-                              const agentData = campaignAgents.find(a => a.userId === userId);
-                              if (!user) return null;
-                              return (
-                                <div key={userId} className="border rounded-lg p-4 space-y-3" data-testid={`quota-card-${userId}`}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                      <User className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="font-medium text-sm">{user.fullName}</p>
-                                  </div>
-                                  <div className="grid grid-cols-3 gap-3">
-                                    <div>
-                                      <Label className="text-xs flex items-center gap-1"><Phone className="w-3 h-3" />{t.campaigns?.detail?.callQuota || "Calls"}</Label>
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        placeholder="∞"
-                                        className="h-8 mt-1"
-                                        defaultValue={agentData?.dailyCallQuota ?? ""}
-                                        onBlur={(e) => {
-                                          const val = e.target.value === "" ? null : parseInt(e.target.value);
-                                          apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, { dailyCallQuota: val })
-                                            .then(() => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] }));
-                                        }}
-                                        data-testid={`input-call-quota-${userId}`}
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label className="text-xs flex items-center gap-1"><Mail className="w-3 h-3" />{t.campaigns?.detail?.emailQuota || "Emails"}</Label>
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        placeholder="∞"
-                                        className="h-8 mt-1"
-                                        defaultValue={agentData?.dailyEmailQuota ?? ""}
-                                        onBlur={(e) => {
-                                          const val = e.target.value === "" ? null : parseInt(e.target.value);
-                                          apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, { dailyEmailQuota: val })
-                                            .then(() => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] }));
-                                        }}
-                                        data-testid={`input-email-quota-${userId}`}
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label className="text-xs flex items-center gap-1"><MessageSquare className="w-3 h-3" />SMS</Label>
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        placeholder="∞"
-                                        className="h-8 mt-1"
-                                        defaultValue={agentData?.dailySmsQuota ?? ""}
-                                        onBlur={(e) => {
-                                          const val = e.target.value === "" ? null : parseInt(e.target.value);
-                                          apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, { dailySmsQuota: val })
-                                            .then(() => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] }));
-                                        }}
-                                        data-testid={`input-sms-quota-${userId}`}
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <QuotasCard
+                        campaignId={campaignId}
+                        assignedAgentIds={assignedAgentIds}
+                        allUsers={allUsers}
+                        campaignAgents={campaignAgents}
+                        t={t}
+                      />
                     )}
                   </TabsContent>
 

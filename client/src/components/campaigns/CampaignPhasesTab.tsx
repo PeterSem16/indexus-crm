@@ -1190,7 +1190,7 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
           setNewTargetResponseRate("");
         }
       }}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPhase ? pt.editPhase : pt.createPhase}</DialogTitle>
           </DialogHeader>
