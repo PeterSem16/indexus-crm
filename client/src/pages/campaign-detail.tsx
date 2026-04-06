@@ -1964,6 +1964,8 @@ function QuotasCard({ campaignId, assignedAgentIds, allUsers, t }: {
   const { data: operatorSettings = [] } = useQuery<Array<{ id: string; userId: string; campaignId: string; dailyCallQuota?: number | null; dailyEmailQuota?: number | null; dailySmsQuota?: number | null; maxContactsPerDay?: number | null }>>({
     queryKey: ["/api/campaigns", campaignId, "operator-settings"],
     enabled: !!campaignId,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const getQuotaValue = (userId: string, field: "calls" | "emails" | "sms") => {
@@ -1990,11 +1992,15 @@ function QuotasCard({ campaignId, assignedAgentIds, allUsers, t }: {
       else if (settings) body.dailyEmailQuota = settings.dailyEmailQuota;
       if (edits.sms !== undefined) body.dailySmsQuota = edits.sms === "" ? null : parseInt(edits.sms);
       else if (settings) body.dailySmsQuota = settings.dailySmsQuota;
-      await apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, body);
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "operator-settings"] });
+      console.log("[QuotasSave] Saving quotas for user", userId, "body:", JSON.stringify(body));
+      const res = await apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, body);
+      const result = await res.json();
+      console.log("[QuotasSave] Save result:", JSON.stringify(result));
+      await queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "operator-settings"] });
       setQuotaEdits(prev => { const n = { ...prev }; delete n[userId]; return n; });
       toast({ title: t.campaigns?.detail?.quotasSaved || "Quotas saved" });
     } catch (err: any) {
+      console.error("[QuotasSave] Error saving quotas:", err);
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setSavingQuotas(prev => ({ ...prev, [userId]: false }));

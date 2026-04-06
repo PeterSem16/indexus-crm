@@ -22941,6 +22941,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const { dailyCallQuota, dailyEmailQuota, dailySmsQuota, maxContactsPerDay } = req.body;
       const { campaignId, userId } = req.params;
+      console.log(`[Quotas] PATCH quotas for campaign=${campaignId} user=${userId} body=`, JSON.stringify(req.body));
       const existing = await db.select().from(campaignOperatorSettings)
         .where(and(
           eq(campaignOperatorSettings.campaignId, campaignId),
@@ -22972,8 +22973,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           })
           .returning();
       }
+      console.log(`[Quotas] Saved result:`, JSON.stringify(result));
       res.json(result);
     } catch (error: any) {
+      console.error(`[Quotas] Error saving quotas:`, error.message);
       res.status(500).json({ error: error.message || "Failed to update quotas" });
     }
   });
