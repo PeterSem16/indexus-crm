@@ -42,7 +42,8 @@ import {
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance,
   partnerCategories, contactAssignments, contactChannels, communicationSchedules, firstContactProtocols,
-  insertPartnerCategorySchema, insertContactAssignmentSchema, insertContactChannelSchema, insertCommunicationScheduleSchema, insertFirstContactProtocolSchema
+  insertPartnerCategorySchema, insertContactAssignmentSchema, insertContactChannelSchema, insertCommunicationScheduleSchema, insertFirstContactProtocolSchema,
+  campaignOperatorSettings
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
