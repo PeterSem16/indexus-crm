@@ -2072,7 +2072,7 @@ export default function CampaignDetailPage() {
     queryKey: ["/api/pipeline-stages"],
   });
 
-  const { data: campaignAgents = [] } = useQuery<Array<{ id: string; userId: string; campaignId: string }>>({
+  const { data: campaignAgents = [] } = useQuery<Array<{ id: string; userId: string; campaignId: string; dailyCallQuota?: number | null; dailyEmailQuota?: number | null; dailySmsQuota?: number | null; maxContactsPerDay?: number | null }>>({
     queryKey: ["/api/campaigns", campaignId, "agents"],
     enabled: !!campaignId,
   });
@@ -3289,16 +3289,81 @@ export default function CampaignDetailPage() {
                     {assignedAgentIds.length > 0 && (
                       <Card>
                         <CardHeader>
-                          <CardTitle>{t.campaigns.detail.campaignSummary}</CardTitle>
+                          <CardTitle className="flex items-center gap-2">
+                            <Target className="w-5 h-5" />
+                            {t.campaigns?.detail?.dailyQuotas || "Daily Quotas"}
+                          </CardTitle>
+                          <CardDescription>
+                            {t.campaigns?.detail?.dailyQuotasDesc || "Set daily limits per agent for calls, emails and SMS. Leave empty for unlimited."}
+                          </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-sm">
-                              {assignedAgentIds.length} {t.campaigns.detail.operator}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">
-                              {t.campaigns.detail.assignedOperators}
-                            </span>
+                          <div className="space-y-3">
+                            {assignedAgentIds.map((userId) => {
+                              const user = allUsers.find(u => u.id === userId);
+                              const agentData = campaignAgents.find(a => a.userId === userId);
+                              if (!user) return null;
+                              return (
+                                <div key={userId} className="border rounded-lg p-4 space-y-3" data-testid={`quota-card-${userId}`}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                      <User className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="font-medium text-sm">{user.fullName}</p>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                      <Label className="text-xs flex items-center gap-1"><Phone className="w-3 h-3" />{t.campaigns?.detail?.callQuota || "Calls"}</Label>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        placeholder="∞"
+                                        className="h-8 mt-1"
+                                        defaultValue={agentData?.dailyCallQuota ?? ""}
+                                        onBlur={(e) => {
+                                          const val = e.target.value === "" ? null : parseInt(e.target.value);
+                                          apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, { dailyCallQuota: val })
+                                            .then(() => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] }));
+                                        }}
+                                        data-testid={`input-call-quota-${userId}`}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs flex items-center gap-1"><Mail className="w-3 h-3" />{t.campaigns?.detail?.emailQuota || "Emails"}</Label>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        placeholder="∞"
+                                        className="h-8 mt-1"
+                                        defaultValue={agentData?.dailyEmailQuota ?? ""}
+                                        onBlur={(e) => {
+                                          const val = e.target.value === "" ? null : parseInt(e.target.value);
+                                          apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, { dailyEmailQuota: val })
+                                            .then(() => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] }));
+                                        }}
+                                        data-testid={`input-email-quota-${userId}`}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs flex items-center gap-1"><MessageSquare className="w-3 h-3" />SMS</Label>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        placeholder="∞"
+                                        className="h-8 mt-1"
+                                        defaultValue={agentData?.dailySmsQuota ?? ""}
+                                        onBlur={(e) => {
+                                          const val = e.target.value === "" ? null : parseInt(e.target.value);
+                                          apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, { dailySmsQuota: val })
+                                            .then(() => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] }));
+                                        }}
+                                        data-testid={`input-sms-quota-${userId}`}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </CardContent>
                       </Card>

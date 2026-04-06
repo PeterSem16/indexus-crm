@@ -89,6 +89,27 @@ const phasesT: Record<string, Record<string, string>> = {
     syncContacts: "Synchronizovať kontakty",
     syncContactsDesc: "Odstráni neplatné a pridá nové kontakty z kampane",
     syncSuccess: "Synchronizácia dokončená",
+    transitionRulesTitle: "Pravidlá prechodu",
+    transitionRulesDesc: "Nastavte, ako sa kontakty presúvajú do ďalšej fázy.",
+    transitionMode: "Režim",
+    manual: "Manuálny",
+    automatic: "Automatický",
+    aiAssisted: "AI asistovaný",
+    selectTargetPhase: "Vyberte cieľovú fázu...",
+    autoSchedule: "Plán spúšťania",
+    selectSchedule: "Vyberte...",
+    hourly: "Každú hodinu",
+    daily: "Denne",
+    weekly: "Týždenne",
+    maxAttempts: "Max pokusov",
+    maxAttemptsHint: "Presunúť po N pokusoch",
+    daysSinceAttempt: "Dní od posledného pokusu",
+    daysSinceHint: "Presunúť ak neaktívny N dní",
+    moveDispositions: "Presunúť tieto dispozície →",
+    keepDispositions: "Ponechať v aktuálnej fáze ✋",
+    runAutoTransition: "Spustiť auto-prechod",
+    autoTransitionRun: "Auto-prechod",
+    evaluated: "vyhodnotených",
   },
   en: {
     title: "Campaign Phases",
@@ -159,6 +180,27 @@ const phasesT: Record<string, Record<string, string>> = {
     syncContacts: "Sync Contacts",
     syncContactsDesc: "Removes orphaned and adds new contacts from campaign",
     syncSuccess: "Sync completed",
+    transitionRulesTitle: "Transition Rules",
+    transitionRulesDesc: "Configure how contacts move to the next phase.",
+    transitionMode: "Mode",
+    manual: "Manual",
+    automatic: "Automatic",
+    aiAssisted: "AI Assisted",
+    selectTargetPhase: "Select target phase...",
+    autoSchedule: "Run Schedule",
+    selectSchedule: "Select...",
+    hourly: "Hourly",
+    daily: "Daily",
+    weekly: "Weekly",
+    maxAttempts: "Max Attempts",
+    maxAttemptsHint: "Move after N attempts",
+    daysSinceAttempt: "Days Since Last Attempt",
+    daysSinceHint: "Move if inactive for N days",
+    moveDispositions: "Move these dispositions →",
+    keepDispositions: "Keep in current phase ✋",
+    runAutoTransition: "Run Auto-Transition",
+    autoTransitionRun: "Auto-Transition",
+    evaluated: "evaluated",
   },
   cs: {
     title: "Fáze kampaně",
@@ -229,6 +271,27 @@ const phasesT: Record<string, Record<string, string>> = {
     syncContacts: "Synchronizovat kontakty",
     syncContactsDesc: "Odstraní neplatné a přidá nové kontakty z kampaně",
     syncSuccess: "Synchronizace dokončena",
+    transitionRulesTitle: "Pravidla přechodu",
+    transitionRulesDesc: "Nastavte, jak se kontakty přesouvají do další fáze.",
+    transitionMode: "Režim",
+    manual: "Manuální",
+    automatic: "Automatický",
+    aiAssisted: "AI asistovaný",
+    selectTargetPhase: "Vyberte cílovou fázi...",
+    autoSchedule: "Plán spouštění",
+    selectSchedule: "Vyberte...",
+    hourly: "Každou hodinu",
+    daily: "Denně",
+    weekly: "Týdně",
+    maxAttempts: "Max pokusů",
+    maxAttemptsHint: "Přesunout po N pokusech",
+    daysSinceAttempt: "Dní od posledního pokusu",
+    daysSinceHint: "Přesunout pokud neaktivní N dní",
+    moveDispositions: "Přesunout tyto dispozice →",
+    keepDispositions: "Ponechat v aktuální fázi ✋",
+    runAutoTransition: "Spustit auto-přechod",
+    autoTransitionRun: "Auto-přechod",
+    evaluated: "vyhodnocených",
   },
   hu: {
     title: "Kampányfázisok",
@@ -299,6 +362,27 @@ const phasesT: Record<string, Record<string, string>> = {
     syncContacts: "Kapcsolatok szinkronizálása",
     syncContactsDesc: "Eltávolítja az érvénytelen és hozzáadja az új kapcsolatokat",
     syncSuccess: "Szinkronizálás kész",
+    transitionRulesTitle: "Átmeneti szabályok",
+    transitionRulesDesc: "Állítsa be, hogyan kerüljenek a kapcsolatok a következő fázisba.",
+    transitionMode: "Mód",
+    manual: "Manuális",
+    automatic: "Automatikus",
+    aiAssisted: "AI asszisztált",
+    selectTargetPhase: "Válassza ki a cél fázist...",
+    autoSchedule: "Futtatási ütemezés",
+    selectSchedule: "Válasszon...",
+    hourly: "Óránként",
+    daily: "Naponta",
+    weekly: "Hetente",
+    maxAttempts: "Max kísérletek",
+    maxAttemptsHint: "Áthelyezés N kísérlet után",
+    daysSinceAttempt: "Napok az utolsó kísérlet óta",
+    daysSinceHint: "Áthelyezés ha N napja inaktív",
+    moveDispositions: "Ezek áthelyezése →",
+    keepDispositions: "Maradjon a jelenlegi fázisban ✋",
+    runAutoTransition: "Auto-átmenet futtatása",
+    autoTransitionRun: "Auto-átmenet",
+    evaluated: "kiértékelve",
   },
   ro: {
     title: "Fazele campaniei",
@@ -369,6 +453,27 @@ const phasesT: Record<string, Record<string, string>> = {
     syncContacts: "Sincronizare contacte",
     syncContactsDesc: "Elimină contactele invalide și adaugă altele noi din campanie",
     syncSuccess: "Sincronizare completă",
+    transitionRulesTitle: "Reguli de tranziție",
+    transitionRulesDesc: "Configurați cum se mută contactele în faza următoare.",
+    transitionMode: "Mod",
+    manual: "Manual",
+    automatic: "Automat",
+    aiAssisted: "AI asistat",
+    selectTargetPhase: "Selectați faza țintă...",
+    autoSchedule: "Program de rulare",
+    selectSchedule: "Selectați...",
+    hourly: "La fiecare oră",
+    daily: "Zilnic",
+    weekly: "Săptămânal",
+    maxAttempts: "Încercări maxime",
+    maxAttemptsHint: "Mutare după N încercări",
+    daysSinceAttempt: "Zile de la ultima încercare",
+    daysSinceHint: "Mutare dacă inactiv N zile",
+    moveDispositions: "Mută aceste dispoziții →",
+    keepDispositions: "Păstrează în faza curentă ✋",
+    runAutoTransition: "Rulează auto-tranziție",
+    autoTransitionRun: "Auto-tranziție",
+    evaluated: "evaluate",
   },
   it: {
     title: "Fasi della campagna",
@@ -439,6 +544,27 @@ const phasesT: Record<string, Record<string, string>> = {
     syncContacts: "Sincronizza contatti",
     syncContactsDesc: "Rimuove i contatti non validi e aggiunge quelli nuovi dalla campagna",
     syncSuccess: "Sincronizzazione completata",
+    transitionRulesTitle: "Regole di transizione",
+    transitionRulesDesc: "Configura come i contatti passano alla fase successiva.",
+    transitionMode: "Modalità",
+    manual: "Manuale",
+    automatic: "Automatico",
+    aiAssisted: "AI assistito",
+    selectTargetPhase: "Seleziona la fase target...",
+    autoSchedule: "Programma di esecuzione",
+    selectSchedule: "Seleziona...",
+    hourly: "Ogni ora",
+    daily: "Giornaliero",
+    weekly: "Settimanale",
+    maxAttempts: "Tentativi massimi",
+    maxAttemptsHint: "Sposta dopo N tentativi",
+    daysSinceAttempt: "Giorni dall'ultimo tentativo",
+    daysSinceHint: "Sposta se inattivo per N giorni",
+    moveDispositions: "Sposta queste disposizioni →",
+    keepDispositions: "Mantieni nella fase attuale ✋",
+    runAutoTransition: "Esegui auto-transizione",
+    autoTransitionRun: "Auto-transizione",
+    evaluated: "valutati",
   },
   de: {
     title: "Kampagnenphasen",
@@ -509,6 +635,27 @@ const phasesT: Record<string, Record<string, string>> = {
     syncContacts: "Kontakte synchronisieren",
     syncContactsDesc: "Entfernt ungültige und fügt neue Kontakte aus der Kampagne hinzu",
     syncSuccess: "Synchronisierung abgeschlossen",
+    transitionRulesTitle: "Übergangsregeln",
+    transitionRulesDesc: "Konfigurieren Sie, wie Kontakte in die nächste Phase übergehen.",
+    transitionMode: "Modus",
+    manual: "Manuell",
+    automatic: "Automatisch",
+    aiAssisted: "KI-unterstützt",
+    selectTargetPhase: "Zielphase auswählen...",
+    autoSchedule: "Ausführungsplan",
+    selectSchedule: "Auswählen...",
+    hourly: "Stündlich",
+    daily: "Täglich",
+    weekly: "Wöchentlich",
+    maxAttempts: "Max Versuche",
+    maxAttemptsHint: "Verschieben nach N Versuchen",
+    daysSinceAttempt: "Tage seit letztem Versuch",
+    daysSinceHint: "Verschieben wenn N Tage inaktiv",
+    moveDispositions: "Diese Dispositionen verschieben →",
+    keepDispositions: "In aktueller Phase behalten ✋",
+    runAutoTransition: "Auto-Übergang ausführen",
+    autoTransitionRun: "Auto-Übergang",
+    evaluated: "ausgewertet",
   },
 };
 
@@ -548,6 +695,13 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
   const [newTargetEmails, setNewTargetEmails] = useState<string>("");
   const [newTargetConversions, setNewTargetConversions] = useState<string>("");
   const [newTargetResponseRate, setNewTargetResponseRate] = useState<string>("");
+  const [newTransitionMode, setNewTransitionMode] = useState<"manual" | "automatic" | "ai_assisted">("manual");
+  const [newAutoSchedule, setNewAutoSchedule] = useState<string>("");
+  const [newMaxAttempts, setNewMaxAttempts] = useState<string>("");
+  const [newDaysSinceLastAttempt, setNewDaysSinceLastAttempt] = useState<string>("");
+  const [newMoveDispositions, setNewMoveDispositions] = useState<string[]>([]);
+  const [newKeepDispositions, setNewKeepDispositions] = useState<string[]>([]);
+  const [newAutoTargetPhaseId, setNewAutoTargetPhaseId] = useState<string>("");
   const [transitionTargetId, setTransitionTargetId] = useState("");
   const [transitionInclude, setTransitionInclude] = useState<string[]>([]);
   const [transitionExclude, setTransitionExclude] = useState<string[]>([]);
@@ -573,7 +727,7 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
   const { data: dispositions = [], isLoading: dispositionsLoading } = useQuery<CampaignDisposition[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions"],
     queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
-    enabled: !!showTransitionDialog,
+    enabled: !!showTransitionDialog || !!editingPhase || showCreateDialog,
   });
 
   const createPhaseMutation = useMutation({
@@ -640,6 +794,18 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases"] });
       setShowTransitionDialog(null);
       toast({ title: pt.transition, description: `${result.transitioned} ${pt.transitioned} ${pt.of} ${result.total}` });
+    },
+  });
+
+  const autoTransitionMutation = useMutation({
+    mutationFn: (phaseId: string) => apiRequest("POST", `/api/campaigns/${campaignId}/phases/${phaseId}/auto-transition`),
+    onSuccess: async (res) => {
+      const result = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases"] });
+      toast({ title: pt.autoTransitionRun || "Auto-Transition", description: `${result.transitioned} ${pt.transitioned || "contacts transitioned"} / ${result.evaluated} ${pt.evaluated || "evaluated"}` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -754,6 +920,11 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                       <Badge variant={statusColor(phase.status)} className="text-[10px] px-1.5 py-0">
                         {statusLabel(phase.status)}
                       </Badge>
+                      {((phase as any).transitionMode === "automatic" || (phase as any).transitionMode === "ai_assisted") && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-purple-400 text-purple-600 dark:text-purple-400">
+                          {(phase as any).transitionMode === "automatic" ? "⚡ Auto" : "🤖 AI"}
+                        </Badge>
+                      )}
                       <span className="text-[10px] text-muted-foreground">{phase.stats.total} {pt.contacts.toLowerCase()}</span>
                     </div>
                   </div>
@@ -938,6 +1109,14 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                       setNewTargetEmails(phase.targetEmails != null ? String(phase.targetEmails) : "");
                       setNewTargetConversions(phase.targetConversions != null ? String(phase.targetConversions) : "");
                       setNewTargetResponseRate(phase.targetResponseRate != null ? String(phase.targetResponseRate) : "");
+                      setNewTransitionMode(((phase as any).transitionMode as any) || "manual");
+                      setNewAutoSchedule(((phase as any).autoTransitionSchedule as any) || "");
+                      const rules: any = phase.transitionRules || {};
+                      setNewMaxAttempts(rules.maxAttempts != null ? String(rules.maxAttempts) : "");
+                      setNewDaysSinceLastAttempt(rules.daysSinceLastAttempt != null ? String(rules.daysSinceLastAttempt) : "");
+                      setNewMoveDispositions(rules.moveDispositions || []);
+                      setNewKeepDispositions(rules.keepDispositions || []);
+                      setNewAutoTargetPhaseId(rules.targetPhaseId || "");
                     }} data-testid={`button-edit-${phase.id}`}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
@@ -953,6 +1132,19 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                       <RefreshCw className={`w-3.5 h-3.5 mr-1 ${syncPhaseMutation.isPending ? "animate-spin" : ""}`} />
                       {pt.syncContacts}
                     </Button>
+                    {((phase as any).transitionMode === "automatic" || (phase as any).transitionMode === "ai_assisted") && phase.status === "active" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-purple-600"
+                        onClick={() => autoTransitionMutation.mutate(phase.id)}
+                        disabled={autoTransitionMutation.isPending}
+                        data-testid={`button-auto-transition-${phase.id}`}
+                      >
+                        <Layers className={`w-3.5 h-3.5 mr-1 ${autoTransitionMutation.isPending ? "animate-spin" : ""}`} />
+                        {pt.runAutoTransition || "Run Auto-Transition"}
+                      </Button>
+                    )}
                     {phase.status !== "draft" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -1087,6 +1279,126 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
               </div>
             </div>
           </div>
+
+          <div className="space-y-3 border-t pt-4 mt-4">
+            <Label className="text-sm font-semibold flex items-center gap-1.5">
+              <Layers className="h-4 w-4" />
+              {pt.transitionRulesTitle || "Transition Rules"}
+            </Label>
+            <p className="text-xs text-muted-foreground">{pt.transitionRulesDesc || "Configure how contacts move to the next phase."}</p>
+
+            <div className="space-y-2">
+              <Label className="text-xs">{pt.transitionMode || "Mode"}</Label>
+              <div className="flex gap-2">
+                {(["manual", "automatic", "ai_assisted"] as const).map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setNewTransitionMode(mode)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-all ${
+                      newTransitionMode === mode
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/50 border-border hover:bg-accent"
+                    }`}
+                    data-testid={`btn-transition-mode-${mode}`}
+                  >
+                    {mode === "manual" ? (pt.manual || "Manual") : mode === "automatic" ? (pt.automatic || "Automatic") : (pt.aiAssisted || "AI Assisted")}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {newTransitionMode !== "manual" && (
+              <div className="space-y-3 pl-2 border-l-2 border-primary/20">
+                <div>
+                  <Label className="text-xs">{pt.targetPhase || "Target Phase"}</Label>
+                  <Select value={newAutoTargetPhaseId} onValueChange={setNewAutoTargetPhaseId}>
+                    <SelectTrigger className="h-8 mt-1" data-testid="select-auto-target-phase">
+                      <SelectValue placeholder={pt.selectTargetPhase || "Select target phase..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {phases.filter(p => !editingPhase || p.id !== editingPhase.id).map(p => (
+                        <SelectItem key={p.id} value={p.id}>#{p.phaseNumber} {p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs">{pt.autoSchedule || "Run Schedule"}</Label>
+                  <Select value={newAutoSchedule} onValueChange={setNewAutoSchedule}>
+                    <SelectTrigger className="h-8 mt-1" data-testid="select-auto-schedule">
+                      <SelectValue placeholder={pt.selectSchedule || "Select..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hourly">{pt.hourly || "Hourly"}</SelectItem>
+                      <SelectItem value="daily">{pt.daily || "Daily"}</SelectItem>
+                      <SelectItem value="weekly">{pt.weekly || "Weekly"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">{pt.maxAttempts || "Max Attempts"}</Label>
+                    <Input type="number" min={1} className="h-8 mt-1" value={newMaxAttempts} onChange={(e) => setNewMaxAttempts(e.target.value)} placeholder="∞" data-testid="input-max-attempts" />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{pt.maxAttemptsHint || "Move after N attempts"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">{pt.daysSinceAttempt || "Days Since Last Attempt"}</Label>
+                    <Input type="number" min={1} className="h-8 mt-1" value={newDaysSinceLastAttempt} onChange={(e) => setNewDaysSinceLastAttempt(e.target.value)} placeholder="∞" data-testid="input-days-since" />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{pt.daysSinceHint || "Move if inactive for N days"}</p>
+                  </div>
+                </div>
+
+                {dispositions.filter(d => d.isActive).length > 0 && (
+                  <>
+                    <div>
+                      <Label className="text-xs mb-1.5 block">{pt.moveDispositions || "Move these dispositions →"}</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {dispositions.filter(d => d.isActive).map(d => {
+                          const selected = newMoveDispositions.includes(d.code);
+                          return (
+                            <button key={d.id} type="button"
+                              className={`px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+                                selected ? "bg-orange-100 border-orange-400 text-orange-800 dark:bg-orange-900/40 dark:border-orange-600 dark:text-orange-300"
+                                  : "border-border bg-background hover:bg-accent"
+                              }`}
+                              onClick={() => setNewMoveDispositions(prev => prev.includes(d.code) ? prev.filter(c => c !== d.code) : [...prev, d.code])}
+                              data-testid={`btn-move-disposition-${d.code}`}
+                            >
+                              {d.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs mb-1.5 block">{pt.keepDispositions || "Keep in current phase (don't move) ✋"}</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {dispositions.filter(d => d.isActive).map(d => {
+                          const selected = newKeepDispositions.includes(d.code);
+                          return (
+                            <button key={d.id} type="button"
+                              className={`px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+                                selected ? "bg-green-100 border-green-400 text-green-800 dark:bg-green-900/40 dark:border-green-600 dark:text-green-300"
+                                  : "border-border bg-background hover:bg-accent"
+                              }`}
+                              onClick={() => setNewKeepDispositions(prev => prev.includes(d.code) ? prev.filter(c => c !== d.code) : [...prev, d.code])}
+                              data-testid={`btn-keep-disposition-${d.code}`}
+                            >
+                              {d.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreateDialog(false); setEditingPhase(null); }}>{pt.cancel}</Button>
             <Button
@@ -1098,6 +1410,17 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                   targetConversions: newTargetConversions ? parseInt(newTargetConversions) : null,
                   targetResponseRate: newTargetResponseRate ? parseInt(newTargetResponseRate) : null,
                 };
+                const transitionData = {
+                  transitionMode: newTransitionMode,
+                  autoTransitionSchedule: newAutoSchedule || null,
+                  transitionRules: newTransitionMode !== "manual" ? {
+                    maxAttempts: newMaxAttempts ? parseInt(newMaxAttempts) : null,
+                    daysSinceLastAttempt: newDaysSinceLastAttempt ? parseInt(newDaysSinceLastAttempt) : null,
+                    moveDispositions: newMoveDispositions,
+                    keepDispositions: newKeepDispositions,
+                    targetPhaseId: newAutoTargetPhaseId || null,
+                  } : null,
+                };
                 if (editingPhase) {
                   updatePhaseMutation.mutate({
                     phaseId: editingPhase.id,
@@ -1106,6 +1429,7 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                       type: newPhaseType,
                       evaluationAt: newPhaseEvalDate || null,
                       ...targetData,
+                      ...transitionData,
                     }
                   });
                 } else {
@@ -1114,6 +1438,7 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                     type: newPhaseType,
                     evaluationAt: newPhaseEvalDate || null,
                     ...targetData,
+                    ...transitionData,
                   });
                 }
               }}

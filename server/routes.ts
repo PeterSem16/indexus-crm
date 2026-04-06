@@ -13147,6 +13147,157 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/campaigns/:id/quota-check", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const userId = req.session.user!.id;
+      const agents = await storage.getCampaignAgents(campaignId);
+      const agentSetting = agents.find(a => a.userId === userId);
+      if (!agentSetting) return res.json({ quotas: null, usage: null, blocked: false });
+
+      const dailyCallQuota = (agentSetting as any).dailyCallQuota ?? null;
+      const dailyEmailQuota = (agentSetting as any).dailyEmailQuota ?? null;
+      const dailySmsQuota = (agentSetting as any).dailySmsQuota ?? null;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayISO = today.toISOString();
+
+      const callsToday = await db.select({ count: sql<number>`count(*)` })
+        .from(campaignContactHistory)
+        .innerJoin(campaignContacts, eq(campaignContactHistory.campaignContactId, campaignContacts.id))
+        .where(and(
+          eq(campaignContacts.campaignId, campaignId),
+          eq(campaignContactHistory.userId, userId),
+          eq(campaignContactHistory.action, "status_change"),
+          gte(campaignContactHistory.createdAt, new Date(todayISO))
+        ));
+
+      const emailsToday = await db.select({ count: sql<number>`count(*)` })
+        .from(communicationMessages)
+        .where(and(
+          eq(communicationMessages.userId, userId),
+          eq(communicationMessages.channel, "email"),
+          eq(communicationMessages.direction, "outbound"),
+          gte(communicationMessages.createdAt, new Date(todayISO)),
+          sql`${communicationMessages.metadata}->>'campaignId' = ${campaignId}`
+        ));
+
+      const smsToday = await db.select({ count: sql<number>`count(*)` })
+        .from(communicationMessages)
+        .where(and(
+          eq(communicationMessages.userId, userId),
+          eq(communicationMessages.channel, "sms"),
+          eq(communicationMessages.direction, "outbound"),
+          gte(communicationMessages.createdAt, new Date(todayISO)),
+          sql`${communicationMessages.metadata}->>'campaignId' = ${campaignId}`
+        ));
+
+      const usage = {
+        calls: Number(callsToday[0]?.count || 0),
+        emails: Number(emailsToday[0]?.count || 0),
+        sms: Number(smsToday[0]?.count || 0),
+      };
+
+      const blocked = {
+        calls: dailyCallQuota !== null && usage.calls >= dailyCallQuota,
+        emails: dailyEmailQuota !== null && usage.emails >= dailyEmailQuota,
+        sms: dailySmsQuota !== null && usage.sms >= dailySmsQuota,
+      };
+
+      res.json({
+        quotas: { calls: dailyCallQuota, emails: dailyEmailQuota, sms: dailySmsQuota },
+        usage,
+        blocked,
+        anyBlocked: blocked.calls || blocked.emails || blocked.sms,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to check quota" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/phases/:phaseId/auto-transition", requireAuth, async (req, res) => {
+    try {
+      const phase = await storage.getCampaignPhase(req.params.phaseId);
+      if (!phase || phase.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+
+      const rules: any = phase.transitionRules || {};
+      const mode = (phase as any).transitionMode || "manual";
+      if (mode === "manual") return res.status(400).json({ error: "Phase is set to manual transition" });
+
+      const maxAttempts = rules.maxAttempts ?? null;
+      const daysSinceLastAttempt = rules.daysSinceLastAttempt ?? null;
+      const moveDispositions: string[] = rules.moveDispositions || [];
+      const keepDispositions: string[] = rules.keepDispositions || [];
+      const targetPhaseId = rules.targetPhaseId || null;
+
+      if (!targetPhaseId) return res.status(400).json({ error: "No target phase configured" });
+
+      const targetPhase = await storage.getCampaignPhase(targetPhaseId);
+      if (!targetPhase) return res.status(404).json({ error: "Target phase not found" });
+
+      const contactPhases = await storage.getCampaignContactPhases(phase.id);
+      const now = new Date();
+      const qualifyingContacts: typeof contactPhases = [];
+
+      for (const cp of contactPhases) {
+        if (cp.status === "completed" || cp.status === "skipped") continue;
+
+        const campaignContact = await storage.getCampaignContact(cp.contactId);
+        if (!campaignContact) continue;
+
+        let shouldMove = false;
+
+        if (keepDispositions.length > 0 && cp.result && keepDispositions.includes(cp.result)) {
+          continue;
+        }
+
+        if (moveDispositions.length > 0 && cp.result && moveDispositions.includes(cp.result)) {
+          shouldMove = true;
+        }
+
+        if (!shouldMove && maxAttempts && campaignContact.attemptCount >= maxAttempts) {
+          shouldMove = true;
+        }
+
+        if (!shouldMove && daysSinceLastAttempt && campaignContact.lastAttemptAt) {
+          const daysDiff = (now.getTime() - new Date(campaignContact.lastAttemptAt).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysDiff >= daysSinceLastAttempt) shouldMove = true;
+        }
+
+        if (shouldMove) qualifyingContacts.push(cp);
+      }
+
+      const existingTargetPhases = await storage.getCampaignContactPhases(targetPhaseId);
+      const existingContactIds = new Set(existingTargetPhases.map(cp => cp.contactId));
+      const deduped = qualifyingContacts.filter(cp => !existingContactIds.has(cp.contactId));
+
+      const newContactPhases = deduped.map(cp => ({
+        campaignId: req.params.id,
+        contactId: cp.contactId,
+        phaseId: targetPhaseId,
+        status: "pending" as const,
+      }));
+
+      const created = await storage.createCampaignContactPhases(newContactPhases);
+
+      for (const cp of qualifyingContacts) {
+        await storage.updateCampaignContactPhase(cp.id, { status: "completed", completedAt: new Date() });
+      }
+
+      await storage.updateCampaignPhase(phase.id, { lastAutoTransitionAt: new Date() } as any);
+
+      res.json({
+        evaluated: contactPhases.length,
+        qualifying: qualifyingContacts.length,
+        transitioned: created.length,
+        skippedDuplicates: qualifyingContacts.length - deduped.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to auto-transition" });
+    }
+  });
+
   app.post("/api/campaigns/:id/phases/:phaseId/reset", requireAuth, async (req, res) => {
     try {
       const phase = await storage.getCampaignPhase(req.params.phaseId);
@@ -22773,6 +22924,28 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to update campaign agents:", error);
       res.status(500).json({ error: "Failed to update campaign agents" });
+    }
+  });
+
+  app.patch("/api/campaigns/:campaignId/agents/:userId/quotas", requireAuth, async (req, res) => {
+    try {
+      const { dailyCallQuota, dailyEmailQuota, dailySmsQuota, maxContactsPerDay } = req.body;
+      const agents = await storage.getCampaignAgents(req.params.campaignId);
+      const agent = agents.find(a => a.userId === req.params.userId);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      await db.update(campaignOperatorSettings)
+        .set({
+          dailyCallQuota: dailyCallQuota === undefined ? undefined : dailyCallQuota,
+          dailyEmailQuota: dailyEmailQuota === undefined ? undefined : dailyEmailQuota,
+          dailySmsQuota: dailySmsQuota === undefined ? undefined : dailySmsQuota,
+          maxContactsPerDay: maxContactsPerDay === undefined ? undefined : maxContactsPerDay,
+          updatedAt: new Date(),
+        })
+        .where(eq(campaignOperatorSettings.id, agent.id));
+      const updated = await storage.getCampaignAgents(req.params.campaignId);
+      res.json(updated.find(a => a.userId === req.params.userId));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update quotas" });
     }
   });
 
