@@ -1961,10 +1961,14 @@ function QuotasCard({ campaignId, assignedAgentIds, allUsers, t }: {
   const [quotaEdits, setQuotaEdits] = useState<Record<string, { calls?: string; emails?: string; sms?: string }>>({});
   const [savingQuotas, setSavingQuotas] = useState<Record<string, boolean>>({});
 
-  const { data: operatorSettings = [] } = useQuery<Array<{ id: string; userId: string; campaignId: string; dailyCallQuota?: number | null; dailyEmailQuota?: number | null; dailySmsQuota?: number | null; maxContactsPerDay?: number | null }>>({
-    queryKey: ["/api/campaigns", campaignId, "operator-settings"],
+  type OperatorSettingsRow = { id: string; userId: string; campaignId: string; dailyCallQuota?: number | null; dailyEmailQuota?: number | null; dailySmsQuota?: number | null; maxContactsPerDay?: number | null };
+  const settingsQueryKey = ["/api/campaigns", campaignId, "operator-settings"] as const;
+
+  const { data: operatorSettings = [] } = useQuery<OperatorSettingsRow[]>({
+    queryKey: [...settingsQueryKey],
     enabled: !!campaignId,
     staleTime: 0,
+    gcTime: 0,
     refetchOnMount: "always",
   });
 
@@ -1994,11 +1998,24 @@ function QuotasCard({ campaignId, assignedAgentIds, allUsers, t }: {
       else if (settings) body.dailySmsQuota = settings.dailySmsQuota;
       console.log("[QuotasSave] Saving quotas for user", userId, "body:", JSON.stringify(body));
       const res = await apiRequest("PATCH", `/api/campaigns/${campaignId}/agents/${userId}/quotas`, body);
-      const result = await res.json();
-      console.log("[QuotasSave] Save result:", JSON.stringify(result));
-      await queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "operator-settings"] });
+      const savedRow: OperatorSettingsRow = await res.json();
+      console.log("[QuotasSave] Save result:", JSON.stringify(savedRow));
+
+      queryClient.setQueryData<OperatorSettingsRow[]>([...settingsQueryKey], (old) => {
+        if (!old) return [savedRow];
+        const idx = old.findIndex(s => s.userId === userId);
+        if (idx >= 0) {
+          const updated = [...old];
+          updated[idx] = savedRow;
+          return updated;
+        }
+        return [...old, savedRow];
+      });
+
       setQuotaEdits(prev => { const n = { ...prev }; delete n[userId]; return n; });
       toast({ title: t.campaigns?.detail?.quotasSaved || "Quotas saved" });
+
+      queryClient.invalidateQueries({ queryKey: [...settingsQueryKey] });
     } catch (err: any) {
       console.error("[QuotasSave] Error saving quotas:", err);
       toast({ title: "Error", description: err.message, variant: "destructive" });
