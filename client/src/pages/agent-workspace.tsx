@@ -1534,6 +1534,8 @@ function CommunicationCanvas({
   clinicData,
   collaboratorData,
   campaignContactId,
+  pendingEmailTemplateId,
+  onPendingEmailTemplateHandled,
   initialScriptStepId,
   onScriptAction,
 }: {
@@ -1576,6 +1578,8 @@ function CommunicationCanvas({
   clinicData?: Clinic | null;
   collaboratorData?: Collaborator | null;
   campaignContactId?: string | null;
+  pendingEmailTemplateId?: string | null;
+  onPendingEmailTemplateHandled?: () => void;
   initialScriptStepId?: string | null;
   onScriptAction?: (action: string, data?: any) => void;
 }) {
@@ -1926,6 +1930,13 @@ function CommunicationCanvas({
       .then(t => { if (t) applyEmailTemplate(t); })
       .catch(() => {});
   }, [allEmailTemplatesRaw, applyEmailTemplate]);
+
+  useEffect(() => {
+    if (pendingEmailTemplateId) {
+      handleScriptEmailTemplate(pendingEmailTemplateId);
+      onPendingEmailTemplateHandled?.();
+    }
+  }, [pendingEmailTemplateId]);
 
   const handleSelectSmsTemplate = (templateId: string) => {
     const template = smsTemplates.find(t => t.id === templateId);
@@ -4514,6 +4525,7 @@ export default function AgentWorkspacePage() {
   const [modalCallbackTime, setModalCallbackTime] = useState("09:00");
   const [modalCallbackAssign, setModalCallbackAssign] = useState<"me" | "all">("me");
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
+  const [pendingEmailTemplateId, setPendingEmailTemplateId] = useState<string | null>(null);
   const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
   const [callEndTimestamp, setCallEndTimestamp] = useState<number | null>(null);
   const prevCallStateRef = useRef(callContext.callState);
@@ -6437,11 +6449,13 @@ export default function AgentWorkspacePage() {
           collaboratorData={currentCollaboratorData}
           campaignContactId={currentCampaignContactId}
           initialScriptStepId={currentCampaignContact?.currentScriptStepId || null}
+          pendingEmailTemplateId={pendingEmailTemplateId}
+          onPendingEmailTemplateHandled={() => setPendingEmailTemplateId(null)}
           onScriptAction={(action, data) => {
             if (action === "openEmail") {
               setActiveChannel("email");
               if (data?.emailTemplateId) {
-                handleScriptEmailTemplate(data.emailTemplateId);
+                setPendingEmailTemplateId(data.emailTemplateId);
               }
             } else if (action === "openPhone" || action === "makeCall") {
               setActiveChannel("phone");
@@ -7159,7 +7173,7 @@ export default function AgentWorkspacePage() {
                 if (action === "openEmail") {
                   setActiveChannel("email");
                   if (data?.emailTemplateId) {
-                    handleScriptEmailTemplate(data.emailTemplateId);
+                    setPendingEmailTemplateId(data.emailTemplateId);
                   }
                 }
                 else if (action === "openPhone" || action === "makeCall") setActiveChannel("phone");
