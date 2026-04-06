@@ -11547,6 +11547,9 @@ function MessageTemplatesTab() {
   const [templateTags, setTemplateTags] = useState("");
   const [templateIsDefault, setTemplateIsDefault] = useState(false);
   const [templateIsActive, setTemplateIsActive] = useState(true);
+  const [templateAttachments, setTemplateAttachments] = useState<any[]>([]);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const templateFileInputRef = useRef<HTMLInputElement>(null);
   
   // Copy/Translate dialog state
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
@@ -11734,6 +11737,49 @@ function MessageTemplatesTab() {
     setTemplateTags("");
     setTemplateIsDefault(false);
     setTemplateIsActive(true);
+    setTemplateAttachments([]);
+  };
+
+  const handleUploadTemplateAttachment = async (files: FileList) => {
+    if (!editingTemplate) {
+      toast({ title: t.konfigurator?.saveFirst || "Save the template first before adding attachments", variant: "destructive" });
+      return;
+    }
+    setIsUploadingAttachment(true);
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) formData.append("files", files[i]);
+      const res = await fetch(`/api/message-templates/${editingTemplate.id}/attachments`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      setTemplateAttachments(data.attachments);
+      toast({ title: t.konfigurator?.attachmentUploaded || "Attachment uploaded" });
+    } catch {
+      toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
+    } finally {
+      setIsUploadingAttachment(false);
+      if (templateFileInputRef.current) templateFileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteTemplateAttachment = async (idx: number) => {
+    if (!editingTemplate) return;
+    try {
+      const res = await fetch(`/api/message-templates/${editingTemplate.id}/attachments/${idx}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      const data = await res.json();
+      setTemplateAttachments(data.attachments);
+      toast({ title: t.konfigurator?.attachmentDeleted || "Attachment removed" });
+    } catch {
+      toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
+    }
   };
 
   const openCopyDialog = (template: MessageTemplate) => {
@@ -11830,6 +11876,7 @@ function MessageTemplatesTab() {
       setTemplateTags((template.tags || []).join(", "));
       setTemplateIsDefault(template.isDefault);
       setTemplateIsActive(template.isActive);
+      setTemplateAttachments((template as any).attachments || []);
     } else {
       resetTemplateForm();
     }
@@ -12511,80 +12558,115 @@ function MessageTemplatesTab() {
               )}
             </div>
 
-            {editingTemplate && (editingTemplate as any).attachments?.length > 0 && (
+            {templateType === "email" && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
                   <Paperclip className="h-3.5 w-3.5" />
-                  {t.konfigurator.templateAttachments || "Attachments"} ({(editingTemplate as any).attachments.length})
+                  {t.konfigurator.templateAttachments || "Attachments"}
+                  {templateAttachments.length > 0 && ` (${templateAttachments.length})`}
                 </Label>
-                <div className="border rounded-md divide-y">
-                  {(editingTemplate as any).attachments.map((att: any, idx: number) => {
-                    const fetchAttBlob = async () => {
-                      const res = await fetch(`/api/message-templates/${editingTemplate.id}/attachments`, { credentials: "include" });
-                      if (!res.ok) throw new Error("Failed to fetch");
-                      const data = await res.json();
-                      const match = data[idx];
-                      if (!match?.contentBase64) throw new Error("No content");
-                      const byteChars = atob(match.contentBase64);
-                      const byteArr = new Uint8Array(byteChars.length);
-                      for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
-                      return new Blob([byteArr], { type: att.mimeType || "application/octet-stream" });
-                    };
-                    return (
-                    <div key={idx} className="flex items-center gap-3 px-3 py-2 text-sm">
-                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="truncate flex-1 min-w-0">{att.fileName}</span>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {att.size < 1024 ? `${att.size} B` : att.size < 1048576 ? `${(att.size / 1024).toFixed(1)} KB` : `${(att.size / 1048576).toFixed(1)} MB`}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 shrink-0"
-                        onClick={async () => {
-                          try {
-                            const blob = await fetchAttBlob();
-                            const url = URL.createObjectURL(blob);
-                            if (att.mimeType === "application/pdf" || att.mimeType?.startsWith("image/")) {
-                              window.open(url, "_blank");
-                              setTimeout(() => URL.revokeObjectURL(url), 60000);
-                            } else {
+                {templateAttachments.length > 0 && (
+                  <div className="border rounded-md divide-y">
+                    {templateAttachments.map((att: any, idx: number) => {
+                      const fetchAttBlob = async () => {
+                        const res = await fetch(`/api/message-templates/${editingTemplate!.id}/attachments`, { credentials: "include" });
+                        if (!res.ok) throw new Error("Failed to fetch");
+                        const data = await res.json();
+                        const match = data[idx];
+                        if (!match?.contentBase64) throw new Error("No content");
+                        const byteChars = atob(match.contentBase64);
+                        const byteArr = new Uint8Array(byteChars.length);
+                        for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+                        return new Blob([byteArr], { type: att.mimeType || "application/octet-stream" });
+                      };
+                      return (
+                      <div key={idx} className="flex items-center gap-3 px-3 py-2 text-sm">
+                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="truncate flex-1 min-w-0">{att.fileName}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {att.size < 1024 ? `${att.size} B` : att.size < 1048576 ? `${(att.size / 1024).toFixed(1)} KB` : `${(att.size / 1048576).toFixed(1)} MB`}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 shrink-0"
+                          onClick={async () => {
+                            try {
+                              const blob = await fetchAttBlob();
+                              const url = URL.createObjectURL(blob);
+                              if (att.mimeType === "application/pdf" || att.mimeType?.startsWith("image/")) {
+                                window.open(url, "_blank");
+                                setTimeout(() => URL.revokeObjectURL(url), 60000);
+                              } else {
+                                const a = document.createElement("a");
+                                a.href = url; a.download = att.fileName; a.click();
+                                URL.revokeObjectURL(url);
+                              }
+                            } catch {
+                              toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
+                            }
+                          }}
+                          data-testid={`btn-preview-attachment-${idx}`}
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          {t.konfigurator.preview || "Preview"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 shrink-0"
+                          onClick={async () => {
+                            try {
+                              const blob = await fetchAttBlob();
+                              const url = URL.createObjectURL(blob);
                               const a = document.createElement("a");
                               a.href = url; a.download = att.fileName; a.click();
                               URL.revokeObjectURL(url);
+                            } catch {
+                              toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
                             }
-                          } catch {
-                            toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
-                          }
-                        }}
-                        data-testid={`btn-preview-attachment-${idx}`}
-                      >
-                        <Eye className="h-3.5 w-3.5 mr-1" />
-                        {t.konfigurator.preview || "Preview"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 shrink-0"
-                        onClick={async () => {
-                          try {
-                            const blob = await fetchAttBlob();
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url; a.download = att.fileName; a.click();
-                            URL.revokeObjectURL(url);
-                          } catch {
-                            toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
-                          }
-                        }}
-                        data-testid={`btn-download-attachment-${idx}`}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    );
-                  })}
-                </div>
+                          }}
+                          data-testid={`btn-download-attachment-${idx}`}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 shrink-0 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteTemplateAttachment(idx)}
+                          data-testid={`btn-delete-attachment-${idx}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <input
+                  ref={templateFileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => { if (e.target.files?.length) handleUploadTemplateAttachment(e.target.files); }}
+                  data-testid="input-template-attachment"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={!editingTemplate || isUploadingAttachment}
+                  onClick={() => templateFileInputRef.current?.click()}
+                  data-testid="btn-upload-attachment"
+                >
+                  {isUploadingAttachment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  {t.konfigurator?.addAttachment || "Add attachment"}
+                </Button>
+                {!editingTemplate && (
+                  <p className="text-xs text-muted-foreground">{t.konfigurator?.saveFirst || "Save the template first to add attachments"}</p>
+                )}
               </div>
             )}
 

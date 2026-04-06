@@ -38727,6 +38727,66 @@ Return ONLY the JSON object.`
       res.status(500).json({ error: error.message });
     }
   });
+
+  const templateAttachmentStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = path.join(process.cwd(), "uploads", "template-attachments");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const ext = path.extname(file.originalname);
+      const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_").replace(ext, "");
+      cb(null, `${safeName}-${uniqueSuffix}${ext}`);
+    },
+  });
+  const uploadTemplateAttachment = multer({
+    storage: templateAttachmentStorage,
+    limits: { fileSize: 15 * 1024 * 1024 },
+  });
+
+  app.post("/api/message-templates/:id/attachments", requireAuth, uploadTemplateAttachment.array("files", 10), async (req, res) => {
+    try {
+      const template = await storage.getMessageTemplate(req.params.id);
+      if (!template) return res.status(404).json({ error: "Template not found" });
+      const existing: any[] = (template as any).attachments || [];
+      const uploaded = (req.files as Express.Multer.File[]) || [];
+      const newAttachments = uploaded.map(f => ({
+        fileName: f.originalname,
+        filePath: `uploads/template-attachments/${f.filename}`,
+        mimeType: f.mimetype,
+        size: f.size,
+      }));
+      const merged = [...existing, ...newAttachments];
+      await storage.updateMessageTemplate(req.params.id, { attachments: merged } as any);
+      res.json({ success: true, attachments: merged });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/message-templates/:id/attachments/:idx", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getMessageTemplate(req.params.id);
+      if (!template) return res.status(404).json({ error: "Template not found" });
+      const existing: any[] = (template as any).attachments || [];
+      const idx = parseInt(req.params.idx);
+      if (isNaN(idx) || idx < 0 || idx >= existing.length) return res.status(400).json({ error: "Invalid index" });
+      const removed = existing[idx];
+      try {
+        const absPath = path.resolve(process.cwd(), removed.filePath.replace(/^\//, ""));
+        const allowedBase = path.resolve(process.cwd(), "uploads", "template-attachments");
+        if (absPath.startsWith(allowedBase) && fs.existsSync(absPath)) fs.unlinkSync(absPath);
+      } catch {}
+      const updated = existing.filter((_, i) => i !== idx);
+      await storage.updateMessageTemplate(req.params.id, { attachments: updated } as any);
+      res.json({ success: true, attachments: updated });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Agent Session Management
   app.get("/api/agent-sessions/active", requireAuth, async (req, res) => {
     try {

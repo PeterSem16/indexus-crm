@@ -3551,6 +3551,10 @@ export interface Translations {
     templateIsDefault: string;
     templateIsActive: string;
     templateAttachments: string;
+    addAttachment: string;
+    saveFirst: string;
+    attachmentUploaded: string;
+    attachmentDeleted: string;
     templateUsageCount: string;
     noMessageTemplates: string;
     typeEmail: string;
@@ -9520,6 +9524,10 @@ export const translations: Record<Locale, Translations> = {
       templateIsDefault: 'Default',
       templateIsActive: 'Active',
       templateAttachments: 'Attachments',
+      addAttachment: 'Add attachment',
+      saveFirst: 'Save the template first to add attachments',
+      attachmentUploaded: 'Attachment uploaded',
+      attachmentDeleted: 'Attachment removed',
       preview: 'Preview',
       templateUsageCount: 'Usage Count',
       noMessageTemplates: 'No templates defined yet',
@@ -14885,6 +14893,10 @@ export const translations: Record<Locale, Translations> = {
       templateIsDefault: 'Predvolená',
       templateIsActive: 'Aktívna',
       templateAttachments: 'Prílohy',
+      addAttachment: 'Pridať prílohu',
+      saveFirst: 'Najprv uložte šablónu pre pridanie príloh',
+      attachmentUploaded: 'Príloha nahraná',
+      attachmentDeleted: 'Príloha odstránená',
       preview: 'Náhľad',
       templateUsageCount: 'Počet použití',
       noMessageTemplates: 'Zatiaľ nie sú definované žiadne šablóny',
@@ -20229,6 +20241,10 @@ export const translations: Record<Locale, Translations> = {
       templateIsDefault: 'Výchozí',
       templateIsActive: 'Aktivní',
       templateAttachments: 'Přílohy',
+      addAttachment: 'Přidat přílohu',
+      saveFirst: 'Nejprve uložte šablonu pro přidání příloh',
+      attachmentUploaded: 'Příloha nahrána',
+      attachmentDeleted: 'Příloha odstraněna',
       preview: 'Náhled',
       templateUsageCount: 'Počet použití',
       noMessageTemplates: 'Zatím nejsou definovány žádné šablony',
@@ -25537,6 +25553,10 @@ export const translations: Record<Locale, Translations> = {
       templateIsDefault: 'Alapértelmezett',
       templateIsActive: 'Aktív',
       templateAttachments: 'Mellékletek',
+      addAttachment: 'Melléklet hozzáadása',
+      saveFirst: 'Először mentse a sablont a mellékletek hozzáadásához',
+      attachmentUploaded: 'Melléklet feltöltve',
+      attachmentDeleted: 'Melléklet eltávolítva',
       preview: 'Előnézet',
       templateUsageCount: 'Használatok száma',
       noMessageTemplates: 'Még nincsenek sablonok definiálva',
@@ -30767,6 +30787,10 @@ export const translations: Record<Locale, Translations> = {
       templateIsDefault: 'Implicit',
       templateIsActive: 'Activ',
       templateAttachments: 'Atașamente',
+      addAttachment: 'Adaugă atașament',
+      saveFirst: 'Salvați mai întâi șablonul pentru a adăuga atașamente',
+      attachmentUploaded: 'Atașament încărcat',
+      attachmentDeleted: 'Atașament eliminat',
       preview: 'Previzualizare',
       templateUsageCount: 'Număr utilizări',
       noMessageTemplates: 'Nu există șabloane definite',
@@ -35998,6 +36022,10 @@ export const translations: Record<Locale, Translations> = {
       templateIsDefault: 'Predefinito',
       templateIsActive: 'Attivo',
       templateAttachments: 'Allegati',
+      addAttachment: 'Aggiungi allegato',
+      saveFirst: 'Salva prima il modello per aggiungere allegati',
+      attachmentUploaded: 'Allegato caricato',
+      attachmentDeleted: 'Allegato rimosso',
       preview: 'Anteprima',
       templateUsageCount: 'Conteggio utilizzi',
       noMessageTemplates: 'Nessun modello definito',
@@ -41229,6 +41257,10 @@ export const translations: Record<Locale, Translations> = {
       templateIsDefault: 'Standard',
       templateIsActive: 'Aktiv',
       templateAttachments: 'Anhänge',
+      addAttachment: 'Anhang hinzufügen',
+      saveFirst: 'Speichern Sie die Vorlage zuerst, um Anhänge hinzuzufügen',
+      attachmentUploaded: 'Anhang hochgeladen',
+      attachmentDeleted: 'Anhang entfernt',
       preview: 'Vorschau',
       templateUsageCount: 'Nutzungsanzahl',
       noMessageTemplates: 'Noch keine Vorlagen definiert',
