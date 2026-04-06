@@ -315,6 +315,7 @@ interface ScriptElement {
   actionLabel?: string;
   actionIcon?: string;
   variant?: string;
+  emailTemplateId?: string;
 }
 
 interface ScriptStep {

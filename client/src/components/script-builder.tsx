@@ -264,6 +264,17 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
     },
   });
 
+  const { data: templateCategories = [] } = useQuery<any[]>({
+    queryKey: ["/api/template-categories"],
+  });
+
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<string>("__all__");
+
+  const filteredEmailTemplates = useMemo(() => {
+    if (templateCategoryFilter === "__all__") return allEmailTemplates;
+    return allEmailTemplates.filter((t: any) => t.categoryId === templateCategoryFilter);
+  }, [allEmailTemplates, templateCategoryFilter]);
+
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [isAddElementOpen, setIsAddElementOpen] = useState(false);
@@ -979,7 +990,17 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>{sb.buttonStyle}</Label>
+                      <Label className="flex items-center gap-1.5">
+                        {sb.buttonStyle}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[250px] text-xs">
+                            Vizuálny štýl tlačidla: Primary = plné červené, Secondary = sivé, Outline = s okrajom, Destructive = varovné červené
+                          </TooltipContent>
+                        </Tooltip>
+                      </Label>
                       <Select
                         value={selectedElement.variant || "primary"}
                         onValueChange={(v) => updateElement(selectedElement.id, { variant: v })}
@@ -988,38 +1009,58 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="primary">Primary</SelectItem>
-                          <SelectItem value="secondary">Secondary</SelectItem>
-                          <SelectItem value="outline">Outline</SelectItem>
-                          <SelectItem value="destructive">Destructive</SelectItem>
+                          <SelectItem value="primary">Primary — hlavné tlačidlo</SelectItem>
+                          <SelectItem value="secondary">Secondary — vedľajšie</SelectItem>
+                          <SelectItem value="outline">Outline — len okraj</SelectItem>
+                          <SelectItem value="destructive">Destructive — varovné</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     {selectedElement.action === "openEmail" && (
-                      <div className="space-y-2">
+                      <div className="space-y-3 border-t pt-3 mt-2">
                         <Label className="flex items-center gap-1.5">
                           <Mail className="h-3.5 w-3.5 text-primary" />
                           Email šablóna
                         </Label>
-                        <Select
-                          value={selectedElement.emailTemplateId || "__none__"}
-                          onValueChange={(v) => updateElement(selectedElement.id, { emailTemplateId: v === "__none__" ? undefined : v })}
-                        >
-                          <SelectTrigger data-testid="select-email-template-action">
-                            <SelectValue placeholder="Bez šablóny" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">Bez šablóny (manuálny výber)</SelectItem>
-                            {allEmailTemplates.map((tmpl: any) => (
-                              <SelectItem key={tmpl.id} value={tmpl.id}>
-                                <span className="flex items-center gap-2">
-                                  {tmpl.name}
-                                  {tmpl.language && <span className="text-xs text-muted-foreground uppercase">({tmpl.language})</span>}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Kategória</Label>
+                          <Select
+                            value={templateCategoryFilter}
+                            onValueChange={(v) => setTemplateCategoryFilter(v)}
+                          >
+                            <SelectTrigger data-testid="select-template-category" className="h-8 text-xs">
+                              <SelectValue placeholder="Všetky kategórie" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__all__">Všetky kategórie</SelectItem>
+                              {templateCategories.map((cat: any) => (
+                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Šablóna</Label>
+                          <Select
+                            value={selectedElement.emailTemplateId || "__none__"}
+                            onValueChange={(v) => updateElement(selectedElement.id, { emailTemplateId: v === "__none__" ? undefined : v })}
+                          >
+                            <SelectTrigger data-testid="select-email-template-action" className="h-8 text-xs">
+                              <SelectValue placeholder="Bez šablóny" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Bez šablóny (manuálny výber)</SelectItem>
+                              {filteredEmailTemplates.map((tmpl: any) => (
+                                <SelectItem key={tmpl.id} value={tmpl.id}>
+                                  <span className="flex items-center gap-2">
+                                    {tmpl.name}
+                                    {tmpl.language && <span className="text-xs text-muted-foreground uppercase">({tmpl.language})</span>}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           Šablóna sa automaticky načíta keď agent klikne na tlačidlo
                         </p>
