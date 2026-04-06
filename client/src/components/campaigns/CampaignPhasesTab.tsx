@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -1180,7 +1181,7 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
         </>
       )}
 
-      <Dialog open={showCreateDialog || !!editingPhase} onOpenChange={(open) => {
+      <Sheet open={showCreateDialog || !!editingPhase} onOpenChange={(open) => {
         if (!open) {
           setShowCreateDialog(false);
           setEditingPhase(null);
@@ -1188,218 +1189,227 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
           setNewTargetEmails("");
           setNewTargetConversions("");
           setNewTargetResponseRate("");
+          setNewTransitionMode("manual");
+          setNewAutoSchedule("");
+          setNewMaxAttempts("");
+          setNewDaysSinceLastAttempt("");
+          setNewMoveDispositions([]);
+          setNewKeepDispositions([]);
+          setNewAutoTargetPhaseId("");
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingPhase ? pt.editPhase : pt.createPhase}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>{pt.phaseName}</Label>
-              <Input
-                value={newPhaseName}
-                onChange={(e) => setNewPhaseName(e.target.value)}
-                placeholder={pt.phaseName}
-                data-testid="input-phase-name"
-              />
-            </div>
-            <div>
-              <Label>{pt.phaseType}</Label>
-              <Select value={newPhaseType} onValueChange={(v) => setNewPhaseType(v as "phone" | "email")}>
-                <SelectTrigger data-testid="select-phase-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="phone"><div className="flex items-center gap-2"><Phone className="w-4 h-4" />{pt.phone}</div></SelectItem>
-                  <SelectItem value="email"><div className="flex items-center gap-2"><Mail className="w-4 h-4" />{pt.email}</div></SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{pt.evaluationDate}</Label>
-              <Input
-                type="datetime-local"
-                value={newPhaseEvalDate}
-                onChange={(e) => setNewPhaseEvalDate(e.target.value)}
-                data-testid="input-phase-eval-date"
-              />
-            </div>
-            <div className="border-t pt-4">
-              <div className="flex items-center gap-1.5 mb-3">
-                <Target className="w-4 h-4 text-muted-foreground" />
-                <Label className="text-sm font-medium">{pt.targets}</Label>
+        <SheetContent className="w-[560px] sm:max-w-[560px] p-0 flex flex-col" data-testid="sheet-edit-phase">
+          <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
+            <SheetTitle>{editingPhase ? pt.editPhase : pt.createPhase}</SheetTitle>
+            <SheetDescription className="sr-only">{editingPhase ? pt.editPhase : pt.createPhase}</SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="flex-1 px-6 py-4">
+            <div className="space-y-4 pb-4">
+              <div>
+                <Label>{pt.phaseName}</Label>
+                <Input
+                  value={newPhaseName}
+                  onChange={(e) => setNewPhaseName(e.target.value)}
+                  placeholder={pt.phaseName}
+                  data-testid="input-phase-name"
+                />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">{pt.targetCalls}</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={newTargetCalls}
-                    onChange={(e) => setNewTargetCalls(e.target.value)}
-                    placeholder="0"
-                    data-testid="input-target-calls"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">{pt.targetEmails}</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={newTargetEmails}
-                    onChange={(e) => setNewTargetEmails(e.target.value)}
-                    placeholder="0"
-                    data-testid="input-target-emails"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">{pt.targetConversions}</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={newTargetConversions}
-                    onChange={(e) => setNewTargetConversions(e.target.value)}
-                    placeholder="0"
-                    data-testid="input-target-conversions"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">{pt.targetResponseRate}</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={newTargetResponseRate}
-                    onChange={(e) => setNewTargetResponseRate(e.target.value)}
-                    placeholder="0"
-                    data-testid="input-target-response-rate"
-                  />
-                </div>
+              <div>
+                <Label>{pt.phaseType}</Label>
+                <Select value={newPhaseType} onValueChange={(v) => setNewPhaseType(v as "phone" | "email")}>
+                  <SelectTrigger data-testid="select-phase-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="phone"><div className="flex items-center gap-2"><Phone className="w-4 h-4" />{pt.phone}</div></SelectItem>
+                    <SelectItem value="email"><div className="flex items-center gap-2"><Mail className="w-4 h-4" />{pt.email}</div></SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-          </div>
-
-          <div className="space-y-3 border-t pt-4 mt-4">
-            <Label className="text-sm font-semibold flex items-center gap-1.5">
-              <Layers className="h-4 w-4" />
-              {pt.transitionRulesTitle || "Transition Rules"}
-            </Label>
-            <p className="text-xs text-muted-foreground">{pt.transitionRulesDesc || "Configure how contacts move to the next phase."}</p>
-
-            <div className="space-y-2">
-              <Label className="text-xs">{pt.transitionMode || "Mode"}</Label>
-              <div className="flex gap-2">
-                {(["manual", "automatic", "ai_assisted"] as const).map(mode => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setNewTransitionMode(mode)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-all ${
-                      newTransitionMode === mode
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted/50 border-border hover:bg-accent"
-                    }`}
-                    data-testid={`btn-transition-mode-${mode}`}
-                  >
-                    {mode === "manual" ? (pt.manual || "Manual") : mode === "automatic" ? (pt.automatic || "Automatic") : (pt.aiAssisted || "AI Assisted")}
-                  </button>
-                ))}
+              <div>
+                <Label>{pt.evaluationDate}</Label>
+                <Input
+                  type="datetime-local"
+                  value={newPhaseEvalDate}
+                  onChange={(e) => setNewPhaseEvalDate(e.target.value)}
+                  data-testid="input-phase-eval-date"
+                />
               </div>
-            </div>
-
-            {newTransitionMode !== "manual" && (
-              <div className="space-y-3 pl-2 border-l-2 border-primary/20">
-                <div>
-                  <Label className="text-xs">{pt.targetPhase || "Target Phase"}</Label>
-                  <Select value={newAutoTargetPhaseId} onValueChange={setNewAutoTargetPhaseId}>
-                    <SelectTrigger className="h-8 mt-1" data-testid="select-auto-target-phase">
-                      <SelectValue placeholder={pt.selectTargetPhase || "Select target phase..."} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {phases.filter(p => !editingPhase || p.id !== editingPhase.id).map(p => (
-                        <SelectItem key={p.id} value={p.id}>#{p.phaseNumber} {p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Target className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">{pt.targets}</Label>
                 </div>
-
-                <div>
-                  <Label className="text-xs">{pt.autoSchedule || "Run Schedule"}</Label>
-                  <Select value={newAutoSchedule} onValueChange={setNewAutoSchedule}>
-                    <SelectTrigger className="h-8 mt-1" data-testid="select-auto-schedule">
-                      <SelectValue placeholder={pt.selectSchedule || "Select..."} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hourly">{pt.hourly || "Hourly"}</SelectItem>
-                      <SelectItem value="daily">{pt.daily || "Daily"}</SelectItem>
-                      <SelectItem value="weekly">{pt.weekly || "Weekly"}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs">{pt.maxAttempts || "Max Attempts"}</Label>
-                    <Input type="number" min={1} className="h-8 mt-1" value={newMaxAttempts} onChange={(e) => setNewMaxAttempts(e.target.value)} placeholder="∞" data-testid="input-max-attempts" />
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{pt.maxAttemptsHint || "Move after N attempts"}</p>
+                    <Label className="text-xs">{pt.targetCalls}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={newTargetCalls}
+                      onChange={(e) => setNewTargetCalls(e.target.value)}
+                      placeholder="0"
+                      data-testid="input-target-calls"
+                    />
                   </div>
                   <div>
-                    <Label className="text-xs">{pt.daysSinceAttempt || "Days Since Last Attempt"}</Label>
-                    <Input type="number" min={1} className="h-8 mt-1" value={newDaysSinceLastAttempt} onChange={(e) => setNewDaysSinceLastAttempt(e.target.value)} placeholder="∞" data-testid="input-days-since" />
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{pt.daysSinceHint || "Move if inactive for N days"}</p>
+                    <Label className="text-xs">{pt.targetEmails}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={newTargetEmails}
+                      onChange={(e) => setNewTargetEmails(e.target.value)}
+                      placeholder="0"
+                      data-testid="input-target-emails"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{pt.targetConversions}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={newTargetConversions}
+                      onChange={(e) => setNewTargetConversions(e.target.value)}
+                      placeholder="0"
+                      data-testid="input-target-conversions"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{pt.targetResponseRate}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={newTargetResponseRate}
+                      onChange={(e) => setNewTargetResponseRate(e.target.value)}
+                      placeholder="0"
+                      data-testid="input-target-response-rate"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <Label className="text-sm font-semibold flex items-center gap-1.5">
+                  <Layers className="h-4 w-4" />
+                  {pt.transitionRulesTitle || "Transition Rules"}
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1 mb-3">{pt.transitionRulesDesc || "Configure how contacts move to the next phase."}</p>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">{pt.transitionMode || "Mode"}</Label>
+                  <div className="flex gap-2">
+                    {(["manual", "automatic", "ai_assisted"] as const).map(mode => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setNewTransitionMode(mode)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-all ${
+                          newTransitionMode === mode
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/50 border-border hover:bg-accent"
+                        }`}
+                        data-testid={`btn-transition-mode-${mode}`}
+                      >
+                        {mode === "manual" ? (pt.manual || "Manual") : mode === "automatic" ? (pt.automatic || "Automatic") : (pt.aiAssisted || "AI Assisted")}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {dispositions.filter(d => d.isActive).length > 0 && (
-                  <>
+                {newTransitionMode !== "manual" && (
+                  <div className="space-y-3 pl-2 border-l-2 border-primary/20 mt-3">
                     <div>
-                      <Label className="text-xs mb-1.5 block">{pt.moveDispositions || "Move these dispositions →"}</Label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {dispositions.filter(d => d.isActive).map(d => {
-                          const selected = newMoveDispositions.includes(d.code);
-                          return (
-                            <button key={d.id} type="button"
-                              className={`px-2 py-1 rounded text-[11px] font-medium border transition-all ${
-                                selected ? "bg-orange-100 border-orange-400 text-orange-800 dark:bg-orange-900/40 dark:border-orange-600 dark:text-orange-300"
-                                  : "border-border bg-background hover:bg-accent"
-                              }`}
-                              onClick={() => setNewMoveDispositions(prev => prev.includes(d.code) ? prev.filter(c => c !== d.code) : [...prev, d.code])}
-                              data-testid={`btn-move-disposition-${d.code}`}
-                            >
-                              {d.name}
-                            </button>
-                          );
-                        })}
+                      <Label className="text-xs">{pt.targetPhase || "Target Phase"}</Label>
+                      <Select value={newAutoTargetPhaseId} onValueChange={setNewAutoTargetPhaseId}>
+                        <SelectTrigger className="h-8 mt-1" data-testid="select-auto-target-phase">
+                          <SelectValue placeholder={pt.selectTargetPhase || "Select target phase..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {phases.filter(p => !editingPhase || p.id !== editingPhase.id).map(p => (
+                            <SelectItem key={p.id} value={p.id}>#{p.phaseNumber} {p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs">{pt.autoSchedule || "Run Schedule"}</Label>
+                      <Select value={newAutoSchedule} onValueChange={setNewAutoSchedule}>
+                        <SelectTrigger className="h-8 mt-1" data-testid="select-auto-schedule">
+                          <SelectValue placeholder={pt.selectSchedule || "Select..."} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hourly">{pt.hourly || "Hourly"}</SelectItem>
+                          <SelectItem value="daily">{pt.daily || "Daily"}</SelectItem>
+                          <SelectItem value="weekly">{pt.weekly || "Weekly"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">{pt.maxAttempts || "Max Attempts"}</Label>
+                        <Input type="number" min={1} className="h-8 mt-1" value={newMaxAttempts} onChange={(e) => setNewMaxAttempts(e.target.value)} placeholder="∞" data-testid="input-max-attempts" />
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{pt.maxAttemptsHint || "Move after N attempts"}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs">{pt.daysSinceAttempt || "Days Since Last Attempt"}</Label>
+                        <Input type="number" min={1} className="h-8 mt-1" value={newDaysSinceLastAttempt} onChange={(e) => setNewDaysSinceLastAttempt(e.target.value)} placeholder="∞" data-testid="input-days-since" />
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{pt.daysSinceHint || "Move if inactive for N days"}</p>
                       </div>
                     </div>
-                    <div>
-                      <Label className="text-xs mb-1.5 block">{pt.keepDispositions || "Keep in current phase (don't move) ✋"}</Label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {dispositions.filter(d => d.isActive).map(d => {
-                          const selected = newKeepDispositions.includes(d.code);
-                          return (
-                            <button key={d.id} type="button"
-                              className={`px-2 py-1 rounded text-[11px] font-medium border transition-all ${
-                                selected ? "bg-green-100 border-green-400 text-green-800 dark:bg-green-900/40 dark:border-green-600 dark:text-green-300"
-                                  : "border-border bg-background hover:bg-accent"
-                              }`}
-                              onClick={() => setNewKeepDispositions(prev => prev.includes(d.code) ? prev.filter(c => c !== d.code) : [...prev, d.code])}
-                              data-testid={`btn-keep-disposition-${d.code}`}
-                            >
-                              {d.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </>
+
+                    {dispositions.filter(d => d.isActive).length > 0 && (
+                      <>
+                        <div>
+                          <Label className="text-xs mb-1.5 block">{pt.moveDispositions || "Move these dispositions →"}</Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {dispositions.filter(d => d.isActive).map(d => {
+                              const selected = newMoveDispositions.includes(d.code);
+                              return (
+                                <button key={d.id} type="button"
+                                  className={`px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+                                    selected ? "bg-orange-100 border-orange-400 text-orange-800 dark:bg-orange-900/40 dark:border-orange-600 dark:text-orange-300"
+                                      : "border-border bg-background hover:bg-accent"
+                                  }`}
+                                  onClick={() => setNewMoveDispositions(prev => prev.includes(d.code) ? prev.filter(c => c !== d.code) : [...prev, d.code])}
+                                  data-testid={`btn-move-disposition-${d.code}`}
+                                >
+                                  {d.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs mb-1.5 block">{pt.keepDispositions || "Keep in current phase (don't move) ✋"}</Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {dispositions.filter(d => d.isActive).map(d => {
+                              const selected = newKeepDispositions.includes(d.code);
+                              return (
+                                <button key={d.id} type="button"
+                                  className={`px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+                                    selected ? "bg-green-100 border-green-400 text-green-800 dark:bg-green-900/40 dark:border-green-600 dark:text-green-300"
+                                      : "border-border bg-background hover:bg-accent"
+                                  }`}
+                                  onClick={() => setNewKeepDispositions(prev => prev.includes(d.code) ? prev.filter(c => c !== d.code) : [...prev, d.code])}
+                                  data-testid={`btn-keep-disposition-${d.code}`}
+                                >
+                                  {d.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-
-          <DialogFooter>
+            </div>
+          </ScrollArea>
+          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t flex-shrink-0">
             <Button variant="outline" onClick={() => { setShowCreateDialog(false); setEditingPhase(null); }}>{pt.cancel}</Button>
             <Button
               onClick={() => {
@@ -1447,9 +1457,9 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
             >
               {pt.save}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={!!showTransitionDialog} onOpenChange={(open) => {
         if (!open) {
