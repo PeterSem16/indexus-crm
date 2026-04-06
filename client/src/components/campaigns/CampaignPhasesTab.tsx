@@ -94,8 +94,11 @@ const phasesT: Record<string, Record<string, string>> = {
     transitionRulesDesc: "Nastavte, ako sa kontakty presúvajú do ďalšej fázy.",
     transitionMode: "Režim",
     manual: "Manuálny",
+    manualDesc: "Kontakty presúvate do ďalšej fázy ručne cez dialóg prechodu.",
     automatic: "Automatický",
+    automaticDesc: "Kontakty sa presúvajú automaticky podľa pravidiel: max pokusov, dni od posledného pokusu a filtre dispozícií.",
     aiAssisted: "AI asistovaný",
+    aiAssistedDesc: "AI analyzuje históriu kontaktu (hovory, emaily, dispozície, poznámky) a odporučí, či kontakt presunúť alebo ponechať. Návrhy AI skontrolujete a potvrdíte pred presunom.",
     selectTargetPhase: "Vyberte cieľovú fázu...",
     autoSchedule: "Plán spúšťania",
     selectSchedule: "Vyberte...",
@@ -185,8 +188,11 @@ const phasesT: Record<string, Record<string, string>> = {
     transitionRulesDesc: "Configure how contacts move to the next phase.",
     transitionMode: "Mode",
     manual: "Manual",
+    manualDesc: "Contacts are moved to the next phase manually by the operator using the transition dialog.",
     automatic: "Automatic",
+    automaticDesc: "Contacts are moved automatically based on rules: max attempts, days since last attempt, and disposition filters.",
     aiAssisted: "AI Assisted",
+    aiAssistedDesc: "AI analyzes each contact's history (calls, emails, dispositions, notes) and recommends whether to move or keep them. You review and confirm the AI's suggestions before transition.",
     selectTargetPhase: "Select target phase...",
     autoSchedule: "Run Schedule",
     selectSchedule: "Select...",
@@ -276,8 +282,11 @@ const phasesT: Record<string, Record<string, string>> = {
     transitionRulesDesc: "Nastavte, jak se kontakty přesouvají do další fáze.",
     transitionMode: "Režim",
     manual: "Manuální",
+    manualDesc: "Kontakty přesouváte do další fáze ručně přes dialog přechodu.",
     automatic: "Automatický",
+    automaticDesc: "Kontakty se přesouvají automaticky podle pravidel: max pokusů, dny od posledního pokusu a filtry dispozic.",
     aiAssisted: "AI asistovaný",
+    aiAssistedDesc: "AI analyzuje historii kontaktu (hovory, emaily, dispozice, poznámky) a doporučí, zda kontakt přesunout nebo ponechat. Návrhy AI zkontrolujete a potvrdíte před přesunem.",
     selectTargetPhase: "Vyberte cílovou fázi...",
     autoSchedule: "Plán spouštění",
     selectSchedule: "Vyberte...",
@@ -367,8 +376,11 @@ const phasesT: Record<string, Record<string, string>> = {
     transitionRulesDesc: "Állítsa be, hogyan kerüljenek a kapcsolatok a következő fázisba.",
     transitionMode: "Mód",
     manual: "Manuális",
+    manualDesc: "A kapcsolatokat manuálisan helyezi át a következő fázisba az átmenet dialóguson keresztül.",
     automatic: "Automatikus",
+    automaticDesc: "A kapcsolatok automatikusan kerülnek át a szabályok alapján: max kísérletek, napok az utolsó kísérlet óta és diszpozíciós szűrők.",
     aiAssisted: "AI asszisztált",
+    aiAssistedDesc: "Az AI elemzi a kapcsolat történetét (hívások, e-mailek, diszpozíciók, jegyzetek) és javaslatot tesz az áthelyezésre vagy megtartásra. Az AI javaslatait Ön ellenőrzi és hagyja jóvá.",
     selectTargetPhase: "Válassza ki a cél fázist...",
     autoSchedule: "Futtatási ütemezés",
     selectSchedule: "Válasszon...",
@@ -458,8 +470,11 @@ const phasesT: Record<string, Record<string, string>> = {
     transitionRulesDesc: "Configurați cum se mută contactele în faza următoare.",
     transitionMode: "Mod",
     manual: "Manual",
+    manualDesc: "Contactele sunt mutate manual în faza următoare de operator prin dialogul de tranziție.",
     automatic: "Automat",
+    automaticDesc: "Contactele sunt mutate automat pe baza regulilor: încercări maxime, zile de la ultima încercare și filtre de dispoziții.",
     aiAssisted: "AI asistat",
+    aiAssistedDesc: "AI analizează istoricul contactului (apeluri, e-mailuri, dispoziții, note) și recomandă dacă să-l mute sau să-l păstreze. Verificați și confirmați sugestiile AI înainte de tranziție.",
     selectTargetPhase: "Selectați faza țintă...",
     autoSchedule: "Program de rulare",
     selectSchedule: "Selectați...",
@@ -549,8 +564,11 @@ const phasesT: Record<string, Record<string, string>> = {
     transitionRulesDesc: "Configura come i contatti passano alla fase successiva.",
     transitionMode: "Modalità",
     manual: "Manuale",
+    manualDesc: "I contatti vengono spostati manualmente nella fase successiva dall'operatore tramite il dialogo di transizione.",
     automatic: "Automatico",
+    automaticDesc: "I contatti vengono spostati automaticamente in base alle regole: tentativi massimi, giorni dall'ultimo tentativo e filtri delle disposizioni.",
     aiAssisted: "AI assistito",
+    aiAssistedDesc: "L'AI analizza la storia del contatto (chiamate, email, disposizioni, note) e raccomanda se spostarlo o mantenerlo. Verifichi e confermi i suggerimenti dell'AI prima della transizione.",
     selectTargetPhase: "Seleziona la fase target...",
     autoSchedule: "Programma di esecuzione",
     selectSchedule: "Seleziona...",
@@ -640,8 +658,11 @@ const phasesT: Record<string, Record<string, string>> = {
     transitionRulesDesc: "Konfigurieren Sie, wie Kontakte in die nächste Phase übergehen.",
     transitionMode: "Modus",
     manual: "Manuell",
+    manualDesc: "Kontakte werden manuell vom Operator über den Übergangsdialog in die nächste Phase verschoben.",
     automatic: "Automatisch",
+    automaticDesc: "Kontakte werden automatisch basierend auf Regeln verschoben: Max. Versuche, Tage seit letztem Versuch und Dispositionsfilter.",
     aiAssisted: "KI-unterstützt",
+    aiAssistedDesc: "Die KI analysiert die Kontakthistorie (Anrufe, E-Mails, Dispositionen, Notizen) und empfiehlt ob der Kontakt verschoben oder behalten werden soll. Sie prüfen und bestätigen die KI-Vorschläge vor dem Übergang.",
     selectTargetPhase: "Zielphase auswählen...",
     autoSchedule: "Ausführungsplan",
     selectSchedule: "Auswählen...",
@@ -1298,22 +1319,43 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
 
                 <div className="space-y-2">
                   <Label className="text-xs">{pt.transitionMode || "Mode"}</Label>
-                  <div className="flex gap-2">
-                    {(["manual", "automatic", "ai_assisted"] as const).map(mode => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setNewTransitionMode(mode)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-all ${
-                          newTransitionMode === mode
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted/50 border-border hover:bg-accent"
-                        }`}
-                        data-testid={`btn-transition-mode-${mode}`}
-                      >
-                        {mode === "manual" ? (pt.manual || "Manual") : mode === "automatic" ? (pt.automatic || "Automatic") : (pt.aiAssisted || "AI Assisted")}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-1 gap-2">
+                    {(["manual", "automatic", "ai_assisted"] as const).map(mode => {
+                      const modeLabels: Record<string, string> = {
+                        manual: pt.manual || "Manual",
+                        automatic: pt.automatic || "Automatic",
+                        ai_assisted: pt.aiAssisted || "AI Assisted",
+                      };
+                      const modeDescs: Record<string, string> = {
+                        manual: pt.manualDesc || "Contacts are moved to the next phase manually by the operator using the transition dialog.",
+                        automatic: pt.automaticDesc || "Contacts are moved automatically based on rules: max attempts, days since last attempt, and disposition filters.",
+                        ai_assisted: pt.aiAssistedDesc || "AI analyzes each contact's history (calls, emails, dispositions, notes) and recommends whether to move or keep them. You review and confirm the AI's suggestions before transition.",
+                      };
+                      const modeIcons: Record<string, string> = {
+                        manual: "👤",
+                        automatic: "⚡",
+                        ai_assisted: "🤖",
+                      };
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setNewTransitionMode(mode)}
+                          className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${
+                            newTransitionMode === mode
+                              ? "bg-primary/5 border-primary ring-1 ring-primary/30"
+                              : "bg-muted/30 border-border hover:bg-accent/50"
+                          }`}
+                          data-testid={`btn-transition-mode-${mode}`}
+                        >
+                          <span className="text-lg mt-0.5">{modeIcons[mode]}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-semibold ${newTransitionMode === mode ? "text-primary" : ""}`}>{modeLabels[mode]}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{modeDescs[mode]}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
