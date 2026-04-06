@@ -2995,10 +2995,7 @@ export default function CampaignDetailPage() {
             <Settings className="w-4 h-4 mr-2" />
             {t.campaigns.detail.settings}
           </TabsTrigger>
-          <TabsTrigger value="reports" data-testid="tab-reports">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            {t.campaignReports?.reports || 'Reports'}
-          </TabsTrigger>
+          
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -3461,17 +3458,7 @@ export default function CampaignDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="reports" className="space-y-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Link href={`/campaigns/${campaign.id}/reports`}>
-              <Button variant="outline" data-testid="button-campaign-reports-full">
-                <BarChart3 className="w-4 h-4 mr-2" />
-                {t.campaignReports?.openFullReports || 'Open Full Reports'}
-              </Button>
-            </Link>
-          </div>
-          <CampaignReportingPhases campaignId={campaign.id} />
-        </TabsContent>
+        
 
         <TabsContent value="reporting" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -3996,6 +3983,15 @@ export default function CampaignDetailPage() {
             </Card>
 
           <CampaignReportingPhases campaignId={campaign.id} />
+
+          <div className="flex items-center gap-2">
+            <Link href={`/campaigns/${campaign.id}/reports`}>
+              <Button variant="outline" data-testid="button-campaign-reports-full">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                {t.campaignReports?.openFullReports || 'Open Full Reports'}
+              </Button>
+            </Link>
+          </div>
         </TabsContent>
 
         <TabsContent value="script" className="space-y-6">
