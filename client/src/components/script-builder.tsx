@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -253,6 +254,15 @@ interface ScriptBuilderProps {
 export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }: ScriptBuilderProps) {
   const { t } = useI18n();
   const sb = t.campaigns.detail.scriptBuilderUI;
+
+  const { data: allEmailTemplates = [] } = useQuery<any[]>({
+    queryKey: ["/api/message-templates", "email-active"],
+    queryFn: async () => {
+      const res = await fetch("/api/message-templates?type=email&isActive=true", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
@@ -534,6 +544,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
           primary: "default", secondary: "secondary", outline: "outline", destructive: "destructive",
         };
         const btnVariant = variantMap[element.variant || ""] || "default";
+        const linkedTemplate = element.emailTemplateId ? allEmailTemplates.find((t: any) => t.id === element.emailTemplateId) : null;
         return (
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="p-4 space-y-2">
@@ -542,6 +553,12 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                 {ActionIcon && <ActionIcon className="h-4 w-4" />}
                 {element.actionLabel || element.label || "Vykonať akciu"}
               </Button>
+              {linkedTemplate && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail className="h-3 w-3" />
+                  <span>Šablóna: <span className="font-medium text-foreground">{linkedTemplate.name}</span></span>
+                </div>
+              )}
             </CardContent>
           </Card>
         );
@@ -549,7 +566,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
       default:
         return <div className="text-sm text-muted-foreground">{element.label}</div>;
     }
-  }, []);
+  }, [allEmailTemplates]);
 
   return (
     <div className="flex h-full gap-4" data-testid="script-builder">
@@ -978,6 +995,36 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                         </SelectContent>
                       </Select>
                     </div>
+                    {selectedElement.action === "openEmail" && (
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-1.5">
+                          <Mail className="h-3.5 w-3.5 text-primary" />
+                          Email šablóna
+                        </Label>
+                        <Select
+                          value={selectedElement.emailTemplateId || "__none__"}
+                          onValueChange={(v) => updateElement(selectedElement.id, { emailTemplateId: v === "__none__" ? undefined : v })}
+                        >
+                          <SelectTrigger data-testid="select-email-template-action">
+                            <SelectValue placeholder="Bez šablóny" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Bez šablóny (manuálny výber)</SelectItem>
+                            {allEmailTemplates.map((tmpl: any) => (
+                              <SelectItem key={tmpl.id} value={tmpl.id}>
+                                <span className="flex items-center gap-2">
+                                  {tmpl.name}
+                                  {tmpl.language && <span className="text-xs text-muted-foreground uppercase">({tmpl.language})</span>}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Šablóna sa automaticky načíta keď agent klikne na tlačidlo
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 

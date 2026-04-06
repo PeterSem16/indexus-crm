@@ -1318,7 +1318,7 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
                 variant={btnVariant}
                 onClick={() => {
                   if (element.action && onAction) {
-                    onAction(element.action, { elementId: element.id, stepId: currentStep?.id });
+                    onAction(element.action, { elementId: element.id, stepId: currentStep?.id, emailTemplateId: element.emailTemplateId });
                   }
                 }}
                 data-testid={`btn-script-action-${element.id}`}
@@ -1881,34 +1881,50 @@ function CommunicationCanvas({
     return result;
   }, [contact, user, allEmailAccounts, selectedFromAccount, clinicData, hospitalData, collaboratorData]);
 
+  const applyEmailTemplate = useCallback((template: any) => {
+    const subject = replaceTemplateVars(template.subject || "");
+    const rawHtml = template.contentHtml || "";
+    const hasComplexHtml = /<table[\s>]|style\s*=\s*["'][^"']*(?:background|padding|margin|border|font-family|linear-gradient)/i.test(rawHtml);
+    const content = replaceTemplateVars(rawHtml || template.content || "");
+    setEmailSubject(subject);
+    setEmailMessage(content);
+    setEmailIsRawHtml(hasComplexHtml);
+    setSelectedEmailTemplateName(template.name);
+    setEmailTemplateSearch("");
+    setEmailTemplatePopoverOpen(false);
+    fetch(`/api/message-templates/${template.id}/use`, { method: "POST", credentials: "include" });
+
+    if (template.attachments?.length > 0) {
+      fetch(`/api/message-templates/${template.id}/attachments`, { credentials: "include" })
+        .then(r => r.json())
+        .then((atts: any[]) => {
+          const valid = atts.filter((a: any) => a.contentBase64 && !a.error);
+          setTemplateAttachments(valid);
+        })
+        .catch(() => setTemplateAttachments([]));
+    } else {
+      setTemplateAttachments([]);
+    }
+  }, [replaceTemplateVars]);
+
   const handleSelectEmailTemplate = (templateId: string) => {
     const template = emailTemplates.find(t => t.id === templateId);
     if (template) {
-      const subject = replaceTemplateVars(template.subject || "");
-      const rawHtml = template.contentHtml || "";
-      const hasComplexHtml = /<table[\s>]|style\s*=\s*["'][^"']*(?:background|padding|margin|border|font-family|linear-gradient)/i.test(rawHtml);
-      const content = replaceTemplateVars(rawHtml || template.content || "");
-      setEmailSubject(subject);
-      setEmailMessage(content);
-      setEmailIsRawHtml(hasComplexHtml);
-      setSelectedEmailTemplateName(template.name);
-      setEmailTemplateSearch("");
-      setEmailTemplatePopoverOpen(false);
-      fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
-      
-      if ((template as any).attachments?.length > 0) {
-        fetch(`/api/message-templates/${templateId}/attachments`, { credentials: "include" })
-          .then(r => r.json())
-          .then((atts: any[]) => {
-            const valid = atts.filter((a: any) => a.contentBase64 && !a.error);
-            setTemplateAttachments(valid);
-          })
-          .catch(() => setTemplateAttachments([]));
-      } else {
-        setTemplateAttachments([]);
-      }
+      applyEmailTemplate(template);
     }
   };
+
+  const handleScriptEmailTemplate = useCallback((templateId: string) => {
+    const template = allEmailTemplatesRaw.find(t => t.id === templateId);
+    if (template) {
+      applyEmailTemplate(template);
+      return;
+    }
+    fetch(`/api/message-templates/${templateId}`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(t => { if (t) applyEmailTemplate(t); })
+      .catch(() => {});
+  }, [allEmailTemplatesRaw, applyEmailTemplate]);
 
   const handleSelectSmsTemplate = (templateId: string) => {
     const template = smsTemplates.find(t => t.id === templateId);
@@ -6423,6 +6439,9 @@ export default function AgentWorkspacePage() {
           onScriptAction={(action, data) => {
             if (action === "openEmail") {
               setActiveChannel("email");
+              if (data?.emailTemplateId) {
+                handleScriptEmailTemplate(data.emailTemplateId);
+              }
             } else if (action === "openPhone" || action === "makeCall") {
               setActiveChannel("phone");
             } else if (action === "openDisposition") {
@@ -7135,8 +7154,13 @@ export default function AgentWorkspacePage() {
           </DialogHeader>
           <div className="flex-1 min-h-0 -mx-6 px-6">
             <div className="h-full max-h-[65vh]">
-              <ScriptViewer script={selectedCampaign?.script || null} contact={currentContact} campaignContactId={currentCampaignContactId} campaignId={selectedCampaignId} initialStepId={currentCampaignContact?.currentScriptStepId} onAction={(action) => {
-                if (action === "openEmail") setActiveChannel("email");
+              <ScriptViewer script={selectedCampaign?.script || null} contact={currentContact} campaignContactId={currentCampaignContactId} campaignId={selectedCampaignId} initialStepId={currentCampaignContact?.currentScriptStepId} onAction={(action, data) => {
+                if (action === "openEmail") {
+                  setActiveChannel("email");
+                  if (data?.emailTemplateId) {
+                    handleScriptEmailTemplate(data.emailTemplateId);
+                  }
+                }
                 else if (action === "openPhone" || action === "makeCall") setActiveChannel("phone");
                 else if (action === "openDisposition") { setDispositionChannelFilter(null); setDispositionModalOpen(true); }
                 else if (action === "openEmailDisposition") { setDispositionChannelFilter("email"); setDispositionModalOpen(true); }
