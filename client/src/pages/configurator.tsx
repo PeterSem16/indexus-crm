@@ -18523,6 +18523,8 @@ function LeadSearchTab() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
   const [selectedChanges, setSelectedChanges] = useState<Record<string, boolean>>({});
+  const [assignModule, setAssignModule] = useState<string>("");
+  const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({});
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
   const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
@@ -18720,14 +18722,16 @@ function LeadSearchTab() {
     if (!previewResult) return;
     setIsAssigning(true);
     try {
+      const enabledFields = Object.entries(selectedFields).filter(([_, v]) => v).map(([k]) => k);
       const resp = await fetch(`/api/lead-search/results/${previewResult.id}/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ targetModule: selectedJob?.targetModule || "hospitals" }),
+        body: JSON.stringify({ targetModule: assignModule || selectedJob?.targetModule || "hospitals", selectedFields: enabledFields }),
       });
       if (!resp.ok) throw new Error("Failed");
-      toast({ title: "Kontakt úspešne vytvorený v module" });
+      const moduleLabel = assignModule === "hospitals" ? "Nemocnice" : assignModule === "clinics" ? "Ambulancie" : "Spolupracovníci";
+      toast({ title: `Kontakt vytvorený v module ${moduleLabel}` });
       setPreviewResult(null);
       setExistingMatches([]);
       setSelectedMatch(null);
@@ -20099,6 +20103,30 @@ function LeadSearchTab() {
                                   setExistingMatches([]);
                                   setSelectedMatch(null);
                                   setSelectedChanges({});
+                                  setAssignModule(selectedJob?.targetModule || "hospitals");
+                                  const raw = r.rawData || {};
+                                  const allFields: Record<string, boolean> = {};
+                                  if (r.companyName) allFields["companyName"] = true;
+                                  if (r.contactPerson || raw.contact_person) allFields["contactPerson"] = true;
+                                  if (r.email || raw.email) allFields["email"] = true;
+                                  if (r.phone || raw.phone) allFields["phone"] = true;
+                                  if (r.website || raw.website) allFields["website"] = true;
+                                  if (r.address || raw.address) allFields["address"] = true;
+                                  if (r.city || raw.city) allFields["city"] = true;
+                                  if (r.countryCode) allFields["countryCode"] = true;
+                                  if (raw.postal_code) allFields["postalCode"] = true;
+                                  if (raw.region || raw.department) allFields["region"] = true;
+                                  if (raw.doctor_title) allFields["doctorTitle"] = true;
+                                  if (raw.doctor_first_name) allFields["doctorFirstName"] = true;
+                                  if (raw.doctor_last_name) allFields["doctorLastName"] = true;
+                                  if (r.specialization || raw.specialization) allFields["specialization"] = true;
+                                  if (raw.notes) allFields["notes"] = true;
+                                  if (raw.mobile) allFields["mobile"] = true;
+                                  if (raw.company_name || raw.full_name) allFields["fullName"] = true;
+                                  if (raw.collaborator_type) allFields["collaboratorType"] = true;
+                                  if (raw.titleBefore) allFields["titleBefore"] = true;
+                                  if (raw.titleAfter) allFields["titleAfter"] = true;
+                                  setSelectedFields(allFields);
                                   setMatchLoading(true);
                                   fetch(`/api/lead-search/results/${r.id}/match`, { credentials: "include" })
                                     .then(resp => resp.ok ? resp.json() : { matches: [] })
@@ -20180,15 +20208,33 @@ function LeadSearchTab() {
               Náhľad kontaktu
             </DialogTitle>
             <DialogDescription>
-              Skontrolujte údaje pred priradením do modulu{" "}
-              <span className="font-medium">
-                {selectedJob?.targetModule === "hospitals" ? "Nemocnice" : selectedJob?.targetModule === "clinics" ? "Ambulancie" : "Spolupracovníci"}
-              </span>
+              Vyberte polia a cieľový modul pred uložením
             </DialogDescription>
           </DialogHeader>
           {previewResult && (() => {
             const raw = previewResult.rawData || {};
-            const tm = selectedJob?.targetModule;
+            const fieldDefs: { key: string; label: string; value: string }[] = [
+              { key: "companyName", label: "Názov", value: previewResult.companyName || "" },
+              { key: "fullName", label: "Plný názov", value: raw.company_name || raw.full_name || "" },
+              { key: "contactPerson", label: "Kontaktná osoba", value: previewResult.contactPerson || raw.contact_person || "" },
+              { key: "doctorTitle", label: "Titul", value: raw.doctor_title || raw.titleBefore || "" },
+              { key: "doctorFirstName", label: "Meno", value: raw.doctor_first_name || "" },
+              { key: "doctorLastName", label: "Priezvisko", value: raw.doctor_last_name || "" },
+              { key: "titleAfter", label: "Titul za menom", value: raw.titleAfter || "" },
+              { key: "specialization", label: "Špecializácia", value: previewResult.specialization || raw.specialization || "" },
+              { key: "collaboratorType", label: "Typ spolupráce", value: raw.collaborator_type || "" },
+              { key: "address", label: "Adresa", value: previewResult.address || raw.address || "" },
+              { key: "city", label: "Mesto", value: previewResult.city || raw.city || "" },
+              { key: "postalCode", label: "PSČ", value: raw.postal_code || "" },
+              { key: "region", label: "Oblasť/Región", value: raw.region || raw.department || "" },
+              { key: "countryCode", label: "Krajina", value: previewResult.countryCode || "" },
+              { key: "email", label: "Email", value: previewResult.email || raw.email || "" },
+              { key: "phone", label: "Telefón", value: previewResult.phone || raw.phone || "" },
+              { key: "mobile", label: "Mobil", value: raw.mobile || "" },
+              { key: "website", label: "Web", value: previewResult.website || raw.website || "" },
+              { key: "notes", label: "Poznámky", value: raw.notes || "" },
+            ].filter(f => f.value);
+            const selectedCount = fieldDefs.filter(f => selectedFields[f.key]).length;
             return (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -20204,90 +20250,38 @@ function LeadSearchTab() {
                   </span>
                 </div>
 
-                {tm === "hospitals" && (
-                  <div className="border rounded-lg p-4 space-y-3">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                      <Building className="h-3.5 w-3.5" /> Nemocnica - údaje
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      <div><span className="text-muted-foreground text-xs">Názov:</span><div className="font-medium">{previewResult.companyName || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Plný názov:</span><div>{raw.company_name || raw.full_name || previewResult.companyName || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Kontaktná osoba:</span><div>{previewResult.contactPerson || raw.contact_person || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Oblasť:</span><div>{raw.region || raw.department || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Ulica:</span><div>{previewResult.address || raw.address || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Mesto:</span><div>{previewResult.city || "-"} {raw.postal_code || ""}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Krajina:</span><div>{previewResult.countryCode || "-"}</div></div>
-                    </div>
-                  </div>
-                )}
-
-                {tm === "clinics" && (
-                  <div className="border rounded-lg p-4 space-y-3">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                      <User className="h-3.5 w-3.5" /> Ambulancia - údaje
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      <div><span className="text-muted-foreground text-xs">Názov ambulancie:</span><div className="font-medium">{previewResult.companyName || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Lekár (celé meno):</span><div className="font-medium">{raw.contact_person || previewResult.contactPerson || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Titul:</span><div>{raw.doctor_title || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Špecializácia:</span><div>{previewResult.specialization || raw.specialization || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Meno:</span><div>{raw.doctor_first_name || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Priezvisko:</span><div>{raw.doctor_last_name || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Adresa:</span><div>{previewResult.address || raw.address || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Mesto:</span><div>{previewResult.city || "-"} {raw.postal_code || ""}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Krajina:</span><div>{previewResult.countryCode || "-"}</div></div>
-                      {raw.notes && <div className="col-span-2"><span className="text-muted-foreground text-xs">Poznámky:</span><div className="text-xs">{raw.notes}</div></div>}
-                    </div>
-                  </div>
-                )}
-
-                {tm === "collaborators" && (
-                  <div className="border rounded-lg p-4 space-y-3">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5" /> Spolupracovník - údaje
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      <div><span className="text-muted-foreground text-xs">Titul pred menom:</span><div>{raw.doctor_title || raw.titleBefore || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Titul za menom:</span><div>{raw.titleAfter || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Meno:</span><div className="font-medium">{raw.doctor_first_name || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Priezvisko:</span><div className="font-medium">{raw.doctor_last_name || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Spoločnosť:</span><div>{raw.company_name || previewResult.companyName || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Typ spolupráce:</span><div>{raw.collaborator_type || raw.specialization || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Mobil:</span><div>{raw.mobile || "-"}</div></div>
-                      <div><span className="text-muted-foreground text-xs">Krajina:</span><div>{previewResult.countryCode || "-"}</div></div>
-                      {raw.notes && <div className="col-span-2"><span className="text-muted-foreground text-xs">Poznámky:</span><div className="text-xs">{raw.notes}</div></div>}
-                    </div>
-                  </div>
-                )}
-
                 <div className="border rounded-lg p-4 space-y-3">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5" /> Kontaktné údaje
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <ClipboardList className="h-3.5 w-3.5" /> Údaje na uloženie ({selectedCount}/{fieldDefs.length})
+                    </div>
+                    <div className="flex gap-1">
+                      <button className="text-[10px] text-blue-600 hover:underline" data-testid="button-select-all-fields" onClick={() => {
+                        const all: Record<string, boolean> = {};
+                        fieldDefs.forEach(f => all[f.key] = true);
+                        setSelectedFields(all);
+                      }}>Vybrať všetky</button>
+                      <span className="text-muted-foreground text-[10px]">|</span>
+                      <button className="text-[10px] text-blue-600 hover:underline" data-testid="button-deselect-all-fields" onClick={() => setSelectedFields({})}>Zrušiť všetky</button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground text-xs">Email:</span>
-                      <div data-testid="preview-email">
-                        {previewResult.email ? <a href={`mailto:${previewResult.email}`} className="text-blue-600 hover:underline">{previewResult.email}</a> : "-"}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground text-xs">Telefón:</span>
-                      <div data-testid="preview-phone">{previewResult.phone || "-"}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground text-xs">Web:</span>
-                      <div data-testid="preview-website">
-                        {previewResult.website ? <a href={previewResult.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">{previewResult.website}</a> : "-"}
-                      </div>
-                    </div>
-                    {previewResult.sourceUrl && (
-                      <div>
-                        <span className="text-muted-foreground text-xs">Zdroj:</span>
-                        <div><a href={previewResult.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs break-all">{previewResult.sourceUrl}</a></div>
-                      </div>
-                    )}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    {fieldDefs.map(f => (
+                      <label key={f.key} className={cn("flex items-start gap-2 py-1.5 px-2 rounded cursor-pointer transition-colors text-sm", selectedFields[f.key] ? "bg-primary/5" : "opacity-50")} data-testid={`field-${f.key}`}>
+                        <input type="checkbox" className="mt-1 rounded" checked={!!selectedFields[f.key]} onChange={(e) => setSelectedFields(prev => ({ ...prev, [f.key]: e.target.checked }))} />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-muted-foreground text-xs">{f.label}:</span>
+                          <div className={cn("font-medium truncate", f.key === "email" ? "text-blue-600" : "")}>{f.value}</div>
+                        </div>
+                      </label>
+                    ))}
                   </div>
+                  {previewResult.sourceUrl && (
+                    <div className="text-xs text-muted-foreground pt-1 border-t flex items-center gap-1">
+                      <Globe className="h-3 w-3" />
+                      Zdroj: <a href={previewResult.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">{previewResult.sourceUrl}</a>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border rounded-lg overflow-hidden">
@@ -20368,11 +20362,17 @@ function LeadSearchTab() {
 
                 {!selectedMatch && (
                   <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
-                    <div className="text-xs text-muted-foreground mb-1">Po potvrdení sa tento kontakt vytvorí ako nový záznam v module:</div>
-                    <div className="text-sm font-medium flex items-center gap-2">
-                      {tm === "hospitals" && <><Building className="h-4 w-4 text-primary" /> Nemocnice</>}
-                      {tm === "clinics" && <><User className="h-4 w-4 text-primary" /> Ambulancie</>}
-                      {tm === "collaborators" && <><Users className="h-4 w-4 text-primary" /> Spolupracovníci</>}
+                    <div className="text-xs text-muted-foreground mb-1">Uložiť ako nový záznam do modulu:</div>
+                    <div className="flex gap-2 mt-1.5">
+                      {[
+                        { value: "hospitals", label: "Nemocnice", icon: <Building className="h-3.5 w-3.5" /> },
+                        { value: "clinics", label: "Ambulancie", icon: <User className="h-3.5 w-3.5" /> },
+                        { value: "collaborators", label: "Spolupracovníci", icon: <Users className="h-3.5 w-3.5" /> },
+                      ].map(m => (
+                        <button key={m.value} data-testid={`module-${m.value}`} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium transition-all", assignModule === m.value ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary/40 hover:bg-primary/5")} onClick={() => setAssignModule(m.value)}>
+                          {m.icon} {m.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}

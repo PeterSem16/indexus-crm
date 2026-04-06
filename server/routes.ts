@@ -30041,7 +30041,7 @@ Return ONLY a JSON array of NEW contacts (same format: company_name, contact_per
   app.post("/api/lead-search/results/:id/assign", requireAuth, async (req, res) => {
     try {
       const resultId = parseInt(req.params.id);
-      const { targetModule } = req.body;
+      const { targetModule, selectedFields } = req.body;
 
       if (!targetModule || !["hospitals", "clinics", "collaborators"].includes(targetModule)) {
         return res.status(400).json({ error: "Invalid target module" });
@@ -30053,64 +30053,66 @@ Return ONLY a JSON array of NEW contacts (same format: company_name, contact_per
 
       let assignedId: string = "";
       const raw = (searchResult.rawData || {}) as any;
+      const sf = Array.isArray(selectedFields) ? new Set(selectedFields) : null;
+      const f = (key: string, val: string) => (!sf || sf.has(key)) ? val : "";
 
       if (targetModule === "hospitals") {
         const hospital = await storage.createHospital({
-          name: searchResult.companyName || "Unknown",
-          fullName: raw.company_name || searchResult.companyName || "",
-          streetNumber: searchResult.address || raw.address || "",
-          city: searchResult.city || raw.city || "",
-          postalCode: raw.postal_code || "",
-          region: raw.region || "",
-          countryCode: searchResult.countryCode || "SK",
-          contactPerson: searchResult.contactPerson || raw.contact_person || "",
-          phone: searchResult.phone || raw.phone || "",
-          email: searchResult.email || raw.email || "",
+          name: f("companyName", searchResult.companyName || "") || "Unknown",
+          fullName: f("fullName", raw.company_name || searchResult.companyName || ""),
+          streetNumber: f("address", searchResult.address || raw.address || ""),
+          city: f("city", searchResult.city || raw.city || ""),
+          postalCode: f("postalCode", raw.postal_code || ""),
+          region: f("region", raw.region || ""),
+          countryCode: f("countryCode", searchResult.countryCode || "") || "SK",
+          contactPerson: f("contactPerson", searchResult.contactPerson || raw.contact_person || ""),
+          phone: f("phone", searchResult.phone || raw.phone || ""),
+          email: f("email", searchResult.email || raw.email || ""),
           isActive: true,
           dataSource: "lead-search",
         } as any);
         assignedId = `hospital:${hospital.id}`;
       } else if (targetModule === "clinics") {
         const clinic = await storage.createClinic({
-          name: searchResult.companyName || raw.company_name || searchResult.contactPerson || "Unknown",
-          doctorName: raw.contact_person || searchResult.contactPerson || "",
-          doctorTitle: raw.doctor_title || "",
-          doctorFirstName: raw.doctor_first_name || "",
-          doctorLastName: raw.doctor_last_name || "",
-          address: searchResult.address || raw.address || "",
-          city: searchResult.city || raw.city || "",
-          postalCode: raw.postal_code || "",
-          countryCode: searchResult.countryCode || "SK",
-          phone: searchResult.phone || raw.phone || "",
-          email: searchResult.email || raw.email || "",
-          website: searchResult.website || raw.website || "",
-          notes: raw.notes || raw.specialization || "",
+          name: f("companyName", searchResult.companyName || raw.company_name || searchResult.contactPerson || "") || "Unknown",
+          doctorName: f("contactPerson", raw.contact_person || searchResult.contactPerson || ""),
+          doctorTitle: f("doctorTitle", raw.doctor_title || ""),
+          doctorFirstName: f("doctorFirstName", raw.doctor_first_name || ""),
+          doctorLastName: f("doctorLastName", raw.doctor_last_name || ""),
+          address: f("address", searchResult.address || raw.address || ""),
+          city: f("city", searchResult.city || raw.city || ""),
+          postalCode: f("postalCode", raw.postal_code || ""),
+          countryCode: f("countryCode", searchResult.countryCode || "") || "SK",
+          phone: f("phone", searchResult.phone || raw.phone || ""),
+          email: f("email", searchResult.email || raw.email || ""),
+          website: f("website", searchResult.website || raw.website || ""),
+          notes: f("notes", raw.notes || "") || f("specialization", raw.specialization || ""),
           leadSource: "lead-search",
           isActive: true,
         } as any);
         assignedId = `clinic:${clinic.id}`;
       } else if (targetModule === "collaborators") {
-        const firstName = raw.doctor_first_name || raw.firstName || "";
-        const lastName = raw.doctor_last_name || raw.lastName || "";
+        const firstName = f("doctorFirstName", raw.doctor_first_name || raw.firstName || "");
+        const lastName = f("doctorLastName", raw.doctor_last_name || raw.lastName || "");
         let fn = firstName, ln = lastName;
         if (!fn && !ln) {
-          const fullName = searchResult.contactPerson || searchResult.companyName || "Unknown";
+          const fullName = f("contactPerson", searchResult.contactPerson || "") || f("companyName", searchResult.companyName || "") || "Unknown";
           const parts = fullName.replace(/^(MUDr\.|doc\.|prof\.|Ing\.|Mgr\.|JUDr\.|PhDr\.|RNDr\.|MVDr\.)\s*/gi, '').split(" ");
           fn = parts[0] || "Unknown";
           ln = parts.slice(1).join(" ") || "";
         }
         const collaborator = await storage.createCollaborator({
-          titleBefore: raw.doctor_title || raw.titleBefore || "",
+          titleBefore: f("doctorTitle", raw.doctor_title || raw.titleBefore || ""),
           firstName: fn,
           lastName: ln,
-          titleAfter: raw.titleAfter || "",
-          countryCode: searchResult.countryCode || "SK",
-          phone: searchResult.phone || raw.phone || "",
-          mobile: raw.mobile || "",
-          email: searchResult.email || raw.email || "",
-          companyName: raw.company_name || searchResult.companyName || "",
-          collaboratorType: raw.collaborator_type || raw.specialization || "",
-          note: raw.notes || "",
+          titleAfter: f("titleAfter", raw.titleAfter || ""),
+          countryCode: f("countryCode", searchResult.countryCode || "") || "SK",
+          phone: f("phone", searchResult.phone || raw.phone || ""),
+          mobile: f("mobile", raw.mobile || ""),
+          email: f("email", searchResult.email || raw.email || ""),
+          companyName: f("companyName", raw.company_name || searchResult.companyName || ""),
+          collaboratorType: f("collaboratorType", raw.collaborator_type || raw.specialization || ""),
+          note: f("notes", raw.notes || ""),
           isActive: true,
           dataSource: "lead-search",
         } as any);
