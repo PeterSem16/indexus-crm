@@ -4682,6 +4682,8 @@ export default function AgentWorkspacePage() {
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
   const [tasksModalOpen, setTasksModalOpen] = useState(false);
+  const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
+  const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "" });
   const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
   const [dispositionChannelFilter, setDispositionChannelFilter] = useState<"phone" | "email" | "sms" | null>(null);
   const [modalSelectedParent, setModalSelectedParent] = useState<string | null>(null);
@@ -4726,6 +4728,32 @@ export default function AgentWorkspacePage() {
   const { data: workspaceAccess = [] } = useQuery<any[]>({
     queryKey: ["/api/agent-workspace-access/current"],
     enabled: !!hasModuleAccess,
+  });
+
+  const { data: allUsersForTasks = [] } = useQuery<Array<{ id: string; username: string; fullName: string | null }>>({
+    queryKey: ["/api/users"],
+    enabled: !!hasModuleAccess,
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (data: { title: string; description: string; priority: string; assignedUserId: string; customerId?: string; dueDate?: string; country?: string }) => {
+      const payload: any = { ...data };
+      if (payload.dueDate) {
+        payload.dueDate = new Date(payload.dueDate).toISOString();
+      } else {
+        delete payload.dueDate;
+      }
+      return apiRequest("POST", "/api/tasks", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({ title: t.quickCreate.taskCreated, description: t.quickCreate.taskCreatedDesc });
+      setCreateTaskDialogOpen(false);
+      setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "" });
+    },
+    onError: (e) => {
+      toast({ title: t.quickCreate.createFailed, description: String(e), variant: "destructive" });
+    },
   });
 
   const allowedCountries = useMemo(() => {
@@ -5898,10 +5926,19 @@ export default function AgentWorkspacePage() {
         setActiveChannel("sms");
         break;
       case "task":
-        toast({
-          title: "Úloha",
-          description: "Vytvorenie úlohy - pripravuje sa",
-        });
+        {
+          const contactName = currentContact
+            ? `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim()
+            : "";
+          setCreateTaskForm({
+            title: contactName ? `${contactName} — ` : "",
+            description: "",
+            priority: "medium",
+            assignedUserId: user?.id || "",
+            dueDate: "",
+          });
+          setCreateTaskDialogOpen(true);
+        }
         break;
     }
   };
@@ -7110,6 +7147,111 @@ export default function AgentWorkspacePage() {
       </Dialog>
 
       <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
+
+      <Dialog open={createTaskDialogOpen} onOpenChange={setCreateTaskDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarPlus className="h-5 w-5 text-purple-500" />
+              {t.quickCreate.newTask}
+            </DialogTitle>
+            <DialogDescription>{t.quickCreate.newTaskDesc}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">{t.quickCreate.taskTitle}</label>
+              <Input
+                value={createTaskForm.title}
+                onChange={(e) => setCreateTaskForm({ ...createTaskForm, title: e.target.value })}
+                placeholder={t.quickCreate.taskTitle}
+                data-testid="input-create-task-title"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{t.quickCreate.taskDescription}</label>
+              <Textarea
+                value={createTaskForm.description}
+                onChange={(e) => setCreateTaskForm({ ...createTaskForm, description: e.target.value })}
+                placeholder={t.quickCreate.taskDescription}
+                className="resize-none"
+                rows={3}
+                data-testid="input-create-task-description"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">{t.quickCreate.priority}</label>
+                <Select value={createTaskForm.priority} onValueChange={(val) => setCreateTaskForm({ ...createTaskForm, priority: val })}>
+                  <SelectTrigger data-testid="select-create-task-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">{t.quickCreate.priorityLow}</SelectItem>
+                    <SelectItem value="medium">{t.quickCreate.priorityMedium}</SelectItem>
+                    <SelectItem value="high">{t.quickCreate.priorityHigh}</SelectItem>
+                    <SelectItem value="urgent">{t.quickCreate.priorityUrgent}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{t.tasks?.deadline || "Termín"}</label>
+                <Input
+                  type="date"
+                  value={createTaskForm.dueDate}
+                  onChange={(e) => setCreateTaskForm({ ...createTaskForm, dueDate: e.target.value })}
+                  className="h-9"
+                  data-testid="input-create-task-duedate"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{t.quickCreate.assignedTo}</label>
+              <Select value={createTaskForm.assignedUserId} onValueChange={(val) => setCreateTaskForm({ ...createTaskForm, assignedUserId: val })}>
+                <SelectTrigger data-testid="select-create-task-assigned">
+                  <SelectValue placeholder={t.quickCreate.assignedTo} />
+                </SelectTrigger>
+                <SelectContent>
+                  {allUsersForTasks.filter((u: any) => u.id).map((u: any) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.fullName || u.username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {currentContact && (
+              <div className="p-2 bg-muted rounded-md text-xs text-muted-foreground flex items-center gap-2">
+                <User className="h-3.5 w-3.5" />
+                {t.quickCreate.linkedCustomer}: {currentContact.firstName} {currentContact.lastName}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateTaskDialogOpen(false)} data-testid="btn-cancel-create-task">
+              {t.common.cancel}
+            </Button>
+            <Button
+              onClick={() => {
+                if (!createTaskForm.title.trim() || !createTaskForm.assignedUserId) return;
+                createTaskMutation.mutate({
+                  title: createTaskForm.title.trim(),
+                  description: createTaskForm.description.trim(),
+                  priority: createTaskForm.priority,
+                  assignedUserId: createTaskForm.assignedUserId,
+                  customerId: currentContact?.id || undefined,
+                  dueDate: createTaskForm.dueDate || undefined,
+                  country: selectedCampaign?.country || undefined,
+                });
+              }}
+              disabled={createTaskMutation.isPending || !createTaskForm.title.trim() || !createTaskForm.assignedUserId}
+              data-testid="btn-submit-create-task"
+            >
+              {createTaskMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t.common.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={abandonedCallsOpen} onOpenChange={setAbandonedCallsOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
