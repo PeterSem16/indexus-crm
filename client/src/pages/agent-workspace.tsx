@@ -4216,6 +4216,7 @@ interface ScheduledItem {
   contactName: string;
   contactPhone: string;
   contactEmail: string;
+  contactType?: "customer" | "clinic" | "hospital" | "collaborator";
   campaignId: string;
   campaignName: string;
   scheduledAt: string;
@@ -4230,7 +4231,7 @@ function ScheduledQueuePanel({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms") => void;
+  onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string) => void;
 }) {
   const [filterType, setFilterType] = useState<"all" | "callback" | "email" | "sms">("all");
   const { t } = useI18n();
@@ -4365,7 +4366,7 @@ function ScheduledQueuePanel({
                             onClick={() => {
                               if (onOpenContact) {
                                 const channel = item.type === "callback" ? "phone" : item.type;
-                                onOpenContact(item.contactId, item.campaignId, item.id, channel as "phone" | "email" | "sms");
+                                onOpenContact(item.contactId, item.campaignId, item.id, channel as "phone" | "email" | "sms", item.contactType);
                                 onOpenChange(false);
                               }
                             }}
@@ -4419,7 +4420,7 @@ function ScheduledQueuePanel({
                             data-testid={`btn-scheduled-call-${item.id}`}
                             onClick={() => {
                               if (onOpenContact) {
-                                onOpenContact(item.contactId, item.campaignId, item.id, "phone");
+                                onOpenContact(item.contactId, item.campaignId, item.id, "phone", item.contactType);
                                 onOpenChange(false);
                               }
                             }}
@@ -4435,7 +4436,7 @@ function ScheduledQueuePanel({
                             data-testid={`btn-scheduled-send-${item.id}`}
                             onClick={() => {
                               if (onOpenContact) {
-                                onOpenContact(item.contactId, item.campaignId, item.id, item.type as "email" | "sms");
+                                onOpenContact(item.contactId, item.campaignId, item.id, item.type as "email" | "sms", item.contactType);
                                 onOpenChange(false);
                               }
                             }}
@@ -5725,11 +5726,59 @@ export default function AgentWorkspacePage() {
     }
   };
 
-  const handleOpenScheduledContact = async (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms") => {
+  const handleOpenScheduledContact = async (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string) => {
     try {
-      const res = await fetch(`/api/customers/${contactId}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Customer not found");
-      const customer = await res.json();
+      let customer: any;
+      const cType = contactType || "customer";
+      if (cType === "clinic") {
+        const res = await fetch(`/api/clinics/${contactId}`, { credentials: "include" });
+        if (!res.ok) throw new Error("Clinic not found");
+        const clinic = await res.json();
+        customer = {
+          id: clinic.id,
+          firstName: clinic.doctorFirstName || "",
+          lastName: clinic.doctorLastName || clinic.name || "",
+          phone: clinic.phone || "",
+          email: clinic.email || "",
+          displayName: clinic.doctorLastName
+            ? `${clinic.doctorFirstName || ""} ${clinic.doctorLastName}`.trim() + (clinic.name ? ` (${clinic.name})` : "")
+            : clinic.name || "",
+          _contactType: "clinic",
+          _clinicId: clinic.id,
+        };
+      } else if (cType === "hospital") {
+        const res = await fetch(`/api/hospitals/${contactId}`, { credentials: "include" });
+        if (!res.ok) throw new Error("Hospital not found");
+        const hospital = await res.json();
+        customer = {
+          id: hospital.id,
+          firstName: "",
+          lastName: hospital.name || "",
+          phone: hospital.phone || "",
+          email: hospital.email || "",
+          displayName: hospital.name || "",
+          _contactType: "hospital",
+          _hospitalId: hospital.id,
+        };
+      } else if (cType === "collaborator") {
+        const res = await fetch(`/api/collaborators/${contactId}`, { credentials: "include" });
+        if (!res.ok) throw new Error("Collaborator not found");
+        const collab = await res.json();
+        customer = {
+          id: collab.id,
+          firstName: collab.firstName || "",
+          lastName: collab.lastName || "",
+          phone: collab.phone || "",
+          email: collab.email || "",
+          displayName: `${collab.firstName || ""} ${collab.lastName || ""}`.trim(),
+          _contactType: "collaborator",
+          _collaboratorId: collab.id,
+        };
+      } else {
+        const res = await fetch(`/api/customers/${contactId}`, { credentials: "include" });
+        if (!res.ok) throw new Error("Customer not found");
+        customer = await res.json();
+      }
 
       if (selectedCampaignId !== campaignId) {
         setSelectedCampaignId(campaignId);
