@@ -615,7 +615,7 @@ function TaskListPanel({
   }, [campaigns, channelFilter]);
 
   return (
-    <div className="w-72 border-r bg-card flex flex-col h-full shrink-0 relative z-10">
+    <div className="w-72 border-r bg-card flex flex-col h-full shrink-0">
       <div className="p-3 border-b space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm flex items-center gap-2">
@@ -2052,45 +2052,16 @@ function CommunicationCanvas({
 
   if (!contact) {
     return (
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-50 via-orange-50/80 to-amber-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900" style={{ isolation: 'isolate', contain: 'paint' }}>
-        <style dangerouslySetInnerHTML={{ __html: `
-          @keyframes pb-drift-1 { 0%,100% { transform: translate(0,0) scale(1); opacity:0.5; } 25% { transform: translate(60px,-50px) scale(1.15); opacity:0.7; } 50% { transform: translate(-30px,40px) scale(0.9); opacity:0.4; } 75% { transform: translate(40px,20px) scale(1.1); opacity:0.65; } }
-          @keyframes pb-drift-2 { 0%,100% { transform: translate(0,0) scale(1); opacity:0.45; } 25% { transform: translate(-50px,60px) scale(1.2); opacity:0.7; } 50% { transform: translate(40px,-30px) scale(0.85); opacity:0.35; } 75% { transform: translate(-20px,-50px) scale(1.1); opacity:0.6; } }
-          @keyframes pb-drift-3 { 0%,100% { transform: translate(0,0) scale(1); opacity:0.4; } 25% { transform: translate(30px,50px) scale(0.85); opacity:0.65; } 50% { transform: translate(-50px,-20px) scale(1.2); opacity:0.5; } 75% { transform: translate(20px,-40px) scale(0.95); opacity:0.7; } }
-          @keyframes pb-morph { 0%,100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; } 25% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; } 50% { border-radius: 50% 60% 30% 60% / 40% 70% 50% 60%; } 75% { border-radius: 40% 60% 70% 30% / 70% 30% 50% 60%; } }
-          @keyframes pb-breathe { 0%,100% { transform: scale(1); opacity:0.3; } 50% { transform: scale(1.3); opacity:0.6; } }
-          @keyframes pb-ring { 0% { transform: scale(0.8); opacity:0.5; } 50% { transform: scale(1.4); opacity:0; } 100% { transform: scale(0.8); opacity:0.5; } }
-          .pb-1 { animation: pb-drift-1 8s ease-in-out infinite, pb-morph 6s ease-in-out infinite; }
-          .pb-2 { animation: pb-drift-2 10s ease-in-out infinite, pb-morph 7s ease-in-out infinite reverse; }
-          .pb-3 { animation: pb-drift-3 9s ease-in-out infinite, pb-morph 8s ease-in-out infinite; }
-          .pb-4 { animation: pb-drift-1 7s ease-in-out infinite reverse, pb-morph 5s ease-in-out infinite; }
-          .pb-5 { animation: pb-drift-2 11s ease-in-out infinite reverse, pb-morph 9s ease-in-out infinite reverse; }
-          .pb-6 { animation: pb-drift-3 6s ease-in-out infinite, pb-morph 7s ease-in-out infinite; }
-          .pb-breathe-1 { animation: pb-breathe 4s ease-in-out infinite; }
-          .pb-breathe-2 { animation: pb-breathe 5s ease-in-out infinite 1.5s; }
-          .pb-breathe-3 { animation: pb-breathe 3.5s ease-in-out infinite 3s; }
-          .pb-ring-1 { animation: pb-ring 4s ease-out infinite; }
-          .pb-ring-2 { animation: pb-ring 5s ease-out infinite 1.5s; }
-          .pb-ring-3 { animation: pb-ring 6s ease-out infinite 3s; }
-        `}} />
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-50 via-orange-50/80 to-amber-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
         <div className="absolute inset-0 overflow-hidden">
-          <div className="pb-1 absolute -top-10 -left-10 w-[420px] h-[420px] bg-gradient-to-br from-rose-300/50 via-pink-200/40 to-rose-400/30 dark:from-rose-700/20 dark:via-pink-700/15 dark:to-rose-600/10 blur-2xl" />
-          <div className="pb-2 absolute top-[15%] right-[5%] w-[380px] h-[380px] bg-gradient-to-bl from-orange-300/45 via-amber-200/35 to-yellow-300/25 dark:from-orange-700/18 dark:via-amber-700/12 dark:to-yellow-700/8 blur-2xl" />
-          <div className="pb-3 absolute bottom-[0%] left-[10%] w-[450px] h-[450px] bg-gradient-to-tr from-amber-300/40 via-orange-200/35 to-rose-300/30 dark:from-amber-700/15 dark:via-orange-700/12 dark:to-rose-700/8 blur-2xl" />
-          <div className="pb-4 absolute top-[55%] right-[20%] w-[350px] h-[350px] bg-gradient-to-tl from-pink-300/40 via-rose-200/30 to-orange-200/25 dark:from-pink-700/15 dark:via-rose-700/10 dark:to-orange-700/8 blur-2xl" />
-          <div className="pb-5 absolute -top-5 right-[35%] w-[320px] h-[320px] bg-gradient-to-b from-yellow-200/40 via-amber-200/30 to-orange-300/35 dark:from-yellow-700/12 dark:via-amber-700/8 dark:to-orange-700/10 blur-2xl" />
-          <div className="pb-6 absolute bottom-[20%] right-[45%] w-[280px] h-[280px] bg-gradient-to-r from-rose-200/35 via-pink-300/30 to-rose-200/25 dark:from-rose-700/12 dark:via-pink-700/10 dark:to-rose-700/8 blur-2xl" />
-
-          <div className="pb-breathe-1 absolute top-[30%] left-[30%] w-[200px] h-[200px] rounded-full bg-gradient-radial from-rose-300/30 to-transparent dark:from-rose-600/10 blur-xl" />
-          <div className="pb-breathe-2 absolute top-[50%] right-[30%] w-[180px] h-[180px] rounded-full bg-gradient-radial from-orange-300/25 to-transparent dark:from-orange-600/8 blur-xl" />
-          <div className="pb-breathe-3 absolute top-[20%] left-[55%] w-[160px] h-[160px] rounded-full bg-gradient-radial from-amber-300/25 to-transparent dark:from-amber-600/8 blur-xl" />
-
-          <div className="pb-ring-1 absolute top-[40%] left-[45%] w-[120px] h-[120px] rounded-full border-2 border-rose-300/30 dark:border-rose-600/15" />
-          <div className="pb-ring-2 absolute top-[25%] left-[60%] w-[90px] h-[90px] rounded-full border-2 border-orange-300/25 dark:border-orange-600/10" />
-          <div className="pb-ring-3 absolute top-[60%] left-[35%] w-[100px] h-[100px] rounded-full border-2 border-amber-300/25 dark:border-amber-600/10" />
+          <div className="absolute -top-10 -left-10 w-[420px] h-[420px] rounded-[60%_40%_30%_70%/60%_30%_70%_40%] bg-gradient-to-br from-rose-300/40 via-pink-200/30 to-rose-400/20 dark:from-rose-700/15 dark:via-pink-700/10 dark:to-rose-600/8 blur-3xl" />
+          <div className="absolute top-[15%] right-[5%] w-[380px] h-[380px] rounded-[40%_60%_70%_30%/50%_60%_30%_60%] bg-gradient-to-bl from-orange-300/35 via-amber-200/25 to-yellow-300/20 dark:from-orange-700/12 dark:via-amber-700/8 dark:to-yellow-700/6 blur-3xl" />
+          <div className="absolute bottom-[0%] left-[10%] w-[450px] h-[450px] rounded-[50%_60%_30%_60%/40%_70%_50%_60%] bg-gradient-to-tr from-amber-300/30 via-orange-200/25 to-rose-300/20 dark:from-amber-700/10 dark:via-orange-700/8 dark:to-rose-700/6 blur-3xl" />
+          <div className="absolute top-[55%] right-[20%] w-[350px] h-[350px] rounded-[60%_40%_60%_40%/50%_60%_30%_70%] bg-gradient-to-tl from-pink-300/30 via-rose-200/20 to-orange-200/15 dark:from-pink-700/10 dark:via-rose-700/6 dark:to-orange-700/5 blur-3xl" />
+          <div className="absolute -top-5 right-[35%] w-[320px] h-[320px] rounded-[30%_60%_40%_70%/60%_40%_70%_30%] bg-gradient-to-b from-yellow-200/30 via-amber-200/20 to-orange-300/25 dark:from-yellow-700/8 dark:via-amber-700/6 dark:to-orange-700/8 blur-3xl" />
         </div>
         <div className="text-center max-w-sm relative z-10">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-white/70 dark:bg-card/60 backdrop-blur-md shadow-lg shadow-rose-200/20 dark:shadow-none border border-white/60 dark:border-white/10 flex items-center justify-center">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-white/70 dark:bg-card/60 shadow-lg shadow-rose-200/20 dark:shadow-none border border-white/60 dark:border-white/10 flex items-center justify-center">
             <Headphones className="h-11 w-11 text-primary/40" />
           </div>
           <h3 className="font-semibold text-xl mb-2 text-foreground/70">Pripravený na prácu</h3>
@@ -3244,7 +3215,7 @@ function CustomerInfoPanel({
 
   if (!contact) {
     return (
-      <div className="w-64 border-l bg-card flex items-center justify-center shrink-0 relative z-10">
+      <div className="w-64 border-l bg-card flex items-center justify-center shrink-0">
         <div className="text-center p-6">
           <User className="h-10 w-10 mx-auto mb-3 text-muted-foreground/20" />
           <p className="text-xs text-muted-foreground">Žiadny kontakt</p>
