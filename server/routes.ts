@@ -30048,6 +30048,100 @@ Return ONLY a JSON array of NEW contacts (same format: company_name, contact_per
           deduped.sort((a, b) => (b.confidence_score || 0) - (a.confidence_score || 0));
 
           // ═══════════════════════════════════════════════════════════
+          // KROK 8b: NORMALIZÁCIA TELEFÓNNYCH ČÍSEL
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 8b — Normalizácia telefónnych čísel`);
+
+          const COUNTRY_DIAL_CODES: Record<string, string> = {
+            SK: "421", CZ: "420", HU: "36", PL: "48", AT: "43", DE: "49", RO: "40", IT: "39",
+            HR: "385", SI: "386", RS: "381", UA: "380", BG: "359", CH: "41", FR: "33", ES: "34", GB: "44", US: "1",
+          };
+          const defaultDialCode = COUNTRY_DIAL_CODES[country?.toUpperCase()] || "421";
+
+          const normalizePhoneNumber = (raw: string | null | undefined, countryHint?: string): string | null => {
+            if (!raw) return null;
+            let cleaned = raw.replace(/[\s\-\.\(\)\/]/g, "").trim();
+            if (!cleaned) return null;
+
+            if (cleaned.startsWith("00")) {
+              cleaned = "+" + cleaned.substring(2);
+            }
+
+            if (cleaned.startsWith("+")) {
+              const digits = cleaned.substring(1).replace(/\D/g, "");
+              if (digits.length >= 9 && digits.length <= 15) return "+" + digits;
+              return null;
+            }
+
+            const digits = cleaned.replace(/\D/g, "");
+            if (digits.length < 7 || digits.length > 15) return null;
+
+            const dialCode = (countryHint && COUNTRY_DIAL_CODES[countryHint.toUpperCase()]) || defaultDialCode;
+
+            if (dialCode === "421" || dialCode === "420") {
+              if (digits.startsWith("0") && digits.length >= 9) {
+                return "+" + dialCode + digits.substring(1);
+              }
+              if (digits.length === 9) {
+                return "+" + dialCode + digits;
+              }
+            }
+
+            if (dialCode === "36") {
+              if (digits.startsWith("06") && digits.length >= 9) {
+                return "+36" + digits.substring(1);
+              }
+              if (digits.startsWith("0") && digits.length >= 8) {
+                return "+36" + digits.substring(1);
+              }
+              if (digits.length >= 7 && digits.length <= 9) {
+                return "+36" + digits;
+              }
+            }
+
+            if (["48", "40", "43", "49", "39", "33", "44"].includes(dialCode)) {
+              if (digits.startsWith("0") && digits.length >= 9) {
+                return "+" + dialCode + digits.substring(1);
+              }
+              if (digits.length >= 8 && digits.length <= 11) {
+                return "+" + dialCode + digits;
+              }
+            }
+
+            if (digits.startsWith("0") && digits.length >= 9) {
+              return "+" + dialCode + digits.substring(1);
+            }
+            if (digits.length >= 7 && digits.length <= 11) {
+              return "+" + dialCode + digits;
+            }
+
+            return null;
+          };
+
+          let phonesNormalized = 0;
+          for (const c of deduped) {
+            const cc = c.country_code || c.countryCode || country || "";
+            if (c.phone) {
+              const normalized = normalizePhoneNumber(c.phone, cc);
+              if (normalized && normalized !== c.phone) {
+                c.phone = normalized;
+                phonesNormalized++;
+              } else if (normalized) {
+                c.phone = normalized;
+              }
+            }
+            if (c.mobile) {
+              const normalized = normalizePhoneNumber(c.mobile, cc);
+              if (normalized) c.mobile = normalized;
+            }
+            if (c.mobile2) {
+              const normalized = normalizePhoneNumber(c.mobile2, cc);
+              if (normalized) c.mobile2 = normalized;
+            }
+          }
+          console.log(`[LeadSearch] Job ${job.id}: Normalizovaných ${phonesNormalized} telefónnych čísel`);
+
+          // ═══════════════════════════════════════════════════════════
           // KROK 9: ULOŽENIE — výsledky do databázy
           // ═══════════════════════════════════════════════════════════
           // For campaign jobs, filter out leads already found in prior campaign runs
