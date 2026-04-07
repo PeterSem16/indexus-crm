@@ -28995,6 +28995,86 @@ Odpovedz VÝLUČNE ako JSON objekt s kľúčom "suggestions" obsahujúcim pole s
     });
   });
 
+  app.post("/api/lead-search/normalize-phones", requireAuth, async (req, res) => {
+    try {
+      const COUNTRY_DIAL_CODES: Record<string, string> = {
+        SK: "421", CZ: "420", HU: "36", PL: "48", AT: "43", DE: "49", RO: "40", IT: "39",
+        HR: "385", SI: "386", RS: "381", UA: "380", BG: "359", CH: "41", FR: "33", ES: "34", GB: "44", US: "1",
+      };
+      const normalizePhoneNumber = (raw: string | null | undefined, countryHint?: string): string | null => {
+        if (!raw) return null;
+        let cleaned = raw.replace(/[\s\-\.\(\)\/]/g, "").trim();
+        if (!cleaned) return null;
+        if (cleaned.startsWith("00")) cleaned = "+" + cleaned.substring(2);
+        if (cleaned.startsWith("+")) {
+          const digits = cleaned.substring(1).replace(/\D/g, "");
+          if (digits.length >= 9 && digits.length <= 15) return "+" + digits;
+          return null;
+        }
+        const digits = cleaned.replace(/\D/g, "");
+        if (digits.length < 7 || digits.length > 15) return null;
+        const dialCode = (countryHint && COUNTRY_DIAL_CODES[countryHint.toUpperCase()]) || "421";
+        if (dialCode === "421" || dialCode === "420") {
+          if (digits.startsWith("0") && digits.length >= 9) return "+" + dialCode + digits.substring(1);
+          if (digits.length === 9) return "+" + dialCode + digits;
+        }
+        if (dialCode === "36") {
+          if (digits.startsWith("06") && digits.length >= 9) return "+36" + digits.substring(1);
+          if (digits.startsWith("0") && digits.length >= 8) return "+36" + digits.substring(1);
+          if (digits.length >= 7 && digits.length <= 9) return "+36" + digits;
+        }
+        if (["48", "40", "43", "49", "39", "33", "44"].includes(dialCode)) {
+          if (digits.startsWith("0") && digits.length >= 9) return "+" + dialCode + digits.substring(1);
+          if (digits.length >= 8 && digits.length <= 11) return "+" + dialCode + digits;
+        }
+        if (digits.startsWith("0") && digits.length >= 9) return "+" + dialCode + digits.substring(1);
+        if (digits.length >= 7 && digits.length <= 11) return "+" + dialCode + digits;
+        return null;
+      };
+
+      const allResults = await db.select({
+        id: searchResults.id,
+        phone: searchResults.phone,
+        countryCode: searchResults.countryCode,
+        rawData: searchResults.rawData,
+      }).from(searchResults).where(sql`${searchResults.phone} IS NOT NULL AND ${searchResults.phone} != ''`);
+
+      let updated = 0;
+      let skipped = 0;
+      const examples: { id: number; before: string; after: string }[] = [];
+
+      for (const r of allResults) {
+        const cc = r.countryCode || "SK";
+        const normalized = normalizePhoneNumber(r.phone, cc);
+        if (normalized && normalized !== r.phone) {
+          const rawData = (r.rawData || {}) as Record<string, any>;
+          const mobileSrc = rawData.mobile as string | undefined;
+          const mobile2Src = rawData.mobile2 as string | undefined;
+          const normalizedMobile = normalizePhoneNumber(mobileSrc, cc);
+          const normalizedMobile2 = normalizePhoneNumber(mobile2Src, cc);
+          const updatedRaw = { ...rawData };
+          if (updatedRaw.phone) updatedRaw.phone = normalized;
+          if (mobileSrc && normalizedMobile) updatedRaw.mobile = normalizedMobile;
+          if (mobile2Src && normalizedMobile2) updatedRaw.mobile2 = normalizedMobile2;
+
+          await db.update(searchResults)
+            .set({ phone: normalized, rawData: updatedRaw })
+            .where(eq(searchResults.id, r.id));
+          if (examples.length < 10) examples.push({ id: r.id, before: r.phone!, after: normalized });
+          updated++;
+        } else {
+          skipped++;
+        }
+      }
+
+      console.log(`[NormalizePhones] Done: ${updated} updated, ${skipped} skipped (already OK or invalid)`);
+      res.json({ success: true, total: allResults.length, updated, skipped, examples });
+    } catch (error: any) {
+      console.error("[NormalizePhones] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   function runLeadSearchPipelineForJob(job: any, targetModule: string, country: string, segment: string, location: string, keywords: string, customParams: Partial<SearchPipelineParams> | null) {
     const SP: SearchPipelineParams = { ...DEFAULT_SEARCH_PARAMS, ...(customParams || {}) };
       const isJobCancelled = () => cancelledSearchJobs.has(job.id);
