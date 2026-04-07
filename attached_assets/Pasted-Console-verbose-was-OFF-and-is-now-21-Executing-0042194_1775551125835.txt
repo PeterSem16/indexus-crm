@@ -1,0 +1,35 @@
+Console verbose was OFF and is now 21.
+    -- Executing [00421948519438@webrtc-indexus:1] NoOp("PJSIP/2030-00000026", "WebRTC outbound caller=2030 dest=00421948519438") in new stack
+    -- Executing [00421948519438@webrtc-indexus:2] Goto("PJSIP/2030-00000026", "indexus-outbound,00421948519438,1") in new stack
+    -- Goto (indexus-outbound,00421948519438,1)
+    -- Executing [00421948519438@indexus-outbound:1] NoOp("PJSIP/2030-00000026", "Indexus outbound caller=2030 dest=00421948519438") in new stack
+    -- Executing [00421948519438@indexus-outbound:2] Set("PJSIP/2030-00000026", "ORIG_EXT=2030") in new stack
+    -- Executing [00421948519438@indexus-outbound:3] Set("PJSIP/2030-00000026", "COLLAB_CID=0232393030") in new stack
+    -- Executing [00421948519438@indexus-outbound:4] ExecIf("PJSIP/2030-00000026", "1?Set(CALLERID(num)=0232393030)") in new stack
+    -- Executing [00421948519438@indexus-outbound:5] Set("PJSIP/2030-00000026", "CAMPAIGN_CID=") in new stack
+    -- Executing [00421948519438@indexus-outbound:6] ExecIf("PJSIP/2030-00000026", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [00421948519438@indexus-outbound:7] NoOp("PJSIP/2030-00000026", "Outbound CID: ext=2030 collab=0232393030 campaign= final=0232393030") in new stack
+    -- Executing [00421948519438@indexus-outbound:8] GotoIf("PJSIP/2030-00000026", "0?route-cz,00421948519438,1") in new stack
+    -- Executing [00421948519438@indexus-outbound:9] GotoIf("PJSIP/2030-00000026", "0?route-hu,00421948519438,1") in new stack
+    -- Executing [00421948519438@indexus-outbound:10] GotoIf("PJSIP/2030-00000026", "0?route-ro,00421948519438,1") in new stack
+    -- Executing [00421948519438@indexus-outbound:11] GotoIf("PJSIP/2030-00000026", "0?route-sk,00421948519438,1") in new stack
+    -- Executing [00421948519438@indexus-outbound:12] NoOp("PJSIP/2030-00000026", "No outbound route matched for dest=00421948519438 ext=2030") in new stack
+    -- Executing [00421948519438@indexus-outbound:13] Playback("PJSIP/2030-00000026", "ss-noservice") in new stack
+    -- <PJSIP/2030-00000026> Playing 'ss-noservice.gsm' (language 'en')
+    -- Executing [00421948519438@indexus-outbound:14] Hangup("PJSIP/2030-00000026", "") in new stack
+  == Spawn extension (indexus-outbound, 00421948519438, 14) exited non-zero on 'PJSIP/2030-00000026'
+mediagtw*CLI> pjsip
+dump     export   list     qualify  reload   send     set      show
+mediagtw*CLI> pjsip show cont
+contact   contacts
+mediagtw*CLI> pjsip show contacts
+
+  Contact:  <Aor/ContactUri..............................> <Hash....> <Status> <RTT(ms)..>
+==========================================================================================
+
+  Contact:  2001/sip:ikj34juk@10.9.5.10:63460;transport=ws f033dd3c42 Avail        32.062
+  Contact:  2030/sip:ptr0flo0@10.1.2.111:41348;transport=W 56b2a4172e Avail       312.589
+  Contact:  trunk-ro-aor/sip:10.33.0.55:5060               712c5b2806 Avail        36.687
+  Contact:  trunk-sk-aor/sip:10.9.33.2:5060                d94c2ea7f2 Avail        23.846
+
+Objects found: 4
