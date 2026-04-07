@@ -4604,7 +4604,7 @@ function ScheduledQueuePanel({
                               queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
                               toast({ title: t.agentWorkspace.reschedule, description: format(new Date(newDate), "dd.MM.yyyy HH:mm") });
                             } catch (e) {
-                              toast({ title: "Error", description: String(e), variant: "destructive" });
+                              toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
                             }
                           }}
                         />
@@ -4623,7 +4623,7 @@ function ScheduledQueuePanel({
                               queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
                               toast({ title: t.agentWorkspace.cancelItem, description: t.agentWorkspace.itemCancelled });
                             } catch (e) {
-                              toast({ title: "Error", description: String(e), variant: "destructive" });
+                              toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
                             }
                           }}
                         >
@@ -4737,12 +4737,15 @@ export default function AgentWorkspacePage() {
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: { title: string; description: string; priority: string; assignedUserId: string; customerId?: string; dueDate?: string; country?: string }) => {
-      const payload: any = { ...data };
-      if (payload.dueDate) {
-        payload.dueDate = new Date(payload.dueDate).toISOString();
-      } else {
-        delete payload.dueDate;
-      }
+      const payload: any = {
+        title: data.title,
+        priority: data.priority,
+        assignedUserId: data.assignedUserId,
+      };
+      if (data.description) payload.description = data.description;
+      if (data.dueDate) payload.dueDate = new Date(data.dueDate).toISOString();
+      if (data.customerId) payload.customerId = data.customerId;
+      if (data.country) payload.country = data.country;
       return apiRequest("POST", "/api/tasks", payload);
     },
     onSuccess: () => {
@@ -5326,7 +5329,7 @@ export default function AgentWorkspacePage() {
       }
     },
     onError: (error: Error) => {
-      toast({ title: "Chyba", description: error.message, variant: "destructive" });
+      toast({ title: t.agentWorkspace.errorLabel, description: error.message, variant: "destructive" });
     },
   });
 
@@ -5372,8 +5375,8 @@ export default function AgentWorkspacePage() {
     }
 
     toast({
-      title: "Kontakt ukončený",
-      description: `Výsledok: ${disp?.name || value}`,
+      title: t.agentWorkspace.contactFinished,
+      description: `${t.agentWorkspace.resultLabel}: ${disp?.name || value}`,
     });
 
     setDispositionModalOpen(false);
@@ -5431,14 +5434,14 @@ export default function AgentWorkspacePage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Chyba pri odosielaní emailu");
+        throw new Error(err.error || t.agentWorkspace.emailSendError);
       }
       return res.json();
     },
     onSuccess: (_data, variables) => {
       toast({
-        title: "Email odoslaný",
-        description: `Email bol úspešne odoslaný na ${variables.to.join(", ")}`,
+        title: t.agentWorkspace.emailSent,
+        description: `${t.agentWorkspace.emailSentDesc} ${variables.to.join(", ")}`,
       });
       setStats((prev) => ({ ...prev, emails: prev.emails + 1 }));
       setTimeline((prev) => [
@@ -5486,7 +5489,7 @@ export default function AgentWorkspacePage() {
             queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
           }).catch((err) => console.error("Auto-disposition PATCH failed:", err));
           toast({
-            title: "Disposition nastavená",
+            title: t.agentWorkspace.dispositionSet,
             description: `${autoDisposition} + callback ${callbackDate.toLocaleDateString("sk")}`,
           });
         } catch (dispErr) {
@@ -5498,7 +5501,7 @@ export default function AgentWorkspacePage() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Chyba",
+        title: t.agentWorkspace.errorLabel,
         description: error.message,
         variant: "destructive",
       });
@@ -5515,14 +5518,14 @@ export default function AgentWorkspacePage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Chyba pri odosielaní SMS");
+        throw new Error(err.error || t.agentWorkspace.smsSendError);
       }
       return res.json();
     },
     onSuccess: (_data, variables) => {
       toast({
-        title: "SMS odoslaná",
-        description: `SMS bola úspešne odoslaná na ${variables.to.join(", ")}`,
+        title: t.agentWorkspace.smsSent,
+        description: `${t.agentWorkspace.smsSentDesc} ${variables.to.join(", ")}`,
       });
       setStats((prev) => ({ ...prev, sms: prev.sms + 1 }));
       setTimeline((prev) => [
@@ -5547,7 +5550,7 @@ export default function AgentWorkspacePage() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Chyba",
+        title: t.agentWorkspace.errorLabel,
         description: error.message,
         variant: "destructive",
       });
@@ -5568,10 +5571,10 @@ export default function AgentWorkspacePage() {
       if (currentContact?.id) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id] });
       }
-      toast({ title: "Zákazník aktualizovaný" });
+      toast({ title: t.agentWorkspace.customerUpdated });
     },
     onError: () => {
-      toast({ title: "Chyba pri aktualizácii zákazníka", variant: "destructive" });
+      toast({ title: t.agentWorkspace.customerUpdateError, variant: "destructive" });
     },
   });
 
@@ -5591,7 +5594,7 @@ export default function AgentWorkspacePage() {
 
   const handleToggleAutoMode = () => {
     if (!campaignAutoSettings.autoMode) {
-      toast({ title: "Automatický režim", description: "Táto kampaň nemá povolený automatický režim. Nastavte ho v nastaveniach kampane.", variant: "destructive" });
+      toast({ title: t.agentWorkspace.autoModeNotAllowed, description: t.agentWorkspace.autoModeNotAllowedDesc, variant: "destructive" });
       return;
     }
     setIsAutoMode(prev => !prev);
@@ -5698,7 +5701,7 @@ export default function AgentWorkspacePage() {
 
   const handleSendEmail = (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => {
     if (!currentContact) {
-      toast({ title: "Chyba", description: "Kontakt nie je vybraný", variant: "destructive" });
+      toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
       return;
     }
     sendEmailMutation.mutate({
@@ -5717,7 +5720,7 @@ export default function AgentWorkspacePage() {
 
   const handleSendSms = (data: { to: string[]; message: string; compositionDurationSeconds?: number | null }) => {
     if (!currentContact) {
-      toast({ title: "Chyba", description: "Kontakt nie je vybraný", variant: "destructive" });
+      toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
       return;
     }
     sendSmsMutation.mutate({
@@ -5757,7 +5760,7 @@ export default function AgentWorkspacePage() {
     } catch (err) {
       console.error("Failed to save note:", err);
       queryClient.setQueryData(notesKey, (old: any) => (old || []).filter((n: any) => n.id !== tempNote.id));
-      toast({ title: "Chyba", description: "Nepodarilo sa uložiť poznámku", variant: "destructive" });
+      toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noteSaveError, variant: "destructive" });
     }
   };
 
@@ -5881,7 +5884,7 @@ export default function AgentWorkspacePage() {
     }
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     toast({
-      title: t.agentWorkspace.taskCancelled || "Úloha zrušená",
+      title: t.agentWorkspace.taskCancelled,
       description: task ? `${task.contact.firstName || ""} ${task.contact.lastName || ""}`.trim() : "",
     });
   };
@@ -6031,7 +6034,7 @@ export default function AgentWorkspacePage() {
         },
       ]);
     } catch (err) {
-      toast({ title: "Chyba", description: "Nepodarilo sa načítať kontakt", variant: "destructive" });
+      toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.contactLoadError, variant: "destructive" });
     }
   };
 
@@ -6221,11 +6224,11 @@ export default function AgentWorkspacePage() {
             if (!cancelledCallIdsRef.current.has(c.callId)) {
               cancelledCallIdsRef.current.add(c.callId);
               setTimeout(() => cancelledCallIdsRef.current.delete(c.callId), 10000);
-              const callerDisplay = c.callerName || c.callerNumber || "Neznámy";
+              const callerDisplay = c.callerName || c.callerNumber || t.agentWorkspace.unknownContact;
               const queueDisplay = c.queueName ? ` (${c.queueName})` : "";
               toast({
-                title: "Zmeškaný hovor",
-                description: `Volajúci ${callerDisplay}${queueDisplay} zavesil`,
+                title: t.agentWorkspace.missedCallLabel,
+                description: `${callerDisplay}${queueDisplay} — ${t.agentWorkspace.callerHungUp}`,
                 variant: "destructive",
               });
             }
@@ -6334,7 +6337,7 @@ export default function AgentWorkspacePage() {
         }
 
         if (!invitation) {
-          toast({ title: "Chyba", description: "SIP pozvánka ešte nedorazila. Skúste znovu.", variant: "destructive" });
+          toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.sipInviteNotReady, variant: "destructive" });
           acceptingCallRef.current = false;
           return;
         }
@@ -6343,7 +6346,7 @@ export default function AgentWorkspacePage() {
         console.log("[AgentWS] SIP invitation state:", invState);
 
         if (invState === "Terminated" || invState === "Canceled") {
-          toast({ title: "Hovor zrušený", description: "Volajúci zavesil" });
+          toast({ title: t.agentWorkspace.callCancelledLabel, description: t.agentWorkspace.callerHungUp });
           removeCall();
           acceptingCallRef.current = false;
           return;
@@ -6370,7 +6373,7 @@ export default function AgentWorkspacePage() {
             console.warn("[AgentWS] SIP accept threw:", acceptErr?.message);
             const postState = invitation.state;
             if (postState !== "Established" && postState !== "Establishing") {
-              toast({ title: "Chyba", description: "Nepodarilo sa prijať hovor.", variant: "destructive" });
+              toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.callAcceptError, variant: "destructive" });
               removeCall();
               setIncomingCallWithRef(null);
               acceptingCallRef.current = false;
@@ -6395,17 +6398,17 @@ export default function AgentWorkspacePage() {
           callContext.setAutoRecord(shouldAutoRecord);
           setAnsweredIncomingSession(invitation);
         }
-        toast({ title: "Hovor prijatý", description: `Prepojený s ${callerNumber}` });
+        toast({ title: t.agentWorkspace.callAccepted, description: `${t.agentWorkspace.connectedWith} ${callerNumber}` });
         await setupCallContext();
       } else {
         await apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id });
-        toast({ title: "Hovor prijatý" });
+        toast({ title: t.agentWorkspace.callAccepted });
         removeCall();
         await setupCallContext();
       }
     } catch (err: any) {
       console.error("[AgentWS] Error accepting call:", err);
-      toast({ title: "Chyba", description: err.message || "Nepodarilo sa prijať hovor", variant: "destructive" });
+      toast({ title: t.agentWorkspace.errorLabel, description: err.message || t.agentWorkspace.callAcceptError, variant: "destructive" });
     } finally {
       acceptingCallRef.current = false;
     }
@@ -6422,7 +6425,7 @@ export default function AgentWorkspacePage() {
       }
       setIncomingCallWithRef(null);
       removeCall();
-      toast({ title: "Hovor odmietnutý" });
+      toast({ title: t.agentWorkspace.callRejected });
     } else {
       apiRequest("POST", `/api/inbound-calls/${call.callId}/reject`, { userId: user?.id })
         .then(() => removeCall())
