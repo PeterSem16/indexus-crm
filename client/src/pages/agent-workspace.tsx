@@ -2052,36 +2052,30 @@ function CommunicationCanvas({
 
   if (!contact) {
     return (
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-rose-50/80 via-orange-50/60 to-amber-50/80 dark:from-rose-950/20 dark:via-orange-950/15 dark:to-amber-950/20" />
-          <svg className="absolute inset-0 w-full h-full opacity-[0.12] dark:opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="pulse-grid" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
-                <circle cx="30" cy="30" r="1.5" fill="hsl(var(--primary))" />
-              </pattern>
-              <radialGradient id="pulse-fade" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="white" stopOpacity="0" />
-                <stop offset="100%" stopColor="white" stopOpacity="1" />
-              </radialGradient>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#pulse-grid)" />
-            <rect width="100%" height="100%" fill="url(#pulse-fade)" />
-          </svg>
-          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-primary/8 to-transparent blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
-          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-gradient-to-tl from-rose-300/10 to-transparent blur-3xl animate-pulse" style={{ animationDuration: '6s', animationDelay: '2s' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-r from-orange-200/8 via-transparent to-amber-200/8 blur-3xl animate-pulse" style={{ animationDuration: '10s', animationDelay: '4s' }} />
-          <svg className="absolute inset-0 w-full h-full opacity-[0.04] dark:opacity-[0.02]" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="pulse-hex" x="0" y="0" width="100" height="87" patternUnits="userSpaceOnUse" patternTransform="rotate(15)">
-                <polygon points="50,5 90,25 90,62 50,82 10,62 10,25" fill="none" stroke="hsl(var(--primary))" strokeWidth="0.5" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#pulse-hex)" />
-          </svg>
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-50 via-orange-50/80 to-amber-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes pulse-float-1 { 0%,100% { transform: translate(0,0) scale(1); } 33% { transform: translate(30px,-40px) scale(1.05); } 66% { transform: translate(-20px,30px) scale(0.95); } }
+          @keyframes pulse-float-2 { 0%,100% { transform: translate(0,0) scale(1); } 33% { transform: translate(-40px,20px) scale(1.08); } 66% { transform: translate(25px,-35px) scale(0.92); } }
+          @keyframes pulse-float-3 { 0%,100% { transform: translate(0,0) scale(1); } 33% { transform: translate(20px,40px) scale(0.96); } 66% { transform: translate(-30px,-20px) scale(1.04); } }
+          @keyframes pulse-morph-1 { 0%,100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; } 25% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; } 50% { border-radius: 50% 60% 30% 60% / 40% 70% 50% 60%; } 75% { border-radius: 40% 60% 70% 30% / 70% 30% 50% 60%; } }
+          @keyframes pulse-morph-2 { 0%,100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; } 25% { border-radius: 70% 30% 50% 60% / 30% 60% 40% 70%; } 50% { border-radius: 30% 60% 40% 70% / 60% 40% 70% 30%; } 75% { border-radius: 60% 40% 60% 40% / 50% 60% 30% 70%; } }
+          @keyframes pulse-morph-3 { 0%,100% { border-radius: 50% 50% 40% 60% / 60% 40% 60% 40%; } 25% { border-radius: 60% 40% 60% 40% / 40% 60% 40% 60%; } 50% { border-radius: 40% 60% 50% 50% / 50% 50% 60% 40%; } 75% { border-radius: 50% 40% 60% 50% / 60% 50% 40% 50%; } }
+          .pulse-blob-1 { animation: pulse-float-1 20s ease-in-out infinite, pulse-morph-1 15s ease-in-out infinite; }
+          .pulse-blob-2 { animation: pulse-float-2 25s ease-in-out infinite, pulse-morph-2 18s ease-in-out infinite; }
+          .pulse-blob-3 { animation: pulse-float-3 22s ease-in-out infinite, pulse-morph-3 20s ease-in-out infinite; }
+          .pulse-blob-4 { animation: pulse-float-1 18s ease-in-out infinite reverse, pulse-morph-2 16s ease-in-out infinite; }
+          .pulse-blob-5 { animation: pulse-float-2 24s ease-in-out infinite reverse, pulse-morph-1 22s ease-in-out infinite; }
+        `}} />
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="pulse-blob-1 absolute -top-20 -left-20 w-[450px] h-[450px] bg-gradient-to-br from-rose-200/40 via-pink-200/30 to-rose-300/20 dark:from-rose-800/15 dark:via-pink-800/10 dark:to-rose-700/8 blur-xl" />
+          <div className="pulse-blob-2 absolute top-1/4 right-[10%] w-[380px] h-[380px] bg-gradient-to-bl from-orange-200/35 via-amber-200/25 to-yellow-200/20 dark:from-orange-800/12 dark:via-amber-800/8 dark:to-yellow-800/6 blur-xl" />
+          <div className="pulse-blob-3 absolute bottom-[5%] left-[15%] w-[420px] h-[420px] bg-gradient-to-tr from-amber-200/30 via-orange-100/25 to-rose-200/20 dark:from-amber-800/10 dark:via-orange-800/8 dark:to-rose-800/6 blur-xl" />
+          <div className="pulse-blob-4 absolute top-[60%] right-[25%] w-[300px] h-[300px] bg-gradient-to-tl from-pink-200/25 via-rose-100/20 to-orange-100/15 dark:from-pink-800/8 dark:via-rose-800/6 dark:to-orange-800/5 blur-xl" />
+          <div className="pulse-blob-5 absolute -top-10 right-[40%] w-[350px] h-[350px] bg-gradient-to-b from-yellow-100/30 via-amber-100/20 to-orange-200/25 dark:from-yellow-800/8 dark:via-amber-800/6 dark:to-orange-800/8 blur-xl" />
         </div>
+        <div className="absolute inset-0 backdrop-blur-[1px]" />
         <div className="text-center max-w-sm relative z-10">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-white/60 dark:bg-card/60 backdrop-blur-sm shadow-lg border border-white/40 dark:border-white/10 flex items-center justify-center">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-white/70 dark:bg-card/60 backdrop-blur-md shadow-lg shadow-rose-200/20 dark:shadow-none border border-white/60 dark:border-white/10 flex items-center justify-center">
             <Headphones className="h-11 w-11 text-primary/40" />
           </div>
           <h3 className="font-semibold text-xl mb-2 text-foreground/70">Pripravený na prácu</h3>
