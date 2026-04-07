@@ -615,7 +615,7 @@ function TaskListPanel({
   }, [campaigns, channelFilter]);
 
   return (
-    <div className="w-72 border-r bg-card flex flex-col h-full shrink-0">
+    <div className="w-72 border-r bg-card flex flex-col h-full shrink-0 relative z-10">
       <div className="p-3 border-b space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm flex items-center gap-2">
@@ -3244,7 +3244,7 @@ function CustomerInfoPanel({
 
   if (!contact) {
     return (
-      <div className="w-64 border-l bg-card flex items-center justify-center shrink-0">
+      <div className="w-64 border-l bg-card flex items-center justify-center shrink-0 relative z-10">
         <div className="text-center p-6">
           <User className="h-10 w-10 mx-auto mb-3 text-muted-foreground/20" />
           <p className="text-xs text-muted-foreground">Žiadny kontakt</p>
