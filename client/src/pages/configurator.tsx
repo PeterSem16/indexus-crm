@@ -20103,6 +20103,22 @@ function LeadSearchTab() {
                     <Button variant="outline" size="sm" className="text-xs h-7" data-testid="button-export-results" onClick={() => window.open(`/api/search-results/export/${selectedJob?.id}`, "_blank")}>
                       <Download className="h-3 w-3 mr-1" /> XLSX
                     </Button>
+                    <Button variant="outline" size="sm" className="text-xs h-7" data-testid="button-normalize-phones" onClick={async () => {
+                      try {
+                        const resp = await fetch("/api/lead-search/normalize-phones", { method: "POST", credentials: "include" });
+                        const data = await resp.json();
+                        if (data.success) {
+                          toast({ title: `Normalizácia dokončená`, description: `${data.updated} čísel opravených, ${data.skipped} už bolo v poriadku` });
+                          await refetchResults();
+                        } else {
+                          toast({ title: "Chyba", description: data.error, variant: "destructive" });
+                        }
+                      } catch (e: any) {
+                        toast({ title: "Chyba", description: e.message, variant: "destructive" });
+                      }
+                    }}>
+                      <Phone className="h-3 w-3 mr-1" /> Normalizovať čísla
+                    </Button>
                     {results.filter((r: any) => r.status === "new").length > 0 && (
                       <div className="flex gap-1">
                         <Button variant="outline" size="sm" className="text-xs h-7 text-green-600 border-green-200" data-testid="button-bulk-approve" onClick={async () => {
