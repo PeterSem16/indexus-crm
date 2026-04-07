@@ -732,13 +732,13 @@ class MobileSipEngine {
         this.speakerApplyTimer = setTimeout(() => {
           InCallManager.setSpeakerphoneOn(true);
           this.emit('debug', 'Speaker ON confirmed (delayed)');
-        }, 150);
+        }, 200);
       } else {
-        InCallManager.setSpeakerphoneOn(false);
+        InCallManager.setForceSpeakerphoneOn(false);
         this.speakerApplyTimer = setTimeout(() => {
-          InCallManager.setForceSpeakerphoneOn(false);
+          InCallManager.setSpeakerphoneOn(false);
           this.emit('debug', 'Earpiece ON confirmed (delayed)');
-        }, 150);
+        }, 200);
       }
 
       this.updateCallInfo({ isSpeaker: newSpeaker });
@@ -755,20 +755,21 @@ class MobileSipEngine {
       const InCallManager = await this.getInCallManager();
       InCallManager.start({ media: 'audio', auto: false, ringback: '' });
 
-      InCallManager.setForceSpeakerphoneOn(false);
-      InCallManager.setSpeakerphoneOn(false);
+      setTimeout(() => {
+        InCallManager.setForceSpeakerphoneOn(false);
+        InCallManager.setSpeakerphoneOn(false);
+        this.updateCallInfo({ isSpeaker: false });
+        this.emit('debug', 'InCallManager started — EARPIECE mode forced after start()');
 
-      this.updateCallInfo({ isSpeaker: false });
-      this.emit('debug', 'InCallManager started — EARPIECE mode (default)');
-
-      if (speaker) {
-        setTimeout(() => {
-          InCallManager.setForceSpeakerphoneOn(true);
-          InCallManager.setSpeakerphoneOn(true);
-          this.updateCallInfo({ isSpeaker: true });
-          this.emit('debug', 'InCallManager switched to SPEAKER mode after delay');
-        }, 300);
-      }
+        if (speaker) {
+          setTimeout(() => {
+            InCallManager.setForceSpeakerphoneOn(true);
+            InCallManager.setSpeakerphoneOn(true);
+            this.updateCallInfo({ isSpeaker: true });
+            this.emit('debug', 'InCallManager switched to SPEAKER mode');
+          }, 300);
+        }
+      }, 500);
     } catch (e: any) {
       this.emit('debug', `InCallManager start error: ${e?.message}`);
     }
