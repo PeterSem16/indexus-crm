@@ -4299,6 +4299,79 @@ interface ScheduledItem {
   status: string;
 }
 
+function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onReschedule: (id: string, campaignId: string, newDate: string) => void; t: any }) {
+  const [popOpen, setPopOpen] = useState(false);
+  const [dateVal, setDateVal] = useState("");
+  const [timeVal, setTimeVal] = useState("09:00");
+
+  useEffect(() => {
+    if (popOpen) {
+      const d = new Date(item.scheduledAt);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const useDate = d > new Date() ? d : tomorrow;
+      setDateVal(useDate.toISOString().split("T")[0]);
+      setTimeVal(useDate.getHours().toString().padStart(2, "0") + ":" + useDate.getMinutes().toString().padStart(2, "0"));
+    }
+  }, [popOpen, item.scheduledAt]);
+
+  return (
+    <Popover open={popOpen} onOpenChange={setPopOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          title={t.agentWorkspace.reschedule}
+          data-testid={`btn-scheduled-reschedule-${item.id}`}
+        >
+          <RotateCcw className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="end">
+        <div className="space-y-3">
+          <p className="text-sm font-medium">{t.agentWorkspace.reschedule}</p>
+          <div className="space-y-2">
+            <Input
+              type="date"
+              value={dateVal}
+              onChange={(e) => setDateVal(e.target.value)}
+              className="h-8 text-sm"
+              data-testid={`input-reschedule-date-${item.id}`}
+            />
+            <Input
+              type="time"
+              value={timeVal}
+              onChange={(e) => setTimeVal(e.target.value)}
+              className="h-8 text-sm"
+              data-testid={`input-reschedule-time-${item.id}`}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="flex-1"
+              data-testid={`btn-confirm-reschedule-${item.id}`}
+              onClick={() => {
+                if (dateVal && timeVal) {
+                  const newDate = `${dateVal}T${timeVal}:00`;
+                  onReschedule(item.id, item.campaignId, newDate);
+                  setPopOpen(false);
+                }
+              }}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              OK
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setPopOpen(false)}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ScheduledQueuePanel({
   open,
   onOpenChange,
@@ -4519,24 +4592,39 @@ function ScheduledQueuePanel({
                             <Send className="h-4 w-4 text-green-500" />
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title={t.agentWorkspace.reschedule}
-                          data-testid={`btn-scheduled-reschedule-${item.id}`}
-                          onClick={() => {
-                            toast({ title: t.agentWorkspace.reschedule, description: t.agentWorkspace.rescheduleCalendar });
+                        <ReschedulePopover
+                          item={item}
+                          t={t}
+                          onReschedule={async (contactId, campaignId, newDate) => {
+                            try {
+                              await apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}`, {
+                                callbackDate: newDate,
+                                status: "callback_scheduled",
+                              });
+                              queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                              toast({ title: t.agentWorkspace.reschedule, description: format(new Date(newDate), "dd.MM.yyyy HH:mm") });
+                            } catch (e) {
+                              toast({ title: "Error", description: String(e), variant: "destructive" });
+                            }
                           }}
-                        >
-                          <RotateCcw className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        />
                         <Button
                           variant="ghost"
                           size="icon"
                           title={t.agentWorkspace.cancelItem}
                           data-testid={`btn-scheduled-cancel-${item.id}`}
-                          onClick={() => {
-                            toast({ title: t.agentWorkspace.cancelItem, description: t.agentWorkspace.itemCancelled });
+                          onClick={async () => {
+                            try {
+                              await apiRequest("PATCH", `/api/campaigns/${item.campaignId}/contacts/${item.id}`, {
+                                status: "pending",
+                                callbackDate: null,
+                                assignedTo: null,
+                              });
+                              queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                              toast({ title: t.agentWorkspace.cancelItem, description: t.agentWorkspace.itemCancelled });
+                            } catch (e) {
+                              toast({ title: "Error", description: String(e), variant: "destructive" });
+                            }
                           }}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
