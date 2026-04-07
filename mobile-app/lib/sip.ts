@@ -98,6 +98,8 @@ class MobileSipEngine {
   private reconnectAttempts: number = 0;
   private intentionalDisconnect: boolean = false;
   private isRingbackPlaying: boolean = false;
+  private inCallManagerRef: any = null;
+  private speakerApplyTimer: ReturnType<typeof setTimeout> | null = null;
 
   get registrationState(): SipRegistrationState { return this._registrationState; }
   get callState(): SipCallState { return this._callState; }
@@ -524,6 +526,7 @@ class MobileSipEngine {
     }
 
     try {
+      await this.startAudioSession(false);
       await this.currentSession.accept();
       return true;
     } catch (error) {
@@ -650,7 +653,7 @@ class MobileSipEngine {
     try {
       const sdh = this.currentSession.sessionDescriptionHandler;
       if (sdh?.peerConnection) {
-        const pc = sdh.peerConnection as RTCPeerConnection;
+        const pc = sdh.peerConnection as any;
         const sender = pc.getSenders().find((s: any) => s?.track?.kind === 'audio');
         if (sender) {
           (sender as any).dtmf?.insertDTMF(tone, 100, 70);
@@ -683,10 +686,17 @@ class MobileSipEngine {
     });
   }
 
+  private async getInCallManager(): Promise<any> {
+    if (!this.inCallManagerRef) {
+      this.inCallManagerRef = (await import('react-native-incall-manager')).default;
+    }
+    return this.inCallManagerRef;
+  }
+
   private async startRingback() {
     if (this.isRingbackPlaying) return;
     try {
-      const InCallManager = (await import('react-native-incall-manager')).default;
+      const InCallManager = await this.getInCallManager();
       InCallManager.startRingback('_BUNDLE_');
       this.isRingbackPlaying = true;
       this.emit('debug', 'Ringback tone started');
@@ -698,7 +708,7 @@ class MobileSipEngine {
   private async stopRingback() {
     if (!this.isRingbackPlaying) return;
     try {
-      const InCallManager = (await import('react-native-incall-manager')).default;
+      const InCallManager = await this.getInCallManager();
       InCallManager.stopRingback();
       this.isRingbackPlaying = false;
       this.emit('debug', 'Ringback tone stopped');
@@ -710,11 +720,29 @@ class MobileSipEngine {
   async toggleSpeaker(): Promise<boolean> {
     try {
       const newSpeaker = !this._callInfo.isSpeaker;
-      const InCallManager = (await import('react-native-incall-manager')).default;
-      InCallManager.setForceSpeakerphoneOn(newSpeaker);
-      InCallManager.setSpeakerphoneOn(newSpeaker);
+      const InCallManager = await this.getInCallManager();
+
+      if (this.speakerApplyTimer) {
+        clearTimeout(this.speakerApplyTimer);
+        this.speakerApplyTimer = null;
+      }
+
+      if (newSpeaker) {
+        InCallManager.setForceSpeakerphoneOn(true);
+        this.speakerApplyTimer = setTimeout(() => {
+          InCallManager.setSpeakerphoneOn(true);
+          this.emit('debug', 'Speaker ON confirmed (delayed)');
+        }, 150);
+      } else {
+        InCallManager.setSpeakerphoneOn(false);
+        this.speakerApplyTimer = setTimeout(() => {
+          InCallManager.setForceSpeakerphoneOn(false);
+          this.emit('debug', 'Earpiece ON confirmed (delayed)');
+        }, 150);
+      }
+
       this.updateCallInfo({ isSpeaker: newSpeaker });
-      this.emit('debug', `Speaker toggled: ${newSpeaker}`);
+      this.emit('debug', `Speaker toggled: ${newSpeaker ? 'SPEAKER' : 'EARPIECE'}`);
       return newSpeaker;
     } catch (e: any) {
       this.emit('debug', `toggleSpeaker error: ${e?.message}`);
@@ -724,18 +752,23 @@ class MobileSipEngine {
 
   private async startAudioSession(speaker: boolean = false) {
     try {
-      const InCallManager = (await import('react-native-incall-manager')).default;
+      const InCallManager = await this.getInCallManager();
       InCallManager.start({ media: 'audio', auto: false, ringback: '' });
+
       InCallManager.setForceSpeakerphoneOn(false);
       InCallManager.setSpeakerphoneOn(false);
+
+      this.updateCallInfo({ isSpeaker: false });
+      this.emit('debug', 'InCallManager started — EARPIECE mode (default)');
+
       if (speaker) {
         setTimeout(() => {
           InCallManager.setForceSpeakerphoneOn(true);
           InCallManager.setSpeakerphoneOn(true);
+          this.updateCallInfo({ isSpeaker: true });
+          this.emit('debug', 'InCallManager switched to SPEAKER mode after delay');
         }, 300);
       }
-      this.updateCallInfo({ isSpeaker: speaker });
-      this.emit('debug', `InCallManager started, earpiece mode, speaker=${speaker}`);
     } catch (e: any) {
       this.emit('debug', `InCallManager start error: ${e?.message}`);
     }
@@ -743,9 +776,16 @@ class MobileSipEngine {
 
   private async stopAudioSession() {
     try {
-      const InCallManager = (await import('react-native-incall-manager')).default;
+      if (this.speakerApplyTimer) {
+        clearTimeout(this.speakerApplyTimer);
+        this.speakerApplyTimer = null;
+      }
+
+      const InCallManager = await this.getInCallManager();
+      InCallManager.setForceSpeakerphoneOn(false);
+      InCallManager.setSpeakerphoneOn(false);
       InCallManager.stop();
-      this.emit('debug', 'InCallManager stopped');
+      this.emit('debug', 'InCallManager stopped — audio reset to NORMAL');
     } catch (e: any) {
       this.emit('debug', `InCallManager stop error: ${e?.message}`);
     }

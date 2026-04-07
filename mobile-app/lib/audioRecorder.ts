@@ -34,6 +34,10 @@ class MobileAudioRecorder {
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
+        interruptionModeIOS: 1,
+        shouldDuckAndroid: false,
+        interruptionModeAndroid: 1,
+        playThroughEarpieceAndroid: false,
       });
 
       const { recording } = await Audio.Recording.createAsync(
@@ -45,6 +49,7 @@ class MobileAudioRecorder {
             sampleRate: 44100,
             numberOfChannels: 1,
             bitRate: 128000,
+            audioSource: 7,
           },
           ios: {
             extension: '.m4a',
@@ -63,7 +68,7 @@ class MobileAudioRecorder {
 
       this.recording = recording;
       this.setState('recording');
-      console.log('[AudioRecorder] Recording started');
+      console.log('[AudioRecorder] Recording started (VOICE_COMMUNICATION source)');
       return true;
     } catch (error) {
       console.error('[AudioRecorder] Failed to start recording:', error);
@@ -83,6 +88,8 @@ class MobileAudioRecorder {
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
       });
 
       console.log('[AudioRecorder] Recording stopped, URI:', uri);
