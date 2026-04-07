@@ -2052,7 +2052,7 @@ function CommunicationCanvas({
 
   if (!contact) {
     return (
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-50 via-orange-50/80 to-amber-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-50 via-orange-50/80 to-amber-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900" style={{ isolation: 'isolate', contain: 'paint' }}>
         <style dangerouslySetInnerHTML={{ __html: `
           @keyframes pb-drift-1 { 0%,100% { transform: translate(0,0) scale(1); opacity:0.5; } 25% { transform: translate(60px,-50px) scale(1.15); opacity:0.7; } 50% { transform: translate(-30px,40px) scale(0.9); opacity:0.4; } 75% { transform: translate(40px,20px) scale(1.1); opacity:0.65; } }
           @keyframes pb-drift-2 { 0%,100% { transform: translate(0,0) scale(1); opacity:0.45; } 25% { transform: translate(-50px,60px) scale(1.2); opacity:0.7; } 50% { transform: translate(40px,-30px) scale(0.85); opacity:0.35; } 75% { transform: translate(-20px,-50px) scale(1.1); opacity:0.6; } }
