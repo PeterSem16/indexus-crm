@@ -4760,8 +4760,9 @@ export default function AgentWorkspacePage() {
       setCreateTaskDialogOpen(false);
       setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "" });
     },
-    onError: (e) => {
-      toast({ title: t.quickCreate.createFailed, description: String(e), variant: "destructive" });
+    onError: (e: any) => {
+      console.error("[CreateTask] Error:", e);
+      toast({ title: t.quickCreate.createFailed, description: e?.message || String(e), variant: "destructive" });
     },
   });
 
@@ -7247,7 +7248,7 @@ export default function AgentWorkspacePage() {
                   description: createTaskForm.description.trim(),
                   priority: createTaskForm.priority,
                   assignedUserId: createTaskForm.assignedUserId,
-                  customerId: currentContact?.id || undefined,
+                  customerId: (currentContactType === "customer" && currentContact?.id) ? currentContact.id : undefined,
                   dueDate: createTaskForm.dueDate || undefined,
                   country: selectedCampaign?.country || undefined,
                 });

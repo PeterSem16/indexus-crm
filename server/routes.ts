@@ -6433,10 +6433,21 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.post("/api/tasks", requireAuth, async (req, res) => {
     try {
-      const taskData = {
-        ...req.body,
+      const { title, description, priority, assignedUserId, customerId, country, dueDate } = req.body;
+      if (!title || !assignedUserId) {
+        return res.status(400).json({ error: "Title and assignedUserId are required" });
+      }
+      const taskData: any = {
+        title,
+        priority: priority || "medium",
+        assignedUserId,
         createdByUserId: req.session.user!.id,
       };
+      if (description) taskData.description = description;
+      if (customerId) taskData.customerId = customerId;
+      if (country) taskData.country = country;
+      if (dueDate) taskData.dueDate = new Date(dueDate);
+      console.log("[CreateTask] payload:", JSON.stringify(taskData));
       const task = await storage.createTask(taskData);
       
       await logActivity(
@@ -6450,9 +6461,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
       );
       
       res.status(201).json(task);
-    } catch (error) {
-      console.error("Error creating task:", error);
-      res.status(500).json({ error: "Failed to create task" });
+    } catch (error: any) {
+      console.error("Error creating task:", error?.message || error);
+      res.status(500).json({ error: error?.message || "Failed to create task" });
     }
   });
 
