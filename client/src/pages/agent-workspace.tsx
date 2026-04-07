@@ -580,6 +580,7 @@ function TaskListPanel({
   onToggleAutoMode,
   autoCountdown,
   onOpenTasksModal,
+  onCancelTask,
   agentStatus,
   showVoicemailEmpty,
 }: {
@@ -603,6 +604,7 @@ function TaskListPanel({
   autoCountdown: number | null;
   onOpenContactsModal: () => void;
   onOpenTasksModal: () => void;
+  onCancelTask: (taskId: string) => void;
   agentStatus: AgentStatus;
   showVoicemailEmpty?: boolean;
 }) {
@@ -672,7 +674,7 @@ function TaskListPanel({
                   <div
                     key={task.id}
                     className={`
-                      flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors
+                      group flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors
                       ${isActive
                         ? "bg-primary/10 border border-primary/30"
                         : "hover-elevate"
@@ -699,11 +701,20 @@ function TaskListPanel({
                         {task.campaignName}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <span className="text-[10px] text-muted-foreground">{mins}m</span>
                       {task.status === "active" && (
                         <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                       )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); onCancelTask(task.id); }}
+                        data-testid={`btn-cancel-task-${task.id}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -5678,6 +5689,23 @@ export default function AgentWorkspacePage() {
     setCurrentCampaignContactId(task.campaignContactId);
   };
 
+  const handleCancelTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (activeTaskId === taskId) {
+      setActiveTaskId(null);
+      setCurrentContact(null);
+      setCurrentCampaignContactId(null);
+      setCallNotes("");
+      setTimeline([]);
+      agentSession.updateStatus("available").catch(() => {});
+    }
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    toast({
+      title: t.agentWorkspace.taskCancelled || "Úloha zrušená",
+      description: task ? `${task.contact.firstName || ""} ${task.contact.lastName || ""}`.trim() : "",
+    });
+  };
+
   const handleMakeCall = (phoneNumber: string) => {
     if (makeCall && currentContact) {
       const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
@@ -6453,6 +6481,7 @@ export default function AgentWorkspacePage() {
           autoCountdown={autoCountdown}
           onOpenContactsModal={() => { setModalFilter("all"); setModalSearch(""); setContactsModalOpen(true); }}
           onOpenTasksModal={() => setTasksModalOpen(true)}
+          onCancelTask={handleCancelTask}
           agentStatus={agentSession.status}
           showVoicemailEmpty={agentSession.isSessionActive && sessionInboundQueueIds.length > 0 && agentVoicemails.length === 0}
         />
@@ -6734,7 +6763,7 @@ export default function AgentWorkspacePage() {
       </Dialog>
 
       <Dialog open={tasksModalOpen} onOpenChange={setTasksModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ListTodo className="h-5 w-5 text-primary" />
@@ -6742,7 +6771,7 @@ export default function AgentWorkspacePage() {
               <Badge variant="secondary" className="ml-2">{tasks.length}</Badge>
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className="flex-1 -mx-6 px-6 overflow-hidden">
             {tasks.length === 0 ? (
               <div className="text-center py-12">
                 <ListTodo className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
@@ -6774,13 +6803,22 @@ export default function AgentWorkspacePage() {
                           <ChIcon className="h-2.5 w-2.5 text-white" />
                         </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{task.contact.firstName} {task.contact.lastName}</p>
-                        <p className="text-xs text-muted-foreground">{task.campaignName}</p>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <p className="text-sm font-medium truncate">{task.contact.firstName} {task.contact.lastName}</p>
+                        <p className="text-xs text-muted-foreground truncate">{task.campaignName}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className="text-[10px] font-mono">{mins}:{secs.toString().padStart(2, "0")}</Badge>
-                        {task.status === "active" && <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />}
+                        <Badge variant="outline" className="text-[10px] font-mono whitespace-nowrap">{mins}:{secs.toString().padStart(2, "0")}</Badge>
+                        {task.status === "active" && <span className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0 animate-pulse" />}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); handleCancelTask(task.id); }}
+                          data-testid={`btn-modal-cancel-task-${task.id}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
                   );
