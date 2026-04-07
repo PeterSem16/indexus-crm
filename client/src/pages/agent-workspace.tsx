@@ -54,6 +54,9 @@ import {
   History,
   User,
   Building,
+  Building2,
+  Stethoscope,
+  Handshake,
   MapPin,
   AlertCircle,
   SkipForward,
@@ -634,7 +637,7 @@ function TaskListPanel({
             data-testid="checkbox-show-assigned"
           />
           <Label htmlFor="show-assigned" className="text-xs cursor-pointer">
-            Len priradené
+            {t.agentWorkspace.onlyAssigned}
           </Label>
         </div>
         <Select value={channelFilter} onValueChange={onChannelFilterChange}>
@@ -642,7 +645,7 @@ function TaskListPanel({
             <SelectValue placeholder="Všetky kanály" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Všetky kanály</SelectItem>
+            <SelectItem value="all">{t.agentWorkspace.allChannels}</SelectItem>
             <SelectItem value="phone">Telefón</SelectItem>
             <SelectItem value="email">Email</SelectItem>
             <SelectItem value="sms">SMS</SelectItem>
@@ -742,10 +745,11 @@ function TaskListPanel({
                 className={`
                   flex items-center gap-1.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors text-xs font-medium border
                   ${isSelected
-                    ? "bg-primary text-primary-foreground border-primary"
+                    ? "bg-primary text-primary-foreground border-primary animate-pulse"
                     : "bg-muted/50 border-border hover:bg-muted"
                   }
                 `}
+                style={isSelected ? { animationDuration: '3s' } : undefined}
                 onClick={() => onSelectCampaign(campaign.id)}
                 data-testid={`btn-queue-${campaign.id}`}
               >
@@ -794,7 +798,7 @@ function TaskListPanel({
               </Button>
               <Button size="sm" variant="ghost" onClick={onLoadNextContact} disabled={isLoadingContact || campaignContacts.length === 0 || isAutoMode || agentStatus === "wrap_up" || agentStatus === "break"} className="text-xs gap-1" data-testid="btn-next-contact">
                 {isLoadingContact ? <Loader2 className="h-3 w-3 animate-spin" /> : <SkipForward className="h-3 w-3" />}
-                Ďalší
+                {t.agentWorkspace.nextBtn}
               </Button>
             </div>
           </div>
@@ -870,6 +874,15 @@ function TaskListPanel({
                       const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM. HH:mm") : null;
                       const isDisabled = agentStatus === "wrap_up" || agentStatus === "break";
 
+                      const contactTypeConfig: Record<string, { icon: typeof User; bg: string; text: string; border: string }> = {
+                        hospital: { icon: Building2, bg: "bg-rose-100 dark:bg-rose-900/40", text: "text-rose-600 dark:text-rose-400", border: "border-rose-200 dark:border-rose-800" },
+                        clinic: { icon: Stethoscope, bg: "bg-emerald-100 dark:bg-emerald-900/40", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800" },
+                        collaborator: { icon: Handshake, bg: "bg-amber-100 dark:bg-amber-900/40", text: "text-amber-600 dark:text-amber-400", border: "border-amber-200 dark:border-amber-800" },
+                        customer: { icon: User, bg: "bg-sky-100 dark:bg-sky-900/40", text: "text-sky-600 dark:text-sky-400", border: "border-sky-200 dark:border-sky-800" },
+                      };
+                      const ctConfig = contactTypeConfig[entityDisplay.type] || contactTypeConfig.customer;
+                      const TypeIcon = ctConfig.icon;
+
                       if (isDueCallback) {
                         return (
                           <div
@@ -916,11 +929,9 @@ function TaskListPanel({
                           >
                             <div className="flex items-center gap-2.5 p-2.5">
                               <div className="relative shrink-0">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback className={`text-xs ${isMyCallback ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"}`}>
-                                    {entityDisplay.initials}
-                                  </AvatarFallback>
-                                </Avatar>
+                                <div className={`h-8 w-8 rounded-full flex items-center justify-center ${ctConfig.bg}`}>
+                                  <TypeIcon className={`h-3.5 w-3.5 ${ctConfig.text}`} />
+                                </div>
                                 <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center ${isMyCallback ? "bg-purple-400" : "bg-blue-400"}`}>
                                   <Clock className="h-2 w-2 text-white" />
                                 </div>
@@ -949,11 +960,9 @@ function TaskListPanel({
                           onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
                           data-testid={`contact-item-${cc.id}`}
                         >
-                          <Avatar className="h-8 w-8 shrink-0">
-                            <AvatarFallback className="text-xs bg-muted text-muted-foreground">
-                              {entityDisplay.initials}
-                            </AvatarFallback>
-                          </Avatar>
+                          <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${ctConfig.bg}`}>
+                            <TypeIcon className={`h-3.5 w-3.5 ${ctConfig.text}`} />
+                          </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{entityDisplay.name}</p>
                             <p className="text-[10px] text-muted-foreground truncate">{entityDisplay.subtitle}</p>
@@ -2112,9 +2121,9 @@ function CommunicationCanvas({
           <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-white/70 dark:bg-card/60 shadow-lg shadow-rose-200/20 dark:shadow-none border border-white/60 dark:border-white/10 flex items-center justify-center">
             <Headphones className="h-11 w-11 text-primary/40" />
           </div>
-          <h3 className="font-semibold text-xl mb-2 text-foreground/70">Pripravený na prácu</h3>
+          <h3 className="font-semibold text-xl mb-2 text-foreground/70">{t.agentWorkspace.readyToWork}</h3>
           <p className="text-sm text-muted-foreground/70 leading-relaxed">
-            Vyberte kampaň a načítajte kontakt pre začatie komunikácie
+            {t.agentWorkspace.readyToWorkDesc}
           </p>
         </div>
       </div>
@@ -3266,7 +3275,7 @@ function CustomerInfoPanel({
       <div className="w-64 border-l bg-card flex items-center justify-center shrink-0">
         <div className="text-center p-6">
           <User className="h-10 w-10 mx-auto mb-3 text-muted-foreground/20" />
-          <p className="text-xs text-muted-foreground">Žiadny kontakt</p>
+          <p className="text-xs text-muted-foreground">{t.agentWorkspace.noContact}</p>
         </div>
       </div>
     );
@@ -6760,6 +6769,15 @@ export default function AgentWorkspacePage() {
                     else if (isDueCallback && isTeamCallback) rowClass = "ring-1 ring-blue-400 dark:ring-blue-600 bg-blue-50/50 dark:bg-blue-950/20";
                     else if (isCallback) rowClass = "bg-muted/30";
 
+                    const modalCtConfig: Record<string, { icon: typeof User; bg: string; text: string }> = {
+                      hospital: { icon: Building2, bg: "bg-rose-100 dark:bg-rose-900/40", text: "text-rose-600 dark:text-rose-400" },
+                      clinic: { icon: Stethoscope, bg: "bg-emerald-100 dark:bg-emerald-900/40", text: "text-emerald-600 dark:text-emerald-400" },
+                      collaborator: { icon: Handshake, bg: "bg-amber-100 dark:bg-amber-900/40", text: "text-amber-600 dark:text-amber-400" },
+                      customer: { icon: User, bg: "bg-sky-100 dark:bg-sky-900/40", text: "text-sky-600 dark:text-sky-400" },
+                    };
+                    const mCfg = modalCtConfig[entityInfo.type] || modalCtConfig.customer;
+                    const MIcon = mCfg.icon;
+
                     return (
                       <div
                         key={cc.id}
@@ -6770,20 +6788,13 @@ export default function AgentWorkspacePage() {
                         }}
                         data-testid={`modal-contact-${cc.id}`}
                       >
-                        <Avatar className="h-9 w-9 shrink-0">
-                          <AvatarFallback className={`text-xs ${isDueCallback && isMyCallback ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : isDueCallback ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-muted"}`}>
-                            {entityInfo.initials}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${mCfg.bg}`}>
+                          <MIcon className={`h-4 w-4 ${mCfg.text}`} />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{entityInfo.name}</p>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="truncate">{entityInfo.subtitle}</span>
-                            {entityInfo.type !== "customer" && (
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">
-                                {entityInfo.type === "hospital" ? "H" : entityInfo.type === "clinic" ? "C" : "COL"}
-                              </Badge>
-                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">

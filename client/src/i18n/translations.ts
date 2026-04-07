@@ -2758,6 +2758,12 @@ export interface Translations {
     redirectedNoAgents: string;
     missedCallToast: string;
     redirectedCallToast: string;
+    readyToWork: string;
+    readyToWorkDesc: string;
+    noContact: string;
+    nextBtn: string;
+    onlyAssigned: string;
+    allChannels: string;
   };
   sop: {
     title: string;
@@ -8649,7 +8655,7 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Queue',
-      workspace: 'Workspace',
+      workspace: 'NEXUS Pulse',
       activeTasks: 'Active tasks',
       campaigns: 'Missions',
       contacts: 'Contacts',
@@ -8726,6 +8732,12 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'was redirected - no agents available',
       missedCallToast: 'Missed call',
       redirectedCallToast: 'Call redirected',
+      readyToWork: 'Ready to work',
+      readyToWorkDesc: 'Select a mission and load a contact to start communication',
+      noContact: 'No contact',
+      nextBtn: 'Next',
+      onlyAssigned: 'Only assigned',
+      allChannels: 'All channels',
     },
     sop: {
         title: 'SOP & Procedures',
@@ -14018,7 +14030,7 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Fronta',
-      workspace: 'Pracovný priestor',
+      workspace: 'NEXUS Pulse',
       activeTasks: 'Aktívne úlohy',
       campaigns: 'Misie',
       contacts: 'Kontakty',
@@ -14095,6 +14107,12 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'bol presmerovaný - žiadni agenti nie sú prihlásení',
       missedCallToast: 'Zmeškaný hovor',
       redirectedCallToast: 'Hovor presmerovaný',
+      readyToWork: 'Pripravený na prácu',
+      readyToWorkDesc: 'Vyberte misiu a načítajte kontakt pre začatie komunikácie',
+      noContact: 'Žiadny kontakt',
+      nextBtn: 'Ďalší',
+      onlyAssigned: 'Len priradené',
+      allChannels: 'Všetky kanály',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -19366,7 +19384,7 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Fronta',
-      workspace: 'Pracovní prostor',
+      workspace: 'NEXUS Pulse',
       activeTasks: 'Aktivní úkoly',
       campaigns: 'Mise',
       contacts: 'Kontakty',
@@ -19443,6 +19461,12 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'byl přesměrován - žádní agenti nejsou přihlášeni',
       missedCallToast: 'Zmeškaný hovor',
       redirectedCallToast: 'Hovor přesměrován',
+      readyToWork: 'Připraven k práci',
+      readyToWorkDesc: 'Vyberte misi a načtěte kontakt pro zahájení komunikace',
+      noContact: 'Žádný kontakt',
+      nextBtn: 'Další',
+      onlyAssigned: 'Pouze přiřazené',
+      allChannels: 'Všechny kanály',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -24678,7 +24702,7 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Várólista',
-      workspace: 'Munkaterület',
+      workspace: 'NEXUS Pulse',
       activeTasks: 'Aktív feladatok',
       campaigns: 'Missziók',
       contacts: 'Kapcsolatok',
@@ -24755,6 +24779,12 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'átirányítva - nincsenek elérhető ügynökök',
       missedCallToast: 'Nem fogadott hívás',
       redirectedCallToast: 'Hívás átirányítva',
+      readyToWork: 'Készen állok a munkára',
+      readyToWorkDesc: 'Válasszon egy missziót és töltsön be egy kontaktot a kommunikáció megkezdéséhez',
+      noContact: 'Nincs kontakt',
+      nextBtn: 'Következő',
+      onlyAssigned: 'Csak hozzárendelt',
+      allChannels: 'Minden csatorna',
     },
     sop: {
         title: 'SOP & Eljárások',
@@ -29912,7 +29942,7 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Coadă',
-      workspace: 'Spațiu de lucru',
+      workspace: 'NEXUS Pulse',
       activeTasks: 'Sarcini active',
       campaigns: 'Misiuni',
       contacts: 'Contacte',
@@ -29989,6 +30019,12 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'a fost redirecționat - niciun agent disponibil',
       missedCallToast: 'Apel pierdut',
       redirectedCallToast: 'Apel redirecționat',
+      readyToWork: 'Pregătit de lucru',
+      readyToWorkDesc: 'Selectați o misiune și încărcați un contact pentru a începe comunicarea',
+      noContact: 'Niciun contact',
+      nextBtn: 'Următorul',
+      onlyAssigned: 'Doar atribuite',
+      allChannels: 'Toate canalele',
     },
     sop: {
         title: 'SOP & Proceduri',
@@ -35147,7 +35183,7 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Coda',
-      workspace: 'Area di lavoro',
+      workspace: 'NEXUS Pulse',
       activeTasks: 'Attività attive',
       campaigns: 'Missioni',
       contacts: 'Contatti',
@@ -35224,6 +35260,12 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'è stato reindirizzato - nessun agente disponibile',
       missedCallToast: 'Chiamata persa',
       redirectedCallToast: 'Chiamata reindirizzata',
+      readyToWork: 'Pronto a lavorare',
+      readyToWorkDesc: 'Seleziona una missione e carica un contatto per iniziare la comunicazione',
+      noContact: 'Nessun contatto',
+      nextBtn: 'Successivo',
+      onlyAssigned: 'Solo assegnati',
+      allChannels: 'Tutti i canali',
     },
     sop: {
         title: 'SOP & Procedure',
@@ -40382,7 +40424,7 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Warteschlange',
-      workspace: 'Arbeitsbereich',
+      workspace: 'NEXUS Pulse',
       activeTasks: 'Aktive Aufgaben',
       campaigns: 'Missionen',
       contacts: 'Kontakte',
@@ -40459,6 +40501,12 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'wurde weitergeleitet - keine Agenten verfügbar',
       missedCallToast: 'Verpasster Anruf',
       redirectedCallToast: 'Anruf weitergeleitet',
+      readyToWork: 'Arbeitsbereit',
+      readyToWorkDesc: 'Wählen Sie eine Mission und laden Sie einen Kontakt, um die Kommunikation zu starten',
+      noContact: 'Kein Kontakt',
+      nextBtn: 'Nächster',
+      onlyAssigned: 'Nur zugewiesene',
+      allChannels: 'Alle Kanäle',
     },
     sop: {
         title: 'SOP & Verfahren',
