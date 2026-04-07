@@ -18,3 +18,9 @@ id = "fWb91GjfMTTCKWghSil10"
 uri = "file://script/migration/partner-acquisition-admin-guide.md"
 type = "text"
 title = "Partner Acquisition — Návod pre správcu kampane"
+
+[[outputs]]
+id = "uCI6gbk5LGax22A8Naj5V"
+uri = "file://docs/INDEXUS_Connect_User_Guide.md"
+type = "text"
+title = "INDEXUS Connect — User Guide (English)"
