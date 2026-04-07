@@ -10,7 +10,11 @@ INDEXUS Connect is a mobile application for field collaborators (sales represent
 
 ### 2.1 Installation
 
-Download and install the INDEXUS Connect app on your Android device. The app is distributed internally — contact your administrator for the APK or Play Store link.
+Download and install the INDEXUS Connect app on your Android device. The latest version of the app is available for download from the INDEXUS landing page:
+
+**https://indexus.cordbloodcenter.com**
+
+Visit the page from your Android device, scroll to the download section, and install the APK directly.
 
 ### 2.2 Login
 
@@ -19,6 +23,17 @@ Download and install the INDEXUS Connect app on your Android device. The app is 
 3. Tap **Login**.
 
 > Your credentials are specific to the mobile app. They are set up by an administrator in the CRM under **Collaborators > Mobile Access**.
+
+### 2.2.1 Test Account
+
+For testing purposes, a pre-configured test collaborator is available for the **Romania** region:
+
+| Field | Value |
+|---|---|
+| Username | `pero` |
+| Password | `pero` |
+
+> This account is intended for development and QA testing only. Do not use it in production environments.
 
 ### 2.3 First-Time Setup
 
