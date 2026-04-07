@@ -868,56 +868,99 @@ function TaskListPanel({
                       const isMyCallback = isCallback && cc.assignedTo === currentUserId;
                       const isTeamCallback = isCallback && !cc.assignedTo;
                       const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM. HH:mm") : null;
+                      const isDisabled = agentStatus === "wrap_up" || agentStatus === "break";
 
-                      let ringClass = "";
-                      if (isDueCallback && isMyCallback) ringClass = "ring-1 ring-purple-400 dark:ring-purple-600 bg-purple-50/50 dark:bg-purple-950/20";
-                      else if (isDueCallback && isTeamCallback) ringClass = "ring-1 ring-blue-400 dark:ring-blue-600 bg-blue-50/50 dark:bg-blue-950/20";
-                      else if (isCallback) ringClass = "bg-muted/30";
+                      if (isDueCallback) {
+                        return (
+                          <div
+                            key={cc.id}
+                            className={`relative rounded-lg overflow-hidden ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${isMyCallback ? "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700" : "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700"} text-white shadow-md ${!isDisabled ? "hover:shadow-lg hover:scale-[1.02] transition-all" : ""}`}
+                            onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
+                            data-testid={`contact-item-${cc.id}`}
+                          >
+                            <div className="flex items-center gap-2.5 p-2.5">
+                              <div className="relative shrink-0">
+                                <div className={`h-9 w-9 rounded-full flex items-center justify-center ${isMyCallback ? "bg-purple-400/30" : "bg-blue-400/30"} ring-2 ring-white/30`}>
+                                  <PhoneCall className="h-4 w-4 text-white" />
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold truncate">{entityDisplay.name}</p>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <Calendar className="h-3 w-3 opacity-70" />
+                                  <span className="text-[10px] font-medium opacity-90">{callbackDateStr}</span>
+                                  <span className="text-[10px] opacity-60">•</span>
+                                  <span className="text-[10px] opacity-70">{isMyCallback ? t.agentWorkspace.myCB : t.agentWorkspace.teamCB}</span>
+                                </div>
+                              </div>
+                              <div className="shrink-0 flex items-center gap-1">
+                                {cc.attemptCount > 0 && (
+                                  <span className="text-[9px] bg-white/20 rounded-full px-1.5 py-0.5">{cc.attemptCount}x</span>
+                                )}
+                                <div className={`h-7 w-7 rounded-full flex items-center justify-center ${isMyCallback ? "bg-purple-400/40" : "bg-blue-400/40"}`}>
+                                  <Phone className="h-3.5 w-3.5" />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (isCallback && !isDueCallback) {
+                        return (
+                          <div
+                            key={cc.id}
+                            className={`rounded-lg border-l-[3px] ${isMyCallback ? "border-l-purple-400 bg-purple-50/60 dark:bg-purple-950/20" : "border-l-blue-400 bg-blue-50/60 dark:bg-blue-950/20"} ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors"}`}
+                            onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
+                            data-testid={`contact-item-${cc.id}`}
+                          >
+                            <div className="flex items-center gap-2.5 p-2.5">
+                              <div className="relative shrink-0">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback className={`text-xs ${isMyCallback ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"}`}>
+                                    {entityDisplay.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center ${isMyCallback ? "bg-purple-400" : "bg-blue-400"}`}>
+                                  <Clock className="h-2 w-2 text-white" />
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{entityDisplay.name}</p>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <Calendar className="h-2.5 w-2.5 text-muted-foreground" />
+                                  <span className={`text-[10px] font-medium ${isMyCallback ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400"}`}>{callbackDateStr}</span>
+                                </div>
+                              </div>
+                              <div className="shrink-0">
+                                {cc.attemptCount > 0 && (
+                                  <span className="text-[9px] text-muted-foreground">{cc.attemptCount}x</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
 
                       return (
                         <div
                           key={cc.id}
-                          className={`flex items-center gap-2.5 p-2.5 rounded-lg ${agentStatus === "wrap_up" || agentStatus === "break" ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover-elevate"} ${ringClass}`}
-                          onClick={() => { if (agentStatus !== "wrap_up" && agentStatus !== "break") onSelectCampaignContact(cc); }}
+                          className={`flex items-center gap-2.5 p-2 rounded-lg ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50 transition-colors"}`}
+                          onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
                           data-testid={`contact-item-${cc.id}`}
                         >
-                          <div className="relative shrink-0">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className={`text-xs ${isDueCallback && isMyCallback ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : isDueCallback ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-muted"}`}>
-                                {entityDisplay.initials}
-                              </AvatarFallback>
-                            </Avatar>
-                            {isCallback && (
-                              <div className={`absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full flex items-center justify-center ${isMyCallback ? "bg-purple-500" : "bg-blue-500"}`}>
-                                {isMyCallback ? <User className="h-2.5 w-2.5 text-white" /> : <Users className="h-2.5 w-2.5 text-white" />}
-                              </div>
-                            )}
-                          </div>
+                          <Avatar className="h-8 w-8 shrink-0">
+                            <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+                              {entityDisplay.initials}
+                            </AvatarFallback>
+                          </Avatar>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {entityDisplay.name}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground truncate">
-                              {entityDisplay.subtitle}
-                            </p>
+                            <p className="text-sm font-medium truncate">{entityDisplay.name}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{entityDisplay.subtitle}</p>
                           </div>
-                          <div className="flex flex-col items-end gap-0.5 shrink-0">
-                            {isCallback && (
-                              <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[9px] px-1 py-0 ${isDueCallback && isMyCallback ? "bg-purple-500 text-white" : isDueCallback ? "bg-blue-500 text-white" : ""}`}>
-                                {isDueCallback ? t.agentWorkspace.callBack : isMyCallback ? t.agentWorkspace.myCB : t.agentWorkspace.teamCB}
-                              </Badge>
-                            )}
-                            {callbackDateStr && (
-                              <span className={`text-[9px] ${isDueCallback ? (isMyCallback ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400") + " font-medium" : "text-muted-foreground"}`}>
-                                {callbackDateStr}
-                              </span>
-                            )}
-                            {cc.attemptCount > 0 && (
-                              <span className="text-[9px] text-muted-foreground">
-                                {cc.attemptCount}x
-                              </span>
-                            )}
-                          </div>
+                          {cc.attemptCount > 0 && (
+                            <span className="text-[9px] text-muted-foreground shrink-0">{cc.attemptCount}x</span>
+                          )}
                         </div>
                       );
                     })}
@@ -2052,13 +2095,18 @@ function CommunicationCanvas({
 
   if (!contact) {
     return (
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-50 via-orange-50/80 to-amber-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-50 via-orange-50/80 to-amber-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900" style={{ contain: 'paint' }}>
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-10 -left-10 w-[420px] h-[420px] rounded-[60%_40%_30%_70%/60%_30%_70%_40%] bg-gradient-to-br from-rose-300/40 via-pink-200/30 to-rose-400/20 dark:from-rose-700/15 dark:via-pink-700/10 dark:to-rose-600/8 blur-3xl" />
           <div className="absolute top-[15%] right-[5%] w-[380px] h-[380px] rounded-[40%_60%_70%_30%/50%_60%_30%_60%] bg-gradient-to-bl from-orange-300/35 via-amber-200/25 to-yellow-300/20 dark:from-orange-700/12 dark:via-amber-700/8 dark:to-yellow-700/6 blur-3xl" />
           <div className="absolute bottom-[0%] left-[10%] w-[450px] h-[450px] rounded-[50%_60%_30%_60%/40%_70%_50%_60%] bg-gradient-to-tr from-amber-300/30 via-orange-200/25 to-rose-300/20 dark:from-amber-700/10 dark:via-orange-700/8 dark:to-rose-700/6 blur-3xl" />
           <div className="absolute top-[55%] right-[20%] w-[350px] h-[350px] rounded-[60%_40%_60%_40%/50%_60%_30%_70%] bg-gradient-to-tl from-pink-300/30 via-rose-200/20 to-orange-200/15 dark:from-pink-700/10 dark:via-rose-700/6 dark:to-orange-700/5 blur-3xl" />
           <div className="absolute -top-5 right-[35%] w-[320px] h-[320px] rounded-[30%_60%_40%_70%/60%_40%_70%_30%] bg-gradient-to-b from-yellow-200/30 via-amber-200/20 to-orange-300/25 dark:from-yellow-700/8 dark:via-amber-700/6 dark:to-orange-700/8 blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140px] h-[140px] rounded-full border-2 border-rose-300/30 dark:border-rose-600/15 animate-ping" style={{ animationDuration: '4s' }} />
+          <div className="absolute top-[35%] left-[40%] w-[100px] h-[100px] rounded-full border-2 border-orange-300/25 dark:border-orange-600/10 animate-ping" style={{ animationDuration: '5s', animationDelay: '1.5s' }} />
+          <div className="absolute top-[55%] left-[55%] w-[120px] h-[120px] rounded-full border-2 border-amber-300/25 dark:border-amber-600/10 animate-ping" style={{ animationDuration: '6s', animationDelay: '3s' }} />
+          <div className="absolute top-[30%] left-[55%] w-[80px] h-[80px] rounded-full border border-pink-300/20 dark:border-pink-600/10 animate-ping" style={{ animationDuration: '7s', animationDelay: '0.5s' }} />
+          <div className="absolute top-[60%] left-[35%] w-[90px] h-[90px] rounded-full border border-rose-200/20 dark:border-rose-700/10 animate-ping" style={{ animationDuration: '5.5s', animationDelay: '2.5s' }} />
         </div>
         <div className="text-center max-w-sm relative z-10">
           <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-white/70 dark:bg-card/60 shadow-lg shadow-rose-200/20 dark:shadow-none border border-white/60 dark:border-white/10 flex items-center justify-center">
