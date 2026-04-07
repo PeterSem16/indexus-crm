@@ -6784,8 +6784,8 @@ export default function AgentWorkspacePage() {
       </div>
 
       <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
               {t.agentWorkspace.campaignContacts}
@@ -6795,7 +6795,7 @@ export default function AgentWorkspacePage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-wrap items-center gap-2 pb-3 border-b">
+          <div className="flex flex-wrap items-center gap-2 pb-3 border-b shrink-0">
             <div className="flex-1 min-w-[200px]">
               <Input
                 placeholder="Hľadať meno, telefón, email..."
@@ -6831,7 +6831,7 @@ export default function AgentWorkspacePage() {
             </Select>
           </div>
 
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
             {(() => {
               const now = new Date();
               let filtered = sortedPendingContacts.filter(cc => {
