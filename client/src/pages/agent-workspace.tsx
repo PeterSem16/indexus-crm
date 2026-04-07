@@ -2052,13 +2052,40 @@ function CommunicationCanvas({
 
   if (!contact) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-muted/10">
-        <div className="text-center max-w-sm">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-muted/30 flex items-center justify-center">
-            <Headphones className="h-10 w-10 text-muted-foreground/30" />
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-50/80 via-orange-50/60 to-amber-50/80 dark:from-rose-950/20 dark:via-orange-950/15 dark:to-amber-950/20" />
+          <svg className="absolute inset-0 w-full h-full opacity-[0.12] dark:opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="pulse-grid" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+                <circle cx="30" cy="30" r="1.5" fill="hsl(var(--primary))" />
+              </pattern>
+              <radialGradient id="pulse-fade" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="white" stopOpacity="0" />
+                <stop offset="100%" stopColor="white" stopOpacity="1" />
+              </radialGradient>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#pulse-grid)" />
+            <rect width="100%" height="100%" fill="url(#pulse-fade)" />
+          </svg>
+          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-primary/8 to-transparent blur-3xl animate-pulse" style={{ animationDuration: '8s' }} />
+          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-gradient-to-tl from-rose-300/10 to-transparent blur-3xl animate-pulse" style={{ animationDuration: '6s', animationDelay: '2s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-r from-orange-200/8 via-transparent to-amber-200/8 blur-3xl animate-pulse" style={{ animationDuration: '10s', animationDelay: '4s' }} />
+          <svg className="absolute inset-0 w-full h-full opacity-[0.04] dark:opacity-[0.02]" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="pulse-hex" x="0" y="0" width="100" height="87" patternUnits="userSpaceOnUse" patternTransform="rotate(15)">
+                <polygon points="50,5 90,25 90,62 50,82 10,62 10,25" fill="none" stroke="hsl(var(--primary))" strokeWidth="0.5" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#pulse-hex)" />
+          </svg>
+        </div>
+        <div className="text-center max-w-sm relative z-10">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-white/60 dark:bg-card/60 backdrop-blur-sm shadow-lg border border-white/40 dark:border-white/10 flex items-center justify-center">
+            <Headphones className="h-11 w-11 text-primary/40" />
           </div>
-          <h3 className="font-semibold text-lg mb-2 text-muted-foreground">Pripravený na prácu</h3>
-          <p className="text-sm text-muted-foreground/70">
+          <h3 className="font-semibold text-xl mb-2 text-foreground/70">Pripravený na prácu</h3>
+          <p className="text-sm text-muted-foreground/70 leading-relaxed">
             Vyberte kampaň a načítajte kontakt pre začatie komunikácie
           </p>
         </div>
