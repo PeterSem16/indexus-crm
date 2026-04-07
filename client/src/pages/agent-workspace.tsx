@@ -615,13 +615,8 @@ function TaskListPanel({
   }, [campaigns, channelFilter]);
 
   return (
-    <div className="w-72 border-r flex flex-col h-full shrink-0 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-rose-50/60 via-orange-50/40 to-amber-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900" />
-      <div className="absolute top-[20%] -left-10 w-[200px] h-[200px] rounded-full bg-gradient-to-br from-rose-200/20 to-transparent dark:from-rose-800/8 blur-2xl" />
-      <div className="absolute bottom-[10%] -right-10 w-[180px] h-[180px] rounded-full bg-gradient-to-tl from-orange-200/20 to-transparent dark:from-orange-800/8 blur-2xl" />
-      <div className="absolute top-[60%] left-[20%] w-[150px] h-[150px] rounded-full bg-gradient-to-tr from-amber-200/15 to-transparent dark:from-amber-800/6 blur-2xl" />
-      <div className="relative z-10 flex flex-col h-full">
-      <div className="p-3 border-b space-y-2 bg-card/80 backdrop-blur-sm">
+    <div className="w-72 border-r bg-card flex flex-col h-full shrink-0">
+      <div className="p-3 border-b space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm flex items-center gap-2">
             <Headphones className="h-4 w-4 text-primary" />
@@ -657,7 +652,7 @@ function TaskListPanel({
       </div>
 
       {tasks.length > 0 && (
-        <div className="border-b bg-card/50 backdrop-blur-sm">
+        <div className="border-b">
           <div className="px-3 py-2 flex items-center justify-between gap-1">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               {t.agentWorkspace.activeTasks} ({tasks.length})
@@ -776,7 +771,7 @@ function TaskListPanel({
       </div>
 
       {selectedCampaignId && (
-        <div className="border-t flex flex-col flex-1 min-h-0 bg-card/30 backdrop-blur-sm">
+        <div className="border-t flex flex-col flex-1 min-h-0">
           <div
             className="px-3 py-2 flex items-center justify-between gap-1 rounded-md mx-1 mt-1"
             data-testid="contacts-header"
@@ -933,7 +928,6 @@ function TaskListPanel({
           </ScrollArea>
         </div>
       )}
-    </div>
     </div>
   );
 }
@@ -3250,16 +3244,10 @@ function CustomerInfoPanel({
 
   if (!contact) {
     return (
-      <div className="w-64 border-l flex items-center justify-center shrink-0 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-amber-50/60 via-rose-50/40 to-orange-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900" />
-        <div className="absolute top-[15%] -right-8 w-[160px] h-[160px] rounded-full bg-gradient-to-bl from-rose-200/20 to-transparent dark:from-rose-800/8 blur-2xl" />
-        <div className="absolute bottom-[20%] -left-8 w-[140px] h-[140px] rounded-full bg-gradient-to-tr from-amber-200/20 to-transparent dark:from-amber-800/8 blur-2xl" />
-        <div className="absolute top-[50%] right-[30%] w-[120px] h-[120px] rounded-full bg-gradient-to-br from-orange-200/15 to-transparent dark:from-orange-800/6 blur-2xl" />
-        <div className="text-center p-6 relative z-10">
-          <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-white/60 dark:bg-card/60 backdrop-blur-sm shadow-sm border border-white/50 dark:border-white/10 flex items-center justify-center">
-            <User className="h-8 w-8 text-muted-foreground/25" />
-          </div>
-          <p className="text-xs text-muted-foreground/70">Žiadny kontakt</p>
+      <div className="w-64 border-l bg-card flex items-center justify-center shrink-0">
+        <div className="text-center p-6">
+          <User className="h-10 w-10 mx-auto mb-3 text-muted-foreground/20" />
+          <p className="text-xs text-muted-foreground">Žiadny kontakt</p>
         </div>
       </div>
     );
