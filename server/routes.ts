@@ -43,7 +43,8 @@ import {
   type Campaign, type CampaignContact, type ContractInstance,
   partnerCategories, contactAssignments, contactChannels, communicationSchedules, firstContactProtocols,
   insertPartnerCategorySchema, insertContactAssignmentSchema, insertContactChannelSchema, insertCommunicationScheduleSchema, insertFirstContactProtocolSchema,
-  campaignOperatorSettings
+  campaignOperatorSettings,
+  trainingRoomArchives,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -42468,6 +42469,129 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       if (!row) return res.status(404).json({ error: "Assignment not found" });
       res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  const trainingRoomAttachmentStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, "uploads/training-room-attachments"),
+    filename: (_req, file, cb) => {
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname)}`;
+      cb(null, uniqueName);
+    },
+  });
+  const uploadTrainingAttachment = multer({ storage: trainingRoomAttachmentStorage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+  app.post("/api/training-room/generate-summary", requireAuth, async (req, res) => {
+    try {
+      const { transcript, roomId, participants } = req.body;
+      if (!transcript || !Array.isArray(transcript) || transcript.length === 0) {
+        return res.status(400).json({ error: "No transcript provided" });
+      }
+
+      const transcriptText = transcript.map((t: any) => {
+        const time = new Date(t.timestamp).toLocaleTimeString();
+        return `[${time}] ${t.speakerName} (${t.originalLang}): ${t.original}${t.translation && t.translation !== t.original ? ` → ${t.translation}` : ""}`;
+      }).join("\n");
+
+      const participantList = (participants || []).map((p: any) => `${p.userName} (${p.language})`).join(", ");
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `Ste profesionálny asistent pre cord blood banking spoločnosť INDEXUS. Vytvorte štrukturovaný zápis z tréningového rozhovoru.
+
+Formát zápisu:
+# Zápis z tréningu - Training Room
+**Miestnosť:** ${roomId || "N/A"}
+**Dátum:** ${new Date().toLocaleDateString("sk-SK")}
+**Účastníci:** ${participantList || "N/A"}
+
+## Zhrnutie
+(2-3 vety o čom bol rozhovor)
+
+## Hlavné body
+(bodový zoznam kľúčových tém)
+
+## Akčné body
+(ak existujú, zoznam úloh)
+
+## Závery
+(krátke závery)
+
+Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
+          },
+          { role: "user", content: transcriptText }
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+      });
+
+      const summary = response.choices[0]?.message?.content || "Nepodarilo sa vytvoriť zápis.";
+      res.json({ summary });
+    } catch (e: any) {
+      console.error("[TrainingRoom] AI Summary error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/training-room/archive", requireAuth, async (req, res) => {
+    try {
+      const { roomId, transcript, aiSummary, participants, title, attachments } = req.body;
+      if (!roomId || !transcript) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const result = await db.insert(trainingRoomArchives).values({
+        roomId,
+        title: title || `Training ${roomId} - ${new Date().toLocaleDateString("sk-SK")}`,
+        transcript: JSON.stringify(transcript),
+        aiSummary: aiSummary || null,
+        participants: JSON.stringify(participants || []),
+        archivedByUserId: (req as any).user?.id || "system",
+        archivedByUserName: (req as any).user?.fullName || (req as any).user?.username || "System",
+        attachments: attachments || [],
+      }).returning();
+
+      res.json(result[0]);
+    } catch (e: any) {
+      console.error("[TrainingRoom] Archive error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/training-room/archives", requireAuth, async (_req, res) => {
+    try {
+      const archives = await db.select().from(trainingRoomArchives).orderBy(sql`created_at DESC`).limit(100);
+      res.json(archives);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/training-room/archives/:id", requireAuth, async (req, res) => {
+    try {
+      const [archive] = await db.select().from(trainingRoomArchives).where(sql`id = ${req.params.id}`);
+      if (!archive) return res.status(404).json({ error: "Archive not found" });
+      res.json(archive);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/training-room/upload-attachment", requireAuth, uploadTrainingAttachment.single("file"), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      const filePath = `/uploads/training-room-attachments/${req.file.filename}`;
+      res.json({
+        url: filePath,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   setTimeout(() => {

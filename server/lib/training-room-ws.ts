@@ -198,6 +198,27 @@ class TrainingRoomWebSocketService {
         this.handleTextMessage(room, participant, msg.text);
       } else if (msg.type === "ping") {
         participant.ws.send(JSON.stringify({ type: "pong" }));
+      } else if (msg.type === "attachment") {
+        const attachEntry: TranscriptEntry = {
+          speaker: participant.userId,
+          speakerName: participant.userName,
+          original: msg.originalName || "Attachment",
+          originalLang: participant.language,
+          translation: "",
+          targetLang: "",
+          timestamp: Date.now(),
+        };
+        room.transcriptHistory.push(attachEntry);
+        this.broadcastToRoom(room.id, {
+          type: "attachment",
+          speaker: participant.userId,
+          speakerName: participant.userName,
+          originalLang: participant.language,
+          url: msg.url,
+          originalName: msg.originalName,
+          mimetype: msg.mimetype,
+          timestamp: attachEntry.timestamp,
+        }, participant.userId);
       } else if (msg.type === "change-language") {
         participant.language = msg.language;
         this.broadcastToRoom(room.id, {

@@ -6943,3 +6943,20 @@ export const firstContactProtocols = pgTable("first_contact_protocols", {
 export const insertFirstContactProtocolSchema = createInsertSchema(firstContactProtocols).omit({ id: true });
 export type InsertFirstContactProtocol = z.infer<typeof insertFirstContactProtocolSchema>;
 export type FirstContactProtocol = typeof firstContactProtocols.$inferSelect;
+
+export const trainingRoomArchives = pgTable("training_room_archives", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").notNull(),
+  title: varchar("title"),
+  transcript: text("transcript").notNull(),
+  aiSummary: text("ai_summary"),
+  participants: text("participants").notNull(),
+  archivedByUserId: varchar("archived_by_user_id").notNull(),
+  archivedByUserName: varchar("archived_by_user_name"),
+  attachments: text("attachments").array().default(sql`ARRAY[]::text[]`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTrainingRoomArchiveSchema = createInsertSchema(trainingRoomArchives).omit({ id: true, createdAt: true });
+export type InsertTrainingRoomArchive = z.infer<typeof insertTrainingRoomArchiveSchema>;
+export type TrainingRoomArchive = typeof trainingRoomArchives.$inferSelect;
