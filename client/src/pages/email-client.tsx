@@ -2406,6 +2406,7 @@ export default function EmailClientPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<NexusTab>("email");
+  const [trainingRoomId, setTrainingRoomId] = useState<string>("");
   const [teamsSidebarFilter, setTeamsSidebarFilter] = useState<"all" | "activity" | "channels" | "chats" | "meetings" | "calendar">("all");
   const [calendarSidebarFilter, setCalendarSidebarFilter] = useState<"today" | "week" | "month">("week");
   const [selectedMailbox, setSelectedMailbox] = useState<string>("personal");
@@ -2964,6 +2965,10 @@ export default function EmailClientPage() {
     const tabParam = params.get("tab");
     if (tabParam === "training-room") {
       setActiveTab("training-room");
+      const roomParam = params.get("room");
+      if (roomParam) {
+        setTrainingRoomId(roomParam);
+      }
       setUrlParamsProcessed(true);
       window.history.replaceState({}, "", "/email");
       return;
@@ -5354,7 +5359,7 @@ export default function EmailClientPage() {
         )}
         {activeTab === "training-room" && (
           <div className="flex-1 min-h-0 overflow-auto">
-            <TrainingRoomPage />
+            <TrainingRoomPage initialRoomId={trainingRoomId} />
           </div>
         )}
       </div>

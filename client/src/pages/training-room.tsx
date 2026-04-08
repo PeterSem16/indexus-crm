@@ -37,6 +37,9 @@ import {
   Eye,
   BrainCircuit,
   History,
+  Copy,
+  Link,
+  Check,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -97,12 +100,12 @@ interface ArchiveRecord {
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected";
 
-export default function TrainingRoomPage() {
+export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: string }) {
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [myLanguage, setMyLanguage] = useState("sk");
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState(initialRoomId || "");
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
@@ -130,6 +133,12 @@ export default function TrainingRoomPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (initialRoomId && initialRoomId !== roomId && connectionStatus === "disconnected") {
+      setRoomId(initialRoomId);
+    }
+  }, [initialRoomId]);
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -538,6 +547,37 @@ export default function TrainingRoomPage() {
                   <PhoneOff className="h-3.5 w-3.5 mr-1.5" />
                   Odpojiť sa
                 </Button>
+                <Separator className="my-1" />
+                <label className="text-[10px] font-medium text-muted-foreground block">Pozvať účastníkov</label>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 h-7 text-[11px]"
+                    data-testid="button-copy-room-name"
+                    onClick={() => {
+                      navigator.clipboard.writeText(roomId);
+                      toast({ title: "Room ID skopírované", description: roomId });
+                    }}
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    Room ID
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 h-7 text-[11px]"
+                    data-testid="button-copy-link"
+                    onClick={() => {
+                      const link = `${window.location.origin}/email?tab=training-room&room=${encodeURIComponent(roomId)}`;
+                      navigator.clipboard.writeText(link);
+                      toast({ title: "Link skopírovaný", description: "Zdieľajte ho s účastníkmi" });
+                    }}
+                  >
+                    <Link className="h-3 w-3 mr-1" />
+                    Odkaz
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
