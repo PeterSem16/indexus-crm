@@ -12,9 +12,17 @@ class InboundCallWebSocketService {
   private agents: Map<string, ConnectedAgent[]> = new Map();
 
   initialize(server: Server) {
-    this.wss = new WebSocketServer({
-      server,
-      path: "/ws/inbound-calls",
+    this.wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
+
+    server.on("upgrade", (req: any, socket: any, head: any) => {
+      const pathname = req.url?.split("?")[0];
+      if (pathname === "/ws/inbound-calls") {
+        this.wss!.handleUpgrade(req, socket, head, (ws) => {
+          this.wss!.emit("connection", ws, req);
+        });
+        socket.end = () => {};
+        socket.destroy = () => {};
+      }
     });
 
     this.wss.on("connection", (ws, req) => {

@@ -59,7 +59,7 @@ class TrainingRoomWebSocketService {
   private processingLock: Set<string> = new Set();
 
   initialize(server: Server) {
-    this.wss = new WebSocketServer({ noServer: true });
+    this.wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
 
     server.prependListener("upgrade", (req: any, socket: any, head: any) => {
       const pathname = req.url?.split("?")[0];
@@ -67,6 +67,8 @@ class TrainingRoomWebSocketService {
         this.wss!.handleUpgrade(req, socket, head, (ws) => {
           this.wss!.emit("connection", ws, req);
         });
+        socket.end = () => {};
+        socket.destroy = () => {};
       }
     });
 
@@ -86,15 +88,17 @@ class TrainingRoomWebSocketService {
 
       this.joinRoom(roomId, userId, userName, language, ws);
 
-      ws.on("message", (data) => {
-        this.handleMessage(roomId, userId, data);
+      ws.on("message", (data, isBinary) => {
+        this.handleMessage(roomId, userId, data, isBinary);
       });
 
-      ws.on("close", () => {
+      ws.on("close", (code, reason) => {
+        console.log(`[TrainingRoom] WS closed for ${userName}: code=${code}, reason=${reason?.toString()}`);
         this.leaveRoom(roomId, userId);
       });
 
-      ws.on("error", () => {
+      ws.on("error", (err) => {
+        console.log(`[TrainingRoom] WS error for ${userName}: ${err.message}`);
         this.leaveRoom(roomId, userId);
       });
     });
@@ -169,14 +173,14 @@ class TrainingRoomWebSocketService {
     }
   }
 
-  private handleMessage(roomId: string, userId: string, data: any) {
+  private handleMessage(roomId: string, userId: string, data: any, isBinary?: boolean) {
     const room = this.rooms.get(roomId);
     if (!room) return;
 
     const participant = room.participants.get(userId);
     if (!participant) return;
 
-    if (data instanceof Buffer || data instanceof ArrayBuffer) {
+    if (isBinary) {
       const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
       this.handleAudioChunk(room, participant, buffer);
       return;
@@ -192,6 +196,8 @@ class TrainingRoomWebSocketService {
         this.processAccumulatedAudio(room, participant);
       } else if (msg.type === "text-message") {
         this.handleTextMessage(room, participant, msg.text);
+      } else if (msg.type === "ping") {
+        participant.ws.send(JSON.stringify({ type: "pong" }));
       } else if (msg.type === "change-language") {
         participant.language = msg.language;
         this.broadcastToRoom(room.id, {

@@ -104,8 +104,18 @@ export default function TrainingRoomPage() {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      console.log("[TrainingRoom] WS connected successfully");
       setConnectionStatus("connected");
       toast({ title: "Pripojený", description: `Training Room: ${roomId}` });
+
+      const pingInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        } else {
+          clearInterval(pingInterval);
+        }
+      }, 25000);
+      (ws as any)._pingInterval = pingInterval;
     };
 
     ws.onmessage = (event) => {
@@ -117,11 +127,15 @@ export default function TrainingRoomPage() {
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log("[TrainingRoom] WS closed, code:", event.code, "reason:", event.reason, "wasClean:", event.wasClean);
       setConnectionStatus("disconnected");
       setParticipants([]);
       setSpeakingUserId(null);
       stopAudioCapture();
+      if (event.code !== 1000) {
+        toast({ title: "Odpojený", description: `Training Room odpojený (kód: ${event.code})`, variant: "destructive" });
+      }
     };
 
     ws.onerror = (err) => {

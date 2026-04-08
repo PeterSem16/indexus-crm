@@ -14,9 +14,17 @@ class NotificationService {
   private clients: Map<string, ConnectedClient[]> = new Map();
 
   initialize(server: Server) {
-    this.wss = new WebSocketServer({ 
-      server,
-      path: "/ws/notifications"
+    this.wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
+
+    server.on("upgrade", (req: any, socket: any, head: any) => {
+      const pathname = req.url?.split("?")[0];
+      if (pathname === "/ws/notifications") {
+        this.wss!.handleUpgrade(req, socket, head, (ws) => {
+          this.wss!.emit("connection", ws, req);
+        });
+        socket.end = () => {};
+        socket.destroy = () => {};
+      }
     });
 
     this.wss.on("connection", (ws, req) => {
