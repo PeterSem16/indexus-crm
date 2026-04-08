@@ -47,13 +47,15 @@ BUILD_TYPE="${1:-preview}"
 
 case $BUILD_TYPE in
     preview)
-        PROFILE="preview"
+        GRADLE_TASK="assembleRelease"
         OUTPUT_DESC="APK (internal testing)"
+        OUTPUT_PATH="android/app/build/outputs/apk/release/app-release.apk"
         EXT="apk"
         ;;
     production)
-        PROFILE="production"
+        GRADLE_TASK="bundleRelease"
         OUTPUT_DESC="AAB (Play Store)"
+        OUTPUT_PATH="android/app/build/outputs/bundle/release/app-release.aab"
         EXT="aab"
         ;;
     *)
@@ -66,9 +68,13 @@ case $BUILD_TYPE in
         ;;
 esac
 
+VERSION=$(grep '"version"' app.json | head -1 | cut -d'"' -f4)
+VERSION_CODE=$(grep '"versionCode"' app.json | head -1 | grep -o '[0-9]*')
+
 echo "Build configuration:"
-echo "  Profile: $PROFILE"
+echo "  Type: $BUILD_TYPE"
 echo "  Output: $OUTPUT_DESC"
+echo "  Version: $VERSION (versionCode: $VERSION_CODE)"
 echo ""
 
 if [ ! -d "node_modules" ]; then
@@ -77,11 +83,17 @@ if [ ! -d "node_modules" ]; then
     echo ""
 fi
 
-echo "Starting local build..."
+echo "Running expo prebuild..."
+npx expo prebuild --platform android --clean
+echo ""
+
+echo "Starting Gradle build ($GRADLE_TASK)..."
 echo "This may take 10-30 minutes depending on your hardware."
 echo ""
 
-npx eas build --platform android --profile "$PROFILE" --local --non-interactive
+cd android
+./gradlew "$GRADLE_TASK"
+cd ..
 
 echo ""
 echo "=============================================="
@@ -89,36 +101,19 @@ echo "Build Complete!"
 echo "=============================================="
 echo ""
 
-OUTPUT_FILE=""
-
-for search_dir in "." "./dist" "./android/app/build/outputs/apk" "./android/app/build/outputs/bundle"; do
-    if [ -d "$search_dir" ]; then
-        FOUND=$(find "$search_dir" -maxdepth 3 -name "*.${EXT}" -type f 2>/dev/null | head -n 1)
-        if [ -n "$FOUND" ]; then
-            OUTPUT_FILE="$FOUND"
-            break
-        fi
-    fi
-done
-
-if [ -n "$OUTPUT_FILE" ]; then
-    echo "Output file: $OUTPUT_FILE"
-    echo "Size: $(du -h "$OUTPUT_FILE" | cut -f1)"
+if [ -f "$OUTPUT_PATH" ]; then
+    echo "Output file: $OUTPUT_PATH"
+    echo "Size: $(du -h "$OUTPUT_PATH" | cut -f1)"
     echo ""
-    
+
     mkdir -p builds
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    VERSION=$(grep '"version"' app.json | head -1 | cut -d'"' -f4)
     NEW_NAME="builds/indexus-connect-v${VERSION}-${TIMESTAMP}.${EXT}"
-    cp "$OUTPUT_FILE" "$NEW_NAME"
+    cp "$OUTPUT_PATH" "$NEW_NAME"
     echo "Copied to: $NEW_NAME"
 else
-    echo "Warning: Could not locate output file automatically."
-    echo "Check the build output above for the file location."
-    echo ""
-    echo "Common locations:"
-    echo "  - Current directory (*.apk or *.aab)"
-    echo "  - ./android/app/build/outputs/"
+    echo "Warning: Could not locate output file at $OUTPUT_PATH"
+    echo "Check the build output above for errors."
 fi
 
 echo ""
