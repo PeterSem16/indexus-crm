@@ -83,7 +83,15 @@ export default function TrainingRoomPage() {
   }, [transcript]);
 
   const connectToRoom = useCallback(() => {
-    if (!roomId.trim() || !user) return;
+    console.log("[TrainingRoom] connectToRoom called, roomId:", roomId, "user:", user?.id);
+    if (!roomId.trim()) {
+      toast({ title: "Zadajte Room ID", variant: "destructive" });
+      return;
+    }
+    if (!user) {
+      toast({ title: "Nie ste prihlásený", variant: "destructive" });
+      return;
+    }
 
     setConnectionStatus("connecting");
 
