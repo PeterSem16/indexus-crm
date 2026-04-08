@@ -42471,8 +42471,12 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  const trainingAttachmentDir = path.join(DATA_ROOT, "training-room-attachments");
+  if (!fs.existsSync(trainingAttachmentDir)) {
+    fs.mkdirSync(trainingAttachmentDir, { recursive: true });
+  }
   const trainingRoomAttachmentStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, "uploads/training-room-attachments"),
+    destination: (_req, _file, cb) => cb(null, trainingAttachmentDir),
     filename: (_req, file, cb) => {
       const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname)}`;
       cb(null, uniqueName);
@@ -42628,7 +42632,7 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
   }, async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-      const filePath = `/uploads/training-room-attachments/${req.file.filename}`;
+      const filePath = getPublicUrl(path.join(trainingAttachmentDir, req.file.filename));
       console.log("[TrainingRoom] File uploaded:", req.file.originalname, req.file.size, "bytes");
       res.json({
         url: filePath,

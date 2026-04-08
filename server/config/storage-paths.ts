@@ -30,6 +30,7 @@ export const STORAGE_PATHS = {
   exports: path.join(DATA_ROOT, "exports"),
   voiceNotes: path.join(DATA_ROOT, "voice-notes"),
   callRecordings: path.join(DATA_ROOT, "call-recordings"),
+  trainingRoomAttachments: path.join(DATA_ROOT, "training-room-attachments"),
 };
 
 export type StoragePathKey = keyof typeof STORAGE_PATHS;

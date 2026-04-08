@@ -225,7 +225,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
     nextColorIndex.current = 0;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const userName = user.fullName || user.username || "Unknown";
+    const userName = user.fullName || user.username || "Neznámy";
     const avatarParam = user.avatarUrl ? `&avatarUrl=${encodeURIComponent(user.avatarUrl)}` : "";
     const wsUrl = `${protocol}//${window.location.host}/ws/training-room?userId=${user.id}&userName=${encodeURIComponent(userName)}&language=${myLanguage}&roomId=${encodeURIComponent(roomId.trim())}${avatarParam}`;
 
@@ -234,7 +234,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
 
     ws.onopen = () => {
       setConnectionStatus("connected");
-      toast({ title: "Pripojený", description: `Training Room: ${roomId}` });
+      toast({ title: "Pripojený", description: `Tréningová miestnosť: ${roomId}` });
 
       const pingInterval = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -261,7 +261,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
       setSpeakingUserId(null);
       stopAudioCapture();
       if (event.code !== 1000) {
-        toast({ title: "Odpojený", description: `Training Room odpojený (kód: ${event.code})`, variant: "destructive" });
+        toast({ title: "Odpojený", description: `Tréningová miestnosť odpojená (kód: ${event.code})`, variant: "destructive" });
       }
     };
 
@@ -388,7 +388,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
     wsRef.current.send(JSON.stringify({ type: "text-message", text: textMessage.trim() }));
     setTranscript(prev => [...prev, {
       speaker: user?.id || "",
-      speakerName: user?.fullName || user?.username || "Unknown",
+      speakerName: user?.fullName || user?.username || "Neznámy",
       original: textMessage.trim(),
       originalLang: myLanguage,
       translation: "",
@@ -417,7 +417,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
         credentials: "include",
       });
       if (!res.ok) {
-        let errMsg = "Upload failed";
+        let errMsg = "Nahrávanie zlyhalo";
         try { const errData = await res.json(); errMsg = errData.error || errMsg; } catch {}
         throw new Error(errMsg);
       }
@@ -432,7 +432,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
 
       setTranscript(prev => [...prev, {
         speaker: user?.id || "",
-        speakerName: user?.fullName || user?.username || "Unknown",
+        speakerName: user?.fullName || user?.username || "Neznámy",
         original: data.originalName,
         originalLang: myLanguage,
         translation: "",
@@ -605,7 +605,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
           <CardHeader className="pb-2 pt-3 px-3">
             <CardTitle className="flex items-center gap-2 text-sm">
               <Languages className="h-4 w-4" />
-              Training Room
+              Tréningová miestnosť
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 px-3 pb-3">
@@ -668,7 +668,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                     data-testid="button-copy-room-name"
                     onClick={() => {
                       const userName = user?.fullName || user?.username || "";
-                      const inviteText = `Ahoj, pozývam ťa do Training Room na spoločný tréning s prekladom v reálnom čase.\n\nRoom ID: ${roomId}\n\nPripoj sa cez NEXUS Omni → záložka Training Room, zadaj Room ID a klikni Pripojiť sa.\n\n— ${userName}`;
+                      const inviteText = `Ahoj, pozývam ťa do tréningovej miestnosti na spoločný tréning s prekladom v reálnom čase.\n\nRoom ID: ${roomId}\n\nPripoj sa cez NEXUS Omni → záložka Tréningová miestnosť, zadaj Room ID a klikni Pripojiť sa.\n\n— ${userName}`;
                       navigator.clipboard.writeText(inviteText);
                       toast({ title: "Pozvánka skopírovaná", description: "Text s Room ID je pripravený na odoslanie" });
                     }}
@@ -684,7 +684,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                     onClick={() => {
                       const userName = user?.fullName || user?.username || "";
                       const link = `${window.location.origin}/email?tab=training-room&room=${encodeURIComponent(roomId)}`;
-                      const inviteText = `Ahoj, pozývam ťa do Training Room na spoločný tréning s prekladom v reálnom čase.\n\nKlikni na odkaz pre pripojenie:\n${link}\n\n— ${userName}`;
+                      const inviteText = `Ahoj, pozývam ťa do tréningovej miestnosti na spoločný tréning s prekladom v reálnom čase.\n\nKlikni na odkaz pre pripojenie:\n${link}\n\n— ${userName}`;
                       navigator.clipboard.writeText(inviteText);
                       toast({ title: "Odkaz s pozvánkou skopírovaný", description: "Zdieľajte ho s účastníkmi" });
                     }}
@@ -847,7 +847,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
             {transcript.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <Languages className="h-10 w-10 mb-3 opacity-30" />
-                <p className="text-base font-medium">Training Room</p>
+                <p className="text-base font-medium">Tréningová miestnosť</p>
                 <p className="text-xs mt-1">Pripojte sa k miestnosti a zapnite mikrofón</p>
                 <p className="text-[11px] mt-2 max-w-md text-center">
                   Hovorte vo svojom jazyku — ostatní účastníci uvidia preklad v reálnom čase.
@@ -1247,7 +1247,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
       </Dialog>
 
       <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="z-[10000]" overlayClassName="z-[9999]">
           <AlertDialogHeader>
             <AlertDialogTitle>Vymazať tréningový záznam?</AlertDialogTitle>
             <AlertDialogDescription>
