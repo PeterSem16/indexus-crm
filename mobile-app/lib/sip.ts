@@ -100,6 +100,8 @@ class MobileSipEngine {
   private isRingbackPlaying: boolean = false;
   private inCallManagerRef: any = null;
   private speakerApplyTimer: ReturnType<typeof setTimeout> | null = null;
+  private audioEnforceInterval: ReturnType<typeof setInterval> | null = null;
+  private audioSessionStarted: boolean = false;
 
   get registrationState(): SipRegistrationState { return this._registrationState; }
   get callState(): SipCallState { return this._callState; }
@@ -717,29 +719,40 @@ class MobileSipEngine {
     }
   }
 
+  private stopAudioEnforce() {
+    if (this.audioEnforceInterval) {
+      clearInterval(this.audioEnforceInterval);
+      this.audioEnforceInterval = null;
+    }
+    if (this.speakerApplyTimer) {
+      clearTimeout(this.speakerApplyTimer);
+      this.speakerApplyTimer = null;
+    }
+  }
+
+  private async forceAudioRoute(speaker: boolean) {
+    const InCallManager = await this.getInCallManager();
+    if (speaker) {
+      InCallManager.setForceSpeakerphoneOn(true);
+      InCallManager.setSpeakerphoneOn(true);
+    } else {
+      InCallManager.setForceSpeakerphoneOn(false);
+      InCallManager.setSpeakerphoneOn(false);
+    }
+  }
+
   async toggleSpeaker(): Promise<boolean> {
     try {
       const newSpeaker = !this._callInfo.isSpeaker;
-      const InCallManager = await this.getInCallManager();
 
-      if (this.speakerApplyTimer) {
-        clearTimeout(this.speakerApplyTimer);
-        this.speakerApplyTimer = null;
-      }
+      this.stopAudioEnforce();
 
-      if (newSpeaker) {
-        InCallManager.setForceSpeakerphoneOn(true);
-        this.speakerApplyTimer = setTimeout(() => {
-          InCallManager.setSpeakerphoneOn(true);
-          this.emit('debug', 'Speaker ON confirmed (delayed)');
-        }, 200);
-      } else {
-        InCallManager.setForceSpeakerphoneOn(false);
-        this.speakerApplyTimer = setTimeout(() => {
-          InCallManager.setSpeakerphoneOn(false);
-          this.emit('debug', 'Earpiece ON confirmed (delayed)');
-        }, 200);
-      }
+      await this.forceAudioRoute(newSpeaker);
+
+      this.speakerApplyTimer = setTimeout(async () => {
+        await this.forceAudioRoute(newSpeaker);
+        this.emit('debug', `Speaker ${newSpeaker ? 'ON' : 'OFF'} confirmed (2nd apply)`);
+      }, 300);
 
       this.updateCallInfo({ isSpeaker: newSpeaker });
       this.emit('debug', `Speaker toggled: ${newSpeaker ? 'SPEAKER' : 'EARPIECE'}`);
@@ -753,34 +766,45 @@ class MobileSipEngine {
   private async startAudioSession(speaker: boolean = false) {
     try {
       const InCallManager = await this.getInCallManager();
-      InCallManager.start({ media: 'audio', auto: false, ringback: '' });
 
-      setTimeout(() => {
-        InCallManager.setForceSpeakerphoneOn(false);
-        InCallManager.setSpeakerphoneOn(false);
-        this.updateCallInfo({ isSpeaker: false });
-        this.emit('debug', 'InCallManager started — EARPIECE mode forced after start()');
+      if (!this.audioSessionStarted) {
+        InCallManager.start({ media: 'audio', auto: false, ringback: '' });
+        this.audioSessionStarted = true;
+        this.emit('debug', 'InCallManager.start() called');
+      }
 
-        if (speaker) {
-          setTimeout(() => {
-            InCallManager.setForceSpeakerphoneOn(true);
-            InCallManager.setSpeakerphoneOn(true);
-            this.updateCallInfo({ isSpeaker: true });
-            this.emit('debug', 'InCallManager switched to SPEAKER mode');
-          }, 300);
-        }
-      }, 500);
+      this.updateCallInfo({ isSpeaker: speaker });
     } catch (e: any) {
       this.emit('debug', `InCallManager start error: ${e?.message}`);
     }
   }
 
+  private startEarpieceEnforcement() {
+    this.stopAudioEnforce();
+
+    let count = 0;
+    const maxAttempts = 10;
+
+    this.audioEnforceInterval = setInterval(async () => {
+      count++;
+      if (count > maxAttempts || this._callInfo.isSpeaker) {
+        this.stopAudioEnforce();
+        this.emit('debug', `Earpiece enforcement ended after ${count} attempts (speaker=${this._callInfo.isSpeaker})`);
+        return;
+      }
+      try {
+        await this.forceAudioRoute(false);
+        this.emit('debug', `Earpiece enforce #${count}`);
+      } catch (e: any) {
+        this.emit('debug', `Earpiece enforce error: ${e?.message}`);
+      }
+    }, 500);
+  }
+
   private async stopAudioSession() {
     try {
-      if (this.speakerApplyTimer) {
-        clearTimeout(this.speakerApplyTimer);
-        this.speakerApplyTimer = null;
-      }
+      this.stopAudioEnforce();
+      this.audioSessionStarted = false;
 
       const InCallManager = await this.getInCallManager();
       InCallManager.setForceSpeakerphoneOn(false);
@@ -795,6 +819,10 @@ class MobileSipEngine {
   private setupRemoteAudio(session: any) {
     try {
       this.startAudioSession(this._callInfo.isSpeaker);
+
+      if (!this._callInfo.isSpeaker) {
+        this.startEarpieceEnforcement();
+      }
 
       const sdh = session.sessionDescriptionHandler;
       if (!sdh?.peerConnection) {
