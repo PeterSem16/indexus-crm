@@ -59,9 +59,15 @@ class TrainingRoomWebSocketService {
   private processingLock: Set<string> = new Set();
 
   initialize(server: Server) {
-    this.wss = new WebSocketServer({
-      server,
-      path: "/ws/training-room",
+    this.wss = new WebSocketServer({ noServer: true });
+
+    server.on("upgrade", (req, socket, head) => {
+      const pathname = req.url?.split("?")[0];
+      if (pathname !== "/ws/training-room") return;
+
+      this.wss!.handleUpgrade(req, socket, head, (ws) => {
+        this.wss!.emit("connection", ws, req);
+      });
     });
 
     this.wss.on("connection", (ws, req) => {

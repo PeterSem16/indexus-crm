@@ -88,8 +88,10 @@ export default function TrainingRoomPage() {
     setConnectionStatus("connecting");
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/training-room?userId=${user.id}&userName=${encodeURIComponent(user.firstName + " " + user.lastName)}&language=${myLanguage}&roomId=${encodeURIComponent(roomId.trim())}`;
+    const userName = user.fullName || user.username || "Unknown";
+    const wsUrl = `${protocol}//${window.location.host}/ws/training-room?userId=${user.id}&userName=${encodeURIComponent(userName)}&language=${myLanguage}&roomId=${encodeURIComponent(roomId.trim())}`;
 
+    console.log("[TrainingRoom] Connecting to:", wsUrl);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -114,9 +116,10 @@ export default function TrainingRoomPage() {
       stopAudioCapture();
     };
 
-    ws.onerror = () => {
+    ws.onerror = (err) => {
+      console.error("[TrainingRoom] WebSocket error:", err);
       setConnectionStatus("disconnected");
-      toast({ title: "Chyba pripojenia", variant: "destructive" });
+      toast({ title: "Chyba pripojenia", description: "Nepodarilo sa pripojiť k Training Room serveru", variant: "destructive" });
     };
   }, [roomId, user, myLanguage]);
 
@@ -246,7 +249,7 @@ export default function TrainingRoomPage() {
 
     setTranscript(prev => [...prev, {
       speaker: user?.id || "",
-      speakerName: `${user?.firstName || ""} ${user?.lastName || ""}`,
+      speakerName: user?.fullName || user?.username || "Unknown",
       original: textMessage.trim(),
       originalLang: myLanguage,
       translation: "",
