@@ -61,16 +61,17 @@ class TrainingRoomWebSocketService {
   initialize(server: Server) {
     this.wss = new WebSocketServer({ noServer: true });
 
-    server.on("upgrade", (req, socket, head) => {
+    server.prependListener("upgrade", (req: any, socket: any, head: any) => {
       const pathname = req.url?.split("?")[0];
-      if (pathname !== "/ws/training-room") return;
-
-      this.wss!.handleUpgrade(req, socket, head, (ws) => {
-        this.wss!.emit("connection", ws, req);
-      });
+      if (pathname === "/ws/training-room") {
+        this.wss!.handleUpgrade(req, socket, head, (ws) => {
+          this.wss!.emit("connection", ws, req);
+        });
+      }
     });
 
     this.wss.on("connection", (ws, req) => {
+      console.log("[TrainingRoom] New WS connection from:", req.url);
       const url = new URL(req.url || "", `http://${req.headers.host}`);
       const userId = url.searchParams.get("userId");
       const userName = url.searchParams.get("userName") || "Unknown";
@@ -78,6 +79,7 @@ class TrainingRoomWebSocketService {
       const roomId = url.searchParams.get("roomId");
 
       if (!userId || !roomId) {
+        console.log("[TrainingRoom] Missing userId or roomId, closing");
         ws.close(1008, "userId and roomId required");
         return;
       }
