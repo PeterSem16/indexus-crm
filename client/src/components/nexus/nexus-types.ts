@@ -1,4 +1,4 @@
-export type NexusTab = "email" | "sms" | "tasks" | "chats" | "teams" | "calendar" | "nexuspoint";
+export type NexusTab = "email" | "sms" | "tasks" | "chats" | "teams" | "calendar" | "nexuspoint" | "training-room";
 
 export interface Mailbox {
   id: string;
@@ -138,6 +138,7 @@ export const typeColors: Record<string, { bg: string; text: string; border: stri
   teams: { bg: "bg-indigo-50 dark:bg-indigo-950/30", text: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-200 dark:border-indigo-800", dot: "bg-indigo-500", accent: "text-indigo-600 dark:text-indigo-400" },
   calendar: { bg: "bg-rose-50 dark:bg-rose-950/30", text: "text-rose-700 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800", dot: "bg-rose-500", accent: "text-rose-600 dark:text-rose-400" },
   nexuspoint: { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800", dot: "bg-emerald-500", accent: "text-emerald-600 dark:text-emerald-400" },
+  "training-room": { bg: "bg-teal-50 dark:bg-teal-950/30", text: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800", dot: "bg-teal-500", accent: "text-teal-600 dark:text-teal-400" },
 };
 
 export type TaskFilter = "all" | "pending" | "in_progress" | "completed" | "cancelled";

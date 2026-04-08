@@ -308,7 +308,7 @@ export default function TrainingRoomPage() {
   const isMe = (userId: string) => userId === user?.id;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] gap-4 p-4" data-testid="training-room-page">
+    <div className="flex h-full gap-4 p-2" data-testid="training-room-page">
       <div className="flex flex-col w-80 gap-4">
         <Card>
           <CardHeader className="pb-3">

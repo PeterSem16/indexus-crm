@@ -173,6 +173,7 @@ import type {
   SmsFilter,
 } from "@/components/nexus/nexus-types";
 import { typeColors } from "@/components/nexus/nexus-types";
+import TrainingRoomPage from "@/pages/training-room";
 
 const avatarColors = [
   "bg-blue-600", "bg-emerald-600", "bg-violet-600", "bg-amber-600", "bg-rose-600",
@@ -2960,6 +2961,13 @@ export default function EmailClientPage() {
     const params = new URLSearchParams(searchString);
     const composeTo = params.get("compose");
     const contactSearch = params.get("contactSearch");
+    const tabParam = params.get("tab");
+    if (tabParam === "training-room") {
+      setActiveTab("training-room");
+      setUrlParamsProcessed(true);
+      window.history.replaceState({}, "", "/email");
+      return;
+    }
     if (composeTo) {
       setActiveTab("email");
       setComposeData(prev => ({ ...prev, to: composeTo, cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }));
@@ -4317,6 +4325,7 @@ export default function EmailClientPage() {
     { key: "chats", label: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-4 w-4" />, badge: unreadChats > 0 ? unreadChats : undefined, badgeColor: "bg-violet-500" },
     { key: "teams", label: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-4 w-4" />, badgeColor: "bg-indigo-500" },
     { key: "nexuspoint", label: t.nexusOmni.tabs.nexuspoint, icon: <HardDrive className="h-4 w-4" />, badgeColor: "bg-emerald-500" },
+    { key: "training-room", label: "Training Room", icon: <Languages className="h-4 w-4" />, badgeColor: "bg-teal-500" },
   ];
 
   return (
@@ -4403,6 +4412,7 @@ export default function EmailClientPage() {
       </div>
 
       <div className={cn("flex gap-2 transition-all duration-300", "flex-1 min-h-0")}>
+        {activeTab !== "training-room" && (
         <NexusSidebar
           activeTab={activeTab}
           selectedFolderId={selectedFolderId}
@@ -4436,6 +4446,7 @@ export default function EmailClientPage() {
           calendarSidebarFilter={calendarSidebarFilter}
           onCalendarSidebarFilterChange={setCalendarSidebarFilter}
         />
+        )}
 
         {activeTab === "email" && (
           <>
@@ -5340,6 +5351,11 @@ export default function EmailClientPage() {
 
         {activeTab === "nexuspoint" && (
           <NexusPointPanel userId={user?.id} />
+        )}
+        {activeTab === "training-room" && (
+          <div className="flex-1 min-h-0 overflow-auto">
+            <TrainingRoomPage />
+          </div>
         )}
       </div>
 

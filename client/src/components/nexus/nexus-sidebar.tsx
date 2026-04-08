@@ -53,6 +53,7 @@ import {
   MessageCircle,
   Hash,
   LayoutList,
+  Languages,
 } from "lucide-react";
 import type { MailFolder, SmsMessage, Task, ChatConversation, NexusTab, TaskFilter, SmsFilter } from "./nexus-types";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -226,6 +227,7 @@ export default function NexusSidebar({
     teams: { title: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-3.5 w-3.5 text-indigo-500" /> },
     calendar: { title: t.nexusOmni.tabs.calendar, icon: <CalendarDays className="h-3.5 w-3.5 text-rose-500" /> },
     nexuspoint: { title: t.nexusOmni.tabs.nexuspoint, icon: <HardDrive className="h-3.5 w-3.5 text-emerald-500" /> },
+    "training-room": { title: "Training Room", icon: <Languages className="h-3.5 w-3.5 text-teal-500" /> },
   };
 
   if (collapsed) {
