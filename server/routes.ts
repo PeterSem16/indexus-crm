@@ -42480,6 +42480,16 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
   });
   const uploadTrainingAttachment = multer({ storage: trainingRoomAttachmentStorage, limits: { fileSize: 10 * 1024 * 1024 } });
 
+  app.get("/api/training-room/active-rooms", requireAuth, async (_req, res) => {
+    try {
+      const { trainingRoomWs } = await import("./lib/training-room-ws");
+      const rooms = trainingRoomWs.getActiveRooms();
+      res.json(rooms);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post("/api/training-room/generate-summary", requireAuth, async (req, res) => {
     try {
       const { transcript, roomId, participants } = req.body;

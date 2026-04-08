@@ -123,6 +123,8 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
   const [archives, setArchives] = useState<ArchiveRecord[]>([]);
   const [archivesLoading, setArchivesLoading] = useState(false);
   const [viewingArchive, setViewingArchive] = useState<any>(null);
+  const [activeRooms, setActiveRooms] = useState<{ id: string; participantCount: number; createdAt: string; participants: { userName: string; language: string }[] }[]>([]);
+  const [activeRoomsLoading, setActiveRoomsLoading] = useState(false);
 
   const participantColorMap = useRef<Map<string, number>>(new Map());
   const nextColorIndex = useRef(0);
@@ -139,6 +141,27 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
       setRoomId(initialRoomId);
     }
   }, [initialRoomId]);
+
+  const fetchActiveRooms = useCallback(async () => {
+    try {
+      setActiveRoomsLoading(true);
+      const res = await fetch("/api/training-room/active-rooms", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setActiveRooms(data);
+      }
+    } catch { /* ignore */ } finally {
+      setActiveRoomsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (connectionStatus === "disconnected") {
+      fetchActiveRooms();
+      const interval = setInterval(fetchActiveRooms, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [connectionStatus, fetchActiveRooms]);
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -529,10 +552,12 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
             </div>
 
             {connectionStatus === "disconnected" ? (
-              <Button data-testid="button-connect" onClick={connectToRoom} className="w-full h-8 text-xs" disabled={!roomId.trim()}>
-                <Phone className="h-3.5 w-3.5 mr-1.5" />
-                Pripojiť sa
-              </Button>
+              <div className="space-y-1.5">
+                <Button data-testid="button-connect" onClick={connectToRoom} className="w-full h-8 text-xs" disabled={!roomId.trim()}>
+                  <Phone className="h-3.5 w-3.5 mr-1.5" />
+                  Pripojiť sa
+                </Button>
+              </div>
             ) : connectionStatus === "connecting" ? (
               <Button disabled className="w-full h-8 text-xs">
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -556,12 +581,14 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                     className="flex-1 h-7 text-[11px]"
                     data-testid="button-copy-room-name"
                     onClick={() => {
-                      navigator.clipboard.writeText(roomId);
-                      toast({ title: "Room ID skopírované", description: roomId });
+                      const userName = user?.fullName || user?.username || "";
+                      const inviteText = `Ahoj, pozývam ťa do Training Room na spoločný tréning s prekladom v reálnom čase.\n\nRoom ID: ${roomId}\n\nPripoj sa cez NEXUS Omni → záložka Training Room, zadaj Room ID a klikni Pripojiť sa.\n\n— ${userName}`;
+                      navigator.clipboard.writeText(inviteText);
+                      toast({ title: "Pozvánka skopírovaná", description: "Text s Room ID je pripravený na odoslanie" });
                     }}
                   >
                     <Copy className="h-3 w-3 mr-1" />
-                    Room ID
+                    Pozvánka
                   </Button>
                   <Button
                     variant="outline"
@@ -569,9 +596,11 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                     className="flex-1 h-7 text-[11px]"
                     data-testid="button-copy-link"
                     onClick={() => {
+                      const userName = user?.fullName || user?.username || "";
                       const link = `${window.location.origin}/email?tab=training-room&room=${encodeURIComponent(roomId)}`;
-                      navigator.clipboard.writeText(link);
-                      toast({ title: "Link skopírovaný", description: "Zdieľajte ho s účastníkmi" });
+                      const inviteText = `Ahoj, pozývam ťa do Training Room na spoločný tréning s prekladom v reálnom čase.\n\nKlikni na odkaz pre pripojenie:\n${link}\n\n— ${userName}`;
+                      navigator.clipboard.writeText(inviteText);
+                      toast({ title: "Odkaz s pozvánkou skopírovaný", description: "Zdieľajte ho s účastníkmi" });
                     }}
                   >
                     <Link className="h-3 w-3 mr-1" />
@@ -582,6 +611,51 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
             )}
           </CardContent>
         </Card>
+
+        {connectionStatus === "disconnected" && activeRooms.length > 0 && (
+          <Card className="border-teal-200 dark:border-teal-800">
+            <CardHeader className="pb-2 pt-3 px-3">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Radio className="h-4 w-4 text-teal-500 animate-pulse" />
+                Aktívne miestnosti
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-3 pb-3">
+              <div className="space-y-1.5">
+                {activeRooms.map(room => {
+                  const participantFlags = room.participants.map(p => {
+                    const lang = SUPPORTED_LANGUAGES.find(l => l.code === p.language);
+                    return lang?.flag || "";
+                  }).join(" ");
+                  return (
+                    <button
+                      key={room.id}
+                      onClick={() => { setRoomId(room.id); }}
+                      className={`w-full text-left p-2.5 rounded-lg border transition-all hover:bg-teal-50 dark:hover:bg-teal-950/30 hover:border-teal-300 dark:hover:border-teal-700 cursor-pointer ${
+                        roomId === room.id ? "bg-teal-50 dark:bg-teal-950/30 border-teal-400 dark:border-teal-600" : "border-border"
+                      }`}
+                      data-testid={`active-room-${room.id}`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold truncate max-w-[140px]">{room.id}</span>
+                        <Badge variant="secondary" className="text-[9px] h-4 bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">
+                          <Users className="h-2.5 w-2.5 mr-0.5" />
+                          {room.participantCount}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px]">{participantFlags}</span>
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {room.participants.map(p => p.userName).join(", ")}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader className="pb-2 pt-3 px-3">

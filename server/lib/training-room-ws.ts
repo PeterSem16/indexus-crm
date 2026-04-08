@@ -456,11 +456,12 @@ class TrainingRoomWebSocketService {
     }
   }
 
-  getActiveRooms(): Array<{ id: string; participantCount: number; createdAt: Date }> {
+  getActiveRooms(): Array<{ id: string; participantCount: number; createdAt: Date; participants: { userName: string; language: string }[] }> {
     return Array.from(this.rooms.values()).map(r => ({
       id: r.id,
       participantCount: r.participants.size,
       createdAt: r.createdAt,
+      participants: Array.from(r.participants.values()).map(p => ({ userName: p.userName, language: p.language })),
     }));
   }
 
