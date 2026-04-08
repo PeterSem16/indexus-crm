@@ -404,7 +404,11 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
         body: formData,
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        let errMsg = "Upload failed";
+        try { const errData = await res.json(); errMsg = errData.error || errMsg; } catch {}
+        throw new Error(errMsg);
+      }
       const data = await res.json();
 
       wsRef.current.send(JSON.stringify({
@@ -426,8 +430,8 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
       }]);
 
       toast({ title: "Príloha nahraná" });
-    } catch {
-      toast({ title: "Chyba pri nahrávaní prílohy", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Chyba pri nahrávaní prílohy", description: err?.message || "", variant: "destructive" });
     } finally {
       setUploadingAttachment(false);
     }

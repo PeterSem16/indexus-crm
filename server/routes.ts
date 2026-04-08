@@ -42614,10 +42614,22 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
     }
   });
 
-  app.post("/api/training-room/upload-attachment", requireAuth, uploadTrainingAttachment.single("file"), async (req, res) => {
+  app.post("/api/training-room/upload-attachment", requireAuth, (req, res, next) => {
+    uploadTrainingAttachment.single("file")(req, res, (err) => {
+      if (err) {
+        console.error("[TrainingRoom] Upload multer error:", err.message, err.code);
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(413).json({ error: "Súbor je príliš veľký (max 10 MB)" });
+        }
+        return res.status(400).json({ error: err.message || "Upload failed" });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });
       const filePath = `/uploads/training-room-attachments/${req.file.filename}`;
+      console.log("[TrainingRoom] File uploaded:", req.file.originalname, req.file.size, "bytes");
       res.json({
         url: filePath,
         originalName: req.file.originalname,
@@ -42625,6 +42637,7 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
         mimetype: req.file.mimetype,
       });
     } catch (e: any) {
+      console.error("[TrainingRoom] Upload handler error:", e.message);
       res.status(500).json({ error: e.message });
     }
   });
