@@ -61,7 +61,11 @@ import {
   Pencil,
   MoreVertical,
   Save,
+  Search,
+  Calendar,
+  Sparkles,
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -80,6 +84,10 @@ const SUPPORTED_LANGUAGES = [
   { code: "ua", label: "Українська", flag: "🇺🇦" },
   { code: "bg", label: "Български", flag: "🇧🇬" },
 ];
+
+function getInitials(name: string): string {
+  return name.split(" ").map(w => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+}
 
 const PARTICIPANT_COLORS = [
   { bg: "bg-blue-100 dark:bg-blue-900/40", border: "border-blue-300 dark:border-blue-700", bubble: "bg-blue-500", text: "text-blue-700 dark:text-blue-300", bubbleBg: "bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800" },
@@ -107,6 +115,7 @@ interface Participant {
   userId: string;
   userName: string;
   language: string;
+  avatarUrl?: string | null;
 }
 
 interface ArchiveRecord {
@@ -149,6 +158,8 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<{ id: string; title: string } | null>(null);
   const [savingTitle, setSavingTitle] = useState(false);
+  const [archiveFilterText, setArchiveFilterText] = useState("");
+  const [archiveFilterDate, setArchiveFilterDate] = useState("");
 
   const participantColorMap = useRef<Map<string, number>>(new Map());
   const nextColorIndex = useRef(0);
@@ -215,7 +226,8 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const userName = user.fullName || user.username || "Unknown";
-    const wsUrl = `${protocol}//${window.location.host}/ws/training-room?userId=${user.id}&userName=${encodeURIComponent(userName)}&language=${myLanguage}&roomId=${encodeURIComponent(roomId.trim())}`;
+    const avatarParam = user.avatarUrl ? `&avatarUrl=${encodeURIComponent(user.avatarUrl)}` : "";
+    const wsUrl = `${protocol}//${window.location.host}/ws/training-room?userId=${user.id}&userName=${encodeURIComponent(userName)}&language=${myLanguage}&roomId=${encodeURIComponent(roomId.trim())}${avatarParam}`;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -270,7 +282,7 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
       case "participant-joined":
         setParticipants(prev => {
           if (prev.find(p => p.userId === msg.userId)) return prev;
-          return [...prev, { userId: msg.userId, userName: msg.userName, language: msg.language }];
+          return [...prev, { userId: msg.userId, userName: msg.userName, language: msg.language, avatarUrl: msg.avatarUrl }];
         });
         break;
       case "participant-left":
@@ -687,11 +699,15 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
         </Card>
 
         {connectionStatus === "disconnected" && activeRooms.length > 0 && (
-          <Card className="border-teal-200 dark:border-teal-800">
+          <Card className="border-emerald-300 dark:border-emerald-700 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 dark:from-emerald-950/30 dark:to-teal-950/20">
             <CardHeader className="pb-2 pt-3 px-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Radio className="h-4 w-4 text-teal-500 animate-pulse" />
+              <CardTitle className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+                <div className="relative">
+                  <Sparkles className="h-4 w-4 text-emerald-500" />
+                  <div className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-emerald-400 rounded-full animate-ping" />
+                </div>
                 Aktívne miestnosti
+                <Badge className="ml-auto text-[9px] h-4 bg-emerald-500 text-white">{activeRooms.length}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="px-3 pb-3">
@@ -705,21 +721,26 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                     <button
                       key={room.id}
                       onClick={() => { setRoomId(room.id); }}
-                      className={`w-full text-left p-2.5 rounded-lg border transition-all hover:bg-teal-50 dark:hover:bg-teal-950/30 hover:border-teal-300 dark:hover:border-teal-700 cursor-pointer ${
-                        roomId === room.id ? "bg-teal-50 dark:bg-teal-950/30 border-teal-400 dark:border-teal-600" : "border-border"
+                      className={`w-full text-left p-2.5 rounded-xl border-2 transition-all cursor-pointer hover:shadow-md ${
+                        roomId === room.id
+                          ? "bg-emerald-100 dark:bg-emerald-900/40 border-emerald-400 dark:border-emerald-500 shadow-sm shadow-emerald-200 dark:shadow-emerald-900"
+                          : "bg-white/70 dark:bg-black/20 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
                       }`}
                       data-testid={`active-room-${room.id}`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold truncate max-w-[140px]">{room.id}</span>
-                        <Badge variant="secondary" className="text-[9px] h-4 bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="text-xs font-bold truncate max-w-[120px] text-emerald-800 dark:text-emerald-200">{room.id}</span>
+                        </div>
+                        <Badge className="text-[9px] h-4 bg-emerald-500/90 text-white">
                           <Users className="h-2.5 w-2.5 mr-0.5" />
                           {room.participantCount}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px]">{participantFlags}</span>
-                        <span className="text-[10px] text-muted-foreground truncate">
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate">
                           {room.participants.map(p => p.userName).join(", ")}
                         </span>
                       </div>
@@ -755,7 +776,10 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                       data-testid={`participant-${p.userId}`}
                     >
                       <div className="flex items-center gap-2">
-                        <div className={`h-2.5 w-2.5 rounded-full ${color.bubble} shrink-0`} />
+                        <Avatar className="h-6 w-6 shrink-0">
+                          {p.avatarUrl && <AvatarImage src={p.avatarUrl} alt={p.userName} />}
+                          <AvatarFallback className={`text-[9px] font-bold ${color.bubble} text-white`}>{getInitials(p.userName)}</AvatarFallback>
+                        </Avatar>
                         {speakingUserId === p.userId && (
                           <Radio className="h-3 w-3 text-green-500 animate-pulse" />
                         )}
@@ -777,15 +801,15 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
 
         {transcript.length > 0 && (
           <div className="space-y-1.5">
-            <Button variant="outline" size="sm" onClick={generateAiSummary} disabled={summaryLoading} className="w-full text-xs h-8" data-testid="button-ai-summary">
+            <Button size="sm" onClick={generateAiSummary} disabled={summaryLoading} className="w-full text-xs h-8 bg-violet-600 hover:bg-violet-700 text-white" data-testid="button-ai-summary">
               {summaryLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <BrainCircuit className="h-3.5 w-3.5 mr-1.5" />}
               AI Zápis z tréningu
             </Button>
-            <Button variant="outline" size="sm" onClick={archiveToServer} disabled={archiving} className="w-full text-xs h-8" data-testid="button-archive">
+            <Button size="sm" onClick={archiveToServer} disabled={archiving} className="w-full text-xs h-8 bg-teal-600 hover:bg-teal-700 text-white" data-testid="button-archive">
               {archiving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Archive className="h-3.5 w-3.5 mr-1.5" />}
               Archivovať na server
             </Button>
-            <Button variant="outline" size="sm" onClick={exportTranscript} className="w-full text-xs h-8" data-testid="button-export">
+            <Button size="sm" onClick={exportTranscript} className="w-full text-xs h-8 bg-sky-600 hover:bg-sky-700 text-white" data-testid="button-export">
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Stiahnuť prepis
             </Button>
@@ -793,10 +817,10 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
         )}
 
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          onClick={() => { setArchivesDialogOpen(true); loadArchives(); }}
-          className="w-full text-xs h-8 text-muted-foreground"
+          onClick={() => { setArchivesDialogOpen(true); loadArchives(); setArchiveFilterText(""); setArchiveFilterDate(""); }}
+          className="w-full text-xs h-8 border-amber-300 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
           data-testid="button-view-archives"
         >
           <History className="h-3.5 w-3.5 mr-1.5" />
@@ -834,13 +858,18 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                 const langInfo = getLangInfo(entry.originalLang);
                 const mine = isMe(entry.speaker);
                 const color = getParticipantColor(entry.speaker);
+                const speakerParticipant = participants.find(p => p.userId === entry.speaker);
+                const speakerAvatar = speakerParticipant?.avatarUrl;
 
                 if (entry.attachment) {
                   return (
-                    <div key={idx} className={`flex flex-col ${mine ? "items-end" : "items-start"}`} data-testid={`transcript-entry-${idx}`}>
-                      <div className={`max-w-[75%] rounded-lg p-3 border ${mine ? "bg-primary/5 border-primary/20" : color.bubbleBg}`}>
+                    <div key={idx} className={`flex ${mine ? "flex-row-reverse" : "flex-row"} gap-2`} data-testid={`transcript-entry-${idx}`}>
+                      <Avatar className="h-7 w-7 shrink-0 mt-1">
+                        {speakerAvatar && <AvatarImage src={speakerAvatar} alt={entry.speakerName} />}
+                        <AvatarFallback className={`text-[9px] font-bold ${color.bubble} text-white`}>{getInitials(entry.speakerName)}</AvatarFallback>
+                      </Avatar>
+                      <div className={`max-w-[70%] rounded-lg p-3 border ${color.bubbleBg}`}>
                         <div className="flex items-center gap-2 mb-1.5">
-                          <div className={`h-2 w-2 rounded-full ${color.bubble} shrink-0`} />
                           <span className={`text-[11px] font-medium ${color.text}`}>{entry.speakerName}</span>
                           <span className="text-[10px] text-muted-foreground">{new Date(entry.timestamp).toLocaleTimeString()}</span>
                         </div>
@@ -869,22 +898,25 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                 }
 
                 return (
-                  <div key={idx} className={`flex flex-col ${mine ? "items-end" : "items-start"}`} data-testid={`transcript-entry-${idx}`}>
-                    <div className={`max-w-[75%] rounded-lg p-3 border ${mine ? "bg-primary text-primary-foreground border-primary" : color.bubbleBg}`}>
+                  <div key={idx} className={`flex ${mine ? "flex-row-reverse" : "flex-row"} gap-2`} data-testid={`transcript-entry-${idx}`}>
+                    <Avatar className="h-7 w-7 shrink-0 mt-1">
+                      {speakerAvatar && <AvatarImage src={speakerAvatar} alt={entry.speakerName} />}
+                      <AvatarFallback className={`text-[9px] font-bold ${color.bubble} text-white`}>{getInitials(entry.speakerName)}</AvatarFallback>
+                    </Avatar>
+                    <div className={`max-w-[70%] rounded-lg p-3 border ${color.bubbleBg}`}>
                       <div className="flex items-center gap-2 mb-1">
-                        {!mine && <div className={`h-2 w-2 rounded-full ${color.bubble} shrink-0`} />}
-                        <span className={`text-[11px] font-medium ${mine ? "opacity-80" : color.text}`}>
+                        <span className={`text-[11px] font-medium ${color.text}`}>
                           {langInfo?.flag} {entry.speakerName}
                         </span>
-                        <span className={`text-[10px] ${mine ? "opacity-50" : "text-muted-foreground"}`}>
+                        <span className="text-[10px] text-muted-foreground">
                           {new Date(entry.timestamp).toLocaleTimeString()}
                         </span>
                       </div>
-                      <p className="text-sm">{entry.original}</p>
+                      <p className={`text-xs ${color.text} opacity-70`}>{entry.original}</p>
                       {entry.translation && entry.translation !== entry.original && (
                         <>
-                          <Separator className={`my-1.5 ${mine ? "bg-primary-foreground/20" : ""}`} />
-                          <p className={`text-xs ${mine ? "opacity-80" : "text-muted-foreground"}`}>
+                          <Separator className="my-1.5" />
+                          <p className="text-sm font-medium">
                             {getLangInfo(entry.targetLang)?.flag} {entry.translation}
                           </p>
                         </>
@@ -1015,13 +1047,13 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                 </Button>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-[10px]">{viewingArchive.roomId}</Badge>
-                  <DropdownMenu>
+                  <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-archive-actions">
                         <MoreVertical className="h-3.5 w-3.5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="z-[9999]">
                       <DropdownMenuItem onClick={() => setEditingTitle({ id: viewingArchive.id, title: viewingArchive.title })} data-testid="menu-rename">
                         <Pencil className="h-3.5 w-3.5 mr-2" />
                         Premenovať
@@ -1094,94 +1126,122 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
               </div>
             </div>
           ) : (
-            <ScrollArea className="flex-1 max-h-[55vh]">
-              {archivesLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex gap-2 mb-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={archiveFilterText}
+                    onChange={e => setArchiveFilterText(e.target.value)}
+                    placeholder="Hľadať podľa názvu alebo Room ID..."
+                    className="h-8 text-xs pl-8"
+                    data-testid="input-archive-filter-text"
+                  />
                 </div>
-              ) : archives.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Žiadne archivované tréningy</p>
-              ) : (
-                <div className="space-y-2">
-                  {archives.map(arc => {
-                    let participantNames = "";
-                    try {
-                      const parsed = typeof arc.participants === "string" ? JSON.parse(arc.participants) : arc.participants;
-                      participantNames = parsed.map((p: any) => p.userName).join(", ");
-                    } catch { /* ignore */ }
-                    return (
-                      <div
-                        key={arc.id}
-                        className="relative group p-3 rounded-lg border hover:bg-accent/50 transition-colors"
-                        data-testid={`archive-${arc.id}`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <button onClick={() => viewArchive(arc.id)} className="text-sm font-medium hover:underline text-left truncate max-w-[400px]" data-testid={`archive-view-${arc.id}`}>
-                            {arc.title}
+                <div className="relative">
+                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={archiveFilterDate}
+                    onChange={e => setArchiveFilterDate(e.target.value)}
+                    className="h-8 text-xs pl-8 w-[150px]"
+                    data-testid="input-archive-filter-date"
+                  />
+                </div>
+              </div>
+              <ScrollArea className="flex-1 max-h-[50vh]">
+                {archivesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : archives.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Žiadne archivované tréningy</p>
+                ) : (
+                  <div className="space-y-2">
+                    {archives.filter(arc => {
+                      const textMatch = !archiveFilterText || arc.title.toLowerCase().includes(archiveFilterText.toLowerCase()) || arc.roomId.toLowerCase().includes(archiveFilterText.toLowerCase());
+                      const dateMatch = !archiveFilterDate || new Date(arc.createdAt).toISOString().slice(0, 10) === archiveFilterDate;
+                      return textMatch && dateMatch;
+                    }).map(arc => {
+                      let participantNames = "";
+                      try {
+                        const parsed = typeof arc.participants === "string" ? JSON.parse(arc.participants) : arc.participants;
+                        participantNames = parsed.map((p: any) => p.userName).join(", ");
+                      } catch { /* ignore */ }
+                      return (
+                        <div
+                          key={arc.id}
+                          className="relative group p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                          data-testid={`archive-${arc.id}`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <button onClick={() => viewArchive(arc.id)} className="text-sm font-medium hover:underline text-left truncate max-w-[400px]" data-testid={`archive-view-${arc.id}`}>
+                              {arc.title}
+                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="secondary" className="text-[10px]">{arc.roomId}</Badge>
+                              <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`archive-menu-${arc.id}`}>
+                                    <MoreVertical className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="z-[9999]">
+                                  <DropdownMenuItem onClick={() => viewArchive(arc.id)}>
+                                    <Eye className="h-3.5 w-3.5 mr-2" />
+                                    Zobraziť
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setEditingTitle({ id: arc.id, title: arc.title })}>
+                                    <Pencil className="h-3.5 w-3.5 mr-2" />
+                                    Premenovať
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-red-600 dark:text-red-400" onClick={() => setDeleteConfirmId(arc.id)}>
+                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                    Vymazať
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                          <button onClick={() => viewArchive(arc.id)} className="w-full text-left">
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span>{new Date(arc.createdAt).toLocaleString("sk-SK")}</span>
+                              <span>{arc.archivedByUserName}</span>
+                              {participantNames && <span className="truncate max-w-[200px]">{participantNames}</span>}
+                              {arc.aiSummary && (
+                                <Badge variant="outline" className="text-[9px] h-4 text-violet-500 border-violet-300">
+                                  <BrainCircuit className="h-2.5 w-2.5 mr-0.5" />
+                                  AI
+                                </Badge>
+                              )}
+                            </div>
                           </button>
-                          <div className="flex items-center gap-1.5">
-                            <Badge variant="secondary" className="text-[10px]">{arc.roomId}</Badge>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`archive-menu-${arc.id}`}>
-                                  <MoreVertical className="h-3 w-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => viewArchive(arc.id)}>
-                                  <Eye className="h-3.5 w-3.5 mr-2" />
-                                  Zobraziť
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setEditingTitle({ id: arc.id, title: arc.title })}>
-                                  <Pencil className="h-3.5 w-3.5 mr-2" />
-                                  Premenovať
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-600 dark:text-red-400" onClick={() => setDeleteConfirmId(arc.id)}>
-                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                  Vymazať
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+                          {editingTitle && editingTitle.id === arc.id && (
+                            <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+                              <Input
+                                value={editingTitle.title}
+                                onChange={e => setEditingTitle({ ...editingTitle, title: e.target.value })}
+                                className="text-xs h-7 flex-1"
+                                autoFocus
+                                onKeyDown={e => { if (e.key === "Enter") saveArchiveTitle(); if (e.key === "Escape") setEditingTitle(null); }}
+                                data-testid={`input-rename-${arc.id}`}
+                              />
+                              <Button size="sm" className="h-7 px-2" onClick={saveArchiveTitle} disabled={savingTitle || !editingTitle.title.trim()}>
+                                {savingTitle ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingTitle(null)}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                        <button onClick={() => viewArchive(arc.id)} className="w-full text-left">
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span>{new Date(arc.createdAt).toLocaleString("sk-SK")}</span>
-                            <span>{arc.archivedByUserName}</span>
-                            {participantNames && <span className="truncate max-w-[200px]">{participantNames}</span>}
-                            {arc.aiSummary && (
-                              <Badge variant="outline" className="text-[9px] h-4 text-violet-500 border-violet-300">
-                                <BrainCircuit className="h-2.5 w-2.5 mr-0.5" />
-                                AI
-                              </Badge>
-                            )}
-                          </div>
-                        </button>
-                        {editingTitle && editingTitle.id === arc.id && (
-                          <div className="flex items-center gap-2 mt-2 pt-2 border-t">
-                            <Input
-                              value={editingTitle.title}
-                              onChange={e => setEditingTitle({ ...editingTitle, title: e.target.value })}
-                              className="text-xs h-7 flex-1"
-                              autoFocus
-                              onKeyDown={e => { if (e.key === "Enter") saveArchiveTitle(); if (e.key === "Escape") setEditingTitle(null); }}
-                              data-testid={`input-rename-${arc.id}`}
-                            />
-                            <Button size="sm" className="h-7 px-2" onClick={saveArchiveTitle} disabled={savingTitle || !editingTitle.title.trim()}>
-                              {savingTitle ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingTitle(null)}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </ScrollArea>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
           )}
         </DialogContent>
       </Dialog>

@@ -28,6 +28,7 @@ interface RoomParticipant {
   userId: string;
   userName: string;
   language: string;
+  avatarUrl: string | null;
   audioChunks: Buffer[];
   vadSilenceCount: number;
   isSpeaking: boolean;
@@ -79,6 +80,7 @@ class TrainingRoomWebSocketService {
       const userName = url.searchParams.get("userName") || "Unknown";
       const language = url.searchParams.get("language") || "sk";
       const roomId = url.searchParams.get("roomId");
+      const avatarUrl = url.searchParams.get("avatarUrl") || null;
 
       if (!userId || !roomId) {
         console.log("[TrainingRoom] Missing userId or roomId, closing");
@@ -86,7 +88,7 @@ class TrainingRoomWebSocketService {
         return;
       }
 
-      this.joinRoom(roomId, userId, userName, language, ws);
+      this.joinRoom(roomId, userId, userName, language, ws, avatarUrl);
 
       ws.on("message", (data, isBinary) => {
         this.handleMessage(roomId, userId, data, isBinary);
@@ -106,7 +108,7 @@ class TrainingRoomWebSocketService {
     console.log("[TrainingRoom] WebSocket server initialized on /ws/training-room");
   }
 
-  private joinRoom(roomId: string, userId: string, userName: string, language: string, ws: WebSocket) {
+  private joinRoom(roomId: string, userId: string, userName: string, language: string, ws: WebSocket, avatarUrl: string | null = null) {
     let room = this.rooms.get(roomId);
     if (!room) {
       room = {
@@ -123,6 +125,7 @@ class TrainingRoomWebSocketService {
       userId,
       userName,
       language,
+      avatarUrl,
       audioChunks: [],
       vadSilenceCount: 0,
       isSpeaking: false,
@@ -135,6 +138,7 @@ class TrainingRoomWebSocketService {
       userId,
       userName,
       language,
+      avatarUrl,
       participantCount: room.participants.size,
     });
 
@@ -147,6 +151,7 @@ class TrainingRoomWebSocketService {
         userId: p.userId,
         userName: p.userName,
         language: p.language,
+        avatarUrl: p.avatarUrl,
       })),
     }));
 
@@ -301,6 +306,25 @@ class TrainingRoomWebSocketService {
 
       const originalText = transcription.text?.trim();
       if (!originalText || originalText.length < 2) {
+        this.processingLock.delete(lockKey);
+        return;
+      }
+
+      const WHISPER_HALLUCINATIONS = [
+        "bye", "bye bye", "bye-bye", "goodbye", "thank you", "thanks",
+        "you", "yeah", "yes", "no", "ok", "okay", "hmm", "um", "uh",
+        "so", "the end", "thanks for watching", "subscribe",
+        "thank you for watching", "like and subscribe",
+        "see you next time", "see you", "subtitles by",
+        "amara.org", "www.", "http",
+        "ďakujem", "dovidenia", "ahoj", "čau", "tak",
+        "köszönöm", "viszlát", "szia",
+        "grazie", "arrivederci", "ciao",
+        "danke", "tschüss", "auf wiedersehen",
+      ];
+      const lowerText = originalText.toLowerCase().replace(/[.!?,\s]+$/g, "");
+      if (WHISPER_HALLUCINATIONS.includes(lowerText)) {
+        console.log(`[TrainingRoom] Filtered Whisper hallucination: "${originalText}"`);
         this.processingLock.delete(lockKey);
         return;
       }
