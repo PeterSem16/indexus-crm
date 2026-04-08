@@ -42589,6 +42589,31 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
     }
   });
 
+  app.patch("/api/training-room/archives/:id", requireAuth, async (req, res) => {
+    try {
+      const { title, aiSummary } = req.body;
+      const updates: any = {};
+      if (title !== undefined) updates.title = title;
+      if (aiSummary !== undefined) updates.aiSummary = aiSummary;
+      if (Object.keys(updates).length === 0) return res.status(400).json({ error: "No fields to update" });
+      const [updated] = await db.update(trainingRoomArchives).set(updates).where(sql`id = ${req.params.id}`).returning();
+      if (!updated) return res.status(404).json({ error: "Archive not found" });
+      res.json(updated);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/training-room/archives/:id", requireAuth, async (req, res) => {
+    try {
+      const [deleted] = await db.delete(trainingRoomArchives).where(sql`id = ${req.params.id}`).returning();
+      if (!deleted) return res.status(404).json({ error: "Archive not found" });
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post("/api/training-room/upload-attachment", requireAuth, uploadTrainingAttachment.single("file"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });

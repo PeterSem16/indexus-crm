@@ -17,6 +17,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Phone,
   PhoneOff,
   Mic,
@@ -40,6 +57,10 @@ import {
   Copy,
   Link,
   Check,
+  Trash2,
+  Pencil,
+  MoreVertical,
+  Save,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -125,6 +146,9 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
   const [viewingArchive, setViewingArchive] = useState<any>(null);
   const [activeRooms, setActiveRooms] = useState<{ id: string; participantCount: number; createdAt: string; participants: { userName: string; language: string }[] }[]>([]);
   const [activeRoomsLoading, setActiveRoomsLoading] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState<{ id: string; title: string } | null>(null);
+  const [savingTitle, setSavingTitle] = useState(false);
 
   const participantColorMap = useRef<Map<string, number>>(new Map());
   const nextColorIndex = useRef(0);
@@ -491,6 +515,52 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
     } catch { /* ignore */ } finally {
       setArchivesLoading(false);
     }
+  }, []);
+
+  const deleteArchive = useCallback(async (id: string) => {
+    try {
+      await apiRequest("DELETE", `/api/training-room/archives/${id}`);
+      setArchives(prev => prev.filter(a => a.id !== id));
+      if (viewingArchive?.id === id) setViewingArchive(null);
+      toast({ title: "Vymazané", description: "Tréningový záznam bol odstránený" });
+    } catch {
+      toast({ title: "Chyba pri mazaní", variant: "destructive" });
+    }
+    setDeleteConfirmId(null);
+  }, [viewingArchive]);
+
+  const saveArchiveTitle = useCallback(async () => {
+    if (!editingTitle) return;
+    setSavingTitle(true);
+    try {
+      await apiRequest("PATCH", `/api/training-room/archives/${editingTitle.id}`, { title: editingTitle.title });
+      setArchives(prev => prev.map(a => a.id === editingTitle.id ? { ...a, title: editingTitle.title } : a));
+      if (viewingArchive?.id === editingTitle.id) setViewingArchive((prev: any) => ({ ...prev, title: editingTitle.title }));
+      toast({ title: "Uložené", description: "Názov tréningu bol aktualizovaný" });
+      setEditingTitle(null);
+    } catch {
+      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+    } finally {
+      setSavingTitle(false);
+    }
+  }, [editingTitle, viewingArchive]);
+
+  const downloadArchiveFile = useCallback((archive: any, type: "summary" | "transcript") => {
+    let content = "";
+    const dateStr = new Date(archive.createdAt).toISOString().slice(0, 10);
+    if (type === "summary") {
+      content = `# ${archive.title}\n\nDátum: ${new Date(archive.createdAt).toLocaleString("sk-SK")}\nRoom ID: ${archive.roomId}\n\n## AI Zápis\n\n${archive.aiSummary || "Žiadny zápis"}`;
+    } else {
+      const entries = Array.isArray(archive.transcript) ? archive.transcript : [];
+      content = `# ${archive.title} - Prepis\n\nDátum: ${new Date(archive.createdAt).toLocaleString("sk-SK")}\nRoom ID: ${archive.roomId}\n\n${entries.map((e: any) => `[${new Date(e.timestamp).toLocaleTimeString()}] ${e.speakerName}: ${e.original}${e.translation && e.translation !== e.original ? `\n  → ${e.translation}` : ""}`).join("\n\n")}`;
+    }
+    const blob = new Blob([content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `training-${archive.roomId}-${dateStr}-${type}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   }, []);
 
   const viewArchive = useCallback(async (id: string) => {
@@ -922,23 +992,76 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
         </DialogContent>
       </Dialog>
 
-      <Dialog open={archivesDialogOpen} onOpenChange={setArchivesDialogOpen}>
+      <Dialog open={archivesDialogOpen} onOpenChange={(open) => { setArchivesDialogOpen(open); if (!open) { setViewingArchive(null); setEditingTitle(null); } }}>
         <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-5 w-5 text-teal-500" />
               Archív tréningov
+              {!viewingArchive && archives.length > 0 && (
+                <Badge variant="secondary" className="text-[10px] ml-auto">{archives.length} záznamov</Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           {viewingArchive ? (
             <div className="flex-1 overflow-auto space-y-4">
               <div className="flex items-center justify-between">
-                <Button variant="ghost" size="sm" onClick={() => setViewingArchive(null)} className="text-xs">
+                <Button variant="ghost" size="sm" onClick={() => { setViewingArchive(null); setEditingTitle(null); }} className="text-xs" data-testid="button-back-to-list">
                   ← Späť na zoznam
                 </Button>
-                <Badge variant="secondary" className="text-[10px]">{viewingArchive.roomId}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-[10px]">{viewingArchive.roomId}</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-archive-actions">
+                        <MoreVertical className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setEditingTitle({ id: viewingArchive.id, title: viewingArchive.title })} data-testid="menu-rename">
+                        <Pencil className="h-3.5 w-3.5 mr-2" />
+                        Premenovať
+                      </DropdownMenuItem>
+                      {viewingArchive.aiSummary && (
+                        <DropdownMenuItem onClick={() => downloadArchiveFile(viewingArchive, "summary")} data-testid="menu-download-summary">
+                          <Download className="h-3.5 w-3.5 mr-2" />
+                          Stiahnuť AI zápis
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => downloadArchiveFile(viewingArchive, "transcript")} data-testid="menu-download-transcript">
+                        <Download className="h-3.5 w-3.5 mr-2" />
+                        Stiahnuť prepis
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-red-600 dark:text-red-400" onClick={() => setDeleteConfirmId(viewingArchive.id)} data-testid="menu-delete">
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Vymazať záznam
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-              <div className="text-sm font-medium">{viewingArchive.title}</div>
+              {editingTitle && editingTitle.id === viewingArchive.id ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editingTitle.title}
+                    onChange={e => setEditingTitle({ ...editingTitle, title: e.target.value })}
+                    className="text-sm h-8 flex-1"
+                    placeholder="Názov tréningu"
+                    autoFocus
+                    onKeyDown={e => { if (e.key === "Enter") saveArchiveTitle(); if (e.key === "Escape") setEditingTitle(null); }}
+                    data-testid="input-rename-title"
+                  />
+                  <Button size="sm" className="h-8" onClick={saveArchiveTitle} disabled={savingTitle || !editingTitle.title.trim()} data-testid="button-save-title">
+                    {savingTitle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingTitle(null)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-sm font-medium">{viewingArchive.title}</div>
+              )}
               <div className="text-xs text-muted-foreground">
                 {new Date(viewingArchive.createdAt).toLocaleString("sk-SK")} • {viewingArchive.archivedByUserName}
               </div>
@@ -983,28 +1106,73 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
                       participantNames = parsed.map((p: any) => p.userName).join(", ");
                     } catch { /* ignore */ }
                     return (
-                      <button
+                      <div
                         key={arc.id}
-                        onClick={() => viewArchive(arc.id)}
-                        className="w-full text-left p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                        className="relative group p-3 rounded-lg border hover:bg-accent/50 transition-colors"
                         data-testid={`archive-${arc.id}`}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium">{arc.title}</span>
-                          <Badge variant="secondary" className="text-[10px]">{arc.roomId}</Badge>
+                          <button onClick={() => viewArchive(arc.id)} className="text-sm font-medium hover:underline text-left truncate max-w-[400px]" data-testid={`archive-view-${arc.id}`}>
+                            {arc.title}
+                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="secondary" className="text-[10px]">{arc.roomId}</Badge>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`archive-menu-${arc.id}`}>
+                                  <MoreVertical className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => viewArchive(arc.id)}>
+                                  <Eye className="h-3.5 w-3.5 mr-2" />
+                                  Zobraziť
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setEditingTitle({ id: arc.id, title: arc.title })}>
+                                  <Pencil className="h-3.5 w-3.5 mr-2" />
+                                  Premenovať
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-600 dark:text-red-400" onClick={() => setDeleteConfirmId(arc.id)}>
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                  Vymazať
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{new Date(arc.createdAt).toLocaleString("sk-SK")}</span>
-                          <span>{arc.archivedByUserName}</span>
-                          {participantNames && <span className="truncate max-w-[200px]">{participantNames}</span>}
-                          {arc.aiSummary && (
-                            <Badge variant="outline" className="text-[9px] h-4 text-violet-500 border-violet-300">
-                              <BrainCircuit className="h-2.5 w-2.5 mr-0.5" />
-                              AI
-                            </Badge>
-                          )}
-                        </div>
-                      </button>
+                        <button onClick={() => viewArchive(arc.id)} className="w-full text-left">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span>{new Date(arc.createdAt).toLocaleString("sk-SK")}</span>
+                            <span>{arc.archivedByUserName}</span>
+                            {participantNames && <span className="truncate max-w-[200px]">{participantNames}</span>}
+                            {arc.aiSummary && (
+                              <Badge variant="outline" className="text-[9px] h-4 text-violet-500 border-violet-300">
+                                <BrainCircuit className="h-2.5 w-2.5 mr-0.5" />
+                                AI
+                              </Badge>
+                            )}
+                          </div>
+                        </button>
+                        {editingTitle && editingTitle.id === arc.id && (
+                          <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+                            <Input
+                              value={editingTitle.title}
+                              onChange={e => setEditingTitle({ ...editingTitle, title: e.target.value })}
+                              className="text-xs h-7 flex-1"
+                              autoFocus
+                              onKeyDown={e => { if (e.key === "Enter") saveArchiveTitle(); if (e.key === "Escape") setEditingTitle(null); }}
+                              data-testid={`input-rename-${arc.id}`}
+                            />
+                            <Button size="sm" className="h-7 px-2" onClick={saveArchiveTitle} disabled={savingTitle || !editingTitle.title.trim()}>
+                              {savingTitle ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingTitle(null)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -1013,6 +1181,23 @@ export default function TrainingRoomPage({ initialRoomId }: { initialRoomId?: st
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Vymazať tréningový záznam?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Táto akcia je nevratná. Záznam vrátane prepisu a AI zápisu bude trvalo odstránený.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Zrušiť</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteConfirmId && deleteArchive(deleteConfirmId)} className="bg-red-600 hover:bg-red-700" data-testid="button-confirm-delete">
+              Vymazať
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
