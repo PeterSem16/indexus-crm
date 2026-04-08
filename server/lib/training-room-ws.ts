@@ -32,6 +32,8 @@ interface RoomParticipant {
   audioChunks: Buffer[];
   vadSilenceCount: number;
   isSpeaking: boolean;
+  isAlive: boolean;
+  roomId: string;
 }
 
 interface TranslationRoom {
@@ -58,6 +60,7 @@ class TrainingRoomWebSocketService {
   private wss: WebSocketServer | null = null;
   private rooms: Map<string, TranslationRoom> = new Map();
   private processingLock: Set<string> = new Set();
+  private heartbeatInterval: NodeJS.Timeout | null = null;
 
   initialize(server: Server) {
     this.wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
@@ -90,6 +93,12 @@ class TrainingRoomWebSocketService {
 
       this.joinRoom(roomId, userId, userName, language, ws, avatarUrl);
 
+      ws.on("pong", () => {
+        const room = this.rooms.get(roomId);
+        const participant = room?.participants.get(userId);
+        if (participant) participant.isAlive = true;
+      });
+
       ws.on("message", (data, isBinary) => {
         this.handleMessage(roomId, userId, data, isBinary);
       });
@@ -105,7 +114,34 @@ class TrainingRoomWebSocketService {
       });
     });
 
+    this.heartbeatInterval = setInterval(() => {
+      this.checkHeartbeats();
+    }, 15000);
+
     console.log("[TrainingRoom] WebSocket server initialized on /ws/training-room");
+  }
+
+  private checkHeartbeats() {
+    for (const [roomId, room] of this.rooms) {
+      const deadParticipants: string[] = [];
+      for (const [userId, participant] of room.participants) {
+        if (!participant.isAlive) {
+          console.log(`[TrainingRoom] Heartbeat timeout for ${participant.userName} in room ${roomId}`);
+          deadParticipants.push(userId);
+          try { participant.ws.terminate(); } catch {}
+        } else {
+          participant.isAlive = false;
+          try {
+            if (participant.ws.readyState === WebSocket.OPEN) {
+              participant.ws.ping();
+            }
+          } catch {}
+        }
+      }
+      for (const uid of deadParticipants) {
+        this.leaveRoom(roomId, uid);
+      }
+    }
   }
 
   private joinRoom(roomId: string, userId: string, userName: string, language: string, ws: WebSocket, avatarUrl: string | null = null) {
@@ -129,6 +165,8 @@ class TrainingRoomWebSocketService {
       audioChunks: [],
       vadSilenceCount: 0,
       isSpeaking: false,
+      isAlive: true,
+      roomId,
     };
 
     room.participants.set(userId, participant);
@@ -202,6 +240,7 @@ class TrainingRoomWebSocketService {
       } else if (msg.type === "text-message") {
         this.handleTextMessage(room, participant, msg.text);
       } else if (msg.type === "ping") {
+        participant.isAlive = true;
         participant.ws.send(JSON.stringify({ type: "pong" }));
       } else if (msg.type === "attachment") {
         const attachEntry: TranscriptEntry = {
