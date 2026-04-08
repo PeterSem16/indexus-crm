@@ -27,7 +27,8 @@ import {
   Headphones,
   Zap,
   Target,
-  HeartPulse
+  HeartPulse,
+  Languages,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -93,6 +94,7 @@ export function AppSidebar() {
     { title: "NEXUS Omni", url: "/email", icon: Network, testId: "nexus-omni", moduleKey: "email" },
     { title: "NEXUS Pulse", url: "/agent-workspace", icon: Zap, testId: "nexus-pulse", moduleKey: "nexusPulse" },
     { title: "NEXUS Missions", url: "/campaigns", icon: Target, testId: "nexus-missions", moduleKey: "campaigns" },
+    { title: "Training Room", url: "/training-room", icon: Languages, testId: "training-room", moduleKey: "nexusPulse" },
   ];
 
   const customerSubItems = [

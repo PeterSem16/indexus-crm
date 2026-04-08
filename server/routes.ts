@@ -1279,6 +1279,10 @@ export async function registerRoutes(
   const { inboundCallWs } = await import("./lib/inbound-call-ws");
   inboundCallWs.initialize(httpServer);
 
+  // Initialize Training Room WebSocket service
+  const { trainingRoomWs } = await import("./lib/training-room-ws");
+  trainingRoomWs.initialize(httpServer);
+
   // WebSocket proxy for mobile SIP: /wss-asterisk/ → mediagtw SIP server
   httpServer.on("upgrade", async (req, socket, head) => {
     if (req.url?.startsWith("/wss-asterisk")) {
