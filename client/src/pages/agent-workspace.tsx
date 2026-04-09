@@ -5351,12 +5351,10 @@ export default function AgentWorkspacePage() {
         }
       }
 
-      const autoCallbackCodes = ["email1_sent", "email2_sent", "pdf_email_sent"];
-      if (autoCallbackCodes.includes(data.disposition) && !data.callbackDateTime) {
-        const callbackDate = new Date();
-        callbackDate.setDate(callbackDate.getDate() + 2);
-        callbackDate.setHours(9, 0, 0, 0);
-        updateData.callbackDate = callbackDate.toISOString();
+      if (!data.callbackDateTime && disp?.actionType === "callback" && disp?.callbackOffsetDays) {
+        const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
+        cbDate.setHours(9, 0, 0, 0);
+        updateData.callbackDate = cbDate.toISOString();
         updateData.status = "callback_scheduled";
       }
       
@@ -5510,39 +5508,10 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "contact-history"] });
       }
       if (currentCampaignContactId && selectedCampaignId) {
-        try {
-          const ccContact = rawCampaignContacts.find(cc => cc.id === currentCampaignContactId);
-          const currentDisp = ccContact?.dispositionCode || ccContact?.status || "pending";
-          let autoDisposition = "email1_sent";
-          if (currentDisp === "email1_sent") {
-            autoDisposition = "email2_sent";
-          } else if (currentDisp === "email2_sent" || currentDisp === "pdf_email_sent") {
-            autoDisposition = "pdf_email_sent";
-          }
-          const callbackDate = new Date();
-          callbackDate.setDate(callbackDate.getDate() + 2);
-          callbackDate.setHours(9, 0, 0, 0);
-          const updateData = {
-            status: "callback_scheduled",
-            dispositionCode: autoDisposition,
-            callbackDate: callbackDate.toISOString(),
-            lastAttemptAt: new Date().toISOString(),
-            notes: `Email odoslaný na ${variables.to.join(", ")} — ${variables.subject}`,
-            incrementAttempt: true,
-            assignedTo: user?.id || null,
-          };
-          apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${currentCampaignContactId}`, updateData).then(() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/campaigns/contact-counts"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-          }).catch((err) => console.error("Auto-disposition PATCH failed:", err));
-          toast({
-            title: t.agentWorkspace.dispositionSet,
-            description: `${autoDisposition} + callback ${callbackDate.toLocaleDateString("sk")}`,
-          });
-        } catch (dispErr) {
-          console.error("Auto-disposition error:", dispErr);
+        const campaignSettings = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
+        if (campaignSettings.dispositionMode === "script") {
+          // disposition is controlled by call script - do nothing here
+        } else {
           setDispositionChannelFilter("email");
           setDispositionModalOpen(true);
         }
