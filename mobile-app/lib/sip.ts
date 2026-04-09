@@ -52,6 +52,8 @@ export interface SipCredentials {
   username: string;
   password: string;
   callRecording: boolean;
+  stunServers?: string[];
+  turnServers?: { urls: string; username?: string; credential?: string }[];
 }
 
 export type SipRegistrationState = 'unregistered' | 'registering' | 'registered' | 'error';
@@ -205,6 +207,18 @@ class MobileSipEngine {
       const wsServer = `wss://${this.credentials!.server}:${wsPort}${wsPath}`;
       console.log('[MobileSIP] Connecting to WebSocket:', wsServer);
 
+      const iceServers: any[] = [];
+      if (this.credentials!.stunServers?.length) {
+        this.credentials!.stunServers.forEach(s => iceServers.push({ urls: s }));
+      } else {
+        iceServers.push({ urls: 'stun:stun.l.google.com:19302' });
+        iceServers.push({ urls: 'stun:stun1.l.google.com:19302' });
+      }
+      if (this.credentials!.turnServers?.length) {
+        this.credentials!.turnServers.forEach(t => iceServers.push(t));
+      }
+      this.emit('debug', `ICE servers: ${JSON.stringify(iceServers.map(s => s.urls))}`);
+
       this.ua = new UserAgent({
         uri,
         transportOptions: {
@@ -214,6 +228,15 @@ class MobileSipEngine {
         authorizationUsername: this.credentials!.username,
         authorizationPassword: this.credentials!.password,
         logLevel: 'debug',
+        sessionDescriptionHandlerFactoryOptions: {
+          iceGatheringTimeout: 5000,
+          peerConnectionConfiguration: {
+            iceServers,
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            iceCandidatePoolSize: 2,
+          },
+        },
       });
 
       this.ua.delegate = {
@@ -472,6 +495,7 @@ class MobileSipEngine {
       const inviter = new Inviter(this.ua, target, {
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false },
+          iceGatheringTimeout: 5000,
         },
       });
       this.currentSession = inviter;
@@ -529,7 +553,12 @@ class MobileSipEngine {
 
     try {
       await this.startAudioSession(false);
-      await this.currentSession.accept();
+      await this.currentSession.accept({
+        sessionDescriptionHandlerOptions: {
+          constraints: { audio: true, video: false },
+          iceGatheringTimeout: 5000,
+        },
+      });
       return true;
     } catch (error) {
       console.error('[MobileSIP] Failed to answer call:', error);
@@ -831,6 +860,23 @@ class MobileSipEngine {
       }
 
       const pc = sdh.peerConnection as any;
+
+      this.emit('debug', `ICE connection state: ${pc.iceConnectionState}`);
+      this.emit('debug', `ICE gathering state: ${pc.iceGatheringState}`);
+      pc.oniceconnectionstatechange = () => {
+        this.emit('debug', `ICE connection state changed: ${pc.iceConnectionState}`);
+        if (pc.iceConnectionState === 'failed') {
+          this.emit('debug', 'ICE connection FAILED - likely NAT traversal issue');
+        }
+      };
+      pc.onicegatheringstatechange = () => {
+        this.emit('debug', `ICE gathering state changed: ${pc.iceGatheringState}`);
+      };
+      pc.onicecandidate = (event: any) => {
+        if (event?.candidate) {
+          this.emit('debug', `ICE candidate: ${event.candidate.type} ${event.candidate.protocol} ${event.candidate.address || ''}`);
+        }
+      };
 
       const receivers = pc.getReceivers ? pc.getReceivers() : [];
       this.emit('debug', `Remote receivers: ${receivers.length}`);

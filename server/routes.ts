@@ -16151,6 +16151,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         username: ext.sipUsername,
         password,
         callRecording: collaborator.mobileCallRecording,
+        stunServers: [
+          "stun:stun.l.google.com:19302",
+          "stun:stun1.l.google.com:19302",
+        ],
+        turnServers: [],
       });
     } catch (error) {
       console.error("Mobile SIP credentials error:", error);

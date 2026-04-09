@@ -145,7 +145,10 @@ export function SipProvider({ children }: { children: ReactNode }) {
         sessionDescriptionHandlerFactoryOptions: {
           iceGatheringTimeout: 1500,
           peerConnectionConfiguration: {
-            iceServers: [],
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+            ],
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
           },
@@ -379,7 +382,10 @@ export function SipProvider({ children }: { children: ReactNode }) {
         sessionDescriptionHandlerFactoryOptions: {
           iceGatheringTimeout: 1500,
           peerConnectionConfiguration: {
-            iceServers: [],
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+            ],
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
           },
