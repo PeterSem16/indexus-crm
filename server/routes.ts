@@ -26460,6 +26460,98 @@ Rules:
   });
 
   // ============================================
+  // ONBOARDING EMAIL PREVIEW / SEND
+  // ============================================
+
+  const renderOnboardingEmail = async (user: any, baseUrl: string) => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const templatePath = path.default.join(process.cwd(), "client", "public", "email-templates", "welcome-onboarding.html");
+    const html = fs.default.readFileSync(templatePath, "utf-8");
+
+    const countries = user.assignedCountries || [];
+    const countryCode = countries[0] || "SK";
+    const COUNTRY_MAP: Record<string, { name: string; flag: string }> = {
+      SK: { name: "Slovensko", flag: "🇸🇰" },
+      CZ: { name: "Česko", flag: "🇨🇿" },
+      HU: { name: "Maďarsko", flag: "🇭🇺" },
+      RO: { name: "Rumunsko", flag: "🇷🇴" },
+      AT: { name: "Rakúsko", flag: "🇦🇹" },
+      IT: { name: "Taliansko", flag: "🇮🇹" },
+      DE: { name: "Nemecko", flag: "🇩🇪" },
+    };
+    const country = COUNTRY_MAP[countryCode] || { name: countryCode, flag: "🏳️" };
+    const authMethod = user.ms365Email ? "Microsoft 365 SSO" : "Heslo";
+    const tempPassword = user.ms365Email ? "Microsoft 365 SSO" : "********";
+
+    return html
+      .replace(/\{\{userName\}\}/g, user.fullName || user.username)
+      .replace(/\{\{userEmail\}\}/g, user.email)
+      .replace(/\{\{tempPassword\}\}/g, tempPassword)
+      .replace(/\{\{authMethod\}\}/g, authMethod)
+      .replace(/\{\{loginUrl\}\}/g, baseUrl)
+      .replace(/\{\{countryName\}\}/g, country.name)
+      .replace(/\{\{countryFlag\}\}/g, country.flag);
+  };
+
+  app.post("/api/users/:id/onboarding-email/preview", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser || (sessionUser.role !== "admin" && sessionUser.role !== "manager")) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+
+      const user = await storage.getUser(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const rendered = await renderOnboardingEmail(user, baseUrl);
+
+      res.json({ html: rendered, to: user.email, subject: `INDEXUS CRM - Vitajte, ${user.fullName || user.username}` });
+    } catch (error) {
+      console.error("Error previewing onboarding email:", error);
+      res.status(500).json({ error: "Failed to preview onboarding email" });
+    }
+  });
+
+  app.post("/api/users/:id/onboarding-email/send", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser || (sessionUser.role !== "admin" && sessionUser.role !== "manager")) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+
+      const user = await storage.getUser(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const rendered = await renderOnboardingEmail(user, baseUrl);
+
+      const { sendEmail } = await import("./email");
+      const subject = `INDEXUS CRM - Vitajte, ${user.fullName || user.username}`;
+      const success = await sendEmail({ to: user.email, subject, html: rendered });
+
+      if (!success) {
+        return res.status(500).json({ error: "Failed to send email" });
+      }
+
+      await logActivity(
+        sessionUser.id,
+        "onboarding_email_sent",
+        "user",
+        req.params.id,
+        `Onboarding email sent to ${user.email}`,
+        null
+      );
+
+      res.json({ success: true, message: `Onboarding email sent to ${user.email}` });
+    } catch (error) {
+      console.error("Error sending onboarding email:", error);
+      res.status(500).json({ error: "Failed to send onboarding email" });
+    }
+  });
+
+  // ============================================
   // CONTRACT MANAGEMENT ENDPOINTS
   // ============================================
 

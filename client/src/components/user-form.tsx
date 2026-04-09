@@ -8,7 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Phone, PhoneOff, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle, Sparkles, Bell, Settings } from "lucide-react";
+import { Phone, PhoneOff, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle, Sparkles, Bell, Settings, Send, Eye } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -139,6 +147,12 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
   const [keepExistingExtension, setKeepExistingExtension] = useState(isEditing && !!(initialData as any)?.sipExtension);
   const [sipEnabledLocal, setSipEnabledLocal] = useState(!!(initialData as any)?.sipEnabled);
   const [manualSipEntry, setManualSipEntry] = useState(false);
+  const [showOnboardingPreview, setShowOnboardingPreview] = useState(false);
+  const [onboardingEmailHtml, setOnboardingEmailHtml] = useState("");
+  const [onboardingEmailTo, setOnboardingEmailTo] = useState("");
+  const [onboardingEmailSubject, setOnboardingEmailSubject] = useState("");
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [isSendingOnboarding, setIsSendingOnboarding] = useState(false);
   
   const activeRoles = roles.filter(r => r.isActive);
   const systemRolesWithLegacy = activeRoles.filter(r => (r as any).legacyRole);
@@ -307,6 +321,38 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       toast({ title: "Chyba", description: "Nepodarilo sa nahrať avatar", variant: "destructive" });
     } finally {
       setIsUploadingAvatar(false);
+    }
+  };
+
+  const handlePreviewOnboarding = async () => {
+    if (!initialData?.id) return;
+    setIsLoadingPreview(true);
+    try {
+      const res = await apiRequest("POST", `/api/users/${initialData.id}/onboarding-email/preview`, {});
+      const data = await res.json();
+      setOnboardingEmailHtml(data.html);
+      setOnboardingEmailTo(data.to);
+      setOnboardingEmailSubject(data.subject);
+      setShowOnboardingPreview(true);
+    } catch (error) {
+      toast({ title: "Chyba", description: "Nepodarilo sa načítať náhľad emailu", variant: "destructive" });
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleSendOnboarding = async () => {
+    if (!initialData?.id) return;
+    setIsSendingOnboarding(true);
+    try {
+      const res = await apiRequest("POST", `/api/users/${initialData.id}/onboarding-email/send`, {});
+      const data = await res.json();
+      toast({ title: "Email odoslaný", description: data.message || `Onboarding email bol odoslaný na ${onboardingEmailTo}` });
+      setShowOnboardingPreview(false);
+    } catch (error) {
+      toast({ title: "Chyba", description: "Nepodarilo sa odoslať onboarding email", variant: "destructive" });
+    } finally {
+      setIsSendingOnboarding(false);
     }
   };
 
@@ -1754,23 +1800,94 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={onCancel}
-            data-testid="button-cancel"
-          >
-            {t.common.cancel}
-          </Button>
-          <Button 
-            type="submit" 
-            disabled={isLoading}
-            data-testid="button-submit"
-          >
-            {isLoading ? t.users.saving : initialData ? t.users.updateUser : t.users.createUser}
-          </Button>
+        <div className="flex justify-between items-center gap-3 pt-4 border-t">
+          <div>
+            {isEditing && initialData?.id && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handlePreviewOnboarding}
+                disabled={isLoadingPreview}
+                data-testid="button-onboarding-email"
+                className="text-xs gap-1.5"
+              >
+                {isLoadingPreview ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Mail className="h-3.5 w-3.5" />
+                )}
+                Onboarding Email
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onCancel}
+              data-testid="button-cancel"
+            >
+              {t.common.cancel}
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              data-testid="button-submit"
+            >
+              {isLoading ? t.users.saving : initialData ? t.users.updateUser : t.users.createUser}
+            </Button>
+          </div>
         </div>
+
+        <Dialog open={showOnboardingPreview} onOpenChange={setShowOnboardingPreview}>
+          <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-[#8B1538]" />
+                Náhľad Onboarding Emailu
+              </DialogTitle>
+              <DialogDescription>
+                <span className="text-sm">
+                  Príjemca: <strong>{onboardingEmailTo}</strong> &middot; Predmet: <strong>{onboardingEmailSubject}</strong>
+                </span>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-auto border rounded-lg bg-gray-50">
+              <iframe
+                srcDoc={onboardingEmailHtml}
+                className="w-full min-h-[500px] border-0"
+                title="Email Preview"
+                sandbox="allow-same-origin"
+                data-testid="iframe-email-preview"
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowOnboardingPreview(false)}
+                data-testid="button-close-preview"
+              >
+                Zatvoriť
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSendOnboarding}
+                disabled={isSendingOnboarding}
+                className="bg-[#8B1538] hover:bg-[#6B1C3B] gap-2"
+                data-testid="button-send-onboarding"
+              >
+                {isSendingOnboarding ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Odoslať Email
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </form>
     </Form>
   );

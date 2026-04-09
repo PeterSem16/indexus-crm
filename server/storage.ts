@@ -4440,7 +4440,8 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(sipExtensions)
       .where(and(
         eq(sipExtensions.countryCode, countryCode),
-        isNull(sipExtensions.assignedToUserId)
+        isNull(sipExtensions.assignedToUserId),
+        isNull(sipExtensions.assignedToCollaboratorId)
       ))
       .orderBy(sipExtensions.extension);
   }
