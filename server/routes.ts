@@ -26467,7 +26467,7 @@ Rules:
     const fs = await import("fs");
     const path = await import("path");
     const templatePath = path.default.join(process.cwd(), "client", "public", "email-templates", "welcome-onboarding.html");
-    const html = fs.default.readFileSync(templatePath, "utf-8");
+    let html = fs.default.readFileSync(templatePath, "utf-8");
 
     const countries = user.assignedCountries || [];
     const countryCode = countries[0] || "SK";
@@ -26481,8 +26481,17 @@ Rules:
       DE: { name: "Nemecko", flag: "🇩🇪" },
     };
     const country = COUNTRY_MAP[countryCode] || { name: countryCode, flag: "🏳️" };
-    const authMethod = user.ms365Email ? "Microsoft 365 SSO" : "Heslo";
-    const tempPassword = user.ms365Email ? "Microsoft 365 SSO" : "********";
+    const isMs365 = !!user.ms365Email;
+    const authMethod = isMs365 ? "Microsoft 365 SSO" : "Heslo";
+    const tempPassword = isMs365 ? "—" : "********";
+
+    if (isMs365) {
+      html = html.replace(/<!-- IF_LOCAL -->[\s\S]*?<!-- ENDIF_LOCAL -->/g, "");
+      html = html.replace(/<!-- IF_MS365 -->/g, "").replace(/<!-- ENDIF_MS365 -->/g, "");
+    } else {
+      html = html.replace(/<!-- IF_MS365 -->[\s\S]*?<!-- ENDIF_MS365 -->/g, "");
+      html = html.replace(/<!-- IF_LOCAL -->/g, "").replace(/<!-- ENDIF_LOCAL -->/g, "");
+    }
 
     return html
       .replace(/\{\{userName\}\}/g, user.fullName || user.username)
