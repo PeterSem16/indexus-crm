@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
+import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
+import type { Collaborator } from "@shared/schema";
 
 function getLocalizedCategoryName(cat: any, locale: string): string {
   const localeMap: Record<string, string | null> = {
@@ -449,6 +451,31 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
   const [assignNotes, setAssignNotes] = useState("");
   const [editingId, setEditingId] = useState<string>("");
   const [editData, setEditData] = useState<any>({});
+  const [drawerCollaborator, setDrawerCollaborator] = useState<Collaborator | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isLoadingCollaborator, setIsLoadingCollaborator] = useState(false);
+
+  const openCollaboratorDrawer = async (personId: string) => {
+    setIsLoadingCollaborator(true);
+    try {
+      const res = await fetch(`/api/collaborators/${personId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setDrawerCollaborator(data);
+      setIsDrawerOpen(true);
+    } catch {
+      toast({ title: "Chyba pri načítaní spolupracovníka", variant: "destructive" });
+    } finally {
+      setIsLoadingCollaborator(false);
+    }
+  };
+
+  const closeCollaboratorDrawer = () => {
+    setIsDrawerOpen(false);
+    setDrawerCollaborator(null);
+    personnelQuery.refetch();
+    queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+  };
 
   const personnelQuery = useQuery<any>({
     queryKey: ["/api/institutions", entityType, entityId, "personnel"],
@@ -807,11 +834,23 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
 
           return (
             <div key={p.assignment_id || `legacy-${idx}`} className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
-              <div className={`flex-shrink-0 w-6 h-6 rounded-full ${catStyle.bg} flex items-center justify-center`}>
+              <button
+                type="button"
+                className={`flex-shrink-0 w-6 h-6 rounded-full ${catStyle.bg} flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all`}
+                onClick={() => p.person_id && openCollaboratorDrawer(p.person_id)}
+                disabled={isLoadingCollaborator}
+                data-testid={`icon-open-collab-${p.person_id}`}
+              >
                 <CatIcon className={`h-3 w-3 ${catStyle.color}`} />
-              </div>
+              </button>
               <div className="flex-1 min-w-0 flex items-center gap-2">
-                <span className="font-medium text-sm truncate">{fullName}</span>
+                <button
+                  type="button"
+                  className="font-medium text-sm truncate cursor-pointer hover:text-primary hover:underline transition-colors text-left"
+                  onClick={() => p.person_id && openCollaboratorDrawer(p.person_id)}
+                  disabled={isLoadingCollaborator}
+                  data-testid={`link-open-collab-${p.person_id}`}
+                >{fullName}</button>
                 {p.is_primary && <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />}
                 {catName && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${catStyle.color} border-current/30`}>{catName}</Badge>}
                 {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
@@ -850,6 +889,23 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
           );
         })}
       </div>
+
+      {isDrawerOpen && drawerCollaborator && (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            onClick={closeCollaboratorDrawer}
+            data-testid="collaborator-drawer-backdrop"
+          />
+          <div className="fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+            <CollaboratorFormWizard
+              initialData={drawerCollaborator}
+              onSuccess={closeCollaboratorDrawer}
+              onCancel={closeCollaboratorDrawer}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
