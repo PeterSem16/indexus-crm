@@ -1410,6 +1410,9 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
                 className="w-full gap-2"
                 variant={btnVariant}
                 onClick={() => {
+                  if (element.dispositionCode && onAction) {
+                    onAction("setDisposition", { elementId: element.id, stepId: currentStep?.id, dispositionCode: element.dispositionCode });
+                  }
                   if (element.action && onAction) {
                     onAction(element.action, { elementId: element.id, stepId: currentStep?.id, emailTemplateId: element.emailTemplateId });
                   }
@@ -6758,29 +6761,26 @@ export default function AgentWorkspacePage() {
               setDispositionModalOpen(true);
             } else if (action === "setDisposition" && data?.dispositionCode) {
               try {
-                const s = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
-                if (s.dispositionMode === "script") {
-                  const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
-                  const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
-                  const isCallbackType = disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms"
-                    || parentDisp?.actionType === "callback" || parentDisp?.actionType === "schedule_email" || parentDisp?.actionType === "schedule_sms";
-                  if (isCallbackType) {
-                    if (disp?.callbackOffsetDays) {
-                      const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
-                      cbDate.setHours(9, 0, 0, 0);
-                      handleDisposition(data.dispositionCode, parentDisp?.code, cbDate.toISOString(), user?.id || null);
-                    } else {
-                      setModalSelectedParent(parentDisp?.id || disp?.id || null);
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
-                      setModalCallbackTime("09:00");
-                      setDispositionChannelFilter(null);
-                      setDispositionModalOpen(true);
-                    }
+                const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
+                const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
+                const isCallbackType = disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms"
+                  || parentDisp?.actionType === "callback" || parentDisp?.actionType === "schedule_email" || parentDisp?.actionType === "schedule_sms";
+                if (isCallbackType) {
+                  if (disp?.callbackOffsetDays) {
+                    const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
+                    cbDate.setHours(9, 0, 0, 0);
+                    handleDisposition(data.dispositionCode, parentDisp?.code, cbDate.toISOString(), user?.id || null);
                   } else {
-                    handleDisposition(data.dispositionCode, parentDisp?.code);
+                    setModalSelectedParent(parentDisp?.id || disp?.id || null);
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+                    setModalCallbackTime("09:00");
+                    setDispositionChannelFilter(null);
+                    setDispositionModalOpen(true);
                   }
+                } else {
+                  handleDisposition(data.dispositionCode, parentDisp?.code);
                 }
               } catch {}
             }
@@ -7671,29 +7671,26 @@ export default function AgentWorkspacePage() {
                 else if (action === "openPhoneDisposition") { setDispositionChannelFilter("phone"); setDispositionModalOpen(true); }
                 else if (action === "setDisposition" && data?.dispositionCode) {
                   try {
-                    const s = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
-                    if (s.dispositionMode === "script") {
-                      const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
-                      const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
-                      const isCallbackType = disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms"
-                        || parentDisp?.actionType === "callback" || parentDisp?.actionType === "schedule_email" || parentDisp?.actionType === "schedule_sms";
-                      if (isCallbackType) {
-                        if (disp?.callbackOffsetDays) {
-                          const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
-                          cbDate.setHours(9, 0, 0, 0);
-                          handleDisposition(data.dispositionCode, parentDisp?.code, cbDate.toISOString(), user?.id || null);
-                        } else {
-                          setModalSelectedParent(parentDisp?.id || disp?.id || null);
-                          const tomorrow = new Date();
-                          tomorrow.setDate(tomorrow.getDate() + 1);
-                          setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
-                          setModalCallbackTime("09:00");
-                          setDispositionChannelFilter(null);
-                          setDispositionModalOpen(true);
-                        }
+                    const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
+                    const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
+                    const isCallbackType = disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms"
+                      || parentDisp?.actionType === "callback" || parentDisp?.actionType === "schedule_email" || parentDisp?.actionType === "schedule_sms";
+                    if (isCallbackType) {
+                      if (disp?.callbackOffsetDays) {
+                        const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
+                        cbDate.setHours(9, 0, 0, 0);
+                        handleDisposition(data.dispositionCode, parentDisp?.code, cbDate.toISOString(), user?.id || null);
                       } else {
-                        handleDisposition(data.dispositionCode, parentDisp?.code);
+                        setModalSelectedParent(parentDisp?.id || disp?.id || null);
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+                        setModalCallbackTime("09:00");
+                        setDispositionChannelFilter(null);
+                        setDispositionModalOpen(true);
                       }
+                    } else {
+                      handleDisposition(data.dispositionCode, parentDisp?.code);
                     }
                   } catch {}
                 }

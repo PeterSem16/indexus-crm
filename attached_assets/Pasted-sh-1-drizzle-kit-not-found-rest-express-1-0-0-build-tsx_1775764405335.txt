@@ -1,0 +1,39 @@
+sh: 1: drizzle-kit: not found
+
+> rest-express@1.0.0 build
+> tsx script/build.ts
+
+
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'esbuild' imported from /var/www/indexus-crm/script/build.ts
+    at packageResolve (node:internal/modules/esm/resolve:873:9)
+    at moduleResolve (node:internal/modules/esm/resolve:946:18)
+    at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+    at nextResolve (node:internal/modules/esm/hooks:864:28)
+    at resolveBase (file:///var/www/indexus-crm/node_modules/tsx/dist/esm/index.mjs?1775764376246:2:3744)
+    at resolveDirectory (file:///var/www/indexus-crm/node_modules/tsx/dist/esm/index.mjs?1775764376246:2:4243)
+    at resolveTsPaths (file:///var/www/indexus-crm/node_modules/tsx/dist/esm/index.mjs?1775764376246:2:4984)
+    at async resolve (file:///var/www/indexus-crm/node_modules/tsx/dist/esm/index.mjs?1775764376246:2:5355)
+    at async nextResolve (node:internal/modules/esm/hooks:864:22)
+    at async Hooks.resolve (node:internal/modules/esm/hooks:306:24) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v20.20.0
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [indexus-crm](ids: [ 4 ])
+[PM2] [indexus-crm](4) ✓
+┌────┬──────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name             │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 4  │ indexus-crm      │ default     │ 1.0.0   │ fork    │ 43223    │ 0s     │ 5    │ online    │ 0%       │ 18.0mb   │ seman    │ disabled │
+└────┴──────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Module
+┌────┬──────────────────────────────┬───────────────┬──────────┬──────────┬──────┬──────────┬──────────┬──────────┐
+│ id │ module                       │ version       │ pid      │ status   │ ↺    │ cpu      │ mem      │ user     │
+├────┼──────────────────────────────┼───────────────┼──────────┼──────────┼──────┼──────────┼──────────┼──────────┤
+│ 1  │ pm2-logrotate                │ 3.0.0         │ 27605    │ online   │ 3    │ 0%       │ 90.2mb   │ seman    │
+└────┴──────────────────────────────┴───────────────┴──────────┴──────────┴──────┴──────────┴──────────┴──────────┘
+seman@CORPCRM01:/var/www/indexus-crm$

@@ -1103,6 +1103,36 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                         </p>
                       </div>
                     )}
+                    {campaignId && campaignDispositions.length > 0 && (
+                      <div className="space-y-2 border-t pt-3 mt-2">
+                        <Label className="flex items-center gap-1.5">
+                          <Target className="h-3.5 w-3.5 text-primary" />
+                          Dispozícia po akcii
+                        </Label>
+                        <Select
+                          value={selectedElement.dispositionCode || "_none_"}
+                          onValueChange={(v) => updateElement(selectedElement.id, { dispositionCode: v === "_none_" ? undefined : v })}
+                        >
+                          <SelectTrigger data-testid="select-action-disposition" className="h-8 text-xs">
+                            <SelectValue placeholder="Žiadna" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none_">— Žiadna (otvorí dispozičný modál) —</SelectItem>
+                            {campaignDispositions
+                              .filter((d: any) => d.isActive)
+                              .map((d: any) => (
+                                <SelectItem key={d.id} value={d.code}>
+                                  {d.parentId ? "  ↳ " : ""}{d.name} ({d.code})
+                                  {d.actionType === "callback" && d.callbackOffsetDays ? ` [${d.callbackOffsetDays}d]` : ""}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Automaticky nastaví dispozíciu keď agent klikne na tlačidlo. Ak má dispozícia nastavený callback, preplánovania sa vykoná automaticky.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
