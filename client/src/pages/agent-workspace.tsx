@@ -905,6 +905,9 @@ function TaskListPanel({
                                   <span className="text-[10px] opacity-60">•</span>
                                   <span className="text-[10px] opacity-70">{isMyCallback ? t.agentWorkspace.myCB : t.agentWorkspace.teamCB}</span>
                                 </div>
+                                {cc.callbackNote && (
+                                  <p className="text-[10px] opacity-80 mt-0.5 truncate italic" title={cc.callbackNote}>📝 {cc.callbackNote}</p>
+                                )}
                               </div>
                               <div className="shrink-0 flex items-center gap-1">
                                 {cc.attemptCount > 0 && (
@@ -942,6 +945,9 @@ function TaskListPanel({
                                   <Calendar className="h-2.5 w-2.5 text-muted-foreground" />
                                   <span className={`text-[10px] font-medium ${isMyCallback ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400"}`}>{callbackDateStr}</span>
                                 </div>
+                                {cc.callbackNote && (
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate italic" title={cc.callbackNote}>📝 {cc.callbackNote}</p>
+                                )}
                               </div>
                               <div className="shrink-0">
                                 {cc.attemptCount > 0 && (
@@ -3247,7 +3253,7 @@ function CustomerInfoPanel({
   campaign: Campaign | null;
   callNotes: string;
   onAddNote: (note: string) => Promise<void> | void;
-  onDisposition: (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null) => void;
+  onDisposition: (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null, callbackNote?: string) => void;
   onQuickAction: (action: string) => void;
   rightTab: string;
   onRightTabChange: (tab: string) => void;
@@ -4727,6 +4733,7 @@ export default function AgentWorkspacePage() {
   const [modalCallbackDate, setModalCallbackDate] = useState("");
   const [modalCallbackTime, setModalCallbackTime] = useState("09:00");
   const [modalCallbackAssign, setModalCallbackAssign] = useState<"me" | "all">("me");
+  const [modalCallbackNote, setModalCallbackNote] = useState("");
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [pendingEmailTemplateId, setPendingEmailTemplateId] = useState<string | null>(null);
   const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
@@ -5306,7 +5313,7 @@ export default function AgentWorkspacePage() {
   }, [selectedCampaignId]);
 
   const dispositionMutation = useMutation({
-    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null; callMeta?: Record<string, any> }) => {
+    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null; callbackNote?: string; callMeta?: Record<string, any> }) => {
       const disp = campaignDispositions.find(d => d.code === data.disposition) 
         || campaignDispositions.find(d => d.code === data.parentCode);
       
@@ -5338,6 +5345,9 @@ export default function AgentWorkspacePage() {
         updateData.status = "callback_scheduled";
         if (data.callbackAssignedTo) {
           updateData.assignedTo = data.callbackAssignedTo;
+        }
+        if (data.callbackNote) {
+          updateData.callbackNote = data.callbackNote;
         }
       }
 
@@ -5371,7 +5381,7 @@ export default function AgentWorkspacePage() {
     },
   });
 
-  const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null) => {
+  const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null, callbackNote?: string) => {
     const disp = campaignDispositions.find(d => d.code === value)
       || campaignDispositions.find(d => d.code === parentCode);
 
@@ -5408,6 +5418,7 @@ export default function AgentWorkspacePage() {
         callbackDateTime,
         parentCode,
         callbackAssignedTo,
+        callbackNote: callbackNote || undefined,
         callMeta,
       });
     }
@@ -6989,6 +7000,9 @@ export default function AgentWorkspacePage() {
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="truncate">{entityInfo.subtitle}</span>
                           </div>
+                          {cc.callbackNote && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate italic" title={cc.callbackNote}>📝 {cc.callbackNote}</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {isCallback && (
@@ -7088,7 +7102,7 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setDispositionChannelFilter(null); } }}>
+      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); } }}>
         <DialogContent className={`max-w-2xl max-h-[80vh] flex flex-col ${mandatoryDisposition ? "[&>button]:hidden" : ""}`} onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined} onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -7116,7 +7130,7 @@ export default function AgentWorkspacePage() {
 
                 return (
                   <div className="space-y-3">
-                    <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); }} data-testid="btn-modal-disposition-back">
+                    <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackNote(""); }} data-testid="btn-modal-disposition-back">
                       <ChevronLeft className="h-3 w-3" />
                       Späť
                     </Button>
@@ -7180,6 +7194,16 @@ export default function AgentWorkspacePage() {
                             </Button>
                           </div>
                         </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Poznámka ku callbacku</label>
+                          <textarea
+                            value={modalCallbackNote}
+                            onChange={(e) => setModalCallbackNote(e.target.value)}
+                            placeholder="Napr. zavolať po 16:00, preferuje email..."
+                            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px] max-h-[100px] resize-y"
+                            data-testid="input-modal-callback-note"
+                          />
+                        </div>
                       </>
                     )}
                     {children.length > 0 && (
@@ -7194,9 +7218,9 @@ export default function AgentWorkspacePage() {
                               if (child.callbackOffsetDays) {
                                 const cbDate = addBusinessDays(new Date(), child.callbackOffsetDays);
                                 cbDate.setHours(9, 0, 0, 0);
-                                handleDisposition(child.code, parent?.code, cbDate.toISOString(), cbAssignTo);
+                                handleDisposition(child.code, parent?.code, cbDate.toISOString(), cbAssignTo, modalCallbackNote || undefined);
                               } else {
-                                handleDisposition(child.code, parent?.code, isScheduleType && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, isScheduleType ? cbAssignTo : undefined);
+                                handleDisposition(child.code, parent?.code, isScheduleType && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, isScheduleType ? cbAssignTo : undefined, isScheduleType ? modalCallbackNote || undefined : undefined);
                               }
                             }} data-testid={`modal-disposition-${child.code}`}>
                               <IconComp className="h-4 w-4" />
@@ -7208,7 +7232,7 @@ export default function AgentWorkspacePage() {
                       </div>
                     )}
                     {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms") && (
-                      <Button className="w-full" disabled={!modalCallbackDate} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo); }} data-testid="btn-modal-disposition-confirm-callback">
+                      <Button className="w-full" disabled={!modalCallbackDate} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo, modalCallbackNote || undefined); }} data-testid="btn-modal-disposition-confirm-callback">
                         <CalendarPlus className="h-4 w-4 mr-1" />
                         {parent?.actionType === "schedule_email" ? "Naplánovať email" : parent?.actionType === "schedule_sms" ? "Naplánovať SMS" : "Potvrdiť preplánovanie"}
                       </Button>

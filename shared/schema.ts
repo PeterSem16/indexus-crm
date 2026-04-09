@@ -2876,6 +2876,7 @@ export const campaignContacts = pgTable("campaign_contacts", {
   lastAttemptAt: timestamp("last_attempt_at"),
   priorityScore: integer("priority_score").notNull().default(50), // 0-100, higher = more priority
   callbackDate: timestamp("callback_date"),
+  callbackNote: text("callback_note"),
   contactedAt: timestamp("contacted_at"),
   completedAt: timestamp("completed_at"),
   currentScriptStepId: text("current_script_step_id"),
@@ -2901,6 +2902,7 @@ export const insertCampaignContactSchema = createInsertSchema(campaignContacts).
   lastAttemptAt: z.string().optional().nullable(),
   priorityScore: z.number().optional().default(50),
   callbackDate: z.string().optional().nullable(),
+  callbackNote: z.string().optional().nullable(),
   contactedAt: z.string().optional().nullable(),
   completedAt: z.string().optional().nullable(),
 });

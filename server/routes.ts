@@ -19994,6 +19994,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           ccCampaignId: campaignContacts.campaignId,
           ccCallbackDate: campaignContacts.callbackDate,
           ccNotes: campaignContacts.notes,
+          ccCallbackNote: campaignContacts.callbackNote,
           ccAssignedTo: campaignContacts.assignedTo,
           ccStatus: campaignContacts.status,
           ccContactType: campaignContacts.contactType,
@@ -20124,7 +20125,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           campaignId: row.ccCampaignId,
           campaignName: row.campaignName,
           scheduledAt: row.ccCallbackDate,
-          notes: row.ccNotes || "",
+          notes: row.ccCallbackNote || row.ccNotes || "",
           status: "pending",
         });
       }
