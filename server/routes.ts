@@ -26463,6 +26463,203 @@ Rules:
   // ONBOARDING EMAIL PREVIEW / SEND
   // ============================================
 
+  const ONBOARDING_I18N: Record<string, Record<string, string>> = {
+    sk: {
+      lang: "sk", welcome: "Vitajte", greeting: "Dobr\u00fd de\u0148",
+      welcomeMessage: "S ve\u013ekou rados\u0165ou V\u00e1s v\u00edtame v t\u00edme <strong style=\"color:#8B1538;\">INDEXUS</strong>! St\u00e1vate sa s\u00fa\u010das\u0165ou medzin\u00e1rodnej rodiny profesion\u00e1lov, ktor\u00ed spolo\u010dne menia svet uchovania pupo\u010dn\u00edkovej krvi a prin\u00e1\u0161aj\u00fa rodin\u00e1m n\u00e1dej na zdrav\u0161iu bud\u00facnos\u0165. Sme presved\u010den\u00ed, \u017ee Va\u0161e sk\u00fasenosti a nasadenie bud\u00fa pre n\u00e1\u0161 t\u00edm ve\u013ek\u00fdm pr\u00ednosom.",
+      loginCredentials: "Prihlasovacie \u00fadaje", address: "Adresa", password: "Heslo", method: "Met\u00f3da", passwordAuth: "Heslo",
+      username: "Pou\u017e\u00edvate\u013e", verification: "Overenie", m365Verification: "Overenie cez M365",
+      assignedCountry: "Priraden\u00e1 krajina", loginButton: "Prihl\u00e1si\u0165 sa",
+      ms365LoginHint: "Kliknite na <strong>\u201ePrihl\u00e1si\u0165 sa cez Microsoft 365\u201c</strong> a over\u00edte sa firemn\u00fdm Microsoft \u00fa\u010dtom.",
+      localLoginHint: "Prihl\u00e1ste sa e-mailom a do\u010dasn\u00fdm heslom uveden\u00fdm v\u013eavo.",
+      platformLabel: "Platforma", platformTitle: "\u010co v\u0161etko v INDEXUS CRM n\u00e1jdete",
+      modDashboard: "KPI, \u0161tatistiky a t\u00edmov\u00e1 aktivita", modHospitals: "Nemocnice", modHospitalsDesc: "Zariadenia, person\u00e1l a zmluvy",
+      modPartners: "Partneri", modPartnersDesc: "Spolupracovn\u00edci a lek\u00e1ri",
+      modCustomers: "Z\u00e1kazn\u00edci", modCustomersDesc: "Pipeline, zmluvy a odbery",
+      modOmniDesc: "E-maily, SMS a VoIP", modPulseDesc: "\u00dalohy a riadenie hovorov",
+      modMissionsDesc: "Kampane a automatiz\u00e1cie", modPipelineDesc: "Reporty a analytika",
+      modConfig: "Konfigur\u00e1tor", modConfigDesc: "Spr\u00e1va a nastavenia",
+      integrationLabel: "Integr\u00e1cia", mobileApp: "Mobiln\u00e1 app",
+      voipDesc: "Volajte <strong style=\"color:#fff;\">jedn\u00fdm kliknut\u00edm</strong> priamo z CRM \u2014 z\u00e1kazn\u00edkom, lek\u00e1rom aj spolupracovn\u00edkom.",
+      voipFeature1: "Hovory z karty z\u00e1kazn\u00edka", voipFeature2: "Priame volanie z nemocn\u00edc", voipFeature3: "Nahr\u00e1vky a hist\u00f3ria",
+      voipNote: "SIP linku v\u00e1m pridel\u00ed administr\u00e1tor.",
+      connectDesc: "CRM vo vrecku \u2014 volajte, prij\u00edmajte notifik\u00e1cie a pracujte <strong style=\"color:#fff;\">odkia\u013eko\u013evek</strong>.",
+      connectFeature1: "VoIP hovory z mobilu", connectFeature2: "Push notifik\u00e1cie", connectFeature3: "Skenovanie dokumentov",
+      gettingStartedLabel: "Za\u010d\u00edname", gettingStartedTitle: "Prv\u00e9 kroky po prihl\u00e1sen\u00ed",
+      step1LocalTitle: "Prihl\u00e1ste sa a zme\u0148te heslo",
+      step1LocalDesc: "Otvorte <strong style=\"color:#8B1538;\">{{loginUrl}}</strong>, prihl\u00e1ste sa do\u010dasn\u00fdm heslom a v <strong>Nastavenia &rarr; Profil</strong> si ho zme\u0148te. Pou\u017eite min. 8 znakov s ve\u013ek\u00fdmi p\u00edsmenami, \u010d\u00edslami a \u0161peci\u00e1lnymi znakmi.",
+      step1Ms365Title: "Prihl\u00e1ste sa cez Microsoft 365",
+      step1Ms365Desc: "Otvorte <strong style=\"color:#8B1538;\">{{loginUrl}}</strong> a kliknite <strong>\u201ePrihl\u00e1si\u0165 sa cez Microsoft 365\u201c</strong>. Syst\u00e9m V\u00e1s presmeruje na Microsoft prihl\u00e1senie, kde zad\u00e1te firemn\u00fd \u00fa\u010det (e-mail, heslo, pr\u00edp. 2FA). Po overen\u00ed sa automaticky vr\u00e1tite do CRM \u2014 \u017eiadne \u010fal\u0161ie heslo nepotrebujete.",
+      step2Desc: "V\u00e1\u0161 preh\u013ead KPI, z\u00e1kazn\u00edkov, \u00faloh a aktivity t\u00edmu pre {{countryFlag}} {{countryName}}.",
+      step3Title: "Nemocnice &amp; Partneri", step3Desc: "Overte zariadenia, person\u00e1l, zmluvy a stav spolupracovn\u00edkov.",
+      step4Title: "Z\u00e1kazn\u00edci &amp; Pipeline", step4Desc: "Pipeline od prv\u00e9ho kontaktu po odber. Karty s hist\u00f3riou a dokumentmi.",
+      step5Ms365Desc: "Pripojte e-mail v <strong>Nastavenia &rarr; MS365</strong>. Pridajte aj shared mailbox schr\u00e1nky.",
+      step5LocalDesc: "Prepojte e-mail s CRM. E-maily, SMS a hovory na jednom mieste.",
+      step6Title: "Stiahnite INDEXUS Connect", step6Desc: "Nain\u0161talujte mobiln\u00fa aplik\u00e1ciu z App Store alebo Google Play. Volajte, prij\u00edmajte notifik\u00e1cie a pracujte s CRM aj na cest\u00e1ch.",
+      needHelp: "Potrebujete pomoc?", needHelpDesc: "Kontaktujte administr\u00e1tora alebo nap\u00ed\u0161te na ",
+      footerGenerated: "Automaticky vygenerovan\u00e9 syst\u00e9mom",
+      emailSubjectPrefix: "INDEXUS CRM - Vitajte",
+    },
+    cs: {
+      lang: "cs", welcome: "V\u00edtejte", greeting: "Dobr\u00fd den",
+      welcomeMessage: "S velkou radost\u00ed V\u00e1s v\u00edt\u00e1me v t\u00fdmu <strong style=\"color:#8B1538;\">INDEXUS</strong>! St\u00e1v\u00e1te se sou\u010d\u00e1st\u00ed mezin\u00e1rodn\u00ed rodiny profesion\u00e1l\u016f, kte\u0159\u00ed spole\u010dn\u011b m\u011bn\u00ed sv\u011bt uchov\u00e1n\u00ed pupkov\u00e9 krve a p\u0159in\u00e1\u0161ej\u00ed rodin\u00e1m nad\u011bji na zdrav\u011bj\u0161\u00ed budoucnost. Jsme p\u0159esv\u011bd\u010deni, \u017ee Va\u0161e zku\u0161enosti a nasazen\u00ed budou pro n\u00e1\u0161 t\u00fdm velk\u00fdm p\u0159\u00ednosem.",
+      loginCredentials: "P\u0159ihla\u0161ovac\u00ed \u00fadaje", address: "Adresa", password: "Heslo", method: "Metoda", passwordAuth: "Heslo",
+      username: "U\u017eivatel", verification: "Ov\u011b\u0159en\u00ed", m365Verification: "Ov\u011b\u0159en\u00ed p\u0159es M365",
+      assignedCountry: "P\u0159i\u0159azen\u00e1 zem\u011b", loginButton: "P\u0159ihl\u00e1sit se",
+      ms365LoginHint: "Klikn\u011bte na <strong>\u201eP\u0159ihl\u00e1sit se p\u0159es Microsoft 365\u201c</strong> a ov\u011b\u0159\u00edte se firemn\u00edm Microsoft \u00fa\u010dtem.",
+      localLoginHint: "P\u0159ihla\u0161te se e-mailem a do\u010dasn\u00fdm heslem uveden\u00fdm vlevo.",
+      platformLabel: "Platforma", platformTitle: "Co v\u0161echno v INDEXUS CRM najdete",
+      modDashboard: "KPI, statistiky a t\u00fdmov\u00e1 aktivita", modHospitals: "Nemocnice", modHospitalsDesc: "Za\u0159\u00edzen\u00ed, person\u00e1l a smlouvy",
+      modPartners: "Partne\u0159i", modPartnersDesc: "Spolupracovn\u00edci a l\u00e9ka\u0159i",
+      modCustomers: "Z\u00e1kazn\u00edci", modCustomersDesc: "Pipeline, smlouvy a odb\u011bry",
+      modOmniDesc: "E-maily, SMS a VoIP", modPulseDesc: "\u00dakoly a \u0159\u00edzen\u00ed hovor\u016f",
+      modMissionsDesc: "Kampan\u011b a automatizace", modPipelineDesc: "Reporty a analytika",
+      modConfig: "Konfigurace", modConfigDesc: "Spr\u00e1va a nastaven\u00ed",
+      integrationLabel: "Integrace", mobileApp: "Mobiln\u00ed app",
+      voipDesc: "Volejte <strong style=\"color:#fff;\">jedn\u00edm kliknut\u00edm</strong> p\u0159\u00edmo z CRM \u2014 z\u00e1kazn\u00edk\u016fm, l\u00e9ka\u0159\u016fm i spolupracovn\u00edk\u016fm.",
+      voipFeature1: "Hovory z karty z\u00e1kazn\u00edka", voipFeature2: "P\u0159\u00edm\u00e9 vol\u00e1n\u00ed z nemocnic", voipFeature3: "Nahr\u00e1vky a historie",
+      voipNote: "SIP linku v\u00e1m p\u0159id\u011bl\u00ed administr\u00e1tor.",
+      connectDesc: "CRM v kapse \u2014 volejte, p\u0159ij\u00edmejte notifikace a pracujte <strong style=\"color:#fff;\">odkudkoli</strong>.",
+      connectFeature1: "VoIP hovory z mobilu", connectFeature2: "Push notifikace", connectFeature3: "Skenov\u00e1n\u00ed dokument\u016f",
+      gettingStartedLabel: "Za\u010d\u00edn\u00e1me", gettingStartedTitle: "Prvn\u00ed kroky po p\u0159ihl\u00e1\u0161en\u00ed",
+      step1LocalTitle: "P\u0159ihla\u0161te se a zm\u011b\u0148te heslo",
+      step1LocalDesc: "Otev\u0159ete <strong style=\"color:#8B1538;\">{{loginUrl}}</strong>, p\u0159ihla\u0161te se do\u010dasn\u00fdm heslem a v <strong>Nastaven\u00ed &rarr; Profil</strong> ho zm\u011b\u0148te. Pou\u017eijte min. 8 znak\u016f s velk\u00fdmi p\u00edsmeny, \u010d\u00edsly a speci\u00e1ln\u00edmi znaky.",
+      step1Ms365Title: "P\u0159ihla\u0161te se p\u0159es Microsoft 365",
+      step1Ms365Desc: "Otev\u0159ete <strong style=\"color:#8B1538;\">{{loginUrl}}</strong> a klikn\u011bte <strong>\u201eP\u0159ihl\u00e1sit se p\u0159es Microsoft 365\u201c</strong>. Syst\u00e9m v\u00e1s p\u0159esm\u011bruje na Microsoft p\u0159ihl\u00e1\u0161en\u00ed. Po ov\u011b\u0159en\u00ed se automaticky vr\u00e1t\u00edte do CRM.",
+      step2Desc: "V\u00e1\u0161 p\u0159ehled KPI, z\u00e1kazn\u00edk\u016f, \u00fakol\u016f a aktivity t\u00fdmu pro {{countryFlag}} {{countryName}}.",
+      step3Title: "Nemocnice &amp; Partne\u0159i", step3Desc: "Ov\u011b\u0159te za\u0159\u00edzen\u00ed, person\u00e1l, smlouvy a stav spolupracovn\u00edk\u016f.",
+      step4Title: "Z\u00e1kazn\u00edci &amp; Pipeline", step4Desc: "Pipeline od prvn\u00edho kontaktu po odb\u011br. Karty s histori\u00ed a dokumenty.",
+      step5Ms365Desc: "P\u0159ipojte e-mail v <strong>Nastaven\u00ed &rarr; MS365</strong>. P\u0159idejte i shared mailbox schr\u00e1nky.",
+      step5LocalDesc: "Propojte e-mail s CRM. E-maily, SMS a hovory na jednom m\u00edst\u011b.",
+      step6Title: "St\u00e1hn\u011bte INDEXUS Connect", step6Desc: "Nainstalujte mobiln\u00ed aplikaci z App Store nebo Google Play. Volejte, p\u0159ij\u00edmejte notifikace a pracujte s CRM i na cest\u00e1ch.",
+      needHelp: "Pot\u0159ebujete pomoc?", needHelpDesc: "Kontaktujte administr\u00e1tora nebo napi\u0161te na ",
+      footerGenerated: "Automaticky vygenerov\u00e1no syst\u00e9mem",
+      emailSubjectPrefix: "INDEXUS CRM - V\u00edtejte",
+    },
+    ro: {
+      lang: "ro", welcome: "Bine a\u021bi venit", greeting: "Bun\u0103 ziua",
+      welcomeMessage: "V\u0103 ur\u0103m bun venit \u00een echipa <strong style=\"color:#8B1538;\">INDEXUS</strong>! Deveni\u021bi parte a unei familii interna\u021bionale de profesioni\u0219ti care schimb\u0103 \u00eempreun\u0103 lumea conserv\u0103rii s\u00e2ngelui din cordonul ombilical \u0219i aduc familiilor speran\u021ba unui viitor mai s\u0103n\u0103tos. Suntem convin\u0219i c\u0103 experien\u021ba \u0219i dedicarea dumneavoastr\u0103 vor fi un mare atu pentru echipa noastr\u0103.",
+      loginCredentials: "Date de autentificare", address: "Adres\u0103", password: "Parol\u0103", method: "Metod\u0103", passwordAuth: "Parol\u0103",
+      username: "Utilizator", verification: "Verificare", m365Verification: "Verificare prin M365",
+      assignedCountry: "\u021aara atribuit\u0103", loginButton: "Autentificare",
+      ms365LoginHint: "Face\u021bi clic pe <strong>\u201eAutentificare prin Microsoft 365\u201d</strong> \u0219i v\u0103 veifica\u021bi cu contul Microsoft al companiei.",
+      localLoginHint: "Autentifica\u021bi-v\u0103 cu e-mailul \u0219i parola temporar\u0103 din st\u00e2nga.",
+      platformLabel: "Platform\u0103", platformTitle: "Ce ve\u021bi g\u0103si \u00een INDEXUS CRM",
+      modDashboard: "KPI, statistici \u0219i activitate de echip\u0103", modHospitals: "Spitale", modHospitalsDesc: "Unit\u0103\u021bi, personal \u0219i contracte",
+      modPartners: "Parteneri", modPartnersDesc: "Colaboratori \u0219i medici",
+      modCustomers: "Clien\u021bi", modCustomersDesc: "Pipeline, contracte \u0219i recolt\u0103ri",
+      modOmniDesc: "E-mailuri, SMS \u0219i VoIP", modPulseDesc: "Sarcini \u0219i gestionarea apelurilor",
+      modMissionsDesc: "Campanii \u0219i automatiz\u0103ri", modPipelineDesc: "Rapoarte \u0219i analitice",
+      modConfig: "Configurare", modConfigDesc: "Administrare \u0219i set\u0103ri",
+      integrationLabel: "Integrare", mobileApp: "Aplica\u021bie mobil\u0103",
+      voipDesc: "Suna\u021bi <strong style=\"color:#fff;\">cu un singur clic</strong> direct din CRM \u2014 clien\u021bi, medici \u0219i colaboratori.",
+      voipFeature1: "Apeluri din fi\u0219a clientului", voipFeature2: "Apeluri directe din spitale", voipFeature3: "\u00cenregistr\u0103ri \u0219i istoric",
+      voipNote: "Linia SIP v\u0103 va fi atribuit\u0103 de administrator.",
+      connectDesc: "CRM \u00een buzunar \u2014 suna\u021bi, primi\u021bi notific\u0103ri \u0219i lucra\u021bi <strong style=\"color:#fff;\">de oriunde</strong>.",
+      connectFeature1: "Apeluri VoIP de pe mobil", connectFeature2: "Notific\u0103ri push", connectFeature3: "Scanare documente",
+      gettingStartedLabel: "\u00cencepe\u021bi", gettingStartedTitle: "Primii pa\u0219i dup\u0103 autentificare",
+      step1LocalTitle: "Autentifica\u021bi-v\u0103 \u0219i schimba\u021bi parola",
+      step1LocalDesc: "Deschide\u021bi <strong style=\"color:#8B1538;\">{{loginUrl}}</strong>, autentifica\u021bi-v\u0103 cu parola temporar\u0103 \u0219i \u00een <strong>Set\u0103ri &rarr; Profil</strong> schimba\u021bi-o. Folosi\u021bi min. 8 caractere cu litere mari, cifre \u0219i caractere speciale.",
+      step1Ms365Title: "Autentifica\u021bi-v\u0103 prin Microsoft 365",
+      step1Ms365Desc: "Deschide\u021bi <strong style=\"color:#8B1538;\">{{loginUrl}}</strong> \u0219i face\u021bi clic pe <strong>\u201eAutentificare prin Microsoft 365\u201d</strong>. Sistemul v\u0103 va redirec\u021biona c\u0103tre autentificarea Microsoft. Dup\u0103 verificare, ve\u021bi fi readus automat \u00een CRM.",
+      step2Desc: "Tabloul de bord cu KPI, clien\u021bi, sarcini \u0219i activitate de echip\u0103 pentru {{countryFlag}} {{countryName}}.",
+      step3Title: "Spitale &amp; Parteneri", step3Desc: "Verifica\u021bi unit\u0103\u021bile, personalul, contractele \u0219i starea colaboratorilor.",
+      step4Title: "Clien\u021bi &amp; Pipeline", step4Desc: "Pipeline de la primul contact p\u00e2n\u0103 la recoltare. Fi\u0219e cu istoric \u0219i documente.",
+      step5Ms365Desc: "Conecta\u021bi e-mailul \u00een <strong>Set\u0103ri &rarr; MS365</strong>. Ad\u0103uga\u021bi \u0219i c\u0103su\u021bele de po\u0219t\u0103 partajate.",
+      step5LocalDesc: "Conecta\u021bi e-mailul la CRM. E-mailuri, SMS \u0219i apeluri \u00eentr-un singur loc.",
+      step6Title: "Desc\u0103rca\u021bi INDEXUS Connect", step6Desc: "Instala\u021bi aplica\u021bia mobil\u0103 din App Store sau Google Play. Suna\u021bi, primi\u021bi notific\u0103ri \u0219i lucra\u021bi cu CRM \u0219i \u00een deplasare.",
+      needHelp: "Ave\u021bi nevoie de ajutor?", needHelpDesc: "Contacta\u021bi administratorul sau scrie\u021bi la ",
+      footerGenerated: "Generat automat de sistemul",
+      emailSubjectPrefix: "INDEXUS CRM - Bine a\u021bi venit",
+    },
+    hu: {
+      lang: "hu", welcome: "\u00dcdv\u00f6z\u00f6lj\u00fck", greeting: "J\u00f3 napot",
+      welcomeMessage: "Nagy \u00f6r\u00f6mmel \u00fcdv\u00f6z\u00f6lj\u00fck az <strong style=\"color:#8B1538;\">INDEXUS</strong> csapat\u00e1ban! Egy nemzetk\u00f6zi szakembercsalad r\u00e9sz\u00e9v\u00e9 v\u00e1lik, akik egy\u00fctt v\u00e1ltoztatj\u00e1k meg a k\u00f6ld\u00f6kzsin\u00f3rv\u00e9r meg\u0151rz\u00e9s\u00e9nek vil\u00e1g\u00e1t, \u00e9s rem\u00e9nyt adnak a csal\u00e1doknak egy eg\u00e9szs\u00e9gesebb j\u00f6v\u0151\u00e9rt. Meggy\u0151z\u0151d\u00e9s\u00fcnk, hogy tapasztalata \u00e9s elk\u00f6telezetts\u00e9ge nagy nyeres\u00e9g lesz csapatunk sz\u00e1m\u00e1ra.",
+      loginCredentials: "Bejelentkez\u00e9si adatok", address: "C\u00edm", password: "Jelsz\u00f3", method: "M\u00f3dszer", passwordAuth: "Jelsz\u00f3",
+      username: "Felhaszn\u00e1l\u00f3", verification: "Ellen\u0151rz\u00e9s", m365Verification: "M365 ellen\u0151rz\u00e9s",
+      assignedCountry: "Hozz\u00e1rendelt orsz\u00e1g", loginButton: "Bejelentkez\u00e9s",
+      ms365LoginHint: "Kattintson a <strong>\u201eBejelentkez\u00e9s Microsoft 365-tel\u201d</strong> gombra, \u00e9s igazolja mag\u00e1t a v\u00e1llalati Microsoft fi\u00f3kj\u00e1val.",
+      localLoginHint: "Jelentkezzen be az e-mail c\u00edm\u00e9vel \u00e9s a bal oldalon l\u00e1that\u00f3 ideiglenes jelsz\u00f3val.",
+      platformLabel: "Platform", platformTitle: "Mit tal\u00e1l az INDEXUS CRM-ben",
+      modDashboard: "KPI-k, statisztik\u00e1k \u00e9s csapattev\u00e9kenys\u00e9g", modHospitals: "K\u00f3rh\u00e1zak", modHospitalsDesc: "Int\u00e9zm\u00e9nyek, szem\u00e9lyzet \u00e9s szerz\u0151d\u00e9sek",
+      modPartners: "Partnerek", modPartnersDesc: "Munkat\u00e1rsak \u00e9s orvosok",
+      modCustomers: "\u00dcgyfelek", modCustomersDesc: "Pipeline, szerz\u0151d\u00e9sek \u00e9s mintav\u00e9telek",
+      modOmniDesc: "E-mailek, SMS \u00e9s VoIP", modPulseDesc: "Feladatok \u00e9s h\u00edv\u00e1skezel\u00e9s",
+      modMissionsDesc: "Kamp\u00e1nyok \u00e9s automatiz\u00e1l\u00e1s", modPipelineDesc: "Jelent\u00e9sek \u00e9s analitika",
+      modConfig: "Konfigur\u00e1ci\u00f3", modConfigDesc: "Kezel\u00e9s \u00e9s be\u00e1ll\u00edt\u00e1sok",
+      integrationLabel: "Integr\u00e1ci\u00f3", mobileApp: "Mobil alkalmaz\u00e1s",
+      voipDesc: "H\u00edvjon <strong style=\"color:#fff;\">egyetlen kattint\u00e1ssal</strong> k\u00f6zvetlen\u00fcl a CRM-b\u0151l \u2014 \u00fcgyfeleket, orvosokat \u00e9s munkat\u00e1rsakat.",
+      voipFeature1: "H\u00edv\u00e1sok az \u00fcgyf\u00e9lkartonr\u00f3l", voipFeature2: "K\u00f6zvetlen h\u00edv\u00e1s k\u00f3rh\u00e1zakb\u00f3l", voipFeature3: "Felv\u00e9telek \u00e9s el\u0151zm\u00e9nyek",
+      voipNote: "A SIP vonalat az adminisztr\u00e1tor osztja ki.",
+      connectDesc: "CRM a zseb\u00e9ben \u2014 h\u00edvjon, fogadjon \u00e9rtes\u00edt\u00e9seket \u00e9s dolgozzon <strong style=\"color:#fff;\">b\u00e1rhonnan</strong>.",
+      connectFeature1: "VoIP h\u00edv\u00e1sok mobilr\u00f3l", connectFeature2: "Push \u00e9rtes\u00edt\u00e9sek", connectFeature3: "Dokumentumszkennel\u00e9s",
+      gettingStartedLabel: "Kezdj\u00fck", gettingStartedTitle: "Els\u0151 l\u00e9p\u00e9sek bejelentkez\u00e9s ut\u00e1n",
+      step1LocalTitle: "Jelentkezzen be \u00e9s v\u00e1ltoztassa meg a jelszav\u00e1t",
+      step1LocalDesc: "Nyissa meg a <strong style=\"color:#8B1538;\">{{loginUrl}}</strong> oldalt, jelentkezzen be az ideiglenes jelsz\u00f3val, \u00e9s a <strong>Be\u00e1ll\u00edt\u00e1sok &rarr; Profil</strong> men\u00fcben v\u00e1ltoztassa meg. Haszn\u00e1ljon min. 8 karaktert nagybet\u0171kkel, sz\u00e1mokkal \u00e9s speci\u00e1lis karakterekkel.",
+      step1Ms365Title: "Jelentkezzen be Microsoft 365-tel",
+      step1Ms365Desc: "Nyissa meg a <strong style=\"color:#8B1538;\">{{loginUrl}}</strong> oldalt \u00e9s kattintson a <strong>\u201eBejelentkez\u00e9s Microsoft 365-tel\u201d</strong> gombra. A rendszer \u00e1tir\u00e1ny\u00edtja a Microsoft bejelentkez\u00e9sre. Azonos\u00edt\u00e1s ut\u00e1n automatikusan visszaker\u00fcl a CRM-be.",
+      step2Desc: "\u00c1ttekint\u00e9s KPI-kr\u0151l, \u00fcgyfelekr\u0151l, feladatokr\u00f3l \u00e9s csapattev\u00e9kenys\u00e9gr\u0151l a {{countryFlag}} {{countryName}} sz\u00e1m\u00e1ra.",
+      step3Title: "K\u00f3rh\u00e1zak &amp; Partnerek", step3Desc: "Ellen\u0151rizze az int\u00e9zm\u00e9nyeket, szem\u00e9lyzetet, szerz\u0151d\u00e9seket \u00e9s munkat\u00e1rsak \u00e1llapot\u00e1t.",
+      step4Title: "\u00dcgyfelek &amp; Pipeline", step4Desc: "Pipeline az els\u0151 kapcsolatfelv\u00e9telt\u0151l a mintav\u00e9telig. Kartonok el\u0151zm\u00e9nyekkel \u00e9s dokumentumokkal.",
+      step5Ms365Desc: "Csatlakoztassa e-mailj\u00e9t a <strong>Be\u00e1ll\u00edt\u00e1sok &rarr; MS365</strong> men\u00fcben. Adja hozz\u00e1 a shared mailbox fi\u00f3kokat is.",
+      step5LocalDesc: "Csatlakoztassa e-mailj\u00e9t a CRM-hez. E-mailek, SMS \u00e9s h\u00edv\u00e1sok egy helyen.",
+      step6Title: "T\u00f6ltse le az INDEXUS Connect-et", step6Desc: "Telep\u00edtse a mobilalkalmaz\u00e1st az App Store-b\u00f3l vagy a Google Playr\u0151l. H\u00edvjon, fogadjon \u00e9rtes\u00edt\u00e9seket \u00e9s dolgozzon a CRM-mel \u00fat k\u00f6zben is.",
+      needHelp: "Seg\u00edts\u00e9gre van sz\u00fcks\u00e9ge?", needHelpDesc: "L\u00e9pjen kapcsolatba az adminisztr\u00e1torral, vagy \u00edrjon a ",
+      footerGenerated: "Automatikusan gener\u00e1lta a rendszer:",
+      emailSubjectPrefix: "INDEXUS CRM - \u00dcdv\u00f6z\u00f6lj\u00fck",
+    },
+    en: {
+      lang: "en", welcome: "Welcome", greeting: "Hello",
+      welcomeMessage: "We are delighted to welcome you to the <strong style=\"color:#8B1538;\">INDEXUS</strong> team! You are becoming part of an international family of professionals who together are changing the world of cord blood banking and bringing families hope for a healthier future. We are confident that your experience and dedication will be a great asset to our team.",
+      loginCredentials: "Login credentials", address: "Address", password: "Password", method: "Method", passwordAuth: "Password",
+      username: "Username", verification: "Verification", m365Verification: "M365 verification",
+      assignedCountry: "Assigned country", loginButton: "Log in",
+      ms365LoginHint: "Click <strong>\u201cLog in with Microsoft 365\u201d</strong> and verify with your company Microsoft account.",
+      localLoginHint: "Log in with the email and temporary password shown on the left.",
+      platformLabel: "Platform", platformTitle: "What you will find in INDEXUS CRM",
+      modDashboard: "KPIs, statistics & team activity", modHospitals: "Hospitals", modHospitalsDesc: "Facilities, staff & contracts",
+      modPartners: "Partners", modPartnersDesc: "Collaborators & doctors",
+      modCustomers: "Customers", modCustomersDesc: "Pipeline, contracts & collections",
+      modOmniDesc: "Emails, SMS & VoIP", modPulseDesc: "Tasks & call management",
+      modMissionsDesc: "Campaigns & automations", modPipelineDesc: "Reports & analytics",
+      modConfig: "Configuration", modConfigDesc: "Administration & settings",
+      integrationLabel: "Integration", mobileApp: "Mobile app",
+      voipDesc: "Call <strong style=\"color:#fff;\">with one click</strong> directly from CRM \u2014 customers, doctors and collaborators.",
+      voipFeature1: "Calls from customer card", voipFeature2: "Direct calling from hospitals", voipFeature3: "Recordings & history",
+      voipNote: "SIP line will be assigned by your administrator.",
+      connectDesc: "CRM in your pocket \u2014 call, receive notifications and work <strong style=\"color:#fff;\">from anywhere</strong>.",
+      connectFeature1: "VoIP calls from mobile", connectFeature2: "Push notifications", connectFeature3: "Document scanning",
+      gettingStartedLabel: "Getting started", gettingStartedTitle: "First steps after login",
+      step1LocalTitle: "Log in and change your password",
+      step1LocalDesc: "Open <strong style=\"color:#8B1538;\">{{loginUrl}}</strong>, log in with the temporary password and change it in <strong>Settings &rarr; Profile</strong>. Use min. 8 characters with uppercase letters, numbers and special characters.",
+      step1Ms365Title: "Log in with Microsoft 365",
+      step1Ms365Desc: "Open <strong style=\"color:#8B1538;\">{{loginUrl}}</strong> and click <strong>\u201cLog in with Microsoft 365\u201d</strong>. The system will redirect you to Microsoft login. After verification, you will be automatically returned to CRM.",
+      step2Desc: "Your KPI overview, customers, tasks and team activity for {{countryFlag}} {{countryName}}.",
+      step3Title: "Hospitals &amp; Partners", step3Desc: "Verify facilities, staff, contracts and collaborator status.",
+      step4Title: "Customers &amp; Pipeline", step4Desc: "Pipeline from first contact to collection. Cards with history and documents.",
+      step5Ms365Desc: "Connect your email in <strong>Settings &rarr; MS365</strong>. Add shared mailbox accounts too.",
+      step5LocalDesc: "Connect your email to CRM. Emails, SMS and calls in one place.",
+      step6Title: "Download INDEXUS Connect", step6Desc: "Install the mobile app from App Store or Google Play. Call, receive notifications and work with CRM on the go.",
+      needHelp: "Need help?", needHelpDesc: "Contact your administrator or write to ",
+      footerGenerated: "Automatically generated by",
+      emailSubjectPrefix: "INDEXUS CRM - Welcome",
+    },
+  };
+
+  const COUNTRY_LANG_MAP: Record<string, string> = { SK: "sk", CZ: "cs", HU: "hu", RO: "ro", AT: "en", IT: "en", DE: "en" };
+
+  const COUNTRY_NAME_MAP: Record<string, Record<string, string>> = {
+    SK: { sk: "Slovensko", cs: "Slovensko", ro: "Slovacia", hu: "Szlov\u00e1kia", en: "Slovakia" },
+    CZ: { sk: "\u010cesko", cs: "\u010cesko", ro: "Cehia", hu: "Csehorsz\u00e1g", en: "Czech Republic" },
+    HU: { sk: "Ma\u010farsko", cs: "Ma\u010farsko", ro: "Ungaria", hu: "Magyarorsz\u00e1g", en: "Hungary" },
+    RO: { sk: "Rumunsko", cs: "Rumunsko", ro: "Rom\u00e2nia", hu: "Rom\u00e1nia", en: "Romania" },
+    AT: { sk: "Rak\u00fasko", cs: "Rakousko", ro: "Austria", hu: "Ausztria", en: "Austria" },
+    IT: { sk: "Taliansko", cs: "It\u00e1lie", ro: "Italia", hu: "Olaszorsz\u00e1g", en: "Italy" },
+    DE: { sk: "Nemecko", cs: "N\u011bmecko", ro: "Germania", hu: "N\u00e9metorsz\u00e1g", en: "Germany" },
+  };
+
+  const COUNTRY_FLAG_MAP: Record<string, string> = { SK: "\ud83c\uddf8\ud83c\uddf0", CZ: "\ud83c\udde8\ud83c\uddff", HU: "\ud83c\udded\ud83c\uddfa", RO: "\ud83c\uddf7\ud83c\uddf4", AT: "\ud83c\udde6\ud83c\uddf9", IT: "\ud83c\uddee\ud83c\uddf9", DE: "\ud83c\udde9\ud83c\uddea" };
+
   const renderOnboardingEmail = async (user: any, baseUrl: string) => {
     const fs = await import("fs");
     const path = await import("path");
@@ -26471,19 +26668,14 @@ Rules:
 
     const countries = user.assignedCountries || [];
     const countryCode = countries[0] || "SK";
-    const COUNTRY_MAP: Record<string, { name: string; flag: string }> = {
-      SK: { name: "Slovensko", flag: "🇸🇰" },
-      CZ: { name: "Česko", flag: "🇨🇿" },
-      HU: { name: "Maďarsko", flag: "🇭🇺" },
-      RO: { name: "Rumunsko", flag: "🇷🇴" },
-      AT: { name: "Rakúsko", flag: "🇦🇹" },
-      IT: { name: "Taliansko", flag: "🇮🇹" },
-      DE: { name: "Nemecko", flag: "🇩🇪" },
-    };
-    const country = COUNTRY_MAP[countryCode] || { name: countryCode, flag: "🏳️" };
+    const lang = countries.length > 1 ? "en" : (COUNTRY_LANG_MAP[countryCode] || "en");
+    const t = ONBOARDING_I18N[lang] || ONBOARDING_I18N.en;
+
+    const countryName = COUNTRY_NAME_MAP[countryCode]?.[lang] || countryCode;
+    const countryFlag = COUNTRY_FLAG_MAP[countryCode] || "\ud83c\udff3\ufe0f";
+
     const isMs365 = !!user.ms365Email;
-    const authMethod = isMs365 ? "Microsoft 365 SSO" : "Heslo";
-    const tempPassword = isMs365 ? "—" : "********";
+    const tempPassword = isMs365 ? "\u2014" : "********";
 
     if (isMs365) {
       html = html.replace(/<!-- IF_LOCAL -->[\s\S]*?<!-- ENDIF_LOCAL -->/g, "");
@@ -26496,16 +26688,25 @@ Rules:
     const loginUsername = user.username || user.email;
     const loginUrlWithUser = `${baseUrl}?user=${encodeURIComponent(loginUsername)}`;
 
+    for (const [key, value] of Object.entries(t)) {
+      html = html.replace(new RegExp(`\\{\\{t_${key}\\}\\}`, "g"), value);
+    }
+
     return html
       .replace(/\{\{userName\}\}/g, user.fullName || user.username)
       .replace(/\{\{userEmail\}\}/g, user.email)
       .replace(/\{\{username\}\}/g, loginUsername)
       .replace(/\{\{tempPassword\}\}/g, tempPassword)
-      .replace(/\{\{authMethod\}\}/g, authMethod)
       .replace(/\{\{loginUrlWithUser\}\}/g, loginUrlWithUser)
       .replace(/\{\{loginUrl\}\}/g, baseUrl)
-      .replace(/\{\{countryName\}\}/g, country.name)
-      .replace(/\{\{countryFlag\}\}/g, country.flag);
+      .replace(/\{\{countryName\}\}/g, countryName)
+      .replace(/\{\{countryFlag\}\}/g, countryFlag);
+  };
+
+  const getOnboardingEmailLang = (user: any): string => {
+    const countries = user.assignedCountries || [];
+    const countryCode = countries[0] || "SK";
+    return countries.length > 1 ? "en" : (COUNTRY_LANG_MAP[countryCode] || "en");
   };
 
   app.post("/api/users/:id/onboarding-email/preview", requireAuth, async (req, res) => {
@@ -26520,8 +26721,10 @@ Rules:
 
       const baseUrl = `${req.protocol}://${req.get("host")}`;
       const rendered = await renderOnboardingEmail(user, baseUrl);
+      const lang = getOnboardingEmailLang(user);
+      const t = ONBOARDING_I18N[lang] || ONBOARDING_I18N.en;
 
-      res.json({ html: rendered, to: user.email, subject: `INDEXUS CRM - Vitajte, ${user.fullName || user.username}` });
+      res.json({ html: rendered, to: user.email, subject: `${t.emailSubjectPrefix}, ${user.fullName || user.username}` });
     } catch (error) {
       console.error("Error previewing onboarding email:", error);
       res.status(500).json({ error: "Failed to preview onboarding email" });
@@ -26540,13 +26743,46 @@ Rules:
 
       const baseUrl = `${req.protocol}://${req.get("host")}`;
       const rendered = await renderOnboardingEmail(user, baseUrl);
+      const lang = getOnboardingEmailLang(user);
+      const t = ONBOARDING_I18N[lang] || ONBOARDING_I18N.en;
+      const subject = `${t.emailSubjectPrefix}, ${user.fullName || user.username}`;
 
-      const { sendEmail } = await import("./email");
-      const subject = `INDEXUS CRM - Vitajte, ${user.fullName || user.username}`;
-      const success = await sendEmail({ to: user.email, subject, html: rendered });
+      const countries = (user as any).assignedCountries || [];
+      const countryCode = countries[0] || "SK";
 
-      if (!success) {
-        return res.status(500).json({ error: "Failed to send email" });
+      let sent = false;
+      const systemConnection = await storage.getSystemMs365Connection(countryCode);
+      if (systemConnection && systemConnection.isConnected) {
+        try {
+          const { getValidAccessToken, sendEmail: sendMs365Email } = await import("./lib/ms365");
+          const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+          const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+          const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+          const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+          if (tokenResult) {
+            if (tokenResult.refreshed) {
+              await storage.updateSystemMs365Connection(countryCode, {
+                accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                tokenExpiresAt: tokenResult.expiresOn
+              });
+            }
+            await sendMs365Email(tokenResult.accessToken, [user.email], subject, rendered, true);
+            sent = true;
+            console.log(`[OnboardingEmail] Sent via system MS365 (${systemConnection.email}) for ${countryCode} to ${user.email}`);
+          }
+        } catch (ms365Err) {
+          console.warn(`[OnboardingEmail] System MS365 for ${countryCode} failed:`, ms365Err);
+        }
+      }
+
+      if (!sent) {
+        const { sendEmail } = await import("./email");
+        const success = await sendEmail({ to: user.email, subject, html: rendered });
+        if (!success) {
+          return res.status(500).json({ error: "Failed to send email" });
+        }
+        console.log(`[OnboardingEmail] Sent via SendGrid fallback to ${user.email}`);
       }
 
       await logActivity(
