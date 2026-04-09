@@ -42431,6 +42431,16 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         notes: notes || null,
         isActive: true,
       }).returning();
+
+      if (categoryId && personId) {
+        try {
+          const [cat] = await db.select().from(partnerCategories).where(eq(partnerCategories.id, categoryId));
+          if (cat) {
+            await db.update(collaborators).set({ partnerCategory: cat.code }).where(eq(collaborators.id, personId));
+          }
+        } catch (syncErr) { console.error("[Personnel] Failed to sync category to collaborator:", syncErr); }
+      }
+
       res.json(row);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -42454,6 +42464,20 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         .where(eq(contactAssignments.id, assignmentId))
         .returning();
       if (!row) return res.status(404).json({ error: "Assignment not found" });
+
+      if (categoryId !== undefined && row.personId) {
+        try {
+          if (categoryId) {
+            const [cat] = await db.select().from(partnerCategories).where(eq(partnerCategories.id, categoryId));
+            if (cat) {
+              await db.update(collaborators).set({ partnerCategory: cat.code }).where(eq(collaborators.id, row.personId));
+            }
+          } else {
+            await db.update(collaborators).set({ partnerCategory: null }).where(eq(collaborators.id, row.personId));
+          }
+        } catch (syncErr) { console.error("[Personnel] Failed to sync category to collaborator:", syncErr); }
+      }
+
       res.json(row);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

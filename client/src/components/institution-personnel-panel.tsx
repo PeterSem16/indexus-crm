@@ -46,7 +46,39 @@ import {
   Pencil,
   Save,
   StickyNote,
+  Crown,
+  Heart,
+  Baby,
+  HeartPulse,
+  GraduationCap,
+  Building2,
+  User,
+  HandHeart,
+  Milk,
 } from "lucide-react";
+
+const CATEGORY_STYLE: Record<string, { icon: any; color: string; bg: string }> = {
+  hospital_director: { icon: Building2, color: "text-blue-700 dark:text-blue-300", bg: "bg-blue-100 dark:bg-blue-900" },
+  department_head: { icon: Crown, color: "text-purple-700 dark:text-purple-300", bg: "bg-purple-100 dark:bg-purple-900" },
+  head_nurse: { icon: HeartPulse, color: "text-pink-700 dark:text-pink-300", bg: "bg-pink-100 dark:bg-pink-900" },
+  delivery_midwife: { icon: Baby, color: "text-emerald-700 dark:text-emerald-300", bg: "bg-emerald-100 dark:bg-emerald-900" },
+  department_doctor: { icon: Stethoscope, color: "text-sky-700 dark:text-sky-300", bg: "bg-sky-100 dark:bg-sky-900" },
+  department_nurse: { icon: Heart, color: "text-rose-700 dark:text-rose-300", bg: "bg-rose-100 dark:bg-rose-900" },
+  neonatology_head: { icon: Crown, color: "text-teal-700 dark:text-teal-300", bg: "bg-teal-100 dark:bg-teal-900" },
+  neonatology_doctor: { icon: Stethoscope, color: "text-teal-700 dark:text-teal-300", bg: "bg-teal-100 dark:bg-teal-900" },
+  neonatology_nurse: { icon: Heart, color: "text-teal-700 dark:text-teal-300", bg: "bg-teal-100 dark:bg-teal-900" },
+  gynecologist: { icon: Stethoscope, color: "text-indigo-700 dark:text-indigo-300", bg: "bg-indigo-100 dark:bg-indigo-900" },
+  pediatrician: { icon: Stethoscope, color: "text-amber-700 dark:text-amber-300", bg: "bg-amber-100 dark:bg-amber-900" },
+  prenatal_instructor: { icon: GraduationCap, color: "text-orange-700 dark:text-orange-300", bg: "bg-orange-100 dark:bg-orange-900" },
+  doula: { icon: HandHeart, color: "text-fuchsia-700 dark:text-fuchsia-300", bg: "bg-fuchsia-100 dark:bg-fuchsia-900" },
+  lactation_consultant: { icon: Milk, color: "text-lime-700 dark:text-lime-300", bg: "bg-lime-100 dark:bg-lime-900" },
+};
+const DEFAULT_CATEGORY_STYLE = { icon: User, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-800" };
+
+function getCategoryStyle(code: string | null | undefined) {
+  if (!code) return DEFAULT_CATEGORY_STYLE;
+  return CATEGORY_STYLE[code] || DEFAULT_CATEGORY_STYLE;
+}
 
 interface PersonnelPanelProps {
   entityType: "hospital" | "clinic";
@@ -646,11 +678,53 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
         </div>
       )}
 
+      {allPersonnel.length > 0 && (() => {
+        const cats = categoriesQuery.data || [];
+        const counts: Record<string, { count: number; name: string; code: string }> = {};
+        let uncategorized = 0;
+        for (const p of allPersonnel) {
+          if (p.category_id) {
+            const cat = cats.find((c: any) => c.id === p.category_id);
+            const code = cat?.code || p.category_code || "unknown";
+            const name = cat ? getLocalizedCategoryName(cat, locale) : (p.category_name || code);
+            if (!counts[code]) counts[code] = { count: 0, name, code };
+            counts[code].count++;
+          } else {
+            uncategorized++;
+          }
+        }
+        const entries = Object.values(counts).sort((a, b) => b.count - a.count);
+        if (entries.length === 0) return null;
+        return (
+          <div className="flex flex-wrap gap-1.5 mb-2" data-testid="personnel-category-summary">
+            {entries.map(e => {
+              const style = getCategoryStyle(e.code);
+              const Icon = style.icon;
+              return (
+                <span key={e.code} className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${style.bg} ${style.color} font-medium`}>
+                  <Icon className="h-3 w-3" />
+                  {e.count} {e.name}
+                </span>
+              );
+            })}
+            {uncategorized > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                <User className="h-3 w-3" />
+                {uncategorized} {mpnT.uncategorized || "Uncategorized"}
+              </span>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="space-y-1">
         {allPersonnel.map((p: any, idx: number) => {
           const fullName = [p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ");
           const isLegacy = p.source === "legacy_link";
           const isEditing = editingId.length > 0 && editingId === p.assignment_id;
+          const catCode = p.category_code || ((categoriesQuery.data || []).find((c: any) => c.id === p.category_id)?.code);
+          const catStyle = getCategoryStyle(catCode);
+          const CatIcon = catStyle.icon;
 
           if (isEditing) {
             return (
@@ -714,11 +788,14 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
             : null;
 
           return (
-            <div key={p.assignment_id || `legacy-${idx}`} className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
+            <div key={p.assignment_id || `legacy-${idx}`} className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
+              <div className={`flex-shrink-0 w-6 h-6 rounded-full ${catStyle.bg} flex items-center justify-center`}>
+                <CatIcon className={`h-3 w-3 ${catStyle.color}`} />
+              </div>
               <div className="flex-1 min-w-0 flex items-center gap-2">
                 <span className="font-medium text-sm truncate">{fullName}</span>
                 {p.is_primary && <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />}
-                {catName && <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0">{catName}</Badge>}
+                {catName && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${catStyle.color} border-current/30`}>{catName}</Badge>}
                 {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
                 {p.is_active === false && <Badge variant="destructive" className="text-[9px] px-1.5 py-0 shrink-0">{t.common?.inactive || "Inactive"}</Badge>}
               </div>
