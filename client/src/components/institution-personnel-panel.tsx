@@ -137,6 +137,7 @@ export function InstitutionPersonnelPanel({
       apiRequest("POST", `/api/institutions/${entityType}/${entityId}/personnel`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
       toast({ title: t.success?.saved || "Saved" });
       resetAssignForm();
     },
@@ -379,6 +380,21 @@ export function InstitutionPersonnelPanel({
                           {p.is_active === false && (
                             <Badge variant="destructive" className="text-[10px]">{t.common?.inactive || "Inactive"}</Badge>
                           )}
+                          {p.is_active !== false && (
+                            <Badge className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-100">{t.common?.active || "Active"}</Badge>
+                          )}
+                          {p.has_agreement && p.agreement_valid && !p.agreement_expired && (
+                            <Badge className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200 hover:bg-emerald-100">✓ Agreement</Badge>
+                          )}
+                          {p.has_agreement && p.agreement_expired && (
+                            <Badge className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900 dark:text-amber-200 hover:bg-amber-100">⚠ Expired</Badge>
+                          )}
+                          {p.has_agreement && !p.agreement_valid && !p.agreement_expired && (
+                            <Badge className="text-[10px] bg-red-100 text-red-800 border border-red-300 dark:bg-red-900 dark:text-red-200 hover:bg-red-100">✗ Invalid</Badge>
+                          )}
+                          {!p.has_agreement && (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground">No Agreement</Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 mt-1 flex-wrap">
                           {(p.department || p.position || p.role) && (
@@ -459,6 +475,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
     mutationFn: (data: any) => apiRequest("POST", `/api/institutions/${entityType}/${entityId}/personnel`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
       toast({ title: t.success?.saved || "Saved" });
       resetAssignForm();
     },
@@ -470,6 +487,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
       apiRequest("PUT", `/api/institutions/${entityType}/${entityId}/personnel/${assignmentId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
       toast({ title: t.success?.saved || "Saved" });
       setEditingId("");
     },
@@ -798,6 +816,19 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
                 {catName && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${catStyle.color} border-current/30`}>{catName}</Badge>}
                 {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
                 {p.is_active === false && <Badge variant="destructive" className="text-[9px] px-1.5 py-0 shrink-0">{t.common?.inactive || "Inactive"}</Badge>}
+                {p.is_active !== false && <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-100">{t.common?.active || "Active"}</Badge>}
+                {p.has_agreement && p.agreement_valid && !p.agreement_expired && (
+                  <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200 hover:bg-emerald-100">✓ Agreement</Badge>
+                )}
+                {p.has_agreement && p.agreement_expired && (
+                  <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900 dark:text-amber-200 hover:bg-amber-100">⚠ Expired</Badge>
+                )}
+                {p.has_agreement && !p.agreement_valid && !p.agreement_expired && (
+                  <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-red-100 text-red-800 border border-red-300 dark:bg-red-900 dark:text-red-200 hover:bg-red-100">✗ Invalid</Badge>
+                )}
+                {!p.has_agreement && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 text-muted-foreground">No Agreement</Badge>
+                )}
               </div>
               {details && <span className="text-[11px] text-muted-foreground truncate max-w-[200px] hidden sm:inline">{details}</span>}
               {(p.email || p.phone) && (

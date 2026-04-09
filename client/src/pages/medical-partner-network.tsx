@@ -2764,7 +2764,41 @@ function ActivityTab() {
             <div className="space-y-4 mt-4">
               <div className="flex flex-wrap gap-1.5">
                 {repDrawerData.collaboratorType && <Badge variant="secondary">{repDrawerData.collaboratorType}</Badge>}
-                {repDrawerData.partnerCategory && <Badge variant="outline">{repDrawerData.partnerCategory}</Badge>}
+                {repDrawerData.partnerCategory && (() => {
+                  const pc = repDrawerData.partnerCategory;
+                  const PC_COLORS: Record<string, string> = {
+                    hospital_director: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200",
+                    department_head: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200",
+                    department_doctor: "bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-900 dark:text-sky-200",
+                    department_nurse: "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900 dark:text-rose-200",
+                    head_nurse: "bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900 dark:text-pink-200",
+                    delivery_midwife: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200",
+                    neonatology_head: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-200",
+                    neonatology_doctor: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-200",
+                    neonatology_nurse: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-200",
+                    gynecologist: "bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-200",
+                    ambulant_gynecologist: "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900 dark:text-violet-200",
+                    pediatrician: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200",
+                    doula: "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300 dark:bg-fuchsia-900 dark:text-fuchsia-200",
+                    lactation_consultant: "bg-lime-100 text-lime-800 border-lime-300 dark:bg-lime-900 dark:text-lime-200",
+                    key_opinion_leader: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200",
+                  };
+                  const PC_LABELS: Record<string, string> = {
+                    hospital_director: "Hospital Director", department_head: "Dept. Head", department_doctor: "Dept. Doctor",
+                    department_nurse: "Dept. Nurse", head_nurse: "Head Nurse", delivery_midwife: "Midwife",
+                    neonatology_head: "Neo. Head", neonatology_doctor: "Neo. Doctor", neonatology_nurse: "Neo. Nurse",
+                    gynecologist: "Gynecologist", ambulant_gynecologist: "Amb. Gynecologist", pediatrician: "Pediatrician",
+                    prenatal_instructor: "Prenatal Instructor", doula: "Doula", lactation_consultant: "Lactation Consultant",
+                    chief_physician: "Chief Physician", attending_physician: "Attending Physician", nurse: "Nurse", midwife: "Midwife",
+                    key_opinion_leader: "KOL", strategic_partner: "Strategic Partner", referral_source: "Referral Source",
+                    training_partner: "Training Partner", active_prospect: "Active Prospect", inactive_prospect: "Inactive",
+                  };
+                  return (
+                    <Badge variant="outline" className={`text-[10px] border ${PC_COLORS[pc] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
+                      {PC_LABELS[pc] || pc.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                    </Badge>
+                  );
+                })()}
                 {repDrawerData.isActive === true && <Badge className="bg-green-600 text-white text-xs">{t.common.active}</Badge>}
                 {repDrawerData.isActive === false && <Badge variant="destructive" className="text-xs">{t.common.inactive}</Badge>}
                 {repDrawerData.countryCode && <Badge variant="outline">{getCountryFlag(repDrawerData.countryCode)} {repDrawerData.countryCode}</Badge>}
