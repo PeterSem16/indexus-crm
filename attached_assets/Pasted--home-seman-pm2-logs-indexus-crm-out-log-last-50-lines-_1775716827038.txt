@@ -1,0 +1,51 @@
+/home/seman/.pm2/logs/indexus-crm-out.log last 50 lines:
+0|indexus- | [EmailMonitor] Analyzing new email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1yAAA= for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [EmailMonitor] Email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1yAAA=: sentiment=positive, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1xAAA= for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [EmailMonitor] Email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1xAAA=: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1wAAA= for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [EmailMonitor] Email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1wAAA=: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1vAAA= for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [EmailMonitor] Email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1vAAA=: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1uAAA= for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [EmailMonitor] Email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAE6Zb1uAAA=: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDdwAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDdwAAAA==: sentiment=positive, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDdgAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDdgAAAA==: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDdQAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDdQAAAA==: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDdAAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDdAAAAA==: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDcwAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDcwAAAA==: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDcgAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDcgAAAA==: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDcQAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDcQAAAA==: sentiment=neutral, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDcAAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDcAAAAA==: sentiment=positive, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDbwAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDbwAAAA==: sentiment=positive, alert=none
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDbgAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDbgAAAA==: sentiment=positive, alert=none
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDeAAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+0|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABN9uDeAAAAA==: sentiment=positive, alert=none
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
