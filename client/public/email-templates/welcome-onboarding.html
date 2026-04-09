@@ -95,13 +95,21 @@
                               <td style="font-size:14px;color:#1e293b;font-weight:600;padding:8px 0;">{{username}}</td>
                             </tr>
                             <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.10);"></td></tr>
+                            <tr>
+                              <td style="font-size:11px;color:#8B1538;padding:8px 0;font-weight:600;">Overenie</td>
+                              <td style="padding:8px 0;">
+                                <span style="display:inline-block;background:#f0f9ff;color:#1e40af;font-size:12px;font-weight:600;padding:3px 10px;border-radius:6px;border:1px solid #bfdbfe;">Overenie cez M365</span>
+                              </td>
+                            </tr>
                             <!-- ENDIF_MS365 -->
+                            <!-- IF_LOCAL -->
                             <tr>
                               <td style="font-size:11px;color:#8B1538;padding:8px 0;font-weight:600;">Metóda</td>
                               <td style="padding:8px 0;">
                                 <span style="display:inline-block;background:#f0f9ff;color:#1e40af;font-size:12px;font-weight:600;padding:3px 10px;border-radius:6px;border:1px solid #bfdbfe;">{{authMethod}}</span>
                               </td>
                             </tr>
+                            <!-- ENDIF_LOCAL -->
                           </table>
                         </td>
                       </tr>
@@ -665,7 +673,7 @@
   {{userEmail}}         - Login email
   {{username}}          - Login username
   {{tempPassword}}      - Temporary password (only for local auth)
-  {{authMethod}}        - "Heslo" or "Microsoft 365 SSO"
+  {{authMethod}}        - "Heslo" (only shown for local auth)
   {{loginUrl}}          - Full login URL
   {{loginUrlWithUser}}  - Login URL with ?user=username prefilled
   {{countryName}}       - Country name
