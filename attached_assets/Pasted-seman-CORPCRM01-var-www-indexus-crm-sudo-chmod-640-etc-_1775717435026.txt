@@ -1,0 +1,84 @@
+seman@CORPCRM01:/var/www/indexus-crm$ sudo chmod 640 /etc/nginx/ssl/wildcard-cordbloodcenter-com.key
+sudo chown root:www-data /etc/nginx/ssl/wildcard-cordbloodcenter-com.key
+seman@CORPCRM01:/var/www/indexus-crm$ sudo nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+seman@CORPCRM01:/var/www/indexus-crm$ sudo systemctl restart nginx
+seman@CORPCRM01:/var/www/indexus-crm$ sudo systemctl status nginx
+● nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/usr/lib/systemd/system/nginx.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-04-09 06:46:20 UTC; 8s ago
+       Docs: man:nginx(8)
+    Process: 27068 ExecStartPre=/usr/sbin/nginx -t -q -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+    Process: 27070 ExecStart=/usr/sbin/nginx -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+   Main PID: 27071 (nginx)
+      Tasks: 9 (limit: 38420)
+     Memory: 7.0M (peak: 8.0M)
+        CPU: 27ms
+     CGroup: /system.slice/nginx.service
+             ├─27071 "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"
+             ├─27072 "nginx: worker process"
+             ├─27073 "nginx: worker process"
+             ├─27074 "nginx: worker process"
+             ├─27075 "nginx: worker process"
+             ├─27076 "nginx: worker process"
+             ├─27077 "nginx: worker process"
+             ├─27078 "nginx: worker process"
+             └─27080 "nginx: worker process"
+
+Apr 09 06:46:20 CORPCRM01 systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+Apr 09 06:46:20 CORPCRM01 systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.
+seman@CORPCRM01:/var/www/indexus-crm$ stat /etc/nginx/ssl/wildcard-cordbloodcenter-com.key
+  File: /etc/nginx/ssl/wildcard-cordbloodcenter-com.key
+  Size: 1680      	Blocks: 8          IO Block: 4096   regular file
+Device: 8,2	Inode: 5768943     Links: 1
+Access: (0640/-rw-r-----)  Uid: (    0/    root)   Gid: (   33/www-data)
+Access: 2026-04-09 06:46:09.528459473 +0000
+Modify: 2026-01-15 11:37:09.743189600 +0000
+Change: 2026-04-09 06:45:58.795493029 +0000
+ Birth: 2026-01-15 11:37:09.743189600 +0000
+seman@CORPCRM01:/var/www/indexus-crm$ sudo journalctl --since "2026-04-08" --until "2026-04-09 07:00" | grep -i "ssl\|nginx\|cert\|chmod\|chown" | tail -50
+Apr 08 06:01:28 CORPCRM01 systemd[1]: Starting certbot.service - Certbot...
+Apr 08 06:01:28 CORPCRM01 systemd[1]: certbot.service: Deactivated successfully.
+Apr 08 06:01:28 CORPCRM01 systemd[1]: Finished certbot.service - Certbot.
+Apr 08 16:56:28 CORPCRM01 systemd[1]: Starting certbot.service - Certbot...
+Apr 08 16:56:28 CORPCRM01 systemd[1]: certbot.service: Deactivated successfully.
+Apr 08 16:56:28 CORPCRM01 systemd[1]: Finished certbot.service - Certbot.
+Apr 09 03:32:07 CORPCRM01 systemd[1]: Starting certbot.service - Certbot...
+Apr 09 03:32:07 CORPCRM01 systemd[1]: certbot.service: Deactivated successfully.
+Apr 09 03:32:07 CORPCRM01 systemd[1]: Finished certbot.service - Certbot.
+Apr 09 06:11:48 CORPCRM01 systemd[1]: systemd 255.4-1ubuntu8.14 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP +LIBFDISK +PCRE2 -PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD -BPF_FRAMEWORK -XKBCOMMON +UTMP +SYSVINIT default-hierarchy=unified)
+Apr 09 06:11:48 CORPCRM01 systemd[1]: Stopping nginx.service - A high performance web server and a reverse proxy server...
+Apr 09 06:11:48 CORPCRM01 systemd[1]: nginx.service: Deactivated successfully.
+Apr 09 06:11:48 CORPCRM01 systemd[1]: Stopped nginx.service - A high performance web server and a reverse proxy server.
+Apr 09 06:11:48 CORPCRM01 systemd[1]: nginx.service: Consumed 3min 34.587s CPU time, 556.5M memory peak, 256.0K memory swap peak.
+Apr 09 06:11:48 CORPCRM01 systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+Apr 09 06:11:48 CORPCRM01 systemd[1]: nginx.service: Control process exited, code=exited, status=1/FAILURE
+Apr 09 06:11:48 CORPCRM01 systemd[1]: nginx.service: Failed with result 'exit-code'.
+Apr 09 06:11:48 CORPCRM01 systemd[1]: Failed to start nginx.service - A high performance web server and a reverse proxy server.
+Apr 09 06:11:48 CORPCRM01 nginx[26219]: 2026/04/09 06:11:48 [emerg] 26219#26219: host not found in upstream "mediagtw.cordbloodcenter.com" in /etc/nginx/sites-enabled/indexus-crm:50
+Apr 09 06:11:48 CORPCRM01 nginx[26219]: nginx: configuration file /etc/nginx/nginx.conf test failed
+Apr 09 06:45:20 CORPCRM01 sudo[27039]:    seman : TTY=pts/0 ; PWD=/var/www/indexus-crm ; USER=root ; COMMAND=/usr/bin/systemctl status nginx
+Apr 09 06:45:58 CORPCRM01 sudo[27052]:    seman : TTY=pts/0 ; PWD=/var/www/indexus-crm ; USER=root ; COMMAND=/usr/bin/chmod 640 /etc/nginx/ssl/wildcard-cordbloodcenter-com.key
+Apr 09 06:45:58 CORPCRM01 sudo[27055]:    seman : TTY=pts/0 ; PWD=/var/www/indexus-crm ; USER=root ; COMMAND=/usr/bin/chown root:www-data /etc/nginx/ssl/wildcard-cordbloodcenter-com.key
+Apr 09 06:46:09 CORPCRM01 sudo[27059]:    seman : TTY=pts/0 ; PWD=/var/www/indexus-crm ; USER=root ; COMMAND=/usr/sbin/nginx -t
+Apr 09 06:46:20 CORPCRM01 sudo[27064]:    seman : TTY=pts/0 ; PWD=/var/www/indexus-crm ; USER=root ; COMMAND=/usr/bin/systemctl restart nginx
+Apr 09 06:46:20 CORPCRM01 systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+Apr 09 06:46:20 CORPCRM01 systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.
+Apr 09 06:46:28 CORPCRM01 sudo[27081]:    seman : TTY=pts/0 ; PWD=/var/www/indexus-crm ; USER=root ; COMMAND=/usr/bin/systemctl status nginx
+seman@CORPCRM01:/var/www/indexus-crm$ sudo cat /var/log/auth.log | grep -i "sudo\|session opened" | tail -30
+cat: /var/log/auth.log: No such file or directory
+seman@CORPCRM01:/var/www/indexus-crm$ sudo cat /home/seman/.bash_history | grep -i "chmod\|chown\|ssl\|cert\|nginx" | tail -20
+grep "udid/callback" /var/log/nginx/access.log | tail -10
+sudo grep "udid/callback" /var/log/nginx/access.log | tail -10
+cat /etc/nginx/sites-enabled/indexus*
+sudo tail -f /var/log/nginx/access.log | grep "wss-asterisk"
+seman@CORPCRM01:/var/www/indexus-crm$ sudo journalctl -u nginx --since "2026-04-08" | tail -50
+Apr 09 06:11:48 CORPCRM01 systemd[1]: Stopping nginx.service - A high performance web server and a reverse proxy server...
+Apr 09 06:11:48 CORPCRM01 nginx[26219]: 2026/04/09 06:11:48 [emerg] 26219#26219: host not found in upstream "mediagtw.cordbloodcenter.com" in /etc/nginx/sites-enabled/indexus-crm:50
+Apr 09 06:11:48 CORPCRM01 nginx[26219]: nginx: configuration file /etc/nginx/nginx.conf test failed
+Apr 09 06:46:20 CORPCRM01 systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+Apr 09 06:46:20 CORPCRM01 systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.
+seman@CORPCRM01:/var/www/indexus-crm$ grep -i nginx /var/log/dpkg.log 2>/dev/null | tail -10
+grep -i nginx /var/log/apt/history.log 2>/dev/null | tail -10
+seman@CORPCRM01:/var/www/inde
