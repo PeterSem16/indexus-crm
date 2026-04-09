@@ -28,7 +28,9 @@ export default function LandingPage() {
   const [, setLocation] = useLocation();
   const { login, loginWithMs365 } = useAuth();
   const { toast } = useToast();
-  const [username, setUsername] = useState("");
+  const urlParams = new URLSearchParams(window.location.search);
+  const prefillUser = urlParams.get("user") || "";
+  const [username, setUsername] = useState(prefillUser);
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<"username" | "password" | "ms365">("username");

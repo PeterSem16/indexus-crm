@@ -50,57 +50,96 @@
                 uchovania pupočníkovej krvi a prinášajú rodinám nádej na zdravšiu budúcnosť.
                 Sme presvedčení, že Vaše skúsenosti a nasadenie budú pre náš tím veľkým prínosom.
               </p>
-              <p style="margin:18px 0 0;font-size:15px;color:#64748b;line-height:1.9;">
-                Váš účet v systéme <strong style="color:#8B1538;">INDEXUS CRM</strong> bol úspešne vytvorený.
-                Boli ste priradený/á pre krajinu
-                <span style="display:inline-block;background:#fdf2f4;color:#8B1538;font-weight:700;padding:3px 12px;border-radius:6px;font-size:13px;border:1px solid #f5c6ce;">{{countryFlag}} {{countryName}}</span>.
-              </p>
             </td>
           </tr>
 
-          <!-- ===== LOGIN CARD ===== -->
+          <!-- ===== TWO COLUMN: LOGIN CARD + COUNTRY/AUTH INFO ===== -->
           <tr>
             <td style="padding:28px 56px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf2f4;border-radius:14px;border:1px solid #f5c6ce;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="padding:28px 28px 24px;">
-                    <p style="margin:0 0 18px;font-size:12px;text-transform:uppercase;letter-spacing:2px;color:#8B1538;font-weight:700;">
-                      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238B1538' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4'/%3E%3C/svg%3E" alt="" style="vertical-align:middle;margin-right:8px;" width="14" height="14" />
-                      Prihlasovacie údaje
-                    </p>
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <!-- LEFT: Login credentials -->
+                  <td width="58%" style="vertical-align:top;padding-right:14px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf2f4;border-radius:14px;border:1px solid #f5c6ce;">
                       <tr>
-                        <td width="100" style="font-size:12px;color:#8B1538;padding:10px 0;vertical-align:top;font-weight:600;">Adresa</td>
-                        <td style="font-size:15px;color:#1e293b;font-weight:600;padding:10px 0;">
-                          <a href="{{loginUrl}}" style="color:#8B1538;text-decoration:none;">{{loginUrl}}</a>
+                        <td style="padding:24px 24px 20px;">
+                          <p style="margin:0 0 16px;font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#8B1538;font-weight:700;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%238B1538' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4'/%3E%3C/svg%3E" alt="" style="vertical-align:middle;margin-right:6px;" width="13" height="13" />
+                            Prihlasovacie údaje
+                          </p>
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="font-size:11px;color:#8B1538;padding:8px 0;font-weight:600;white-space:nowrap;" width="80">Adresa</td>
+                              <td style="font-size:14px;color:#1e293b;font-weight:600;padding:8px 0;word-break:break-all;">
+                                <a href="{{loginUrlWithUser}}" style="color:#8B1538;text-decoration:none;">{{loginUrl}}</a>
+                              </td>
+                            </tr>
+                            <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.10);"></td></tr>
+                            <!-- IF_LOCAL -->
+                            <tr>
+                              <td style="font-size:11px;color:#8B1538;padding:8px 0;font-weight:600;">E-mail</td>
+                              <td style="font-size:14px;color:#1e293b;font-weight:600;padding:8px 0;">{{userEmail}}</td>
+                            </tr>
+                            <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.10);"></td></tr>
+                            <tr>
+                              <td style="font-size:11px;color:#8B1538;padding:8px 0;font-weight:600;">Heslo</td>
+                              <td style="padding:8px 0;">
+                                <span style="display:inline-block;background:#8B1538;color:#fff;font-size:13px;font-weight:700;padding:4px 14px;border-radius:7px;font-family:'Courier New',monospace;letter-spacing:1.5px;">{{tempPassword}}</span>
+                              </td>
+                            </tr>
+                            <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.10);"></td></tr>
+                            <!-- ENDIF_LOCAL -->
+                            <!-- IF_MS365 -->
+                            <tr>
+                              <td style="font-size:11px;color:#8B1538;padding:8px 0;font-weight:600;">Používateľ</td>
+                              <td style="font-size:14px;color:#1e293b;font-weight:600;padding:8px 0;">{{username}}</td>
+                            </tr>
+                            <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.10);"></td></tr>
+                            <!-- ENDIF_MS365 -->
+                            <tr>
+                              <td style="font-size:11px;color:#8B1538;padding:8px 0;font-weight:600;">Metóda</td>
+                              <td style="padding:8px 0;">
+                                <span style="display:inline-block;background:#f0f9ff;color:#1e40af;font-size:12px;font-weight:600;padding:3px 10px;border-radius:6px;border:1px solid #bfdbfe;">{{authMethod}}</span>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
-                      <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.12);"></td></tr>
-                      <!-- IF_LOCAL -->
+                    </table>
+                  </td>
+                  <!-- RIGHT: Country + Quick info -->
+                  <td width="42%" style="vertical-align:top;padding-left:14px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:14px;border:1px solid #e2e8f0;">
                       <tr>
-                        <td width="100" style="font-size:12px;color:#8B1538;padding:10px 0;vertical-align:top;font-weight:600;">E-mail</td>
-                        <td style="font-size:15px;color:#1e293b;font-weight:600;padding:10px 0;">{{userEmail}}</td>
-                      </tr>
-                      <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.12);"></td></tr>
-                      <tr>
-                        <td width="100" style="font-size:12px;color:#8B1538;padding:10px 0;vertical-align:top;font-weight:600;">Heslo</td>
-                        <td style="padding:10px 0;">
-                          <span style="display:inline-block;background:#8B1538;color:#fff;font-size:14px;font-weight:700;padding:5px 16px;border-radius:8px;font-family:'Courier New',monospace;letter-spacing:1.5px;">{{tempPassword}}</span>
+                        <td style="padding:24px;text-align:center;">
+                          <p style="margin:0;font-size:40px;line-height:1;">{{countryFlag}}</p>
+                          <p style="margin:10px 0 0;font-size:18px;font-weight:800;color:#1e293b;">{{countryName}}</p>
+                          <p style="margin:4px 0 0;font-size:11px;color:#8B1538;text-transform:uppercase;letter-spacing:2px;font-weight:600;">Priradená krajina</p>
                         </td>
                       </tr>
-                      <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.12);"></td></tr>
-                      <!-- ENDIF_LOCAL -->
-                      <!-- IF_MS365 -->
+                      <tr><td style="padding:0 24px;"><div style="border-top:1px solid #e2e8f0;"></div></td></tr>
                       <tr>
-                        <td width="100" style="font-size:12px;color:#8B1538;padding:10px 0;vertical-align:top;font-weight:600;">Používateľ</td>
-                        <td style="font-size:15px;color:#1e293b;font-weight:600;padding:10px 0;">{{username}}</td>
-                      </tr>
-                      <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.12);"></td></tr>
-                      <!-- ENDIF_MS365 -->
-                      <tr>
-                        <td width="100" style="font-size:12px;color:#8B1538;padding:10px 0;vertical-align:top;font-weight:600;">Prihlásenie</td>
-                        <td style="font-size:15px;color:#1e293b;font-weight:600;padding:10px 0;">
-                          <span style="display:inline-block;background:#f0f9ff;color:#1e40af;font-size:13px;font-weight:600;padding:4px 12px;border-radius:6px;border:1px solid #bfdbfe;">{{authMethod}}</span>
+                        <td style="padding:18px 24px 24px;text-align:center;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+                            <tr>
+                              <td style="border-radius:10px;background:linear-gradient(135deg,#8B1538,#a91d47);box-shadow:0 3px 12px rgba(139,21,56,0.30);">
+                                <a href="{{loginUrlWithUser}}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:13px 28px;font-size:14px;font-weight:700;letter-spacing:0.3px;">
+                                  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4'/%3E%3Cpolyline points='10 17 15 12 10 7'/%3E%3Cline x1='15' y1='12' x2='3' y2='12'/%3E%3C/svg%3E" alt="" style="vertical-align:middle;margin-right:8px;" width="14" height="14" />
+                                  Prihlásiť sa
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          <!-- IF_MS365 -->
+                          <p style="margin:12px 0 0;font-size:11px;color:#64748b;line-height:1.6;">
+                            Kliknite na <strong>„Prihlásiť sa cez Microsoft 365"</strong> a overíte sa firemným Microsoft účtom.
+                          </p>
+                          <!-- ENDIF_MS365 -->
+                          <!-- IF_LOCAL -->
+                          <p style="margin:12px 0 0;font-size:11px;color:#64748b;line-height:1.6;">
+                            Prihláste sa e-mailom a dočasným heslom uvedeným vľavo.
+                          </p>
+                          <!-- ENDIF_LOCAL -->
                         </td>
                       </tr>
                     </table>
@@ -110,168 +149,142 @@
             </td>
           </tr>
 
-          <!-- ===== CTA BUTTON ===== -->
-          <tr>
-            <td align="center" style="padding:0 56px 32px;">
-              <table role="presentation" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="border-radius:12px;background:linear-gradient(135deg,#8B1538,#a91d47);box-shadow:0 4px 14px rgba(139,21,56,0.35);">
-                    <a href="{{loginUrl}}" style="display:inline-block;color:#ffffff;text-decoration:none;padding:16px 52px;font-size:16px;font-weight:700;letter-spacing:0.5px;">
-                      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4'/%3E%3Cpolyline points='10 17 15 12 10 7'/%3E%3Cline x1='15' y1='12' x2='3' y2='12'/%3E%3C/svg%3E" alt="" style="vertical-align:middle;margin-right:10px;" width="16" height="16" />
-                      Prihlásiť sa do INDEXUS
-                    </a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
           <!-- ===== DIVIDER ===== -->
           <tr><td style="padding:0 56px;"><div style="border-top:1px solid #f1f5f9;"></div></td></tr>
 
-          <!-- ===== MODULES ===== -->
+          <!-- ===== MODULES HEADER ===== -->
           <tr>
-            <td style="padding:32px 56px 12px;">
+            <td style="padding:28px 56px 8px;">
               <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:2.5px;color:#8B1538;font-weight:600;">Platforma</p>
-              <p style="margin:6px 0 24px;font-size:22px;color:#1e293b;font-weight:800;letter-spacing:-0.3px;">Moduly INDEXUS CRM</p>
+              <p style="margin:4px 0 0;font-size:20px;color:#1e293b;font-weight:800;letter-spacing:-0.3px;">Čo všetko v INDEXUS CRM nájdete</p>
             </td>
           </tr>
 
-          <!-- Module Row 1 -->
+          <!-- ===== MODULES 3x2 COMPACT GRID ===== -->
           <tr>
-            <td style="padding:0 56px;">
+            <td style="padding:12px 56px 0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <!-- Row 1 -->
                 <tr>
-                  <td width="50%" style="padding:0 8px 14px 0;vertical-align:top;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+                  <td width="33%" style="padding:0 6px 10px 0;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
                       <tr>
-                        <td style="padding:20px;">
-                          <div style="width:40px;height:40px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:10px;text-align:center;line-height:40px;">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='7' height='9' x='3' y='3' rx='1'/%3E%3Crect width='7' height='5' x='14' y='3' rx='1'/%3E%3Crect width='7' height='9' x='14' y='12' rx='1'/%3E%3Crect width='7' height='5' x='3' y='16' rx='1'/%3E%3C/svg%3E" alt="" width="20" height="20" style="vertical-align:middle;" />
+                        <td style="padding:16px 14px;">
+                          <div style="width:34px;height:34px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:34px;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='7' height='9' x='3' y='3' rx='1'/%3E%3Crect width='7' height='5' x='14' y='3' rx='1'/%3E%3Crect width='7' height='9' x='14' y='12' rx='1'/%3E%3Crect width='7' height='5' x='3' y='16' rx='1'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
                           </div>
-                          <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#1e293b;">Dashboard</p>
-                          <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.6;">KPI prehľad, štatistiky, grafy a aktivita tímu v reálnom čase.</p>
+                          <p style="margin:8px 0 0;font-size:13px;font-weight:700;color:#1e293b;">Dashboard</p>
+                          <p style="margin:3px 0 0;font-size:11px;color:#64748b;line-height:1.5;">KPI, štatistiky a tímová aktivita</p>
                         </td>
                       </tr>
                     </table>
                   </td>
-                  <td width="50%" style="padding:0 0 14px 8px;vertical-align:top;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+                  <td width="33%" style="padding:0 3px 10px;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
                       <tr>
-                        <td style="padding:20px;">
-                          <div style="width:40px;height:40px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:10px;text-align:center;line-height:40px;">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E" alt="" width="20" height="20" style="vertical-align:middle;" />
+                        <td style="padding:16px 14px;">
+                          <div style="width:34px;height:34px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:34px;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
                           </div>
-                          <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#1e293b;">Nemocnice &amp; Kliniky</p>
-                          <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.6;">Zdravotnícke zariadenia, personál, zmluvy a kategórie.</p>
+                          <p style="margin:8px 0 0;font-size:13px;font-weight:700;color:#1e293b;">Nemocnice</p>
+                          <p style="margin:3px 0 0;font-size:11px;color:#64748b;line-height:1.5;">Zariadenia, personál a zmluvy</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="33%" style="padding:0 0 10px 6px;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px 14px;">
+                          <div style="width:34px;height:34px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:34px;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
+                          </div>
+                          <p style="margin:8px 0 0;font-size:13px;font-weight:700;color:#1e293b;">Partneri</p>
+                          <p style="margin:3px 0 0;font-size:11px;color:#64748b;line-height:1.5;">Spolupracovníci a lekári</p>
                         </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Module Row 2 -->
-          <tr>
-            <td style="padding:0 56px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <!-- Row 2 -->
                 <tr>
-                  <td width="50%" style="padding:0 8px 14px 0;vertical-align:top;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+                  <td width="33%" style="padding:0 6px 10px 0;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
                       <tr>
-                        <td style="padding:20px;">
-                          <div style="width:40px;height:40px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:10px;text-align:center;line-height:40px;">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E" alt="" width="20" height="20" style="vertical-align:middle;" />
+                        <td style="padding:16px 14px;">
+                          <div style="width:34px;height:34px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:34px;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 12h.01'/%3E%3Cpath d='M15 12h.01'/%3E%3Cpath d='M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5'/%3E%3Cpath d='M22 10.5C22 6 18.42 2 12 2S2 6 2 10.5c0 2.1.87 4.05 2.33 5.5C5.77 17.53 7.67 19 12 22c4.33-3 6.23-4.47 7.67-6 1.46-1.45 2.33-3.4 2.33-5.5z'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
                           </div>
-                          <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#1e293b;">Partner Network</p>
-                          <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.6;">Spolupracovníci, lekári, sestry, zmluvy a kategórie.</p>
+                          <p style="margin:8px 0 0;font-size:13px;font-weight:700;color:#1e293b;">Zákazníci</p>
+                          <p style="margin:3px 0 0;font-size:11px;color:#64748b;line-height:1.5;">Pipeline, zmluvy a odbery</p>
                         </td>
                       </tr>
                     </table>
                   </td>
-                  <td width="50%" style="padding:0 0 14px 8px;vertical-align:top;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+                  <td width="33%" style="padding:0 3px 10px;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
                       <tr>
-                        <td style="padding:20px;">
-                          <div style="width:40px;height:40px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:10px;text-align:center;line-height:40px;">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 12h.01'/%3E%3Cpath d='M15 12h.01'/%3E%3Cpath d='M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5'/%3E%3Cpath d='M19.5 10c.5 0 1 .2 1.4.5'/%3E%3Cpath d='M3.1 10.5C3.5 10.2 4 10 4.5 10'/%3E%3Cpath d='M22 10.5C22 6 18.42 2 12 2S2 6 2 10.5c0 2.1.87 4.05 2.33 5.5C5.77 17.53 7.67 19 12 22c4.33-3 6.23-4.47 7.67-6 1.46-1.45 2.33-3.4 2.33-5.5z'/%3E%3C/svg%3E" alt="" width="20" height="20" style="vertical-align:middle;" />
+                        <td style="padding:16px 14px;">
+                          <div style="width:34px;height:34px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:34px;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
                           </div>
-                          <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#1e293b;">Zákazníci</p>
-                          <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.6;">Pipeline, zmluvy, odbery, fakturácia a kompletná história.</p>
+                          <p style="margin:8px 0 0;font-size:13px;font-weight:700;color:#1e293b;">NEXUS Omni</p>
+                          <p style="margin:3px 0 0;font-size:11px;color:#64748b;line-height:1.5;">E-maily, SMS a VoIP</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="33%" style="padding:0 0 10px 6px;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px 14px;">
+                          <div style="width:34px;height:34px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:34px;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
+                          </div>
+                          <p style="margin:8px 0 0;font-size:13px;font-weight:700;color:#1e293b;">NEXUS Pulse</p>
+                          <p style="margin:3px 0 0;font-size:11px;color:#64748b;line-height:1.5;">Úlohy a riadenie hovorov</p>
                         </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Module Row 3 -->
-          <tr>
-            <td style="padding:0 56px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <!-- Row 3 -->
                 <tr>
-                  <td width="50%" style="padding:0 8px 14px 0;vertical-align:top;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+                  <td width="33%" style="padding:0 6px 0 0;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
                       <tr>
-                        <td style="padding:20px;">
-                          <div style="width:40px;height:40px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:10px;text-align:center;line-height:40px;">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/%3E%3C/svg%3E" alt="" width="20" height="20" style="vertical-align:middle;" />
+                        <td style="padding:16px 14px;">
+                          <div style="width:34px;height:34px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:34px;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='6'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
                           </div>
-                          <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#1e293b;">NEXUS Omni</p>
-                          <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.6;">E-maily, SMS, VoIP hovory — všetko na jednom mieste.</p>
+                          <p style="margin:8px 0 0;font-size:13px;font-weight:700;color:#1e293b;">Missions</p>
+                          <p style="margin:3px 0 0;font-size:11px;color:#64748b;line-height:1.5;">Kampane a automatizácie</p>
                         </td>
                       </tr>
                     </table>
                   </td>
-                  <td width="50%" style="padding:0 0 14px 8px;vertical-align:top;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+                  <td width="33%" style="padding:0 3px 0;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
                       <tr>
-                        <td style="padding:20px;">
-                          <div style="width:40px;height:40px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:10px;text-align:center;line-height:40px;">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/%3E%3C/svg%3E" alt="" width="20" height="20" style="vertical-align:middle;" />
+                        <td style="padding:16px 14px;">
+                          <div style="width:34px;height:34px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:34px;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='M18 17V9'/%3E%3Cpath d='M13 17V5'/%3E%3Cpath d='M8 17v-3'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
                           </div>
-                          <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#1e293b;">NEXUS Pulse</p>
-                          <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.6;">Agent workspace, úlohy, notifikácie a riadenie hovorov.</p>
+                          <p style="margin:8px 0 0;font-size:13px;font-weight:700;color:#1e293b;">Pipeline</p>
+                          <p style="margin:3px 0 0;font-size:11px;color:#64748b;line-height:1.5;">Reporty a analytika</p>
                         </td>
                       </tr>
                     </table>
                   </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Module Row 4 -->
-          <tr>
-            <td style="padding:0 56px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td width="50%" style="padding:0 8px 14px 0;vertical-align:top;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+                  <td width="33%" style="padding:0 0 0 6px;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
                       <tr>
-                        <td style="padding:20px;">
-                          <div style="width:40px;height:40px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:10px;text-align:center;line-height:40px;">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='6'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3C/svg%3E" alt="" width="20" height="20" style="vertical-align:middle;" />
+                        <td style="padding:16px 14px;">
+                          <div style="width:34px;height:34px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:34px;">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
                           </div>
-                          <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#1e293b;">NEXUS Missions</p>
-                          <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.6;">Kampane, hromadné e-maily a automatizácie.</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                  <td width="50%" style="padding:0 0 14px 8px;vertical-align:top;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
-                      <tr>
-                        <td style="padding:20px;">
-                          <div style="width:40px;height:40px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:10px;text-align:center;line-height:40px;">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='M18 17V9'/%3E%3Cpath d='M13 17V5'/%3E%3Cpath d='M8 17v-3'/%3E%3C/svg%3E" alt="" width="20" height="20" style="vertical-align:middle;" />
-                          </div>
-                          <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#1e293b;">Pipeline &amp; Reporty</p>
-                          <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.6;">Vizuálny pipeline, reporty a analytické prehľady.</p>
+                          <p style="margin:8px 0 0;font-size:13px;font-weight:700;color:#1e293b;">Konfigurátor</p>
+                          <p style="margin:3px 0 0;font-size:11px;color:#64748b;line-height:1.5;">Správa a nastavenia</p>
                         </td>
                       </tr>
                     </table>
@@ -282,186 +295,126 @@
           </tr>
 
           <!-- ===== DIVIDER ===== -->
-          <tr><td style="padding:8px 56px 0;"><div style="border-top:1px solid #f1f5f9;"></div></td></tr>
+          <tr><td style="padding:20px 56px 0;"><div style="border-top:1px solid #f1f5f9;"></div></td></tr>
 
-          <!-- ===== VoIP CALLING SECTION ===== -->
+          <!-- ===== TWO COLUMN: VoIP + INDEXUS Connect ===== -->
           <tr>
-            <td style="padding:28px 56px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border-radius:14px;overflow:hidden;">
+            <td style="padding:24px 56px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="padding:28px 28px 12px;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <!-- LEFT: VoIP -->
+                  <td width="50%" style="vertical-align:top;padding-right:8px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border-radius:14px;overflow:hidden;height:100%;">
                       <tr>
-                        <td width="52" style="vertical-align:top;">
-                          <div style="width:44px;height:44px;background:rgba(255,255,255,0.10);border-radius:11px;text-align:center;line-height:44px;border:1px solid rgba(255,255,255,0.06);">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'/%3E%3C/svg%3E" alt="" width="22" height="22" style="vertical-align:middle;" />
-                          </div>
-                        </td>
-                        <td style="padding-left:14px;">
-                          <p style="margin:0;font-size:17px;font-weight:700;color:#ffffff;">Telefonovanie priamo z CRM</p>
-                          <p style="margin:4px 0 0;font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:2px;">VoIP integrácia</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:8px 28px 28px;">
-                    <p style="margin:0 0 16px;font-size:13px;color:rgba(255,255,255,0.75);line-height:1.8;">
-                      V INDEXUS CRM môžete volať <strong style="color:#ffffff;">jedným kliknutím</strong> priamo z akéhokoľvek modulu. Stačí kliknúť na ikonu telefónu pri kontakte:
-                    </p>
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding:6px 0;">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
+                        <td style="padding:22px 20px 10px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                             <tr>
-                              <td width="26" style="vertical-align:top;">
-                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;" />
+                              <td width="40" style="vertical-align:top;">
+                                <div style="width:36px;height:36px;background:rgba(255,255,255,0.10);border-radius:9px;text-align:center;line-height:36px;">
+                                  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'/%3E%3C/svg%3E" alt="" width="18" height="18" style="vertical-align:middle;" />
+                                </div>
                               </td>
-                              <td style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.6;"><strong style="color:#60a5fa;">Zákazníci</strong> — zavolajte priamo z karty zákazníka alebo pipeline prehľadu</td>
+                              <td style="padding-left:10px;">
+                                <p style="margin:0;font-size:15px;font-weight:700;color:#ffffff;">VoIP Calling</p>
+                                <p style="margin:2px 0 0;font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.5px;">Integrácia</p>
+                              </td>
                             </tr>
                           </table>
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding:6px 0;">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
+                        <td style="padding:6px 20px 20px;">
+                          <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.70);line-height:1.7;">
+                            Volajte <strong style="color:#fff;">jedným kliknutím</strong> priamo z CRM — zákazníkom, lekárom aj spolupracovníkom.
+                          </p>
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;">
                             <tr>
-                              <td width="26" style="vertical-align:top;">
-                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;" />
+                              <td style="padding:4px 0;">
+                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="12" height="12" style="vertical-align:middle;margin-right:6px;" />
+                                <span style="font-size:11px;color:rgba(255,255,255,0.85);">Hovory z karty zákazníka</span>
                               </td>
-                              <td style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.6;"><strong style="color:#60a5fa;">Nemocnice</strong> — hovor s lekárom alebo sestrou priamo z personálneho panela</td>
+                            </tr>
+                            <tr>
+                              <td style="padding:4px 0;">
+                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="12" height="12" style="vertical-align:middle;margin-right:6px;" />
+                                <span style="font-size:11px;color:rgba(255,255,255,0.85);">Priame volanie z nemocníc</span>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:4px 0;">
+                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="12" height="12" style="vertical-align:middle;margin-right:6px;" />
+                                <span style="font-size:11px;color:rgba(255,255,255,0.85);">Nahrávky a história</span>
+                              </td>
                             </tr>
                           </table>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:6px 0;">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td width="26" style="vertical-align:top;">
-                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;" />
-                              </td>
-                              <td style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.6;"><strong style="color:#60a5fa;">Partner Network</strong> — kontaktujte spolupracovníkov z ich profilu</td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:6px 0;">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td width="26" style="vertical-align:top;">
-                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;" />
-                              </td>
-                              <td style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.6;"><strong style="color:#60a5fa;">NEXUS Pulse</strong> — spravujte aktívne hovory, nahrávky a históriu</td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                    <p style="margin:14px 0 0;font-size:12px;color:rgba(255,255,255,0.45);line-height:1.6;font-style:italic;">
-                      Váš administrátor vám pridelí SIP telefónnu linku v nastaveniach vášho profilu.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- ===== DIVIDER ===== -->
-          <tr><td style="padding:0 56px;"><div style="border-top:1px solid #f1f5f9;"></div></td></tr>
-
-          <!-- ===== INDEXUS CONNECT MOBILE APP ===== -->
-          <tr>
-            <td style="padding:28px 56px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#8B1538 0%,#6B1C3B 60%,#4a1028 100%);border-radius:14px;overflow:hidden;">
-                <tr>
-                  <td style="padding:30px 28px 14px;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td width="56" style="vertical-align:top;">
-                          <div style="width:48px;height:48px;background:rgba(255,255,255,0.12);border-radius:13px;text-align:center;line-height:48px;border:1px solid rgba(255,255,255,0.06);">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='20' x='5' y='2' rx='2' ry='2'/%3E%3Cpath d='M12 18h.01'/%3E%3C/svg%3E" alt="" width="24" height="24" style="vertical-align:middle;" />
-                          </div>
-                        </td>
-                        <td style="padding-left:14px;">
-                          <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;">INDEXUS Connect</p>
-                          <p style="margin:3px 0 0;font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:2px;">Mobilná aplikácia</p>
-                          <p style="margin:12px 0 0;font-size:13px;color:rgba(255,255,255,0.8);line-height:1.8;">
-                            Stiahnite si aplikáciu <strong style="color:#ffffff;">INDEXUS Connect</strong> na váš telefón. Umožňuje vám:
+                          <p style="margin:10px 0 0;font-size:10px;color:rgba(255,255,255,0.35);line-height:1.5;font-style:italic;">
+                            SIP linku vám pridelí administrátor.
                           </p>
                         </td>
                       </tr>
                     </table>
                   </td>
-                </tr>
-                <tr>
-                  <td style="padding:4px 28px 28px;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <!-- RIGHT: INDEXUS Connect -->
+                  <td width="50%" style="vertical-align:top;padding-left:8px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#8B1538 0%,#6B1C3B 60%,#4a1028 100%);border-radius:14px;overflow:hidden;height:100%;">
                       <tr>
-                        <td style="padding:7px 0 7px 62px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
+                        <td style="padding:22px 20px 10px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                             <tr>
-                              <td width="26" style="vertical-align:top;">
-                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23D4AF37' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;" />
+                              <td width="40" style="vertical-align:top;">
+                                <div style="width:36px;height:36px;background:rgba(255,255,255,0.12);border-radius:9px;text-align:center;line-height:36px;">
+                                  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='20' x='5' y='2' rx='2' ry='2'/%3E%3Cpath d='M12 18h.01'/%3E%3C/svg%3E" alt="" width="18" height="18" style="vertical-align:middle;" />
+                                </div>
                               </td>
-                              <td style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.6;">Volať zákazníkom a spolupracovníkom priamo z mobilu cez VoIP</td>
+                              <td style="padding-left:10px;">
+                                <p style="margin:0;font-size:15px;font-weight:700;color:#ffffff;">INDEXUS Connect</p>
+                                <p style="margin:2px 0 0;font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.5px;">Mobilná app</p>
+                              </td>
                             </tr>
                           </table>
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding:7px 0 7px 62px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
+                        <td style="padding:6px 20px 20px;">
+                          <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.70);line-height:1.7;">
+                            CRM vo vrecku — volajte, prijímajte notifikácie a pracujte <strong style="color:#fff;">odkiaľkoľvek</strong>.
+                          </p>
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;">
                             <tr>
-                              <td width="26" style="vertical-align:top;">
-                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23D4AF37' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;" />
+                              <td style="padding:4px 0;">
+                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23D4AF37' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="12" height="12" style="vertical-align:middle;margin-right:6px;" />
+                                <span style="font-size:11px;color:rgba(255,255,255,0.85);">VoIP hovory z mobilu</span>
                               </td>
-                              <td style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.6;">Prijímať push notifikácie o nových úlohách a udalostiach</td>
+                            </tr>
+                            <tr>
+                              <td style="padding:4px 0;">
+                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23D4AF37' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="12" height="12" style="vertical-align:middle;margin-right:6px;" />
+                                <span style="font-size:11px;color:rgba(255,255,255,0.85);">Push notifikácie</span>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:4px 0;">
+                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23D4AF37' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="12" height="12" style="vertical-align:middle;margin-right:6px;" />
+                                <span style="font-size:11px;color:rgba(255,255,255,0.85);">Skenovanie dokumentov</span>
+                              </td>
                             </tr>
                           </table>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:7px 0 7px 62px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
+                          <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:12px;">
                             <tr>
-                              <td width="26" style="vertical-align:top;">
-                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23D4AF37' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;" />
+                              <td style="padding-right:6px;">
+                                <a href="#" style="display:inline-block;background:rgba(255,255,255,0.12);color:#fff;text-decoration:none;padding:7px 12px;border-radius:7px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.15);">
+                                  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z'/%3E%3C/svg%3E" alt="" width="11" height="11" style="vertical-align:middle;margin-right:4px;" />
+                                  App Store
+                                </a>
                               </td>
-                              <td style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.6;">Pristupovať k CRM dátam a zákazníckym kartám aj na cestách</td>
+                              <td>
+                                <a href="#" style="display:inline-block;background:rgba(255,255,255,0.12);color:#fff;text-decoration:none;padding:7px 12px;border-radius:7px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.15);">
+                                  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 0 1-.61-.92V2.734a1 1 0 0 1 .609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-1.891l2.5 1.448a1 1 0 0 1 0 1.472l-2.5 1.448-2.537-2.537 2.537-2.537zM5.864 2.658L16.8 8.99l-2.302 2.302-8.635-8.635z'/%3E%3C/svg%3E" alt="" width="11" height="11" style="vertical-align:middle;margin-right:4px;" />
+                                  Google Play
+                                </a>
+                              </td>
                             </tr>
                           </table>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:7px 0 7px 62px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td width="26" style="vertical-align:top;">
-                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23D4AF37' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;" />
-                              </td>
-                              <td style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.6;">Skenovať dokumenty a pridávať ich priamo k zákazníkom</td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-
-                    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0 0 62px;">
-                      <tr>
-                        <td style="padding-right:10px;">
-                          <a href="#" style="display:inline-block;background:rgba(255,255,255,0.12);color:#fff;text-decoration:none;padding:9px 18px;border-radius:9px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,0.15);">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;margin-right:5px;" />
-                            App Store
-                          </a>
-                        </td>
-                        <td>
-                          <a href="#" style="display:inline-block;background:rgba(255,255,255,0.12);color:#fff;text-decoration:none;padding:9px 18px;border-radius:9px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,0.15);">
-                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 0 1-.61-.92V2.734a1 1 0 0 1 .609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-1.891l2.5 1.448a1 1 0 0 1 0 1.472l-2.5 1.448-2.537-2.537 2.537-2.537zM5.864 2.658L16.8 8.99l-2.302 2.302-8.635-8.635z'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;margin-right:5px;" />
-                            Google Play
-                          </a>
                         </td>
                       </tr>
                     </table>
@@ -474,29 +427,28 @@
           <!-- ===== DIVIDER ===== -->
           <tr><td style="padding:0 56px;"><div style="border-top:1px solid #f1f5f9;"></div></td></tr>
 
-          <!-- ===== FIRST STEPS ===== -->
+          <!-- ===== FIRST STEPS HEADER ===== -->
           <tr>
-            <td style="padding:32px 56px 12px;">
+            <td style="padding:28px 56px 8px;">
               <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:2.5px;color:#8B1538;font-weight:600;">Začíname</p>
-              <p style="margin:6px 0 24px;font-size:22px;color:#1e293b;font-weight:800;letter-spacing:-0.3px;">Prvé kroky po prihlásení</p>
+              <p style="margin:4px 0 0;font-size:20px;color:#1e293b;font-weight:800;letter-spacing:-0.3px;">Prvé kroky po prihlásení</p>
             </td>
           </tr>
 
           <!-- IF_LOCAL: Step 1 - Change password -->
           <!-- IF_LOCAL -->
           <tr>
-            <td style="padding:0 56px 18px;">
+            <td style="padding:12px 56px 0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #8B1538;">
                 <tr>
-                  <td width="52" style="padding:20px 0 20px 18px;vertical-align:top;">
-                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:9px;text-align:center;line-height:36px;color:#fff;font-size:15px;font-weight:800;">1</div>
+                  <td width="48" style="padding:18px 0 18px 16px;vertical-align:top;">
+                    <div style="width:32px;height:32px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;text-align:center;line-height:32px;color:#fff;font-size:14px;font-weight:800;">1</div>
                   </td>
-                  <td style="padding:20px 20px 20px 12px;">
-                    <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Prihláste sa a zmeňte heslo</p>
-                    <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
-                      Otvorte <strong style="color:#8B1538;">{{loginUrl}}</strong>, prihláste sa pomocou dočasného hesla a v časti
-                      <strong>Nastavenia &rarr; Profil</strong> si ho ihneď zmeňte. Použite silné heslo s minimálne 8 znakmi,
-                      ktoré obsahuje veľké písmená, čísla a špeciálne znaky.
+                  <td style="padding:18px 18px 18px 10px;">
+                    <p style="margin:0;font-size:14px;font-weight:700;color:#1e293b;">Prihláste sa a zmeňte heslo</p>
+                    <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.7;">
+                      Otvorte <strong style="color:#8B1538;">{{loginUrl}}</strong>, prihláste sa dočasným heslom a v
+                      <strong>Nastavenia &rarr; Profil</strong> si ho zmeňte. Použite min. 8 znakov s veľkými písmenami, číslami a špeciálnymi znakmi.
                     </p>
                   </td>
                 </tr>
@@ -505,117 +457,21 @@
           </tr>
           <!-- ENDIF_LOCAL -->
 
-          <!-- IF_MS365: Step 1 - Connect M365 email -->
+          <!-- IF_MS365: Step 1 - Connect M365 -->
           <!-- IF_MS365 -->
           <tr>
-            <td style="padding:0 56px 18px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #1e40af;">
-                <tr>
-                  <td width="52" style="padding:20px 0 20px 18px;vertical-align:top;">
-                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#1e40af,#3b82f6);border-radius:9px;text-align:center;line-height:36px;color:#fff;font-size:15px;font-weight:800;">1</div>
-                  </td>
-                  <td style="padding:20px 20px 20px 12px;">
-                    <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Prihláste sa cez Microsoft 365</p>
-                    <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
-                      Otvorte <strong style="color:#8B1538;">{{loginUrl}}</strong> a kliknite na tlačidlo
-                      <strong>„Prihlásiť sa cez Microsoft 365"</strong>.
-                      Systém Vás presmeruje na prihlásenie Microsoft, kde zadáte svoj firemný Microsoft 365 účet
-                      (e-mail a heslo, prípadne dvojfaktorové overenie). Po úspešnom overení Vás Microsoft automaticky
-                      presmeruje späť do INDEXUS CRM — žiadne ďalšie heslo si nemusíte pamätať.
-                    </p>
-                    <p style="margin:10px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
-                      Následne prejdite do <strong>Nastavenia &rarr; MS365</strong> a pripojte svoj e-mailový účet —
-                      kliknite na <strong>„Pripojiť Microsoft 365"</strong> a autorizujte prístup.
-                      Môžete tiež pridať zdieľané schránky (shared mailbox), z ktorých budete odosielať e-maily.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <!-- ENDIF_MS365 -->
-
-          <!-- Step 2 - Dashboard -->
-          <tr>
-            <td style="padding:0 56px 18px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #D4AF37;">
-                <tr>
-                  <td width="52" style="padding:20px 0 20px 18px;vertical-align:top;">
-                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#D4AF37,#c9a033);border-radius:9px;text-align:center;line-height:36px;color:#fff;font-size:15px;font-weight:800;">2</div>
-                  </td>
-                  <td style="padding:20px 20px 20px 12px;">
-                    <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Prezrite si Dashboard</p>
-                    <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
-                      Po prihlásení sa zobrazí váš hlavný <strong>Dashboard</strong> pre krajinu
-                      {{countryFlag}} <strong>{{countryName}}</strong>.
-                      Nájdete tu prehľad KPI, počet aktívnych zákazníkov, plánované úlohy,
-                      poslednú aktivitu kolegov a dôležité upozornenia. Dashboard je vaše centrum riadenia.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Step 3 - Hospitals & Partners -->
-          <tr>
-            <td style="padding:0 56px 18px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #8B1538;">
-                <tr>
-                  <td width="52" style="padding:20px 0 20px 18px;vertical-align:top;">
-                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:9px;text-align:center;line-height:36px;color:#fff;font-size:15px;font-weight:800;">3</div>
-                  </td>
-                  <td style="padding:20px 20px 20px 12px;">
-                    <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Skontrolujte Nemocnice &amp; Partnerov</p>
-                    <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
-                      V module <strong>Nemocnice &amp; Kliniky</strong> nájdete všetky zdravotnícke zariadenia vašej krajiny.
-                      Overte priradený personál, stav zmlúv a kategórie lekárskeho personálu.
-                      V <strong>Medical Partner Network</strong> vidíte celkový prehľad spolupracovníkov a ich aktivitu.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Step 4 - Customers & Pipeline -->
-          <tr>
-            <td style="padding:0 56px 18px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #D4AF37;">
-                <tr>
-                  <td width="52" style="padding:20px 0 20px 18px;vertical-align:top;">
-                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#D4AF37,#c9a033);border-radius:9px;text-align:center;line-height:36px;color:#fff;font-size:15px;font-weight:800;">4</div>
-                  </td>
-                  <td style="padding:20px 20px 20px 12px;">
-                    <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Prejdite si Zákazníkov a Pipeline</p>
-                    <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
-                      V module <strong>Zákazníci</strong> je kompletný pipeline — od prvého kontaktu cez podpis zmluvy
-                      až po odber pupočníkovej krvi. Každý zákazník má detailnú kartu s históriou komunikácie,
-                      dokumentmi a faktúrami. Využite <strong>Pipeline</strong> vizualizáciu na prehľad stavov.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- IF_MS365: Step 5 - M365 email setup detail -->
-          <!-- IF_MS365 -->
-          <tr>
-            <td style="padding:0 56px 18px;">
+            <td style="padding:12px 56px 0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border-radius:12px;border-left:4px solid #1e40af;">
                 <tr>
-                  <td width="52" style="padding:20px 0 20px 18px;vertical-align:top;">
-                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#1e40af,#3b82f6);border-radius:9px;text-align:center;line-height:36px;color:#fff;font-size:15px;font-weight:800;">5</div>
+                  <td width="48" style="padding:18px 0 18px 16px;vertical-align:top;">
+                    <div style="width:32px;height:32px;background:linear-gradient(135deg,#1e40af,#3b82f6);border-radius:8px;text-align:center;line-height:32px;color:#fff;font-size:14px;font-weight:800;">1</div>
                   </td>
-                  <td style="padding:20px 20px 20px 12px;">
-                    <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Nastavte NEXUS Omni e-mail</p>
-                    <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
-                      V sekcii <strong>Nastavenia &rarr; MS365</strong> si pripojte svoj Microsoft 365 e-mailový účet.
-                      Po autorizácii budete môcť odosielať a prijímať e-maily priamo z CRM.
-                      Ak máte prístup k <strong>zdieľaným schránkam</strong> (shared mailbox), pridajte ich tiež —
-                      všetky schránky sa zobrazia v module <strong>NEXUS Omni</strong> a môžete z nich odosielať e-maily
-                      zákazníkom aj spolupracovníkom. Celá komunikácia sa automaticky zaznamenáva k príslušnému kontaktu.
+                  <td style="padding:18px 18px 18px 10px;">
+                    <p style="margin:0;font-size:14px;font-weight:700;color:#1e293b;">Prihláste sa cez Microsoft 365</p>
+                    <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.7;">
+                      Otvorte <strong style="color:#8B1538;">{{loginUrl}}</strong> a kliknite <strong>„Prihlásiť sa cez Microsoft 365"</strong>.
+                      Systém Vás presmeruje na Microsoft prihlásenie, kde zadáte firemný účet (e-mail, heslo, príp. 2FA).
+                      Po overení sa automaticky vrátite do CRM — žiadne ďalšie heslo nepotrebujete.
                     </p>
                   </td>
                 </tr>
@@ -624,43 +480,121 @@
           </tr>
           <!-- ENDIF_MS365 -->
 
-          <!-- IF_LOCAL: Step 5 - NEXUS Omni -->
-          <!-- IF_LOCAL -->
+          <!-- Steps 2-3 in two columns -->
           <tr>
-            <td style="padding:0 56px 18px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #8B1538;">
+            <td style="padding:12px 56px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td width="52" style="padding:20px 0 20px 18px;vertical-align:top;">
-                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:9px;text-align:center;line-height:36px;color:#fff;font-size:15px;font-weight:800;">5</div>
+                  <!-- Step 2 -->
+                  <td width="50%" style="vertical-align:top;padding-right:6px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #D4AF37;">
+                      <tr>
+                        <td width="44" style="padding:18px 0 18px 14px;vertical-align:top;">
+                          <div style="width:28px;height:28px;background:linear-gradient(135deg,#D4AF37,#c9a033);border-radius:7px;text-align:center;line-height:28px;color:#fff;font-size:13px;font-weight:800;">2</div>
+                        </td>
+                        <td style="padding:18px 14px 18px 8px;">
+                          <p style="margin:0;font-size:13px;font-weight:700;color:#1e293b;">Dashboard</p>
+                          <p style="margin:4px 0 0;font-size:11px;color:#64748b;line-height:1.7;">
+                            Váš prehľad KPI, zákazníkov, úloh a aktivity tímu pre {{countryFlag}} {{countryName}}.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
-                  <td style="padding:20px 20px 20px 12px;">
-                    <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Nastavte NEXUS Omni komunikáciu</p>
-                    <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
-                      Prepojte svoj pracovný e-mail s <strong>NEXUS Omni</strong>. Budete môcť odosielať e-maily, SMS
-                      a volať priamo z CRM. Všetka komunikácia sa automaticky zaznamená k príslušnému zákazníkovi
-                      alebo spolupracovníkovi — už nikdy nestratíte dôležitú konverzáciu.
-                    </p>
+                  <!-- Step 3 -->
+                  <td width="50%" style="vertical-align:top;padding-left:6px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #8B1538;">
+                      <tr>
+                        <td width="44" style="padding:18px 0 18px 14px;vertical-align:top;">
+                          <div style="width:28px;height:28px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:7px;text-align:center;line-height:28px;color:#fff;font-size:13px;font-weight:800;">3</div>
+                        </td>
+                        <td style="padding:18px 14px 18px 8px;">
+                          <p style="margin:0;font-size:13px;font-weight:700;color:#1e293b;">Nemocnice &amp; Partneri</p>
+                          <p style="margin:4px 0 0;font-size:11px;color:#64748b;line-height:1.7;">
+                            Overte zariadenia, personál, zmluvy a stav spolupracovníkov.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          <!-- ENDIF_LOCAL -->
+
+          <!-- Steps 4-5 in two columns -->
+          <tr>
+            <td style="padding:12px 56px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <!-- Step 4 -->
+                  <td width="50%" style="vertical-align:top;padding-right:6px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #D4AF37;">
+                      <tr>
+                        <td width="44" style="padding:18px 0 18px 14px;vertical-align:top;">
+                          <div style="width:28px;height:28px;background:linear-gradient(135deg,#D4AF37,#c9a033);border-radius:7px;text-align:center;line-height:28px;color:#fff;font-size:13px;font-weight:800;">4</div>
+                        </td>
+                        <td style="padding:18px 14px 18px 8px;">
+                          <p style="margin:0;font-size:13px;font-weight:700;color:#1e293b;">Zákazníci &amp; Pipeline</p>
+                          <p style="margin:4px 0 0;font-size:11px;color:#64748b;line-height:1.7;">
+                            Pipeline od prvého kontaktu po odber. Karty s históriou a dokumentmi.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <!-- Step 5 -->
+                  <!-- IF_MS365 -->
+                  <td width="50%" style="vertical-align:top;padding-left:6px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border-radius:12px;border-left:4px solid #1e40af;">
+                      <tr>
+                        <td width="44" style="padding:18px 0 18px 14px;vertical-align:top;">
+                          <div style="width:28px;height:28px;background:linear-gradient(135deg,#1e40af,#3b82f6);border-radius:7px;text-align:center;line-height:28px;color:#fff;font-size:13px;font-weight:800;">5</div>
+                        </td>
+                        <td style="padding:18px 14px 18px 8px;">
+                          <p style="margin:0;font-size:13px;font-weight:700;color:#1e293b;">NEXUS Omni + MS365</p>
+                          <p style="margin:4px 0 0;font-size:11px;color:#64748b;line-height:1.7;">
+                            Pripojte e-mail v <strong>Nastavenia &rarr; MS365</strong>. Pridajte aj shared mailbox schránky.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <!-- ENDIF_MS365 -->
+                  <!-- IF_LOCAL -->
+                  <td width="50%" style="vertical-align:top;padding-left:6px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #8B1538;">
+                      <tr>
+                        <td width="44" style="padding:18px 0 18px 14px;vertical-align:top;">
+                          <div style="width:28px;height:28px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:7px;text-align:center;line-height:28px;color:#fff;font-size:13px;font-weight:800;">5</div>
+                        </td>
+                        <td style="padding:18px 14px 18px 8px;">
+                          <p style="margin:0;font-size:13px;font-weight:700;color:#1e293b;">NEXUS Omni</p>
+                          <p style="margin:4px 0 0;font-size:11px;color:#64748b;line-height:1.7;">
+                            Prepojte e-mail s CRM. E-maily, SMS a hovory na jednom mieste.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <!-- ENDIF_LOCAL -->
+                </tr>
+              </table>
+            </td>
+          </tr>
 
           <!-- Step 6 - INDEXUS Connect -->
           <tr>
-            <td style="padding:0 56px 18px;">
+            <td style="padding:12px 56px 0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border-left:4px solid #D4AF37;">
                 <tr>
-                  <td width="52" style="padding:20px 0 20px 18px;vertical-align:top;">
-                    <div style="width:36px;height:36px;background:linear-gradient(135deg,#D4AF37,#c9a033);border-radius:9px;text-align:center;line-height:36px;color:#fff;font-size:15px;font-weight:800;">6</div>
+                  <td width="48" style="padding:18px 0 18px 16px;vertical-align:top;">
+                    <div style="width:32px;height:32px;background:linear-gradient(135deg,#D4AF37,#c9a033);border-radius:8px;text-align:center;line-height:32px;color:#fff;font-size:14px;font-weight:800;">6</div>
                   </td>
-                  <td style="padding:20px 20px 20px 12px;">
-                    <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Stiahnite INDEXUS Connect</p>
-                    <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
-                      Nainštalujte si mobilnú aplikáciu <strong>INDEXUS Connect</strong> z App Store alebo Google Play.
-                      Aplikácia vám umožní volať zákazníkom, prijímať notifikácie, pristupovať k CRM dátam
-                      a skenovať dokumenty aj keď ste na cestách. Prihláste sa rovnakými údajmi ako do webového CRM.
+                  <td style="padding:18px 18px 18px 10px;">
+                    <p style="margin:0;font-size:14px;font-weight:700;color:#1e293b;">Stiahnite INDEXUS Connect</p>
+                    <p style="margin:5px 0 0;font-size:12px;color:#64748b;line-height:1.7;">
+                      Nainštalujte mobilnú aplikáciu z App Store alebo Google Play. Volajte, prijímajte notifikácie a pracujte s CRM aj na cestách.
                     </p>
                   </td>
                 </tr>
@@ -670,19 +604,19 @@
 
           <!-- ===== SUPPORT ===== -->
           <tr>
-            <td style="padding:8px 56px 4px;">
+            <td style="padding:24px 56px 4px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf2f4;border-radius:12px;border:1px solid #f5c6ce;">
                 <tr>
-                  <td style="padding:22px 24px;">
+                  <td style="padding:20px 22px;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                       <tr>
-                        <td width="40" style="vertical-align:top;">
-                          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='%238B1538' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E" alt="" width="26" height="26" />
+                        <td width="36" style="vertical-align:top;">
+                          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%238B1538' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E" alt="" width="22" height="22" />
                         </td>
-                        <td style="padding-left:12px;">
-                          <p style="margin:0;font-size:15px;color:#1e293b;font-weight:700;">Potrebujete pomoc?</p>
-                          <p style="margin:5px 0 0;font-size:13px;color:#64748b;line-height:1.7;">
-                            Kontaktujte vášho administrátora alebo napíšte na
+                        <td style="padding-left:10px;">
+                          <p style="margin:0;font-size:14px;color:#1e293b;font-weight:700;">Potrebujete pomoc?</p>
+                          <p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.6;">
+                            Kontaktujte administrátora alebo napíšte na
                             <a href="mailto:seman@cordbloodcenter.com" style="color:#8B1538;font-weight:600;text-decoration:none;">seman@cordbloodcenter.com</a>
                           </p>
                         </td>
@@ -696,25 +630,25 @@
 
           <!-- ===== FOOTER ===== -->
           <tr>
-            <td style="padding:32px 56px 36px;">
-              <div style="border-top:1px solid #e2e8f0;padding-top:24px;text-align:center;">
-                <div style="width:32px;height:32px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:8px;display:inline-block;text-align:center;line-height:32px;">
-                  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z'/%3E%3Cpath d='M12.56 14.1c1.93 0 3.5-1.6 3.5-3.57 0-1.02-.5-1.99-1.5-2.81S12.86 5.95 12.56 4.5c-.3 1.45-1.26 2.79-2.26 3.22s-1.74 1.79-1.74 2.81c0 1.96 1.57 3.57 3.5 3.57z'/%3E%3Cpath d='M17.75 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S18.04 6.75 17.75 5.3c-.29 1.45-1.14 2.84-2.29 3.76S13.75 11.1 13.75 12.25c0 2.22 1.8 4.05 4 4.05z'/%3E%3C/svg%3E" alt="" width="16" height="16" style="vertical-align:middle;" />
+            <td style="padding:28px 56px 32px;">
+              <div style="border-top:1px solid #e2e8f0;padding-top:20px;text-align:center;">
+                <div style="width:28px;height:28px;background:linear-gradient(135deg,#8B1538,#a91d47);border-radius:7px;display:inline-block;text-align:center;line-height:28px;">
+                  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z'/%3E%3Cpath d='M12.56 14.1c1.93 0 3.5-1.6 3.5-3.57 0-1.02-.5-1.99-1.5-2.81S12.86 5.95 12.56 4.5c-.3 1.45-1.26 2.79-2.26 3.22s-1.74 1.79-1.74 2.81c0 1.96 1.57 3.57 3.5 3.57z'/%3E%3Cpath d='M17.75 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S18.04 6.75 17.75 5.3c-.29 1.45-1.14 2.84-2.29 3.76S13.75 11.1 13.75 12.25c0 2.22 1.8 4.05 4 4.05z'/%3E%3C/svg%3E" alt="" width="14" height="14" style="vertical-align:middle;" />
                 </div>
-                <p style="margin:14px 0 0;font-size:11px;color:#94a3b8;line-height:1.7;">
-                  Tento e-mail bol automaticky vygenerovaný systémom <strong style="color:#64748b;">INDEXUS CRM</strong>.
+                <p style="margin:12px 0 0;font-size:10px;color:#94a3b8;line-height:1.6;">
+                  Automaticky vygenerované systémom <strong style="color:#64748b;">INDEXUS CRM</strong>
                 </p>
-                <p style="margin:4px 0 0;font-size:11px;color:#cbd5e1;">
+                <p style="margin:3px 0 0;font-size:10px;color:#cbd5e1;">
                   &copy; 2025 Cord Blood Center Group
                 </p>
-                <p style="margin:12px 0 0;">
-                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:3px 10px;font-size:10px;color:#64748b;margin:0 2px;font-weight:500;">SK</span>
-                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:3px 10px;font-size:10px;color:#64748b;margin:0 2px;font-weight:500;">CZ</span>
-                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:3px 10px;font-size:10px;color:#64748b;margin:0 2px;font-weight:500;">HU</span>
-                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:3px 10px;font-size:10px;color:#64748b;margin:0 2px;font-weight:500;">RO</span>
-                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:3px 10px;font-size:10px;color:#64748b;margin:0 2px;font-weight:500;">AT</span>
-                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:3px 10px;font-size:10px;color:#64748b;margin:0 2px;font-weight:500;">IT</span>
-                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:3px 10px;font-size:10px;color:#64748b;margin:0 2px;font-weight:500;">DE</span>
+                <p style="margin:10px 0 0;">
+                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:2px 8px;font-size:9px;color:#64748b;margin:0 1px;font-weight:500;">SK</span>
+                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:2px 8px;font-size:9px;color:#64748b;margin:0 1px;font-weight:500;">CZ</span>
+                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:2px 8px;font-size:9px;color:#64748b;margin:0 1px;font-weight:500;">HU</span>
+                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:2px 8px;font-size:9px;color:#64748b;margin:0 1px;font-weight:500;">RO</span>
+                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:2px 8px;font-size:9px;color:#64748b;margin:0 1px;font-weight:500;">AT</span>
+                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:2px 8px;font-size:9px;color:#64748b;margin:0 1px;font-weight:500;">IT</span>
+                  <span style="display:inline-block;background:#f8fafc;border-radius:4px;padding:2px 8px;font-size:9px;color:#64748b;margin:0 1px;font-weight:500;">DE</span>
                 </p>
               </div>
             </td>
@@ -727,13 +661,15 @@
 
   <!--
   TEMPLATE VARIABLES:
-  {{userName}}       - Full name (e.g. "Ing. Ján Novák")
-  {{userEmail}}      - Login email
-  {{tempPassword}}   - Temporary password (only for local auth)
-  {{authMethod}}     - "Heslo" or "Microsoft 365 SSO"
-  {{loginUrl}}       - Full login URL
-  {{countryName}}    - Country name
-  {{countryFlag}}    - Country flag emoji
+  {{userName}}          - Full name (e.g. "Ing. Ján Novák")
+  {{userEmail}}         - Login email
+  {{username}}          - Login username
+  {{tempPassword}}      - Temporary password (only for local auth)
+  {{authMethod}}        - "Heslo" or "Microsoft 365 SSO"
+  {{loginUrl}}          - Full login URL
+  {{loginUrlWithUser}}  - Login URL with ?user=username prefilled
+  {{countryName}}       - Country name
+  {{countryFlag}}       - Country flag emoji
 
   CONDITIONAL SECTIONS:
   <!-- IF_LOCAL -->...<!-- ENDIF_LOCAL -->   - Shown only for local (password) auth

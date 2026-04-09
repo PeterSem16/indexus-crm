@@ -26493,12 +26493,16 @@ Rules:
       html = html.replace(/<!-- IF_LOCAL -->/g, "").replace(/<!-- ENDIF_LOCAL -->/g, "");
     }
 
+    const loginUsername = user.username || user.email;
+    const loginUrlWithUser = `${baseUrl}?user=${encodeURIComponent(loginUsername)}`;
+
     return html
       .replace(/\{\{userName\}\}/g, user.fullName || user.username)
       .replace(/\{\{userEmail\}\}/g, user.email)
-      .replace(/\{\{username\}\}/g, user.username || user.email)
+      .replace(/\{\{username\}\}/g, loginUsername)
       .replace(/\{\{tempPassword\}\}/g, tempPassword)
       .replace(/\{\{authMethod\}\}/g, authMethod)
+      .replace(/\{\{loginUrlWithUser\}\}/g, loginUrlWithUser)
       .replace(/\{\{loginUrl\}\}/g, baseUrl)
       .replace(/\{\{countryName\}\}/g, country.name)
       .replace(/\{\{countryFlag\}\}/g, country.flag);
