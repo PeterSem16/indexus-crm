@@ -792,7 +792,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         </CardHeader>
         <CardContent>
           {selectedElement ? (
-            <ScrollArea className="h-[450px]">
+            <ScrollArea className="h-[600px]">
               <div className="space-y-4 pr-4">
                 <div className="space-y-2">
                   <Label htmlFor="element-label">{sb.label}</Label>
@@ -1000,6 +1000,44 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                         </SelectContent>
                       </Select>
                     </div>
+                    {campaignId && (
+                      <div className="space-y-2 border rounded-md p-3 bg-accent/30">
+                        <Label className="flex items-center gap-1.5">
+                          <Target className="h-3.5 w-3.5 text-primary" />
+                          Dispozícia po akcii
+                        </Label>
+                        {campaignDispositions.length > 0 ? (
+                          <>
+                            <Select
+                              value={selectedElement.dispositionCode || "_none_"}
+                              onValueChange={(v) => updateElement(selectedElement.id, { dispositionCode: v === "_none_" ? undefined : v })}
+                            >
+                              <SelectTrigger data-testid="select-action-disposition" className="h-8 text-xs">
+                                <SelectValue placeholder="Žiadna" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none_">— Žiadna —</SelectItem>
+                                {campaignDispositions
+                                  .filter((d: any) => d.isActive)
+                                  .map((d: any) => (
+                                    <SelectItem key={d.id} value={d.code}>
+                                      {d.parentId ? "  ↳ " : ""}{d.name} ({d.code})
+                                      {d.actionType === "callback" && d.callbackOffsetDays ? ` [${d.callbackOffsetDays}d]` : ""}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              Automaticky nastaví dispozíciu po kliknutí na tlačidlo.
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Najskôr pridajte dispozície v záložke "Dispozície".
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label>{sb.actionLabel}</Label>
                       <Input
@@ -1101,44 +1139,6 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                         <p className="text-xs text-muted-foreground">
                           Šablóna sa automaticky načíta keď agent klikne na tlačidlo
                         </p>
-                      </div>
-                    )}
-                    {campaignId && (
-                      <div className="space-y-2 border-t pt-3 mt-2">
-                        <Label className="flex items-center gap-1.5">
-                          <Target className="h-3.5 w-3.5 text-primary" />
-                          Dispozícia po akcii
-                        </Label>
-                        {campaignDispositions.length > 0 ? (
-                          <>
-                            <Select
-                              value={selectedElement.dispositionCode || "_none_"}
-                              onValueChange={(v) => updateElement(selectedElement.id, { dispositionCode: v === "_none_" ? undefined : v })}
-                            >
-                              <SelectTrigger data-testid="select-action-disposition" className="h-8 text-xs">
-                                <SelectValue placeholder="Žiadna" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="_none_">— Žiadna (otvorí dispozičný modál) —</SelectItem>
-                                {campaignDispositions
-                                  .filter((d: any) => d.isActive)
-                                  .map((d: any) => (
-                                    <SelectItem key={d.id} value={d.code}>
-                                      {d.parentId ? "  ↳ " : ""}{d.name} ({d.code})
-                                      {d.actionType === "callback" && d.callbackOffsetDays ? ` [${d.callbackOffsetDays}d]` : ""}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground">
-                              Automaticky nastaví dispozíciu keď agent klikne na tlačidlo. Ak má dispozícia nastavený callback, preplánovania sa vykoná automaticky.
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Najskôr pridajte dispozície v záložke "Dispozície" v nastaveniach kampane.
-                          </p>
-                        )}
                       </div>
                     )}
                   </div>
