@@ -1802,6 +1802,12 @@ export async function registerRoutes(
   // Users API (protected)
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
+      const sessionUser = req.session.user;
+      if (sessionUser && sessionUser.role !== 'admin' && sessionUser.role !== 'manager') {
+        const allUsers = await storage.getAllUsers();
+        const ownUser = allUsers.find(u => u.id === sessionUser.id);
+        return res.json(ownUser ? [ownUser] : []);
+      }
       const users = await storage.getAllUsers();
       res.json(users);
     } catch (error) {
@@ -14340,11 +14346,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.put("/api/hospitals/:id", requireAuth, async (req, res) => {
     try {
-      const hospital = await storage.updateHospital(req.params.id, req.body);
+      const data = { ...req.body };
+      const nullableFields = ["legacyId", "fullName", "streetNumber", "representativeId", "city", "laboratoryId", "postalCode", "region", "responsiblePersonId", "contactPerson", "phone", "email", "latitude", "longitude", "createdByCollaboratorId", "dataSource"];
+      for (const field of nullableFields) {
+        if (field in data && data[field] === "") {
+          data[field] = null;
+        }
+      }
+      const hospital = await storage.updateHospital(req.params.id, data);
       if (!hospital) return res.status(404).json({ error: "Hospital not found" });
       await logActivity(req.session.user!.id, "update", "hospital", hospital.id, hospital.name);
       res.json(hospital);
     } catch (error) {
+      console.error("Hospital update error:", error);
       res.status(500).json({ error: "Failed to update hospital" });
     }
   });

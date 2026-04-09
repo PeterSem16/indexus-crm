@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, CalendarIcon, Clock, BarChart3, Shield, LogIn, Monitor, RefreshCw, XCircle, History, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, FileSpreadsheet, Phone, Mail, MessageSquare, List } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { usePermissions } from "@/contexts/permissions-context";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -149,6 +150,8 @@ export default function UsersPage() {
   const { toast } = useToast();
   const { t, locale } = useI18n();
   const { canAdd, canEdit } = usePermissions();
+  const { user: authUser } = useAuth();
+  const isAdminOrManager = authUser?.role === 'admin' || authUser?.role === 'manager';
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -1033,6 +1036,7 @@ export default function UsersPage() {
       </PageHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
+        {isAdminOrManager ? (
         <TabsList className="grid w-full grid-cols-3 max-w-xl">
           <TabsTrigger value="users" className="flex items-center gap-2" data-testid="tab-users">
             <Users className="h-4 w-4" />
@@ -1047,8 +1051,10 @@ export default function UsersPage() {
             {t.activityReports.title}
           </TabsTrigger>
         </TabsList>
+        ) : null}
 
         <TabsContent value="users" className="space-y-4">
+          {isAdminOrManager && (
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             <Card
               className={`cursor-pointer transition-all hover:shadow-md ${filterRole === "all" ? "ring-2 ring-primary bg-primary/5" : ""}`}
@@ -1076,6 +1082,7 @@ export default function UsersPage() {
               </Card>
             ))}
           </div>
+          )}
 
           <Card>
             <CardContent className="p-4">
