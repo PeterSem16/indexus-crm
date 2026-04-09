@@ -1,0 +1,69 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 env 0 | grep BULKGATE
+[PM2][ERROR] Modules with id 0 not found
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 list
+┌────┬──────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name             │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 3  │ indexus-crm      │ default     │ 1.0.0   │ fork    │ 41938    │ 38s    │ 0    │ online    │ 0%       │ 132.4mb  │ seman    │ disabled │
+└────┴──────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Module
+┌────┬──────────────────────────────┬───────────────┬──────────┬──────────┬──────┬──────────┬──────────┬──────────┐
+│ id │ module                       │ version       │ pid      │ status   │ ↺    │ cpu      │ mem      │ user     │
+├────┼──────────────────────────────┼───────────────┼──────────┼──────────┼──────┼──────────┼──────────┼──────────┤
+│ 1  │ pm2-logrotate                │ 3.0.0         │ 27605    │ online   │ 3    │ 0%       │ 68.1mb   │ seman    │
+└────┴──────────────────────────────┴───────────────┴──────────┴──────────┴──────┴──────────┴──────────┴──────────┘
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 env indexus-crm | grep BULKGATE
+[PM2][ERROR] Modules with id indexus-crm not found
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 show indexus-crm
+ Describing process with id 3 - name indexus-crm
+┌───────────────────┬─────────────────────────────────────────────┐
+│ status            │ online                                      │
+│ name              │ indexus-crm                                 │
+│ namespace         │ default                                     │
+│ version           │ 1.0.0                                       │
+│ restarts          │ 0                                           │
+│ uptime            │ 64s                                         │
+│ script path       │ /var/www/indexus-crm/dist/index.cjs         │
+│ script args       │ N/A                                         │
+│ error log path    │ /home/seman/.pm2/logs/indexus-crm-error.log │
+│ out log path      │ /home/seman/.pm2/logs/indexus-crm-out.log   │
+│ pid path          │ /home/seman/.pm2/pids/indexus-crm-3.pid     │
+│ interpreter       │ /usr/bin/node                               │
+│ interpreter args  │ N/A                                         │
+│ script id         │ 3                                           │
+│ exec cwd          │ /var/www/indexus-crm                        │
+│ exec mode         │ fork_mode                                   │
+│ node.js version   │ 20.20.0                                     │
+│ node env          │ N/A                                         │
+│ watch & reload    │ ✘                                           │
+│ unstable restarts │ 0                                           │
+│ created at        │ 2026-04-09T19:18:55.603Z                    │
+└───────────────────┴─────────────────────────────────────────────┘
+ Actions available
+┌────────────────────────┐
+│ km:heapdump            │
+│ km:cpu:profiling:start │
+│ km:cpu:profiling:stop  │
+│ km:heap:sampling:start │
+│ km:heap:sampling:stop  │
+└────────────────────────┘
+ Trigger via: pm2 trigger indexus-crm <action_name>
+
+ Code metrics value
+┌────────────────────────┬───────────┐
+│ Used Heap Size         │ 43.41 MiB │
+│ Heap Usage             │ 94.5 %    │
+│ Heap Size              │ 45.94 MiB │
+│ Event Loop Latency p95 │ 1.25 ms   │
+│ Event Loop Latency     │ 0.46 ms   │
+│ Active handles         │ 2         │
+│ Active requests        │ 0         │
+└────────────────────────┴───────────┘
+ Divergent env variables from local env
+
+
+ Add your own code metrics: http://bit.ly/code-metrics
+ Use `pm2 logs indexus-crm [--lines 1000]` to display logs
+ Use `pm2 env 3` to display environment variables
+ Use `pm2 monit` to monitor CPU and Memory usage indexus-crm
+seman@CORPCRM01:/var/www/indexus-crm$
