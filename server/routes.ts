@@ -42395,31 +42395,35 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       const allPersonIds = [
         ...(assignmentRows.rows || []).map((r: any) => r.person_id),
         ...legacyRows.map((r: any) => r.person_id),
-      ];
+      ].filter(Boolean);
       const agreementMap = new Map<string, { hasAgreement: boolean; isValid: boolean; isExpired: boolean }>();
-      if (allPersonIds.length > 0) {
-        const agRows = await db.execute(sql`
-          SELECT collaborator_id, is_valid,
-            CASE WHEN valid_to_year IS NOT NULL THEN
-              CASE WHEN (valid_to_year * 10000 + COALESCE(valid_to_month,12) * 100 + COALESCE(valid_to_day,31)) < (EXTRACT(YEAR FROM NOW())::int * 10000 + EXTRACT(MONTH FROM NOW())::int * 100 + EXTRACT(DAY FROM NOW())::int)
-              THEN true ELSE false END
-            ELSE false END as is_expired
-          FROM collaborator_agreements
-          WHERE collaborator_id = ANY(${allPersonIds})
-        `);
-        for (const ag of (agRows.rows || []) as any[]) {
-          const prev = agreementMap.get(ag.collaborator_id);
-          agreementMap.set(ag.collaborator_id, {
-            hasAgreement: true,
-            isValid: prev?.isValid || ag.is_valid === true,
-            isExpired: prev?.isExpired !== false ? (ag.is_expired === true) : false,
-          });
+      try {
+        if (allPersonIds.length > 0) {
+          const agRows = await db.execute(sql`
+            SELECT collaborator_id, is_valid,
+              CASE WHEN valid_to_year IS NOT NULL THEN
+                CASE WHEN (valid_to_year * 10000 + COALESCE(valid_to_month,12) * 100 + COALESCE(valid_to_day,31)) < (EXTRACT(YEAR FROM NOW())::int * 10000 + EXTRACT(MONTH FROM NOW())::int * 100 + EXTRACT(DAY FROM NOW())::int)
+                THEN true ELSE false END
+              ELSE false END as is_expired
+            FROM collaborator_agreements
+            WHERE collaborator_id IN (${sql.join(allPersonIds.map(id => sql`${id}`), sql`, `)})
+          `);
+          for (const ag of (agRows.rows || []) as any[]) {
+            const prev = agreementMap.get(ag.collaborator_id);
+            agreementMap.set(ag.collaborator_id, {
+              hasAgreement: true,
+              isValid: prev?.isValid || ag.is_valid === true,
+              isExpired: prev?.isExpired !== false ? (ag.is_expired === true) : false,
+            });
+          }
         }
+      } catch (agErr: any) {
+        console.error("[Personnel] Agreement query error:", agErr.message);
       }
 
       const addAgreementStatus = (rows: any[]) => rows.map((r: any) => {
         const ag = agreementMap.get(r.person_id);
-        return { ...r, has_agreement: !!ag, agreement_valid: ag?.isValid ?? false, agreement_expired: ag?.isExpired ?? false };
+        return Object.assign({}, r, { has_agreement: !!ag, agreement_valid: ag?.isValid ?? false, agreement_expired: ag?.isExpired ?? false });
       });
 
       res.json({
