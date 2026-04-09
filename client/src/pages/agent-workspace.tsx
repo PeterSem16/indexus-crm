@@ -7142,6 +7142,12 @@ export default function AgentWorkspacePage() {
                             { label: "5 prac. dní", days: 5 },
                             { label: "1 týždeň", days: 7 },
                             { label: "2 týždne", days: 14 },
+                            { label: "1 mesiac", days: 30 },
+                            { label: "2 mesiace", days: 60 },
+                            { label: "3 mesiace", days: 90 },
+                            { label: "6 mesiacov", days: 180 },
+                            { label: "9 mesiacov", days: 270 },
+                            { label: "1 rok", days: 365 },
                           ].map((preset) => (
                             <Button
                               key={preset.days}

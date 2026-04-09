@@ -1796,6 +1796,13 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
               <SelectItem value="7">1 týždeň</SelectItem>
               <SelectItem value="14">2 týždne</SelectItem>
               <SelectItem value="30">1 mesiac</SelectItem>
+              <SelectItem value="60">2 mesiace</SelectItem>
+              <SelectItem value="90">3 mesiace</SelectItem>
+              <SelectItem value="120">4 mesiace</SelectItem>
+              <SelectItem value="150">5 mesiacov</SelectItem>
+              <SelectItem value="180">6 mesiacov</SelectItem>
+              <SelectItem value="270">9 mesiacov</SelectItem>
+              <SelectItem value="365">1 rok</SelectItem>
             </SelectContent>
           </Select>
         </div>
