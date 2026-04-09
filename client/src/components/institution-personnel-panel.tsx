@@ -477,7 +477,37 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
     });
   }
 
+  const convertLegacyMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", `/api/institutions/${entityType}/${entityId}/personnel`, data),
+    onSuccess: async (res) => {
+      const row = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
+      setEditingId(row.id);
+      setEditData({
+        department: row.department || "",
+        position: row.position || "",
+        role: row.role || "",
+        categoryId: row.categoryId || "",
+        isPrimary: !!row.isPrimary,
+        notes: row.notes || "",
+      });
+    },
+    onError: (err: any) => { toast({ title: err.message || "Error", variant: "destructive" }); },
+  });
+
   function startEditing(p: any) {
+    if (!p.assignment_id && p.person_id) {
+      convertLegacyMutation.mutate({
+        personId: p.person_id,
+        department: null,
+        position: null,
+        role: null,
+        categoryId: null,
+        isPrimary: false,
+        notes: null,
+      });
+      return;
+    }
     setEditingId(p.assignment_id);
     setEditData({
       department: p.department || "",
@@ -696,18 +726,18 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
               {(p.email || p.phone) && (
                 <span className="text-[11px] text-muted-foreground truncate max-w-[150px] hidden md:inline">{p.email || p.phone}</span>
               )}
-              {p.assignment_id && !isLegacy && (
-                <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary"
-                    onClick={() => startEditing(p)} data-testid={`button-edit-person-${p.person_id}`}>
-                    <Pencil className="h-3 w-3" />
-                  </Button>
+              <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary"
+                  onClick={() => startEditing(p)} disabled={convertLegacyMutation.isPending} data-testid={`button-edit-person-${p.person_id}`}>
+                  {convertLegacyMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pencil className="h-3 w-3" />}
+                </Button>
+                {p.assignment_id && (
                   <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive"
                     onClick={() => removeMutation.mutate(p.assignment_id)} disabled={removeMutation.isPending} data-testid={`button-remove-person-drawer-${p.person_id}`}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           );
         })}
