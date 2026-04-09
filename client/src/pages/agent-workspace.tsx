@@ -136,7 +136,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSip } from "@/contexts/sip-context";
 import { useCall } from "@/contexts/call-context";
-import { format } from "date-fns";
+import { format, addBusinessDays } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
 import { CustomerDetailsContent } from "@/pages/customers";
@@ -5333,7 +5333,7 @@ export default function AgentWorkspacePage() {
         callMeta: data.callMeta || undefined,
       };
       
-      if (data.callbackDateTime && disp?.actionType === "callback") {
+      if (data.callbackDateTime && (disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms")) {
         updateData.callbackDate = data.callbackDateTime;
         updateData.status = "callback_scheduled";
         if (data.callbackAssignedTo) {
@@ -6782,7 +6782,25 @@ export default function AgentWorkspacePage() {
                 if (s.dispositionMode === "script") {
                   const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
                   const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
-                  handleDisposition(data.dispositionCode, parentDisp?.code);
+                  const isCallbackType = disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms"
+                    || parentDisp?.actionType === "callback" || parentDisp?.actionType === "schedule_email" || parentDisp?.actionType === "schedule_sms";
+                  if (isCallbackType) {
+                    if (disp?.callbackOffsetDays) {
+                      const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
+                      cbDate.setHours(9, 0, 0, 0);
+                      handleDisposition(data.dispositionCode, parentDisp?.code, cbDate.toISOString(), user?.id || null);
+                    } else {
+                      setModalSelectedParent(parentDisp?.id || disp?.id || null);
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+                      setModalCallbackTime("09:00");
+                      setDispositionChannelFilter(null);
+                      setDispositionModalOpen(true);
+                    }
+                  } else {
+                    handleDisposition(data.dispositionCode, parentDisp?.code);
+                  }
                 }
               } catch {}
             }
@@ -7102,7 +7120,9 @@ export default function AgentWorkspacePage() {
                       <ChevronLeft className="h-3 w-3" />
                       Späť
                     </Button>
-                    {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms") && (
+                    {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms"
+                      || children.some(c => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms")
+                    ) && (
                       <>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
@@ -7113,6 +7133,33 @@ export default function AgentWorkspacePage() {
                             <label className="text-xs text-muted-foreground">Čas</label>
                             <Input type="time" value={modalCallbackTime} onChange={(e) => setModalCallbackTime(e.target.value)} data-testid="input-modal-callback-time" />
                           </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {[
+                            { label: "Zajtra", days: 1 },
+                            { label: "2 prac. dni", days: 2 },
+                            { label: "3 prac. dni", days: 3 },
+                            { label: "5 prac. dní", days: 5 },
+                            { label: "1 týždeň", days: 7 },
+                            { label: "2 týždne", days: 14 },
+                          ].map((preset) => (
+                            <Button
+                              key={preset.days}
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="text-[11px] h-6 px-2"
+                              onClick={() => {
+                                const d = preset.days <= 5
+                                  ? addBusinessDays(new Date(), preset.days)
+                                  : (() => { const dt = new Date(); dt.setDate(dt.getDate() + preset.days); return dt; })();
+                                setModalCallbackDate(d.toISOString().split("T")[0]);
+                              }}
+                              data-testid={`btn-cb-preset-${preset.days}`}
+                            >
+                              {preset.label}
+                            </Button>
+                          ))}
                         </div>
                         <div>
                           <label className="text-xs text-muted-foreground">Priradiť komu</label>
@@ -7134,11 +7181,21 @@ export default function AgentWorkspacePage() {
                         {children.map((child) => {
                           const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
                           const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
-                          const isScheduleType = parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms";
+                          const isScheduleType = parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms"
+                            || child.actionType === "callback" || child.actionType === "schedule_email" || child.actionType === "schedule_sms";
                           return (
-                            <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 ${colorClass}`} onClick={() => { handleDisposition(child.code, parent?.code, isScheduleType && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, isScheduleType ? cbAssignTo : undefined); }} data-testid={`modal-disposition-${child.code}`}>
+                            <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 ${colorClass}`} onClick={() => {
+                              if (child.callbackOffsetDays) {
+                                const cbDate = addBusinessDays(new Date(), child.callbackOffsetDays);
+                                cbDate.setHours(9, 0, 0, 0);
+                                handleDisposition(child.code, parent?.code, cbDate.toISOString(), cbAssignTo);
+                              } else {
+                                handleDisposition(child.code, parent?.code, isScheduleType && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, isScheduleType ? cbAssignTo : undefined);
+                              }
+                            }} data-testid={`modal-disposition-${child.code}`}>
                               <IconComp className="h-4 w-4" />
                               <span className="text-sm font-medium">{getDispName(child)}</span>
+                              {child.callbackOffsetDays && <span className="text-[10px] text-muted-foreground ml-auto">{child.callbackOffsetDays}d</span>}
                             </Button>
                           );
                         })}
@@ -7619,7 +7676,25 @@ export default function AgentWorkspacePage() {
                     if (s.dispositionMode === "script") {
                       const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
                       const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
-                      handleDisposition(data.dispositionCode, parentDisp?.code);
+                      const isCallbackType = disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms"
+                        || parentDisp?.actionType === "callback" || parentDisp?.actionType === "schedule_email" || parentDisp?.actionType === "schedule_sms";
+                      if (isCallbackType) {
+                        if (disp?.callbackOffsetDays) {
+                          const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
+                          cbDate.setHours(9, 0, 0, 0);
+                          handleDisposition(data.dispositionCode, parentDisp?.code, cbDate.toISOString(), user?.id || null);
+                        } else {
+                          setModalSelectedParent(parentDisp?.id || disp?.id || null);
+                          const tomorrow = new Date();
+                          tomorrow.setDate(tomorrow.getDate() + 1);
+                          setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+                          setModalCallbackTime("09:00");
+                          setDispositionChannelFilter(null);
+                          setDispositionModalOpen(true);
+                        }
+                      } else {
+                        handleDisposition(data.dispositionCode, parentDisp?.code);
+                      }
                     }
                   } catch {}
                 }

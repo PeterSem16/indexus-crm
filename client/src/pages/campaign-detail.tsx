@@ -1604,7 +1604,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const [showAddForm, setShowAddForm] = useState(false);
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
-  const [newDisp, setNewDisp] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none" });
+  const [newDisp, setNewDisp] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null as number | null });
 
   const actionLabels: Record<string, string> = {
     none: t.campaigns.detail.dispActionNone,
@@ -1654,7 +1654,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
       setShowAddForm(false);
       setAddingSubFor(null);
-      setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none" });
+      setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null });
     },
     onError: () => toast({ title: t.campaigns.detail.dispCreateError, variant: "destructive" }),
   });
@@ -1687,6 +1687,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       icon: newDisp.icon || null,
       color: newDisp.color || null,
       actionType: newDisp.actionType,
+      callbackOffsetDays: newDisp.callbackOffsetDays,
     });
   };
 
@@ -1776,6 +1777,29 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
           </SelectContent>
         </Select>
       </div>
+      {(newDisp.actionType === "callback" || newDisp.actionType === "schedule_email" || newDisp.actionType === "schedule_sms") && (
+        <div className="space-y-1">
+          <Label className="text-xs">Preddefinované dni</Label>
+          <Select
+            value={newDisp.callbackOffsetDays?.toString() || "_manual_"}
+            onValueChange={v => setNewDisp(p => ({ ...p, callbackOffsetDays: v === "_manual_" ? null : parseInt(v) }))}
+          >
+            <SelectTrigger className="w-36" data-testid="select-disposition-callback-offset">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_manual_">Manuálny výber</SelectItem>
+              <SelectItem value="1">Zajtra (1 deň)</SelectItem>
+              <SelectItem value="2">2 pracovné dni</SelectItem>
+              <SelectItem value="3">3 pracovné dni</SelectItem>
+              <SelectItem value="5">5 pracovných dní</SelectItem>
+              <SelectItem value="7">1 týždeň</SelectItem>
+              <SelectItem value="14">2 týždne</SelectItem>
+              <SelectItem value="30">1 mesiac</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <Button
         size="sm"
         onClick={() => handleCreate(parentId)}
@@ -1825,7 +1849,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                 : t.campaigns.detail.dispLoadDefaults}
           </Button>
           <Button
-            onClick={() => { setShowAddForm(true); setAddingSubFor(null); setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none" }); }}
+            onClick={() => { setShowAddForm(true); setAddingSubFor(null); setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
             data-testid="button-add-disposition"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -1870,6 +1894,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                     </div>
                     <Badge className={ACTION_TYPE_COLORS[parent.actionType] || ACTION_TYPE_COLORS.none} data-testid={`badge-action-${parent.id}`}>
                       {actionLabels[parent.actionType] || parent.actionType}
+                      {parent.callbackOffsetDays ? ` (${parent.callbackOffsetDays}d)` : ""}
                     </Badge>
                     <Switch
                       checked={parent.isActive}
@@ -1879,7 +1904,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => { setAddingSubFor(parent.id); setShowAddForm(false); setNewDisp({ name: "", code: "", icon: "", color: parent.color || "#6b7280", actionType: "none" }); }}
+                      onClick={() => { setAddingSubFor(parent.id); setShowAddForm(false); setNewDisp({ name: "", code: "", icon: "", color: parent.color || "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
                       data-testid={`button-add-sub-${parent.id}`}
                     >
                       <Plus className="w-4 h-4" />
@@ -1918,6 +1943,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                           {child.actionType !== "none" && (
                             <Badge className={ACTION_TYPE_COLORS[child.actionType] || ACTION_TYPE_COLORS.none}>
                               {actionLabels[child.actionType] || child.actionType}
+                              {child.callbackOffsetDays ? ` (${child.callbackOffsetDays}d)` : ""}
                             </Badge>
                           )}
                           <Switch
