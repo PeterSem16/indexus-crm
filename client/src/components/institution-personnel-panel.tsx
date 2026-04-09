@@ -82,7 +82,7 @@ export function InstitutionPersonnelPanel({
 
   const categoriesQuery = useQuery<any[]>({
     queryKey: ["/api/mpn/categories"],
-    enabled: open && showAssignForm,
+    enabled: open,
   });
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -399,7 +399,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
   const [assignCategoryId, setAssignCategoryId] = useState("");
   const [assignIsPrimary, setAssignIsPrimary] = useState(false);
   const [assignNotes, setAssignNotes] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string>("");
   const [editData, setEditData] = useState<any>({});
 
   const personnelQuery = useQuery<any>({
@@ -409,7 +409,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
 
   const categoriesQuery = useQuery<any[]>({
     queryKey: ["/api/mpn/categories"],
-    enabled: showAssignForm || !!editingId,
   });
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -440,7 +439,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
       toast({ title: t.success?.saved || "Saved" });
-      setEditingId(null);
+      setEditingId("");
     },
     onError: (err: any) => { toast({ title: err.message || "Error", variant: "destructive" }); },
   });
@@ -491,7 +490,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
   }
 
   function saveEdit() {
-    if (!editingId) return;
+    if (!editingId || editingId.length === 0) return;
     updateMutation.mutate({
       assignmentId: editingId,
       data: {
@@ -617,28 +616,23 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         {allPersonnel.map((p: any, idx: number) => {
           const fullName = [p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ");
           const isLegacy = p.source === "legacy_link";
-          const isEditing = editingId === p.assignment_id;
+          const isEditing = editingId.length > 0 && editingId === p.assignment_id;
 
           if (isEditing) {
             return (
               <div key={p.assignment_id} className="border-2 border-primary/30 rounded-lg p-4 bg-primary/5 space-y-3" data-testid={`card-edit-person-${p.person_id}`}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center">
-                      <Users className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                    </div>
-                    <span className="font-medium text-sm">{fullName}</span>
-                  </div>
+                  <span className="font-medium text-sm">{fullName}</span>
                   <div className="flex gap-1">
                     <Button size="sm" variant="default" onClick={saveEdit} disabled={updateMutation.isPending} data-testid="button-save-edit-person">
                       {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
                       {t.common.save}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} data-testid="button-cancel-edit-person">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId("")} data-testid="button-cancel-edit-person">
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -684,56 +678,36 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
             );
           }
 
+          const details = [p.department, p.position, p.role].filter(Boolean).join(" · ");
+          const catName = p.category_name
+            ? (p.category_id ? getLocalizedCategoryName((categoriesQuery.data || []).find((c: any) => c.id === p.category_id) || { name: p.category_name }, locale) : p.category_name)
+            : null;
+
           return (
-            <div key={p.assignment_id || `legacy-${idx}`} className="border rounded-lg p-3 hover:bg-muted/30 transition-colors" data-testid={`card-person-drawer-${p.person_id}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center mt-0.5">
-                    <Users className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">{fullName}</span>
-                      {p.is_primary && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />}
-                      {p.category_name && <Badge variant="outline" className="text-[10px]">{
-                        p.category_id 
-                          ? getLocalizedCategoryName((categoriesQuery.data || []).find((c: any) => c.id === p.category_id) || { name: p.category_name }, locale)
-                          : p.category_name
-                      }</Badge>}
-                      {isLegacy && <Badge variant="secondary" className="text-[10px]">Legacy</Badge>}
-                      {p.is_active === false && <Badge variant="destructive" className="text-[10px]">{t.common?.inactive || "Inactive"}</Badge>}
-                    </div>
-                    <div className="flex items-center gap-4 mt-0.5 flex-wrap">
-                      {(p.department || p.position || p.role) && (
-                        <span className="text-xs text-muted-foreground">{[p.department, p.position, p.role].filter(Boolean).join(" · ")}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
-                      {p.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{p.phone}</span>}
-                      {p.mobile && <span className="flex items-center gap-1"><Smartphone className="h-3 w-3" />{p.mobile}</span>}
-                      {p.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{p.email}</span>}
-                    </div>
-                    {p.notes && (
-                      <div className="mt-1 text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1 flex items-start gap-1.5">
-                        <StickyNote className="h-3 w-3 mt-0.5 shrink-0" />
-                        <span>{p.notes}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {p.assignment_id && !isLegacy && (
-                  <div className="flex gap-0.5 shrink-0 ml-2">
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary"
-                      onClick={() => startEditing(p)} data-testid={`button-edit-person-${p.person_id}`}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeMutation.mutate(p.assignment_id)} disabled={removeMutation.isPending} data-testid={`button-remove-person-drawer-${p.person_id}`}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
+            <div key={p.assignment_id || `legacy-${idx}`} className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <span className="font-medium text-sm truncate">{fullName}</span>
+                {p.is_primary && <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />}
+                {catName && <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0">{catName}</Badge>}
+                {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
+                {p.is_active === false && <Badge variant="destructive" className="text-[9px] px-1.5 py-0 shrink-0">{t.common?.inactive || "Inactive"}</Badge>}
               </div>
+              {details && <span className="text-[11px] text-muted-foreground truncate max-w-[200px] hidden sm:inline">{details}</span>}
+              {(p.email || p.phone) && (
+                <span className="text-[11px] text-muted-foreground truncate max-w-[150px] hidden md:inline">{p.email || p.phone}</span>
+              )}
+              {p.assignment_id && !isLegacy && (
+                <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary"
+                    onClick={() => startEditing(p)} data-testid={`button-edit-person-${p.person_id}`}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeMutation.mutate(p.assignment_id)} disabled={removeMutation.isPending} data-testid={`button-remove-person-drawer-${p.person_id}`}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
             </div>
           );
         })}
