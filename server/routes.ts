@@ -26674,7 +26674,7 @@ Rules:
     const countryName = COUNTRY_NAME_MAP[countryCode]?.[lang] || countryCode;
     const countryFlag = COUNTRY_FLAG_MAP[countryCode] || "\ud83c\udff3\ufe0f";
 
-    const isMs365 = !!user.ms365Email;
+    const isMs365 = (user as any).authMethod === "ms365";
     const tempPassword = isMs365 ? "\u2014" : "********";
 
     if (isMs365) {
