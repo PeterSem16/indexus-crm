@@ -203,7 +203,8 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
   
   const assignedCountries = form.watch("assignedCountries");
   const sipEnabled = form.watch("sipEnabled");
-  const selectedSipCountry = assignedCountries.length > 0 ? assignedCountries[0] : null;
+  const [sipCountryOverride, setSipCountryOverride] = useState<string | null>(null);
+  const selectedSipCountry = sipCountryOverride || (assignedCountries.length > 0 ? assignedCountries[0] : null);
   
   const { data: availableExtensions = [], isLoading: extensionsLoading } = useQuery<SipExtensionOption[]>({
     queryKey: ["/api/sip-extensions/available", selectedSipCountry],
@@ -1014,6 +1015,32 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
               />
               <span className="text-sm font-medium">{t.users?.sip?.manualEntry || "Manuálne zadanie"}</span>
               <span className="text-xs text-muted-foreground">{t.users?.sip?.manualEntryHint || "Zadať linku a heslo ručne"}</span>
+            </div>
+          )}
+
+          {!manualSipEntry && assignedCountries.length > 1 && (
+            <div className="mb-2">
+              <FormLabel>{t.users?.sip?.sipCountry || "SIP Country"}</FormLabel>
+              <Select
+                value={selectedSipCountry || ""}
+                onValueChange={(val) => {
+                  setSipCountryOverride(val);
+                  setSelectedExtensionId(null);
+                  setKeepExistingExtension(false);
+                  form.setValue("sipExtension", "");
+                  form.setValue("sipPassword", "");
+                }}
+              >
+                <SelectTrigger data-testid="select-sip-country">
+                  <SelectValue placeholder={t.users?.sip?.selectCountry || "Select country"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {assignedCountries.map((cc: string) => (
+                    <SelectItem key={cc} value={cc}>{cc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">{t.users?.sip?.sipCountryHint || "Select the country for SIP extension"}</p>
             </div>
           )}
 
