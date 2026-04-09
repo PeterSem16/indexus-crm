@@ -26496,6 +26496,7 @@ Rules:
     return html
       .replace(/\{\{userName\}\}/g, user.fullName || user.username)
       .replace(/\{\{userEmail\}\}/g, user.email)
+      .replace(/\{\{username\}\}/g, user.username || user.email)
       .replace(/\{\{tempPassword\}\}/g, tempPassword)
       .replace(/\{\{authMethod\}\}/g, authMethod)
       .replace(/\{\{loginUrl\}\}/g, baseUrl)

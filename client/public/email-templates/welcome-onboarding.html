@@ -44,7 +44,13 @@
               <p style="margin:0;font-size:22px;color:#1e293b;font-weight:700;line-height:1.4;">
                 Dobrý deň, {{userName}} 👋
               </p>
-              <p style="margin:16px 0 0;font-size:15px;color:#64748b;line-height:1.9;">
+              <p style="margin:16px 0 0;font-size:16px;color:#1e293b;line-height:1.8;font-weight:500;">
+                S veľkou radosťou Vás vítame v tíme <strong style="color:#8B1538;">INDEXUS</strong>!
+                Stávate sa súčasťou medzinárodnej rodiny profesionálov, ktorí spoločne menia svet
+                uchovania pupočníkovej krvi a prinášajú rodinám nádej na zdravšiu budúcnosť.
+                Sme presvedčení, že Vaše skúsenosti a nasadenie budú pre náš tím veľkým prínosom.
+              </p>
+              <p style="margin:18px 0 0;font-size:15px;color:#64748b;line-height:1.9;">
                 Váš účet v systéme <strong style="color:#8B1538;">INDEXUS CRM</strong> bol úspešne vytvorený.
                 Boli ste priradený/á pre krajinu
                 <span style="display:inline-block;background:#fdf2f4;color:#8B1538;font-weight:700;padding:3px 12px;border-radius:6px;font-size:13px;border:1px solid #f5c6ce;">{{countryFlag}} {{countryName}}</span>.
@@ -70,12 +76,12 @@
                         </td>
                       </tr>
                       <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.12);"></td></tr>
+                      <!-- IF_LOCAL -->
                       <tr>
                         <td width="100" style="font-size:12px;color:#8B1538;padding:10px 0;vertical-align:top;font-weight:600;">E-mail</td>
                         <td style="font-size:15px;color:#1e293b;font-weight:600;padding:10px 0;">{{userEmail}}</td>
                       </tr>
                       <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.12);"></td></tr>
-                      <!-- IF_LOCAL -->
                       <tr>
                         <td width="100" style="font-size:12px;color:#8B1538;padding:10px 0;vertical-align:top;font-weight:600;">Heslo</td>
                         <td style="padding:10px 0;">
@@ -84,6 +90,13 @@
                       </tr>
                       <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.12);"></td></tr>
                       <!-- ENDIF_LOCAL -->
+                      <!-- IF_MS365 -->
+                      <tr>
+                        <td width="100" style="font-size:12px;color:#8B1538;padding:10px 0;vertical-align:top;font-weight:600;">Používateľ</td>
+                        <td style="font-size:15px;color:#1e293b;font-weight:600;padding:10px 0;">{{username}}</td>
+                      </tr>
+                      <tr><td colspan="2" style="border-bottom:1px solid rgba(139,21,56,0.12);"></td></tr>
+                      <!-- ENDIF_MS365 -->
                       <tr>
                         <td width="100" style="font-size:12px;color:#8B1538;padding:10px 0;vertical-align:top;font-weight:600;">Prihlásenie</td>
                         <td style="font-size:15px;color:#1e293b;font-weight:600;padding:10px 0;">
@@ -505,9 +518,14 @@
                     <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Prihláste sa cez Microsoft 365</p>
                     <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
                       Otvorte <strong style="color:#8B1538;">{{loginUrl}}</strong> a kliknite na tlačidlo
-                      <strong>„Prihlásiť sa cez Microsoft 365"</strong>. Použite svoj firemný Microsoft účet.
-                      Po prihlásení prejdite do <strong>Nastavenia &rarr; MS365</strong> a pripojte svoj e-mailový účet —
-                      stačí kliknúť na <strong>„Pripojiť Microsoft 365"</strong> a autorizovať prístup.
+                      <strong>„Prihlásiť sa cez Microsoft 365"</strong>.
+                      Systém Vás presmeruje na prihlásenie Microsoft, kde zadáte svoj firemný Microsoft 365 účet
+                      (e-mail a heslo, prípadne dvojfaktorové overenie). Po úspešnom overení Vás Microsoft automaticky
+                      presmeruje späť do INDEXUS CRM — žiadne ďalšie heslo si nemusíte pamätať.
+                    </p>
+                    <p style="margin:10px 0 0;font-size:13px;color:#64748b;line-height:1.8;">
+                      Následne prejdite do <strong>Nastavenia &rarr; MS365</strong> a pripojte svoj e-mailový účet —
+                      kliknite na <strong>„Pripojiť Microsoft 365"</strong> a autorizujte prístup.
                       Môžete tiež pridať zdieľané schránky (shared mailbox), z ktorých budete odosielať e-maily.
                     </p>
                   </td>
