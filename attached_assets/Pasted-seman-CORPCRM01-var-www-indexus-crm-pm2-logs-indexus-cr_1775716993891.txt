@@ -1,0 +1,55 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --err --lines 50 --nostream
+[TAILING] Tailing last 50 lines for [indexus-crm] process (change the value with --lines option)
+/home/seman/.pm2/logs/indexus-crm-error.log last 50 lines:
+0|indexus- |       query_timeout: false,
+0|indexus- |       connect_timeout: 0
+0|indexus- |     },
+0|indexus- |     user: 'indexus',
+0|indexus- |     database: 'indexus_crm',
+0|indexus- |     port: 5432,
+0|indexus- |     host: 'localhost',
+0|indexus- |     replication: undefined,
+0|indexus- |     _Promise: [Function: Promise],
+0|indexus- |     _types: NC { _types: [Object], text: {}, binary: {} },
+0|indexus- |     _ending: true,
+0|indexus- |     _ended: false,
+0|indexus- |     _connecting: false,
+0|indexus- |     _connected: true,
+0|indexus- |     _connectionError: false,
+0|indexus- |     _queryable: false,
+0|indexus- |     enableChannelBinding: false,
+0|indexus- |     connection: jE {
+0|indexus- |       _events: [Object: null prototype],
+0|indexus- |       _eventsCount: 23,
+0|indexus- |       _maxListeners: undefined,
+0|indexus- |       stream: [Socket],
+0|indexus- |       _keepAlive: false,
+0|indexus- |       _keepAliveInitialDelayMillis: 0,
+0|indexus- |       lastBuffer: false,
+0|indexus- |       parsedStatements: {},
+0|indexus- |       ssl: false,
+0|indexus- |       _ending: true,
+0|indexus- |       _emitMessage: false,
+0|indexus- |       _connecting: true,
+0|indexus- |       [Symbol(shapeMode)]: false,
+0|indexus- |       [Symbol(kCapture)]: false
+0|indexus- |     },
+0|indexus- |     queryQueue: [],
+0|indexus- |     binary: false,
+0|indexus- |     processID: 25955,
+0|indexus- |     secretKey: -1951558818,
+0|indexus- |     ssl: false,
+0|indexus- |     _connectionTimeoutMillis: 0,
+0|indexus- |     _connectionCallback: null,
+0|indexus- |     saslSession: null,
+0|indexus- |     release: [Function (anonymous)],
+0|indexus- |     activeQuery: null,
+0|indexus- |     readyForQuery: true,
+0|indexus- |     hasExecuted: true,
+0|indexus- |     _poolUseCount: 85,
+0|indexus- |     [Symbol(shapeMode)]: false,
+0|indexus- |     [Symbol(kCapture)]: false
+0|indexus- |   }
+0|indexus- | }
+
+seman@CORPCRM01:/var/www/indexus-crm$
