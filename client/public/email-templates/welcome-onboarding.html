@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to INDEXUS CRM</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f9;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);padding:40px 40px 32px;text-align:center;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <div style="width:64px;height:64px;background-color:rgba(255,255,255,0.15);border-radius:16px;display:inline-block;line-height:64px;font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-1px;">IX</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-top:16px;">
+                    <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;letter-spacing:-0.5px;">Vitajte v INDEXUS CRM</h1>
+                    <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:15px;">Váš účet bol úspešne vytvorený</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding:32px 40px 0;">
+              <p style="margin:0;font-size:16px;color:#1e293b;line-height:1.6;">
+                Dobrý deň, <strong style="color:#1e3a5f;">{{userName}}</strong>,
+              </p>
+              <p style="margin:12px 0 0;font-size:15px;color:#475569;line-height:1.7;">
+                boli ste pridaný/á do systému <strong>INDEXUS CRM</strong> pre krajinu <strong>{{countryName}}</strong>. Nižšie nájdete všetky informácie potrebné na prihlásenie a rýchly prehľad hlavných modulov.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Login Card -->
+          <tr>
+            <td style="padding:24px 40px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f7ff;border-radius:10px;border:1px solid #dbeafe;">
+                <tr>
+                  <td style="padding:24px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#2563eb;font-weight:600;">🔑 Prihlasovacie údaje</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-top:12px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="110" style="font-size:13px;color:#64748b;padding:6px 0;vertical-align:top;">Adresa:</td>
+                              <td style="font-size:14px;color:#1e293b;font-weight:600;padding:6px 0;">
+                                <a href="{{loginUrl}}" style="color:#2563eb;text-decoration:none;">{{loginUrl}}</a>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td width="110" style="font-size:13px;color:#64748b;padding:6px 0;vertical-align:top;">Používateľ:</td>
+                              <td style="font-size:14px;color:#1e293b;font-weight:600;padding:6px 0;">{{userEmail}}</td>
+                            </tr>
+                            <tr>
+                              <td width="110" style="font-size:13px;color:#64748b;padding:6px 0;vertical-align:top;">Heslo:</td>
+                              <td style="font-size:14px;color:#1e293b;font-weight:600;padding:6px 0;">{{tempPassword}}</td>
+                            </tr>
+                            <tr>
+                              <td width="110" style="font-size:13px;color:#64748b;padding:6px 0;vertical-align:top;">Metóda:</td>
+                              <td style="font-size:14px;color:#1e293b;font-weight:600;padding:6px 0;">{{authMethod}}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA Button -->
+          <tr>
+            <td align="center" style="padding:0 40px 28px;">
+              <a href="{{loginUrl}}" style="display:inline-block;background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:#ffffff;text-decoration:none;padding:14px 40px;border-radius:8px;font-size:15px;font-weight:600;letter-spacing:0.3px;box-shadow:0 2px 8px rgba(37,99,235,0.35);">
+                Prihlásiť sa do INDEXUS
+              </a>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 40px;">
+              <div style="border-top:1px solid #e2e8f0;"></div>
+            </td>
+          </tr>
+
+          <!-- Modules Section -->
+          <tr>
+            <td style="padding:28px 40px 0;">
+              <p style="margin:0 0 20px;font-size:17px;color:#1e293b;font-weight:700;">📋 Prehľad modulov INDEXUS</p>
+            </td>
+          </tr>
+
+          <!-- Module Grid -->
+          <tr>
+            <td style="padding:0 40px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+
+                <!-- Row 1 -->
+                <tr>
+                  <td width="50%" style="padding:0 6px 12px 0;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px;">
+                          <div style="font-size:20px;margin-bottom:6px;">📊</div>
+                          <p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;">Dashboard</p>
+                          <p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.5;">Celkový prehľad — KPI, štatistiky, posledná aktivita.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="50%" style="padding:0 0 12px 6px;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px;">
+                          <div style="font-size:20px;margin-bottom:6px;">🏥</div>
+                          <p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;">Nemocnice & Kliniky</p>
+                          <p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.5;">Správa nemocníc, kliník, personálu a zmlúv.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Row 2 -->
+                <tr>
+                  <td width="50%" style="padding:0 6px 12px 0;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px;">
+                          <div style="font-size:20px;margin-bottom:6px;">🤝</div>
+                          <p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;">Medical Partner Network</p>
+                          <p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.5;">Sieť spolupracovníkov, lekárov, sestier a pôrodných asistentiek.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="50%" style="padding:0 0 12px 6px;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px;">
+                          <div style="font-size:20px;margin-bottom:6px;">👶</div>
+                          <p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;">Zákazníci</p>
+                          <p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.5;">Pipeline zákazníkov, zmluvy, odbery a fakturácia.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Row 3 -->
+                <tr>
+                  <td width="50%" style="padding:0 6px 12px 0;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px;">
+                          <div style="font-size:20px;margin-bottom:6px;">📧</div>
+                          <p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;">NEXUS Omni</p>
+                          <p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.5;">Emaily, SMS, hovory — všetka komunikácia na jednom mieste.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="50%" style="padding:0 0 12px 6px;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px;">
+                          <div style="font-size:20px;margin-bottom:6px;">⚡</div>
+                          <p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;">NEXUS Pulse</p>
+                          <p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.5;">Agent workspace — úlohy, notifikácie, real-time správy.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Row 4 -->
+                <tr>
+                  <td width="50%" style="padding:0 6px 12px 0;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px;">
+                          <div style="font-size:20px;margin-bottom:6px;">🎯</div>
+                          <p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;">NEXUS Missions</p>
+                          <p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.5;">Kampane, hromadné emaily a automatizované oslovenia.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="50%" style="padding:0 0 12px 6px;vertical-align:top;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                      <tr>
+                        <td style="padding:16px;">
+                          <div style="font-size:20px;margin-bottom:6px;">📈</div>
+                          <p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;">Pipeline & Reports</p>
+                          <p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.5;">Vizuálny pipeline, reporty a analytické prehľady.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+
+          <!-- First Steps -->
+          <tr>
+            <td style="padding:20px 40px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;">
+                <tr>
+                  <td style="padding:24px;">
+                    <p style="margin:0 0 12px;font-size:15px;color:#166534;font-weight:700;">🚀 Prvé kroky po prihlásení</p>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding:4px 0;">
+                          <table role="presentation" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="28" style="vertical-align:top;">
+                                <div style="width:22px;height:22px;background:#16a34a;border-radius:50%;text-align:center;line-height:22px;color:#fff;font-size:11px;font-weight:700;">1</div>
+                              </td>
+                              <td style="font-size:13px;color:#1e293b;padding:2px 0;line-height:1.5;">
+                                <strong>Prihláste sa</strong> pomocou údajov vyššie a zmeňte si heslo v Nastaveniach.
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;">
+                          <table role="presentation" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="28" style="vertical-align:top;">
+                                <div style="width:22px;height:22px;background:#16a34a;border-radius:50%;text-align:center;line-height:22px;color:#fff;font-size:11px;font-weight:700;">2</div>
+                              </td>
+                              <td style="font-size:13px;color:#1e293b;padding:2px 0;line-height:1.5;">
+                                <strong>Prezrite si Dashboard</strong> — uvidíte prehľad svojej krajiny {{countryFlag}} {{countryName}}.
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;">
+                          <table role="presentation" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="28" style="vertical-align:top;">
+                                <div style="width:22px;height:22px;background:#16a34a;border-radius:50%;text-align:center;line-height:22px;color:#fff;font-size:11px;font-weight:700;">3</div>
+                              </td>
+                              <td style="font-size:13px;color:#1e293b;padding:2px 0;line-height:1.5;">
+                                <strong>Otvorte Nemocnice & Kliniky</strong> — overte si priradené nemocnice a personál.
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;">
+                          <table role="presentation" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="28" style="vertical-align:top;">
+                                <div style="width:22px;height:22px;background:#16a34a;border-radius:50%;text-align:center;line-height:22px;color:#fff;font-size:11px;font-weight:700;">4</div>
+                              </td>
+                              <td style="font-size:13px;color:#1e293b;padding:2px 0;line-height:1.5;">
+                                <strong>Skontrolujte zákazníkov</strong> — vaši zákazníci sú v module Zákazníci.
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;">
+                          <table role="presentation" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="28" style="vertical-align:top;">
+                                <div style="width:22px;height:22px;background:#16a34a;border-radius:50%;text-align:center;line-height:22px;color:#fff;font-size:11px;font-weight:700;">5</div>
+                              </td>
+                              <td style="font-size:13px;color:#1e293b;padding:2px 0;line-height:1.5;">
+                                <strong>Nastavte si NEXUS Omni</strong> — prepojte váš email pre odosielanie správ priamo z CRM.
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Support -->
+          <tr>
+            <td style="padding:28px 40px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fef3c7;border-radius:10px;border:1px solid #fde68a;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0;font-size:13px;color:#92400e;line-height:1.6;">
+                      💡 <strong>Potrebujete pomoc?</strong> Kontaktujte vášho administrátora alebo napíšte na
+                      <a href="mailto:support@cordbloodcenter.com" style="color:#d97706;font-weight:600;">support@cordbloodcenter.com</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:32px 40px;">
+              <div style="border-top:1px solid #e2e8f0;padding-top:20px;text-align:center;">
+                <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6;">
+                  Tento email bol automaticky vygenerovaný systémom <strong>INDEXUS CRM</strong>.<br>
+                  © 2025 Cord Blood Center Group · Všetky práva vyhradené.
+                </p>
+                <p style="margin:8px 0 0;font-size:11px;color:#cbd5e1;">
+                  🇸🇰 Slovakia · 🇨🇿 Czech Republic · 🇭🇺 Hungary · 🇷🇴 Romania · 🇦🇹 Austria · 🇮🇹 Italy · 🇩🇪 Germany
+                </p>
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!--
+  ============================================================
+  TEMPLATE VARIABLES (to be replaced by the backend):
+  ============================================================
+  {{userName}}       - Full name of the new user (e.g. "Ing. Ján Novák")
+  {{userEmail}}      - User's login email
+  {{tempPassword}}   - Temporary password or "Microsoft 365 SSO"
+  {{authMethod}}     - "Heslo" or "Microsoft 365 SSO"
+  {{loginUrl}}       - Full login URL (e.g. "https://crm.cordbloodcenter.com")
+  {{countryName}}    - Localized country name (e.g. "Slovensko")
+  {{countryFlag}}    - Country flag emoji (e.g. "🇸🇰")
+
+  MULTILINGUAL SUPPORT:
+  This template is in Slovak (SK). For other countries, the backend
+  should generate localized versions using the i18n translations:
+  - CZ: Czech
+  - HU: Hungarian
+  - RO: Romanian
+  - IT: Italian
+  - DE: German
+  - AT: German (Austrian)
+  ============================================================
+  -->
+</body>
+</html>
