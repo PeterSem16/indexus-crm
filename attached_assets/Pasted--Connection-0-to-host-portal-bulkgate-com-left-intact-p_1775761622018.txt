@@ -1,0 +1,62 @@
+* Connection #0 to host portal.bulkgate.com left intact
+<p><a href="https://portal.bulkgate.com/sign/in">Please click here to continue</a>.</p>seman@CORPCRM01:/var/www/indexus-crm$
+seman@CORPCRM01:/var/www/indexus-crm$ curl -v https://portal.bulkgate.com/api/1.0/simple/transactional
+* Host portal.bulkgate.com:443 was resolved.
+* IPv6: (none)
+* IPv4: 45.138.107.19, 45.138.107.20
+*   Trying 45.138.107.19:443...
+* Connected to portal.bulkgate.com (45.138.107.19) port 443
+* ALPN: curl offers h2,http/1.1
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+*  CAfile: /etc/ssl/certs/ca-certificates.crt
+*  CApath: /etc/ssl/certs
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+* TLSv1.3 (IN), TLS handshake, CERT verify (15):
+* TLSv1.3 (IN), TLS handshake, Finished (20):
+* TLSv1.3 (OUT), TLS change cipher, Change cipher spec (1):
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+* SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384 / X25519 / RSASSA-PSS
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=portal.bulkgate.com
+*  start date: Jan 19 22:09:45 2026 GMT
+*  expire date: Apr 19 22:09:44 2026 GMT
+*  subjectAltName: host "portal.bulkgate.com" matched cert's "portal.bulkgate.com"
+*  issuer: C=US; O=Let's Encrypt; CN=R13
+*  SSL certificate verify ok.
+*   Certificate level 0: Public key type RSA (2048/112 Bits/secBits), signed using sha256WithRSAEncryption
+*   Certificate level 1: Public key type RSA (2048/112 Bits/secBits), signed using sha256WithRSAEncryption
+*   Certificate level 2: Public key type RSA (4096/152 Bits/secBits), signed using sha256WithRSAEncryption
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://portal.bulkgate.com/api/1.0/simple/transactional
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: portal.bulkgate.com]
+* [HTTP/2] [1] [:path: /api/1.0/simple/transactional]
+* [HTTP/2] [1] [user-agent: curl/8.5.0]
+* [HTTP/2] [1] [accept: */*]
+> GET /api/1.0/simple/transactional HTTP/2
+> Host: portal.bulkgate.com
+> User-Agent: curl/8.5.0
+> Accept: */*
+>
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* old SSL session ID is stale, removing
+< HTTP/2 401
+< server: nginx
+< date: Thu, 09 Apr 2026 19:06:39 GMT
+< content-type: application/json; charset=utf-8
+< x-powered-by: 1.21 gigawatts
+< x-xss-protection: 1; mode=block;
+< x-content-type-options: nosniff
+< referrer-policy: strict-origin-when-cross-origin
+< x-frame-options: SAMEORIGIN
+< content-security-policy: script-src 'nonce-BOBRoN/jNph8Kf+v2Rsehw==' 'strict-dynamic' * 'unsafe-inline' 'unsafe-eval'; report-uri https://portal.bulkgate.com/api/notification/csp;
+< set-cookie: _nss=1; path=/; secure; HttpOnly; SameSite=Strict
+< vary: X-Requested-With
+<
+* Connection #0 to host portal.bulkgate.com left intact
+{"type":"unknown_identity","code":401,"e
