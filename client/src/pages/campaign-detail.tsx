@@ -3355,6 +3355,53 @@ export default function CampaignDetailPage() {
                           </Select>
                         </CardContent>
                       </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Disposition Mode</CardTitle>
+                          <CardDescription>
+                            Nastavte, kde sa vyberá dispozícia hovoru — či cez tlačidlá v call scripte alebo cez tlačidlo ukončenia hovoru.
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Select
+                            value={(() => {
+                              try {
+                                const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                return s.dispositionMode || "end_call";
+                              } catch { return "end_call"; }
+                            })()}
+                            onValueChange={(v) => {
+                              let existing: any = {};
+                              try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                              const merged = { ...existing, dispositionMode: v };
+                              apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                .then(() => {
+                                  toast({ title: t.campaigns.detail.settingsSaved });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                })
+                                .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                            }}
+                          >
+                            <SelectTrigger className="w-80" data-testid="select-disposition-mode">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="end_call">Tlačidlo ukončenia hovoru (predvolené)</SelectItem>
+                              <SelectItem value="script">Výber v call scripte (dispozícia z voľby)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {(() => {
+                              try {
+                                const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                return s.dispositionMode === "script"
+                                  ? "Dispozícia sa nastaví automaticky pri výbere možnosti v call scripte. Priraďte dispozície k jednotlivým možnostiam v script builderi."
+                                  : "Dispozícia sa vyberá manuálne po ukončení hovoru cez štandardné tlačidlo.";
+                              } catch { return ""; }
+                            })()}
+                          </p>
+                        </CardContent>
+                      </Card>
                       <CampaignSopSettingsCard campaignId={campaign.id} />
                       <AutoModeCard campaign={campaign} />
                       <CriteriaCard campaign={campaign} />
@@ -4075,6 +4122,7 @@ export default function CampaignDetailPage() {
                       setStructuredScriptModified(true);
                     }}
                     isSaving={saveScriptMutation.isPending}
+                    campaignId={campaign.id}
                   />
                   {structuredScriptModified && (
                     <div className="mt-4 flex items-center gap-2">

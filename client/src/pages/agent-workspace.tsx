@@ -985,6 +985,7 @@ function TaskListPanel({
 }
 
 function ScriptViewer({ script, contact, campaignContactId, campaignId, initialStepId, onAction }: { script: string | null; contact?: Customer | null; campaignContactId?: string | null; campaignId?: string | null; initialStepId?: string | null; onAction?: (action: string, data?: any) => void }) {
+  const { user: authUser } = useAuth();
   const SCRIPT_VARIABLES: Record<string, string> = {
     "{{customer.firstName}}": contact?.firstName || "",
     "{{customer.lastName}}": contact?.lastName || "",
@@ -1000,7 +1001,7 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
     "{{customer.greeting}}": (contact as any)?.titleBefore
       ? `${(contact as any).titleBefore} ${contact?.lastName || ""}`
       : contact?.lastName || "",
-    "{{agent.name}}": "",
+    "{{agent.name}}": authUser?.fullName || authUser?.username || "",
     "{{campaign.name}}": "",
     "{{date.today}}": new Date().toLocaleDateString(),
   };
@@ -1115,6 +1116,16 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
 
   const handleValueChange = (elementId: string, value: string) => {
     setSelectedValues(prev => ({ ...prev, [elementId]: value }));
+
+    if (currentStep && onAction) {
+      const element = currentStep.elements.find((el: any) => el.id === elementId);
+      if (element && (element.type === "radio" || element.type === "select" || element.type === "outcome") && element.options) {
+        const selectedOpt = element.options.find((o: any) => o.value === value);
+        if (selectedOpt?.dispositionCode) {
+          onAction("setDisposition", { dispositionCode: selectedOpt.dispositionCode });
+        }
+      }
+    }
   };
 
   const navigateToStep = (idx: number) => {
@@ -1165,6 +1176,18 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
     }
   };
 
+  const renderFormattedText = (text: string) => {
+    if (!text) return text;
+    const parts = text.split(/("(?:[^"\\]|\\.)*")/g);
+    if (parts.length <= 1) return text;
+    return parts.map((part, i) => {
+      if (part.startsWith('"') && part.endsWith('"')) {
+        return <em key={i}>{part}</em>;
+      }
+      return part;
+    });
+  };
+
   const renderElement = (element: ScriptElement) => {
     switch (element.type) {
       case "heading":
@@ -1173,7 +1196,7 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
             <CardContent className="p-4">
               {element.label && <h4 className="font-semibold text-primary text-sm">{substituteVariables(element.label)}</h4>}
               {element.content && (
-                <p className={`text-foreground text-sm leading-relaxed ${element.label ? "mt-1.5" : ""}`}>{substituteVariables(element.content)}</p>
+                <p className={`text-foreground text-sm leading-relaxed ${element.label ? "mt-1.5" : ""}`}>{renderFormattedText(substituteVariables(element.content))}</p>
               )}
             </CardContent>
           </Card>
@@ -1186,7 +1209,7 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
               {element.label && (
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">{substituteVariables(element.label)}</label>
               )}
-              <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{substituteVariables(element.content || "")}</p>
+              <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{renderFormattedText(substituteVariables(element.content || ""))}</p>
             </CardContent>
           </Card>
         );
@@ -1198,7 +1221,7 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
               {element.label && (
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{substituteVariables(element.label)}</label>
               )}
-              <p className={`text-sm leading-relaxed text-foreground ${element.label ? "mt-2" : ""}`}>{substituteVariables(element.content || "")}</p>
+              <p className={`text-sm leading-relaxed text-foreground ${element.label ? "mt-2" : ""}`}>{renderFormattedText(substituteVariables(element.content || ""))}</p>
             </CardContent>
           </Card>
         );
@@ -1403,9 +1426,10 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
           error: "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-300",
         };
         const noteIcons: Record<string, any> = { info: AlertCircle, warning: AlertCircle, success: CheckCircle, error: XCircle };
-        const NoteIcon = noteIcons[element.variant || "info"] || AlertCircle;
+        const noteVariant = element.style || element.variant || "info";
+        const NoteIcon = noteIcons[noteVariant] || AlertCircle;
         return (
-          <Card className={noteStyles[element.variant || "info"] || noteStyles.info}>
+          <Card className={noteStyles[noteVariant] || noteStyles.info}>
             <CardContent className="p-4 flex items-start gap-3">
               <NoteIcon className="h-4 w-4 mt-0.5 shrink-0" />
               <div>
@@ -1417,6 +1441,13 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
         );
       }
 
+      case "divider":
+        return (
+          <div className="py-2">
+            <Separator className="bg-border" />
+          </div>
+        );
+
       default:
         if (element.content || element.label) {
           return (
@@ -1426,7 +1457,7 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">{substituteVariables(element.label)}</label>
                 )}
                 {element.content && (
-                  <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{substituteVariables(element.content || "")}</p>
+                  <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{renderFormattedText(substituteVariables(element.content || ""))}</p>
                 )}
               </CardContent>
             </Card>
@@ -6745,6 +6776,15 @@ export default function AgentWorkspacePage() {
             } else if (action === "openPhoneDisposition") {
               setDispositionChannelFilter("phone");
               setDispositionModalOpen(true);
+            } else if (action === "setDisposition" && data?.dispositionCode) {
+              try {
+                const s = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
+                if (s.dispositionMode === "script") {
+                  const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
+                  const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
+                  handleDisposition(data.dispositionCode, parentDisp?.code);
+                }
+              } catch {}
             }
           }}
         />
@@ -7573,6 +7613,16 @@ export default function AgentWorkspacePage() {
                 else if (action === "openDisposition") { setDispositionChannelFilter(null); setDispositionModalOpen(true); }
                 else if (action === "openEmailDisposition") { setDispositionChannelFilter("email"); setDispositionModalOpen(true); }
                 else if (action === "openPhoneDisposition") { setDispositionChannelFilter("phone"); setDispositionModalOpen(true); }
+                else if (action === "setDisposition" && data?.dispositionCode) {
+                  try {
+                    const s = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
+                    if (s.dispositionMode === "script") {
+                      const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
+                      const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
+                      handleDisposition(data.dispositionCode, parentDisp?.code);
+                    }
+                  } catch {}
+                }
                 setScriptModalOpen(false);
               }} />
             </div>

@@ -3230,6 +3230,7 @@ export const scriptElementSchema = z.object({
     value: z.string(),
     label: z.string(),
     nextStepId: z.string().optional(),
+    dispositionCode: z.string().optional(),
   })).optional(),
   style: z.enum(["default", "info", "warning", "success", "error"]).optional(),
   size: z.enum(["sm", "md", "lg"]).optional(),

@@ -249,9 +249,10 @@ interface ScriptBuilderProps {
   onSave?: (script: OperatorScript) => void;
   onPreview?: (script: OperatorScript) => void;
   isSaving?: boolean;
+  campaignId?: string;
 }
 
-export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }: ScriptBuilderProps) {
+export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, campaignId }: ScriptBuilderProps) {
   const { t } = useI18n();
   const sb = t.campaigns.detail.scriptBuilderUI;
 
@@ -266,6 +267,17 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
 
   const { data: templateCategories = [] } = useQuery<any[]>({
     queryKey: ["/api/template-categories"],
+  });
+
+  const { data: campaignDispositions = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaignId, "dispositions"],
+    queryFn: async () => {
+      if (!campaignId) return [];
+      const res = await fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!campaignId,
   });
 
   const [templateCategoryFilter, setTemplateCategoryFilter] = useState<string>("__all__");
@@ -434,7 +446,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
     updateElement(selectedElement.id, { options: newOptions });
   }, [selectedElement, updateElement, sb.options]);
 
-  const updateOption = useCallback((index: number, updates: { value?: string; label?: string; nextStepId?: string }) => {
+  const updateOption = useCallback((index: number, updates: { value?: string; label?: string; nextStepId?: string; dispositionCode?: string }) => {
     if (!selectedElement || !selectedElement.options) return;
     const newOptions = selectedElement.options.map((opt, i) => 
       i === index ? { ...opt, ...updates } : opt
@@ -866,25 +878,50 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                         <Plus className="h-3 w-3 mr-1" /> {sb.add}
                       </Button>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {selectedElement.options?.map((option, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <Input
-                            value={option.label}
-                            onChange={(e) => updateOption(index, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
-                            placeholder={sb.optionName}
-                            className="flex-1"
-                            data-testid={`input-option-${index}`}
-                          />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => deleteOption(index)}
-                            disabled={(selectedElement.options?.length || 0) <= 1}
-                            data-testid={`button-delete-option-${index}`}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                        <div key={index} className="space-y-1.5 p-2 rounded-md border bg-muted/20">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={option.label}
+                              onChange={(e) => updateOption(index, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
+                              placeholder={sb.optionName}
+                              className="flex-1"
+                              data-testid={`input-option-${index}`}
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => deleteOption(index)}
+                              disabled={(selectedElement.options?.length || 0) <= 1}
+                              data-testid={`button-delete-option-${index}`}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          {campaignId && campaignDispositions.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">Dispozícia:</span>
+                              <Select
+                                value={option.dispositionCode || "_none_"}
+                                onValueChange={(v) => updateOption(index, { dispositionCode: v === "_none_" ? "" : v })}
+                              >
+                                <SelectTrigger className="h-7 text-xs flex-1" data-testid={`select-disposition-option-${index}`}>
+                                  <SelectValue placeholder="Žiadna" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="_none_">— Žiadna —</SelectItem>
+                                  {campaignDispositions
+                                    .filter((d: any) => d.isActive)
+                                    .map((d: any) => (
+                                      <SelectItem key={d.id} value={d.code}>
+                                        {d.parentId ? "  ↳ " : ""}{d.name} ({d.code})
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

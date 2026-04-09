@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail, Bot, Filter, Settings, Globe } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail, Bot, Filter, Settings, Globe, Minus, AlertCircle } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
@@ -120,7 +120,7 @@ interface ScriptElementData {
   content?: string;
   required?: boolean;
   placeholder?: string;
-  options?: { value: string; label: string; nextStepId?: string }[];
+  options?: { value: string; label: string; nextStepId?: string; dispositionCode?: string }[];
 }
 
 interface ScriptStepData {
@@ -216,8 +216,8 @@ function ScriptBuilder({ value, onChange, t }: { value: string; onChange: (v: st
     const newEl: ScriptElementData = {
       id: generateId(),
       type,
-      label: type === "heading" ? "Nadpis" : type === "text" ? "" : type === "paragraph" ? "" : type === "select" ? "Výber" : type === "radio" ? "Voľba" : type === "outcome" ? "Výsledok" : type === "textarea" ? "Poznámka" : type === "checkbox" ? "Potvrdenie" : "Vstup",
-      content: type === "heading" || type === "text" || type === "paragraph" ? "" : undefined,
+      label: type === "heading" ? "Nadpis" : type === "text" ? "" : type === "paragraph" ? "" : type === "select" ? "Výber" : type === "radio" ? "Voľba" : type === "outcome" ? "Výsledok" : type === "textarea" ? "Poznámka" : type === "checkbox" ? "Potvrdenie" : type === "divider" ? "" : type === "note" ? "" : "Vstup",
+      content: type === "heading" || type === "text" || type === "paragraph" || type === "note" ? "" : undefined,
       options: ["select", "radio", "outcome"].includes(type)
         ? [{ value: "option1", label: "Možnosť 1" }, { value: "option2", label: "Možnosť 2" }]
         : undefined,
@@ -270,6 +270,8 @@ function ScriptBuilder({ value, onChange, t }: { value: string; onChange: (v: st
       case "textarea": return <AlignLeft className="h-3.5 w-3.5" />;
       case "checkbox": return <Square className="h-3.5 w-3.5" />;
       case "input": return <TextCursorInput className="h-3.5 w-3.5" />;
+      case "divider": return <Minus className="h-3.5 w-3.5" />;
+      case "note": return <AlertCircle className="h-3.5 w-3.5" />;
       default: return <FileText className="h-3.5 w-3.5" />;
     }
   };
@@ -284,6 +286,8 @@ function ScriptBuilder({ value, onChange, t }: { value: string; onChange: (v: st
     textarea: "Textové pole",
     checkbox: "Zaškrtávacie pole",
     input: "Vstupné pole",
+    divider: "Oddeľovač",
+    note: "Poznámka (alert)",
   };
 
   return (
@@ -564,7 +568,7 @@ function ScriptBuilder({ value, onChange, t }: { value: string; onChange: (v: st
             <div className="border-t pt-3">
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">Pridať element</span>
               <div className="flex flex-wrap gap-1">
-                {(["heading", "text", "paragraph", "select", "radio", "outcome", "textarea", "checkbox", "input"] as const).map((type) => (
+                {(["heading", "text", "paragraph", "divider", "note", "select", "radio", "outcome", "textarea", "checkbox", "input"] as const).map((type) => (
                   <Button
                     key={type}
                     type="button"
