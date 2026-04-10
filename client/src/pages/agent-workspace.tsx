@@ -4500,7 +4500,7 @@ function ScheduledQueuePanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             <CalendarClock className="h-5 w-5 text-primary" />
@@ -4562,7 +4562,7 @@ function ScheduledQueuePanel({
           />
         </div>
 
-        <ScrollArea className="flex-1 min-h-0" style={{ maxHeight: "50vh" }}>
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -4714,7 +4714,7 @@ function ScheduledQueuePanel({
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
