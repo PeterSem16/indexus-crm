@@ -1413,11 +1413,16 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
                 className="w-full gap-2"
                 variant={btnVariant}
                 onClick={() => {
-                  if (element.dispositionCode && onAction) {
-                    onAction("setDisposition", { elementId: element.id, stepId: currentStep?.id, dispositionCode: element.dispositionCode });
-                  }
+                  const hasEmailAction = element.action === "openEmail";
                   if (element.action && onAction) {
                     onAction(element.action, { elementId: element.id, stepId: currentStep?.id, emailTemplateId: element.emailTemplateId });
+                  }
+                  if (element.dispositionCode && onAction) {
+                    if (hasEmailAction) {
+                      onAction("scheduleCallbackOnly", { elementId: element.id, stepId: currentStep?.id, dispositionCode: element.dispositionCode });
+                    } else {
+                      onAction("setDisposition", { elementId: element.id, stepId: currentStep?.id, dispositionCode: element.dispositionCode });
+                    }
                   }
                 }}
                 data-testid={`btn-script-action-${element.id}`}
@@ -6762,6 +6767,27 @@ export default function AgentWorkspacePage() {
             } else if (action === "openPhoneDisposition") {
               setDispositionChannelFilter("phone");
               setDispositionModalOpen(true);
+            } else if (action === "scheduleCallbackOnly" && data?.dispositionCode) {
+              try {
+                const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
+                const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
+                if (disp?.callbackOffsetDays && currentCampaignContactId && selectedCampaignId) {
+                  const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
+                  cbDate.setHours(9, 0, 0, 0);
+                  apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${currentCampaignContactId}`, {
+                    status: "callback_scheduled",
+                    callbackDate: cbDate.toISOString(),
+                    dispositionCode: data.dispositionCode,
+                    assignedTo: user?.id || null,
+                    lastAttemptAt: new Date().toISOString(),
+                  }).then(() => {
+                    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                    toast({ title: t.agentWorkspace.contactFinished, description: `Callback: ${cbDate.toLocaleDateString()}` });
+                  }).catch(() => {});
+                }
+              } catch {}
             } else if (action === "setDisposition" && data?.dispositionCode) {
               try {
                 const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
@@ -7672,6 +7698,28 @@ export default function AgentWorkspacePage() {
                 else if (action === "openDisposition") { setDispositionChannelFilter(null); setDispositionModalOpen(true); }
                 else if (action === "openEmailDisposition") { setDispositionChannelFilter("email"); setDispositionModalOpen(true); }
                 else if (action === "openPhoneDisposition") { setDispositionChannelFilter("phone"); setDispositionModalOpen(true); }
+                else if (action === "scheduleCallbackOnly" && data?.dispositionCode) {
+                  try {
+                    const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
+                    const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
+                    if (disp?.callbackOffsetDays && currentCampaignContactId && selectedCampaignId) {
+                      const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
+                      cbDate.setHours(9, 0, 0, 0);
+                      apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${currentCampaignContactId}`, {
+                        status: "callback_scheduled",
+                        callbackDate: cbDate.toISOString(),
+                        dispositionCode: data.dispositionCode,
+                        assignedTo: user?.id || null,
+                        lastAttemptAt: new Date().toISOString(),
+                      }).then(() => {
+                        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
+                        queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+                        queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                        toast({ title: t.agentWorkspace.contactFinished, description: `Callback: ${cbDate.toLocaleDateString()}` });
+                      }).catch(() => {});
+                    }
+                  } catch {}
+                }
                 else if (action === "setDisposition" && data?.dispositionCode) {
                   try {
                     const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
