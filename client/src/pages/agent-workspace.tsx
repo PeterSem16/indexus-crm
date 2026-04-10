@@ -4500,8 +4500,8 @@ function ScheduledQueuePanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] !flex !flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             <CalendarClock className="h-5 w-5 text-primary" />
             {t.agentWorkspace.scheduledQueueTitle}
@@ -4522,7 +4522,7 @@ function ScheduledQueuePanel({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-center gap-1 pb-2">
+        <div className="flex items-center gap-1 pb-2 flex-shrink-0">
           {(["all", "callback", "email", "sms"] as const).map(type => (
             <Button
               key={type}
@@ -4551,7 +4551,7 @@ function ScheduledQueuePanel({
           ))}
         </div>
 
-        <div className="relative pb-2">
+        <div className="relative pb-2 flex-shrink-0">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t.common.search || "Search..."}
@@ -4562,7 +4562,7 @@ function ScheduledQueuePanel({
           />
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
