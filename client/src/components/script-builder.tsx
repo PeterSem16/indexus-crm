@@ -378,7 +378,6 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       });
       const data = await res.json();
       if (data.translatedScript) {
-        setCurrentScript(data.translatedScript);
         onChange?.(data.translatedScript);
         toast({ title: sb.translateDone || "Script translated", description: TRANSLATE_LANGUAGES.find(l => l.code === targetLang)?.label });
       }
