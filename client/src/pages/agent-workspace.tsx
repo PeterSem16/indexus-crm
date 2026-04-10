@@ -1184,6 +1184,9 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
 
   const renderFormattedText = (text: string) => {
     if (!text) return text;
+    if (/<[a-z][\s\S]*>/i.test(text) || /&nbsp;/.test(text)) {
+      return <span dangerouslySetInnerHTML={{ __html: text }} />;
+    }
     const parts = text.split(/("(?:[^"\\]|\\.)*")/g);
     if (parts.length <= 1) return text;
     return parts.map((part, i) => {
