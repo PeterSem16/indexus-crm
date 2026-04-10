@@ -65,6 +65,13 @@ import {
   Italic,
   Underline,
   FlaskConical,
+  FolderOpen,
+  Download,
+  Upload,
+  Tag,
+  Palette,
+  MoreHorizontal,
+  Pencil,
 } from "lucide-react";
 import {
   DndContext,
@@ -86,6 +93,17 @@ import { CSS } from "@dnd-kit/utilities";
 import type { OperatorScript, ScriptStep, ScriptElement, ScriptElementType } from "@shared/schema";
 import { useI18n } from "@/i18n";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { ScriptTemplate } from "@shared/schema";
 
 const SCRIPT_VARIABLES = [
   { key: "{{customer.firstName}}", label: "Meno", category: "customer" },
@@ -243,9 +261,24 @@ interface ScriptBuilderProps {
   campaignId?: string;
 }
 
+const TEMPLATE_COLORS = [
+  { value: "gray", label: "Šedá", className: "bg-gray-100 border-gray-300 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300" },
+  { value: "red", label: "Červená", className: "bg-red-100 border-red-300 text-red-700 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300" },
+  { value: "blue", label: "Modrá", className: "bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" },
+  { value: "green", label: "Zelená", className: "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300" },
+  { value: "yellow", label: "Žltá", className: "bg-yellow-100 border-yellow-300 text-yellow-700 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-300" },
+  { value: "purple", label: "Fialová", className: "bg-purple-100 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-700 dark:text-purple-300" },
+  { value: "orange", label: "Oranžová", className: "bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-900/30 dark:border-orange-700 dark:text-orange-300" },
+];
+
+function getColorClass(color: string) {
+  return TEMPLATE_COLORS.find(c => c.value === color)?.className || TEMPLATE_COLORS[0].className;
+}
+
 export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, campaignId }: ScriptBuilderProps) {
   const { t } = useI18n();
   const sb = t.campaigns.detail.scriptBuilderUI;
+  const { toast } = useToast();
 
   const { data: allEmailTemplates = [] } = useQuery<any[]>({
     queryKey: ["/api/message-templates", "email-active"],
@@ -285,6 +318,49 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [showTestData, setShowTestData] = useState(false);
+  const [isSaveTemplateOpen, setIsSaveTemplateOpen] = useState(false);
+  const [isLoadTemplateOpen, setIsLoadTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [templateTags, setTemplateTags] = useState("");
+  const [templateColor, setTemplateColor] = useState("gray");
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+
+  const { data: scriptTemplatesList = [] } = useQuery<ScriptTemplate[]>({
+    queryKey: ["/api/script-templates"],
+  });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string; scriptData: string; tags: string[]; color: string; id?: string }) => {
+      if (data.id) {
+        const res = await apiRequest("PATCH", `/api/script-templates/${data.id}`, data);
+        return res.json();
+      }
+      const res = await apiRequest("POST", "/api/script-templates", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/script-templates"] });
+      setIsSaveTemplateOpen(false);
+      setTemplateName("");
+      setTemplateDescription("");
+      setTemplateTags("");
+      setTemplateColor("gray");
+      setEditingTemplateId(null);
+      toast({ title: "Šablóna uložená", description: "Call script bol uložený ako šablóna." });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/script-templates/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/script-templates"] });
+      toast({ title: "Šablóna odstránená" });
+    },
+  });
 
   const elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }> = {
     heading: { icon: Type, label: sb.heading, description: sb.headingDesc },
@@ -1111,6 +1187,30 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
             {selectedStep ? selectedStep.title : sb.selectStep}
           </span>
           <div className="flex items-center gap-1 flex-shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-6 text-[11px] gap-1 px-2" data-testid="button-template-menu">
+                  <FolderOpen className="h-3 w-3" /> Šablóny
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => {
+                  setTemplateName(currentScript.name || "");
+                  setTemplateDescription(currentScript.description || "");
+                  setTemplateTags("");
+                  setTemplateColor("gray");
+                  setEditingTemplateId(null);
+                  setIsSaveTemplateOpen(true);
+                }}>
+                  <Upload className="h-3.5 w-3.5 mr-2" />
+                  Uložiť ako šablónu
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsLoadTemplateOpen(true)}>
+                  <Download className="h-3.5 w-3.5 mr-2" />
+                  Načítať šablónu
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {selectedStep && (
               <Button size="sm" variant="outline" className="h-6 text-[11px] gap-1 px-2" onClick={() => setIsAddElementOpen(true)} data-testid="button-add-element">
                 <Plus className="h-3 w-3" /> {sb.addElement}
@@ -1366,6 +1466,203 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                 <li><strong>Akčné tlačidlá:</strong> Pre spustenie akcií (volanie, email, dispozícia)</li>
               </ul>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSaveTemplateOpen} onOpenChange={setIsSaveTemplateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5 text-primary" />
+              {editingTemplateId ? "Upraviť šablónu" : "Uložiť ako šablónu"}
+            </DialogTitle>
+            <DialogDescription>
+              Uložte aktuálny call script pre použitie v iných kampaniach.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="tpl-name">Názov šablóny *</Label>
+              <Input
+                id="tpl-name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Napr. Akvizícia Cord Blood SK"
+                data-testid="input-template-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tpl-desc">Popis</Label>
+              <Textarea
+                id="tpl-desc"
+                value={templateDescription}
+                onChange={(e) => setTemplateDescription(e.target.value)}
+                placeholder="Stručný popis scenára..."
+                rows={2}
+                data-testid="textarea-template-desc"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tpl-tags" className="flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5" />
+                Tagy
+              </Label>
+              <Input
+                id="tpl-tags"
+                value={templateTags}
+                onChange={(e) => setTemplateTags(e.target.value)}
+                placeholder="akvizícia, SK, cord blood (oddelené čiarkou)"
+                data-testid="input-template-tags"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Palette className="h-3.5 w-3.5" />
+                Farba
+              </Label>
+              <div className="flex gap-2 flex-wrap">
+                {TEMPLATE_COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    onClick={() => setTemplateColor(c.value)}
+                    className={`w-8 h-8 rounded-md border-2 transition-all ${getColorClass(c.value)} ${templateColor === c.value ? "ring-2 ring-primary ring-offset-2 scale-110" : "hover:scale-105"}`}
+                    title={c.label}
+                    data-testid={`btn-color-${c.value}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSaveTemplateOpen(false)}>Zrušiť</Button>
+            <Button
+              disabled={!templateName.trim() || saveTemplateMutation.isPending}
+              onClick={() => {
+                saveTemplateMutation.mutate({
+                  name: templateName.trim(),
+                  description: templateDescription.trim(),
+                  scriptData: JSON.stringify(currentScript),
+                  tags: templateTags.split(",").map(t => t.trim()).filter(Boolean),
+                  color: templateColor,
+                  id: editingTemplateId || undefined,
+                });
+              }}
+              data-testid="button-save-template"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {saveTemplateMutation.isPending ? "Ukladám..." : "Uložiť"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isLoadTemplateOpen} onOpenChange={setIsLoadTemplateOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-primary" />
+              Načítať šablónu
+            </DialogTitle>
+            <DialogDescription>
+              Vyberte uloženú šablónu call scriptu. Aktuálny script bude nahradený.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {scriptTemplatesList.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Zatiaľ nemáte žiadne uložené šablóny.</p>
+                <p className="text-xs mt-1">Uložte aktuálny script cez tlačidlo "Uložiť ako šablónu".</p>
+              </div>
+            ) : (
+              scriptTemplatesList.map((tpl) => {
+                const parsedScript = (() => { try { return JSON.parse(tpl.scriptData); } catch { return null; } })();
+                const stepCount = parsedScript?.steps?.length || 0;
+                return (
+                  <div
+                    key={tpl.id}
+                    className={`flex items-start gap-3 p-3 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${getColorClass(tpl.color)}`}
+                    onClick={() => {
+                      if (parsedScript) {
+                        updateScript(() => parsedScript);
+                        setSelectedStepId(parsedScript.steps?.[0]?.id || null);
+                        setSelectedElementId(null);
+                        setIsLoadTemplateOpen(false);
+                        toast({ title: "Šablóna načítaná", description: `"${tpl.name}" bola načítaná do buildera.` });
+                      }
+                    }}
+                    data-testid={`template-card-${tpl.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-sm truncate">{tpl.name}</span>
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 flex-shrink-0">
+                          {stepCount} {stepCount === 1 ? "krok" : "krokov"}
+                        </Badge>
+                      </div>
+                      {tpl.description && (
+                        <p className="text-xs text-muted-foreground mb-1.5 line-clamp-2">{tpl.description}</p>
+                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {(tpl.tags || []).map((tag, i) => (
+                          <Badge key={i} variant="outline" className="text-[10px] h-4 px-1.5 gap-0.5">
+                            <Tag className="h-2.5 w-2.5" />
+                            {tag}
+                          </Badge>
+                        ))}
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                          {new Date(tpl.updatedAt).toLocaleDateString("sk-SK")}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTemplateName(tpl.name);
+                              setTemplateDescription(tpl.description || "");
+                              setTemplateTags((tpl.tags || []).join(", "));
+                              setTemplateColor(tpl.color);
+                              setEditingTemplateId(tpl.id);
+                              setIsSaveTemplateOpen(true);
+                            }}
+                            data-testid={`btn-edit-template-${tpl.id}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Upraviť</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm("Naozaj chcete odstrániť túto šablónu?")) {
+                                deleteTemplateMutation.mutate(tpl.id);
+                              }
+                            }}
+                            data-testid={`btn-delete-template-${tpl.id}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Odstrániť</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </DialogContent>
       </Dialog>

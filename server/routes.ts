@@ -45,6 +45,7 @@ import {
   insertPartnerCategorySchema, insertContactAssignmentSchema, insertContactChannelSchema, insertCommunicationScheduleSchema, insertFirstContactProtocolSchema,
   campaignOperatorSettings,
   trainingRoomArchives,
+  scriptTemplates,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -22220,6 +22221,65 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error: any) {
       console.error("Failed to delete imported contacts:", error);
       res.status(500).json({ error: error.message || "Failed to delete contacts" });
+    }
+  });
+
+  // Script Templates CRUD
+  app.get("/api/script-templates", requireAuth, async (req, res) => {
+    try {
+      const results = await db.select().from(scriptTemplates).orderBy(desc(scriptTemplates.updatedAt));
+      res.json(results);
+    } catch (error: any) {
+      console.error("Error fetching script templates:", error);
+      res.status(500).json({ error: "Failed to fetch script templates" });
+    }
+  });
+
+  app.post("/api/script-templates", requireAuth, async (req, res) => {
+    try {
+      const { name, description, scriptData, tags, color } = req.body;
+      if (!name || !scriptData) return res.status(400).json({ error: "Name and scriptData required" });
+      const [template] = await db.insert(scriptTemplates).values({
+        name,
+        description: description || null,
+        scriptData: typeof scriptData === "string" ? scriptData : JSON.stringify(scriptData),
+        tags: tags || [],
+        color: color || "gray",
+        createdBy: (req as any).user?.id || null,
+      }).returning();
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error creating script template:", error);
+      res.status(500).json({ error: "Failed to create script template" });
+    }
+  });
+
+  app.patch("/api/script-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const { name, description, scriptData, tags, color } = req.body;
+      const updateData: any = { updatedAt: new Date() };
+      if (name !== undefined) updateData.name = name;
+      if (description !== undefined) updateData.description = description;
+      if (scriptData !== undefined) updateData.scriptData = typeof scriptData === "string" ? scriptData : JSON.stringify(scriptData);
+      if (tags !== undefined) updateData.tags = tags;
+      if (color !== undefined) updateData.color = color;
+      const [template] = await db.update(scriptTemplates).set(updateData).where(eq(scriptTemplates.id, req.params.id)).returning();
+      if (!template) return res.status(404).json({ error: "Template not found" });
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error updating script template:", error);
+      res.status(500).json({ error: "Failed to update script template" });
+    }
+  });
+
+  app.delete("/api/script-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const [deleted] = await db.delete(scriptTemplates).where(eq(scriptTemplates.id, req.params.id)).returning();
+      if (!deleted) return res.status(404).json({ error: "Template not found" });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting script template:", error);
+      res.status(500).json({ error: "Failed to delete script template" });
     }
   });
 

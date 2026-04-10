@@ -3268,6 +3268,27 @@ export const operatorScriptSchema = z.object({
 
 export type OperatorScript = z.infer<typeof operatorScriptSchema>;
 
+export const scriptTemplates = pgTable("script_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  scriptData: text("script_data").notNull(),
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
+  color: text("color").notNull().default("gray"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertScriptTemplateSchema = createInsertSchema(scriptTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertScriptTemplate = z.infer<typeof insertScriptTemplateSchema>;
+export type ScriptTemplate = typeof scriptTemplates.$inferSelect;
+
 export const scriptResponseSchema = z.object({
   elementId: z.string(),
   value: z.union([z.string(), z.array(z.string()), z.boolean()]),
