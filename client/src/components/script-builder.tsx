@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +61,10 @@ import {
   Minimize2,
   HelpCircle,
   Settings2,
+  Bold,
+  Italic,
+  Underline,
+  FlaskConical,
 } from "lucide-react";
 import {
   DndContext,
@@ -100,6 +104,29 @@ const SCRIPT_VARIABLES = [
   { key: "{{agent.name}}", label: "Meno agenta", category: "system" },
   { key: "{{campaign.name}}", label: "Názov kampane", category: "system" },
 ];
+
+const TEST_DATA: Record<string, string> = {
+  "{{customer.firstName}}": "Jana",
+  "{{customer.lastName}}": "Nováková",
+  "{{customer.fullName}}": "Jana Nováková",
+  "{{customer.greeting}}": "Vážená pani",
+  "{{customer.titleBefore}}": "Mgr.",
+  "{{customer.titleAfter}}": "",
+  "{{customer.email}}": "jana.novakova@email.sk",
+  "{{customer.phone}}": "+421 905 123 456",
+  "{{customer.address}}": "Hlavná 15",
+  "{{customer.city}}": "Bratislava",
+  "{{customer.postalCode}}": "811 01",
+  "{{customer.country}}": "SK",
+  "{{date.today}}": new Date().toLocaleDateString("sk-SK"),
+  "{{agent.name}}": "Peter Kováč",
+  "{{campaign.name}}": "Cord Blood Premium 2026",
+};
+
+function replaceTestData(text: string | undefined): string {
+  if (!text) return "";
+  return Object.entries(TEST_DATA).reduce((t, [key, val]) => t.replaceAll(key, val), text);
+}
 
 interface SortableStepProps {
   step: ScriptStep;
@@ -257,6 +284,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const [showTestData, setShowTestData] = useState(false);
 
   const elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }> = {
     heading: { icon: Type, label: sb.heading, description: sb.headingDesc },
@@ -418,16 +446,18 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
     });
   }, [updateScript]);
 
+  const td = useCallback((text: string | undefined) => showTestData ? replaceTestData(text) : (text || ""), [showTestData]);
+
   const renderPreviewElement = useCallback((element: ScriptElement) => {
     switch (element.type) {
       case "heading":
         return (
           <div className={`font-bold ${element.size === "lg" ? "text-xl" : element.size === "sm" ? "text-base" : "text-lg"}`}>
-            {element.content || element.label}
+            {td(element.content || element.label)}
           </div>
         );
       case "paragraph":
-        return <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{element.content || element.label}</p>;
+        return <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap [&_b]:font-bold [&_i]:italic [&_u]:underline" dangerouslySetInnerHTML={{ __html: td(element.content || element.label) }} />;
       case "divider":
         return <Separator />;
       case "note": {
@@ -442,14 +472,14 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         return (
           <div className={`flex gap-3 p-3 rounded-md border ${noteStyles[element.style || element.variant || "info"] || noteStyles.info}`}>
             <NoteIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <p className="text-sm leading-relaxed">{element.content || element.label}</p>
+            <p className="text-sm leading-relaxed">{td(element.content || element.label)}</p>
           </div>
         );
       }
       case "select":
         return (
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Label className="text-sm font-medium">{td(element.label)} {element.required && <span className="text-destructive">*</span>}</Label>
             <Select disabled><SelectTrigger><SelectValue placeholder={element.placeholder || "Vyberte..."} /></SelectTrigger></Select>
           </div>
         );
@@ -457,7 +487,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       case "checkboxGroup":
         return (
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Label className="text-sm font-medium">{td(element.label)} {element.required && <span className="text-destructive">*</span>}</Label>
             <div className="space-y-1">
               {(element.options || []).map((opt, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -471,7 +501,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       case "radio":
         return (
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Label className="text-sm font-medium">{td(element.label)} {element.required && <span className="text-destructive">*</span>}</Label>
             <div className="space-y-1">
               {(element.options || []).map((opt, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -486,27 +516,27 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         return (
           <div className="flex items-center gap-2">
             <CheckSquare className="h-4 w-4 text-muted-foreground" />
-            <Label className="text-sm">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Label className="text-sm">{td(element.label)} {element.required && <span className="text-destructive">*</span>}</Label>
           </div>
         );
       case "textInput":
         return (
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Label className="text-sm font-medium">{td(element.label)} {element.required && <span className="text-destructive">*</span>}</Label>
             <Input disabled placeholder={element.placeholder || element.label} />
           </div>
         );
       case "textarea":
         return (
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Label className="text-sm font-medium">{td(element.label)} {element.required && <span className="text-destructive">*</span>}</Label>
             <Textarea disabled placeholder={element.placeholder || element.label} rows={3} />
           </div>
         );
       case "outcome":
         return (
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Label className="text-sm font-medium">{td(element.label)} {element.required && <span className="text-destructive">*</span>}</Label>
             <div className="flex flex-wrap gap-2">
               {(element.options || []).map((opt, i) => (
                 <Button key={i} variant="outline" size="sm" disabled>{opt.label}</Button>
@@ -524,14 +554,14 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         const linkedTemplate = element.emailTemplateId ? allEmailTemplates.find((t: any) => t.id === element.emailTemplateId) : null;
         return (
           <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="p-4 space-y-2">
-              {element.content && <p className="text-sm text-foreground leading-relaxed">{element.content}</p>}
-              <Button className="w-full gap-2" variant={btnVariant} disabled data-testid={`preview-btn-${element.id}`}>
+            <CardContent className="p-4 space-y-3">
+              {element.content && <p className="text-sm text-foreground leading-relaxed text-center">{td(element.content)}</p>}
+              <Button className="w-full gap-2 justify-center" variant={btnVariant} disabled data-testid={`preview-btn-${element.id}`}>
                 {ActionIcon && <ActionIcon className="h-4 w-4" />}
-                {element.actionLabel || element.label || "Vykonať akciu"}
+                {td(element.actionLabel || element.label || "Vykonať akciu")}
               </Button>
               {linkedTemplate && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                   <Mail className="h-3 w-3" />
                   <span>Šablóna: <span className="font-medium text-foreground">{linkedTemplate.name}</span></span>
                 </div>
@@ -543,7 +573,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       default:
         return <div className="text-sm text-muted-foreground">{element.label}</div>;
     }
-  }, [allEmailTemplates]);
+  }, [allEmailTemplates, td]);
 
   const renderPropertiesContent = () => {
     if (!selectedElement) return null;
@@ -559,7 +589,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           />
         </div>
 
-        {["paragraph", "heading", "note"].includes(selectedElement.type) && (
+        {["heading", "note"].includes(selectedElement.type) && (
           <div className="space-y-2">
             <Label htmlFor="element-content">{sb.content}</Label>
             <Textarea
@@ -601,6 +631,122 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                           }
                         }}
                         data-testid={`btn-insert-var-${v.key}`}
+                      >
+                        {v.label}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">{v.key}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedElement.type === "paragraph" && (
+          <div className="space-y-2">
+            <Label>{sb.content}</Label>
+            <div className="border rounded-md overflow-hidden">
+              <div className="flex items-center gap-0.5 px-2 py-1.5 border-b bg-muted/30">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button" variant="ghost" size="icon" className="h-7 w-7"
+                      onClick={() => {
+                        const el = document.getElementById("paragraph-editor") as HTMLDivElement;
+                        if (el) { el.focus(); document.execCommand("bold"); }
+                      }}
+                      data-testid="btn-format-bold"
+                    >
+                      <Bold className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">Tučné</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button" variant="ghost" size="icon" className="h-7 w-7"
+                      onClick={() => {
+                        const el = document.getElementById("paragraph-editor") as HTMLDivElement;
+                        if (el) { el.focus(); document.execCommand("italic"); }
+                      }}
+                      data-testid="btn-format-italic"
+                    >
+                      <Italic className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">Kurzíva</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button" variant="ghost" size="icon" className="h-7 w-7"
+                      onClick={() => {
+                        const el = document.getElementById("paragraph-editor") as HTMLDivElement;
+                        if (el) { el.focus(); document.execCommand("underline"); }
+                      }}
+                      data-testid="btn-format-underline"
+                    >
+                      <Underline className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">Podčiarknuté</TooltipContent>
+                </Tooltip>
+                <Separator orientation="vertical" className="h-5 mx-1" />
+                <div className="flex items-center gap-1 ml-auto">
+                  {SCRIPT_VARIABLES.slice(0, 4).map((v) => (
+                    <Tooltip key={v.key}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button" variant="outline" size="sm" className="text-[10px] h-5 px-1.5 font-mono"
+                          onClick={() => {
+                            const el = document.getElementById("paragraph-editor") as HTMLDivElement;
+                            if (el) {
+                              el.focus();
+                              document.execCommand("insertText", false, v.key);
+                            }
+                          }}
+                          data-testid={`btn-insert-var-${v.key}`}
+                        >
+                          {v.label}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">{v.key}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+              <div
+                id="paragraph-editor"
+                contentEditable
+                className="min-h-[100px] p-3 text-sm outline-none focus:ring-1 focus:ring-primary/30"
+                dangerouslySetInnerHTML={{ __html: selectedElement.content || "" }}
+                onBlur={(e) => {
+                  updateElement(selectedElement.id, { content: e.currentTarget.innerHTML });
+                }}
+                data-testid="editor-paragraph-content"
+              />
+            </div>
+            <div className="rounded-md border bg-muted/30 p-2">
+              <div className="flex items-center gap-1 mb-1.5">
+                <Variable className="h-3 w-3 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Všetky premenné</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {SCRIPT_VARIABLES.map((v) => (
+                  <Tooltip key={v.key}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button" variant="outline" size="sm" className="text-[10px] h-5 px-1.5 font-mono"
+                        onClick={() => {
+                          const el = document.getElementById("paragraph-editor") as HTMLDivElement;
+                          if (el) {
+                            el.focus();
+                            document.execCommand("insertText", false, v.key);
+                          }
+                        }}
+                        data-testid={`btn-insert-var-para-${v.key}`}
                       >
                         {v.label}
                       </Button>
@@ -984,58 +1130,59 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               <div className="flex-1 border-r overflow-hidden flex flex-col min-w-0">
                 <ScrollArea className="flex-1">
                   <div className="p-3 space-y-3">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="step-title" className="text-[10px] text-muted-foreground">{sb.stepTitle}</Label>
+                          <Input
+                            id="step-title"
+                            value={selectedStep.title}
+                            onChange={(e) => updateStep(selectedStep.id, { title: e.target.value })}
+                            className="h-7 text-xs"
+                            data-testid="input-step-title"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="step-next" className="text-[10px] text-muted-foreground">{sb.nextStep}</Label>
+                          <Select
+                            value={selectedStep.nextStepId || "_auto_"}
+                            onValueChange={(v) => updateStep(selectedStep.id, { nextStepId: v === "_auto_" ? undefined : v })}
+                          >
+                            <SelectTrigger id="step-next" className="h-7 text-xs" data-testid="select-next-step">
+                              <SelectValue placeholder={sb.autoNext} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="_auto_">{sb.autoNext}</SelectItem>
+                              {currentScript.steps
+                                .filter(s => s.id !== selectedStep.id)
+                                .map(s => (
+                                  <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                       <div className="space-y-1">
-                        <Label htmlFor="step-title" className="text-[10px] text-muted-foreground">{sb.stepTitle}</Label>
-                        <Input
-                          id="step-title"
-                          value={selectedStep.title}
-                          onChange={(e) => updateStep(selectedStep.id, { title: e.target.value })}
-                          className="h-7 text-xs"
-                          data-testid="input-step-title"
+                        <Label htmlFor="step-description" className="text-[10px] text-muted-foreground">{sb.stepDescription}</Label>
+                        <Textarea
+                          id="step-description"
+                          value={selectedStep.description || ""}
+                          onChange={(e) => updateStep(selectedStep.id, { description: e.target.value })}
+                          placeholder={sb.descriptionPlaceholder}
+                          className="text-xs min-h-[40px] resize-none"
+                          rows={2}
+                          data-testid="textarea-step-description"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="step-next" className="text-[10px] text-muted-foreground">{sb.nextStep}</Label>
-                        <Select
-                          value={selectedStep.nextStepId || "_auto_"}
-                          onValueChange={(v) => updateStep(selectedStep.id, { nextStepId: v === "_auto_" ? undefined : v })}
-                        >
-                          <SelectTrigger id="step-next" className="h-7 text-xs" data-testid="select-next-step">
-                            <SelectValue placeholder={sb.autoNext} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="_auto_">{sb.autoNext}</SelectItem>
-                            {currentScript.steps
-                              .filter(s => s.id !== selectedStep.id)
-                              .map(s => (
-                                <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-end gap-2 pb-0.5">
-                        <div className="flex-1 space-y-1">
-                          <Label htmlFor="step-description" className="text-[10px] text-muted-foreground">{sb.stepDescription}</Label>
-                          <Input
-                            id="step-description"
-                            value={selectedStep.description || ""}
-                            onChange={(e) => updateStep(selectedStep.id, { description: e.target.value })}
-                            placeholder={sb.descriptionPlaceholder}
-                            className="h-7 text-xs"
-                            data-testid="textarea-step-description"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5 pb-1">
-                          <Switch
-                            id="step-end"
-                            checked={selectedStep.isEndStep || false}
-                            onCheckedChange={(c) => updateStep(selectedStep.id, { isEndStep: c })}
-                            className="scale-75"
-                            data-testid="switch-end-step"
-                          />
-                          <Label htmlFor="step-end" className="text-[10px] whitespace-nowrap">{sb.finalStep}</Label>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <Switch
+                          id="step-end"
+                          checked={selectedStep.isEndStep || false}
+                          onCheckedChange={(c) => updateStep(selectedStep.id, { isEndStep: c })}
+                          className="scale-75"
+                          data-testid="switch-end-step"
+                        />
+                        <Label htmlFor="step-end" className="text-[10px] whitespace-nowrap">{sb.finalStep}</Label>
                       </div>
                     </div>
                     
@@ -1076,15 +1223,34 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               </div>
 
               <div className="flex-1 overflow-hidden flex flex-col min-w-0">
-                <div className="px-3 py-2 border-b flex items-center gap-2 bg-muted/30">
-                  <Eye className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-semibold text-primary">{sb.preview}</span>
+                <div className="px-3 py-2 border-b flex items-center justify-between bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-primary">{sb.preview}</span>
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant={showTestData ? "default" : "ghost"}
+                        className="h-6 text-[10px] gap-1 px-2"
+                        onClick={() => setShowTestData(!showTestData)}
+                        data-testid="button-toggle-test-data"
+                      >
+                        <FlaskConical className="h-3 w-3" />
+                        {showTestData ? "Test ON" : "Test dáta"}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {showTestData ? "Vypnúť testovacie dáta" : "Zobraziť s testovacími menami a údajmi"}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
                 <ScrollArea className="flex-1">
                   <div className="p-4">
                     <div className="space-y-4">
                       {selectedStep.description && (
-                        <p className="text-sm text-muted-foreground italic">{selectedStep.description}</p>
+                        <p className="text-sm text-muted-foreground italic">{td(selectedStep.description)}</p>
                       )}
                       {selectedStep.elements.map((element) => (
                         <div key={element.id} className={`transition-all rounded-md ${selectedElementId === element.id ? "ring-2 ring-primary/50 ring-offset-2" : ""}`}>
@@ -1226,8 +1392,8 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           {builderContent}
         </div>
 
-        <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen}>
-          <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto z-[60]">
+        <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen} modal={false}>
+          <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto z-[9995] shadow-2xl border-l" hideOverlay>
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <Settings2 className="h-4 w-4 text-primary" />
@@ -1260,8 +1426,8 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       </div>
       {builderContent}
 
-      <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen}>
-        <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto">
+      <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen} modal={false}>
+        <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto shadow-2xl border-l" hideOverlay>
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Settings2 className="h-4 w-4 text-primary" />
