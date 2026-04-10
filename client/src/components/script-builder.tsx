@@ -105,23 +105,25 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { ScriptTemplate } from "@shared/schema";
 
-const SCRIPT_VARIABLES = [
-  { key: "{{customer.firstName}}", label: "Meno", category: "customer" },
-  { key: "{{customer.lastName}}", label: "Priezvisko", category: "customer" },
-  { key: "{{customer.fullName}}", label: "Celé meno", category: "customer" },
-  { key: "{{customer.greeting}}", label: "Oslovenie", category: "customer" },
-  { key: "{{customer.titleBefore}}", label: "Titul pred", category: "customer" },
-  { key: "{{customer.titleAfter}}", label: "Titul za", category: "customer" },
-  { key: "{{customer.email}}", label: "Email", category: "customer" },
-  { key: "{{customer.phone}}", label: "Telefón", category: "customer" },
-  { key: "{{customer.address}}", label: "Adresa", category: "customer" },
-  { key: "{{customer.city}}", label: "Mesto", category: "customer" },
-  { key: "{{customer.postalCode}}", label: "PSČ", category: "customer" },
-  { key: "{{customer.country}}", label: "Krajina", category: "customer" },
-  { key: "{{date.today}}", label: "Dnešný dátum", category: "system" },
-  { key: "{{agent.name}}", label: "Meno agenta", category: "system" },
-  { key: "{{campaign.name}}", label: "Názov kampane", category: "system" },
-];
+function getScriptVariables(sb: any) {
+  return [
+    { key: "{{customer.firstName}}", label: sb.varFirstName, category: "customer" },
+    { key: "{{customer.lastName}}", label: sb.varLastName, category: "customer" },
+    { key: "{{customer.fullName}}", label: sb.varFullName, category: "customer" },
+    { key: "{{customer.greeting}}", label: sb.varGreeting, category: "customer" },
+    { key: "{{customer.titleBefore}}", label: sb.varTitleBefore, category: "customer" },
+    { key: "{{customer.titleAfter}}", label: sb.varTitleAfter, category: "customer" },
+    { key: "{{customer.email}}", label: sb.varEmail, category: "customer" },
+    { key: "{{customer.phone}}", label: sb.varPhone, category: "customer" },
+    { key: "{{customer.address}}", label: sb.varAddress, category: "customer" },
+    { key: "{{customer.city}}", label: sb.varCity, category: "customer" },
+    { key: "{{customer.postalCode}}", label: sb.varPostalCode, category: "customer" },
+    { key: "{{customer.country}}", label: sb.varCountry, category: "customer" },
+    { key: "{{date.today}}", label: sb.varToday, category: "system" },
+    { key: "{{agent.name}}", label: sb.varAgentName, category: "system" },
+    { key: "{{campaign.name}}", label: sb.varCampaignName, category: "system" },
+  ];
+}
 
 const TEST_DATA: Record<string, string> = {
   "{{customer.firstName}}": "Jana",
@@ -261,24 +263,38 @@ interface ScriptBuilderProps {
   campaignId?: string;
 }
 
-const TEMPLATE_COLORS = [
-  { value: "gray", label: "Šedá", className: "bg-gray-100 border-gray-300 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300" },
-  { value: "red", label: "Červená", className: "bg-red-100 border-red-300 text-red-700 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300" },
-  { value: "blue", label: "Modrá", className: "bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300" },
-  { value: "green", label: "Zelená", className: "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300" },
-  { value: "yellow", label: "Žltá", className: "bg-yellow-100 border-yellow-300 text-yellow-700 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-300" },
-  { value: "purple", label: "Fialová", className: "bg-purple-100 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-700 dark:text-purple-300" },
-  { value: "orange", label: "Oranžová", className: "bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-900/30 dark:border-orange-700 dark:text-orange-300" },
-];
+const TEMPLATE_COLOR_CLASSES: Record<string, string> = {
+  gray: "bg-gray-100 border-gray-300 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300",
+  red: "bg-red-100 border-red-300 text-red-700 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300",
+  blue: "bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300",
+  green: "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300",
+  yellow: "bg-yellow-100 border-yellow-300 text-yellow-700 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-300",
+  purple: "bg-purple-100 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-700 dark:text-purple-300",
+  orange: "bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-900/30 dark:border-orange-700 dark:text-orange-300",
+};
+
+function getTemplateColors(sb: any) {
+  return [
+    { value: "gray", label: sb.colorGray, className: TEMPLATE_COLOR_CLASSES.gray },
+    { value: "red", label: sb.colorRed, className: TEMPLATE_COLOR_CLASSES.red },
+    { value: "blue", label: sb.colorBlue, className: TEMPLATE_COLOR_CLASSES.blue },
+    { value: "green", label: sb.colorGreen, className: TEMPLATE_COLOR_CLASSES.green },
+    { value: "yellow", label: sb.colorYellow, className: TEMPLATE_COLOR_CLASSES.yellow },
+    { value: "purple", label: sb.colorPurple, className: TEMPLATE_COLOR_CLASSES.purple },
+    { value: "orange", label: sb.colorOrange, className: TEMPLATE_COLOR_CLASSES.orange },
+  ];
+}
 
 function getColorClass(color: string) {
-  return TEMPLATE_COLORS.find(c => c.value === color)?.className || TEMPLATE_COLORS[0].className;
+  return TEMPLATE_COLOR_CLASSES[color] || TEMPLATE_COLOR_CLASSES.gray;
 }
 
 export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, campaignId }: ScriptBuilderProps) {
   const { t } = useI18n();
   const sb = t.campaigns.detail.scriptBuilderUI;
   const { toast } = useToast();
+  const SCRIPT_VARIABLES = useMemo(() => getScriptVariables(sb), [sb]);
+  const TEMPLATE_COLORS = useMemo(() => getTemplateColors(sb), [sb]);
 
   const { data: allEmailTemplates = [] } = useQuery<any[]>({
     queryKey: ["/api/message-templates", "email-active"],
@@ -347,7 +363,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       setTemplateTags("");
       setTemplateColor("gray");
       setEditingTemplateId(null);
-      toast({ title: "Šablóna uložená", description: "Call script bol uložený ako šablóna." });
+      toast({ title: sb.templateSaved, description: sb.templateSavedDesc });
     },
   });
 
@@ -358,7 +374,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/script-templates"] });
-      toast({ title: "Šablóna odstránená" });
+      toast({ title: sb.templateDeleted });
     },
   });
 
@@ -455,7 +471,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       required: false,
       options: ["select", "multiselect", "radio", "checkboxGroup", "outcome"].includes(type) ?
         [{ value: "option1", label: `${sb.options} 1` }, { value: "option2", label: `${sb.options} 2` }] : undefined,
-      ...(type === "action_button" ? { action: "openPhone", actionLabel: "Zavolať", actionIcon: "phone", variant: "primary" } : {}),
+      ...(type === "action_button" ? { action: "openPhone", actionLabel: sb.makeCall, actionIcon: "phone", variant: "primary" } : {}),
     };
     updateStep(selectedStep.id, { elements: [...selectedStep.elements, newElement] });
     setSelectedElementId(newElement.id);
@@ -556,7 +572,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         return (
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">{td(element.label)} {element.required && <span className="text-destructive">*</span>}</Label>
-            <Select disabled><SelectTrigger><SelectValue placeholder={element.placeholder || "Vyberte..."} /></SelectTrigger></Select>
+            <Select disabled><SelectTrigger><SelectValue placeholder={element.placeholder || sb.selectPlaceholder} /></SelectTrigger></Select>
           </div>
         );
       case "multiselect":
@@ -634,12 +650,12 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               {element.content && <p className="text-sm text-foreground leading-relaxed text-center">{td(element.content)}</p>}
               <Button className="w-full gap-2 justify-center" variant={btnVariant} disabled data-testid={`preview-btn-${element.id}`}>
                 {ActionIcon && <ActionIcon className="h-4 w-4" />}
-                {td(element.actionLabel || element.label || "Vykonať akciu")}
+                {td(element.actionLabel || element.label || sb.performAction)}
               </Button>
               {linkedTemplate && (
                 <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                   <Mail className="h-3 w-3" />
-                  <span>Šablóna: <span className="font-medium text-foreground">{linkedTemplate.name}</span></span>
+                  <span>{sb.templates}: <span className="font-medium text-foreground">{linkedTemplate.name}</span></span>
                 </div>
               )}
             </CardContent>
@@ -673,13 +689,13 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               value={selectedElement.content || ""}
               onChange={(e) => updateElement(selectedElement.id, { content: e.target.value })}
               rows={4}
-              placeholder="Text... Použite premenné ako {{customer.firstName}}"
+              placeholder={`${sb.content}... {{customer.firstName}}`}
               data-testid="textarea-element-content"
             />
             <div className="rounded-md border bg-muted/30 p-2">
               <div className="flex items-center gap-1 mb-1.5">
                 <Variable className="h-3 w-3 text-primary" />
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Vložiť premennú</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{sb.insertVariable}</span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {SCRIPT_VARIABLES.map((v) => (
@@ -737,7 +753,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                       <Bold className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">Tučné</TooltipContent>
+                  <TooltipContent side="top" className="text-xs">{sb.formatBold}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -752,7 +768,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                       <Italic className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">Kurzíva</TooltipContent>
+                  <TooltipContent side="top" className="text-xs">{sb.formatItalic}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -767,7 +783,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                       <Underline className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">Podčiarknuté</TooltipContent>
+                  <TooltipContent side="top" className="text-xs">{sb.formatUnderline}</TooltipContent>
                 </Tooltip>
                 <Separator orientation="vertical" className="h-5 mx-1" />
                 <div className="flex items-center gap-1 ml-auto">
@@ -807,7 +823,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
             <div className="rounded-md border bg-muted/30 p-2">
               <div className="flex items-center gap-1 mb-1.5">
                 <Variable className="h-3 w-3 text-primary" />
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Všetky premenné</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{sb.allVariables}</span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {SCRIPT_VARIABLES.map((v) => (
@@ -878,16 +894,16 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   </div>
                   {campaignId && campaignDispositions.length > 0 && (
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">Dispozícia:</span>
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">{sb.dispositionLabel}</span>
                       <Select
                         value={option.dispositionCode || "_none_"}
                         onValueChange={(v) => updateOption(index, { dispositionCode: v === "_none_" ? "" : v })}
                       >
                         <SelectTrigger className="h-7 text-xs flex-1" data-testid={`select-disposition-option-${index}`}>
-                          <SelectValue placeholder="Žiadna" />
+                          <SelectValue placeholder={sb.noDisposition} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="_none_">— Žiadna —</SelectItem>
+                          <SelectItem value="_none_">{sb.noDisposition}</SelectItem>
                           {campaignDispositions
                             .filter((d: any) => d.isActive)
                             .map((d: any) => (
@@ -948,13 +964,13 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         {selectedElement.type === "action_button" && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="element-content">{sb.content || "Text"}</Label>
+              <Label htmlFor="element-content">{sb.content}</Label>
               <Textarea
                 id="element-content"
                 value={selectedElement.content || ""}
                 onChange={(e) => updateElement(selectedElement.id, { content: e.target.value })}
                 rows={2}
-                placeholder="Popis akcie..."
+                placeholder={sb.actionDescPlaceholder}
                 data-testid="textarea-action-content"
               />
             </div>
@@ -968,12 +984,12 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="openPhone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Otvoriť telefón</div></SelectItem>
-                  <SelectItem value="makeCall"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Zavolať</div></SelectItem>
-                  <SelectItem value="openEmail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Otvoriť email</div></SelectItem>
-                  <SelectItem value="openDisposition"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> Dispozícia</div></SelectItem>
-                  <SelectItem value="openPhoneDisposition"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Dispozícia (hovor)</div></SelectItem>
-                  <SelectItem value="openEmailDisposition"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Dispozícia (email)</div></SelectItem>
+                  <SelectItem value="openPhone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> {sb.openPhone}</div></SelectItem>
+                  <SelectItem value="makeCall"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> {sb.makeCall}</div></SelectItem>
+                  <SelectItem value="openEmail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> {sb.openEmail}</div></SelectItem>
+                  <SelectItem value="openDisposition"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> {sb.dispositionAction}</div></SelectItem>
+                  <SelectItem value="openPhoneDisposition"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> {sb.dispositionCall}</div></SelectItem>
+                  <SelectItem value="openEmailDisposition"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> {sb.dispositionEmail}</div></SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -981,7 +997,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               <div className="space-y-2 border rounded-md p-3 bg-accent/30">
                 <Label className="flex items-center gap-1.5">
                   <Target className="h-3.5 w-3.5 text-primary" />
-                  Dispozícia po akcii
+                  {sb.dispositionAfterAction}
                 </Label>
                 {campaignDispositions.length > 0 ? (
                   <>
@@ -990,10 +1006,10 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                       onValueChange={(v) => updateElement(selectedElement.id, { dispositionCode: v === "_none_" ? undefined : v })}
                     >
                       <SelectTrigger data-testid="select-action-disposition" className="h-8 text-xs">
-                        <SelectValue placeholder="Žiadna" />
+                        <SelectValue placeholder={sb.noDisposition} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="_none_">— Žiadna —</SelectItem>
+                        <SelectItem value="_none_">{sb.noDisposition}</SelectItem>
                         {campaignDispositions
                           .filter((d: any) => d.isActive)
                           .map((d: any) => (
@@ -1005,12 +1021,12 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Automaticky nastaví dispozíciu po kliknutí na tlačidlo.
+                      {sb.dispositionAutoHint}
                     </p>
                   </>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Najskôr pridajte dispozície v záložke "Dispozície".
+                    {sb.dispositionFirstHint}
                   </p>
                 )}
               </div>
@@ -1020,7 +1036,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               <Input
                 value={selectedElement.actionLabel || ""}
                 onChange={(e) => updateElement(selectedElement.id, { actionLabel: e.target.value })}
-                placeholder="Zavolať / Poslať email..."
+                placeholder={sb.callPlaceholder}
                 data-testid="input-action-label"
               />
             </div>
@@ -1034,10 +1050,10 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="phone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Telefón</div></SelectItem>
-                  <SelectItem value="mail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Email</div></SelectItem>
-                  <SelectItem value="calendar"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> Kalendár</div></SelectItem>
-                  <SelectItem value="file"><div className="flex items-center gap-2"><FileText className="h-3 w-3" /> Súbor</div></SelectItem>
+                  <SelectItem value="phone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> {sb.phoneIcon}</div></SelectItem>
+                  <SelectItem value="mail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> {sb.emailIcon}</div></SelectItem>
+                  <SelectItem value="calendar"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> {sb.calendarIcon}</div></SelectItem>
+                  <SelectItem value="file"><div className="flex items-center gap-2"><FileText className="h-3 w-3" /> {sb.fileIcon}</div></SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1049,7 +1065,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                     <AlertCircle className="h-3 w-3 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-[250px] text-xs">
-                    Vizuálny štýl tlačidla: Primary = plné červené, Secondary = sivé, Outline = s okrajom, Destructive = varovné červené
+                    {sb.primaryStyle} / {sb.secondaryStyle} / {sb.outlineStyle} / {sb.destructiveStyle}
                   </TooltipContent>
                 </Tooltip>
               </Label>
@@ -1061,10 +1077,10 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="primary">Primary — hlavné tlačidlo</SelectItem>
-                  <SelectItem value="secondary">Secondary — vedľajšie</SelectItem>
-                  <SelectItem value="outline">Outline — len okraj</SelectItem>
-                  <SelectItem value="destructive">Destructive — varovné</SelectItem>
+                  <SelectItem value="primary">{sb.primaryStyle}</SelectItem>
+                  <SelectItem value="secondary">{sb.secondaryStyle}</SelectItem>
+                  <SelectItem value="outline">{sb.outlineStyle}</SelectItem>
+                  <SelectItem value="destructive">{sb.destructiveStyle}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1072,19 +1088,19 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               <div className="space-y-3 border-t pt-3 mt-2">
                 <Label className="flex items-center gap-1.5">
                   <Mail className="h-3.5 w-3.5 text-primary" />
-                  Email šablóna
+                  {sb.emailTemplateLabel}
                 </Label>
                 <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Kategória</Label>
+                  <Label className="text-xs text-muted-foreground">{sb.categoryLabel}</Label>
                   <Select
                     value={templateCategoryFilter}
                     onValueChange={(v) => setTemplateCategoryFilter(v)}
                   >
                     <SelectTrigger data-testid="select-template-category" className="h-8 text-xs">
-                      <SelectValue placeholder="Všetky kategórie" />
+                      <SelectValue placeholder={sb.allCategories} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__all__">Všetky kategórie</SelectItem>
+                      <SelectItem value="__all__">{sb.allCategories}</SelectItem>
                       {templateCategories.map((cat: any) => (
                         <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                       ))}
@@ -1092,16 +1108,16 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Šablóna</Label>
+                  <Label className="text-xs text-muted-foreground">{sb.templates}</Label>
                   <Select
                     value={selectedElement.emailTemplateId || "__none__"}
                     onValueChange={(v) => updateElement(selectedElement.id, { emailTemplateId: v === "__none__" ? undefined : v })}
                   >
                     <SelectTrigger data-testid="select-email-template-action" className="h-8 text-xs">
-                      <SelectValue placeholder="Bez šablóny" />
+                      <SelectValue placeholder={sb.noTemplateManual} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">Bez šablóny (manuálny výber)</SelectItem>
+                      <SelectItem value="__none__">{sb.noTemplateManual}</SelectItem>
                       {filteredEmailTemplates.map((tmpl: any) => (
                         <SelectItem key={tmpl.id} value={tmpl.id}>
                           <span className="flex items-center gap-2">
@@ -1114,7 +1130,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   </Select>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Šablóna sa automaticky načíta keď agent klikne na tlačidlo
+                  {sb.templateAutoLoadHint}
                 </p>
               </div>
             )}
@@ -1189,11 +1205,11 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           <div className="flex items-center gap-1 flex-shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="h-6 text-[11px] gap-1 px-2" data-testid="button-template-menu">
-                  <FolderOpen className="h-3 w-3" /> Šablóny
+                <Button size="sm" variant="outline" className="h-6 text-[11px] gap-1 px-2 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary" data-testid="button-template-menu">
+                  <FolderOpen className="h-3 w-3" /> {sb.templates}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-48 z-[9999]">
                 <DropdownMenuItem onClick={() => {
                   setTemplateName(currentScript.name || "");
                   setTemplateDescription(currentScript.description || "");
@@ -1203,11 +1219,11 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   setIsSaveTemplateOpen(true);
                 }}>
                   <Upload className="h-3.5 w-3.5 mr-2" />
-                  Uložiť ako šablónu
+                  {sb.saveAsTemplate}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsLoadTemplateOpen(true)}>
                   <Download className="h-3.5 w-3.5 mr-2" />
-                  Načítať šablónu
+                  {sb.loadTemplate}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1291,7 +1307,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-medium">{sb.stepElements}</Label>
-                        <span className="text-[10px] text-muted-foreground">{selectedStep.elements.length} element(ov)</span>
+                        <span className="text-[10px] text-muted-foreground">{selectedStep.elements.length} {sb.elementsCount}</span>
                       </div>
                       <div className="space-y-1">
                         {selectedStep.elements.map((element, index) => (
@@ -1338,11 +1354,11 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                         data-testid="button-toggle-test-data"
                       >
                         <FlaskConical className="h-3 w-3" />
-                        {showTestData ? "Test ON" : "Test dáta"}
+                        {showTestData ? sb.testDataOn : sb.testData}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
-                      {showTestData ? "Vypnúť testovacie dáta" : "Zobraziť s testovacími menami a údajmi"}
+                      {showTestData ? sb.testDataOffTooltip : sb.testDataOnTooltip}
                     </TooltipContent>
                   </Tooltip>
                 </div>
@@ -1414,24 +1430,24 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <HelpCircle className="h-5 w-5 text-primary" />
-              Nápoveda k Script Builderu
+              {sb.helpTitle}
             </DialogTitle>
             <DialogDescription>
-              Premenné a návod na tvorbu scenárov
+              {sb.helpDesc}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div>
               <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
                 <Variable className="h-4 w-4 text-primary" />
-                Dostupné premenné
+                {sb.availableVars}
               </h3>
               <p className="text-xs text-muted-foreground mb-3">
-                Tieto premenné sa v agentskom workspace automaticky nahradia skutočnými údajmi kontaktu.
+                {sb.varsHint}
               </p>
               <div className="space-y-3">
                 <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Kontakt</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{sb.contactSection}</span>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {SCRIPT_VARIABLES.filter(v => v.category === "customer").map((v) => (
                       <Badge key={v.key} variant="secondary" className="text-[10px] font-mono">
@@ -1441,7 +1457,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   </div>
                 </div>
                 <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Systém</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{sb.systemSection}</span>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {SCRIPT_VARIABLES.filter(v => v.category === "system").map((v) => (
                       <Badge key={v.key} variant="secondary" className="text-[10px] font-mono">
@@ -1454,16 +1470,16 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
             </div>
             <Separator />
             <div>
-              <h3 className="font-semibold text-sm mb-2">Návod na tvorbu scenára</h3>
+              <h3 className="font-semibold text-sm mb-2">{sb.guideTitle}</h3>
               <ul className="list-disc list-inside space-y-1.5 text-sm text-muted-foreground">
-                <li><strong>Kroky:</strong> Rozdeľte scenár na logické kroky (napr. Pozdrav, Overenie, Ponuka, Záver)</li>
-                <li><strong>Nadpisy a odstavce:</strong> Použite pre textové inštrukcie a informácie</li>
-                <li><strong>Výberové polia:</strong> Pre otázky s jasnou odpoveďou (napr. "Má záujem?" - Áno/Nie)</li>
-                <li><strong>Zaškrtávacie polia:</strong> Pre zoznamy položiek na overenie alebo splnenie</li>
-                <li><strong>Textové polia:</strong> Pre poznámky a voľné odpovede klienta</li>
-                <li><strong>Poznámky:</strong> Pre dôležité upozornenia a tipy pre operátora</li>
-                <li><strong>Výsledok hovoru:</strong> Pre zaznamenanie konečného stavu hovoru</li>
-                <li><strong>Akčné tlačidlá:</strong> Pre spustenie akcií (volanie, email, dispozícia)</li>
+                <li>{sb.guideSteps}</li>
+                <li>{sb.guideHeadings}</li>
+                <li>{sb.guideSelect}</li>
+                <li>{sb.guideCheckboxes}</li>
+                <li>{sb.guideTextFields}</li>
+                <li>{sb.guideNotes}</li>
+                <li>{sb.guideOutcome}</li>
+                <li>{sb.guideActionButtons}</li>
               </ul>
             </div>
           </div>
@@ -1475,30 +1491,30 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5 text-primary" />
-              {editingTemplateId ? "Upraviť šablónu" : "Uložiť ako šablónu"}
+              {editingTemplateId ? sb.editTemplate : sb.saveAsTemplate}
             </DialogTitle>
             <DialogDescription>
-              Uložte aktuálny call script pre použitie v iných kampaniach.
+              {sb.saveTemplateDesc}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="tpl-name">Názov šablóny *</Label>
+              <Label htmlFor="tpl-name">{sb.templateNameLabel} *</Label>
               <Input
                 id="tpl-name"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="Napr. Akvizícia Cord Blood SK"
+                placeholder={sb.templateNamePlaceholder}
                 data-testid="input-template-name"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tpl-desc">Popis</Label>
+              <Label htmlFor="tpl-desc">{sb.templateDescLabel}</Label>
               <Textarea
                 id="tpl-desc"
                 value={templateDescription}
                 onChange={(e) => setTemplateDescription(e.target.value)}
-                placeholder="Stručný popis scenára..."
+                placeholder={sb.templateDescPlaceholder}
                 rows={2}
                 data-testid="textarea-template-desc"
               />
@@ -1506,20 +1522,20 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
             <div className="space-y-2">
               <Label htmlFor="tpl-tags" className="flex items-center gap-1.5">
                 <Tag className="h-3.5 w-3.5" />
-                Tagy
+                {sb.templateTagsLabel}
               </Label>
               <Input
                 id="tpl-tags"
                 value={templateTags}
                 onChange={(e) => setTemplateTags(e.target.value)}
-                placeholder="akvizícia, SK, cord blood (oddelené čiarkou)"
+                placeholder={sb.templateTagsPlaceholder}
                 data-testid="input-template-tags"
               />
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5">
                 <Palette className="h-3.5 w-3.5" />
-                Farba
+                {sb.templateColorLabel}
               </Label>
               <div className="flex gap-2 flex-wrap">
                 {TEMPLATE_COLORS.map((c) => (
@@ -1535,7 +1551,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsSaveTemplateOpen(false)}>Zrušiť</Button>
+            <Button variant="outline" onClick={() => setIsSaveTemplateOpen(false)}>{sb.cancel}</Button>
             <Button
               disabled={!templateName.trim() || saveTemplateMutation.isPending}
               onClick={() => {
@@ -1551,7 +1567,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               data-testid="button-save-template"
             >
               <Save className="h-4 w-4 mr-2" />
-              {saveTemplateMutation.isPending ? "Ukladám..." : "Uložiť"}
+              {saveTemplateMutation.isPending ? sb.savingTemplate : sb.save}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1562,18 +1578,18 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Download className="h-5 w-5 text-primary" />
-              Načítať šablónu
+              {sb.loadTemplate}
             </DialogTitle>
             <DialogDescription>
-              Vyberte uloženú šablónu call scriptu. Aktuálny script bude nahradený.
+              {sb.loadTemplateDesc}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             {scriptTemplatesList.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Zatiaľ nemáte žiadne uložené šablóny.</p>
-                <p className="text-xs mt-1">Uložte aktuálny script cez tlačidlo "Uložiť ako šablónu".</p>
+                <p className="text-sm">{sb.noTemplatesYet}</p>
+                <p className="text-xs mt-1">{sb.noTemplatesHint}</p>
               </div>
             ) : (
               scriptTemplatesList.map((tpl) => {
@@ -1589,7 +1605,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                         setSelectedStepId(parsedScript.steps?.[0]?.id || null);
                         setSelectedElementId(null);
                         setIsLoadTemplateOpen(false);
-                        toast({ title: "Šablóna načítaná", description: `"${tpl.name}" bola načítaná do buildera.` });
+                        toast({ title: sb.templateLoaded, description: `"${tpl.name}" ${sb.templateLoadedDesc}` });
                       }
                     }}
                     data-testid={`template-card-${tpl.id}`}
@@ -1598,7 +1614,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-semibold text-sm truncate">{tpl.name}</span>
                         <Badge variant="secondary" className="text-[10px] h-4 px-1.5 flex-shrink-0">
-                          {stepCount} {stepCount === 1 ? "krok" : "krokov"}
+                          {stepCount} {stepCount === 1 ? sb.stepCount1 : sb.stepsCount}
                         </Badge>
                       </div>
                       {tpl.description && (
@@ -1637,7 +1653,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Upraviť</TooltipContent>
+                        <TooltipContent>{sb.editElement}</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1647,7 +1663,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                             className="h-7 w-7 text-destructive"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (confirm("Naozaj chcete odstrániť túto šablónu?")) {
+                              if (confirm(sb.deleteTemplateConfirm)) {
                                 deleteTemplateMutation.mutate(tpl.id);
                               }
                             }}
@@ -1656,7 +1672,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Odstrániť</TooltipContent>
+                        <TooltipContent>{sb.cancel}</TooltipContent>
                       </Tooltip>
                     </div>
                   </div>
@@ -1677,11 +1693,11 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsHelpOpen(true)} data-testid="button-help">
               <HelpCircle className="h-3.5 w-3.5" />
-              Nápoveda
+              {sb.helpBtn}
             </Button>
             <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsFullscreen(false)} data-testid="button-minimize">
               <Minimize2 className="h-3.5 w-3.5" />
-              Zmenšiť
+              {sb.minimize}
             </Button>
           </div>
         </div>
@@ -1714,11 +1730,11 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       <div className="flex items-center justify-end gap-2 mb-2">
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsHelpOpen(true)} data-testid="button-help">
           <HelpCircle className="h-3.5 w-3.5" />
-          Nápoveda
+          {sb.helpBtn}
         </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsFullscreen(true)} data-testid="button-fullscreen">
           <Maximize2 className="h-3.5 w-3.5" />
-          Na celú obrazovku
+          {sb.fullscreen}
         </Button>
       </div>
       {builderContent}
