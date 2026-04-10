@@ -5681,6 +5681,8 @@ export default function AgentWorkspacePage() {
 
       const loginIds = selectedLoginCampaignIds.length > 0 ? selectedLoginCampaignIds : (selectedCampaignId ? [selectedCampaignId] : []);
       await agentSession.startSession(loginIds.length > 0 ? loginIds[0] : null, loginIds, selectedLoginQueueIds);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/assigned-campaigns"] });
       if (loginIds.length > 0) {
         setSelectedCampaignId(loginIds[0]);
       }
@@ -6687,7 +6689,7 @@ export default function AgentWorkspacePage() {
           onSelectTask={handleSelectTask}
           campaigns={activeCampaigns}
           selectedCampaignId={selectedCampaignId}
-          onSelectCampaign={(id: string) => { setSelectedCampaignId(id); setDisposedContactIds(new Set()); }}
+          onSelectCampaign={(id: string) => { setSelectedCampaignId(id); setDisposedContactIds(new Set()); queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] }); queryClient.invalidateQueries({ queryKey: ["/api/user/assigned-campaigns"] }); }}
           showOnlyAssigned={showOnlyAssigned}
           onToggleAssigned={setShowOnlyAssigned}
           channelFilter={channelFilter}
