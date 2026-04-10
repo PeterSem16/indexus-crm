@@ -1876,6 +1876,10 @@ export interface Translations {
           colorOrange: string;
 
           previewNotShownInAgent: string;
+          translateBtn: string;
+          translateDone: string;
+          translateError: string;
+          translating: string;
       };
       scriptGuideTitle: string;
       scriptGuideSteps: string;
@@ -8004,6 +8008,10 @@ export const translations: Record<Locale, Translations> = {
             colorPurple: 'Purple',
             colorOrange: 'Orange',
             previewNotShownInAgent: '(not shown to agent)',
+            translateBtn: 'AI Translate',
+            translateDone: 'Script translated',
+            translateError: 'Translation failed',
+            translating: 'Translating...',
         },
         scriptGuideTitle: 'Script building guide',
         scriptGuideSteps: 'Steps: Divide the script into logical steps (e.g. Greeting, Verification, Offer, Closing)',
@@ -13573,6 +13581,10 @@ export const translations: Record<Locale, Translations> = {
             colorPurple: 'Fialová',
             colorOrange: 'Oranžová',
             previewNotShownInAgent: '(nezobrazuje sa agentovi)',
+            translateBtn: 'AI Preklad',
+            translateDone: 'Script preložený',
+            translateError: 'Preklad zlyhal',
+            translating: 'Prekladám...',
         },
         scriptGuideTitle: 'Príručka tvorby skriptov',
         scriptGuideSteps: 'Kroky: Rozdeľte skript na logické kroky (napr. Pozdrav, Overenie, Ponuka, Záver)',
@@ -19081,6 +19093,10 @@ export const translations: Record<Locale, Translations> = {
             colorPurple: 'Fialová',
             colorOrange: 'Oranžová',
             previewNotShownInAgent: '(nezobrazuje se agentovi)',
+            translateBtn: 'AI Překlad',
+            translateDone: 'Skript přeložen',
+            translateError: 'Překlad selhal',
+            translating: 'Překládám...',
         },
         scriptGuideTitle: 'Příručka tvorby skriptů',
         scriptGuideSteps: 'Kroky: Rozdělte skript na logické kroky (např. Pozdrav, Ověření, Nabídka, Závěr)',
@@ -24553,6 +24569,10 @@ export const translations: Record<Locale, Translations> = {
             colorPurple: 'Lila',
             colorOrange: 'Narancs',
             previewNotShownInAgent: '(nem jelenik meg az ügynöknek)',
+            translateBtn: 'AI Fordítás',
+            translateDone: 'Szkript lefordítva',
+            translateError: 'Fordítás sikertelen',
+            translating: 'Fordítás...',
         },
         scriptGuideTitle: 'Szkript készítési útmutató',
         scriptGuideSteps: 'Lépések: Ossza fel a szkriptet logikai lépésekre (pl. Üdvözlés, Ellenőrzés, Ajánlat, Zárás)',
@@ -29947,6 +29967,10 @@ export const translations: Record<Locale, Translations> = {
             colorPurple: 'Violet',
             colorOrange: 'Portocaliu',
             previewNotShownInAgent: '(nu se afișează agentului)',
+            translateBtn: 'AI Traducere',
+            translateDone: 'Script tradus',
+            translateError: 'Traducerea a eșuat',
+            translating: 'Se traduce...',
         },
         scriptGuideTitle: 'Ghid de creare scripturi',
         scriptGuideSteps: 'Pași: Împărțiți scriptul în pași logici (de ex. Salut, Verificare, Ofertă, Încheiere)',
@@ -35342,6 +35366,10 @@ export const translations: Record<Locale, Translations> = {
             colorPurple: 'Viola',
             colorOrange: 'Arancione',
             previewNotShownInAgent: '(non mostrato all\'agente)',
+            translateBtn: 'AI Traduzione',
+            translateDone: 'Script tradotto',
+            translateError: 'Traduzione fallita',
+            translating: 'Traduzione...',
         },
         scriptGuideTitle: 'Guida alla creazione degli script',
         scriptGuideSteps: 'Passi: Dividi lo script in passaggi logici (es. Saluto, Verifica, Offerta, Chiusura)',
@@ -40737,6 +40765,10 @@ export const translations: Record<Locale, Translations> = {
             colorPurple: 'Lila',
             colorOrange: 'Orange',
             previewNotShownInAgent: '(wird dem Agenten nicht angezeigt)',
+            translateBtn: 'AI Übersetzen',
+            translateDone: 'Skript übersetzt',
+            translateError: 'Übersetzung fehlgeschlagen',
+            translating: 'Übersetze...',
         },
         scriptGuideTitle: 'Anleitung zur Skripterstellung',
         scriptGuideSteps: 'Schritte: Teilen Sie das Skript in logische Schritte auf (z.B. Begrüßung, Verifizierung, Angebot, Abschluss)',

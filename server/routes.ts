@@ -27445,6 +27445,55 @@ Respond in JSON format:
     }
   });
   
+  app.post("/api/ai/translate-script", requireAuth, async (req, res) => {
+    try {
+      const { script, targetLanguage } = req.body;
+      if (!script || !targetLanguage) {
+        return res.status(400).json({ error: "script and targetLanguage are required" });
+      }
+
+      const langNames: Record<string, string> = {
+        sk: "Slovak", cs: "Czech", hu: "Hungarian", ro: "Romanian",
+        it: "Italian", de: "German", en: "English", pl: "Polish",
+        es: "Spanish", fr: "French", hr: "Croatian", sr: "Serbian",
+        bg: "Bulgarian", uk: "Ukrainian", ru: "Russian", tr: "Turkish",
+        nl: "Dutch", pt: "Portuguese", el: "Greek",
+      };
+      const langName = langNames[targetLanguage] || targetLanguage;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a professional translator for a call center CRM system. Translate the entire call script JSON to ${langName}. Rules:
+1. Only translate user-visible text: step titles, descriptions, element labels, content (including HTML content — translate text inside tags but preserve HTML tags), placeholder texts, option labels, note content, button labels.
+2. Do NOT translate or modify: field names/keys, IDs, technical values (action types, styles, codes, disposition codes), variable placeholders like {{firstName}} etc.
+3. Keep the exact same JSON structure. Return ONLY valid JSON, no markdown wrapping.
+4. Preserve all HTML formatting tags (<b>, <i>, <u>, <br>, <p>, etc.) — only translate the text between them.
+5. Be natural and professional in ${langName} — this is a phone call script for cord blood banking sales.`
+          },
+          {
+            role: "user",
+            content: JSON.stringify(script)
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 16000,
+      });
+
+      let content = response.choices[0]?.message?.content;
+      if (!content) throw new Error("No response from AI");
+
+      content = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+      const translated = JSON.parse(content);
+      res.json({ translatedScript: translated });
+    } catch (error: any) {
+      console.error("AI translate script error:", error);
+      res.status(500).json({ error: "Translation failed: " + (error.message || "Unknown error") });
+    }
+  });
+
   // AI contract recommendation - provides legal and business recommendations for contract creation
   app.post("/api/ai/contract-recommendation", requireAuth, async (req, res) => {
     try {

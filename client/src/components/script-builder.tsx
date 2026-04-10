@@ -72,6 +72,8 @@ import {
   Palette,
   MoreHorizontal,
   Pencil,
+  Languages,
+  Loader2,
 } from "lucide-react";
 import {
   DndContext,
@@ -341,6 +343,51 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const [templateTags, setTemplateTags] = useState("");
   const [templateColor, setTemplateColor] = useState("gray");
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translateLangOpen, setTranslateLangOpen] = useState(false);
+
+  const TRANSLATE_LANGUAGES = [
+    { code: "sk", label: "Slovenčina" },
+    { code: "cs", label: "Čeština" },
+    { code: "en", label: "English" },
+    { code: "de", label: "Deutsch" },
+    { code: "hu", label: "Magyar" },
+    { code: "ro", label: "Română" },
+    { code: "it", label: "Italiano" },
+    { code: "pl", label: "Polski" },
+    { code: "hr", label: "Hrvatski" },
+    { code: "sr", label: "Srpski" },
+    { code: "bg", label: "Български" },
+    { code: "uk", label: "Українська" },
+    { code: "es", label: "Español" },
+    { code: "fr", label: "Français" },
+    { code: "nl", label: "Nederlands" },
+    { code: "pt", label: "Português" },
+    { code: "el", label: "Ελληνικά" },
+    { code: "tr", label: "Türkçe" },
+    { code: "ru", label: "Русский" },
+  ];
+
+  const handleTranslateScript = async (targetLang: string) => {
+    setIsTranslating(true);
+    setTranslateLangOpen(false);
+    try {
+      const res = await apiRequest("POST", "/api/ai/translate-script", {
+        script: currentScript,
+        targetLanguage: targetLang,
+      });
+      const data = await res.json();
+      if (data.translatedScript) {
+        setCurrentScript(data.translatedScript);
+        onChange?.(data.translatedScript);
+        toast({ title: sb.translateDone || "Script translated", description: TRANSLATE_LANGUAGES.find(l => l.code === targetLang)?.label });
+      }
+    } catch (error: any) {
+      toast({ title: sb.translateError || "Translation failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const { data: scriptTemplatesList = [] } = useQuery<ScriptTemplate[]>({
     queryKey: ["/api/script-templates"],
@@ -1232,6 +1279,21 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                 <Plus className="h-3 w-3" /> {sb.addElement}
               </Button>
             )}
+            <DropdownMenu open={translateLangOpen} onOpenChange={setTranslateLangOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-6 text-[11px] gap-1 px-2" disabled={isTranslating} data-testid="button-translate-script">
+                  {isTranslating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Languages className="h-3 w-3" />}
+                  {sb.translateBtn || "AI Translate"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 z-[9999] max-h-[300px] overflow-y-auto">
+                {TRANSLATE_LANGUAGES.map((lang) => (
+                  <DropdownMenuItem key={lang.code} onClick={() => handleTranslateScript(lang.code)} data-testid={`translate-lang-${lang.code}`}>
+                    {lang.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             {onSave && (
               <Button size="sm" className="h-6 text-[11px] gap-1 px-2" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-save-script">
                 <Save className="h-3 w-3" /> {sb.save}
@@ -1744,6 +1806,21 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   return (
     <div>
       <div className="flex items-center justify-end gap-2 mb-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" disabled={isTranslating} data-testid="button-translate-script-normal">
+              {isTranslating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Languages className="h-3.5 w-3.5" />}
+              {sb.translateBtn || "AI Translate"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 max-h-[300px] overflow-y-auto">
+            {TRANSLATE_LANGUAGES.map((lang) => (
+              <DropdownMenuItem key={lang.code} onClick={() => handleTranslateScript(lang.code)} data-testid={`translate-lang-normal-${lang.code}`}>
+                {lang.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsHelpOpen(true)} data-testid="button-help">
           <HelpCircle className="h-3.5 w-3.5" />
           {sb.helpBtn}
