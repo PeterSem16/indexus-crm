@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,13 +25,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import {
   Plus,
   Trash2,
   GripVertical,
@@ -52,7 +45,6 @@ import {
   Target,
   Save,
   Eye,
-  EyeOff,
   Variable,
   MousePointerClick,
   Phone,
@@ -61,7 +53,6 @@ import {
   Maximize2,
   Minimize2,
   HelpCircle,
-  PanelRightOpen,
   Settings2,
 } from "lucide-react";
 import {
@@ -258,7 +249,6 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const [isAddElementOpen, setIsAddElementOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [propertiesOpen, setPropertiesOpen] = useState(false);
 
   const elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }> = {
     heading: { icon: Type, label: sb.heading, description: sb.headingDesc },
@@ -289,11 +279,6 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
 
   const selectedElement = selectedStep?.elements.find(e => e.id === selectedElementId);
 
-  useEffect(() => {
-    if (selectedElement) {
-      setPropertiesOpen(true);
-    }
-  }, [selectedElementId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -419,8 +404,6 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       return { ...s, steps: arrayMove(s.steps, oldIndex, newIndex) };
     });
   }, [updateScript]);
-
-  const [showPreview, setShowPreview] = useState(false);
 
   const renderPreviewElement = useCallback((element: ScriptElement) => {
     switch (element.type) {
@@ -919,15 +902,15 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   };
 
   const builderContent = (
-    <div className={`flex gap-3 ${isFullscreen ? "h-[calc(100vh-60px)]" : "h-full"}`} data-testid="script-builder">
-      <div className="w-52 flex-shrink-0 flex flex-col border rounded-lg bg-card">
-        <div className="flex items-center justify-between p-3 border-b">
-          <span className="text-sm font-semibold">{sb.steps}</span>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={addStep} data-testid="button-add-step">
-            <Plus className="h-4 w-4" />
+    <div className={`flex gap-3 ${isFullscreen ? "h-[calc(100vh-60px)]" : "h-[700px]"}`} data-testid="script-builder">
+      <div className="w-48 flex-shrink-0 flex flex-col border rounded-lg bg-card">
+        <div className="flex items-center justify-between px-3 py-2 border-b">
+          <span className="text-xs font-semibold">{sb.steps}</span>
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={addStep} data-testid="button-add-step">
+            <Plus className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <ScrollArea className="flex-1 p-2">
+        <ScrollArea className="flex-1 p-1.5">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -937,7 +920,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               items={currentScript.steps.map(s => s.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {currentScript.steps.map(step => (
                   <SortableStep
                     key={step.id}
@@ -964,177 +947,170 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       </div>
 
       <div className="flex-1 flex flex-col border rounded-lg bg-card min-w-0">
-        <div className="flex items-center justify-between p-3 border-b gap-2">
-          <span className="text-sm font-semibold truncate">
+        <div className="flex items-center justify-between px-3 py-2 border-b gap-2">
+          <span className="text-xs font-semibold truncate">
             {selectedStep ? selectedStep.title : sb.selectStep}
           </span>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {selectedStep && (
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setIsAddElementOpen(true)} data-testid="button-add-element">
+              <Button size="sm" variant="outline" className="h-6 text-[11px] gap-1 px-2" onClick={() => setIsAddElementOpen(true)} data-testid="button-add-element">
                 <Plus className="h-3 w-3" /> {sb.addElement}
               </Button>
             )}
-            {selectedStep && (
-              <Button size="sm" variant={showPreview ? "default" : "outline"} className="h-7 text-xs gap-1" onClick={() => setShowPreview(!showPreview)} data-testid="button-toggle-preview">
-                {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                {sb.preview}
-              </Button>
-            )}
-            {selectedElement && (
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setPropertiesOpen(true)} data-testid="button-open-properties">
-                <Settings2 className="h-3 w-3" />
-                Vlastnosti
-              </Button>
-            )}
             {onSave && (
-              <Button size="sm" className="h-7 text-xs gap-1" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-save-script">
+              <Button size="sm" className="h-6 text-[11px] gap-1 px-2" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-save-script">
                 <Save className="h-3 w-3" /> {sb.save}
               </Button>
             )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden flex">
           {selectedStep ? (
-            <ScrollArea className="h-full">
-              <div className="p-4 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="step-title" className="text-xs">{sb.stepTitle}</Label>
-                    <Input
-                      id="step-title"
-                      value={selectedStep.title}
-                      onChange={(e) => updateStep(selectedStep.id, { title: e.target.value })}
-                      className="h-8 text-sm"
-                      data-testid="input-step-title"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="step-next" className="text-xs">{sb.nextStep}</Label>
-                    <Select
-                      value={selectedStep.nextStepId || "_auto_"}
-                      onValueChange={(v) => updateStep(selectedStep.id, { nextStepId: v === "_auto_" ? undefined : v })}
-                    >
-                      <SelectTrigger id="step-next" className="h-8 text-sm" data-testid="select-next-step">
-                        <SelectValue placeholder={sb.autoNext} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_auto_">{sb.autoNext}</SelectItem>
-                        {currentScript.steps
-                          .filter(s => s.id !== selectedStep.id)
-                          .map(s => (
-                            <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 space-y-1.5">
-                    <Label htmlFor="step-description" className="text-xs">{sb.stepDescription}</Label>
-                    <Input
-                      id="step-description"
-                      value={selectedStep.description || ""}
-                      onChange={(e) => updateStep(selectedStep.id, { description: e.target.value })}
-                      placeholder={sb.descriptionPlaceholder}
-                      className="h-8 text-sm"
-                      data-testid="textarea-step-description"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 pt-5">
-                    <Switch
-                      id="step-end"
-                      checked={selectedStep.isEndStep || false}
-                      onCheckedChange={(c) => updateStep(selectedStep.id, { isEndStep: c })}
-                      data-testid="switch-end-step"
-                    />
-                    <Label htmlFor="step-end" className="text-xs whitespace-nowrap">{sb.finalStep}</Label>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                {showPreview ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-primary" />
-                      <Label className="text-primary font-semibold text-xs">{sb.preview}</Label>
-                    </div>
-                    <Card className="border-primary/20 bg-muted/30">
-                      <CardContent className="p-4">
-                        <div className="space-y-4">
-                          {selectedStep.description && (
-                            <p className="text-sm text-muted-foreground italic">{selectedStep.description}</p>
-                          )}
-                          {selectedStep.elements.map((element) => (
-                            <div key={element.id}>{renderPreviewElement(element)}</div>
-                          ))}
-                          {selectedStep.elements.length === 0 && (
-                            <div className="text-center py-4 text-muted-foreground text-sm">{sb.addElementsToStep}</div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label className="text-xs">{sb.stepElements}</Label>
-                    <div className="space-y-1.5">
-                      {selectedStep.elements.map((element, index) => (
-                        <SortableElement
-                          key={element.id}
-                          element={element}
-                          isSelected={selectedElementId === element.id}
-                          onSelect={() => setSelectedElementId(element.id)}
-                          onDelete={() => deleteElement(element.id)}
-                          onMoveUp={() => moveElement(element.id, "up")}
-                          onMoveDown={() => moveElement(element.id, "down")}
-                          canMoveUp={index > 0}
-                          canMoveDown={index < selectedStep.elements.length - 1}
-                          labels={elementLabels}
-                          elementTypeConfig={elementTypeConfig}
+            <>
+              <div className="flex-1 border-r overflow-hidden flex flex-col min-w-0">
+                <ScrollArea className="flex-1">
+                  <div className="p-3 space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="step-title" className="text-[10px] text-muted-foreground">{sb.stepTitle}</Label>
+                        <Input
+                          id="step-title"
+                          value={selectedStep.title}
+                          onChange={(e) => updateStep(selectedStep.id, { title: e.target.value })}
+                          className="h-7 text-xs"
+                          data-testid="input-step-title"
                         />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="step-next" className="text-[10px] text-muted-foreground">{sb.nextStep}</Label>
+                        <Select
+                          value={selectedStep.nextStepId || "_auto_"}
+                          onValueChange={(v) => updateStep(selectedStep.id, { nextStepId: v === "_auto_" ? undefined : v })}
+                        >
+                          <SelectTrigger id="step-next" className="h-7 text-xs" data-testid="select-next-step">
+                            <SelectValue placeholder={sb.autoNext} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_auto_">{sb.autoNext}</SelectItem>
+                            {currentScript.steps
+                              .filter(s => s.id !== selectedStep.id)
+                              .map(s => (
+                                <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-end gap-2 pb-0.5">
+                        <div className="flex-1 space-y-1">
+                          <Label htmlFor="step-description" className="text-[10px] text-muted-foreground">{sb.stepDescription}</Label>
+                          <Input
+                            id="step-description"
+                            value={selectedStep.description || ""}
+                            onChange={(e) => updateStep(selectedStep.id, { description: e.target.value })}
+                            placeholder={sb.descriptionPlaceholder}
+                            className="h-7 text-xs"
+                            data-testid="textarea-step-description"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5 pb-1">
+                          <Switch
+                            id="step-end"
+                            checked={selectedStep.isEndStep || false}
+                            onCheckedChange={(c) => updateStep(selectedStep.id, { isEndStep: c })}
+                            className="scale-75"
+                            data-testid="switch-end-step"
+                          />
+                          <Label htmlFor="step-end" className="text-[10px] whitespace-nowrap">{sb.finalStep}</Label>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">{sb.stepElements}</Label>
+                        <span className="text-[10px] text-muted-foreground">{selectedStep.elements.length} element(ov)</span>
+                      </div>
+                      <div className="space-y-1">
+                        {selectedStep.elements.map((element, index) => (
+                          <SortableElement
+                            key={element.id}
+                            element={element}
+                            isSelected={selectedElementId === element.id}
+                            onSelect={() => setSelectedElementId(element.id)}
+                            onDelete={() => deleteElement(element.id)}
+                            onMoveUp={() => moveElement(element.id, "up")}
+                            onMoveDown={() => moveElement(element.id, "down")}
+                            canMoveUp={index > 0}
+                            canMoveDown={index < selectedStep.elements.length - 1}
+                            labels={elementLabels}
+                            elementTypeConfig={elementTypeConfig}
+                          />
+                        ))}
+                        {selectedStep.elements.length === 0 && (
+                          <div className="text-center py-6 text-muted-foreground text-xs border-2 border-dashed rounded-lg">
+                            <Plus className="h-5 w-5 mx-auto mb-1.5 opacity-40" />
+                            {sb.addElementsToStep}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {selectedElement && (
+                      <>
+                        <Separator />
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Settings2 className="h-3.5 w-3.5 text-primary" />
+                            <Label className="text-xs font-semibold text-primary">
+                              {sb.editElement}: {elementTypeConfig[selectedElement.type]?.label}
+                            </Label>
+                          </div>
+                          <div className="border rounded-lg p-3 bg-muted/20">
+                            {renderPropertiesContent()}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              <div className="flex-1 overflow-hidden flex flex-col min-w-0">
+                <div className="px-3 py-2 border-b flex items-center gap-2 bg-muted/30">
+                  <Eye className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-primary">{sb.preview}</span>
+                </div>
+                <ScrollArea className="flex-1">
+                  <div className="p-4">
+                    <div className="space-y-4">
+                      {selectedStep.description && (
+                        <p className="text-sm text-muted-foreground italic">{selectedStep.description}</p>
+                      )}
+                      {selectedStep.elements.map((element) => (
+                        <div key={element.id} className={`transition-all rounded-md ${selectedElementId === element.id ? "ring-2 ring-primary/50 ring-offset-2" : ""}`}>
+                          {renderPreviewElement(element)}
+                        </div>
                       ))}
                       {selectedStep.elements.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
-                          <Plus className="h-6 w-6 mx-auto mb-2 opacity-40" />
+                        <div className="text-center py-12 text-muted-foreground text-sm">
                           {sb.addElementsToStep}
                         </div>
                       )}
                     </div>
                   </div>
-                )}
+                </ScrollArea>
               </div>
-            </ScrollArea>
+            </>
           ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="flex items-center justify-center w-full text-muted-foreground">
               <p className="text-sm">{sb.selectStepOrCreate}</p>
             </div>
           )}
         </div>
       </div>
-
-      <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen} modal={false}>
-        <SheetContent side="right" className="w-[360px] sm:max-w-[400px] overflow-y-auto z-[9991]" onInteractOutside={(e) => e.preventDefault()}>
-          <SheetHeader className="pb-4">
-            <SheetTitle className="text-sm flex items-center gap-2">
-              <Settings2 className="h-4 w-4" />
-              {selectedElement ? `${sb.editElement}: ${elementTypeConfig[selectedElement.type]?.label}` : sb.elementProperties}
-            </SheetTitle>
-            <SheetDescription className="text-xs">
-              {selectedElement ? "Upravte vlastnosti vybraného elementu" : "Vyberte element na úpravu"}
-            </SheetDescription>
-          </SheetHeader>
-          {selectedElement ? (
-            renderPropertiesContent()
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p className="text-sm">{sb.selectElementToEdit}</p>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
 
       <Dialog open={isAddElementOpen} onOpenChange={setIsAddElementOpen}>
         <DialogContent className="max-w-2xl">
