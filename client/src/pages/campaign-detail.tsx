@@ -1610,10 +1610,21 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [newDisp, setNewDisp] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null as number | null });
+  const [newCodeManual, setNewCodeManual] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null as number | null });
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+
+  const generateCode = useCallback((name: string) => {
+    return name
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .trim()
+      .replace(/\s+/g, "_")
+      .substring(0, 30);
+  }, []);
 
   const actionLabels: Record<string, string> = {
     none: t.campaigns.detail.dispActionNone,
@@ -1696,6 +1707,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
       setShowAddForm(false);
       setAddingSubFor(null);
+      setNewCodeManual(false);
       setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null });
     },
     onError: () => toast({ title: t.campaigns.detail.dispCreateError, variant: "destructive" }),
@@ -1828,7 +1840,14 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         <Label className="text-xs">{t.campaigns.detail.dispName}</Label>
         <Input
           value={newDisp.name}
-          onChange={e => setNewDisp(p => ({ ...p, name: e.target.value }))}
+          onChange={e => {
+            const name = e.target.value;
+            setNewDisp(p => ({
+              ...p,
+              name,
+              ...(!newCodeManual ? { code: generateCode(name) } : {}),
+            }));
+          }}
           placeholder={t.campaigns.detail.dispName}
           className="w-40"
           data-testid="input-disposition-name"
@@ -1838,7 +1857,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         <Label className="text-xs">{t.common.code}</Label>
         <Input
           value={newDisp.code}
-          onChange={e => setNewDisp(p => ({ ...p, code: e.target.value }))}
+          onChange={e => { setNewCodeManual(true); setNewDisp(p => ({ ...p, code: e.target.value })); }}
           placeholder="kod"
           className="w-32"
           data-testid="input-disposition-code"
@@ -2020,7 +2039,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
             size="icon"
             variant="ghost"
             className="h-8 w-8"
-            onClick={() => { setAddingSubFor(disp.id); setShowAddForm(false); setNewDisp({ name: "", code: "", icon: "", color: disp.color || "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
+            onClick={() => { setAddingSubFor(disp.id); setShowAddForm(false); setNewCodeManual(false); setNewDisp({ name: "", code: "", icon: "", color: disp.color || "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
             data-testid={`button-add-sub-${disp.id}`}
           >
             <Plus className="w-4 h-4" />
@@ -2091,7 +2110,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                 : t.campaigns.detail.dispLoadDefaults}
           </Button>
           <Button
-            onClick={() => { setShowAddForm(true); setAddingSubFor(null); setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
+            onClick={() => { setShowAddForm(true); setAddingSubFor(null); setNewCodeManual(false); setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
             data-testid="button-add-disposition"
           >
             <Plus className="w-4 h-4 mr-2" />
