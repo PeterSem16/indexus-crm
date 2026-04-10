@@ -4383,6 +4383,11 @@ export default function CampaignDetailPage() {
                       setStructuredScript(newScript);
                       setStructuredScriptModified(true);
                     }}
+                    onSave={(s) => {
+                      setStructuredScript(s);
+                      saveScriptMutation.mutate(JSON.stringify(s));
+                      setStructuredScriptModified(false);
+                    }}
                     isSaving={saveScriptMutation.isPending}
                     campaignId={campaign.id}
                   />
