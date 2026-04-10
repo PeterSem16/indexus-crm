@@ -345,6 +345,50 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translateLangOpen, setTranslateLangOpen] = useState(false);
+  const paragraphEditorRef = useRef<HTMLDivElement>(null);
+  const savedSelectionRef = useRef<Range | null>(null);
+
+  const saveParagraphSelection = useCallback(() => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const editor = paragraphEditorRef.current;
+      if (editor && editor.contains(range.commonAncestorContainer)) {
+        savedSelectionRef.current = range.cloneRange();
+      }
+    }
+  }, []);
+
+  const restoreParagraphSelection = useCallback(() => {
+    const editor = paragraphEditorRef.current;
+    if (!editor) return;
+    editor.focus();
+    if (savedSelectionRef.current) {
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(savedSelectionRef.current);
+      }
+    }
+  }, []);
+
+  const execParagraphCommand = useCallback((command: string, value?: string) => {
+    const editor = paragraphEditorRef.current;
+    if (!editor) return;
+    restoreParagraphSelection();
+    document.execCommand(command, false, value);
+    saveParagraphSelection();
+    updateElement(selectedElementId || "", { content: editor.innerHTML });
+  }, [restoreParagraphSelection, saveParagraphSelection, selectedElementId, updateElement]);
+
+  const insertTextAtCursor = useCallback((text: string) => {
+    const editor = paragraphEditorRef.current;
+    if (!editor) return;
+    restoreParagraphSelection();
+    document.execCommand("insertText", false, text);
+    saveParagraphSelection();
+    updateElement(selectedElementId || "", { content: editor.innerHTML });
+  }, [restoreParagraphSelection, saveParagraphSelection, selectedElementId, updateElement]);
 
   const TRANSLATE_LANGUAGES = [
     { code: "sk", label: "Slovenčina" },
@@ -790,10 +834,8 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   <TooltipTrigger asChild>
                     <Button
                       type="button" variant="ghost" size="icon" className="h-7 w-7"
-                      onClick={() => {
-                        const el = document.getElementById("paragraph-editor") as HTMLDivElement;
-                        if (el) { el.focus(); document.execCommand("bold"); }
-                      }}
+                      onMouseDown={(e) => { e.preventDefault(); saveParagraphSelection(); }}
+                      onClick={() => execParagraphCommand("bold")}
                       data-testid="btn-format-bold"
                     >
                       <Bold className="h-3.5 w-3.5" />
@@ -805,10 +847,8 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   <TooltipTrigger asChild>
                     <Button
                       type="button" variant="ghost" size="icon" className="h-7 w-7"
-                      onClick={() => {
-                        const el = document.getElementById("paragraph-editor") as HTMLDivElement;
-                        if (el) { el.focus(); document.execCommand("italic"); }
-                      }}
+                      onMouseDown={(e) => { e.preventDefault(); saveParagraphSelection(); }}
+                      onClick={() => execParagraphCommand("italic")}
                       data-testid="btn-format-italic"
                     >
                       <Italic className="h-3.5 w-3.5" />
@@ -820,10 +860,8 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   <TooltipTrigger asChild>
                     <Button
                       type="button" variant="ghost" size="icon" className="h-7 w-7"
-                      onClick={() => {
-                        const el = document.getElementById("paragraph-editor") as HTMLDivElement;
-                        if (el) { el.focus(); document.execCommand("underline"); }
-                      }}
+                      onMouseDown={(e) => { e.preventDefault(); saveParagraphSelection(); }}
+                      onClick={() => execParagraphCommand("underline")}
                       data-testid="btn-format-underline"
                     >
                       <Underline className="h-3.5 w-3.5" />
@@ -838,13 +876,8 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                       <TooltipTrigger asChild>
                         <Button
                           type="button" variant="outline" size="sm" className="text-[10px] h-5 px-1.5 font-mono"
-                          onClick={() => {
-                            const el = document.getElementById("paragraph-editor") as HTMLDivElement;
-                            if (el) {
-                              el.focus();
-                              document.execCommand("insertText", false, v.key);
-                            }
-                          }}
+                          onMouseDown={(e) => { e.preventDefault(); saveParagraphSelection(); }}
+                          onClick={() => insertTextAtCursor(v.key)}
                           data-testid={`btn-insert-var-${v.key}`}
                         >
                           {v.label}
@@ -856,13 +889,17 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                 </div>
               </div>
               <div
+                ref={paragraphEditorRef}
                 id="paragraph-editor"
                 contentEditable
+                suppressContentEditableWarning
                 className="min-h-[100px] p-3 text-sm outline-none focus:ring-1 focus:ring-primary/30"
                 dangerouslySetInnerHTML={{ __html: selectedElement.content || "" }}
-                onBlur={(e) => {
+                onInput={(e) => {
                   updateElement(selectedElement.id, { content: e.currentTarget.innerHTML });
                 }}
+                onMouseUp={saveParagraphSelection}
+                onKeyUp={saveParagraphSelection}
                 data-testid="editor-paragraph-content"
               />
             </div>
@@ -877,13 +914,8 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                     <TooltipTrigger asChild>
                       <Button
                         type="button" variant="outline" size="sm" className="text-[10px] h-5 px-1.5 font-mono"
-                        onClick={() => {
-                          const el = document.getElementById("paragraph-editor") as HTMLDivElement;
-                          if (el) {
-                            el.focus();
-                            document.execCommand("insertText", false, v.key);
-                          }
-                        }}
+                        onMouseDown={(e) => { e.preventDefault(); saveParagraphSelection(); }}
+                        onClick={() => insertTextAtCursor(v.key)}
                         data-testid={`btn-insert-var-para-${v.key}`}
                       >
                         {v.label}

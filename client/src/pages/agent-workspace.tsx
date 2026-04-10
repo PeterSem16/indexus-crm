@@ -4436,6 +4436,7 @@ function ScheduledQueuePanel({
   onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string) => void;
 }) {
   const [filterType, setFilterType] = useState<"all" | "callback" | "email" | "sms">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const { t } = useI18n();
   const { toast } = useToast();
 
@@ -4450,9 +4451,20 @@ function ScheduledQueuePanel({
   });
 
   const filteredItems = useMemo(() => {
-    if (filterType === "all") return scheduledItems;
-    return scheduledItems.filter(item => item.type === filterType);
-  }, [scheduledItems, filterType]);
+    let items = scheduledItems;
+    if (filterType !== "all") items = items.filter(item => item.type === filterType);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      items = items.filter(item =>
+        (item.contactName || "").toLowerCase().includes(q) ||
+        (item.contactPhone || "").toLowerCase().includes(q) ||
+        (item.contactEmail || "").toLowerCase().includes(q) ||
+        (item.campaignName || "").toLowerCase().includes(q) ||
+        (item.notes || "").toLowerCase().includes(q)
+      );
+    }
+    return items;
+  }, [scheduledItems, filterType, searchQuery]);
 
   const { todayCount, overdueCount } = useMemo(() => {
     const now = new Date();
@@ -4539,7 +4551,18 @@ function ScheduledQueuePanel({
           ))}
         </div>
 
-        <ScrollArea className="flex-1 min-h-0">
+        <div className="relative pb-2">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t.common.search || "Search..."}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9"
+            data-testid="input-scheduled-search"
+          />
+        </div>
+
+        <ScrollArea className="flex-1 min-h-0" style={{ maxHeight: "50vh" }}>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
