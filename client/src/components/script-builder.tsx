@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,13 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import {
   Plus,
   Trash2,
@@ -249,6 +256,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const [isAddElementOpen, setIsAddElementOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
 
   const elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }> = {
     heading: { icon: Type, label: sb.heading, description: sb.headingDesc },
@@ -279,6 +287,11 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
 
   const selectedElement = selectedStep?.elements.find(e => e.id === selectedElementId);
 
+  useEffect(() => {
+    if (selectedElement) {
+      setPropertiesOpen(true);
+    }
+  }, [selectedElementId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -1058,22 +1071,6 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                       </div>
                     </div>
 
-                    {selectedElement && (
-                      <>
-                        <Separator />
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Settings2 className="h-3.5 w-3.5 text-primary" />
-                            <Label className="text-xs font-semibold text-primary">
-                              {sb.editElement}: {elementTypeConfig[selectedElement.type]?.label}
-                            </Label>
-                          </div>
-                          <div className="border rounded-lg p-3 bg-muted/20">
-                            {renderPropertiesContent()}
-                          </div>
-                        </div>
-                      </>
-                    )}
                   </div>
                 </ScrollArea>
               </div>
@@ -1228,6 +1225,23 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         <div className="p-3 h-[calc(100vh-52px)]">
           {builderContent}
         </div>
+
+        <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen}>
+          <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto z-[60]">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <Settings2 className="h-4 w-4 text-primary" />
+                {sb.editElement}: {selectedElement ? elementTypeConfig[selectedElement.type]?.label : ""}
+              </SheetTitle>
+              <SheetDescription>
+                {selectedElement ? elementTypeConfig[selectedElement.type]?.description : ""}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="mt-4">
+              {renderPropertiesContent()}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     );
   }
@@ -1245,6 +1259,23 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         </Button>
       </div>
       {builderContent}
+
+      <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen}>
+        <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4 text-primary" />
+              {sb.editElement}: {selectedElement ? elementTypeConfig[selectedElement.type]?.label : ""}
+            </SheetTitle>
+            <SheetDescription>
+              {selectedElement ? elementTypeConfig[selectedElement.type]?.description : ""}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4">
+            {renderPropertiesContent()}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
