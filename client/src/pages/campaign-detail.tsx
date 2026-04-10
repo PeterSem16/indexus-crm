@@ -14,6 +14,7 @@ import {
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
   Variable, Building2, Building, Loader2, Tag, Layers, BookOpen, ArrowUpDown, GripVertical, ArrowUp, ArrowDown,
+  Search, HelpCircle, Pencil, X, Check,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1581,6 +1582,10 @@ const ACTION_TYPE_COLORS: Record<string, string> = {
   dnd: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
   complete: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   convert: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  send_email: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  send_sms: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+  schedule_email: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+  schedule_sms: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
   none: "bg-muted text-muted-foreground",
 };
 
@@ -1605,6 +1610,10 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [newDisp, setNewDisp] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null as number | null });
+  const [searchFilter, setSearchFilter] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null as number | null });
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const actionLabels: Record<string, string> = {
     none: t.campaigns.detail.dispActionNone,
@@ -1614,6 +1623,8 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     convert: t.campaigns.detail.dispActionConvert,
     send_email: t.campaigns.detail.dispActionEmail,
     send_sms: t.campaigns.detail.dispActionSms,
+    schedule_email: t.campaigns.detail.dispActionHelpScheduleEmail ? 'Schedule email' : 'Schedule email',
+    schedule_sms: t.campaigns.detail.dispActionHelpScheduleSms ? 'Schedule SMS' : 'Schedule SMS',
   };
 
   const { data: dispositions = [], isLoading } = useQuery<CampaignDisposition[]>({
@@ -1621,7 +1632,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     enabled: !!campaignId,
   });
 
-  const parents = dispositions.filter(d => !d.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+  const allParents = dispositions.filter(d => !d.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
   const childrenMap = dispositions.reduce((acc, d) => {
     if (d.parentId) {
       if (!acc[d.parentId]) acc[d.parentId] = [];
@@ -1630,12 +1641,43 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     return acc;
   }, {} as Record<string, CampaignDisposition[]>);
 
+  const filteredParents = useMemo(() => {
+    if (!searchFilter.trim()) return allParents;
+    const q = searchFilter.toLowerCase();
+    return allParents.filter(p => {
+      const pName = getDispName(p.code, p.name).toLowerCase();
+      const pCode = p.code.toLowerCase();
+      if (pName.includes(q) || pCode.includes(q)) return true;
+      const children = childrenMap[p.id] || [];
+      return children.some(c => {
+        const cName = getDispName(c.code, c.name).toLowerCase();
+        return cName.includes(q) || c.code.toLowerCase().includes(q);
+      });
+    });
+  }, [allParents, childrenMap, searchFilter]);
+
   const toggleExpand = (id: string) => {
     setExpandedParents(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const startEdit = (disp: CampaignDisposition) => {
+    setEditingId(disp.id);
+    setEditData({
+      name: disp.name,
+      code: disp.code,
+      icon: disp.icon || "",
+      color: disp.color || "#6b7280",
+      actionType: disp.actionType,
+      callbackOffsetDays: disp.callbackOffsetDays,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
   };
 
   const seedMutation = useMutation({
@@ -1657,6 +1699,17 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null });
     },
     onError: () => toast({ title: t.campaigns.detail.dispCreateError, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      apiRequest("PATCH", `/api/campaigns/${campaignId}/dispositions/${id}`, data),
+    onSuccess: () => {
+      toast({ title: t.campaigns.detail.dispUpdateSuccess });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
+      setEditingId(null);
+    },
+    onError: () => toast({ title: t.campaigns.detail.dispUpdateError, variant: "destructive" }),
   });
 
   const toggleActiveMutation = useMutation({
@@ -1691,6 +1744,84 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     });
   };
 
+  const handleUpdate = () => {
+    if (!editingId || !editData.name || !editData.code) return;
+    updateMutation.mutate({
+      id: editingId,
+      data: {
+        name: editData.name,
+        code: editData.code,
+        icon: editData.icon || null,
+        color: editData.color || null,
+        actionType: editData.actionType,
+        callbackOffsetDays: editData.callbackOffsetDays,
+      },
+    });
+  };
+
+  const renderCallbackDaysSelect = (value: number | null, onChange: (v: number | null) => void, testId: string) => (
+    <Select
+      value={value?.toString() || "_manual_"}
+      onValueChange={v => onChange(v === "_manual_" ? null : parseInt(v))}
+    >
+      <SelectTrigger className="w-36" data-testid={testId}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="_manual_">{t.campaigns.detail.dispManualSelect}</SelectItem>
+        <SelectItem value="1">{t.campaigns.detail.dispTomorrow}</SelectItem>
+        <SelectItem value="2">2 {t.campaigns.detail.dispWorkDays}</SelectItem>
+        <SelectItem value="3">3 {t.campaigns.detail.dispWorkDays}</SelectItem>
+        <SelectItem value="5">5 {t.campaigns.detail.dispWorkDays}</SelectItem>
+        <SelectItem value="7">1 {t.campaigns.detail.dispWeek}</SelectItem>
+        <SelectItem value="14">2 {t.campaigns.detail.dispWeeks}</SelectItem>
+        <SelectItem value="30">1 {t.campaigns.detail.dispMonth}</SelectItem>
+        <SelectItem value="60">2 {t.campaigns.detail.dispMonths}</SelectItem>
+        <SelectItem value="90">3 {t.campaigns.detail.dispMonths}</SelectItem>
+        <SelectItem value="120">4 {t.campaigns.detail.dispMonths}</SelectItem>
+        <SelectItem value="150">5 {t.campaigns.detail.dispMonths}</SelectItem>
+        <SelectItem value="180">6 {t.campaigns.detail.dispMonths}</SelectItem>
+        <SelectItem value="270">9 {t.campaigns.detail.dispMonths}</SelectItem>
+        <SelectItem value="365">1 {t.campaigns.detail.dispYear}</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
+  const renderIconPicker = (currentIcon: string, onSelect: (icon: string) => void, testPrefix: string) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="w-28 gap-2 justify-start" data-testid={`${testPrefix}-icon`}>
+          {currentIcon && ICON_MAP[currentIcon] ? (() => {
+            const Ic = ICON_MAP[currentIcon];
+            return <Ic className="h-4 w-4 shrink-0" />;
+          })() : <CircleDot className="h-4 w-4 shrink-0 opacity-40" />}
+          <span className="text-xs truncate">{currentIcon || t.common.select}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-2" align="start">
+        <div className="grid grid-cols-6 gap-1" data-testid={`${testPrefix}-icon-grid`}>
+          {ICON_PICKER_SET.map(({ name, icon: Ic }) => (
+            <Button
+              key={name}
+              size="icon"
+              variant={currentIcon === name ? "default" : "ghost"}
+              onClick={() => onSelect(name)}
+              title={name}
+              data-testid={`${testPrefix}-icon-pick-${name}`}
+            >
+              <Ic className="h-4 w-4" />
+            </Button>
+          ))}
+        </div>
+        {currentIcon && (
+          <Button variant="ghost" size="sm" className="w-full mt-1" onClick={() => onSelect("")} data-testid={`${testPrefix}-clear-icon`}>
+            {t.common.clear}
+          </Button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+
   const renderAddForm = (parentId?: string) => (
     <div className="flex flex-wrap items-end gap-2 p-3 rounded-md border bg-muted/30" data-testid="disposition-add-form">
       <div className="space-y-1">
@@ -1715,44 +1846,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       </div>
       <div className="space-y-1">
         <Label className="text-xs">{t.campaigns.detail.dispSelectIcon}</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-28 gap-2 justify-start" data-testid="input-disposition-icon">
-              {newDisp.icon && ICON_MAP[newDisp.icon] ? (() => {
-                const Ic = ICON_MAP[newDisp.icon];
-                return <Ic className="h-4 w-4 shrink-0" />;
-              })() : <CircleDot className="h-4 w-4 shrink-0 opacity-40" />}
-              <span className="text-xs truncate">{newDisp.icon || t.common.select}</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-2" align="start">
-            <div className="grid grid-cols-6 gap-1" data-testid="icon-picker-grid">
-              {ICON_PICKER_SET.map(({ name, icon: Ic }) => (
-                <Button
-                  key={name}
-                  size="icon"
-                  variant={newDisp.icon === name ? "default" : "ghost"}
-                  onClick={() => setNewDisp(p => ({ ...p, icon: name }))}
-                  title={name}
-                  data-testid={`icon-pick-${name}`}
-                >
-                  <Ic className="h-4 w-4" />
-                </Button>
-              ))}
-            </div>
-            {newDisp.icon && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-1"
-                onClick={() => setNewDisp(p => ({ ...p, icon: "" }))}
-                data-testid="button-clear-icon"
-              >
-                {t.common.clear}
-              </Button>
-            )}
-          </PopoverContent>
-        </Popover>
+        {renderIconPicker(newDisp.icon, (icon) => setNewDisp(p => ({ ...p, icon })), "add")}
       </div>
       <div className="space-y-1">
         <Label className="text-xs">{t.common.status}</Label>
@@ -1779,32 +1873,8 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       </div>
       {(newDisp.actionType === "callback" || newDisp.actionType === "schedule_email" || newDisp.actionType === "schedule_sms") && (
         <div className="space-y-1">
-          <Label className="text-xs">Preddefinované dni</Label>
-          <Select
-            value={newDisp.callbackOffsetDays?.toString() || "_manual_"}
-            onValueChange={v => setNewDisp(p => ({ ...p, callbackOffsetDays: v === "_manual_" ? null : parseInt(v) }))}
-          >
-            <SelectTrigger className="w-36" data-testid="select-disposition-callback-offset">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_manual_">Manuálny výber</SelectItem>
-              <SelectItem value="1">Zajtra (1 deň)</SelectItem>
-              <SelectItem value="2">2 pracovné dni</SelectItem>
-              <SelectItem value="3">3 pracovné dni</SelectItem>
-              <SelectItem value="5">5 pracovných dní</SelectItem>
-              <SelectItem value="7">1 týždeň</SelectItem>
-              <SelectItem value="14">2 týždne</SelectItem>
-              <SelectItem value="30">1 mesiac</SelectItem>
-              <SelectItem value="60">2 mesiace</SelectItem>
-              <SelectItem value="90">3 mesiace</SelectItem>
-              <SelectItem value="120">4 mesiace</SelectItem>
-              <SelectItem value="150">5 mesiacov</SelectItem>
-              <SelectItem value="180">6 mesiacov</SelectItem>
-              <SelectItem value="270">9 mesiacov</SelectItem>
-              <SelectItem value="365">1 rok</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label className="text-xs">{t.campaigns.detail.dispCallbackDays}</Label>
+          {renderCallbackDaysSelect(newDisp.callbackOffsetDays, (v) => setNewDisp(p => ({ ...p, callbackOffsetDays: v })), "select-add-callback-offset")}
         </div>
       )}
       <Button
@@ -1826,6 +1896,162 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     </div>
   );
 
+  const renderEditForm = (disp: CampaignDisposition) => (
+    <div className="flex flex-wrap items-end gap-2 p-3 rounded-md border border-primary/30 bg-primary/5" data-testid={`disposition-edit-form-${disp.id}`}>
+      <div className="space-y-1">
+        <Label className="text-xs">{t.campaigns.detail.dispName}</Label>
+        <Input
+          value={editData.name}
+          onChange={e => setEditData(p => ({ ...p, name: e.target.value }))}
+          placeholder={t.campaigns.detail.dispName}
+          className="w-40"
+          data-testid="input-edit-disposition-name"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">{t.common.code}</Label>
+        <Input
+          value={editData.code}
+          onChange={e => setEditData(p => ({ ...p, code: e.target.value }))}
+          placeholder="kod"
+          className="w-32"
+          data-testid="input-edit-disposition-code"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">{t.campaigns.detail.dispSelectIcon}</Label>
+        {renderIconPicker(editData.icon, (icon) => setEditData(p => ({ ...p, icon })), "edit")}
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">{t.common.status}</Label>
+        <Input
+          type="color"
+          value={editData.color}
+          onChange={e => setEditData(p => ({ ...p, color: e.target.value }))}
+          className="w-14"
+          data-testid="input-edit-disposition-color"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">{t.common.actions}</Label>
+        <Select value={editData.actionType} onValueChange={v => setEditData(p => ({ ...p, actionType: v }))}>
+          <SelectTrigger className="w-32" data-testid="select-edit-disposition-action">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DISPOSITION_ACTION_TYPES.map(at => (
+              <SelectItem key={at} value={at}>{actionLabels[at] || at}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {(editData.actionType === "callback" || editData.actionType === "schedule_email" || editData.actionType === "schedule_sms") && (
+        <div className="space-y-1">
+          <Label className="text-xs">{t.campaigns.detail.dispCallbackDays}</Label>
+          {renderCallbackDaysSelect(editData.callbackOffsetDays, (v) => setEditData(p => ({ ...p, callbackOffsetDays: v })), "select-edit-callback-offset")}
+        </div>
+      )}
+      <Button
+        size="sm"
+        onClick={handleUpdate}
+        disabled={updateMutation.isPending || !editData.name || !editData.code}
+        data-testid="button-update-disposition"
+      >
+        <Check className="w-3.5 h-3.5 mr-1" />
+        {updateMutation.isPending ? "..." : t.campaigns.detail.dispSave}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={cancelEdit}
+        data-testid="button-cancel-edit-disposition"
+      >
+        <X className="w-3.5 h-3.5 mr-1" />
+        {t.campaigns.detail.cancel}
+      </Button>
+    </div>
+  );
+
+  const renderDispositionRow = (disp: CampaignDisposition, isChild: boolean = false) => {
+    if (editingId === disp.id) {
+      return renderEditForm(disp);
+    }
+
+    const IconComp = ICON_MAP[disp.icon || ""] || CircleDot;
+    const iconSize = isChild ? "w-3.5 h-3.5" : "w-4 h-4";
+    const textClass = isChild ? "text-sm" : "font-medium";
+
+    return (
+      <div className={`flex flex-wrap items-center gap-3 ${isChild ? "p-2 rounded-md border" : ""}`} data-testid={`row-disposition-${disp.id}`}>
+        {!isChild && (childrenMap[disp.id] || []).length > 0 && (
+          <Button size="icon" variant="ghost" onClick={() => toggleExpand(disp.id)} data-testid={`button-expand-${disp.id}`}>
+            {expandedParents.has(disp.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </Button>
+        )}
+        <IconComp className={`${iconSize} shrink-0`} style={disp.color ? { color: disp.color } : undefined} />
+        <div className="flex-1 min-w-0">
+          <span className={`${textClass} ${!disp.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${disp.id}`}>
+            {getDispName(disp.code, disp.name)}
+          </span>
+          <span className="ml-2 text-xs text-muted-foreground">{disp.code}</span>
+        </div>
+        {(isChild ? disp.actionType !== "none" : true) && (
+          <Badge className={ACTION_TYPE_COLORS[disp.actionType] || ACTION_TYPE_COLORS.none} data-testid={`badge-action-${disp.id}`}>
+            {actionLabels[disp.actionType] || disp.actionType}
+            {disp.callbackOffsetDays ? ` (${disp.callbackOffsetDays}d)` : ""}
+          </Badge>
+        )}
+        <Switch
+          checked={disp.isActive}
+          onCheckedChange={checked => toggleActiveMutation.mutate({ id: disp.id, isActive: checked })}
+          data-testid={`switch-active-${disp.id}`}
+        />
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={() => startEdit(disp)}
+          data-testid={`button-edit-disposition-${disp.id}`}
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </Button>
+        {!isChild && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={() => { setAddingSubFor(disp.id); setShowAddForm(false); setNewDisp({ name: "", code: "", icon: "", color: disp.color || "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
+            data-testid={`button-add-sub-${disp.id}`}
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        )}
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-destructive hover:text-destructive"
+          onClick={() => deleteMutation.mutate(disp.id)}
+          disabled={deleteMutation.isPending}
+          data-testid={`button-delete-disposition-${disp.id}`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+    );
+  };
+
+  const actionHelpItems = [
+    { key: "none", label: actionLabels.none, desc: t.campaigns.detail.dispActionHelpNone, color: ACTION_TYPE_COLORS.none },
+    { key: "callback", label: actionLabels.callback, desc: t.campaigns.detail.dispActionHelpCallback, color: ACTION_TYPE_COLORS.callback },
+    { key: "dnd", label: actionLabels.dnd, desc: t.campaigns.detail.dispActionHelpDnd, color: ACTION_TYPE_COLORS.dnd },
+    { key: "complete", label: actionLabels.complete, desc: t.campaigns.detail.dispActionHelpComplete, color: ACTION_TYPE_COLORS.complete },
+    { key: "convert", label: actionLabels.convert, desc: t.campaigns.detail.dispActionHelpConvert, color: ACTION_TYPE_COLORS.convert },
+    { key: "send_email", label: actionLabels.send_email, desc: t.campaigns.detail.dispActionHelpEmail, color: ACTION_TYPE_COLORS.send_email },
+    { key: "send_sms", label: actionLabels.send_sms, desc: t.campaigns.detail.dispActionHelpSms, color: ACTION_TYPE_COLORS.send_sms },
+    { key: "schedule_email", label: "Schedule email", desc: t.campaigns.detail.dispActionHelpScheduleEmail, color: ACTION_TYPE_COLORS.schedule_email },
+    { key: "schedule_sms", label: "Schedule SMS", desc: t.campaigns.detail.dispActionHelpScheduleSms, color: ACTION_TYPE_COLORS.schedule_sms },
+  ];
+
   const content = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1834,6 +2060,15 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
           <p className="text-sm text-muted-foreground">{t.campaigns.detail.dispTitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsHelpOpen(true)}
+            data-testid="button-actions-help"
+          >
+            <HelpCircle className="w-4 h-4 mr-2" />
+            {t.campaigns.detail.dispActionsHelp}
+          </Button>
           <Button
             variant="outline"
             onClick={() => {
@@ -1865,67 +2100,49 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         </div>
       </div>
 
+      {dispositions.length > 3 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchFilter}
+            onChange={e => setSearchFilter(e.target.value)}
+            placeholder={t.campaigns.detail.dispSearchPlaceholder}
+            className="pl-9 max-w-sm"
+            data-testid="input-search-dispositions"
+          />
+          {searchFilter && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+              onClick={() => setSearchFilter("")}
+              data-testid="button-clear-search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
+
       {showAddForm && !addingSubFor && renderAddForm()}
 
       {isLoading ? (
         <div className="flex items-center justify-center h-32">
           <RefreshCw className="w-5 h-5 animate-spin" />
         </div>
-      ) : parents.length === 0 && !showAddForm ? (
+      ) : filteredParents.length === 0 && !showAddForm ? (
         <div className="text-center py-12 text-muted-foreground" data-testid="text-no-dispositions">
-          {t.campaigns.detail.noDataAvailable}
+          {searchFilter ? `${t.campaigns.detail.noDataAvailable}` : t.campaigns.detail.noDataAvailable}
         </div>
       ) : (
         <div className="space-y-3">
-          {parents.map(parent => {
+          {filteredParents.map(parent => {
             const children = (childrenMap[parent.id] || []).sort((a, b) => a.sortOrder - b.sortOrder);
             const isExpanded = expandedParents.has(parent.id);
             return (
               <Card key={parent.id} data-testid={`card-disposition-${parent.id}`}>
                 <CardContent className="p-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    {children.length > 0 && (
-                      <Button size="icon" variant="ghost" onClick={() => toggleExpand(parent.id)} data-testid={`button-expand-${parent.id}`}>
-                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                      </Button>
-                    )}
-                    {(() => {
-                      const ParentIcon = ICON_MAP[parent.icon || ""] || CircleDot;
-                      return <ParentIcon className="w-4 h-4 shrink-0" style={parent.color ? { color: parent.color } : undefined} />;
-                    })()}
-                    <div className="flex-1 min-w-0">
-                      <span className={`font-medium ${!parent.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${parent.id}`}>
-                        {getDispName(parent.code, parent.name)}
-                      </span>
-                      <span className="ml-2 text-xs text-muted-foreground">{parent.code}</span>
-                    </div>
-                    <Badge className={ACTION_TYPE_COLORS[parent.actionType] || ACTION_TYPE_COLORS.none} data-testid={`badge-action-${parent.id}`}>
-                      {actionLabels[parent.actionType] || parent.actionType}
-                      {parent.callbackOffsetDays ? ` (${parent.callbackOffsetDays}d)` : ""}
-                    </Badge>
-                    <Switch
-                      checked={parent.isActive}
-                      onCheckedChange={checked => toggleActiveMutation.mutate({ id: parent.id, isActive: checked })}
-                      data-testid={`switch-active-${parent.id}`}
-                    />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => { setAddingSubFor(parent.id); setShowAddForm(false); setNewDisp({ name: "", code: "", icon: "", color: parent.color || "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
-                      data-testid={`button-add-sub-${parent.id}`}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => deleteMutation.mutate(parent.id)}
-                      disabled={deleteMutation.isPending}
-                      data-testid={`button-delete-disposition-${parent.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+                  {renderDispositionRow(parent, false)}
 
                   {addingSubFor === parent.id && (
                     <div className="mt-3">
@@ -1936,37 +2153,8 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                   {isExpanded && children.length > 0 && (
                     <div className="mt-3 ml-8 space-y-2">
                       {children.map(child => (
-                        <div key={child.id} className="flex flex-wrap items-center gap-3 p-2 rounded-md border" data-testid={`row-disposition-${child.id}`}>
-                          {(() => {
-                            const ChildIcon = ICON_MAP[child.icon || ""] || CircleDot;
-                            return <ChildIcon className="w-3.5 h-3.5 shrink-0" style={child.color ? { color: child.color } : undefined} />;
-                          })()}
-                          <div className="flex-1 min-w-0">
-                            <span className={`text-sm ${!child.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${child.id}`}>
-                              {getDispName(child.code, child.name)}
-                            </span>
-                            <span className="ml-2 text-xs text-muted-foreground">{child.code}</span>
-                          </div>
-                          {child.actionType !== "none" && (
-                            <Badge className={ACTION_TYPE_COLORS[child.actionType] || ACTION_TYPE_COLORS.none}>
-                              {actionLabels[child.actionType] || child.actionType}
-                              {child.callbackOffsetDays ? ` (${child.callbackOffsetDays}d)` : ""}
-                            </Badge>
-                          )}
-                          <Switch
-                            checked={child.isActive}
-                            onCheckedChange={checked => toggleActiveMutation.mutate({ id: child.id, isActive: checked })}
-                            data-testid={`switch-active-${child.id}`}
-                          />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => deleteMutation.mutate(child.id)}
-                            disabled={deleteMutation.isPending}
-                            data-testid={`button-delete-disposition-${child.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                        <div key={child.id}>
+                          {renderDispositionRow(child, true)}
                         </div>
                       ))}
                     </div>
@@ -1977,6 +2165,28 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
           })}
         </div>
       )}
+
+      <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-primary" />
+              {t.campaigns.detail.dispActionsHelpTitle}
+            </DialogTitle>
+            <DialogDescription>
+              {t.campaigns.detail.dispActionsHelp}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {actionHelpItems.map(item => (
+              <div key={item.key} className="flex gap-3 p-3 rounded-lg border bg-muted/20" data-testid={`help-action-${item.key}`}>
+                <Badge className={`${item.color} shrink-0 self-start mt-0.5`}>{item.label}</Badge>
+                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
