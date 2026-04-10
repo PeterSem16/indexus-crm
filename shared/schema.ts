@@ -3243,6 +3243,7 @@ export const scriptElementSchema = z.object({
   actionIcon: z.string().optional(),
   variant: z.string().optional(),
   emailTemplateId: z.string().optional(),
+  dispositionCode: z.string().optional(),
 });
 
 export type ScriptElement = z.infer<typeof scriptElementSchema>;
