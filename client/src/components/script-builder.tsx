@@ -348,48 +348,6 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const paragraphEditorRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
 
-  const saveParagraphSelection = useCallback(() => {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      const range = sel.getRangeAt(0);
-      const editor = paragraphEditorRef.current;
-      if (editor && editor.contains(range.commonAncestorContainer)) {
-        savedSelectionRef.current = range.cloneRange();
-      }
-    }
-  }, []);
-
-  const restoreParagraphSelection = useCallback(() => {
-    const editor = paragraphEditorRef.current;
-    if (!editor) return;
-    editor.focus();
-    if (savedSelectionRef.current) {
-      const sel = window.getSelection();
-      if (sel) {
-        sel.removeAllRanges();
-        sel.addRange(savedSelectionRef.current);
-      }
-    }
-  }, []);
-
-  const execParagraphCommand = useCallback((command: string, value?: string) => {
-    const editor = paragraphEditorRef.current;
-    if (!editor) return;
-    restoreParagraphSelection();
-    document.execCommand(command, false, value);
-    saveParagraphSelection();
-    updateElement(selectedElementId || "", { content: editor.innerHTML });
-  }, [restoreParagraphSelection, saveParagraphSelection, selectedElementId, updateElement]);
-
-  const insertTextAtCursor = useCallback((text: string) => {
-    const editor = paragraphEditorRef.current;
-    if (!editor) return;
-    restoreParagraphSelection();
-    document.execCommand("insertText", false, text);
-    saveParagraphSelection();
-    updateElement(selectedElementId || "", { content: editor.innerHTML });
-  }, [restoreParagraphSelection, saveParagraphSelection, selectedElementId, updateElement]);
-
   const TRANSLATE_LANGUAGES = [
     { code: "sk", label: "Slovenčina" },
     { code: "cs", label: "Čeština" },
@@ -593,6 +551,48 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       elements: selectedStep.elements.map(e => e.id === elementId ? { ...e, ...updates } : e),
     });
   }, [selectedStep, updateStep]);
+
+  const saveParagraphSelection = useCallback(() => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const editor = paragraphEditorRef.current;
+      if (editor && editor.contains(range.commonAncestorContainer)) {
+        savedSelectionRef.current = range.cloneRange();
+      }
+    }
+  }, []);
+
+  const restoreParagraphSelection = useCallback(() => {
+    const editor = paragraphEditorRef.current;
+    if (!editor) return;
+    editor.focus();
+    if (savedSelectionRef.current) {
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(savedSelectionRef.current);
+      }
+    }
+  }, []);
+
+  const execParagraphCommand = useCallback((command: string, value?: string) => {
+    const editor = paragraphEditorRef.current;
+    if (!editor) return;
+    restoreParagraphSelection();
+    document.execCommand(command, false, value);
+    saveParagraphSelection();
+    updateElement(selectedElementId || "", { content: editor.innerHTML });
+  }, [restoreParagraphSelection, saveParagraphSelection, selectedElementId, updateElement]);
+
+  const insertTextAtCursor = useCallback((text: string) => {
+    const editor = paragraphEditorRef.current;
+    if (!editor) return;
+    restoreParagraphSelection();
+    document.execCommand("insertText", false, text);
+    saveParagraphSelection();
+    updateElement(selectedElementId || "", { content: editor.innerHTML });
+  }, [restoreParagraphSelection, saveParagraphSelection, selectedElementId, updateElement]);
 
   const addOption = useCallback(() => {
     if (!selectedElement || !selectedElement.options) return;
