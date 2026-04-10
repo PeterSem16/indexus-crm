@@ -1714,7 +1714,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         </div>
 
         <Sheet open={propertiesOpen} onOpenChange={(open) => { setPropertiesOpen(open); if (!open) setSelectedElementId(null); }} modal={false}>
-          <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto z-[9995] shadow-2xl border-l" hideOverlay>
+          <SheetContent side="right" className="w-[400px] sm:w-[450px] z-[9995] shadow-2xl border-l flex flex-col" hideOverlay>
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <Settings2 className="h-4 w-4 text-primary" />
@@ -1724,9 +1724,17 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                 {selectedElement ? elementTypeConfig[selectedElement.type]?.description : ""}
               </SheetDescription>
             </SheetHeader>
-            <div className="mt-4">
+            <div className="mt-4 flex-1 overflow-y-auto pb-16">
               {renderPropertiesContent()}
             </div>
+            {onSave && (
+              <div className="sticky bottom-0 left-0 right-0 p-3 border-t bg-background/95 backdrop-blur-sm">
+                <Button className="w-full gap-2" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-drawer-save">
+                  <Save className="h-4 w-4" />
+                  {sb.save}
+                </Button>
+              </div>
+            )}
           </SheetContent>
         </Sheet>
       </div>
@@ -1748,7 +1756,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       {builderContent}
 
       <Sheet open={propertiesOpen} onOpenChange={(open) => { setPropertiesOpen(open); if (!open) setSelectedElementId(null); }} modal={false}>
-        <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto shadow-2xl border-l" hideOverlay>
+        <SheetContent side="right" className="w-[400px] sm:w-[450px] shadow-2xl border-l flex flex-col" hideOverlay>
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Settings2 className="h-4 w-4 text-primary" />
@@ -1758,9 +1766,17 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               {selectedElement ? elementTypeConfig[selectedElement.type]?.description : ""}
             </SheetDescription>
           </SheetHeader>
-          <div className="mt-4">
+          <div className="mt-4 flex-1 overflow-y-auto pb-16">
             {renderPropertiesContent()}
           </div>
+          {onSave && (
+            <div className="sticky bottom-0 left-0 right-0 p-3 border-t bg-background/95 backdrop-blur-sm">
+              <Button className="w-full gap-2" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-drawer-save-normal">
+                <Save className="h-4 w-4" />
+                {sb.save}
+              </Button>
+            </div>
+          )}
         </SheetContent>
       </Sheet>
     </div>
