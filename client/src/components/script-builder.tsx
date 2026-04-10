@@ -1692,9 +1692,9 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         <div className="flex items-center justify-between px-4 py-2 border-b bg-card h-[52px]">
           <span className="text-sm font-semibold">Script Builder</span>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary" onClick={() => setIsLoadTemplateOpen(true)} data-testid="button-fullscreen-load-template">
-              <Download className="h-3.5 w-3.5" />
-              {sb.loadTemplate}
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary" onClick={() => setIsSaveTemplateOpen(true)} data-testid="button-fullscreen-save-template">
+              <Save className="h-3.5 w-3.5" />
+              {sb.saveAsTemplate}
             </Button>
             {onSave && (
               <Button size="sm" className="h-7 text-xs gap-1" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-fullscreen-save">
