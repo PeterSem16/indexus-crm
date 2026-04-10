@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,18 +17,20 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import {
   Plus,
   Trash2,
@@ -56,6 +58,11 @@ import {
   Phone,
   Mail,
   CalendarPlus,
+  Maximize2,
+  Minimize2,
+  HelpCircle,
+  PanelRightOpen,
+  Settings2,
 } from "lucide-react";
 import {
   DndContext,
@@ -102,7 +109,7 @@ interface SortableStepProps {
   onSelect: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
-  labels: { untitled: string; element: string; elements: string; endStep: string };
+  labels: { delete: string; duplicate: string };
 }
 
 function SortableStep({ step, isSelected, onSelect, onDelete, onDuplicate, labels }: SortableStepProps) {
@@ -112,52 +119,33 @@ function SortableStep({ step, isSelected, onSelect, onDelete, onDuplicate, label
     setNodeRef,
     transform,
     transition,
-    isDragging,
   } = useSortable({ id: step.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 p-3 rounded-md border cursor-pointer transition-colors ${
+      className={`flex items-center gap-1 p-2 rounded-md border cursor-pointer text-sm transition-colors ${
         isSelected ? "border-primary bg-accent" : "border-border hover-elevate"
       }`}
       onClick={onSelect}
-      data-testid={`step-item-${step.id}`}
+      data-testid={`step-${step.id}`}
     >
-      <div {...attributes} {...listeners} className="cursor-grab">
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{step.title || labels.untitled}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {step.elements.length} {step.elements.length === 1 ? labels.element : labels.elements}
-        </p>
-      </div>
-      <div className="flex items-center gap-1">
-        {step.isEndStep && (
-          <Badge variant="outline" className="text-xs">{labels.endStep}</Badge>
-        )}
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
-          data-testid={`button-duplicate-step-${step.id}`}
-        >
+      <button className="cursor-grab active:cursor-grabbing p-0.5" {...attributes} {...listeners}>
+        <GripVertical className="h-3 w-3 text-muted-foreground" />
+      </button>
+      <span className="flex-1 truncate font-medium">{step.title}</span>
+      {step.isEndStep && <Badge variant="secondary" className="text-[9px] h-4 px-1">END</Badge>}
+      <div className="flex items-center gap-0.5">
+        <Button size="icon" variant="ghost" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); onDuplicate(); }} title={labels.duplicate}>
           <Copy className="h-3 w-3" />
         </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          data-testid={`button-delete-step-${step.id}`}
-        >
+        <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }} title={labels.delete}>
           <Trash2 className="h-3 w-3" />
         </Button>
       </div>
@@ -174,14 +162,14 @@ interface SortableElementProps {
   onMoveDown: () => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
-  labels: { required: string };
+  labels: { delete: string; moveUp: string; moveDown: string };
   elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }>;
 }
 
-function SortableElement({ 
-  element, 
-  isSelected, 
-  onSelect, 
+function SortableElement({
+  element,
+  isSelected,
+  onSelect,
   onDelete,
   onMoveUp,
   onMoveDown,
@@ -191,57 +179,35 @@ function SortableElement({
   elementTypeConfig,
 }: SortableElementProps) {
   const config = elementTypeConfig[element.type];
-  const Icon = config.icon;
-
+  const Icon = config?.icon || Type;
   return (
     <div
-      className={`flex items-center gap-2 p-3 rounded-md border cursor-pointer transition-colors ${
+      className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer text-sm transition-colors ${
         isSelected ? "border-primary bg-accent" : "border-border hover-elevate"
       }`}
       onClick={onSelect}
-      data-testid={`element-item-${element.id}`}
+      data-testid={`element-${element.id}`}
     >
       <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{element.label || config.label}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {element.content?.slice(0, 50) || config.description}
-        </p>
-      </div>
-      <div className="flex items-center gap-1">
-        {element.required && (
-          <Badge variant="secondary" className="text-xs">{labels.required}</Badge>
-        )}
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
-          disabled={!canMoveUp}
-          data-testid={`button-move-up-${element.id}`}
-        >
+      <span className="flex-1 truncate">{element.label || config?.label}</span>
+      {element.required && <span className="text-destructive text-xs">*</span>}
+      <div className="flex items-center gap-0.5">
+        <Button size="icon" variant="ghost" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); onMoveUp(); }} disabled={!canMoveUp} title={labels.moveUp}>
           <ChevronUp className="h-3 w-3" />
         </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
-          disabled={!canMoveDown}
-          data-testid={`button-move-down-${element.id}`}
-        >
+        <Button size="icon" variant="ghost" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); onMoveDown(); }} disabled={!canMoveDown} title={labels.moveDown}>
           <ChevronDown className="h-3 w-3" />
         </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          data-testid={`button-delete-element-${element.id}`}
-        >
+        <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }} title={labels.delete}>
           <Trash2 className="h-3 w-3" />
         </Button>
       </div>
     </div>
   );
 }
+
+type ScriptData = OperatorScript;
+type ScriptStepData = ScriptStep;
 
 interface ScriptBuilderProps {
   script: OperatorScript | null;
@@ -290,6 +256,9 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [isAddElementOpen, setIsAddElementOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
 
   const elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }> = {
     heading: { icon: Type, label: sb.heading, description: sb.headingDesc },
@@ -300,142 +269,122 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
     checkboxGroup: { icon: CheckSquare, label: sb.checkboxGroup, description: sb.checkboxGroupDesc },
     radio: { icon: CircleDot, label: sb.radio, description: sb.radioDesc },
     textInput: { icon: TextCursor, label: sb.textInput, description: sb.textInputDesc },
-    textarea: { icon: FileText, label: sb.textarea, description: sb.textareaDesc },
-    divider: { icon: Minus, label: sb.divider, description: sb.dividerDesc },
+    textarea: { icon: AlignLeft, label: sb.textareaEl, description: sb.textareaDesc },
     note: { icon: AlertCircle, label: sb.note, description: sb.noteDesc },
     outcome: { icon: Target, label: sb.outcome, description: sb.outcomeDesc },
+    divider: { icon: Minus, label: sb.divider, description: sb.dividerDesc },
     action_button: { icon: MousePointerClick, label: sb.actionButton, description: sb.actionButtonDesc },
   };
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const stepLabels = { delete: sb.delete, duplicate: sb.duplicate };
+  const elementLabels = { delete: sb.delete, moveUp: sb.moveUp, moveDown: sb.moveDown };
 
-  const currentScript: OperatorScript = script || {
-    version: 1,
-    steps: [],
-  };
+  const currentScript: ScriptData = useMemo(() => {
+    return script || { version: 1, steps: [] };
+  }, [script]);
 
-  const selectedStep = currentScript.steps.find(s => s.id === selectedStepId);
+  const selectedStep = useMemo(() => {
+    return currentScript.steps.find(s => s.id === selectedStepId) || null;
+  }, [currentScript, selectedStepId]);
+
   const selectedElement = selectedStep?.elements.find(e => e.id === selectedElementId);
 
-  const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  useEffect(() => {
+    if (selectedElement) {
+      setPropertiesOpen(true);
+    }
+  }, [selectedElementId]);
 
-  const updateScript = useCallback((updates: Partial<OperatorScript>) => {
-    onChange({ ...currentScript, ...updates });
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const updateScript = useCallback((updater: (s: ScriptData) => ScriptData) => {
+    const updated = updater(currentScript);
+    onChange(updated);
   }, [currentScript, onChange]);
 
   const addStep = useCallback(() => {
-    const newStep: ScriptStep = {
-      id: generateId(),
-      title: `${sb.addStep} ${currentScript.steps.length + 1}`,
+    const newStep: ScriptStepData = {
+      id: `step_${Date.now()}`,
+      title: `Krok ${currentScript.steps.length + 1}`,
       elements: [],
-      isEndStep: false,
     };
-    updateScript({ steps: [...currentScript.steps, newStep] });
+    updateScript(s => ({ ...s, steps: [...s.steps, newStep] }));
     setSelectedStepId(newStep.id);
     setSelectedElementId(null);
-  }, [currentScript.steps, updateScript, sb.addStep]);
-
-  const updateStep = useCallback((stepId: string, updates: Partial<ScriptStep>) => {
-    updateScript({
-      steps: currentScript.steps.map(s => 
-        s.id === stepId ? { ...s, ...updates } : s
-      ),
-    });
-  }, [currentScript.steps, updateScript]);
+  }, [currentScript, updateScript]);
 
   const deleteStep = useCallback((stepId: string) => {
-    updateScript({ 
-      steps: currentScript.steps.filter(s => s.id !== stepId),
-      startStepId: currentScript.startStepId === stepId ? undefined : currentScript.startStepId,
-    });
+    updateScript(s => ({ ...s, steps: s.steps.filter(st => st.id !== stepId) }));
     if (selectedStepId === stepId) {
       setSelectedStepId(null);
       setSelectedElementId(null);
     }
-  }, [currentScript.steps, currentScript.startStepId, selectedStepId, updateScript]);
+  }, [selectedStepId, updateScript]);
 
   const duplicateStep = useCallback((stepId: string) => {
     const step = currentScript.steps.find(s => s.id === stepId);
     if (!step) return;
-    const newStep: ScriptStep = {
-      ...step,
-      id: generateId(),
-      title: `${step.title} (${sb.copy})`,
-      elements: step.elements.map(e => ({ ...e, id: generateId() })),
+    const newStep: ScriptStepData = {
+      ...JSON.parse(JSON.stringify(step)),
+      id: `step_${Date.now()}`,
+      title: `${step.title} (kópia)`,
     };
-    const index = currentScript.steps.findIndex(s => s.id === stepId);
-    const newSteps = [...currentScript.steps];
-    newSteps.splice(index + 1, 0, newStep);
-    updateScript({ steps: newSteps });
-  }, [currentScript.steps, updateScript]);
+    newStep.elements = newStep.elements.map((e: ScriptElement) => ({ ...e, id: `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }));
+    updateScript(s => ({ ...s, steps: [...s.steps, newStep] }));
+  }, [currentScript, updateScript]);
+
+  const updateStep = useCallback((stepId: string, updates: Partial<ScriptStep>) => {
+    updateScript(s => ({
+      ...s,
+      steps: s.steps.map(st => st.id === stepId ? { ...st, ...updates } : st),
+    }));
+  }, [updateScript]);
 
   const addElement = useCallback((type: ScriptElementType) => {
-    if (!selectedStepId) return;
-    const config = elementTypeConfig[type];
+    if (!selectedStepId || !selectedStep) return;
     const newElement: ScriptElement = {
-      id: generateId(),
+      id: `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       type,
-      label: config.label,
-      required: false,
+      label: elementTypeConfig[type].label,
       content: type === "paragraph" || type === "heading" || type === "note" || type === "action_button" ? "" : undefined,
-      options: ["select", "multiselect", "radio", "checkboxGroup", "outcome"].includes(type)
-        ? [{ value: "option1", label: `${sb.options} 1` }]
-        : undefined,
+      required: false,
+      options: ["select", "multiselect", "radio", "checkboxGroup", "outcome"].includes(type) ?
+        [{ value: "option1", label: `${sb.options} 1` }, { value: "option2", label: `${sb.options} 2` }] : undefined,
       ...(type === "action_button" ? { action: "openPhone", actionLabel: "Zavolať", actionIcon: "phone", variant: "primary" } : {}),
     };
-    updateStep(selectedStepId, {
-      elements: [...(selectedStep?.elements || []), newElement],
-    });
+    updateStep(selectedStep.id, { elements: [...selectedStep.elements, newElement] });
     setSelectedElementId(newElement.id);
     setIsAddElementOpen(false);
-  }, [selectedStepId, selectedStep, updateStep, sb.options]);
-
-  const updateElement = useCallback((elementId: string, updates: Partial<ScriptElement>) => {
-    if (!selectedStepId || !selectedStep) return;
-    updateStep(selectedStepId, {
-      elements: selectedStep.elements.map(e =>
-        e.id === elementId ? { ...e, ...updates } : e
-      ),
-    });
-  }, [selectedStepId, selectedStep, updateStep]);
+  }, [selectedStepId, selectedStep, updateStep, elementTypeConfig, sb.options]);
 
   const deleteElement = useCallback((elementId: string) => {
     if (!selectedStepId || !selectedStep) return;
-    updateStep(selectedStepId, {
-      elements: selectedStep.elements.filter(e => e.id !== elementId),
-    });
+    updateStep(selectedStep.id, { elements: selectedStep.elements.filter(e => e.id !== elementId) });
     if (selectedElementId === elementId) {
       setSelectedElementId(null);
     }
   }, [selectedStepId, selectedStep, selectedElementId, updateStep]);
 
   const moveElement = useCallback((elementId: string, direction: "up" | "down") => {
-    if (!selectedStepId || !selectedStep) return;
-    const index = selectedStep.elements.findIndex(e => e.id === elementId);
-    if (index === -1) return;
-    const newIndex = direction === "up" ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= selectedStep.elements.length) return;
+    if (!selectedStep) return;
+    const idx = selectedStep.elements.findIndex(e => e.id === elementId);
+    if (idx < 0) return;
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= selectedStep.elements.length) return;
     const newElements = [...selectedStep.elements];
-    [newElements[index], newElements[newIndex]] = [newElements[newIndex], newElements[index]];
-    updateStep(selectedStepId, { elements: newElements });
-  }, [selectedStepId, selectedStep, updateStep]);
+    [newElements[idx], newElements[newIdx]] = [newElements[newIdx], newElements[idx]];
+    updateStep(selectedStep.id, { elements: newElements });
+  }, [selectedStep, updateStep]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = currentScript.steps.findIndex(s => s.id === active.id);
-    const newIndex = currentScript.steps.findIndex(s => s.id === over.id);
-    
-    updateScript({
-      steps: arrayMove(currentScript.steps, oldIndex, newIndex),
+  const updateElement = useCallback((elementId: string, updates: Partial<ScriptElement>) => {
+    if (!selectedStep) return;
+    updateStep(selectedStep.id, {
+      elements: selectedStep.elements.map(e => e.id === elementId ? { ...e, ...updates } : e),
     });
-  };
+  }, [selectedStep, updateStep]);
 
   const addOption = useCallback(() => {
     if (!selectedElement || !selectedElement.options) return;
@@ -460,8 +409,17 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
     updateElement(selectedElement.id, { options: newOptions });
   }, [selectedElement, updateElement]);
 
-  const stepLabels = { untitled: sb.untitled, element: sb.element, elements: sb.elements, endStep: sb.endStep };
-  const elementLabels = { required: sb.required };
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    updateScript(s => {
+      const oldIndex = s.steps.findIndex(st => st.id === active.id);
+      const newIndex = s.steps.findIndex(st => st.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return s;
+      return { ...s, steps: arrayMove(s.steps, oldIndex, newIndex) };
+    });
+  }, [updateScript]);
+
   const [showPreview, setShowPreview] = useState(false);
 
   const renderPreviewElement = useCallback((element: ScriptElement) => {
@@ -591,146 +549,520 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
     }
   }, [allEmailTemplates]);
 
-  return (
-    <div className="flex h-full gap-4" data-testid="script-builder">
-      <Card className="w-64 flex-shrink-0">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-sm">{sb.steps}</CardTitle>
-            <Button size="icon" variant="ghost" onClick={addStep} data-testid="button-add-step">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-2">
-          <ScrollArea className="h-[400px]">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={currentScript.steps.map(s => s.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-2">
-                  {currentScript.steps.map(step => (
-                    <SortableStep
-                      key={step.id}
-                      step={step}
-                      isSelected={selectedStepId === step.id}
-                      onSelect={() => { setSelectedStepId(step.id); setSelectedElementId(null); }}
-                      onDelete={() => deleteStep(step.id)}
-                      onDuplicate={() => duplicateStep(step.id)}
-                      labels={stepLabels}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-            {currentScript.steps.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <p className="text-sm">{sb.selectStepOrCreate}</p>
-                <Button variant="ghost" onClick={addStep} className="mt-2">
-                  {sb.addStep}
-                </Button>
-              </div>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
+  const renderPropertiesContent = () => {
+    if (!selectedElement) return null;
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="element-label">{sb.label}</Label>
+          <Input
+            id="element-label"
+            value={selectedElement.label || ""}
+            onChange={(e) => updateElement(selectedElement.id, { label: e.target.value })}
+            data-testid="input-element-label"
+          />
+        </div>
 
-      <Card className="flex-1">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-sm">
-              {selectedStep ? selectedStep.title : sb.selectStep}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              {selectedStep && (
-                <Button size="sm" variant="outline" onClick={() => setIsAddElementOpen(true)} data-testid="button-add-element">
-                  <Plus className="h-4 w-4 mr-1" /> {sb.addElement}
-                </Button>
-              )}
-              {selectedStep && (
-                <Button size="sm" variant={showPreview ? "default" : "outline"} onClick={() => setShowPreview(!showPreview)} data-testid="button-toggle-preview">
-                  {showPreview ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                  {sb.preview}
-                </Button>
-              )}
-              {onSave && (
-                <Button size="sm" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-save-script">
-                  <Save className="h-4 w-4 mr-1" /> {sb.save}
-                </Button>
-              )}
+        {["paragraph", "heading", "note"].includes(selectedElement.type) && (
+          <div className="space-y-2">
+            <Label htmlFor="element-content">{sb.content}</Label>
+            <Textarea
+              id="element-content"
+              value={selectedElement.content || ""}
+              onChange={(e) => updateElement(selectedElement.id, { content: e.target.value })}
+              rows={4}
+              placeholder="Text... Použite premenné ako {{customer.firstName}}"
+              data-testid="textarea-element-content"
+            />
+            <div className="rounded-md border bg-muted/30 p-2">
+              <div className="flex items-center gap-1 mb-1.5">
+                <Variable className="h-3 w-3 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Vložiť premennú</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {SCRIPT_VARIABLES.map((v) => (
+                  <Tooltip key={v.key}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-[10px] h-5 px-1.5 font-mono"
+                        onClick={() => {
+                          const el = document.getElementById("element-content") as HTMLTextAreaElement;
+                          if (el) {
+                            const start = el.selectionStart;
+                            const end = el.selectionEnd;
+                            const current = selectedElement.content || "";
+                            const newContent = current.slice(0, start) + v.key + current.slice(end);
+                            updateElement(selectedElement.id, { content: newContent });
+                            setTimeout(() => {
+                              el.focus();
+                              el.setSelectionRange(start + v.key.length, start + v.key.length);
+                            }, 50);
+                          } else {
+                            updateElement(selectedElement.id, { content: (selectedElement.content || "") + v.key });
+                          }
+                        }}
+                        data-testid={`btn-insert-var-${v.key}`}
+                      >
+                        {v.label}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">{v.key}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          {selectedStep ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="step-title">{sb.stepTitle}</Label>
-                  <Input
-                    id="step-title"
-                    value={selectedStep.title}
-                    onChange={(e) => updateStep(selectedStep.id, { title: e.target.value })}
-                    data-testid="input-step-title"
-                  />
+        )}
+
+        {["textInput", "textarea"].includes(selectedElement.type) && (
+          <div className="space-y-2">
+            <Label htmlFor="element-placeholder">{sb.placeholder}</Label>
+            <Input
+              id="element-placeholder"
+              value={selectedElement.placeholder || ""}
+              onChange={(e) => updateElement(selectedElement.id, { placeholder: e.target.value })}
+              data-testid="input-element-placeholder"
+            />
+          </div>
+        )}
+
+        {["select", "multiselect", "radio", "checkboxGroup", "outcome"].includes(selectedElement.type) && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>{sb.options}</Label>
+              <Button size="sm" variant="ghost" onClick={addOption} data-testid="button-add-option">
+                <Plus className="h-3 w-3 mr-1" /> {sb.add}
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {selectedElement.options?.map((option, index) => (
+                <div key={index} className="space-y-1.5 p-2 rounded-md border bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={option.label}
+                      onChange={(e) => updateOption(index, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
+                      placeholder={sb.optionName}
+                      className="flex-1"
+                      data-testid={`input-option-${index}`}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => deleteOption(index)}
+                      disabled={(selectedElement.options?.length || 0) <= 1}
+                      data-testid={`button-delete-option-${index}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {campaignId && campaignDispositions.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">Dispozícia:</span>
+                      <Select
+                        value={option.dispositionCode || "_none_"}
+                        onValueChange={(v) => updateOption(index, { dispositionCode: v === "_none_" ? "" : v })}
+                      >
+                        <SelectTrigger className="h-7 text-xs flex-1" data-testid={`select-disposition-option-${index}`}>
+                          <SelectValue placeholder="Žiadna" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none_">— Žiadna —</SelectItem>
+                          {campaignDispositions
+                            .filter((d: any) => d.isActive)
+                            .map((d: any) => (
+                              <SelectItem key={d.id} value={d.code}>
+                                {d.parentId ? "  ↳ " : ""}{d.name} ({d.code})
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {selectedElement.type === "note" && (
+          <div className="space-y-2">
+            <Label htmlFor="element-style">{sb.noteStyle}</Label>
+            <Select
+              value={selectedElement.style || "default"}
+              onValueChange={(v) => updateElement(selectedElement.id, { style: v as any })}
+            >
+              <SelectTrigger id="element-style" data-testid="select-element-style">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">{sb.styleDefault}</SelectItem>
+                <SelectItem value="info">{sb.styleInfo}</SelectItem>
+                <SelectItem value="warning">{sb.styleWarning}</SelectItem>
+                <SelectItem value="success">{sb.styleSuccess}</SelectItem>
+                <SelectItem value="error">{sb.styleError}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {selectedElement.type === "heading" && (
+          <div className="space-y-2">
+            <Label htmlFor="element-size">{sb.headingSize}</Label>
+            <Select
+              value={selectedElement.size || "md"}
+              onValueChange={(v) => updateElement(selectedElement.id, { size: v as any })}
+            >
+              <SelectTrigger id="element-size" data-testid="select-element-size">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sm">{sb.sizeSmall}</SelectItem>
+                <SelectItem value="md">{sb.sizeMedium}</SelectItem>
+                <SelectItem value="lg">{sb.sizeLarge}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {selectedElement.type === "action_button" && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="element-content">{sb.content || "Text"}</Label>
+              <Textarea
+                id="element-content"
+                value={selectedElement.content || ""}
+                onChange={(e) => updateElement(selectedElement.id, { content: e.target.value })}
+                rows={2}
+                placeholder="Popis akcie..."
+                data-testid="textarea-action-content"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{sb.actionType}</Label>
+              <Select
+                value={selectedElement.action || "openPhone"}
+                onValueChange={(v) => updateElement(selectedElement.id, { action: v })}
+              >
+                <SelectTrigger data-testid="select-action-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openPhone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Otvoriť telefón</div></SelectItem>
+                  <SelectItem value="makeCall"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Zavolať</div></SelectItem>
+                  <SelectItem value="openEmail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Otvoriť email</div></SelectItem>
+                  <SelectItem value="openDisposition"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> Dispozícia</div></SelectItem>
+                  <SelectItem value="openPhoneDisposition"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Dispozícia (hovor)</div></SelectItem>
+                  <SelectItem value="openEmailDisposition"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Dispozícia (email)</div></SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {campaignId && (
+              <div className="space-y-2 border rounded-md p-3 bg-accent/30">
+                <Label className="flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5 text-primary" />
+                  Dispozícia po akcii
+                </Label>
+                {campaignDispositions.length > 0 ? (
+                  <>
+                    <Select
+                      value={selectedElement.dispositionCode || "_none_"}
+                      onValueChange={(v) => updateElement(selectedElement.id, { dispositionCode: v === "_none_" ? undefined : v })}
+                    >
+                      <SelectTrigger data-testid="select-action-disposition" className="h-8 text-xs">
+                        <SelectValue placeholder="Žiadna" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">— Žiadna —</SelectItem>
+                        {campaignDispositions
+                          .filter((d: any) => d.isActive)
+                          .map((d: any) => (
+                            <SelectItem key={d.id} value={d.code}>
+                              {d.parentId ? "  ↳ " : ""}{d.name} ({d.code})
+                              {d.actionType === "callback" && d.callbackOffsetDays ? ` [${d.callbackOffsetDays}d]` : ""}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Automaticky nastaví dispozíciu po kliknutí na tlačidlo.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Najskôr pridajte dispozície v záložke "Dispozície".
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>{sb.actionLabel}</Label>
+              <Input
+                value={selectedElement.actionLabel || ""}
+                onChange={(e) => updateElement(selectedElement.id, { actionLabel: e.target.value })}
+                placeholder="Zavolať / Poslať email..."
+                data-testid="input-action-label"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{sb.actionIcon}</Label>
+              <Select
+                value={selectedElement.actionIcon || "phone"}
+                onValueChange={(v) => updateElement(selectedElement.id, { actionIcon: v })}
+              >
+                <SelectTrigger data-testid="select-action-icon">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="phone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Telefón</div></SelectItem>
+                  <SelectItem value="mail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Email</div></SelectItem>
+                  <SelectItem value="calendar"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> Kalendár</div></SelectItem>
+                  <SelectItem value="file"><div className="flex items-center gap-2"><FileText className="h-3 w-3" /> Súbor</div></SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                {sb.buttonStyle}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[250px] text-xs">
+                    Vizuálny štýl tlačidla: Primary = plné červené, Secondary = sivé, Outline = s okrajom, Destructive = varovné červené
+                  </TooltipContent>
+                </Tooltip>
+              </Label>
+              <Select
+                value={selectedElement.variant || "primary"}
+                onValueChange={(v) => updateElement(selectedElement.id, { variant: v })}
+              >
+                <SelectTrigger data-testid="select-action-variant">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="primary">Primary — hlavné tlačidlo</SelectItem>
+                  <SelectItem value="secondary">Secondary — vedľajšie</SelectItem>
+                  <SelectItem value="outline">Outline — len okraj</SelectItem>
+                  <SelectItem value="destructive">Destructive — varovné</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedElement.action === "openEmail" && (
+              <div className="space-y-3 border-t pt-3 mt-2">
+                <Label className="flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5 text-primary" />
+                  Email šablóna
+                </Label>
                 <div className="space-y-2">
-                  <Label htmlFor="step-next">{sb.nextStep}</Label>
+                  <Label className="text-xs text-muted-foreground">Kategória</Label>
                   <Select
-                    value={selectedStep.nextStepId || "_auto_"}
-                    onValueChange={(v) => updateStep(selectedStep.id, { nextStepId: v === "_auto_" ? undefined : v })}
+                    value={templateCategoryFilter}
+                    onValueChange={(v) => setTemplateCategoryFilter(v)}
                   >
-                    <SelectTrigger id="step-next" data-testid="select-next-step">
-                      <SelectValue placeholder={sb.autoNext} />
+                    <SelectTrigger data-testid="select-template-category" className="h-8 text-xs">
+                      <SelectValue placeholder="Všetky kategórie" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_auto_">{sb.autoNext}</SelectItem>
-                      {currentScript.steps
-                        .filter(s => s.id !== selectedStep.id)
-                        .map(s => (
-                          <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
-                        ))}
+                      <SelectItem value="__all__">Všetky kategórie</SelectItem>
+                      {templateCategories.map((cat: any) => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="step-description">{sb.stepDescription}</Label>
-                <Textarea
-                  id="step-description"
-                  value={selectedStep.description || ""}
-                  onChange={(e) => updateStep(selectedStep.id, { description: e.target.value })}
-                  placeholder={sb.descriptionPlaceholder}
-                  rows={2}
-                  data-testid="textarea-step-description"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="step-end"
-                  checked={selectedStep.isEndStep || false}
-                  onCheckedChange={(c) => updateStep(selectedStep.id, { isEndStep: c })}
-                  data-testid="switch-end-step"
-                />
-                <Label htmlFor="step-end">{sb.finalStep}</Label>
-              </div>
-              
-              <Separator />
-              
-              {showPreview ? (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-primary" />
-                    <Label className="text-primary font-semibold">{sb.preview}</Label>
+                  <Label className="text-xs text-muted-foreground">Šablóna</Label>
+                  <Select
+                    value={selectedElement.emailTemplateId || "__none__"}
+                    onValueChange={(v) => updateElement(selectedElement.id, { emailTemplateId: v === "__none__" ? undefined : v })}
+                  >
+                    <SelectTrigger data-testid="select-email-template-action" className="h-8 text-xs">
+                      <SelectValue placeholder="Bez šablóny" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Bez šablóny (manuálny výber)</SelectItem>
+                      {filteredEmailTemplates.map((tmpl: any) => (
+                        <SelectItem key={tmpl.id} value={tmpl.id}>
+                          <span className="flex items-center gap-2">
+                            {tmpl.name}
+                            {tmpl.language && <span className="text-xs text-muted-foreground uppercase">({tmpl.language})</span>}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Šablóna sa automaticky načíta keď agent klikne na tlačidlo
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!["divider", "heading", "paragraph", "action_button"].includes(selectedElement.type) && (
+          <div className="flex items-center gap-2">
+            <Switch
+              id="element-required"
+              checked={selectedElement.required || false}
+              onCheckedChange={(c) => updateElement(selectedElement.id, { required: c })}
+              data-testid="switch-element-required"
+            />
+            <Label htmlFor="element-required">{sb.requiredField}</Label>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const builderContent = (
+    <div className={`flex gap-3 ${isFullscreen ? "h-[calc(100vh-60px)]" : "h-full"}`} data-testid="script-builder">
+      <div className="w-52 flex-shrink-0 flex flex-col border rounded-lg bg-card">
+        <div className="flex items-center justify-between p-3 border-b">
+          <span className="text-sm font-semibold">{sb.steps}</span>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={addStep} data-testid="button-add-step">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <ScrollArea className="flex-1 p-2">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={currentScript.steps.map(s => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-1.5">
+                {currentScript.steps.map(step => (
+                  <SortableStep
+                    key={step.id}
+                    step={step}
+                    isSelected={selectedStepId === step.id}
+                    onSelect={() => { setSelectedStepId(step.id); setSelectedElementId(null); }}
+                    onDelete={() => deleteStep(step.id)}
+                    onDuplicate={() => duplicateStep(step.id)}
+                    labels={stepLabels}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+          {currentScript.steps.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground">
+              <p className="text-xs">{sb.selectStepOrCreate}</p>
+              <Button variant="ghost" size="sm" onClick={addStep} className="mt-2 text-xs">
+                {sb.addStep}
+              </Button>
+            </div>
+          )}
+        </ScrollArea>
+      </div>
+
+      <div className="flex-1 flex flex-col border rounded-lg bg-card min-w-0">
+        <div className="flex items-center justify-between p-3 border-b gap-2">
+          <span className="text-sm font-semibold truncate">
+            {selectedStep ? selectedStep.title : sb.selectStep}
+          </span>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {selectedStep && (
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setIsAddElementOpen(true)} data-testid="button-add-element">
+                <Plus className="h-3 w-3" /> {sb.addElement}
+              </Button>
+            )}
+            {selectedStep && (
+              <Button size="sm" variant={showPreview ? "default" : "outline"} className="h-7 text-xs gap-1" onClick={() => setShowPreview(!showPreview)} data-testid="button-toggle-preview">
+                {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                {sb.preview}
+              </Button>
+            )}
+            {selectedElement && (
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setPropertiesOpen(true)} data-testid="button-open-properties">
+                <Settings2 className="h-3 w-3" />
+                Vlastnosti
+              </Button>
+            )}
+            {onSave && (
+              <Button size="sm" className="h-7 text-xs gap-1" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-save-script">
+                <Save className="h-3 w-3" /> {sb.save}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden">
+          {selectedStep ? (
+            <ScrollArea className="h-full">
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="step-title" className="text-xs">{sb.stepTitle}</Label>
+                    <Input
+                      id="step-title"
+                      value={selectedStep.title}
+                      onChange={(e) => updateStep(selectedStep.id, { title: e.target.value })}
+                      className="h-8 text-sm"
+                      data-testid="input-step-title"
+                    />
                   </div>
-                  <Card className="border-primary/20 bg-muted/30">
-                    <CardContent className="p-4">
-                      <ScrollArea className="h-[250px]">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="step-next" className="text-xs">{sb.nextStep}</Label>
+                    <Select
+                      value={selectedStep.nextStepId || "_auto_"}
+                      onValueChange={(v) => updateStep(selectedStep.id, { nextStepId: v === "_auto_" ? undefined : v })}
+                    >
+                      <SelectTrigger id="step-next" className="h-8 text-sm" data-testid="select-next-step">
+                        <SelectValue placeholder={sb.autoNext} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_auto_">{sb.autoNext}</SelectItem>
+                        {currentScript.steps
+                          .filter(s => s.id !== selectedStep.id)
+                          .map(s => (
+                            <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 space-y-1.5">
+                    <Label htmlFor="step-description" className="text-xs">{sb.stepDescription}</Label>
+                    <Input
+                      id="step-description"
+                      value={selectedStep.description || ""}
+                      onChange={(e) => updateStep(selectedStep.id, { description: e.target.value })}
+                      placeholder={sb.descriptionPlaceholder}
+                      className="h-8 text-sm"
+                      data-testid="textarea-step-description"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <Switch
+                      id="step-end"
+                      checked={selectedStep.isEndStep || false}
+                      onCheckedChange={(c) => updateStep(selectedStep.id, { isEndStep: c })}
+                      data-testid="switch-end-step"
+                    />
+                    <Label htmlFor="step-end" className="text-xs whitespace-nowrap">{sb.finalStep}</Label>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                {showPreview ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-primary" />
+                      <Label className="text-primary font-semibold text-xs">{sb.preview}</Label>
+                    </div>
+                    <Card className="border-primary/20 bg-muted/30">
+                      <CardContent className="p-4">
                         <div className="space-y-4">
                           {selectedStep.description && (
                             <p className="text-sm text-muted-foreground italic">{selectedStep.description}</p>
@@ -742,15 +1074,13 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                             <div className="text-center py-4 text-muted-foreground text-sm">{sb.addElementsToStep}</div>
                           )}
                         </div>
-                      </ScrollArea>
-                    </CardContent>
-                  </Card>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label>{sb.stepElements}</Label>
-                  <ScrollArea className="h-[200px]">
-                    <div className="space-y-2">
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label className="text-xs">{sb.stepElements}</Label>
+                    <div className="space-y-1.5">
                       {selectedStep.elements.map((element, index) => (
                         <SortableElement
                           key={element.id}
@@ -767,403 +1097,44 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                         />
                       ))}
                       {selectedStep.elements.length === 0 && (
-                        <div className="text-center py-4 text-muted-foreground text-sm">
+                        <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
+                          <Plus className="h-6 w-6 mx-auto mb-2 opacity-40" />
                           {sb.addElementsToStep}
                         </div>
                       )}
                     </div>
-                  </ScrollArea>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>{sb.selectStepOrCreate}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="w-80 flex-shrink-0">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">
-            {selectedElement ? `${sb.editElement}: ${elementTypeConfig[selectedElement.type].label}` : sb.elementProperties}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {selectedElement ? (
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-4 pr-4">
-                <div className="space-y-2">
-                  <Label htmlFor="element-label">{sb.label}</Label>
-                  <Input
-                    id="element-label"
-                    value={selectedElement.label || ""}
-                    onChange={(e) => updateElement(selectedElement.id, { label: e.target.value })}
-                    data-testid="input-element-label"
-                  />
-                </div>
-
-                {["paragraph", "heading", "note"].includes(selectedElement.type) && (
-                  <div className="space-y-2">
-                    <Label htmlFor="element-content">{sb.content}</Label>
-                    <Textarea
-                      id="element-content"
-                      value={selectedElement.content || ""}
-                      onChange={(e) => updateElement(selectedElement.id, { content: e.target.value })}
-                      rows={4}
-                      placeholder="Text... Použite premenné ako {{customer.firstName}}"
-                      data-testid="textarea-element-content"
-                    />
-                    <div className="rounded-md border bg-muted/30 p-2">
-                      <div className="flex items-center gap-1 mb-1.5">
-                        <Variable className="h-3 w-3 text-primary" />
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Vložiť premennú</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {SCRIPT_VARIABLES.map((v) => (
-                          <Tooltip key={v.key}>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="text-[10px] h-5 px-1.5 font-mono"
-                                onClick={() => {
-                                  const el = document.getElementById("element-content") as HTMLTextAreaElement;
-                                  if (el) {
-                                    const start = el.selectionStart;
-                                    const end = el.selectionEnd;
-                                    const current = selectedElement.content || "";
-                                    const newContent = current.slice(0, start) + v.key + current.slice(end);
-                                    updateElement(selectedElement.id, { content: newContent });
-                                    setTimeout(() => {
-                                      el.focus();
-                                      el.setSelectionRange(start + v.key.length, start + v.key.length);
-                                    }, 50);
-                                  } else {
-                                    updateElement(selectedElement.id, { content: (selectedElement.content || "") + v.key });
-                                  }
-                                }}
-                                data-testid={`btn-insert-var-${v.key}`}
-                              >
-                                {v.label}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="text-xs">{v.key}</TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {["textInput", "textarea"].includes(selectedElement.type) && (
-                  <div className="space-y-2">
-                    <Label htmlFor="element-placeholder">{sb.placeholder}</Label>
-                    <Input
-                      id="element-placeholder"
-                      value={selectedElement.placeholder || ""}
-                      onChange={(e) => updateElement(selectedElement.id, { placeholder: e.target.value })}
-                      data-testid="input-element-placeholder"
-                    />
-                  </div>
-                )}
-
-                {["select", "multiselect", "radio", "checkboxGroup", "outcome"].includes(selectedElement.type) && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>{sb.options}</Label>
-                      <Button size="sm" variant="ghost" onClick={addOption} data-testid="button-add-option">
-                        <Plus className="h-3 w-3 mr-1" /> {sb.add}
-                      </Button>
-                    </div>
-                    <div className="space-y-3">
-                      {selectedElement.options?.map((option, index) => (
-                        <div key={index} className="space-y-1.5 p-2 rounded-md border bg-muted/20">
-                          <div className="flex items-center gap-2">
-                            <Input
-                              value={option.label}
-                              onChange={(e) => updateOption(index, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
-                              placeholder={sb.optionName}
-                              className="flex-1"
-                              data-testid={`input-option-${index}`}
-                            />
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => deleteOption(index)}
-                              disabled={(selectedElement.options?.length || 0) <= 1}
-                              data-testid={`button-delete-option-${index}`}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          {campaignId && campaignDispositions.length > 0 && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">Dispozícia:</span>
-                              <Select
-                                value={option.dispositionCode || "_none_"}
-                                onValueChange={(v) => updateOption(index, { dispositionCode: v === "_none_" ? "" : v })}
-                              >
-                                <SelectTrigger className="h-7 text-xs flex-1" data-testid={`select-disposition-option-${index}`}>
-                                  <SelectValue placeholder="Žiadna" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="_none_">— Žiadna —</SelectItem>
-                                  {campaignDispositions
-                                    .filter((d: any) => d.isActive)
-                                    .map((d: any) => (
-                                      <SelectItem key={d.id} value={d.code}>
-                                        {d.parentId ? "  ↳ " : ""}{d.name} ({d.code})
-                                      </SelectItem>
-                                    ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {selectedElement.type === "note" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="element-style">{sb.noteStyle}</Label>
-                    <Select
-                      value={selectedElement.style || "default"}
-                      onValueChange={(v) => updateElement(selectedElement.id, { style: v as any })}
-                    >
-                      <SelectTrigger id="element-style" data-testid="select-element-style">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">{sb.styleDefault}</SelectItem>
-                        <SelectItem value="info">{sb.styleInfo}</SelectItem>
-                        <SelectItem value="warning">{sb.styleWarning}</SelectItem>
-                        <SelectItem value="success">{sb.styleSuccess}</SelectItem>
-                        <SelectItem value="error">{sb.styleError}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {selectedElement.type === "heading" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="element-size">{sb.headingSize}</Label>
-                    <Select
-                      value={selectedElement.size || "md"}
-                      onValueChange={(v) => updateElement(selectedElement.id, { size: v as any })}
-                    >
-                      <SelectTrigger id="element-size" data-testid="select-element-size">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sm">{sb.sizeSmall}</SelectItem>
-                        <SelectItem value="md">{sb.sizeMedium}</SelectItem>
-                        <SelectItem value="lg">{sb.sizeLarge}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {selectedElement.type === "action_button" && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="element-content">{sb.content || "Text"}</Label>
-                      <Textarea
-                        id="element-content"
-                        value={selectedElement.content || ""}
-                        onChange={(e) => updateElement(selectedElement.id, { content: e.target.value })}
-                        rows={2}
-                        placeholder="Popis akcie..."
-                        data-testid="textarea-action-content"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{sb.actionType}</Label>
-                      <Select
-                        value={selectedElement.action || "openPhone"}
-                        onValueChange={(v) => updateElement(selectedElement.id, { action: v })}
-                      >
-                        <SelectTrigger data-testid="select-action-type">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="openPhone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Otvoriť telefón</div></SelectItem>
-                          <SelectItem value="makeCall"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Zavolať</div></SelectItem>
-                          <SelectItem value="openEmail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Otvoriť email</div></SelectItem>
-                          <SelectItem value="openDisposition"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> Dispozícia</div></SelectItem>
-                          <SelectItem value="openPhoneDisposition"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Dispozícia (hovor)</div></SelectItem>
-                          <SelectItem value="openEmailDisposition"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Dispozícia (email)</div></SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {campaignId && (
-                      <div className="space-y-2 border rounded-md p-3 bg-accent/30">
-                        <Label className="flex items-center gap-1.5">
-                          <Target className="h-3.5 w-3.5 text-primary" />
-                          Dispozícia po akcii
-                        </Label>
-                        {campaignDispositions.length > 0 ? (
-                          <>
-                            <Select
-                              value={selectedElement.dispositionCode || "_none_"}
-                              onValueChange={(v) => updateElement(selectedElement.id, { dispositionCode: v === "_none_" ? undefined : v })}
-                            >
-                              <SelectTrigger data-testid="select-action-disposition" className="h-8 text-xs">
-                                <SelectValue placeholder="Žiadna" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="_none_">— Žiadna —</SelectItem>
-                                {campaignDispositions
-                                  .filter((d: any) => d.isActive)
-                                  .map((d: any) => (
-                                    <SelectItem key={d.id} value={d.code}>
-                                      {d.parentId ? "  ↳ " : ""}{d.name} ({d.code})
-                                      {d.actionType === "callback" && d.callbackOffsetDays ? ` [${d.callbackOffsetDays}d]` : ""}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground">
-                              Automaticky nastaví dispozíciu po kliknutí na tlačidlo.
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Najskôr pridajte dispozície v záložke "Dispozície".
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label>{sb.actionLabel}</Label>
-                      <Input
-                        value={selectedElement.actionLabel || ""}
-                        onChange={(e) => updateElement(selectedElement.id, { actionLabel: e.target.value })}
-                        placeholder="Zavolať / Poslať email..."
-                        data-testid="input-action-label"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{sb.actionIcon}</Label>
-                      <Select
-                        value={selectedElement.actionIcon || "phone"}
-                        onValueChange={(v) => updateElement(selectedElement.id, { actionIcon: v })}
-                      >
-                        <SelectTrigger data-testid="select-action-icon">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="phone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Telefón</div></SelectItem>
-                          <SelectItem value="mail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Email</div></SelectItem>
-                          <SelectItem value="calendar"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> Kalendár</div></SelectItem>
-                          <SelectItem value="file"><div className="flex items-center gap-2"><FileText className="h-3 w-3" /> Súbor</div></SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5">
-                        {sb.buttonStyle}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <AlertCircle className="h-3 w-3 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[250px] text-xs">
-                            Vizuálny štýl tlačidla: Primary = plné červené, Secondary = sivé, Outline = s okrajom, Destructive = varovné červené
-                          </TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Select
-                        value={selectedElement.variant || "primary"}
-                        onValueChange={(v) => updateElement(selectedElement.id, { variant: v })}
-                      >
-                        <SelectTrigger data-testid="select-action-variant">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="primary">Primary — hlavné tlačidlo</SelectItem>
-                          <SelectItem value="secondary">Secondary — vedľajšie</SelectItem>
-                          <SelectItem value="outline">Outline — len okraj</SelectItem>
-                          <SelectItem value="destructive">Destructive — varovné</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {selectedElement.action === "openEmail" && (
-                      <div className="space-y-3 border-t pt-3 mt-2">
-                        <Label className="flex items-center gap-1.5">
-                          <Mail className="h-3.5 w-3.5 text-primary" />
-                          Email šablóna
-                        </Label>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Kategória</Label>
-                          <Select
-                            value={templateCategoryFilter}
-                            onValueChange={(v) => setTemplateCategoryFilter(v)}
-                          >
-                            <SelectTrigger data-testid="select-template-category" className="h-8 text-xs">
-                              <SelectValue placeholder="Všetky kategórie" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__all__">Všetky kategórie</SelectItem>
-                              {templateCategories.map((cat: any) => (
-                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Šablóna</Label>
-                          <Select
-                            value={selectedElement.emailTemplateId || "__none__"}
-                            onValueChange={(v) => updateElement(selectedElement.id, { emailTemplateId: v === "__none__" ? undefined : v })}
-                          >
-                            <SelectTrigger data-testid="select-email-template-action" className="h-8 text-xs">
-                              <SelectValue placeholder="Bez šablóny" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">Bez šablóny (manuálny výber)</SelectItem>
-                              {filteredEmailTemplates.map((tmpl: any) => (
-                                <SelectItem key={tmpl.id} value={tmpl.id}>
-                                  <span className="flex items-center gap-2">
-                                    {tmpl.name}
-                                    {tmpl.language && <span className="text-xs text-muted-foreground uppercase">({tmpl.language})</span>}
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Šablóna sa automaticky načíta keď agent klikne na tlačidlo
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {!["divider", "heading", "paragraph", "action_button"].includes(selectedElement.type) && (
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="element-required"
-                      checked={selectedElement.required || false}
-                      onCheckedChange={(c) => updateElement(selectedElement.id, { required: c })}
-                      data-testid="switch-element-required"
-                    />
-                    <Label htmlFor="element-required">{sb.requiredField}</Label>
                   </div>
                 )}
               </div>
             </ScrollArea>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <p className="text-sm">{sb.selectStepOrCreate}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen} modal={false}>
+        <SheetContent side="right" className="w-[360px] sm:max-w-[400px] overflow-y-auto z-[9991]" onInteractOutside={(e) => e.preventDefault()}>
+          <SheetHeader className="pb-4">
+            <SheetTitle className="text-sm flex items-center gap-2">
+              <Settings2 className="h-4 w-4" />
+              {selectedElement ? `${sb.editElement}: ${elementTypeConfig[selectedElement.type]?.label}` : sb.elementProperties}
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              {selectedElement ? "Upravte vlastnosti vybraného elementu" : "Vyberte element na úpravu"}
+            </SheetDescription>
+          </SheetHeader>
+          {selectedElement ? (
+            renderPropertiesContent()
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
               <p className="text-sm">{sb.selectElementToEdit}</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={isAddElementOpen} onOpenChange={setIsAddElementOpen}>
         <DialogContent className="max-w-2xl">
@@ -1198,6 +1169,106 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-primary" />
+              Nápoveda k Script Builderu
+            </DialogTitle>
+            <DialogDescription>
+              Premenné a návod na tvorbu scenárov
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div>
+              <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                <Variable className="h-4 w-4 text-primary" />
+                Dostupné premenné
+              </h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                Tieto premenné sa v agentskom workspace automaticky nahradia skutočnými údajmi kontaktu.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Kontakt</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {SCRIPT_VARIABLES.filter(v => v.category === "customer").map((v) => (
+                      <Badge key={v.key} variant="secondary" className="text-[10px] font-mono">
+                        {v.key} <span className="ml-1 font-sans text-muted-foreground">({v.label})</span>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Systém</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {SCRIPT_VARIABLES.filter(v => v.category === "system").map((v) => (
+                      <Badge key={v.key} variant="secondary" className="text-[10px] font-mono">
+                        {v.key} <span className="ml-1 font-sans text-muted-foreground">({v.label})</span>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Separator />
+            <div>
+              <h3 className="font-semibold text-sm mb-2">Návod na tvorbu scenára</h3>
+              <ul className="list-disc list-inside space-y-1.5 text-sm text-muted-foreground">
+                <li><strong>Kroky:</strong> Rozdeľte scenár na logické kroky (napr. Pozdrav, Overenie, Ponuka, Záver)</li>
+                <li><strong>Nadpisy a odstavce:</strong> Použite pre textové inštrukcie a informácie</li>
+                <li><strong>Výberové polia:</strong> Pre otázky s jasnou odpoveďou (napr. "Má záujem?" - Áno/Nie)</li>
+                <li><strong>Zaškrtávacie polia:</strong> Pre zoznamy položiek na overenie alebo splnenie</li>
+                <li><strong>Textové polia:</strong> Pre poznámky a voľné odpovede klienta</li>
+                <li><strong>Poznámky:</strong> Pre dôležité upozornenia a tipy pre operátora</li>
+                <li><strong>Výsledok hovoru:</strong> Pre zaznamenanie konečného stavu hovoru</li>
+                <li><strong>Akčné tlačidlá:</strong> Pre spustenie akcií (volanie, email, dispozícia)</li>
+              </ul>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-[9980] bg-background">
+        <div className="flex items-center justify-between px-4 py-2 border-b bg-card h-[52px]">
+          <span className="text-sm font-semibold">Script Builder</span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsHelpOpen(true)} data-testid="button-help">
+              <HelpCircle className="h-3.5 w-3.5" />
+              Nápoveda
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsFullscreen(false)} data-testid="button-minimize">
+              <Minimize2 className="h-3.5 w-3.5" />
+              Zmenšiť
+            </Button>
+          </div>
+        </div>
+        <div className="p-3 h-[calc(100vh-52px)]">
+          {builderContent}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-end gap-2 mb-2">
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsHelpOpen(true)} data-testid="button-help">
+          <HelpCircle className="h-3.5 w-3.5" />
+          Nápoveda
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsFullscreen(true)} data-testid="button-fullscreen">
+          <Maximize2 className="h-3.5 w-3.5" />
+          Na celú obrazovku
+        </Button>
+      </div>
+      {builderContent}
     </div>
   );
 }
