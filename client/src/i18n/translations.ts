@@ -1874,6 +1874,8 @@ export interface Translations {
           colorYellow: string;
           colorPurple: string;
           colorOrange: string;
+
+          previewNotShownInAgent: string;
       };
       scriptGuideTitle: string;
       scriptGuideSteps: string;
@@ -7977,6 +7979,7 @@ export const translations: Record<Locale, Translations> = {
             colorYellow: 'Yellow',
             colorPurple: 'Purple',
             colorOrange: 'Orange',
+            previewNotShownInAgent: '(not shown to agent)',
         },
         scriptGuideTitle: 'Script building guide',
         scriptGuideSteps: 'Steps: Divide the script into logical steps (e.g. Greeting, Verification, Offer, Closing)',
@@ -13521,6 +13524,7 @@ export const translations: Record<Locale, Translations> = {
             colorYellow: 'Žltá',
             colorPurple: 'Fialová',
             colorOrange: 'Oranžová',
+            previewNotShownInAgent: '(nezobrazuje sa agentovi)',
         },
         scriptGuideTitle: 'Príručka tvorby skriptov',
         scriptGuideSteps: 'Kroky: Rozdeľte skript na logické kroky (napr. Pozdrav, Overenie, Ponuka, Záver)',
@@ -19004,6 +19008,7 @@ export const translations: Record<Locale, Translations> = {
             colorYellow: 'Žlutá',
             colorPurple: 'Fialová',
             colorOrange: 'Oranžová',
+            previewNotShownInAgent: '(nezobrazuje se agentovi)',
         },
         scriptGuideTitle: 'Příručka tvorby skriptů',
         scriptGuideSteps: 'Kroky: Rozdělte skript na logické kroky (např. Pozdrav, Ověření, Nabídka, Závěr)',
@@ -24451,6 +24456,7 @@ export const translations: Record<Locale, Translations> = {
             colorYellow: 'Sárga',
             colorPurple: 'Lila',
             colorOrange: 'Narancs',
+            previewNotShownInAgent: '(nem jelenik meg az ügynöknek)',
         },
         scriptGuideTitle: 'Szkript készítési útmutató',
         scriptGuideSteps: 'Lépések: Ossza fel a szkriptet logikai lépésekre (pl. Üdvözlés, Ellenőrzés, Ajánlat, Zárás)',
@@ -29820,6 +29826,7 @@ export const translations: Record<Locale, Translations> = {
             colorYellow: 'Galben',
             colorPurple: 'Violet',
             colorOrange: 'Portocaliu',
+            previewNotShownInAgent: '(nu se afișează agentului)',
         },
         scriptGuideTitle: 'Ghid de creare scripturi',
         scriptGuideSteps: 'Pași: Împărțiți scriptul în pași logici (de ex. Salut, Verificare, Ofertă, Încheiere)',
@@ -35190,6 +35197,7 @@ export const translations: Record<Locale, Translations> = {
             colorYellow: 'Giallo',
             colorPurple: 'Viola',
             colorOrange: 'Arancione',
+            previewNotShownInAgent: '(non mostrato all\'agente)',
         },
         scriptGuideTitle: 'Guida alla creazione degli script',
         scriptGuideSteps: 'Passi: Dividi lo script in passaggi logici (es. Saluto, Verifica, Offerta, Chiusura)',
@@ -40560,6 +40568,7 @@ export const translations: Record<Locale, Translations> = {
             colorYellow: 'Gelb',
             colorPurple: 'Lila',
             colorOrange: 'Orange',
+            previewNotShownInAgent: '(wird dem Agenten nicht angezeigt)',
         },
         scriptGuideTitle: 'Anleitung zur Skripterstellung',
         scriptGuideSteps: 'Schritte: Teilen Sie das Skript in logische Schritte auf (z.B. Begrüßung, Verifizierung, Angebot, Abschluss)',

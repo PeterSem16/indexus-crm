@@ -1365,9 +1365,10 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                 <ScrollArea className="flex-1">
                   <div className="p-4">
                     <div className="space-y-4">
-                      {selectedStep.description && (
-                        <p className="text-sm text-muted-foreground italic">{td(selectedStep.description)}</p>
-                      )}
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 border border-dashed border-muted-foreground/30">
+                        <span className="text-xs font-semibold text-muted-foreground">{td(selectedStep.title)}</span>
+                        <span className="text-[10px] text-muted-foreground/60 italic">{sb.previewNotShownInAgent}</span>
+                      </div>
                       {selectedStep.elements.map((element) => (
                         <div key={element.id} className={`transition-all rounded-md ${selectedElementId === element.id ? "ring-2 ring-primary/50 ring-offset-2" : ""}`}>
                           {renderPreviewElement(element)}
@@ -1691,6 +1692,17 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         <div className="flex items-center justify-between px-4 py-2 border-b bg-card h-[52px]">
           <span className="text-sm font-semibold">Script Builder</span>
           <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary" onClick={() => setIsLoadTemplateOpen(true)} data-testid="button-fullscreen-load-template">
+              <Download className="h-3.5 w-3.5" />
+              {sb.loadTemplate}
+            </Button>
+            {onSave && (
+              <Button size="sm" className="h-7 text-xs gap-1" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-fullscreen-save">
+                <Save className="h-3.5 w-3.5" />
+                {sb.save}
+              </Button>
+            )}
+            <Separator orientation="vertical" className="h-5" />
             <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setIsHelpOpen(true)} data-testid="button-help">
               <HelpCircle className="h-3.5 w-3.5" />
               {sb.helpBtn}
