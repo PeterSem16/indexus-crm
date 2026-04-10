@@ -408,10 +408,10 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const selectedElement = selectedStep?.elements.find(e => e.id === selectedElementId);
 
   useEffect(() => {
-    if (selectedElement) {
+    if (selectedElementId && selectedElement) {
       setPropertiesOpen(true);
     }
-  }, [selectedElementId]);
+  }, [selectedElementId, selectedElement]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -1315,7 +1315,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                             key={element.id}
                             element={element}
                             isSelected={selectedElementId === element.id}
-                            onSelect={() => setSelectedElementId(element.id)}
+                            onSelect={() => { setSelectedElementId(element.id); setPropertiesOpen(true); }}
                             onDelete={() => deleteElement(element.id)}
                             onMoveUp={() => moveElement(element.id, "up")}
                             onMoveDown={() => moveElement(element.id, "down")}
@@ -1717,7 +1717,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           {builderContent}
         </div>
 
-        <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen} modal={false}>
+        <Sheet open={propertiesOpen} onOpenChange={(open) => { setPropertiesOpen(open); if (!open) setSelectedElementId(null); }} modal={false}>
           <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto z-[9995] shadow-2xl border-l" hideOverlay>
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
@@ -1751,7 +1751,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       </div>
       {builderContent}
 
-      <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen} modal={false}>
+      <Sheet open={propertiesOpen} onOpenChange={(open) => { setPropertiesOpen(open); if (!open) setSelectedElementId(null); }} modal={false}>
         <SheetContent side="right" className="w-[400px] sm:w-[450px] overflow-y-auto shadow-2xl border-l" hideOverlay>
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
