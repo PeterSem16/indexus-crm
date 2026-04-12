@@ -36,8 +36,6 @@ import {
   Trash2,
   GripVertical,
   Copy,
-  ChevronUp,
-  ChevronDown,
   Type,
   AlignLeft,
   ListOrdered,
@@ -206,11 +204,7 @@ interface SortableElementProps {
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  labels: { delete: string; moveUp: string; moveDown: string };
+  labels: { delete: string };
   elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }>;
 }
 
@@ -219,33 +213,41 @@ function SortableElement({
   isSelected,
   onSelect,
   onDelete,
-  onMoveUp,
-  onMoveDown,
-  canMoveUp,
-  canMoveDown,
   labels,
   elementTypeConfig,
 }: SortableElementProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: element.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const config = elementTypeConfig[element.type];
   const Icon = config?.icon || Type;
   return (
     <div
-      className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer text-sm transition-colors ${
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1.5 p-2 rounded-md border cursor-pointer text-sm transition-colors ${
         isSelected ? "border-primary bg-accent" : "border-border hover-elevate"
       }`}
       onClick={onSelect}
       data-testid={`element-${element.id}`}
     >
+      <button className="cursor-grab active:cursor-grabbing p-0.5 flex-shrink-0" {...attributes} {...listeners} onClick={(e) => e.stopPropagation()}>
+        <GripVertical className="h-3 w-3 text-muted-foreground" />
+      </button>
       <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       <span className="flex-1 truncate">{element.label || config?.label}</span>
       {element.required && <span className="text-destructive text-xs">*</span>}
       <div className="flex items-center gap-0.5">
-        <Button size="icon" variant="ghost" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); onMoveUp(); }} disabled={!canMoveUp} title={labels.moveUp}>
-          <ChevronUp className="h-3 w-3" />
-        </Button>
-        <Button size="icon" variant="ghost" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); onMoveDown(); }} disabled={!canMoveDown} title={labels.moveDown}>
-          <ChevronDown className="h-3 w-3" />
-        </Button>
         <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }} title={labels.delete}>
           <Trash2 className="h-3 w-3" />
         </Button>
@@ -445,7 +447,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   };
 
   const stepLabels = { delete: sb.delete, duplicate: sb.duplicate };
-  const elementLabels = { delete: sb.delete, moveUp: sb.moveUp, moveDown: sb.moveDown };
+  const elementLabels = { delete: sb.delete };
 
   const currentScript: ScriptData = useMemo(() => {
     return script || { version: 1, steps: [] };
@@ -537,17 +539,6 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
     }
   }, [selectedStepId, selectedStep, selectedElementId, updateStep]);
 
-  const moveElement = useCallback((elementId: string, direction: "up" | "down") => {
-    if (!selectedStep) return;
-    const idx = selectedStep.elements.findIndex(e => e.id === elementId);
-    if (idx < 0) return;
-    const newIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= selectedStep.elements.length) return;
-    const newElements = [...selectedStep.elements];
-    [newElements[idx], newElements[newIdx]] = [newElements[newIdx], newElements[idx]];
-    updateStep(selectedStep.id, { elements: newElements });
-  }, [selectedStep, updateStep]);
-
   const updateElement = useCallback((elementId: string, updates: Partial<ScriptElement>) => {
     if (!selectedStep) return;
     updateStep(selectedStep.id, {
@@ -630,6 +621,15 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       return { ...s, steps: arrayMove(s.steps, oldIndex, newIndex) };
     });
   }, [updateScript]);
+
+  const handleElementDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !selectedStep) return;
+    const oldIndex = selectedStep.elements.findIndex(el => el.id === active.id);
+    const newIndex = selectedStep.elements.findIndex(el => el.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    updateStep(selectedStep.id, { elements: arrayMove(selectedStep.elements, oldIndex, newIndex) });
+  }, [selectedStep, updateStep]);
 
   const td = useCallback((text: string | undefined) => showTestData ? replaceTestData(text) : (text || ""), [showTestData]);
 
@@ -1532,29 +1532,36 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                         <Label className="text-xs font-medium">{sb.stepElements}</Label>
                         <span className="text-[10px] text-muted-foreground">{selectedStep.elements.length} {sb.elementsCount}</span>
                       </div>
-                      <div className="space-y-1">
-                        {selectedStep.elements.map((element, index) => (
-                          <SortableElement
-                            key={element.id}
-                            element={element}
-                            isSelected={selectedElementId === element.id}
-                            onSelect={() => { setSelectedElementId(element.id); setPropertiesOpen(true); }}
-                            onDelete={() => deleteElement(element.id)}
-                            onMoveUp={() => moveElement(element.id, "up")}
-                            onMoveDown={() => moveElement(element.id, "down")}
-                            canMoveUp={index > 0}
-                            canMoveDown={index < selectedStep.elements.length - 1}
-                            labels={elementLabels}
-                            elementTypeConfig={elementTypeConfig}
-                          />
-                        ))}
-                        {selectedStep.elements.length === 0 && (
-                          <div className="text-center py-6 text-muted-foreground text-xs border-2 border-dashed rounded-lg">
-                            <Plus className="h-5 w-5 mx-auto mb-1.5 opacity-40" />
-                            {sb.addElementsToStep}
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleElementDragEnd}
+                      >
+                        <SortableContext
+                          items={selectedStep.elements.map(el => el.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-1">
+                            {selectedStep.elements.map((element) => (
+                              <SortableElement
+                                key={element.id}
+                                element={element}
+                                isSelected={selectedElementId === element.id}
+                                onSelect={() => { setSelectedElementId(element.id); setPropertiesOpen(true); }}
+                                onDelete={() => deleteElement(element.id)}
+                                labels={elementLabels}
+                                elementTypeConfig={elementTypeConfig}
+                              />
+                            ))}
+                            {selectedStep.elements.length === 0 && (
+                              <div className="text-center py-6 text-muted-foreground text-xs border-2 border-dashed rounded-lg">
+                                <Plus className="h-5 w-5 mx-auto mb-1.5 opacity-40" />
+                                {sb.addElementsToStep}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </SortableContext>
+                      </DndContext>
                     </div>
 
                   </div>
