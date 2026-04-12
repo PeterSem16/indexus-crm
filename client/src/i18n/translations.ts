@@ -1804,6 +1804,7 @@ export interface Translations {
           formatBold: string;
           formatItalic: string;
           formatUnderline: string;
+          clearFormatting: string;
           insertVariable: string;
           allVariables: string;
           // Test data
@@ -7969,6 +7970,7 @@ export const translations: Record<Locale, Translations> = {
             formatBold: 'Bold',
             formatItalic: 'Italic',
             formatUnderline: 'Underline',
+            clearFormatting: 'Clear formatting',
             insertVariable: 'Insert variable',
             allVariables: 'All variables',
             testData: 'Test data',
@@ -13568,6 +13570,7 @@ export const translations: Record<Locale, Translations> = {
             formatBold: 'Tučné',
             formatItalic: 'Kurzíva',
             formatUnderline: 'Podčiarknuté',
+            clearFormatting: 'Vyčistiť formátovanie',
             insertVariable: 'Vložiť premennú',
             allVariables: 'Všetky premenné',
             testData: 'Test dáta',
@@ -19106,6 +19109,7 @@ export const translations: Record<Locale, Translations> = {
             formatBold: 'Tučné',
             formatItalic: 'Kurzíva',
             formatUnderline: 'Podtržené',
+            clearFormatting: 'Vyčistit formátování',
             insertVariable: 'Vložit proměnnou',
             allVariables: 'Všechny proměnné',
             testData: 'Test data',
@@ -24608,6 +24612,7 @@ export const translations: Record<Locale, Translations> = {
             formatBold: 'Félkövér',
             formatItalic: 'Dőlt',
             formatUnderline: 'Aláhúzott',
+            clearFormatting: 'Formázás törlése',
             insertVariable: 'Változó beszúrása',
             allVariables: 'Összes változó',
             testData: 'Teszt adatok',
@@ -30032,6 +30037,7 @@ export const translations: Record<Locale, Translations> = {
             formatBold: 'Bold',
             formatItalic: 'Italic',
             formatUnderline: 'Subliniat',
+            clearFormatting: 'Șterge formatarea',
             insertVariable: 'Inserare variabilă',
             allVariables: 'Toate variabilele',
             testData: 'Date test',
@@ -35457,6 +35463,7 @@ export const translations: Record<Locale, Translations> = {
             formatBold: 'Grassetto',
             formatItalic: 'Corsivo',
             formatUnderline: 'Sottolineato',
+            clearFormatting: 'Cancella formattazione',
             insertVariable: 'Inserisci variabile',
             allVariables: 'Tutte le variabili',
             testData: 'Dati test',
@@ -40882,6 +40889,7 @@ export const translations: Record<Locale, Translations> = {
             formatBold: 'Fett',
             formatItalic: 'Kursiv',
             formatUnderline: 'Unterstrichen',
+            clearFormatting: 'Formatierung löschen',
             insertVariable: 'Variable einfügen',
             allVariables: 'Alle Variablen',
             testData: 'Testdaten',

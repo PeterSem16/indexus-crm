@@ -73,6 +73,7 @@ import {
   Languages,
   Loader2,
   Navigation,
+  RemoveFormatting,
 } from "lucide-react";
 import {
   DndContext,
@@ -350,6 +351,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
   const [translateLangOpen, setTranslateLangOpen] = useState(false);
   const paragraphEditorRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+  const lastParagraphElementIdRef = useRef<string | null>(null);
 
   const TRANSLATE_LANGUAGES = [
     { code: "sk", label: "Slovenčina" },
@@ -545,6 +547,35 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       elements: selectedStep.elements.map(e => e.id === elementId ? { ...e, ...updates } : e),
     });
   }, [selectedStep, updateStep]);
+
+  useEffect(() => {
+    const editor = paragraphEditorRef.current;
+    if (!editor) return;
+    if (selectedElement?.type === "paragraph" && selectedElement.id !== lastParagraphElementIdRef.current) {
+      lastParagraphElementIdRef.current = selectedElement.id;
+      editor.innerHTML = selectedElement.content || "";
+      savedSelectionRef.current = null;
+    }
+  }, [selectedElement?.id, selectedElement?.type]);
+
+  const handleParagraphPaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const plain = e.clipboardData.getData("text/plain");
+    document.execCommand("insertText", false, plain);
+    const editor = paragraphEditorRef.current;
+    if (editor && selectedElementId) {
+      updateElement(selectedElementId, { content: editor.innerHTML });
+    }
+  }, [selectedElementId, updateElement]);
+
+  const clearFormatting = useCallback(() => {
+    const editor = paragraphEditorRef.current;
+    if (!editor || !selectedElementId) return;
+    const plain = editor.innerText;
+    editor.innerHTML = plain;
+    updateElement(selectedElementId, { content: plain });
+    savedSelectionRef.current = null;
+  }, [selectedElementId, updateElement]);
 
   const saveParagraphSelection = useCallback(() => {
     const sel = window.getSelection();
@@ -901,23 +932,18 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                   <TooltipContent side="top" className="text-xs">{sb.formatUnderline}</TooltipContent>
                 </Tooltip>
                 <Separator orientation="vertical" className="h-5 mx-1" />
-                <div className="flex items-center gap-1 ml-auto">
-                  {SCRIPT_VARIABLES.slice(0, 4).map((v) => (
-                    <Tooltip key={v.key}>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button" variant="outline" size="sm" className="text-[10px] h-5 px-1.5 font-mono"
-                          onMouseDown={(e) => { e.preventDefault(); saveParagraphSelection(); }}
-                          onClick={() => insertTextAtCursor(v.key)}
-                          data-testid={`btn-insert-var-${v.key}`}
-                        >
-                          {v.label}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="text-xs">{v.key}</TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button" variant="ghost" size="icon" className="h-7 w-7"
+                      onClick={clearFormatting}
+                      data-testid="btn-clear-formatting"
+                    >
+                      <RemoveFormatting className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">{sb.clearFormatting || "Clear formatting"}</TooltipContent>
+                </Tooltip>
               </div>
               <div
                 ref={paragraphEditorRef}
@@ -925,10 +951,10 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                 contentEditable
                 suppressContentEditableWarning
                 className="min-h-[100px] p-3 text-sm outline-none focus:ring-1 focus:ring-primary/30"
-                dangerouslySetInnerHTML={{ __html: selectedElement.content || "" }}
                 onInput={(e) => {
                   updateElement(selectedElement.id, { content: e.currentTarget.innerHTML });
                 }}
+                onPaste={handleParagraphPaste}
                 onMouseUp={saveParagraphSelection}
                 onKeyUp={saveParagraphSelection}
                 data-testid="editor-paragraph-content"
