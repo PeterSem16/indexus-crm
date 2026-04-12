@@ -20016,6 +20016,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           hospitalEmail: hospitals.email,
           campaignName: campaigns.name,
           campaignChannel: campaigns.channel,
+          campaignScript: campaigns.script,
+          ccCurrentStepId: campaignContacts.currentScriptStepId,
         })
         .from(campaignContacts)
         .leftJoin(customers, eq(campaignContacts.customerId, customers.id))
@@ -20060,6 +20062,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           hospitalEmail: hospitals.email,
           campaignName: campaigns.name,
           campaignChannel: campaigns.channel,
+          campaignScript: campaigns.script,
+          ccCurrentStepId: campaignContacts.currentScriptStepId,
         })
         .from(campaignContactSessions)
         .innerJoin(campaignContacts, eq(campaignContactSessions.campaignContactId, campaignContacts.id))
@@ -20089,6 +20093,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         mixed: "callback",
       };
 
+      function resolveStepInfo(scriptJson: string | null, stepId: string | null): { stepName: string | null; stepIndex: number | null } {
+        if (!stepId || !scriptJson) return { stepName: null, stepIndex: null };
+        try {
+          const parsed = JSON.parse(scriptJson);
+          if (parsed?.steps && Array.isArray(parsed.steps)) {
+            const idx = parsed.steps.findIndex((s: any) => s.id === stepId);
+            if (idx >= 0) return { stepName: parsed.steps[idx].title || `Step ${idx + 1}`, stepIndex: idx + 1 };
+          }
+        } catch {}
+        return { stepName: null, stepIndex: null };
+      }
+
       for (const row of scheduledContacts) {
         const key = `cc-${row.ccId}`;
         if (seenIds.has(key)) continue;
@@ -20115,6 +20131,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           contactPhone = row.customerPhone || "";
           contactEmail = row.customerEmail || "";
         }
+        const stepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.ccId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
@@ -20128,6 +20145,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           scheduledAt: row.ccCallbackDate,
           notes: row.ccCallbackNote || row.ccNotes || "",
           status: "pending",
+          stepName: stepInfo.stepName,
+          stepIndex: stepInfo.stepIndex,
         });
       }
 
@@ -20157,6 +20176,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           sContactPhone = row.customerPhone || "";
           sContactEmail = row.customerEmail || "";
         }
+        const sStepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.sessionId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
@@ -20170,6 +20190,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           scheduledAt: row.sessionCallbackDate,
           notes: row.sessionNotes || "",
           status: "pending",
+          stepName: sStepInfo.stepName,
+          stepIndex: sStepInfo.stepIndex,
         });
       }
 

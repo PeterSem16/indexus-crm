@@ -2911,6 +2911,7 @@ export interface Translations {
     sortAsc: string;
     sortDesc: string;
     scheduledContact: string;
+    scheduledStep: string;
     scheduledCampaign: string;
     scheduledDate: string;
     scheduledType: string;
@@ -9068,6 +9069,7 @@ export const translations: Record<Locale, Translations> = {
       sortAsc: 'Ascending',
       sortDesc: 'Descending',
       scheduledContact: 'Contact',
+      scheduledStep: 'Step',
       scheduledCampaign: 'Campaign',
       scheduledDate: 'Scheduled',
       scheduledType: 'Type',
@@ -14626,6 +14628,7 @@ export const translations: Record<Locale, Translations> = {
       sortAsc: 'Vzostupne',
       sortDesc: 'Zostupne',
       scheduledContact: 'Kontakt',
+      scheduledStep: 'Krok',
       scheduledCampaign: 'Kampaň',
       scheduledDate: 'Naplánované',
       scheduledType: 'Typ',
@@ -20163,6 +20166,7 @@ export const translations: Record<Locale, Translations> = {
       sortAsc: 'Vzestupně',
       sortDesc: 'Sestupně',
       scheduledContact: 'Kontakt',
+      scheduledStep: 'Krok',
       scheduledCampaign: 'Kampaň',
       scheduledDate: 'Naplánováno',
       scheduledType: 'Typ',
@@ -25664,6 +25668,7 @@ export const translations: Record<Locale, Translations> = {
       sortAsc: 'Növekvő',
       sortDesc: 'Csökkenő',
       scheduledContact: 'Kapcsolat',
+      scheduledStep: 'Lépés',
       scheduledCampaign: 'Kampány',
       scheduledDate: 'Ütemezve',
       scheduledType: 'Típus',
@@ -31087,6 +31092,7 @@ export const translations: Record<Locale, Translations> = {
       sortAsc: 'Crescător',
       sortDesc: 'Descrescător',
       scheduledContact: 'Contact',
+      scheduledStep: 'Pas',
       scheduledCampaign: 'Campanie',
       scheduledDate: 'Programat',
       scheduledType: 'Tip',
@@ -36511,6 +36517,7 @@ export const translations: Record<Locale, Translations> = {
       sortAsc: 'Crescente',
       sortDesc: 'Decrescente',
       scheduledContact: 'Contatto',
+      scheduledStep: 'Passo',
       scheduledCampaign: 'Campagna',
       scheduledDate: 'Programmato',
       scheduledType: 'Tipo',
@@ -41935,6 +41942,7 @@ export const translations: Record<Locale, Translations> = {
       sortAsc: 'Aufsteigend',
       sortDesc: 'Absteigend',
       scheduledContact: 'Kontakt',
+      scheduledStep: 'Schritt',
       scheduledCampaign: 'Kampagne',
       scheduledDate: 'Geplant',
       scheduledType: 'Typ',

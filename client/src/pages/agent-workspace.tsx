@@ -4402,6 +4402,8 @@ interface ScheduledItem {
   scheduledAt: string;
   notes: string;
   status: string;
+  stepName?: string | null;
+  stepIndex?: number | null;
 }
 
 function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onReschedule: (id: string, campaignId: string, newDate: string) => void; t: any }) {
@@ -4729,9 +4731,10 @@ function ScheduledQueuePanel({
               </div>
             </div>
 
-            <div className="hidden sm:grid grid-cols-[1fr_140px_120px_90px] gap-2 px-4 py-1.5 border-b bg-muted/40 text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex-shrink-0">
+            <div className="hidden sm:grid grid-cols-[1fr_140px_80px_120px_90px] gap-2 px-4 py-1.5 border-b bg-muted/40 text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex-shrink-0">
               <span>{t.agentWorkspace.scheduledContact}</span>
               <span>{t.agentWorkspace.scheduledDate}</span>
+              <span>{t.agentWorkspace.scheduledStep || "Step"}</span>
               <span>{t.agentWorkspace.scheduledCampaign}</span>
               <span className="text-right">{t.agentWorkspace.scheduledActions}</span>
             </div>
@@ -4754,7 +4757,7 @@ function ScheduledQueuePanel({
                       <div
                         key={item.id}
                         data-testid={`scheduled-item-${item.id}`}
-                        className={`grid grid-cols-1 sm:grid-cols-[1fr_140px_120px_90px] gap-x-2 gap-y-0.5 items-center px-4 py-2.5 border-b transition-colors hover:bg-muted/30 ${
+                        className={`grid grid-cols-1 sm:grid-cols-[1fr_140px_80px_120px_90px] gap-x-2 gap-y-0.5 items-center px-4 py-2.5 border-b transition-colors hover:bg-muted/30 ${
                           itemOverdue ? "bg-destructive/[0.03]" : idx % 2 === 0 ? "" : "bg-muted/20"
                         }`}
                       >
@@ -4818,6 +4821,24 @@ function ScheduledQueuePanel({
                             <Clock className="h-2.5 w-2.5 shrink-0" />
                             <span>{format(new Date(item.scheduledAt), "HH:mm")}</span>
                           </div>
+                        </div>
+
+                        <div className="flex items-center">
+                          {item.stepName ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium truncate"
+                              style={{
+                                backgroundColor: `hsl(${((item.stepIndex || 1) * 67) % 360}, 65%, 92%)`,
+                                color: `hsl(${((item.stepIndex || 1) * 67) % 360}, 70%, 30%)`,
+                              }}
+                              title={`${item.stepIndex}. ${item.stepName}`}
+                              data-testid={`text-scheduled-step-${item.id}`}
+                            >
+                              {item.stepIndex}. {item.stepName}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/50">—</span>
+                          )}
                         </div>
 
                         <div className="text-[11px] text-muted-foreground truncate">
