@@ -1628,7 +1628,7 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
               </Card>
             )}
             {currentStep.elements.map((element) => (
-              <div key={element.id} {...(element.anchorId ? { "data-anchor-id": element.anchorId } : {})}>
+              <div key={element.id} {...(element.type !== "jump_link" && element.anchorId ? { "data-anchor-id": element.anchorId } : {})}>
                 {renderElement(element)}
               </div>
             ))}
