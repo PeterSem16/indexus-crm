@@ -548,15 +548,16 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
     });
   }, [selectedStep, updateStep]);
 
-  useEffect(() => {
-    const editor = paragraphEditorRef.current;
-    if (!editor) return;
-    if (selectedElement?.type === "paragraph" && selectedElement.id !== lastParagraphElementIdRef.current) {
-      lastParagraphElementIdRef.current = selectedElement.id;
-      editor.innerHTML = selectedElement.content || "";
-      savedSelectionRef.current = null;
+  const paragraphEditorCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    paragraphEditorRef.current = node;
+    if (node && selectedElement?.type === "paragraph") {
+      if (selectedElement.id !== lastParagraphElementIdRef.current) {
+        lastParagraphElementIdRef.current = selectedElement.id;
+        node.innerHTML = selectedElement.content || "";
+        savedSelectionRef.current = null;
+      }
     }
-  }, [selectedElement?.id, selectedElement?.type]);
+  }, [selectedElement?.id, selectedElement?.type, selectedElement?.content]);
 
   const handleParagraphPaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -946,7 +947,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                 </Tooltip>
               </div>
               <div
-                ref={paragraphEditorRef}
+                ref={paragraphEditorCallbackRef}
                 id="paragraph-editor"
                 contentEditable
                 suppressContentEditableWarning
