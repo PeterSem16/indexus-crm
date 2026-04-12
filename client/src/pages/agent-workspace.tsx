@@ -1226,17 +1226,56 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
           </Card>
         );
 
-      case "text":
+      case "textInput":
         return (
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-4 space-y-2">
               {element.label && (
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{substituteVariables(element.label)}</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  {element.label}
+                  {element.required && <span className="text-destructive">*</span>}
+                </label>
               )}
-              <p className={`text-sm leading-relaxed text-foreground ${element.label ? "mt-2" : ""}`}>{renderFormattedText(substituteVariables(element.content || ""))}</p>
+              <Input
+                value={selectedValues[element.id] || ""}
+                onChange={(e) => handleValueChange(element.id, e.target.value)}
+                placeholder={substituteVariables(element.placeholder || element.content || "")}
+                data-testid={`input-script-${element.id}`}
+              />
             </CardContent>
           </Card>
         );
+
+      case "emailInput": {
+        const emailVal = selectedValues[element.id] || "";
+        const emailValid = !emailVal || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal);
+        return (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              {element.label && (
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  {element.label}
+                  {element.required && <span className="text-destructive">*</span>}
+                </label>
+              )}
+              <Input
+                type="email"
+                value={emailVal}
+                onChange={(e) => handleValueChange(element.id, e.target.value)}
+                placeholder={substituteVariables(element.placeholder || "email@example.com")}
+                className={!emailValid ? "border-destructive focus-visible:ring-destructive" : ""}
+                data-testid={`input-script-email-${element.id}`}
+              />
+              {!emailValid && (
+                <p className="text-[11px] text-destructive" data-testid={`text-email-error-${element.id}`}>
+                  {t.agentWorkspace?.invalidEmail || "Invalid email address"}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      }
 
       case "select":
         if (!element.options) return null;
@@ -1379,25 +1418,6 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
           </Card>
         );
 
-      case "input":
-        return (
-          <Card>
-            <CardContent className="p-4 space-y-2">
-              {element.label && (
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  {element.label}
-                  {element.required && <span className="text-destructive">*</span>}
-                </label>
-              )}
-              <Input
-                value={selectedValues[element.id] || ""}
-                onChange={(e) => handleValueChange(element.id, e.target.value)}
-                placeholder={element.placeholder || element.content || ""}
-                data-testid={`input-script-${element.id}`}
-              />
-            </CardContent>
-          </Card>
-        );
 
       case "action_button": {
         const iconMap: Record<string, any> = { mail: Mail, phone: Phone, calendar: CalendarPlus, file: FileText };

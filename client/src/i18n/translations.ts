@@ -1707,6 +1707,8 @@ export interface Translations {
         radioDesc: string;
         textInput: string;
         textInputDesc: string;
+        emailInput: string;
+        emailInputDesc: string;
         textarea: string;
         textareaDesc: string;
         divider: string;
@@ -7875,6 +7877,8 @@ export const translations: Record<Locale, Translations> = {
           radioDesc: 'Select one option',
           textInput: 'Text Field',
           textInputDesc: 'Short text input',
+          emailInput: 'Email',
+          emailInputDesc: 'Email address field with validation',
           textarea: 'Text Area',
           textareaDesc: 'Longer text input',
           divider: 'Divider',
@@ -13475,6 +13479,8 @@ export const translations: Record<Locale, Translations> = {
           radioDesc: 'Výber jednej možnosti',
           textInput: 'Textové pole',
           textInputDesc: 'Krátky textový vstup',
+          emailInput: 'Email',
+          emailInputDesc: 'Emailová adresa s kontrolou formátu',
           textarea: 'Textová oblasť',
           textareaDesc: 'Dlhší textový vstup',
           divider: 'Oddeľovač',
@@ -19014,6 +19020,8 @@ export const translations: Record<Locale, Translations> = {
           radioDesc: 'Výběr jedné možnosti',
           textInput: 'Textové pole',
           textInputDesc: 'Krátký textový vstup',
+          emailInput: 'Email',
+          emailInputDesc: 'Emailová adresa s kontrolou formátu',
           textarea: 'Textová oblast',
           textareaDesc: 'Delší textový vstup',
           divider: 'Oddělovač',
@@ -24517,6 +24525,8 @@ export const translations: Record<Locale, Translations> = {
           radioDesc: 'Egy opció kiválasztása',
           textInput: 'Szövegmező',
           textInputDesc: 'Rövid szöveges bevitel',
+          emailInput: 'Email',
+          emailInputDesc: 'Email cím mező ellenőrzéssel',
           textarea: 'Szövegterület',
           textareaDesc: 'Hosszabb szöveges bevitel',
           divider: 'Elválasztó',
@@ -29942,6 +29952,8 @@ export const translations: Record<Locale, Translations> = {
           radioDesc: 'Selectarea unei opțiuni',
           textInput: 'Câmp text',
           textInputDesc: 'Introducere text scurt',
+          emailInput: 'Email',
+          emailInputDesc: 'Câmp adresă email cu validare',
           textarea: 'Zonă text',
           textareaDesc: 'Introducere text lung',
           divider: 'Separator',
@@ -35368,6 +35380,8 @@ export const translations: Record<Locale, Translations> = {
           radioDesc: 'Selezionare una opzione',
           textInput: 'Campo testo',
           textInputDesc: 'Input testo breve',
+          emailInput: 'Email',
+          emailInputDesc: 'Campo email con validazione',
           textarea: 'Area testo',
           textareaDesc: 'Input testo lungo',
           divider: 'Separatore',
@@ -40794,6 +40808,8 @@ export const translations: Record<Locale, Translations> = {
           radioDesc: 'Eine Option auswählen',
           textInput: 'Textfeld',
           textInputDesc: 'Kurze Texteingabe',
+          emailInput: 'E-Mail',
+          emailInputDesc: 'E-Mail-Adressfeld mit Validierung',
           textarea: 'Textbereich',
           textareaDesc: 'Längere Texteingabe',
           divider: 'Trennlinie',

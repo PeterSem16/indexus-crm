@@ -3214,6 +3214,7 @@ export const scriptElementTypes = [
   "checkboxGroup",
   "radio",
   "textInput",
+  "emailInput",
   "textarea",
   "divider",
   "note",

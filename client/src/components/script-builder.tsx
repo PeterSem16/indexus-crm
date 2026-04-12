@@ -440,6 +440,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
     checkboxGroup: { icon: CheckSquare, label: sb.checkboxGroup, description: sb.checkboxGroupDesc },
     radio: { icon: CircleDot, label: sb.radio, description: sb.radioDesc },
     textInput: { icon: TextCursor, label: sb.textInput, description: sb.textInputDesc },
+    emailInput: { icon: Mail, label: sb.emailInput || "Email", description: sb.emailInputDesc || "Email address field with validation" },
     textarea: { icon: AlignLeft, label: sb.textareaEl, description: sb.textareaDesc },
     note: { icon: AlertCircle, label: sb.note, description: sb.noteDesc },
     outcome: { icon: Target, label: sb.outcome, description: sb.outcomeDesc },
@@ -743,6 +744,16 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
             <Input disabled placeholder={element.placeholder || element.label} />
           </div>
         );
+      case "emailInput":
+        return (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+              {td(element.label)} {element.required && <span className="text-destructive">*</span>}
+            </Label>
+            <Input disabled placeholder={element.placeholder || "email@example.com"} type="email" />
+          </div>
+        );
       case "textarea":
         return (
           <div className="space-y-1.5">
@@ -987,7 +998,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           </div>
         )}
 
-        {["textInput", "textarea"].includes(selectedElement.type) && (
+        {["textInput", "emailInput", "textarea"].includes(selectedElement.type) && (
           <div className="space-y-2">
             <Label htmlFor="element-placeholder">{sb.placeholder}</Label>
             <Input
