@@ -1444,22 +1444,26 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
         };
         const jumpBtnVariant = jumpVariantMap[element.variant || ""] || "outline";
         const jumpTargetIdx = element.jumpTargetStepId ? stepIdToIndex[element.jumpTargetStepId] : undefined;
+        const isSameStep = !element.jumpTargetStepId;
+        const handleJump = () => {
+          if (jumpTargetIdx !== undefined) {
+            navigateToStep(jumpTargetIdx);
+          }
+          if (element.anchorId) {
+            const delay = isSameStep ? 0 : 100;
+            setTimeout(() => {
+              const anchorEl = document.querySelector(`[data-anchor-id="${element.anchorId}"]`);
+              if (anchorEl) anchorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, delay);
+          }
+        };
+        const canJump = isSameStep ? !!element.anchorId : jumpTargetIdx !== undefined;
         return (
           <div>
             {element.variant === "link" ? (
               <button
-                className="text-sm text-primary underline underline-offset-2 cursor-pointer flex items-center gap-1.5 hover:text-primary/80 transition-colors"
-                onClick={() => {
-                  if (jumpTargetIdx !== undefined) {
-                    navigateToStep(jumpTargetIdx);
-                    if (element.anchorId) {
-                      setTimeout(() => {
-                        const anchorEl = document.querySelector(`[data-anchor-id="${element.anchorId}"]`);
-                        if (anchorEl) anchorEl.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }, 100);
-                    }
-                  }
-                }}
+                className={`text-sm text-primary underline underline-offset-2 flex items-center gap-1.5 transition-colors ${canJump ? "cursor-pointer hover:text-primary/80" : "opacity-50 cursor-not-allowed"}`}
+                onClick={canJump ? handleJump : undefined}
                 data-testid={`btn-script-jump-${element.id}`}
               >
                 <Navigation className="h-3.5 w-3.5" />
@@ -1470,17 +1474,8 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
                 variant={jumpBtnVariant}
                 size="sm"
                 className="gap-1.5"
-                onClick={() => {
-                  if (jumpTargetIdx !== undefined) {
-                    navigateToStep(jumpTargetIdx);
-                    if (element.anchorId) {
-                      setTimeout(() => {
-                        const anchorEl = document.querySelector(`[data-anchor-id="${element.anchorId}"]`);
-                        if (anchorEl) anchorEl.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }, 100);
-                    }
-                  }
-                }}
+                disabled={!canJump}
+                onClick={handleJump}
                 data-testid={`btn-script-jump-${element.id}`}
               >
                 <Navigation className="h-3.5 w-3.5" />

@@ -1729,6 +1729,7 @@ export interface Translations {
         jumpNoAnchor: string;
         jumpLinkPlaceholder: string;
         jumpLinkStyle: string;
+        jumpSameStep: string;
         anchorId: string;
         anchorPlaceholder: string;
         untitled: string;
@@ -7894,6 +7895,7 @@ export const translations: Record<Locale, Translations> = {
           jumpNoAnchor: 'No anchor (top of step)',
           jumpLinkPlaceholder: 'e.g. Go to pricing',
           jumpLinkStyle: 'Link Style',
+          jumpSameStep: 'this step',
           anchorId: 'Anchor ID (for jump links)',
           anchorPlaceholder: 'e.g. pricing_section',
           untitled: 'Untitled',
@@ -13491,6 +13493,7 @@ export const translations: Record<Locale, Translations> = {
           jumpNoAnchor: 'Žiadna kotva (vrch kroku)',
           jumpLinkPlaceholder: 'napr. Prejsť na cenník',
           jumpLinkStyle: 'Štýl odkazu',
+          jumpSameStep: 'tento krok',
           anchorId: 'ID kotvy (pre skoky)',
           anchorPlaceholder: 'napr. sekcia_cennik',
           untitled: 'Bez názvu',
@@ -19027,6 +19030,7 @@ export const translations: Record<Locale, Translations> = {
           jumpNoAnchor: 'Žádná kotva (začátek kroku)',
           jumpLinkPlaceholder: 'např. Přejít na ceník',
           jumpLinkStyle: 'Styl odkazu',
+          jumpSameStep: 'tento krok',
           anchorId: 'ID kotvy (pro skoky)',
           anchorPlaceholder: 'např. sekce_cenik',
           untitled: 'Bez názvu',
@@ -24527,6 +24531,7 @@ export const translations: Record<Locale, Translations> = {
           jumpNoAnchor: 'Nincs horgony (lépés teteje)',
           jumpLinkPlaceholder: 'pl. Ugrás az árakra',
           jumpLinkStyle: 'Link stílus',
+          jumpSameStep: 'ez a lépés',
           anchorId: 'Horgony ID (ugró linkekhez)',
           anchorPlaceholder: 'pl. arak_szekció',
           untitled: 'Cím nélkül',
@@ -29949,6 +29954,7 @@ export const translations: Record<Locale, Translations> = {
           jumpNoAnchor: 'Fără ancoră (începutul pasului)',
           jumpLinkPlaceholder: 'ex. Salt la prețuri',
           jumpLinkStyle: 'Stil link',
+          jumpSameStep: 'acest pas',
           anchorId: 'ID ancoră (pentru link-uri de salt)',
           anchorPlaceholder: 'ex. sectiune_preturi',
           untitled: 'Fără titlu',
@@ -35372,6 +35378,7 @@ export const translations: Record<Locale, Translations> = {
           jumpNoAnchor: 'Nessuna ancora (inizio passo)',
           jumpLinkPlaceholder: 'es. Vai ai prezzi',
           jumpLinkStyle: 'Stile link',
+          jumpSameStep: 'questo passo',
           anchorId: 'ID ancora (per link di salto)',
           anchorPlaceholder: 'es. sezione_prezzi',
           untitled: 'Senza titolo',
@@ -40795,6 +40802,7 @@ export const translations: Record<Locale, Translations> = {
           jumpNoAnchor: 'Kein Anker (Anfang des Schritts)',
           jumpLinkPlaceholder: 'z.B. Zu Preisen springen',
           jumpLinkStyle: 'Link-Stil',
+          jumpSameStep: 'dieser Schritt',
           anchorId: 'Anker-ID (für Sprunglinks)',
           anchorPlaceholder: 'z.B. preis_bereich',
           untitled: 'Ohne Titel',

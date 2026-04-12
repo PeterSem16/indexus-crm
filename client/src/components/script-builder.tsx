@@ -1263,49 +1263,52 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                 {sb.jumpTargetStep || "Target step"}
               </Label>
               <Select
-                value={selectedElement.jumpTargetStepId || "_none_"}
-                onValueChange={(v) => updateElement(selectedElement.id, { jumpTargetStepId: v === "_none_" ? "" : v })}
+                value={selectedElement.jumpTargetStepId || "_self_"}
+                onValueChange={(v) => updateElement(selectedElement.id, { jumpTargetStepId: v === "_self_" ? "" : v })}
               >
                 <SelectTrigger data-testid="select-jump-target-step">
                   <SelectValue placeholder={sb.selectStep} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none_">{sb.selectStep}</SelectItem>
-                  {currentScript.steps.map((step, idx) => (
+                  <SelectItem value="_self_">↻ {selectedStep?.title || sb.selectStep} ({sb.jumpSameStep || "this step"})</SelectItem>
+                  {currentScript.steps.filter(s => s.id !== selectedStepId).map((step, idx) => (
                     <SelectItem key={step.id} value={step.id}>
-                      {idx + 1}. {step.title}
+                      {currentScript.steps.indexOf(step) + 1}. {step.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            {selectedElement.jumpTargetStepId && currentScript.steps.find(s => s.id === selectedElement.jumpTargetStepId)?.elements.some(el => el.anchorId) && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5">
-                  <Target className="h-3.5 w-3.5 text-orange-500" />
-                  {sb.jumpTargetAnchor || "Target anchor"}
-                </Label>
-                <Select
-                  value={selectedElement.anchorId || "_none_"}
-                  onValueChange={(v) => updateElement(selectedElement.id, { anchorId: v === "_none_" ? "" : v })}
-                >
-                  <SelectTrigger data-testid="select-jump-target-anchor">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none_">{sb.jumpNoAnchor || "Start of step"}</SelectItem>
-                    {currentScript.steps
-                      .find(s => s.id === selectedElement.jumpTargetStepId)
-                      ?.elements.filter(el => el.anchorId)
-                      .map(el => (
+            {(() => {
+              const resolvedStepId = selectedElement.jumpTargetStepId || selectedStepId;
+              const targetStep = resolvedStepId ? currentScript.steps.find(s => s.id === resolvedStepId) : null;
+              const availableAnchors = targetStep?.elements.filter(el => el.anchorId && el.id !== selectedElement.id) || [];
+              if (availableAnchors.length === 0) return null;
+              return (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Target className="h-3.5 w-3.5 text-orange-500" />
+                    {sb.jumpTargetAnchor || "Target anchor"}
+                  </Label>
+                  <Select
+                    value={selectedElement.anchorId || "_none_"}
+                    onValueChange={(v) => updateElement(selectedElement.id, { anchorId: v === "_none_" ? "" : v })}
+                  >
+                    <SelectTrigger data-testid="select-jump-target-anchor">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{sb.jumpNoAnchor || "Start of step"}</SelectItem>
+                      {availableAnchors.map(el => (
                         <SelectItem key={el.id} value={el.anchorId!}>
                           {el.label || el.anchorId}
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })()}
             <div className="space-y-2">
               <Label>{sb.buttonStyle}</Label>
               <Select
@@ -1625,15 +1628,15 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
                 <Button
                   key={type}
                   variant="outline"
-                  className="h-auto flex-col items-start p-4 gap-2"
+                  className="h-auto flex-col items-start p-4 gap-2 overflow-hidden"
                   onClick={() => addElement(type)}
                   data-testid={`button-add-element-${type}`}
                 >
                   <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    <span className="font-medium">{config.label}</span>
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="font-medium truncate">{config.label}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground text-left">{config.description}</span>
+                  <span className="text-xs text-muted-foreground text-left line-clamp-2 w-full">{config.description}</span>
                 </Button>
               );
             })}
