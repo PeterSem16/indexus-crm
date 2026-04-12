@@ -74,6 +74,7 @@ import {
   Pencil,
   Languages,
   Loader2,
+  Navigation,
 } from "lucide-react";
 import {
   DndContext,
@@ -440,6 +441,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
     outcome: { icon: Target, label: sb.outcome, description: sb.outcomeDesc },
     divider: { icon: Minus, label: sb.divider, description: sb.dividerDesc },
     action_button: { icon: MousePointerClick, label: sb.actionButton, description: sb.actionButtonDesc },
+    jump_link: { icon: Navigation, label: sb.jumpLink || "Jump Link", description: sb.jumpLinkDesc || "Navigate to another step" },
   };
 
   const stepLabels = { delete: sb.delete, duplicate: sb.duplicate };
@@ -520,6 +522,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       options: ["select", "multiselect", "radio", "checkboxGroup", "outcome"].includes(type) ?
         [{ value: "option1", label: `${sb.options} 1` }, { value: "option2", label: `${sb.options} 2` }] : undefined,
       ...(type === "action_button" ? { action: "openPhone", actionLabel: sb.makeCall, actionIcon: "phone", variant: "primary" } : {}),
+      ...(type === "jump_link" ? { jumpTargetStepId: "", variant: "outline" } : {}),
     };
     updateStep(selectedStep.id, { elements: [...selectedStep.elements, newElement] });
     setSelectedElementId(newElement.id);
@@ -752,10 +755,38 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           </Card>
         );
       }
+      case "jump_link": {
+        const targetStep = currentScript.steps.find(s => s.id === element.jumpTargetStepId);
+        const variantMap: Record<string, "default" | "outline" | "secondary" | "link"> = {
+          primary: "default", secondary: "secondary", outline: "outline", link: "link",
+        };
+        const btnVariant = variantMap[element.variant || ""] || "outline";
+        return (
+          <div className="flex items-center gap-2">
+            {btnVariant === "link" ? (
+              <span className="text-sm text-primary underline underline-offset-2 cursor-pointer flex items-center gap-1.5" data-testid={`preview-jump-${element.id}`}>
+                <Navigation className="h-3.5 w-3.5" />
+                {td(element.label || sb.jumpLink || "Jump Link")}
+              </span>
+            ) : (
+              <Button variant={btnVariant as any} size="sm" className="gap-1.5" disabled data-testid={`preview-jump-${element.id}`}>
+                <Navigation className="h-3.5 w-3.5" />
+                {td(element.label || sb.jumpLink || "Jump Link")}
+              </Button>
+            )}
+            {targetStep && (
+              <span className="text-[10px] text-muted-foreground">→ {targetStep.title}</span>
+            )}
+            {element.anchorId && targetStep && (
+              <span className="text-[10px] text-orange-500">#{element.anchorId}</span>
+            )}
+          </div>
+        );
+      }
       default:
         return <div className="text-sm text-muted-foreground">{element.label}</div>;
     }
-  }, [allEmailTemplates, td]);
+  }, [allEmailTemplates, td, currentScript]);
 
   const renderPropertiesContent = () => {
     if (!selectedElement) return null;
@@ -1215,7 +1246,87 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
           </div>
         )}
 
-        {!["divider", "heading", "paragraph", "action_button"].includes(selectedElement.type) && (
+        {selectedElement.type === "jump_link" && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{sb.jumpLinkLabel || "Link text"}</Label>
+              <Input
+                value={selectedElement.label || ""}
+                onChange={(e) => updateElement(selectedElement.id, { label: e.target.value })}
+                placeholder={sb.jumpLinkPlaceholder || "e.g. Go to pricing step"}
+                data-testid="input-jump-link-label"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Navigation className="h-3.5 w-3.5 text-primary" />
+                {sb.jumpTargetStep || "Target step"}
+              </Label>
+              <Select
+                value={selectedElement.jumpTargetStepId || "_none_"}
+                onValueChange={(v) => updateElement(selectedElement.id, { jumpTargetStepId: v === "_none_" ? "" : v })}
+              >
+                <SelectTrigger data-testid="select-jump-target-step">
+                  <SelectValue placeholder={sb.selectStep} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">{sb.selectStep}</SelectItem>
+                  {currentScript.steps.map((step, idx) => (
+                    <SelectItem key={step.id} value={step.id}>
+                      {idx + 1}. {step.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedElement.jumpTargetStepId && currentScript.steps.find(s => s.id === selectedElement.jumpTargetStepId)?.elements.some(el => el.anchorId) && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5 text-orange-500" />
+                  {sb.jumpTargetAnchor || "Target anchor"}
+                </Label>
+                <Select
+                  value={selectedElement.anchorId || "_none_"}
+                  onValueChange={(v) => updateElement(selectedElement.id, { anchorId: v === "_none_" ? "" : v })}
+                >
+                  <SelectTrigger data-testid="select-jump-target-anchor">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none_">{sb.jumpNoAnchor || "Start of step"}</SelectItem>
+                    {currentScript.steps
+                      .find(s => s.id === selectedElement.jumpTargetStepId)
+                      ?.elements.filter(el => el.anchorId)
+                      .map(el => (
+                        <SelectItem key={el.id} value={el.anchorId!}>
+                          {el.label || el.anchorId}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>{sb.buttonStyle}</Label>
+              <Select
+                value={selectedElement.variant || "outline"}
+                onValueChange={(v) => updateElement(selectedElement.id, { variant: v })}
+              >
+                <SelectTrigger data-testid="select-jump-variant">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="primary">{sb.primaryStyle}</SelectItem>
+                  <SelectItem value="secondary">{sb.secondaryStyle}</SelectItem>
+                  <SelectItem value="outline">{sb.outlineStyle}</SelectItem>
+                  <SelectItem value="link">{sb.jumpLinkStyle || "Link"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {!["divider", "heading", "paragraph", "action_button"].includes(selectedElement.type) && selectedElement.type !== "jump_link" && (
           <div className="flex items-center gap-2">
             <Switch
               id="element-required"
@@ -1224,6 +1335,22 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
               data-testid="switch-element-required"
             />
             <Label htmlFor="element-required">{sb.requiredField}</Label>
+          </div>
+        )}
+
+        {selectedElement.type !== "jump_link" && selectedElement.type !== "divider" && (
+          <div className="space-y-2 border-t pt-3 mt-2">
+            <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Navigation className="h-3 w-3" />
+              {sb.anchorId || "Anchor ID (for jump links)"}
+            </Label>
+            <Input
+              value={selectedElement.anchorId || ""}
+              onChange={(e) => updateElement(selectedElement.id, { anchorId: e.target.value.replace(/\s+/g, "_").toLowerCase() })}
+              placeholder={sb.anchorPlaceholder || "e.g. pricing_section"}
+              className="h-7 text-xs font-mono"
+              data-testid="input-anchor-id"
+            />
           </div>
         )}
       </div>

@@ -3218,7 +3218,8 @@ export const scriptElementTypes = [
   "divider",
   "note",
   "outcome",
-  "action_button"
+  "action_button",
+  "jump_link"
 ] as const;
 
 export type ScriptElementType = typeof scriptElementTypes[number];
@@ -3244,6 +3245,8 @@ export const scriptElementSchema = z.object({
   variant: z.string().optional(),
   emailTemplateId: z.string().optional(),
   dispositionCode: z.string().optional(),
+  jumpTargetStepId: z.string().optional(),
+  anchorId: z.string().optional(),
 });
 
 export type ScriptElement = z.infer<typeof scriptElementSchema>;
