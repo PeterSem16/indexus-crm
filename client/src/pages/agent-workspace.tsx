@@ -94,6 +94,8 @@ import {
   Minimize2,
   Filter,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   ListTodo,
   ListChecks,
   Pencil,
@@ -137,7 +139,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSip } from "@/contexts/sip-context";
 import { useCall } from "@/contexts/call-context";
-import { format, addBusinessDays } from "date-fns";
+import { format, addBusinessDays, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, isWithinInterval, isBefore } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
 import { CustomerDetailsContent } from "@/pages/customers";
@@ -4490,7 +4492,10 @@ function ScheduledQueuePanel({
   onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string) => void;
 }) {
   const [filterType, setFilterType] = useState<"all" | "callback" | "email" | "sms">("all");
+  const [timeFilter, setTimeFilter] = useState<"all" | "overdue" | "today" | "thisWeek" | "nextWeek" | "later">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<"date" | "name" | "campaign">("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const { t } = useI18n();
   const { toast } = useToast();
 
@@ -4504,9 +4509,46 @@ function ScheduledQueuePanel({
     refetchInterval: open ? 30000 : false,
   });
 
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const nextWeekStart = addDays(weekEnd, 1);
+  const nextWeekEnd = endOfWeek(nextWeekStart, { weekStartsOn: 1 });
+
+  const counts = useMemo(() => {
+    const n = new Date();
+    let overdue = 0, today = 0, thisWeek = 0, nextW = 0, later = 0;
+    const typeCounts = { callback: 0, email: 0, sms: 0 };
+    for (const item of scheduledItems) {
+      const d = new Date(item.scheduledAt);
+      typeCounts[item.type]++;
+      if (isBefore(d, n)) overdue++;
+      else if (isWithinInterval(d, { start: todayStart, end: todayEnd })) today++;
+      else if (isWithinInterval(d, { start: todayStart, end: weekEnd })) thisWeek++;
+      else if (isWithinInterval(d, { start: nextWeekStart, end: nextWeekEnd })) nextW++;
+      else later++;
+    }
+    return { overdue, today, thisWeek, nextWeek: nextW, later, ...typeCounts };
+  }, [scheduledItems]);
+
   const filteredItems = useMemo(() => {
+    const n = new Date();
     let items = scheduledItems;
     if (filterType !== "all") items = items.filter(item => item.type === filterType);
+    if (timeFilter !== "all") {
+      items = items.filter(item => {
+        const d = new Date(item.scheduledAt);
+        switch (timeFilter) {
+          case "overdue": return isBefore(d, n);
+          case "today": return isWithinInterval(d, { start: todayStart, end: todayEnd });
+          case "thisWeek": return isWithinInterval(d, { start: todayStart, end: weekEnd });
+          case "nextWeek": return isWithinInterval(d, { start: nextWeekStart, end: nextWeekEnd });
+          case "later": return !isBefore(d, nextWeekEnd);
+          default: return true;
+        }
+      });
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       items = items.filter(item =>
@@ -4517,27 +4559,22 @@ function ScheduledQueuePanel({
         (item.notes || "").toLowerCase().includes(q)
       );
     }
+    items = [...items].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "date") cmp = new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+      else if (sortField === "name") cmp = (a.contactName || "").localeCompare(b.contactName || "");
+      else if (sortField === "campaign") cmp = (a.campaignName || "").localeCompare(b.campaignName || "");
+      return sortDir === "desc" ? -cmp : cmp;
+    });
     return items;
-  }, [scheduledItems, filterType, searchQuery]);
-
-  const { todayCount, overdueCount } = useMemo(() => {
-    const now = new Date();
-    const today = new Date();
-    let tc = 0, oc = 0;
-    for (const item of scheduledItems) {
-      const d = new Date(item.scheduledAt);
-      if (d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate()) tc++;
-      if (d < now) oc++;
-    }
-    return { todayCount: tc, overdueCount: oc };
-  }, [scheduledItems]);
+  }, [scheduledItems, filterType, timeFilter, searchQuery, sortField, sortDir]);
 
   const isOverdue = (scheduledAt: string) => new Date(scheduledAt) < new Date();
 
   const getTypeIcon = (type: string) => {
-    if (type === "callback") return <PhoneForwarded className="h-4 w-4" />;
-    if (type === "email") return <MailPlus className="h-4 w-4" />;
-    return <MessageSquarePlus className="h-4 w-4" />;
+    if (type === "callback") return <PhoneForwarded className="h-3.5 w-3.5" />;
+    if (type === "email") return <MailPlus className="h-3.5 w-3.5" />;
+    return <MessageSquarePlus className="h-3.5 w-3.5" />;
   };
 
   const getTypeColor = (type: string) => {
@@ -4552,222 +4589,338 @@ function ScheduledQueuePanel({
     return "SMS";
   };
 
+  const toggleSort = (field: "date" | "name" | "campaign") => {
+    if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ field }: { field: "date" | "name" | "campaign" }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 text-muted-foreground/40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />;
+  };
+
+  const timeFilters: { key: typeof timeFilter; label: string; count: number; icon: any; color: string }[] = [
+    { key: "all", label: t.agentWorkspace.scheduledAll, count: scheduledItems.length, icon: CalendarClock, color: "text-foreground" },
+    { key: "overdue", label: t.agentWorkspace.scheduledOverdue, count: counts.overdue, icon: AlertTriangle, color: "text-destructive" },
+    { key: "today", label: t.agentWorkspace.scheduledToday, count: counts.today, icon: Clock, color: "text-orange-500" },
+    { key: "thisWeek", label: t.agentWorkspace.scheduledThisWeek, count: counts.thisWeek, icon: Calendar, color: "text-blue-500" },
+    { key: "nextWeek", label: t.agentWorkspace.scheduledNextWeek, count: counts.nextWeek, icon: Calendar, color: "text-indigo-500" },
+    { key: "later", label: t.agentWorkspace.scheduledLater, count: counts.later, icon: Calendar, color: "text-muted-foreground" },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] !flex !flex-col overflow-hidden">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2 flex-wrap">
-            <CalendarClock className="h-5 w-5 text-primary" />
-            {t.agentWorkspace.scheduledQueueTitle}
-            <Badge variant="secondary" className="text-[10px]" data-testid="badge-scheduled-total">
-              {scheduledItems.length} {t.agentWorkspace.scheduledTotal}
-            </Badge>
-            {todayCount > 0 && (
-              <Badge variant="secondary" className="text-[10px]" data-testid="badge-scheduled-today">
-                {todayCount} {t.agentWorkspace.scheduledToday}
-              </Badge>
-            )}
-            {overdueCount > 0 && (
-              <Badge variant="destructive" className="text-[10px] gap-1" data-testid="badge-scheduled-overdue">
-                <AlertTriangle className="h-3 w-3" />
-                {overdueCount} {t.agentWorkspace.scheduledOverdue}
-              </Badge>
-            )}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="flex items-center gap-1 pb-2 flex-shrink-0">
-          {(["all", "callback", "email", "sms"] as const).map(type => (
-            <Button
-              key={type}
-              variant={filterType === type ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilterType(type)}
-              className="gap-1.5"
-              data-testid={`btn-scheduled-filter-${type}`}
-            >
-              {type === "all" ? (
-                <CalendarClock className="h-3.5 w-3.5" />
-              ) : type === "callback" ? (
-                <PhoneForwarded className="h-3.5 w-3.5" />
-              ) : type === "email" ? (
-                <MailPlus className="h-3.5 w-3.5" />
-              ) : (
-                <MessageSquarePlus className="h-3.5 w-3.5" />
-              )}
-              <span className="text-xs">
-                {type === "all" ? t.agentWorkspace.scheduledAll : type === "callback" ? t.agentWorkspace.scheduledCalls : type === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}
-              </span>
-              <Badge variant="secondary" className="text-[9px] ml-0.5">
-                {type === "all" ? scheduledItems.length : scheduledItems.filter(i => i.type === type).length}
-              </Badge>
-            </Button>
-          ))}
+      <DialogContent className="sm:max-w-5xl max-h-[85vh] !flex !flex-col overflow-hidden p-0">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+              <CalendarClock className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-semibold flex items-center gap-2" data-testid="text-scheduled-queue-title">
+                {t.agentWorkspace.scheduledQueueTitle}
+                <Badge variant="secondary" className="text-[10px] font-normal" data-testid="badge-scheduled-total">
+                  {scheduledItems.length}
+                </Badge>
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {counts.overdue > 0 && (
+                  <span className="text-destructive font-medium">{counts.overdue} {t.agentWorkspace.scheduledOverdue}</span>
+                )}
+                {counts.overdue > 0 && counts.today > 0 && <span> · </span>}
+                {counts.today > 0 && (
+                  <span>{counts.today} {t.agentWorkspace.scheduledToday}</span>
+                )}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="relative pb-2 flex-shrink-0">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t.common.search || "Search..."}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9"
-            data-testid="input-scheduled-search"
-          />
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <CalendarClock className="h-10 w-10 mx-auto mb-3 opacity-20" />
-              <p className="text-sm">{t.agentWorkspace.noScheduledItems}</p>
-            </div>
-          ) : (
-            <div className="space-y-2 pr-2">
-              {filteredItems.map(item => {
-                const itemOverdue = isOverdue(item.scheduledAt);
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="w-48 border-r bg-muted/30 flex-shrink-0 flex flex-col py-2 px-2 overflow-y-auto">
+            <div className="space-y-0.5 mb-3">
+              {timeFilters.map(tf => {
+                const Icon = tf.icon;
+                const isActive = timeFilter === tf.key;
                 return (
-                <Card key={item.id} data-testid={`scheduled-item-${item.id}`} className={itemOverdue ? "border-destructive/50 bg-destructive/5" : ""}>
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-3">
-                      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${itemOverdue ? "bg-destructive/10 text-destructive" : getTypeColor(item.type)}`}>
-                        {itemOverdue ? <AlertTriangle className="h-4 w-4" /> : getTypeIcon(item.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <button
-                            className="text-sm font-medium truncate text-left hover:underline cursor-pointer"
-                            data-testid={`text-scheduled-name-${item.id}`}
-                            onClick={() => {
-                              if (onOpenContact) {
-                                const channel = item.type === "callback" ? "phone" : item.type;
-                                onOpenContact(item.contactId, item.campaignId, item.id, channel as "phone" | "email" | "sms", item.contactType);
-                                onOpenChange(false);
-                              }
-                            }}
-                          >
-                            {item.contactName || t.agentWorkspace.unknownContact}
-                          </button>
-                          <Badge variant="outline" className="text-[9px]">
-                            {getTypeLabel(item.type)}
-                          </Badge>
-                          {itemOverdue && (
-                            <Badge variant="destructive" className="text-[9px] gap-0.5">
-                              <AlertTriangle className="h-2.5 w-2.5" />
-                              {t.agentWorkspace.overdueLabel}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                          {item.contactPhone && (
-                            <span className="flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {item.contactPhone}
-                            </span>
-                          )}
-                          {item.contactEmail && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {item.contactEmail}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <Megaphone className="h-3 w-3" />
-                            {item.campaignName}
-                          </span>
-                          <span className={`flex items-center gap-1 ${itemOverdue ? "text-destructive font-medium" : ""}`}>
-                            <Calendar className="h-3 w-3" />
-                            {format(new Date(item.scheduledAt), "d.M.yyyy HH:mm", { locale: sk })}
-                          </span>
-                        </div>
-                        {item.notes && (
-                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">{item.notes}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {item.type === "callback" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title={t.agentWorkspace.callNow}
-                            data-testid={`btn-scheduled-call-${item.id}`}
-                            onClick={() => {
-                              if (onOpenContact) {
-                                onOpenContact(item.contactId, item.campaignId, item.id, "phone", item.contactType);
-                                onOpenChange(false);
-                              }
-                            }}
-                          >
-                            <PhoneCall className="h-4 w-4 text-blue-500" />
-                          </Button>
-                        )}
-                        {(item.type === "email" || item.type === "sms") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title={t.agentWorkspace.sendNow}
-                            data-testid={`btn-scheduled-send-${item.id}`}
-                            onClick={() => {
-                              if (onOpenContact) {
-                                onOpenContact(item.contactId, item.campaignId, item.id, item.type as "email" | "sms", item.contactType);
-                                onOpenChange(false);
-                              }
-                            }}
-                          >
-                            <Send className="h-4 w-4 text-green-500" />
-                          </Button>
-                        )}
-                        <ReschedulePopover
-                          item={item}
-                          t={t}
-                          onReschedule={async (contactId, campaignId, newDate) => {
-                            try {
-                              await apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}`, {
-                                callbackDate: newDate,
-                                status: "callback_scheduled",
-                              });
-                              queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-                              toast({ title: t.agentWorkspace.reschedule, description: format(new Date(newDate), "dd.MM.yyyy HH:mm") });
-                            } catch (e) {
-                              toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
-                            }
-                          }}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title={t.agentWorkspace.cancelItem}
-                          data-testid={`btn-scheduled-cancel-${item.id}`}
-                          onClick={async () => {
-                            try {
-                              await apiRequest("PATCH", `/api/campaigns/${item.campaignId}/contacts/${item.id}`, {
-                                status: "pending",
-                                callbackDate: null,
-                                assignedTo: null,
-                              });
-                              queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-                              toast({ title: t.agentWorkspace.cancelItem, description: t.agentWorkspace.itemCancelled });
-                            } catch (e) {
-                              toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  <button
+                    key={tf.key}
+                    onClick={() => setTimeFilter(tf.key)}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                      isActive
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "hover:bg-muted text-foreground"
+                    }`}
+                    data-testid={`btn-time-filter-${tf.key}`}
+                  >
+                    <Icon className={`h-3.5 w-3.5 ${isActive ? "" : tf.color}`} />
+                    <span className="flex-1 text-left truncate">{tf.label}</span>
+                    {tf.count > 0 && (
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                        isActive ? "bg-primary-foreground/20 text-primary-foreground"
+                          : tf.key === "overdue" && tf.count > 0 ? "bg-destructive/10 text-destructive"
+                          : "bg-muted-foreground/10 text-muted-foreground"
+                      }`}>
+                        {tf.count}
+                      </span>
+                    )}
+                  </button>
                 );
               })}
             </div>
-          )}
+            <Separator className="mb-3" />
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2.5 mb-1.5">{t.agentWorkspace.scheduledType}</p>
+            <div className="space-y-0.5">
+              {(["all", "callback", "email", "sms"] as const).map(type => {
+                const isActive = filterType === type;
+                const count = type === "all" ? scheduledItems.length : counts[type];
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setFilterType(type)}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                      isActive ? "bg-accent font-medium" : "hover:bg-muted"
+                    }`}
+                    data-testid={`btn-scheduled-filter-${type}`}
+                  >
+                    {type === "all" ? <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" /> : getTypeIcon(type)}
+                    <span className="flex-1 text-left">
+                      {type === "all" ? t.agentWorkspace.scheduledAll : type === "callback" ? t.agentWorkspace.scheduledCalls : type === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b flex-shrink-0">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder={t.common.search || "Search..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-7 text-xs"
+                  data-testid="input-scheduled-search"
+                />
+              </div>
+              <div className="flex items-center border rounded-md h-7 overflow-hidden">
+                <button
+                  onClick={() => toggleSort("date")}
+                  className={`px-2 h-full flex items-center gap-1 text-[10px] border-r transition-colors ${sortField === "date" ? "bg-accent font-medium" : "hover:bg-muted"}`}
+                  data-testid="btn-sort-date"
+                >
+                  {t.agentWorkspace.sortByDate}
+                  <SortIcon field="date" />
+                </button>
+                <button
+                  onClick={() => toggleSort("name")}
+                  className={`px-2 h-full flex items-center gap-1 text-[10px] border-r transition-colors ${sortField === "name" ? "bg-accent font-medium" : "hover:bg-muted"}`}
+                  data-testid="btn-sort-name"
+                >
+                  {t.agentWorkspace.sortByName}
+                  <SortIcon field="name" />
+                </button>
+                <button
+                  onClick={() => toggleSort("campaign")}
+                  className={`px-2 h-full flex items-center gap-1 text-[10px] transition-colors ${sortField === "campaign" ? "bg-accent font-medium" : "hover:bg-muted"}`}
+                  data-testid="btn-sort-campaign"
+                >
+                  {t.agentWorkspace.sortByCampaign}
+                  <SortIcon field="campaign" />
+                </button>
+              </div>
+            </div>
+
+            <div className="hidden sm:grid grid-cols-[1fr_140px_120px_90px] gap-2 px-4 py-1.5 border-b bg-muted/40 text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex-shrink-0">
+              <span>{t.agentWorkspace.scheduledContact}</span>
+              <span>{t.agentWorkspace.scheduledDate}</span>
+              <span>{t.agentWorkspace.scheduledCampaign}</span>
+              <span className="text-right">{t.agentWorkspace.scheduledActions}</span>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <CalendarClock className="h-10 w-10 mx-auto mb-3 opacity-15" />
+                  <p className="text-sm">{t.agentWorkspace.noScheduledItems}</p>
+                </div>
+              ) : (
+                <div>
+                  {filteredItems.map((item, idx) => {
+                    const itemOverdue = isOverdue(item.scheduledAt);
+                    return (
+                      <div
+                        key={item.id}
+                        data-testid={`scheduled-item-${item.id}`}
+                        className={`grid grid-cols-1 sm:grid-cols-[1fr_140px_120px_90px] gap-x-2 gap-y-0.5 items-center px-4 py-2.5 border-b transition-colors hover:bg-muted/30 ${
+                          itemOverdue ? "bg-destructive/[0.03]" : idx % 2 === 0 ? "" : "bg-muted/20"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs ${
+                            itemOverdue ? "bg-destructive/10 text-destructive" : getTypeColor(item.type)
+                          }`}>
+                            {itemOverdue ? <AlertTriangle className="h-3.5 w-3.5" /> : getTypeIcon(item.type)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                className="text-sm font-medium truncate text-left hover:underline cursor-pointer leading-tight"
+                                data-testid={`text-scheduled-name-${item.id}`}
+                                onClick={() => {
+                                  if (onOpenContact) {
+                                    const channel = item.type === "callback" ? "phone" : item.type;
+                                    onOpenContact(item.contactId, item.campaignId, item.id, channel as "phone" | "email" | "sms", item.contactType);
+                                    onOpenChange(false);
+                                  }
+                                }}
+                              >
+                                {item.contactName || t.agentWorkspace.unknownContact}
+                              </button>
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
+                                {getTypeLabel(item.type)}
+                              </Badge>
+                              {itemOverdue && (
+                                <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4 gap-0.5 shrink-0">
+                                  <AlertTriangle className="h-2.5 w-2.5" />
+                                  {t.agentWorkspace.overdueLabel}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                              {item.contactPhone && (
+                                <span className="flex items-center gap-0.5">
+                                  <Phone className="h-2.5 w-2.5" />
+                                  {item.contactPhone}
+                                </span>
+                              )}
+                              {item.contactEmail && (
+                                <span className="flex items-center gap-0.5 truncate">
+                                  <Mail className="h-2.5 w-2.5 shrink-0" />
+                                  <span className="truncate">{item.contactEmail}</span>
+                                </span>
+                              )}
+                            </div>
+                            {item.notes && (
+                              <p className="text-[10px] text-muted-foreground/70 mt-0.5 line-clamp-1 italic">{item.notes}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={`text-xs ${itemOverdue ? "text-destructive font-medium" : "text-foreground"}`}>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 shrink-0" />
+                            <span>{format(new Date(item.scheduledAt), "d.M.yyyy", { locale: sk })}</span>
+                          </div>
+                          <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
+                            <Clock className="h-2.5 w-2.5 shrink-0" />
+                            <span>{format(new Date(item.scheduledAt), "HH:mm")}</span>
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-muted-foreground truncate">
+                          <span className="flex items-center gap-1">
+                            <Megaphone className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{item.campaignName}</span>
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-0.5">
+                          {item.type === "callback" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title={t.agentWorkspace.callNow}
+                              data-testid={`btn-scheduled-call-${item.id}`}
+                              onClick={() => {
+                                if (onOpenContact) {
+                                  onOpenContact(item.contactId, item.campaignId, item.id, "phone", item.contactType);
+                                  onOpenChange(false);
+                                }
+                              }}
+                            >
+                              <PhoneCall className="h-3.5 w-3.5 text-blue-500" />
+                            </Button>
+                          )}
+                          {(item.type === "email" || item.type === "sms") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title={t.agentWorkspace.sendNow}
+                              data-testid={`btn-scheduled-send-${item.id}`}
+                              onClick={() => {
+                                if (onOpenContact) {
+                                  onOpenContact(item.contactId, item.campaignId, item.id, item.type as "email" | "sms", item.contactType);
+                                  onOpenChange(false);
+                                }
+                              }}
+                            >
+                              <Send className="h-3.5 w-3.5 text-green-500" />
+                            </Button>
+                          )}
+                          <ReschedulePopover
+                            item={item}
+                            t={t}
+                            onReschedule={async (contactId, campaignId, newDate) => {
+                              try {
+                                await apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}`, {
+                                  callbackDate: newDate,
+                                  status: "callback_scheduled",
+                                });
+                                queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                toast({ title: t.agentWorkspace.reschedule, description: format(new Date(newDate), "dd.MM.yyyy HH:mm") });
+                              } catch (e) {
+                                toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title={t.agentWorkspace.cancelItem}
+                            data-testid={`btn-scheduled-cancel-${item.id}`}
+                            onClick={async () => {
+                              try {
+                                await apiRequest("PATCH", `/api/campaigns/${item.campaignId}/contacts/${item.id}`, {
+                                  status: "pending",
+                                  callbackDate: null,
+                                  assignedTo: null,
+                                });
+                                queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                toast({ title: t.agentWorkspace.cancelItem, description: t.agentWorkspace.itemCancelled });
+                              } catch (e) {
+                                toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 py-2 border-t bg-muted/20 flex-shrink-0">
+              <p className="text-[11px] text-muted-foreground">
+                {filteredItems.length} / {scheduledItems.length} {t.agentWorkspace.scheduledTotal}
+                {timeFilter !== "all" && <span className="ml-1">· {timeFilters.find(f => f.key === timeFilter)?.label}</span>}
+                {filterType !== "all" && <span className="ml-1">· {filterType === "callback" ? t.agentWorkspace.scheduledCalls : filterType === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}</span>}
+              </p>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
