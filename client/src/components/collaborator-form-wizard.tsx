@@ -3019,10 +3019,10 @@ function BankAccountSection({ bankAccountIban, swiftCode, onIbanChange, onSwiftC
   return (
     <>
       <div className="p-4 border rounded-lg space-y-3 bg-muted/30">
-        <Label className="text-sm font-medium">{t.collaborators?.fields?.accountAndBankCode || "Číslo účtu a kód banky"}</Label>
+        <Label className="text-sm font-medium">{t.collaborators?.fields?.accountAndBankCode || "Account number and bank code"}</Label>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{t.collaborators?.fields?.accountNumber || "Číslo účtu"}</Label>
+            <Label className="text-xs text-muted-foreground">{t.collaborators?.fields?.accountNumber || "Account Number"}</Label>
             <Input
               value={localAccount}
               onChange={(e) => setLocalAccount(e.target.value.replace(/[^0-9\-]/g, ""))}
@@ -3031,7 +3031,7 @@ function BankAccountSection({ bankAccountIban, swiftCode, onIbanChange, onSwiftC
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{t.collaborators?.fields?.bankCode || "Kód banky"}</Label>
+            <Label className="text-xs text-muted-foreground">{t.collaborators?.fields?.bankCode || "Bank Code"}</Label>
             <Input
               value={localBankCode}
               onChange={(e) => setLocalBankCode(e.target.value.replace(/[^0-9]/g, "").substring(0, 4))}
@@ -3049,7 +3049,7 @@ function BankAccountSection({ bankAccountIban, swiftCode, onIbanChange, onSwiftC
               className="w-full"
               data-testid="btn-convert-iban"
             >
-              {t.collaborators?.fields?.calculateIban || "Prepočítať IBAN"}
+              {t.collaborators?.fields?.calculateIban || "Calculate IBAN"}
             </Button>
           </div>
         </div>
@@ -3115,9 +3115,9 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
       if (!res.ok) throw new Error("Upload failed");
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "documents"] });
       setDocNote("");
-      toast({ title: t.collaborators?.fields?.documentUploaded || "Dokument nahraný" });
+      toast({ title: t.collaborators?.fields?.documentUploaded || "Document uploaded" });
     } catch (err) {
-      toast({ title: t.common?.error || "Chyba", description: (err as any).message, variant: "destructive" });
+      toast({ title: t.common?.error || "Error", description: (err as any).message, variant: "destructive" });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -3132,9 +3132,9 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
       });
       if (!res.ok) throw new Error("Delete failed");
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "documents"] });
-      toast({ title: t.collaborators?.fields?.documentDeleted || "Dokument vymazaný" });
+      toast({ title: t.collaborators?.fields?.documentDeleted || "Document deleted" });
     } catch (err) {
-      toast({ title: t.common?.error || "Chyba", variant: "destructive" });
+      toast({ title: t.common?.error || "Error", variant: "destructive" });
     }
   };
 
@@ -3154,13 +3154,13 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
       <div className="p-4 border-2 border-dashed rounded-lg space-y-3">
         <div className="flex items-center gap-2">
           <FileUp className="h-5 w-5 text-muted-foreground" />
-          <Label className="font-medium">{t.collaborators?.fields?.uploadDocument || "Nahrať dokument"}</Label>
+          <Label className="font-medium">{t.collaborators?.fields?.uploadDocument || "Upload document"}</Label>
         </div>
         <div className="space-y-2">
           <Input
             value={docNote}
             onChange={(e) => setDocNote(e.target.value)}
-            placeholder={t.collaborators?.fields?.documentNote || "Poznámka (voliteľné)"}
+            placeholder={t.collaborators?.fields?.documentNote || "Note (optional)"}
             data-testid="input-doc-note"
           />
         </div>
@@ -3181,7 +3181,7 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
           data-testid="btn-upload-doc"
         >
           <Upload className="h-4 w-4" />
-          {uploading ? (t.common?.uploading || "Nahrávam...") : (t.collaborators?.fields?.selectFile || "Vybrať súbor")}
+          {uploading ? (t.common?.uploading || "Uploading...") : (t.collaborators?.fields?.selectFile || "Select file")}
         </Button>
       </div>
 
@@ -3193,7 +3193,7 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
       ) : documents.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <FolderOpen className="h-10 w-10 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">{t.collaborators?.fields?.noDocuments || "Žiadne dokumenty"}</p>
+          <p className="text-sm">{t.collaborators?.fields?.noDocuments || "No documents"}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -3514,6 +3514,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators/stats"] });
       // Invalidate activity logs for this collaborator
       if (initialData?.id) {
         queryClient.invalidateQueries({ queryKey: ["/api/activity-logs", "collaborator", initialData.id] });
@@ -3807,7 +3808,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 </div>
               )}
               <div className="space-y-2">
-                <Label>{t.collaborators?.fields?.middleName || "Druhé meno"}</Label>
+                <Label>{t.collaborators?.fields?.middleName || "Middle Name"}</Label>
                 <Input
                   value={formData.middleName}
                   onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
@@ -3842,7 +3843,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label>{t.collaborators?.fields?.birthNumber || "Rodné číslo"}</Label>
+                <Label>{t.collaborators?.fields?.birthNumber || "Birth Number"}</Label>
                 <Input
                   value={formData.birthNumber}
                   onChange={(e) => {

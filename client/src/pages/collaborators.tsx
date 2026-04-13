@@ -1380,6 +1380,7 @@ function CollaboratorForm({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators/stats"] });
       toast({ title: t.success.saved });
       onSuccess();
     },
@@ -1964,6 +1965,7 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
     mutationFn: (id: string) => apiRequest("DELETE", `/api/collaborators/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators/stats"] });
       toast({ title: t.success.deleted });
       setIsDeleteOpen(false);
       setCollaboratorToDelete(null);
@@ -2466,7 +2468,7 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => refetchCollaborators()}
+                  onClick={() => { refetchCollaborators(); queryClient.invalidateQueries({ queryKey: ["/api/collaborators/stats"] }); }}
                   data-testid="button-refresh-collaborators"
                 >
                   <RefreshCw className="h-4 w-4 mr-1.5" />

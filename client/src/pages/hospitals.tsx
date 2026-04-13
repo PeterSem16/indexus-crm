@@ -210,6 +210,7 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
     mutationFn: (data: HospitalFormData) => apiRequest("PUT", `/api/hospitals/${hospital.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] });
       toast({ title: t.success.saved });
       onSuccess();
     },
@@ -825,6 +826,7 @@ function ClinicForm({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinics/stats"] });
       toast({ title: t.success.saved });
       onSuccess();
     },
@@ -1184,6 +1186,7 @@ export default function HospitalsPage() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/hospitals/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] });
       toast({ title: t.success.deleted });
       setIsDeleteOpen(false);
       setHospitalToDelete(null);
@@ -1197,6 +1200,7 @@ export default function HospitalsPage() {
     mutationFn: () => apiRequest("POST", "/api/hospitals/seed-all"),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] });
       toast({ 
         title: t.hospitals.seedSuccess,
         description: `${t.hospitals.seedCreated}: ${data.inserted}, ${t.hospitals.seedSkipped}: ${data.skipped} (${t.hospitals.seedTotal} ${data.total})`,
@@ -1215,6 +1219,7 @@ export default function HospitalsPage() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/clinics/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinics/stats"] });
       toast({ title: t.success.deleted });
       setIsClinicDeleteOpen(false);
       setClinicToDelete(null);
@@ -1963,7 +1968,7 @@ export default function HospitalsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] })}
+                    onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] }); queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] }); }}
                     data-testid="button-refresh-hospitals"
                   >
                     <RefreshCw className="h-4 w-4 mr-1.5" />
@@ -2248,7 +2253,7 @@ export default function HospitalsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => refetchClinics()}
+                    onClick={() => { refetchClinics(); queryClient.invalidateQueries({ queryKey: ["/api/clinics/stats"] }); }}
                     data-testid="button-refresh-clinics"
                   >
                     <RefreshCw className="h-4 w-4 mr-1.5" />
@@ -2558,6 +2563,7 @@ export default function HospitalsPage() {
           onClose={() => setIsFormOpen(false)}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] });
             setIsFormOpen(false);
           }}
         />
@@ -2569,6 +2575,7 @@ export default function HospitalsPage() {
           onClose={() => setEditingHospital(null)}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] });
             setEditingHospital(null);
           }}
         />

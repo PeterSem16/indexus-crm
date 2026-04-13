@@ -17623,10 +17623,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });
       const relativePath = getRelativePath(req.file.path);
+      let decodedName = req.file.originalname;
+      try { decodedName = Buffer.from(req.file.originalname, 'latin1').toString('utf8'); } catch {}
       const [doc] = await db.insert(collaboratorDocuments).values({
         collaboratorId: req.params.id,
         fileName: req.file.filename,
-        originalName: req.file.originalname,
+        originalName: decodedName,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
         filePath: relativePath,
