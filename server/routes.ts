@@ -15078,7 +15078,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const changes: Record<string, { from: any; to: any }> = {};
       const fieldsToTrack = [
         'firstName', 'middleName', 'lastName', 'titleBefore', 'titleAfter', 'email', 'phone', 'mobile',
-        'mobile2', 'collaboratorType', 'isActive', 'countryCode', 'countryCodes',
+        'mobile2', 'collaboratorType', 'agreementType', 'isActive', 'countryCode', 'countryCodes',
         'bankAccountIban', 'swiftCode', 'companyName', 'ico', 'dic', 'icDph',
         'companyIban', 'companySwift', 'monthRewards', 'clientContact', 'svetZdravia',
         'hospitalId', 'hospitalIds', 'representativeId', 'representativeIds', 'maritalStatus', 'birthPlace',

@@ -182,6 +182,7 @@ interface CollaboratorFormData {
   maritalStatus: string;
   collaboratorType: string;
   partnerCategory: string;
+  agreementType: string;
   phone: string;
   mobile: string;
   mobile2: string;
@@ -3305,6 +3306,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           maritalStatus: initialData.maritalStatus || "",
           collaboratorType: initialData.collaboratorType || "",
           partnerCategory: initialData.partnerCategory || "",
+          agreementType: (initialData as any).agreementType || "",
           phone: initialData.phone || "",
           mobile: initialData.mobile || "",
           mobile2: initialData.mobile2 || "",
@@ -3351,6 +3353,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           maritalStatus: "",
           collaboratorType: "",
           partnerCategory: "",
+          agreementType: "",
           phone: "",
           mobile: "",
           mobile2: "",
@@ -3754,7 +3757,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 </Popover>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label>{t.collaborators.fields.collaboratorType}</Label>
                 <Select
@@ -3780,6 +3783,59 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 collaboratorId={initialData?.id}
                 t={t}
               />
+              <div className="space-y-2">
+                <Label>{t.collaborators?.fields?.agreementType || "Typ dohody"}</Label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "DOVP" ? "" : "DOVP" })}
+                    className={cn(
+                      "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
+                      formData.agreementType === "DOVP"
+                        ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-400 shadow-sm"
+                        : "border-muted hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-muted-foreground"
+                    )}
+                    data-testid="btn-agreement-type-dovp"
+                  >
+                    <div className={cn(
+                      "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                      formData.agreementType === "DOVP"
+                        ? "bg-blue-500 text-white"
+                        : "bg-muted-foreground/10 text-muted-foreground"
+                    )}>D</div>
+                    <div className="text-left">
+                      <div className="leading-tight">DOVP</div>
+                      <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "DOVP" ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")}>
+                        {t.collaborators?.fields?.agreementDOVP || "Dohoda o vykonaní práce"}
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "ZOD" ? "" : "ZOD" })}
+                    className={cn(
+                      "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
+                      formData.agreementType === "ZOD"
+                        ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-400 shadow-sm"
+                        : "border-muted hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-muted-foreground"
+                    )}
+                    data-testid="btn-agreement-type-zod"
+                  >
+                    <div className={cn(
+                      "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                      formData.agreementType === "ZOD"
+                        ? "bg-amber-500 text-white"
+                        : "bg-muted-foreground/10 text-muted-foreground"
+                    )}>Z</div>
+                    <div className="text-left">
+                      <div className="leading-tight">ZOD</div>
+                      <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "ZOD" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
+                        {t.collaborators?.fields?.agreementZOD || "Zmluva o dielo"}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">

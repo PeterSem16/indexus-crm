@@ -1910,6 +1910,7 @@ export const collaborators = pgTable("collaborators", {
   maritalStatus: text("marital_status"),
   collaboratorType: text("collaborator_type"),
   partnerCategory: text("partner_category"),
+  agreementType: text("agreement_type"),
   
   // Contact info
   phone: text("phone"),
