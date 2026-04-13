@@ -13306,13 +13306,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
     try {
       const campaignId = req.params.id;
       const userId = req.session.user!.id;
-      const agents = await storage.getCampaignAgents(campaignId);
-      const agentSetting = agents.find(a => a.userId === userId);
-      if (!agentSetting) return res.json({ quotas: null, usage: null, blocked: false });
 
-      const dailyCallQuota = (agentSetting as any).dailyCallQuota ?? null;
-      const dailyEmailQuota = (agentSetting as any).dailyEmailQuota ?? null;
-      const dailySmsQuota = (agentSetting as any).dailySmsQuota ?? null;
+      const opSettings = await db.select().from(campaignOperatorSettings)
+        .where(and(
+          eq(campaignOperatorSettings.campaignId, campaignId),
+          eq(campaignOperatorSettings.userId, userId)
+        ))
+        .limit(1);
+      const setting = opSettings[0];
+      if (!setting) return res.json({ quotas: null, usage: null, blocked: false });
+
+      const dailyCallQuota = setting.dailyCallQuota ?? null;
+      const dailyEmailQuota = setting.dailyEmailQuota ?? null;
+      const dailySmsQuota = setting.dailySmsQuota ?? null;
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);

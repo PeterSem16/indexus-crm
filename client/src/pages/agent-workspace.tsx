@@ -5152,13 +5152,14 @@ export default function AgentWorkspacePage() {
       clearInterval(quotaCheckIntervalRef.current);
       quotaCheckIntervalRef.current = null;
     }
-    if (selectedCampaignId && agentSession.isSessionActive) {
+    if (selectedCampaignId) {
       fetchQuotaCheck(selectedCampaignId);
       quotaCheckIntervalRef.current = setInterval(() => {
-        fetchQuotaCheck(selectedCampaignId);
+        if (selectedCampaignId) fetchQuotaCheck(selectedCampaignId);
       }, 120000);
     } else {
       setQuotas(null);
+      quotaDataRef.current = null;
     }
     return () => {
       if (quotaCheckIntervalRef.current) {
@@ -5166,7 +5167,7 @@ export default function AgentWorkspacePage() {
         quotaCheckIntervalRef.current = null;
       }
     };
-  }, [selectedCampaignId, agentSession.isSessionActive, fetchQuotaCheck]);
+  }, [selectedCampaignId, fetchQuotaCheck]);
 
   const isQuotaBlocked = useCallback((type: "calls" | "emails" | "sms") => {
     if (!quotas) return false;
@@ -6023,6 +6024,7 @@ export default function AgentWorkspacePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/user/assigned-campaigns"] });
       if (loginIds.length > 0) {
         setSelectedCampaignId(loginIds[0]);
+        fetchQuotaCheck(loginIds[0]);
       }
       setSessionLoginOpen(false);
       toast({ title: t.agentSession.shiftStarted, description: t.agentSession.shiftStartedDesc });
