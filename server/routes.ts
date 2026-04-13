@@ -13319,13 +13319,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const todayISO = today.toISOString();
 
       const callsToday = await db.select({ count: sql<number>`count(*)` })
-        .from(campaignContactHistory)
-        .innerJoin(campaignContacts, eq(campaignContactHistory.campaignContactId, campaignContacts.id))
+        .from(callLogs)
         .where(and(
-          eq(campaignContacts.campaignId, campaignId),
-          eq(campaignContactHistory.userId, userId),
-          eq(campaignContactHistory.action, "status_change"),
-          gte(campaignContactHistory.createdAt, new Date(todayISO))
+          eq(callLogs.campaignId, campaignId),
+          eq(callLogs.userId, userId),
+          eq(callLogs.direction, "outbound"),
+          gte(callLogs.createdAt, new Date(todayISO))
         ));
 
       const emailsToday = await db.select({ count: sql<number>`count(*)` })
@@ -13360,12 +13359,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
         sms: dailySmsQuota !== null && usage.sms >= dailySmsQuota,
       };
 
-      res.json({
+      const result = {
         quotas: { calls: dailyCallQuota, emails: dailyEmailQuota, sms: dailySmsQuota },
         usage,
         blocked,
         anyBlocked: blocked.calls || blocked.emails || blocked.sms,
-      });
+      };
+      console.log(`[Quotas] Campaign=${campaignId} User=${userId} quotas=${JSON.stringify(result.quotas)} usage=${JSON.stringify(usage)} blocked=${JSON.stringify(blocked)}`);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to check quota" });
     }

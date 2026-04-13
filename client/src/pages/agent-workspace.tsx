@@ -5002,20 +5002,35 @@ export default function AgentWorkspacePage() {
   const [quotas, setQuotas] = useState<{ calls: number | null; emails: number | null; sms: number | null } | null>(null);
   const quotaCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const quotaDataRef = useRef<{ usage: { calls: number; emails: number; sms: number } } | null>(null);
+
   const fetchQuotaCheck = useCallback(async (campaignId: string) => {
     try {
       const res = await fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.warn(`[QuotaCheck] Failed to fetch quotas for campaign ${campaignId}: ${res.status}`);
+        return;
+      }
       const data = await res.json();
-      if (data.quotas) {
+      console.log(`[QuotaCheck] Response:`, JSON.stringify(data));
+      const hasAnyQuota = data.quotas && (data.quotas.calls !== null || data.quotas.emails !== null || data.quotas.sms !== null);
+      if (hasAnyQuota) {
         setQuotas(data.quotas);
+        if (data.usage) {
+          quotaDataRef.current = { usage: data.usage };
+          setStats({
+            calls: data.usage.calls || 0,
+            emails: data.usage.emails || 0,
+            sms: data.usage.sms || 0,
+          });
+        }
       } else {
         setQuotas(null);
+        quotaDataRef.current = null;
       }
-      if (data.usage) {
-        setStats({ calls: data.usage.calls || 0, emails: data.usage.emails || 0, sms: data.usage.sms || 0 });
-      }
-    } catch {}
+    } catch (err) {
+      console.error(`[QuotaCheck] Error:`, err);
+    }
   }, []);
 
   const [showOnlyAssigned, setShowOnlyAssigned] = useState(false);
