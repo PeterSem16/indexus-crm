@@ -1893,6 +1893,7 @@ export const collaborators = pgTable("collaborators", {
   countryCodes: text("country_codes").array().notNull().default(sql`ARRAY[]::text[]`), // Multiple countries
   titleBefore: text("title_before"),
   firstName: text("first_name").notNull(),
+  middleName: text("middle_name"),
   lastName: text("last_name").notNull(),
   maidenName: text("maiden_name"),
   titleAfter: text("title_after"),
@@ -2063,6 +2064,22 @@ export const collaboratorAgreements = pgTable("collaborator_agreements", {
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
+
+// Collaborator documents table
+export const collaboratorDocuments = pgTable("collaborator_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  fileName: text("file_name").notNull(),
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type"),
+  fileSize: integer("file_size"),
+  filePath: text("file_path").notNull(),
+  note: text("note"),
+  uploadedBy: varchar("uploaded_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type CollaboratorDocument = typeof collaboratorDocuments.$inferSelect;
 
 // Collaborator activities table (Úkony / Acts from CBC)
 export const collaboratorActivities = pgTable("collaborator_activities", {

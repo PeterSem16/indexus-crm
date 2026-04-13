@@ -46,6 +46,7 @@ import {
   campaignOperatorSettings,
   trainingRoomArchives,
   scriptTemplates,
+  collaboratorDocuments,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -268,6 +269,23 @@ const uploadAgreement = multer({
       cb(new Error("Invalid file type. Only PDF, JPEG, PNG, DOC, DOCX are allowed."));
     }
   },
+});
+
+// Configure multer for collaborator document uploads
+const collabDocStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, STORAGE_PATHS.collaboratorDocuments);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, `doc-${uniqueSuffix}${ext}`);
+  },
+});
+
+const uploadCollabDoc = multer({
+  storage: collabDocStorage,
+  limits: { fileSize: 20 * 1024 * 1024 },
 });
 
 // Configure multer for invoice image uploads
@@ -15059,7 +15077,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       // Calculate changes for activity log
       const changes: Record<string, { from: any; to: any }> = {};
       const fieldsToTrack = [
-        'firstName', 'lastName', 'titleBefore', 'titleAfter', 'email', 'phone', 'mobile',
+        'firstName', 'middleName', 'lastName', 'titleBefore', 'titleAfter', 'email', 'phone', 'mobile',
         'mobile2', 'collaboratorType', 'isActive', 'countryCode', 'countryCodes',
         'bankAccountIban', 'swiftCode', 'companyName', 'ico', 'dic', 'icDph',
         'companyIban', 'companySwift', 'monthRewards', 'clientContact', 'svetZdravia',
@@ -17586,6 +17604,65 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       res.download(agreement.filePath, agreement.fileName || "agreement.pdf");
     } catch (error) {
       res.status(500).json({ error: "Failed to download file" });
+    }
+  });
+
+  // Collaborator Documents
+  app.get("/api/collaborators/:id/documents", requireAuth, async (req, res) => {
+    try {
+      const docs = await db.select().from(collaboratorDocuments)
+        .where(eq(collaboratorDocuments.collaboratorId, req.params.id))
+        .orderBy(desc(collaboratorDocuments.createdAt));
+      res.json(docs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch documents" });
+    }
+  });
+
+  app.post("/api/collaborators/:id/documents", requireAuth, uploadCollabDoc.single("file"), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      const relativePath = getRelativePath(req.file.path);
+      const [doc] = await db.insert(collaboratorDocuments).values({
+        collaboratorId: req.params.id,
+        fileName: req.file.filename,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        filePath: relativePath,
+        note: req.body.note || null,
+        uploadedBy: req.session.user!.id,
+      }).returning();
+      res.json(doc);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to upload document" });
+    }
+  });
+
+  app.delete("/api/collaborators/:id/documents/:docId", requireAuth, async (req, res) => {
+    try {
+      const [doc] = await db.select().from(collaboratorDocuments)
+        .where(and(eq(collaboratorDocuments.id, req.params.docId), eq(collaboratorDocuments.collaboratorId, req.params.id)));
+      if (!doc) return res.status(404).json({ error: "Document not found" });
+      const absPath = getAbsolutePath(doc.filePath);
+      if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
+      await db.delete(collaboratorDocuments).where(eq(collaboratorDocuments.id, req.params.docId));
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete document" });
+    }
+  });
+
+  app.get("/api/collaborators/:id/documents/:docId/download", requireAuth, async (req, res) => {
+    try {
+      const [doc] = await db.select().from(collaboratorDocuments)
+        .where(and(eq(collaboratorDocuments.id, req.params.docId), eq(collaboratorDocuments.collaboratorId, req.params.id)));
+      if (!doc) return res.status(404).json({ error: "Document not found" });
+      const absPath = getAbsolutePath(doc.filePath);
+      if (!fs.existsSync(absPath)) return res.status(404).json({ error: "File not found on disk" });
+      res.download(absPath, doc.originalName);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to download document" });
     }
   });
 

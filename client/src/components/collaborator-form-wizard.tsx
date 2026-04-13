@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { COUNTRIES, VISIT_SUBJECTS, VISIT_PLACE_OPTIONS, REWARD_TYPES as SERVICE_TYPES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance, Role, CollaboratorActivity } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3, Sparkles, Loader2, Network, Hospital as HospitalIcon, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3, Sparkles, Loader2, Network, Hospital as HospitalIcon, Star, FolderOpen, File, FileUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -169,6 +169,7 @@ interface CollaboratorFormData {
   countryCodes: string[]; // Multiple countries
   titleBefore: string;
   firstName: string;
+  middleName: string;
   lastName: string;
   maidenName: string;
   titleAfter: string;
@@ -262,6 +263,7 @@ const WIZARD_STEPS = [
   { id: "companyAddress", icon: Building2 },
   { id: "banking", icon: CreditCard },
   { id: "agreements", icon: FileText },
+  { id: "documents", icon: FolderOpen },
   { id: "actions", icon: Activity },
   { id: "history", icon: History },
   { id: "connect", icon: Wifi },
@@ -2990,6 +2992,267 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
   );
 }
 
+function computeSKIban(accountNumber: string, bankCode: string): string {
+  const acc = accountNumber.replace(/[\s\-]/g, "");
+  const bk = bankCode.replace(/[\s\-]/g, "");
+  if (bk.length !== 4 || acc.length < 1 || acc.length > 10) return "";
+  const paddedAcc = acc.padStart(10, "0");
+  const bban = bk + "00" + paddedAcc;
+  const rearranged = bban + "281200";
+  let remainder = BigInt(rearranged) % 97n;
+  const checkDigits = String(98n - remainder).padStart(2, "0");
+  return `SK${checkDigits}${bban}`;
+}
+
+function BankAccountSection({ bankAccountIban, swiftCode, onIbanChange, onSwiftChange, countryCode, isHidden, isReadonly, t }: {
+  bankAccountIban: string; swiftCode: string; onIbanChange: (v: string) => void; onSwiftChange: (v: string) => void;
+  countryCode: string; isHidden: (f: string) => boolean; isReadonly: (f: string) => boolean; t: any;
+}) {
+  const [localAccount, setLocalAccount] = useState("");
+  const [localBankCode, setLocalBankCode] = useState("");
+
+  const handleConvert = () => {
+    const iban = computeSKIban(localAccount, localBankCode);
+    if (iban) onIbanChange(iban);
+  };
+
+  return (
+    <>
+      <div className="p-4 border rounded-lg space-y-3 bg-muted/30">
+        <Label className="text-sm font-medium">{t.collaborators?.fields?.accountAndBankCode || "Číslo účtu a kód banky"}</Label>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">{t.collaborators?.fields?.accountNumber || "Číslo účtu"}</Label>
+            <Input
+              value={localAccount}
+              onChange={(e) => setLocalAccount(e.target.value.replace(/[^0-9\-]/g, ""))}
+              placeholder="1234567890"
+              data-testid="wizard-input-account-number"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">{t.collaborators?.fields?.bankCode || "Kód banky"}</Label>
+            <Input
+              value={localBankCode}
+              onChange={(e) => setLocalBankCode(e.target.value.replace(/[^0-9]/g, "").substring(0, 4))}
+              placeholder="0200"
+              maxLength={4}
+              data-testid="wizard-input-bank-code"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleConvert}
+              disabled={!localAccount || localBankCode.length !== 4}
+              className="w-full"
+              data-testid="btn-convert-iban"
+            >
+              {t.collaborators?.fields?.calculateIban || "Prepočítať IBAN"}
+            </Button>
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {!isHidden("bank_account") && (
+          <div className="space-y-2">
+            <Label>{t.collaborators.fields.bankAccountIban}</Label>
+            <Input
+              value={bankAccountIban}
+              onChange={(e) => onIbanChange(e.target.value)}
+              placeholder="SK..."
+              data-testid="wizard-input-collaborator-iban"
+              disabled={isReadonly("bank_account")}
+              className={isReadonly("bank_account") ? "bg-muted" : ""}
+            />
+          </div>
+        )}
+        {!isHidden("bank_account") && (
+          <div className="space-y-2">
+            <Label>{t.collaborators.fields.swiftCode}</Label>
+            <Input
+              value={swiftCode}
+              onChange={(e) => onSwiftChange(e.target.value)}
+              data-testid="wizard-input-collaborator-swift"
+              disabled={isReadonly("bank_account")}
+              className={isReadonly("bank_account") ? "bg-muted" : ""}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any }) {
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [docNote, setDocNote] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const { data: documents = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/collaborators", collaboratorId, "documents"],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/documents`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: !!collaboratorId,
+  });
+
+  const handleUpload = async (file: globalThis.File) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (docNote.trim()) fd.append("note", docNote.trim());
+      const res = await fetch(`/api/collaborators/${collaboratorId}/documents`, {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "documents"] });
+      setDocNote("");
+      toast({ title: t.collaborators?.fields?.documentUploaded || "Dokument nahraný" });
+    } catch (err) {
+      toast({ title: t.common?.error || "Chyba", description: (err as any).message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDelete = async (docId: string) => {
+    try {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/documents/${docId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "documents"] });
+      toast({ title: t.collaborators?.fields?.documentDeleted || "Dokument vymazaný" });
+    } catch (err) {
+      toast({ title: t.common?.error || "Chyba", variant: "destructive" });
+    }
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const getFileIcon = (mime: string | null) => {
+    if (mime?.startsWith("image/")) return <Eye className="h-4 w-4" />;
+    return <File className="h-4 w-4" />;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="p-4 border-2 border-dashed rounded-lg space-y-3">
+        <div className="flex items-center gap-2">
+          <FileUp className="h-5 w-5 text-muted-foreground" />
+          <Label className="font-medium">{t.collaborators?.fields?.uploadDocument || "Nahrať dokument"}</Label>
+        </div>
+        <div className="space-y-2">
+          <Input
+            value={docNote}
+            onChange={(e) => setDocNote(e.target.value)}
+            placeholder={t.collaborators?.fields?.documentNote || "Poznámka (voliteľné)"}
+            data-testid="input-doc-note"
+          />
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files?.[0]) handleUpload(e.target.files[0]);
+          }}
+          data-testid="input-doc-file"
+        />
+        <Button
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="w-full gap-2"
+          data-testid="btn-upload-doc"
+        >
+          <Upload className="h-4 w-4" />
+          {uploading ? (t.common?.uploading || "Nahrávam...") : (t.collaborators?.fields?.selectFile || "Vybrať súbor")}
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      ) : documents.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <FolderOpen className="h-10 w-10 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">{t.collaborators?.fields?.noDocuments || "Žiadne dokumenty"}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {documents.map((doc: any) => (
+            <div key={doc.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors" data-testid={`doc-row-${doc.id}`}>
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                {getFileIcon(doc.mimeType)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{doc.originalName}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{doc.fileSize ? formatSize(doc.fileSize) : ""}</span>
+                  <span>•</span>
+                  <span>{new Date(doc.createdAt).toLocaleDateString("sk-SK")} {new Date(doc.createdAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+                {doc.note && <p className="text-xs text-muted-foreground italic mt-0.5">{doc.note}</p>}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    window.open(`/api/collaborators/${collaboratorId}/documents/${doc.id}/download`, "_blank");
+                  }}
+                  title={t.common?.download || "Stiahnuť"}
+                  data-testid={`btn-download-doc-${doc.id}`}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => fileInputRef.current?.click()}
+                  title={t.collaborators?.fields?.reupload || "Nahrať znova"}
+                  data-testid={`btn-reupload-doc-${doc.id}`}
+                >
+                  <Upload className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={() => handleDelete(doc.id)}
+                  title={t.common?.delete || "Vymazať"}
+                  data-testid={`btn-delete-doc-${doc.id}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: CollaboratorFormWizardProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
@@ -2999,7 +3262,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   
   const wizardSteps = isEditMode 
     ? WIZARD_STEPS 
-    : WIZARD_STEPS.filter(step => step.id !== "history" && step.id !== "connect" && step.id !== "actions" && step.id !== "medicalNetwork");
+    : WIZARD_STEPS.filter(step => step.id !== "history" && step.id !== "connect" && step.id !== "actions" && step.id !== "medicalNetwork" && step.id !== "documents");
   
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -3029,6 +3292,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           countryCodes: initialData.countryCodes || [initialData.countryCode],
           titleBefore: initialData.titleBefore || "",
           firstName: initialData.firstName,
+          middleName: (initialData as any).middleName || "",
           lastName: initialData.lastName,
           maidenName: initialData.maidenName || "",
           titleAfter: initialData.titleAfter || "",
@@ -3074,6 +3338,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           countryCodes: [],
           titleBefore: "",
           firstName: "",
+          middleName: "",
           lastName: "",
           maidenName: "",
           titleAfter: "",
@@ -3358,6 +3623,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       banking: steps.banking,
       companyAddress: t.collaborators.tabs.companyAndAddresses,
       agreements: t.collaborators.tabs.agreements,
+      documents: t.collaborators?.tabs?.documents || "Dokumenty",
       actions: t.collaborators.tabs.actions || "Úkony",
       history: t.collaborators.tabs.history,
       connect: t.common.indexusConnect,
@@ -3375,6 +3641,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       banking: steps.bankingDesc,
       companyAddress: t.collaborators.companyAddressesDescription,
       agreements: t.collaborators.agreementsDescription,
+      documents: t.collaborators?.documentsDescription || "Dokumenty priradené k spolupracovníkovi",
       actions: t.collaborators.actionsDesc || "Prehľad úkonov spolupracovníka",
       history: t.collaborators.historyDescription,
       connect: t.collaborators.connectDescription || "Call history, visits and activities from INDEXUS Connect",
@@ -3514,7 +3781,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-5">
               {!isHidden("title_before") && (
                 <div className="space-y-2">
                   <Label>{t.collaborators.fields.titleBefore}</Label>
@@ -3539,6 +3806,14 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   />
                 </div>
               )}
+              <div className="space-y-2">
+                <Label>{t.collaborators?.fields?.middleName || "Druhé meno"}</Label>
+                <Input
+                  value={formData.middleName}
+                  onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
+                  data-testid="wizard-input-collaborator-middlename"
+                />
+              </div>
               {!isHidden("last_name") && (
                 <div className="space-y-2">
                   <Label>{t.collaborators.fields.lastName} *</Label>
@@ -3565,7 +3840,36 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>{t.collaborators?.fields?.birthNumber || "Rodné číslo"}</Label>
+                <Input
+                  value={formData.birthNumber}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9/]/g, "");
+                    setFormData((prev) => {
+                      const updated = { ...prev, birthNumber: val };
+                      const digits = val.replace("/", "");
+                      if (digits.length >= 6) {
+                        let yearPart = parseInt(digits.substring(0, 2), 10);
+                        let monthPart = parseInt(digits.substring(2, 4), 10);
+                        const dayPart = parseInt(digits.substring(4, 6), 10);
+                        if (monthPart > 50) monthPart -= 50;
+                        if (monthPart > 20) monthPart -= 20;
+                        const fullYear = digits.length >= 10 ? (yearPart < 54 ? 2000 + yearPart : 1900 + yearPart) : (yearPart < 54 ? 2000 + yearPart : 1900 + yearPart);
+                        if (monthPart >= 1 && monthPart <= 12 && dayPart >= 1 && dayPart <= 31) {
+                          updated.birthYear = fullYear;
+                          updated.birthMonth = monthPart;
+                          updated.birthDay = dayPart;
+                        }
+                      }
+                      return updated;
+                    });
+                  }}
+                  placeholder="XXXXXX/XXXX"
+                  data-testid="wizard-input-collaborator-birth-number"
+                />
+              </div>
               {!isHidden("date_of_birth") && (
                 <DateFields
                   label={t.collaborators.fields.birthDate}
@@ -3719,33 +4023,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       case "banking":
         return (
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {!isHidden("bank_account") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.bankAccountIban}</Label>
-                  <Input
-                    value={formData.bankAccountIban}
-                    onChange={(e) => setFormData({ ...formData, bankAccountIban: e.target.value })}
-                    placeholder="SK..."
-                    data-testid="wizard-input-collaborator-iban"
-                    disabled={isReadonly("bank_account")}
-                    className={isReadonly("bank_account") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-              {!isHidden("bank_account") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.swiftCode}</Label>
-                  <Input
-                    value={formData.swiftCode}
-                    onChange={(e) => setFormData({ ...formData, swiftCode: e.target.value })}
-                    data-testid="wizard-input-collaborator-swift"
-                    disabled={isReadonly("bank_account")}
-                    className={isReadonly("bank_account") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-            </div>
+            <BankAccountSection
+              bankAccountIban={formData.bankAccountIban}
+              swiftCode={formData.swiftCode}
+              onIbanChange={(val) => setFormData({ ...formData, bankAccountIban: val })}
+              onSwiftChange={(val) => setFormData({ ...formData, swiftCode: val })}
+              countryCode={formData.countryCode}
+              isHidden={isHidden}
+              isReadonly={isReadonly}
+              t={t}
+            />
 
             <Separator className="my-4" />
 
@@ -4013,6 +4300,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
             countryCode={formData.countryCode}
             t={t}
           />
+        );
+
+      case "documents":
+        return initialData ? (
+          <DocumentsPanel collaboratorId={initialData.id} t={t} />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <FolderOpen className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">{t.wizard?.completePreviousSteps || "Najprv uložte spolupracovníka"}</p>
+          </div>
         );
       
       case "actions":
