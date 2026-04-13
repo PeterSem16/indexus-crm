@@ -1,0 +1,756 @@
+Áno — toto už vyzerá, že sa z toho dá poskladať veľmi slušný finálny status model pre INDEXUS.
+Z tých screenshotov je už vidno, že máš v systéme dve veci:
+	1.	status kontaktu / výsledok hovoru
+	2.	akciu dispozície
+napr.:
+	•	Žiadna
+	•	Spätné volanie
+	•	Nevolať
+	•	Dokončiť
+	•	Konverzia
+	•	Odoslať email
+	•	Odoslať SMS
+	•	Schedule email
+	•	Schedule SMS
+
+To je dobrý základ. Teraz by som to doplnil tak, aby to bolo ucelené, škálovateľné a čitateľné pre operátora aj reporting.
+
+⸻
+
+Navrhovaná finálna štruktúra
+
+Odporúčam to rozdeliť na tieto vrstvy:
+
+1. Kategória statusu
+
+Veľká logická skupina.
+
+2. Status
+
+Konkrétny výsledok.
+
+3. Akcia dispozície
+
+Čo má systém spraviť ďalej.
+
+4. Meta pravidlá
+
+Či je status finálny, či sa ráta do KPI, či blokuje ďalšie volania, či vyžaduje poznámku, callback, template atď.
+
+⸻
+
+A. Odporúčané hlavné kategórie statusov
+
+Na základe toho, čo už máš na obrázkoch, by som navrhol týchto 9 hlavných kategórií:
+	1.	Nedovolané / bez spojenia
+	2.	Callback / odložené
+	3.	Záujem / obchodný progres
+	4.	Zmluva / dokumenty
+	5.	Email / SMS komunikácia
+	6.	Materiály / onboarding
+	7.	Odmietnutie / stop
+	8.	Dokončené / uzatvorené
+	9.	Chybné / neplatné kontakty
+
+Toto už pokryje skoro všetko.
+
+⸻
+
+B. Finálny kompletný návrh kategórií a statusov
+
+Nižšie to dávam už v praktickej forme.
+
+⸻
+
+1. NEDOVOLANÉ / BEZ SPOJENIA
+
+Táto kategória je pre technický alebo procesný neúspech kontaktovania.
+
+Statusy:
+	•	no_answer — Nedvíha
+	•	busy — Obsadené
+	•	voicemail — Hlasová schránka
+	•	unreachable — Nedostupné
+	•	switched_off — Telefón vypnutý
+	•	network_error — Chyba siete
+	•	call_failed — Hovor zlyhal
+	•	after_hours — Mimo pracovnej doby
+	•	wrong_time — Nevhodný čas
+	•	gatekeeper_only — Iba recepcia / nedostali sme sa ďalej
+
+Predvolená akcia:
+	•	väčšinou Spätné volanie
+
+Odporúčané pravidlá:
+	•	nie je finálne
+	•	nevstupuje do konverzie
+	•	systém môže počítať attempt count
+	•	pri voicemail môže byť voliteľne „Odoslať email / SMS“
+
+⸻
+
+2. CALLBACK / ODLOŽENÉ
+
+Statusy, kde sa kontakt síce nepohol do finálu, ale treba follow-up.
+
+Statusy:
+	•	callback_2d — Callback – 2 dni
+	•	callback_1week — Callback – 1 týždeň
+	•	callback_nwd — Callback – next working day
+	•	callback_scheduled — Callback – dohodnutý termín
+	•	needs_time — Potrebuje čas
+	•	hesitant — Ešte váha
+	•	decision_pending — Čaká na rozhodnutie
+	•	consult_partner — Potrebuje konzultovať s partnerom / vedením
+	•	awaiting_budget — Čaká na rozpočet
+	•	awaiting_internal_approval — Čaká na interné schválenie
+	•	call_later_today — Zavolať neskôr dnes
+	•	call_next_month — Zavolať budúci mesiac
+	•	restart_3m — Reštart o 3 mesiace
+	•	restart_6m — Reštart o 6 mesiacov
+
+Predvolená akcia:
+	•	Spätné volanie
+
+Pravidlá:
+	•	vyžaduje dátum alebo interval callbacku
+	•	nie je finálne
+	•	neblokuje kontakt
+	•	vhodné pre SLA a tasky
+
+⸻
+
+3. ZÁUJEM / OBCHODNÝ PROGRES
+
+Toto sú pozitívne alebo rozpracované obchodné výsledky.
+
+Statusy:
+	•	interest_confirmed — Záujem potvrdený
+	•	cooperation_agreed — Súhlas so spoluprácou
+	•	appointment_set — Termín dohodnutý
+	•	meeting_requested — Chce stretnutie
+	•	call_with_doctor — Chce hovor s lekárom / odborníkom
+	•	needs_more_info — Potrebuje viac info
+	•	price_requested — Chce cenovú ponuku
+	•	materials_requested — Vyžiadal si materiály
+	•	demo_requested — Vyžiadal si prezentáciu / ukážku
+	•	warm_lead — Teplý lead
+	•	hot_lead — Horúci lead
+	•	partner_active_no_materials — Partner aktívny bez materiálov
+
+Predvolená akcia:
+
+podľa typu:
+	•	Žiadna
+	•	Odoslať email
+	•	Spätné volanie
+	•	Konverzia
+
+Pravidlá:
+	•	väčšinou nie finálne, okrem niektorých
+	•	do KPI ako „interest“
+	•	vhodné na scoring leadov
+
+⸻
+
+4. ZMLUVA / DOKUMENTY
+
+Podľa screenshotov toto je u teba veľmi dôležitá línia, preto ju treba mať samostatne.
+
+Statusy:
+	•	contract_sent — Zmluva odoslaná
+	•	contract_awaiting — Zmluva ešte neodoslaná späť
+	•	contract_unsigned — Zmluva bez podpisu
+	•	contract_incomplete — Zmluva neúplná
+	•	contract_resent — Zmluva opätovne odoslaná
+	•	contract_not_delivered — Zmluva nedoručená
+	•	contract_received — Zmluva doručená späť
+	•	contract_validated — Zmluva validovaná
+	•	contract_signed — Zmluva podpísaná
+	•	contract_rejected — Zmluva odmietnutá
+	•	missing_documents — Chýbajú dokumenty
+	•	documents_under_review — Dokumenty v kontrole
+
+Predvolená akcia:
+	•	Žiadna
+	•	Spätné volanie
+	•	Odoslať email
+	•	Schedule email
+	•	Konverzia
+
+Pravidlá:
+	•	contract_validated, contract_signed môžu ísť na Konverzia
+	•	contract_incomplete, contract_unsigned, contract_awaiting majú ísť na Spätné volanie
+	•	contract_not_delivered skôr Schedule email / Odoslať email
+
+⸻
+
+5. EMAIL / SMS KOMUNIKÁCIA
+
+Na obrázkoch už máš:
+	•	Email 1 odoslaný
+	•	Email 2 detailné info
+	•	Email s PDF odoslaný
+
+Toto odporúčam urobiť ako plnohodnotnú skupinu.
+
+Email statusy:
+	•	email1_sent — Email 1 odoslaný
+	•	email2_sent — Email 2 – detailné info
+	•	pdf_email_sent — Email s PDF odoslaný
+	•	followup_email_sent — Follow-up email odoslaný
+	•	reminder_email_scheduled — Reminder email naplánovaný
+	•	email_bounced — Email nedoručený
+	•	email_opened — Email otvorený
+	•	email_clicked — Klik na email
+	•	email_replied — Odpoveď na email
+	•	email_no_response — Bez reakcie na email
+
+SMS statusy:
+	•	sms_sent — SMS odoslaná
+	•	sms_scheduled — SMS naplánovaná
+	•	sms_delivered — SMS doručená
+	•	sms_failed — SMS zlyhala
+	•	sms_replied — Reakcia na SMS
+
+Predvolená akcia:
+	•	Odoslať email
+	•	Odoslať SMS
+	•	Schedule email
+	•	Schedule SMS
+	•	Žiadna
+
+Pravidlá:
+	•	vhodné pre automatizácie
+	•	niektoré sú systémové, nemusia byť ručne nastavované agentom
+	•	vhodné rozlíšiť:
+	•	manuálne dispozičné statusy
+	•	automatické doručovacie statusy
+
+⸻
+
+6. MATERIÁLY / ONBOARDING
+
+Toto už na obrázkoch tiež vidno.
+
+Statusy:
+	•	materials_sent — Materiály odoslané
+	•	materials_delivered — Materiály doručené
+	•	materials_viewed — Materiály otvorené / pozreté
+	•	onboarding_confirmed — Onboarding potvrdený
+	•	onboarding_started — Onboarding začatý
+	•	onboarding_completed — Onboarding dokončený
+	•	activation_pending — Aktivácia čaká
+	•	partner_active_no_materials — Partner aktívny bez materiálov
+	•	partner_active — Partner aktívny
+	•	partner_live — Partner spustený do prevádzky
+
+Predvolená akcia:
+	•	Žiadna
+	•	Dokončiť
+	•	Konverzia
+	•	Odoslať email
+
+Pravidlá:
+	•	materials_sent ešte nie je konverzia
+	•	materials_delivered môže byť „Dokončiť“ v mikro kroku
+	•	onboarding_confirmed, partner_active, partner_live môžu byť Konverzia alebo finálny úspech podľa kampane
+
+⸻
+
+7. ODMIETNUTIE / STOP
+
+Na obrázkoch vidím:
+	•	Odmietnutie — callback 6M
+	•	Odmietnutie — referencia 3M reštart
+	•	Definitívne odmietnutie
+
+Toto je super, ale treba to domyslieť kompletne.
+
+Statusy:
+	•	declined_6m — Odmietnutie — callback 6M
+	•	declined_ref_3m — Odmietnutie — referencia 3M reštart
+	•	declined_final — Definitívne odmietnutie
+	•	declined_budget — Odmietol z dôvodu ceny
+	•	declined_no_need — Nemá potrebu
+	•	declined_competitor — Už má iného partnera
+	•	declined_bad_timing — Nevhodný čas
+	•	declined_internal_policy — Interné pravidlá nedovoľujú
+	•	declined_no_authority — Nemá kompetenciu
+	•	declined_not_relevant — Nie je relevantné
+	•	not_interested — Bez záujmu
+	•	dnc_phone_only — Neželá si telefonát
+	•	dnc_all — Neželá si žiadny kontakt
+	•	gdpr_stop — GDPR stop
+	•	blacklisted — Blacklist
+
+Predvolená akcia:
+	•	Spätné volanie
+	•	Nevolať
+	•	Dokončiť
+
+Pravidlá:
+	•	declined_6m, declined_ref_3m = nie finálne, callback
+	•	declined_final, gdpr_stop, blacklisted, dnc_all = finálne, Nevolať
+	•	dnc_phone_only = blok outbound call, ale možno povoliť email
+
+⸻
+
+8. DOKONČENÉ / UZATVORENÉ
+
+Pre uzavreté prípady, kde netreba nič robiť.
+
+Statusy:
+	•	completed — Dokončené
+	•	closed_success — Uzatvorené úspešne
+	•	closed_no_action — Uzatvorené bez ďalšej akcie
+	•	request_resolved — Požiadavka vybavená
+	•	case_closed — Prípad uzatvorený
+	•	inactive_closed — Uzatvorené ako neaktívne
+	•	partner_active_no_materials — Partner aktívny bez materiálov
+	•	materials_delivered — Materiály doručené
+	•	task_completed — Úloha dokončená
+
+Predvolená akcia:
+	•	Dokončiť
+
+Pravidlá:
+	•	finálne
+	•	bez ďalších follow-upov
+	•	nevytvárať callback
+
+⸻
+
+9. CHYBNÉ / NEPLATNÉ KONTAKTY
+
+Toto je dôležité kvôli kvalite databázy.
+
+Statusy:
+	•	wrong_number — Chybné číslo
+	•	invalid_contact — Neplatný kontakt
+	•	duplicate_contact — Duplicitný kontakt
+	•	contact_not_found — Kontakt neexistuje
+	•	wrong_person — Nesprávna osoba
+	•	company_closed — Firma zanikla
+	•	out_of_scope — Mimo cieľovej skupiny
+	•	data_error — Chyba v dátach
+	•	missing_phone — Chýba telefón
+	•	missing_email — Chýba email
+
+Predvolená akcia:
+	•	Dokončiť
+	•	Nevolať
+	•	prípadne interná verifikácia
+
+Pravidlá:
+	•	skôr finálne v danej kampani
+	•	nevstupujú do výkonu agentov ako negatívny obchodný výsledok
+	•	vhodné pre data cleansing report
+
+⸻
+
+C. Doplnenie akcií dispozícií
+
+Na obrázkoch už máš akcie veľmi dobre. Ja by som ich uzavrel takto:
+
+Finálny set akcií dispozícií:
+	•	none — Žiadna
+	•	callback — Spätné volanie
+	•	do_not_call — Nevolať
+	•	complete — Dokončiť
+	•	conversion — Konverzia
+	•	send_email — Odoslať email
+	•	send_sms — Odoslať SMS
+	•	schedule_email — Schedule email
+	•	schedule_sms — Schedule SMS
+	•	assign_owner — Priradiť vlastníkovi
+	•	move_queue — Presunúť do inej fronty
+	•	start_onboarding — Spustiť onboarding
+	•	create_task — Vytvoriť task
+	•	verify_contact — Odoslať na verifikáciu kontaktu
+
+Tieto posledné štyri nie sú nutné pre MVP, ale do INDEXUS by sa hodili.
+
+⸻
+
+D. Ako to spojiť do logiky
+
+Najlepšie pravidlo:
+
+Každý status má:
+	•	kategóriu
+	•	label
+	•	code
+	•	predvolenú akciu
+	•	finálny flag
+	•	success flag
+	•	requires_note
+	•	requires_callback_date
+	•	allow_recontact
+	•	allow_email
+	•	allow_sms
+	•	visible_in_campaigns
+
+⸻
+
+E. Odporúčaný finálny master zoznam statusov
+
+Nižšie ti to dávam už vo forme, ktorú vieš skoro priamo použiť do systému.
+
+Nedovolané / bez spojenia
+	•	no_answer
+	•	busy
+	•	voicemail
+	•	unreachable
+	•	switched_off
+	•	network_error
+	•	call_failed
+	•	after_hours
+	•	wrong_time
+	•	gatekeeper_only
+
+Callback / odložené
+	•	callback_2d
+	•	callback_1week
+	•	callback_nwd
+	•	callback_scheduled
+	•	needs_time
+	•	hesitant
+	•	decision_pending
+	•	consult_partner
+	•	awaiting_budget
+	•	awaiting_internal_approval
+	•	call_later_today
+	•	call_next_month
+	•	restart_3m
+	•	declined_6m
+
+Záujem / progres
+	•	interest_confirmed
+	•	cooperation_agreed
+	•	appointment_set
+	•	meeting_requested
+	•	call_with_doctor
+	•	needs_more_info
+	•	price_requested
+	•	materials_requested
+	•	demo_requested
+	•	warm_lead
+	•	hot_lead
+	•	partner_active_no_materials
+
+Zmluva / dokumenty
+	•	contract_sent
+	•	contract_awaiting
+	•	contract_unsigned
+	•	contract_incomplete
+	•	contract_resent
+	•	contract_not_delivered
+	•	contract_received
+	•	contract_validated
+	•	contract_signed
+	•	contract_rejected
+	•	missing_documents
+	•	documents_under_review
+
+Email / SMS
+	•	email1_sent
+	•	email2_sent
+	•	pdf_email_sent
+	•	followup_email_sent
+	•	reminder_email_scheduled
+	•	email_bounced
+	•	email_opened
+	•	email_clicked
+	•	email_replied
+	•	email_no_response
+	•	sms_sent
+	•	sms_scheduled
+	•	sms_delivered
+	•	sms_failed
+	•	sms_replied
+
+Materiály / onboarding
+	•	materials_sent
+	•	materials_delivered
+	•	materials_viewed
+	•	onboarding_confirmed
+	•	onboarding_started
+	•	onboarding_completed
+	•	activation_pending
+	•	partner_active
+	•	partner_live
+
+Odmietnutie / stop
+	•	declined_ref_3m
+	•	declined_final
+	•	declined_budget
+	•	declined_no_need
+	•	declined_competitor
+	•	declined_bad_timing
+	•	declined_internal_policy
+	•	declined_no_authority
+	•	declined_not_relevant
+	•	not_interested
+	•	dnc_phone_only
+	•	dnc_all
+	•	gdpr_stop
+	•	blacklisted
+
+Dokončené / uzatvorené
+	•	completed
+	•	closed_success
+	•	closed_no_action
+	•	request_resolved
+	•	case_closed
+	•	inactive_closed
+	•	task_completed
+
+Chybné / neplatné kontakty
+	•	wrong_number
+	•	invalid_contact
+	•	duplicate_contact
+	•	contact_not_found
+	•	wrong_person
+	•	company_closed
+	•	out_of_scope
+	•	data_error
+	•	missing_phone
+	•	missing_email
+
+⸻
+
+F. Odporúčané mapovanie status → akcia
+
+Tu je praktické odporúčanie:
+
+Spätné volanie
+	•	no_answer
+	•	busy
+	•	voicemail
+	•	callback_2d
+	•	callback_1week
+	•	callback_nwd
+	•	callback_scheduled
+	•	needs_time
+	•	hesitant
+	•	decision_pending
+	•	consult_partner
+	•	awaiting_budget
+	•	awaiting_internal_approval
+	•	contract_awaiting
+	•	contract_unsigned
+	•	contract_incomplete
+	•	contract_resent
+	•	contract_not_delivered
+	•	declined_6m
+	•	declined_ref_3m
+
+Nevolať
+	•	declined_final
+	•	dnc_phone_only
+	•	dnc_all
+	•	gdpr_stop
+	•	blacklisted
+	•	wrong_number
+	•	invalid_contact
+	•	company_closed
+
+Dokončiť
+	•	completed
+	•	closed_success
+	•	closed_no_action
+	•	request_resolved
+	•	case_closed
+	•	inactive_closed
+	•	materials_delivered
+	•	partner_active_no_materials
+	•	task_completed
+
+Konverzia
+	•	appointment_set
+	•	interest_confirmed
+	•	cooperation_agreed
+	•	contract_validated
+	•	contract_signed
+	•	onboarding_confirmed
+	•	onboarding_completed
+	•	partner_active
+	•	partner_live
+
+Odoslať email
+	•	email1_sent
+	•	email2_sent
+	•	pdf_email_sent
+	•	followup_email_sent
+	•	needs_more_info
+	•	price_requested
+	•	materials_requested
+	•	contract_sent
+	•	materials_sent
+
+Odoslať SMS
+	•	sms_sent
+	•	sms_scheduled
+	•	reminder_sms
+	•	callback reminder typy
+
+Schedule email
+	•	reminder_email_scheduled
+	•	contract_resent
+	•	contract_awaiting
+
+Schedule SMS
+	•	sms_scheduled
+	•	callback reminder
+
+⸻
+
+G. Čo by som ešte doplnil do UI
+
+Z toho, čo vidno na screenshotov, by som ešte pridal tieto vlastnosti do editácie statusu:
+	•	Kategória
+	•	Názov
+	•	Code
+	•	Ikona
+	•	Farba
+	•	Predvolená akcia
+	•	Finálny status
+	•	Počítať do konverzie
+	•	Vyžaduje poznámku
+	•	Vyžaduje callback dátum
+	•	Povoliť opätovné kontaktovanie
+	•	Povoliť iba email
+	•	Povoliť iba SMS
+	•	Interný / systémový status
+	•	Poradie zobrazenia
+	•	Aktívny / neaktívny
+
+To je veľmi silné, lebo zrazu z toho nebude iba zoznam, ale riadený engine.
+
+⸻
+
+H. Môj odporúčaný finálny koncept pre INDEXUS
+
+Keby som to uzavrel prakticky, navrhujem:
+
+1. Systemové akcie nech ostanú takto:
+	•	Žiadna
+	•	Spätné volanie
+	•	Nevolať
+	•	Dokončiť
+	•	Konverzia
+	•	Odoslať email
+	•	Odoslať SMS
+	•	Schedule email
+	•	Schedule SMS
+
+2. Statusy rozdeliť do 9 kategórií:
+	•	Nedovolané
+	•	Callback
+	•	Záujem
+	•	Zmluva
+	•	Email/SMS
+	•	Materiály/Onboarding
+	•	Odmietnutie
+	•	Dokončené
+	•	Chybné kontakty
+
+3. Pri každom statuse držať meta logiku:
+	•	finálny?
+	•	callback required?
+	•	conversion?
+	•	DNC?
+	•	vyžaduje poznámku?
+	•	automatická šablóna?
+
+⸻
+
+I. Veľmi praktická poznámka
+
+Na obrázkoch máš spolu v jednom zozname:
+	•	výsledkové statusy
+	•	komunikačné statusy
+	•	obchodné progresy
+	•	zmluvné stavy
+
+To nie je zlé, ale v UI by som ich už filtroval podľa kategórie, lebo inak z toho časom bude dlhý had.
+
+Teda agent alebo admin by mal vedieť prepnúť:
+	•	všetky
+	•	callback
+	•	odmietnutia
+	•	zmluvy
+	•	emaily
+	•	onboarding
+	•	dokončené
+
+To veľmi pomôže.
+
+⸻
+
+J. Môj návrh “kompletne doplnené”
+
+Ak chceš úplne praktický finálny set pre tvoj aktuálny zoznam zo screenshotov, tak by som k tomu, čo už máš, doplnil presne tieto statusy navyše:
+
+Doplniť:
+	•	unreachable
+	•	switched_off
+	•	network_error
+	•	after_hours
+	•	wrong_time
+	•	decision_pending
+	•	consult_partner
+	•	awaiting_budget
+	•	awaiting_internal_approval
+	•	meeting_requested
+	•	call_with_doctor
+	•	needs_more_info
+	•	price_requested
+	•	materials_requested
+	•	warm_lead
+	•	hot_lead
+	•	contract_received
+	•	contract_signed
+	•	contract_rejected
+	•	missing_documents
+	•	documents_under_review
+	•	followup_email_sent
+	•	reminder_email_scheduled
+	•	email_bounced
+	•	email_opened
+	•	email_replied
+	•	sms_sent
+	•	sms_delivered
+	•	sms_failed
+	•	materials_viewed
+	•	onboarding_started
+	•	onboarding_completed
+	•	activation_pending
+	•	partner_active
+	•	partner_live
+	•	declined_budget
+	•	declined_no_need
+	•	declined_competitor
+	•	declined_bad_timing
+	•	declined_internal_policy
+	•	declined_no_authority
+	•	dnc_phone_only
+	•	dnc_all
+	•	gdpr_stop
+	•	blacklisted
+	•	wrong_number
+	•	invalid_contact
+	•	duplicate_contact
+	•	wrong_person
+	•	company_closed
+	•	out_of_scope
+	•	data_error
+
+⸻
+
+Ak chceš, v ďalšom kroku ti to môžem rovno pripraviť ako hotový importný zoznam do tabuľky v tomto tvare:
+
+category | status_name | code | default_action | is_final | is_conversion | requires_callback | requires_note
+
+aby si to vedel hneď nahádzať do INDEXUS databázy alebo admin rozhrania.

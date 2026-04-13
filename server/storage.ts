@@ -162,6 +162,9 @@ import {
   leadSources, leadCampaigns,
   type LeadSource, type InsertLeadSource,
   type LeadCampaign, type InsertLeadCampaign,
+  statusCategories, statusDefinitions,
+  type StatusCategory, type InsertStatusCategory,
+  type StatusDefinition, type InsertStatusDefinition,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull, count } from "drizzle-orm";
@@ -1161,6 +1164,19 @@ export interface IStorage {
   getDueLeadCampaigns(): Promise<LeadCampaign[]>;
   updateLeadCampaign(id: number, data: Partial<InsertLeadCampaign>): Promise<LeadCampaign>;
   deleteLeadCampaign(id: number): Promise<boolean>;
+
+  getAllStatusCategories(): Promise<StatusCategory[]>;
+  getStatusCategory(id: string): Promise<StatusCategory | undefined>;
+  createStatusCategory(data: InsertStatusCategory): Promise<StatusCategory>;
+  updateStatusCategory(id: string, data: Partial<InsertStatusCategory>): Promise<StatusCategory | undefined>;
+  deleteStatusCategory(id: string): Promise<boolean>;
+
+  getAllStatusDefinitions(): Promise<StatusDefinition[]>;
+  getStatusDefinitionsByCategory(categoryId: string): Promise<StatusDefinition[]>;
+  getStatusDefinition(id: string): Promise<StatusDefinition | undefined>;
+  createStatusDefinition(data: InsertStatusDefinition): Promise<StatusDefinition>;
+  updateStatusDefinition(id: string, data: Partial<InsertStatusDefinition>): Promise<StatusDefinition | undefined>;
+  deleteStatusDefinition(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7464,6 +7480,50 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteLeadCampaign(id: number): Promise<boolean> {
     const result = await db.delete(leadCampaigns).where(eq(leadCampaigns.id, id));
+    return true;
+  }
+
+  async getAllStatusCategories(): Promise<StatusCategory[]> {
+    return db.select().from(statusCategories).orderBy(asc(statusCategories.sortOrder));
+  }
+  async getStatusCategory(id: string): Promise<StatusCategory | undefined> {
+    const [cat] = await db.select().from(statusCategories).where(eq(statusCategories.id, id));
+    return cat;
+  }
+  async createStatusCategory(data: InsertStatusCategory): Promise<StatusCategory> {
+    const [cat] = await db.insert(statusCategories).values(data).returning();
+    return cat;
+  }
+  async updateStatusCategory(id: string, data: Partial<InsertStatusCategory>): Promise<StatusCategory | undefined> {
+    const [cat] = await db.update(statusCategories).set({ ...data, updatedAt: new Date() }).where(eq(statusCategories.id, id)).returning();
+    return cat;
+  }
+  async deleteStatusCategory(id: string): Promise<boolean> {
+    await db.delete(statusDefinitions).where(eq(statusDefinitions.categoryId, id));
+    await db.delete(statusCategories).where(eq(statusCategories.id, id));
+    return true;
+  }
+
+  async getAllStatusDefinitions(): Promise<StatusDefinition[]> {
+    return db.select().from(statusDefinitions).orderBy(asc(statusDefinitions.sortOrder));
+  }
+  async getStatusDefinitionsByCategory(categoryId: string): Promise<StatusDefinition[]> {
+    return db.select().from(statusDefinitions).where(eq(statusDefinitions.categoryId, categoryId)).orderBy(asc(statusDefinitions.sortOrder));
+  }
+  async getStatusDefinition(id: string): Promise<StatusDefinition | undefined> {
+    const [def] = await db.select().from(statusDefinitions).where(eq(statusDefinitions.id, id));
+    return def;
+  }
+  async createStatusDefinition(data: InsertStatusDefinition): Promise<StatusDefinition> {
+    const [def] = await db.insert(statusDefinitions).values(data).returning();
+    return def;
+  }
+  async updateStatusDefinition(id: string, data: Partial<InsertStatusDefinition>): Promise<StatusDefinition | undefined> {
+    const [def] = await db.update(statusDefinitions).set({ ...data, updatedAt: new Date() }).where(eq(statusDefinitions.id, id)).returning();
+    return def;
+  }
+  async deleteStatusDefinition(id: string): Promise<boolean> {
+    await db.delete(statusDefinitions).where(eq(statusDefinitions.id, id));
     return true;
   }
 }

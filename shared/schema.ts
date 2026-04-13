@@ -3222,6 +3222,95 @@ export const DISPOSITION_NAME_TRANSLATIONS: Record<string, Record<string, string
   schedule_next_sms: { en: 'Schedule next SMS', sk: 'Naplánovať ďalšiu SMS', cs: 'Naplánovat další SMS', hu: 'Következő SMS ütemezése', ro: 'Programează următorul SMS', it: 'Pianifica prossimo SMS', de: 'Nächste SMS planen' },
 };
 
+export const STATUS_CATEGORY_CODES = [
+  "not_reached",
+  "callback",
+  "interest",
+  "contract",
+  "email_sms",
+  "materials",
+  "declined",
+  "completed",
+  "invalid",
+] as const;
+export type StatusCategoryCode = typeof STATUS_CATEGORY_CODES[number];
+
+export const STATUS_ACTION_TYPES = [
+  "none",
+  "callback",
+  "do_not_call",
+  "complete",
+  "conversion",
+  "send_email",
+  "send_sms",
+  "schedule_email",
+  "schedule_sms",
+  "assign_owner",
+  "move_queue",
+  "start_onboarding",
+  "create_task",
+  "verify_contact",
+] as const;
+export type StatusActionType = typeof STATUS_ACTION_TYPES[number];
+
+export const statusCategories = pgTable("status_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  color: text("color").notNull().default("gray"),
+  icon: text("icon"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertStatusCategorySchema = createInsertSchema(statusCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertStatusCategory = z.infer<typeof insertStatusCategorySchema>;
+export type StatusCategory = typeof statusCategories.$inferSelect;
+
+export const statusDefinitions = pgTable("status_definitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: varchar("category_id").notNull(),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  icon: text("icon"),
+  color: text("color"),
+  defaultAction: text("default_action").notNull().default("none"),
+  isFinal: boolean("is_final").notNull().default(false),
+  isConversion: boolean("is_conversion").notNull().default(false),
+  requiresNote: boolean("requires_note").notNull().default(false),
+  requiresCallback: boolean("requires_callback").notNull().default(false),
+  allowRecontact: boolean("allow_recontact").notNull().default(true),
+  allowEmail: boolean("allow_email").notNull().default(true),
+  allowSms: boolean("allow_sms").notNull().default(true),
+  allowPhone: boolean("allow_phone").notNull().default(true),
+  isSystemStatus: boolean("is_system_status").notNull().default(false),
+  callbackOffsetDays: integer("callback_offset_days"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  visibleInCampaigns: boolean("visible_in_campaigns").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertStatusDefinitionSchema = createInsertSchema(statusDefinitions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  icon: z.string().optional().nullable(),
+  color: z.string().optional().nullable(),
+  defaultAction: z.enum(STATUS_ACTION_TYPES).optional().default("none"),
+  callbackOffsetDays: z.number().optional().nullable(),
+});
+export type InsertStatusDefinition = z.infer<typeof insertStatusDefinitionSchema>;
+export type StatusDefinition = typeof statusDefinitions.$inferSelect;
+
 // Operator Script Types - structured interactive scripts for call center agents
 export const scriptElementTypes = [
   "heading",

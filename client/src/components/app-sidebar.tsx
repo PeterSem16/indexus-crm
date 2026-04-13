@@ -28,6 +28,7 @@ import {
   Zap,
   Target,
   HeartPulse,
+  ListChecks,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -106,6 +107,7 @@ export function AppSidebar() {
   const adminNavItems = [
     { title: t.nav.users, url: "/users", icon: UserCog, testId: "users", moduleKey: "users" },
     { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings", moduleKey: "settings" },
+    { title: "Status Engine", url: "/status-management", icon: ListChecks, testId: "status-management", moduleKey: "settings" },
     { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
   ];
 

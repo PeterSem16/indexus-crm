@@ -43357,6 +43357,189 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
     autoConnectAri().catch(err => console.error("[ARI AutoConnect] Error:", err.message));
   }, 10000);
 
+
+
+  // ============= Status Management Engine =============
+  
+  const requireAdminForStatus = (req: any, res: any): boolean => {
+    const user = req.session?.user;
+    if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
+      res.status(403).json({ error: "Access denied. Admin or manager role required." });
+      return false;
+    }
+    return true;
+  };
+
+  app.get("/api/status-categories", requireAuth, async (_req, res) => {
+    try {
+      const categories = await storage.getAllStatusCategories();
+      res.json(categories);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/status-categories", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      const { name, code, color, icon, sortOrder, isActive } = req.body;
+      if (!name || !code) return res.status(400).json({ error: "name and code are required" });
+      const category = await storage.createStatusCategory({ name, code, color, icon, sortOrder, isActive });
+      res.json(category);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/status-categories/:id", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      const { name, code, color, icon, sortOrder, isActive } = req.body;
+      const category = await storage.updateStatusCategory(req.params.id, { name, code, color, icon, sortOrder, isActive });
+      if (!category) return res.status(404).json({ error: "Category not found" });
+      res.json(category);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/status-categories/:id", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      await storage.deleteStatusCategory(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/status-definitions", requireAuth, async (req, res) => {
+    try {
+      const categoryId = req.query.categoryId as string | undefined;
+      const definitions = categoryId
+        ? await storage.getStatusDefinitionsByCategory(categoryId)
+        : await storage.getAllStatusDefinitions();
+      res.json(definitions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/status-definitions", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      const { categoryId, name, code, icon, color, defaultAction, isFinal, isConversion, requiresNote,
+        requiresCallback, allowRecontact, allowEmail, allowSms, allowPhone, isSystemStatus,
+        callbackOffsetDays, sortOrder, isActive, visibleInCampaigns } = req.body;
+      if (!categoryId || !name || !code) return res.status(400).json({ error: "categoryId, name and code are required" });
+      const definition = await storage.createStatusDefinition({
+        categoryId, name, code, icon, color, defaultAction, isFinal, isConversion, requiresNote,
+        requiresCallback, allowRecontact, allowEmail, allowSms, allowPhone, isSystemStatus,
+        callbackOffsetDays, sortOrder, isActive, visibleInCampaigns,
+      });
+      res.json(definition);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/status-definitions/:id", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      const { categoryId, name, code, icon, color, defaultAction, isFinal, isConversion, requiresNote,
+        requiresCallback, allowRecontact, allowEmail, allowSms, allowPhone, isSystemStatus,
+        callbackOffsetDays, sortOrder, isActive, visibleInCampaigns } = req.body;
+      const definition = await storage.updateStatusDefinition(req.params.id, {
+        categoryId, name, code, icon, color, defaultAction, isFinal, isConversion, requiresNote,
+        requiresCallback, allowRecontact, allowEmail, allowSms, allowPhone, isSystemStatus,
+        callbackOffsetDays, sortOrder, isActive, visibleInCampaigns,
+      });
+      if (!definition) return res.status(404).json({ error: "Status not found" });
+      res.json(definition);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/status-definitions/:id", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      await storage.deleteStatusDefinition(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/status-definitions/seed", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      const { SEED_CATEGORIES, SEED_STATUSES } = await import("./seed-statuses");
+      
+      const existingCategories = await storage.getAllStatusCategories();
+      if (existingCategories.length > 0) {
+        return res.status(400).json({ error: "Status data already seeded. Delete existing data first." });
+      }
+
+      const categoryMap: Record<string, string> = {};
+      for (const cat of SEED_CATEGORIES) {
+        const created = await storage.createStatusCategory({
+          name: cat.name,
+          code: cat.code,
+          color: cat.color,
+          icon: cat.icon,
+          sortOrder: cat.sortOrder,
+          isActive: true,
+        });
+        categoryMap[cat.code] = created.id;
+      }
+
+      let statusCount = 0;
+      for (const status of SEED_STATUSES) {
+        const categoryId = categoryMap[status.categoryCode];
+        if (!categoryId) continue;
+        await storage.createStatusDefinition({
+          categoryId,
+          name: status.name,
+          code: status.code,
+          icon: status.icon,
+          color: status.color,
+          defaultAction: status.defaultAction,
+          isFinal: status.isFinal,
+          isConversion: status.isConversion,
+          requiresNote: status.requiresNote,
+          requiresCallback: status.requiresCallback,
+          allowRecontact: status.allowRecontact,
+          allowEmail: status.allowEmail,
+          allowSms: status.allowSms,
+          allowPhone: status.allowPhone,
+          isSystemStatus: status.isSystemStatus,
+          callbackOffsetDays: status.callbackOffsetDays,
+          sortOrder: status.sortOrder,
+          isActive: true,
+          visibleInCampaigns: status.visibleInCampaigns,
+        });
+        statusCount++;
+      }
+
+      res.json({ message: `Seeded ${Object.keys(categoryMap).length} categories and ${statusCount} statuses` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/status-definitions/seed", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      const { statusCategories, statusDefinitions } = await import("@shared/schema");
+      const { db } = await import("./db");
+      await db.delete(statusDefinitions);
+      await db.delete(statusCategories);
+      res.json({ success: true, message: "All status data cleared" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   return httpServer;
 }
 
