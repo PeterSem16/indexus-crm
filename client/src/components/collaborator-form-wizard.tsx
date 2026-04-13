@@ -3782,7 +3782,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-5">
+            <div className="grid gap-4 sm:grid-cols-3">
               {!isHidden("title_before") && (
                 <div className="space-y-2">
                   <Label>{t.collaborators.fields.titleBefore}</Label>
@@ -3815,6 +3815,8 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   data-testid="wizard-input-collaborator-middlename"
                 />
               </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
               {!isHidden("last_name") && (
                 <div className="space-y-2">
                   <Label>{t.collaborators.fields.lastName} *</Label>
@@ -3824,6 +3826,18 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                     data-testid="wizard-input-collaborator-lastname"
                     disabled={isReadonly("last_name")}
                     className={isReadonly("last_name") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("maiden_name") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.maidenName}</Label>
+                  <Input
+                    value={formData.maidenName}
+                    onChange={(e) => setFormData({ ...formData, maidenName: e.target.value })}
+                    data-testid="wizard-input-collaborator-maidenname"
+                    disabled={isReadonly("maiden_name")}
+                    className={isReadonly("maiden_name") ? "bg-muted" : ""}
                   />
                 </div>
               )}
@@ -4557,7 +4571,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           {wizardSteps.map((step, index) => {
             const isCompleted = completedSteps.has(index);
             const isCurrent = index === currentStep;
-            const isClickable = isEditMode || index < currentStep || isCompleted || completedSteps.has(index - 1);
+            const isClickable = isEditMode || index <= currentStep || isCompleted || completedSteps.has(index - 1);
             const Icon = step.icon;
 
             return (
@@ -4567,23 +4581,15 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 onClick={() => handleStepClick(index)}
                 disabled={!isClickable}
                 className={cn(
-                  "flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors text-left",
+                  "flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left",
                   isCurrent && "bg-primary/10 text-primary font-medium border-r-2 border-primary",
-                  isCompleted && !isCurrent && "text-foreground hover:bg-accent/50",
-                  !isCurrent && !isCompleted && "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                  !isClickable && "cursor-not-allowed opacity-40"
+                  !isCurrent && isClickable && "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                  !isClickable && "cursor-not-allowed opacity-40 text-muted-foreground"
                 )}
                 data-testid={`wizard-step-${step.id}`}
               >
-                <span className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full text-xs shrink-0",
-                  isCurrent && "bg-primary text-primary-foreground",
-                  isCompleted && !isCurrent && "bg-primary/20 text-primary",
-                  !isCurrent && !isCompleted && "bg-muted-foreground/10"
-                )}>
-                  {isCompleted ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
-                </span>
-                {getStepTitle(step.id)}
+                <Icon className={cn("h-4 w-4 shrink-0", isCurrent && "text-primary")} />
+                <span className="truncate">{getStepTitle(step.id)}</span>
               </button>
             );
           })}
@@ -4604,38 +4610,28 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
             {renderStepContent()}
           </div>
 
-          <div className="shrink-0 border-t bg-background/95 backdrop-blur-sm px-6 py-3 flex items-center justify-between shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>
-                {t.wizard?.stepOf?.replace("{current}", String(currentStep + 1)).replace("{total}", String(wizardSteps.length)) || `${currentStep + 1} / ${wizardSteps.length}`}
-              </span>
-            </div>
+          <div className="shrink-0 border-t bg-background/95 backdrop-blur-sm px-6 py-3 flex items-center justify-end shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
             <div className="flex items-center gap-2">
-              {!isFirstStep && (
-                <Button variant="outline" size="sm" onClick={handlePrevious} data-testid="wizard-button-previous">
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  {t.wizard.previous}
-                </Button>
-              )}
-              {isEditMode && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => saveMutation.mutate(formData)}
-                  disabled={saveMutation.isPending}
-                  className="shadow-md"
-                  data-testid="wizard-button-save"
-                >
-                  {saveMutation.isPending ? t.common.loading : t.common.save}
-                </Button>
-              )}
-              {!isLastStep && (
+              <Button variant="outline" size="sm" onClick={onCancel} data-testid="wizard-button-cancel">
+                {t.common.cancel}
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => saveMutation.mutate(formData)}
+                disabled={saveMutation.isPending}
+                className="shadow-md"
+                data-testid="wizard-button-save"
+              >
+                {saveMutation.isPending ? t.common.loading : t.common.save}
+              </Button>
+              {false && !isLastStep && (
                 <Button size="sm" variant={isEditMode ? "outline" : "default"} onClick={handleNext} disabled={saveMutation.isPending} data-testid="wizard-button-next">
                   {t.wizard.next}
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               )}
-              {isLastStep && !isEditMode && (
+              {false && isLastStep && !isEditMode && (
                 <Button size="sm" onClick={handleNext} disabled={saveMutation.isPending} data-testid="wizard-button-next">
                   {saveMutation.isPending ? t.common.loading : t.wizard.complete}
                 </Button>
