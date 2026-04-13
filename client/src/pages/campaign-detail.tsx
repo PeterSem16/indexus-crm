@@ -9,12 +9,16 @@ import {
   Play, Pause, CheckCircle, CheckCircle2, Clock, Phone, PhoneMissed, User, Calendar,
   RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck,
   Copy, Save, ScrollText, History, ArrowRight, Mail, MessageSquare, FileEdit, Package, Shield,
-  Plus, ChevronDown, ChevronLeft, ChevronRight, ListChecks, Upload, FileUp, AlertTriangle,
+  Plus, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ListChecks, Upload, FileUp, AlertTriangle,
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
   Variable, Building2, Building, Loader2, Tag, Layers, BookOpen, ArrowUpDown, GripVertical, ArrowUp, ArrowDown,
   Search, HelpCircle, Pencil, X, Check, CheckSquare, Settings2,
+  Flame, Stethoscope, PenTool, Archive, Rocket, DollarSign, RotateCcw, Monitor, MousePointerClick,
+  FolderOpen, Wifi, WifiOff, Smartphone, ShieldAlert, ShieldCheck, Handshake, Hourglass,
+  ClipboardCheck, PhoneForwarded, FileQuestion, FileWarning, FileX, MailPlus, MailCheck, MailWarning, MailX,
+  MinusCircle, Slash, FolderClosed, TrendingUp, CalendarClock, MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -228,42 +232,43 @@ import type { MessageTemplate } from "@shared/schema";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const ICON_PICKER_SET: { name: string; icon: LucideIcon }[] = [
-  { name: "Phone", icon: Phone },
-  { name: "PhoneOff", icon: PhoneOff },
-  { name: "Mail", icon: Mail },
-  { name: "MessageSquare", icon: MessageSquare },
-  { name: "Send", icon: Send },
-  { name: "ThumbsUp", icon: ThumbsUp },
-  { name: "ThumbsDown", icon: ThumbsDown },
-  { name: "CheckCircle", icon: CheckCircle },
-  { name: "XCircle", icon: XCircle },
-  { name: "AlertCircle", icon: AlertCircle },
-  { name: "Ban", icon: Ban },
-  { name: "Clock", icon: Clock },
-  { name: "Calendar", icon: Calendar },
-  { name: "CalendarPlus", icon: CalendarPlus },
-  { name: "Star", icon: Star },
-  { name: "Heart", icon: Heart },
-  { name: "Zap", icon: Zap },
-  { name: "Bell", icon: Bell },
-  { name: "Info", icon: Info },
-  { name: "Flag", icon: Flag },
-  { name: "Target", icon: Target },
-  { name: "Eye", icon: Eye },
-  { name: "EyeOff", icon: EyeOff },
-  { name: "User", icon: User },
-  { name: "UserCheck", icon: UserCheck },
-  { name: "UserX", icon: UserX },
-  { name: "Users", icon: Users },
-  { name: "Home", icon: Home },
-  { name: "MapPin", icon: MapPin },
-  { name: "Globe", icon: Globe },
-  { name: "Briefcase", icon: Briefcase },
-  { name: "Gift", icon: Gift },
-  { name: "FileText", icon: FileText },
-  { name: "Volume2", icon: Volume2 },
-  { name: "VolumeX", icon: VolumeX },
-  { name: "CircleDot", icon: CircleDot },
+  { name: "Phone", icon: Phone }, { name: "PhoneOff", icon: PhoneOff }, { name: "PhoneMissed", icon: PhoneMissed },
+  { name: "PhoneForwarded", icon: PhoneForwarded }, { name: "Mail", icon: Mail }, { name: "MailPlus", icon: MailPlus },
+  { name: "MailCheck", icon: MailCheck }, { name: "MailWarning", icon: MailWarning }, { name: "MailX", icon: MailX },
+  { name: "MessageSquare", icon: MessageSquare }, { name: "MessageCircle", icon: MessageCircle },
+  { name: "Send", icon: Send }, { name: "Bell", icon: Bell }, { name: "Calendar", icon: Calendar },
+  { name: "CalendarPlus", icon: CalendarPlus }, { name: "CalendarClock", icon: CalendarClock },
+  { name: "Clock", icon: Clock }, { name: "Hourglass", icon: Hourglass },
+  { name: "CheckCircle", icon: CheckCircle }, { name: "CheckCircle2", icon: CheckCircle2 },
+  { name: "CheckSquare", icon: CheckSquare }, { name: "XCircle", icon: XCircle },
+  { name: "AlertCircle", icon: AlertCircle }, { name: "AlertTriangle", icon: AlertTriangle },
+  { name: "ThumbsUp", icon: ThumbsUp }, { name: "ThumbsDown", icon: ThumbsDown },
+  { name: "Star", icon: Star }, { name: "Heart", icon: Heart }, { name: "Zap", icon: Zap },
+  { name: "Flame", icon: Flame }, { name: "Target", icon: Target }, { name: "Flag", icon: Flag },
+  { name: "Eye", icon: Eye }, { name: "EyeOff", icon: EyeOff },
+  { name: "User", icon: User }, { name: "Users", icon: Users },
+  { name: "UserCheck", icon: UserCheck }, { name: "UserX", icon: UserX },
+  { name: "Briefcase", icon: Briefcase }, { name: "Building", icon: Building },
+  { name: "Globe", icon: Globe }, { name: "MapPin", icon: MapPin }, { name: "Home", icon: Home },
+  { name: "Shield", icon: Shield }, { name: "ShieldAlert", icon: ShieldAlert },
+  { name: "ShieldCheck", icon: ShieldCheck }, { name: "Package", icon: Package },
+  { name: "FileText", icon: FileText }, { name: "Search", icon: Search },
+  { name: "Filter", icon: Filter }, { name: "Copy", icon: Copy },
+  { name: "RefreshCw", icon: RefreshCw }, { name: "RotateCcw", icon: RotateCcw },
+  { name: "Play", icon: Play }, { name: "Pause", icon: Pause },
+  { name: "Info", icon: Info }, { name: "HelpCircle", icon: HelpCircle },
+  { name: "Settings", icon: Settings }, { name: "Layers", icon: Layers },
+  { name: "Tag", icon: Tag }, { name: "BookOpen", icon: BookOpen },
+  { name: "Ban", icon: Ban }, { name: "Slash", icon: Slash },
+  { name: "MinusCircle", icon: MinusCircle }, { name: "ListChecks", icon: ListChecks },
+  { name: "Archive", icon: Archive }, { name: "FolderClosed", icon: FolderClosed },
+  { name: "Stethoscope", icon: Stethoscope }, { name: "PenTool", icon: PenTool },
+  { name: "Rocket", icon: Rocket }, { name: "DollarSign", icon: DollarSign },
+  { name: "Monitor", icon: Monitor }, { name: "Handshake", icon: Handshake },
+  { name: "TrendingUp", icon: TrendingUp }, { name: "Gift", icon: Gift },
+  { name: "Wand2", icon: Wand2 }, { name: "Smartphone", icon: Smartphone },
+  { name: "Volume2", icon: Volume2 }, { name: "VolumeX", icon: VolumeX },
+  { name: "CircleDot", icon: CircleDot }, { name: "FolderOpen", icon: FolderOpen },
 ];
 
 const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
@@ -1626,16 +1631,34 @@ const CATEGORY_COLORS_MAP: Record<string, string> = {
 };
 
 const PULSE_STATUS_COLORS: Record<string, string> = {
-  gray: "bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-800",
-  blue: "bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-800",
-  green: "bg-green-100 hover:bg-green-200 border-green-300 text-green-800",
-  purple: "bg-purple-100 hover:bg-purple-200 border-purple-300 text-purple-800",
-  cyan: "bg-cyan-100 hover:bg-cyan-200 border-cyan-300 text-cyan-800",
-  teal: "bg-teal-100 hover:bg-teal-200 border-teal-300 text-teal-800",
-  orange: "bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-800",
-  emerald: "bg-emerald-100 hover:bg-emerald-200 border-emerald-300 text-emerald-800",
-  red: "bg-red-100 hover:bg-red-200 border-red-300 text-red-800",
-  yellow: "bg-yellow-100 hover:bg-yellow-200 border-yellow-300 text-yellow-800",
+  gray: "bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700",
+  blue: "bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700",
+  green: "bg-green-50 hover:bg-green-100 border-green-200 text-green-700",
+  purple: "bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700",
+  cyan: "bg-cyan-50 hover:bg-cyan-100 border-cyan-200 text-cyan-700",
+  teal: "bg-teal-50 hover:bg-teal-100 border-teal-200 text-teal-700",
+  orange: "bg-orange-50 hover:bg-orange-100 border-orange-200 text-orange-700",
+  emerald: "bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700",
+  red: "bg-red-50 hover:bg-red-100 border-red-200 text-red-700",
+  yellow: "bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700",
+};
+
+function getStatusIcon(iconName: string | null | undefined): LucideIcon | null {
+  if (!iconName) return null;
+  return ICON_MAP[iconName] || null;
+}
+
+const PULSE_CATEGORY_COLORS: Record<string, { bg: string; border: string; icon: string; hoverBg: string }> = {
+  gray: { bg: "bg-slate-50", border: "border-slate-200", icon: "text-slate-500", hoverBg: "hover:bg-slate-100" },
+  blue: { bg: "bg-sky-50", border: "border-sky-200", icon: "text-sky-500", hoverBg: "hover:bg-sky-100" },
+  green: { bg: "bg-emerald-50", border: "border-emerald-200", icon: "text-emerald-500", hoverBg: "hover:bg-emerald-100" },
+  purple: { bg: "bg-violet-50", border: "border-violet-200", icon: "text-violet-500", hoverBg: "hover:bg-violet-100" },
+  cyan: { bg: "bg-cyan-50", border: "border-cyan-200", icon: "text-cyan-500", hoverBg: "hover:bg-cyan-100" },
+  teal: { bg: "bg-teal-50", border: "border-teal-200", icon: "text-teal-500", hoverBg: "hover:bg-teal-100" },
+  orange: { bg: "bg-amber-50", border: "border-amber-200", icon: "text-amber-500", hoverBg: "hover:bg-amber-100" },
+  emerald: { bg: "bg-emerald-50", border: "border-emerald-200", icon: "text-emerald-500", hoverBg: "hover:bg-emerald-100" },
+  red: { bg: "bg-rose-50", border: "border-rose-200", icon: "text-rose-500", hoverBg: "hover:bg-rose-100" },
+  yellow: { bg: "bg-amber-50", border: "border-amber-200", icon: "text-amber-500", hoverBg: "hover:bg-amber-100" },
 };
 
 function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
@@ -1658,6 +1681,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const [pulseCallbackDate, setPulseCallbackDate] = useState("");
   const [pulseCallbackTime, setPulseCallbackTime] = useState("09:00");
   const [pulseNotes, setPulseNotes] = useState("");
+  const [pulseExpandedCats, setPulseExpandedCats] = useState<Set<string>>(new Set());
 
   const { data: categories = [], isLoading: catLoading } = useQuery<any[]>({
     queryKey: ["/api/status-categories"],
@@ -2134,59 +2158,94 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
           {assignedStatuses.length === 0 ? (
             <Card className="p-8 text-center">
               <AlertCircle className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-              <p className="font-medium">Najprv priraďte statusy v záložke "Priradenie"</p>
+              <p className="font-medium">{t.statusEngine?.noStatuses || "Najprv priraďte statusy v záložke \"Priradenie\""}</p>
             </Card>
           ) : (
             <div className="space-y-4">
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
-                  <h3 className="text-lg font-bold">Nexus Pulse</h3>
-                  <Badge variant="secondary" className="bg-white/20 text-white text-xs ml-auto">{assignedStatuses.length} statusov</Badge>
+              <div className="bg-gradient-to-br from-slate-50 via-indigo-50/60 to-violet-50/40 border border-indigo-100 p-5 rounded-xl shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center shadow-sm">
+                    <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-base font-semibold text-slate-800">{t.statusEngine?.nexusPulse || "Nexus Pulse"}</h3>
+                    <p className="text-xs text-slate-500">{t.statusEngine?.pulseSubtitle || "Takto uvidí agent výber statusov po ukončení hovoru"}</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50/50">{assignedStatuses.length} {t.statusEngine?.selected || "statusov"}</Badge>
+                  <Button variant="outline" size="sm" className="text-xs gap-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50" onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending} data-testid="pulse-reseed">
+                    <RefreshCw className={`h-3 w-3 ${seedMutation.isPending ? "animate-spin" : ""}`} />
+                    {t.statusEngine?.seedDefaults || "Obnoviť predvolené"}
+                  </Button>
                 </div>
-                <p className="text-blue-100 text-sm mt-1">Takto uvidí agent výber statusov po ukončení hovoru</p>
               </div>
 
               {!pulseStatus ? (
                 <>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button variant={pulseCategory === "all" ? "default" : "outline"} size="sm" onClick={() => setPulseCategory("all")} data-testid="pulse-cat-all">
-                      Všetky ({parentStatuses.length})
-                    </Button>
-                    {pulseVisibleCategories.map((cat: any) => (
-                      <Button key={cat.id} variant={pulseCategory === cat.id ? "default" : "outline"} size="sm" onClick={() => setPulseCategory(cat.id)} data-testid={`pulse-cat-${cat.id}`}>
-                        {cat.name} ({(pulseStatusesByCat[cat.id] || []).length})
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {pulseVisibleStatuses.map((status: any) => {
-                      const colorClass = PULSE_STATUS_COLORS[status.color] || PULSE_STATUS_COLORS.gray;
-                      const children = childMap[status.id] || [];
+                  <div className="space-y-2">
+                    {pulseVisibleCategories.map((cat: any) => {
+                      const catStatuses = pulseStatusesByCat[cat.id] || [];
+                      const isExpanded = pulseExpandedCats.has(cat.id);
+                      const catColors = PULSE_CATEGORY_COLORS[cat.color] || PULSE_CATEGORY_COLORS.gray;
+                      const CatIcon = getStatusIcon(cat.icon);
                       return (
-                        <button key={status.id} className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => { setPulseStatus(status); setPulseSubStatus(null); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }} data-testid={`pulse-status-${status.id}`}>
-                          <div className="font-semibold text-sm">{status.name}</div>
-                          <div className="text-xs opacity-70 mt-0.5 flex items-center gap-1">
-                            <Badge className={`${STATUS_ACTION_COLORS[status.defaultAction] || ""} text-[9px] px-1 py-0`}>
-                              {STATUS_ACTION_LABELS[status.defaultAction] || status.defaultAction}
-                            </Badge>
-                            {status.isFinal && <span className="text-red-600 font-bold">F</span>}
-                            {status.isConversion && <span className="text-green-600 font-bold">K</span>}
-                            {children.length > 0 && <span className="text-sky-600 font-bold">{children.length} pod</span>}
-                          </div>
-                          <div className="flex gap-1 mt-1">
-                            {status.allowPhone && <Phone className="h-3 w-3 text-blue-500" />}
-                            {status.allowEmail && <Mail className="h-3 w-3 text-purple-500" />}
-                            {status.allowSms && <MessageSquare className="h-3 w-3 text-teal-500" />}
-                          </div>
-                        </button>
+                        <div key={cat.id} className={`rounded-xl border ${catColors.border} overflow-hidden transition-all`} data-testid={`pulse-cat-${cat.id}`}>
+                          <button
+                            className={`w-full flex items-center gap-3 p-3.5 text-left transition-colors ${catColors.bg} ${catColors.hoverBg}`}
+                            onClick={() => setPulseExpandedCats(prev => {
+                              const next = new Set(prev);
+                              if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id);
+                              return next;
+                            })}
+                            data-testid={`pulse-cat-toggle-${cat.id}`}
+                          >
+                            {CatIcon && <CatIcon className={`h-5 w-5 ${catColors.icon}`} />}
+                            {!CatIcon && <FolderOpen className={`h-5 w-5 ${catColors.icon}`} />}
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-sm text-slate-800">{cat.name}</div>
+                              <div className="text-xs text-slate-500">{catStatuses.length} {catStatuses.length === 1 ? "status" : "statusov"}</div>
+                            </div>
+                            {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                          </button>
+                          {isExpanded && (
+                            <div className="p-3 bg-white/60 border-t border-slate-100">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {catStatuses.map((status: any) => {
+                                  const colorClass = PULSE_STATUS_COLORS[status.color] || PULSE_STATUS_COLORS.gray;
+                                  const children = childMap[status.id] || [];
+                                  const StatusIcon = getStatusIcon(status.icon);
+                                  return (
+                                    <button key={status.id} className={`p-3 rounded-lg border text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => { setPulseStatus(status); setPulseSubStatus(null); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }} data-testid={`pulse-status-${status.id}`}>
+                                      <div className="flex items-center gap-1.5">
+                                        {StatusIcon && <StatusIcon className="h-3.5 w-3.5 opacity-60" />}
+                                        <div className="font-semibold text-sm truncate">{status.name}</div>
+                                      </div>
+                                      <div className="text-xs opacity-70 mt-0.5 flex items-center gap-1">
+                                        <Badge className={`${STATUS_ACTION_COLORS[status.defaultAction] || ""} text-[9px] px-1 py-0`}>
+                                          {STATUS_ACTION_LABELS[status.defaultAction] || status.defaultAction}
+                                        </Badge>
+                                        {status.isFinal && <span className="text-red-500 font-bold text-[10px]">F</span>}
+                                        {status.isConversion && <span className="text-green-500 font-bold text-[10px]">K</span>}
+                                        {children.length > 0 && <span className="text-indigo-500 font-medium text-[10px]">{children.length} pod</span>}
+                                      </div>
+                                      <div className="flex gap-1 mt-1">
+                                        {status.allowPhone && <Phone className="h-3 w-3 text-sky-400" />}
+                                        {status.allowEmail && <Mail className="h-3 w-3 text-violet-400" />}
+                                        {status.allowSms && <MessageSquare className="h-3 w-3 text-teal-400" />}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
-                  {pulseVisibleStatuses.length === 0 && (
+                  {pulseVisibleCategories.length === 0 && (
                     <div className="text-center py-6 text-muted-foreground">
                       <XCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Žiadne statusy v tejto kategórii</p>
+                      <p className="text-sm">{t.statusEngine?.noStatusesForFilter || "Žiadne statusy v tejto kategórii"}</p>
                     </div>
                   )}
                 </>
@@ -2209,13 +2268,17 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
 
                   {pulseHasChildren && !pulseSubStatus && (
                     <Card className="p-4">
-                      <h4 className="font-medium mb-3">Vyberte podstatus</h4>
+                      <h4 className="font-medium mb-3">{t.statusEngine?.selectSubstatus || "Vyberte podstatus"}</h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {(childMap[pulseStatus.id] || []).map((sub: any) => {
                           const colorClass = PULSE_STATUS_COLORS[sub.color || pulseStatus.color || "gray"] || PULSE_STATUS_COLORS.gray;
+                          const SubIcon = getStatusIcon(sub.icon);
                           return (
-                            <button key={sub.id} className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => setPulseSubStatus(sub)} data-testid={`pulse-substatus-${sub.id}`}>
-                              <div className="font-semibold text-sm">{sub.name}</div>
+                            <button key={sub.id} className={`p-3 rounded-lg border text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => setPulseSubStatus(sub)} data-testid={`pulse-substatus-${sub.id}`}>
+                              <div className="flex items-center gap-1.5">
+                                {SubIcon && <SubIcon className="h-3.5 w-3.5 opacity-60" />}
+                                <div className="font-semibold text-sm">{sub.name}</div>
+                              </div>
                               <div className="text-xs opacity-70">{STATUS_ACTION_LABELS[sub.defaultAction] || sub.defaultAction}</div>
                             </button>
                           );
@@ -2443,16 +2506,38 @@ function StatusEditDialogCampaign({ status, categories, allStatuses, isNew, onSa
             </Select>
           </div>
 
-          <div>
-            <Label className="text-xs">Farba</Label>
-            <Select value={form.color || "gray"} onValueChange={(v) => setForm({ ...form, color: v })}>
-              <SelectTrigger data-testid="select-status-color"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {["gray","blue","green","purple","cyan","teal","orange","emerald","red","yellow"].map(c => (
-                  <SelectItem key={c} value={c}><span className={`inline-block w-3 h-3 rounded mr-2 bg-${c}-400`} />{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Farba</Label>
+              <Select value={form.color || "gray"} onValueChange={(v) => setForm({ ...form, color: v })}>
+                <SelectTrigger data-testid="select-status-color"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["gray","blue","green","purple","cyan","teal","orange","emerald","red","yellow"].map(c => (
+                    <SelectItem key={c} value={c}><span className={`inline-block w-3 h-3 rounded mr-2 bg-${c}-400`} />{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Ikona</Label>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start gap-2 h-9" data-testid="button-status-icon">
+                    {(() => { const Ic = getStatusIcon(form.icon); return Ic ? <Ic className="h-4 w-4" /> : <CircleDot className="h-4 w-4 text-muted-foreground" />; })()}
+                    <span className="text-xs truncate">{form.icon || "Vybrať ikonu"}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[280px] p-2 z-[9999] max-h-[300px] overflow-y-auto" align="start">
+                  <div className="grid grid-cols-7 gap-1">
+                    {ICON_PICKER_SET.map(({ name, icon: Ic }) => (
+                      <button key={name} type="button" onClick={() => setForm({ ...form, icon: name })} className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${form.icon === name ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1" : "hover:bg-muted"}`} title={name} data-testid={`icon-opt-${name}`}>
+                        <Ic className="h-4 w-4" />
+                      </button>
+                    ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-2">
@@ -2529,16 +2614,38 @@ function CategoryEditDialogCampaign({ category, isNew, onSave, onClose, isPendin
               <Input value={form.code} onChange={(e: any) => setForm({ ...form, code: e.target.value })} data-testid="input-category-code" />
             </div>
           </div>
-          <div>
-            <Label className="text-xs">Farba</Label>
-            <Select value={form.color || "gray"} onValueChange={(v) => setForm({ ...form, color: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {["gray","blue","green","purple","cyan","teal","orange","emerald","red","yellow"].map(c => (
-                  <SelectItem key={c} value={c}><span className={`inline-block w-3 h-3 rounded mr-2 bg-${c}-400`} />{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Farba</Label>
+              <Select value={form.color || "gray"} onValueChange={(v) => setForm({ ...form, color: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["gray","blue","green","purple","cyan","teal","orange","emerald","red","yellow"].map(c => (
+                    <SelectItem key={c} value={c}><span className={`inline-block w-3 h-3 rounded mr-2 bg-${c}-400`} />{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Ikona</Label>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start gap-2 h-9" data-testid="button-category-icon">
+                    {(() => { const Ic = getStatusIcon(form.icon); return Ic ? <Ic className="h-4 w-4" /> : <FolderOpen className="h-4 w-4 text-muted-foreground" />; })()}
+                    <span className="text-xs truncate">{form.icon || "Vybrať ikonu"}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[280px] p-2 z-[9999] max-h-[300px] overflow-y-auto" align="start">
+                  <div className="grid grid-cols-7 gap-1">
+                    {ICON_PICKER_SET.map(({ name, icon: Ic }) => (
+                      <button key={name} type="button" onClick={() => setForm({ ...form, icon: name })} className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${form.icon === name ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1" : "hover:bg-muted"}`} title={name} data-testid={`cat-icon-opt-${name}`}>
+                        <Ic className="h-4 w-4" />
+                      </button>
+                    ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           <div className="flex items-center justify-between">
             <Label className="text-xs">Aktívna</Label>
