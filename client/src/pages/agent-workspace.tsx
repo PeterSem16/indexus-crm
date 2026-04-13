@@ -6344,6 +6344,28 @@ export default function AgentWorkspacePage() {
 
   const handleOpenScheduledContact = async (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string) => {
     try {
+      const quotaType = channel === "phone" ? "calls" : channel === "email" ? "emails" : "sms";
+      let blocked = false;
+      if (campaignId === selectedCampaignId) {
+        blocked = isQuotaBlocked(quotaType);
+      } else {
+        try {
+          const qRes = await fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" });
+          if (qRes.ok) {
+            const qData = await qRes.json();
+            if (qData.blocked && qData.blocked[quotaType]) blocked = true;
+          }
+        } catch {}
+      }
+      if (blocked) {
+        const quotaMsg = quotaType === "calls"
+          ? (t.agentWorkspace?.callQuotaReached || "Daily call quota reached")
+          : quotaType === "emails"
+          ? (t.agentWorkspace?.emailQuotaReached || "Daily email quota reached")
+          : (t.agentWorkspace?.smsQuotaReached || "Daily SMS quota reached");
+        toast({ title: t.agentWorkspace?.quotaReached || "Quota reached", description: quotaMsg, variant: "destructive" });
+        return;
+      }
       let customer: any;
       const cType = contactType || "customer";
       if (cType === "clinic") {
