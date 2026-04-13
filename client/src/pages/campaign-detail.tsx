@@ -37,7 +37,7 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES, DISPOSITION_NAME_TRANSLATIONS, RESCHEDULE_PERIOD_OPTIONS } from "@shared/schema";
+import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES, DISPOSITION_NAME_TRANSLATIONS, RESCHEDULE_PERIOD_OPTIONS, STATUS_ACTION_TYPES } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 
 function getDefaultSalesScript(lang: string): OperatorScript {
@@ -197,7 +197,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Sheet,
   SheetContent,
@@ -1589,71 +1600,164 @@ const ACTION_TYPE_COLORS: Record<string, string> = {
   none: "bg-muted text-muted-foreground",
 };
 
+const STATUS_ACTION_LABELS: Record<string, string> = {
+  none: "Žiadna", callback: "Spätné volanie", reschedule: "Preplánovať hovor",
+  do_not_call: "Nevolať", complete: "Dokončiť", conversion: "Konverzia",
+  send_email: "Odoslať email", send_sms: "Odoslať SMS",
+  schedule_email: "Schedule email", schedule_sms: "Schedule SMS",
+  assign_owner: "Priradiť vlastníkovi", move_queue: "Presunúť do fronty",
+  start_onboarding: "Spustiť onboarding", create_task: "Vytvoriť task",
+  verify_contact: "Verifikácia kontaktu",
+};
+
+const STATUS_ACTION_COLORS: Record<string, string> = {
+  none: "bg-gray-100 text-gray-700", callback: "bg-blue-100 text-blue-700",
+  reschedule: "bg-sky-100 text-sky-700", do_not_call: "bg-red-100 text-red-700",
+  complete: "bg-emerald-100 text-emerald-700", conversion: "bg-green-100 text-green-700",
+  send_email: "bg-cyan-100 text-cyan-700", send_sms: "bg-purple-100 text-purple-700",
+};
+
+const CATEGORY_COLORS_MAP: Record<string, string> = {
+  gray: "bg-gray-100 text-gray-800 border-gray-300", blue: "bg-blue-100 text-blue-800 border-blue-300",
+  green: "bg-green-100 text-green-800 border-green-300", purple: "bg-purple-100 text-purple-800 border-purple-300",
+  cyan: "bg-cyan-100 text-cyan-800 border-cyan-300", teal: "bg-teal-100 text-teal-800 border-teal-300",
+  orange: "bg-orange-100 text-orange-800 border-orange-300", emerald: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  red: "bg-red-100 text-red-800 border-red-300", yellow: "bg-yellow-100 text-yellow-800 border-yellow-300",
+};
+
+const PULSE_STATUS_COLORS: Record<string, string> = {
+  gray: "bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-800",
+  blue: "bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-800",
+  green: "bg-green-100 hover:bg-green-200 border-green-300 text-green-800",
+  purple: "bg-purple-100 hover:bg-purple-200 border-purple-300 text-purple-800",
+  cyan: "bg-cyan-100 hover:bg-cyan-200 border-cyan-300 text-cyan-800",
+  teal: "bg-teal-100 hover:bg-teal-200 border-teal-300 text-teal-800",
+  orange: "bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-800",
+  emerald: "bg-emerald-100 hover:bg-emerald-200 border-emerald-300 text-emerald-800",
+  red: "bg-red-100 hover:bg-red-200 border-red-300 text-red-800",
+  yellow: "bg-yellow-100 hover:bg-yellow-200 border-yellow-300 text-yellow-800",
+};
+
 function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
   const { t } = useI18n();
   const { toast } = useToast();
-  const [searchFilter, setSearchFilter] = useState("");
-  const [filterCat, setFilterCat] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"manage" | "pulse">("manage");
+  const [viewMode, setViewMode] = useState<"engine" | "assign" | "pulse">("engine");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [editingStatus, setEditingStatus] = useState<any | null>(null);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [isNewStatus, setIsNewStatus] = useState(false);
+  const [isNewCategory, setIsNewCategory] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "category" | "status"; id: string; name: string } | null>(null);
 
-  const { data: categories = [] } = useQuery<any[]>({
+  const [pulseCategory, setPulseCategory] = useState<string>("all");
+  const [pulseStatus, setPulseStatus] = useState<any | null>(null);
+  const [pulseSubStatus, setPulseSubStatus] = useState<any | null>(null);
+  const [pulseReschedule, setPulseReschedule] = useState<string | null>(null);
+  const [pulseCallbackDate, setPulseCallbackDate] = useState("");
+  const [pulseCallbackTime, setPulseCallbackTime] = useState("09:00");
+  const [pulseNotes, setPulseNotes] = useState("");
+
+  const { data: categories = [], isLoading: catLoading } = useQuery<any[]>({
     queryKey: ["/api/status-categories"],
   });
-
-  const { data: allStatuses = [] } = useQuery<any[]>({
+  const { data: allStatuses = [], isLoading: statusLoading } = useQuery<any[]>({
     queryKey: ["/api/status-definitions"],
   });
-
   const { data: assignments = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "status-assignments"],
-    queryFn: () => fetch(`/api/campaigns/${campaignId}/status-assignments`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error("Failed to fetch assignments"); return r.json(); }),
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/status-assignments`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error("Failed"); return r.json(); }),
   });
 
   const assignedIds = useMemo(() => new Set(assignments.map((a: any) => a.statusDefinitionId)), [assignments]);
+  const assignedStatuses = useMemo(() => allStatuses.filter((s: any) => assignedIds.has(s.id)), [allStatuses, assignedIds]);
 
-  const saveMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      return apiRequest("POST", `/api/campaigns/${campaignId}/status-assignments`, { statusDefinitionIds: ids });
+  const seedMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/status-definitions/seed"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/status-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/status-definitions"] });
+      toast({ title: "Seed úspešný", description: "Kategórie a statusy naplnené." });
+    },
+    onError: (error: any) => { toast({ title: "Chyba", description: error.message, variant: "destructive" }); },
+  });
+
+  const saveStatusMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { id, createdAt, updatedAt, ...payload } = data;
+      if (isNewStatus) return apiRequest("POST", "/api/status-definitions", payload);
+      return apiRequest("PATCH", `/api/status-definitions/${id}`, payload);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/status-definitions"] });
+      setEditingStatus(null); setIsNewStatus(false);
+      toast({ title: "Uložené" });
+    },
+    onError: (error: any) => { toast({ title: "Chyba", description: error.message, variant: "destructive" }); },
+  });
+
+  const saveCategoryMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { id, createdAt, updatedAt, ...payload } = data;
+      if (isNewCategory) return apiRequest("POST", "/api/status-categories", payload);
+      return apiRequest("PATCH", `/api/status-categories/${id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/status-categories"] });
+      setEditingCategory(null); setIsNewCategory(false);
+      toast({ title: "Uložené" });
+    },
+    onError: (error: any) => { toast({ title: "Chyba", description: error.message, variant: "destructive" }); },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async ({ type, id }: { type: string; id: string }) => {
+      if (type === "category") return apiRequest("DELETE", `/api/status-categories/${id}`);
+      return apiRequest("DELETE", `/api/status-definitions/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/status-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/status-definitions"] });
+      setDeleteTarget(null);
+      toast({ title: "Odstránené" });
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (ids: string[]) => apiRequest("POST", `/api/campaigns/${campaignId}/status-assignments`, { statusDefinitionIds: ids }),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-assignments"] });
-      toast({ title: t.common.saved || "Uložené" });
+      toast({ title: t.common?.saved || "Uložené" });
     },
-    onError: (err: any) => {
-      toast({ title: "Chyba", description: err.message, variant: "destructive" });
-    },
+    onError: (error: any) => { toast({ title: "Chyba", description: error.message, variant: "destructive" }); },
   });
 
   const assignAllMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/status-assignments/assign-all`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-assignments"] });
-      toast({ title: t.statusEngine?.assignAll || "Assigned all" });
+      toast({ title: "Všetky statusy priradené" });
     },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    },
+    onError: (error: any) => { toast({ title: "Chyba", description: error.message, variant: "destructive" }); },
   });
 
   const clearMutation = useMutation({
     mutationFn: () => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-assignments`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-assignments"] });
-      toast({ title: t.statusEngine?.clearSuccess || "Cleared" });
-    },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Priradenia vymazané" });
     },
   });
 
-  const toggleStatus = (statusId: string) => {
+  const toggleAssignment = (statusId: string) => {
     const newIds = assignedIds.has(statusId)
       ? [...assignedIds].filter(id => id !== statusId)
       : [...assignedIds, statusId];
     saveMutation.mutate(newIds);
   };
 
-  const toggleCategory = (catId: string) => {
+  const toggleCategoryAssignment = (catId: string) => {
     const catStatusIds = allStatuses.filter((s: any) => s.categoryId === catId && s.isActive).map((s: any) => s.id);
     const allSelected = catStatusIds.every((id: string) => assignedIds.has(id));
     let newIds: string[];
@@ -1665,204 +1769,350 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     saveMutation.mutate(newIds);
   };
 
-  const filteredCategories = useMemo(() => {
-    if (filterCat === "all") return categories;
-    return categories.filter((c: any) => c.id === filterCat);
-  }, [categories, filterCat]);
+  const toggleExpandCategory = (id: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
-  const getFilteredStatuses = (catId: string) => {
-    let sts = allStatuses.filter((s: any) => s.categoryId === catId && s.isActive);
-    if (searchFilter) {
-      const q = searchFilter.toLowerCase();
-      sts = sts.filter((s: any) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q));
+  const statusesByCategory = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const s of allStatuses) {
+      if (!map[s.categoryId]) map[s.categoryId] = [];
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!s.name.toLowerCase().includes(q) && !s.code.toLowerCase().includes(q)) continue;
+      }
+      map[s.categoryId].push(s);
     }
-    return sts;
-  };
+    return map;
+  }, [allStatuses, searchQuery]);
 
-  const assignedStatuses = useMemo(() => allStatuses.filter((s: any) => assignedIds.has(s.id)), [allStatuses, assignedIds]);
+  const filteredCategories = useMemo(() => {
+    if (filterCategory === "all") return categories;
+    return categories.filter((c: any) => c.id === filterCategory);
+  }, [categories, filterCategory]);
 
-  const ACTION_BADGE_COLORS: Record<string, string> = {
-    none: "bg-gray-100 text-gray-700", callback: "bg-blue-100 text-blue-700",
-    do_not_call: "bg-red-100 text-red-700", complete: "bg-emerald-100 text-emerald-700",
-    conversion: "bg-green-100 text-green-700", send_email: "bg-cyan-100 text-cyan-700",
-    send_sms: "bg-purple-100 text-purple-700", schedule_email: "bg-sky-100 text-sky-700",
-    schedule_sms: "bg-indigo-100 text-indigo-700", assign_owner: "bg-amber-100 text-amber-700",
-    move_queue: "bg-orange-100 text-orange-700", start_onboarding: "bg-teal-100 text-teal-700",
-    create_task: "bg-violet-100 text-violet-700", verify_contact: "bg-yellow-100 text-yellow-700",
-  };
-  const ACTION_LABELS: Record<string, string> = {
-    none: "Žiadna", callback: "Spätné volanie", do_not_call: "Nevolať", complete: "Dokončiť",
-    conversion: "Konverzia", send_email: "Odoslať email", send_sms: "Odoslať SMS",
-    schedule_email: "Schedule email", schedule_sms: "Schedule SMS", assign_owner: "Priradiť vlastníkovi",
-    move_queue: "Presunúť do fronty", start_onboarding: "Spustiť onboarding",
-    create_task: "Vytvoriť task", verify_contact: "Verifikácia kontaktu",
-  };
+  const parentStatuses = useMemo(() => assignedStatuses.filter((s: any) => !s.parentId), [assignedStatuses]);
+  const childMap = useMemo(() => {
+    const map: Record<number, any[]> = {};
+    for (const s of assignedStatuses) {
+      if (s.parentId) {
+        if (!map[s.parentId]) map[s.parentId] = [];
+        map[s.parentId].push(s);
+      }
+    }
+    return map;
+  }, [assignedStatuses]);
 
-  const CAT_COLORS: Record<string, string> = {
-    gray: "border-gray-300 bg-gray-50", blue: "border-blue-300 bg-blue-50",
-    green: "border-green-300 bg-green-50", purple: "border-purple-300 bg-purple-50",
-    cyan: "border-cyan-300 bg-cyan-50", teal: "border-teal-300 bg-teal-50",
-    orange: "border-orange-300 bg-orange-50", emerald: "border-emerald-300 bg-emerald-50",
-    red: "border-red-300 bg-red-50", yellow: "border-yellow-300 bg-yellow-50",
-  };
+  const pulseActiveStatus = pulseSubStatus || pulseStatus;
+  const pulseHasChildren = pulseStatus ? (childMap[pulseStatus.id] || []).length > 0 : false;
 
-  const noGlobalStatuses = categories.length === 0;
+  const pulseStatusesByCat = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const s of parentStatuses) {
+      if (!map[s.categoryId]) map[s.categoryId] = [];
+      map[s.categoryId].push(s);
+    }
+    return map;
+  }, [parentStatuses]);
+
+  const pulseVisibleCategories = useMemo(() => {
+    return categories.filter((c: any) => (pulseStatusesByCat[c.id] || []).length > 0);
+  }, [categories, pulseStatusesByCat]);
+
+  const pulseVisibleStatuses = useMemo(() => {
+    if (pulseCategory === "all") return parentStatuses;
+    return parentStatuses.filter((s: any) => s.categoryId === pulseCategory);
+  }, [parentStatuses, pulseCategory]);
+
+  const isLoading = catLoading || statusLoading;
+  const isEmpty = categories.length === 0;
 
   const content = (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">{t.statusEngine?.title || "Status Engine"}</h3>
-          <p className="text-sm text-muted-foreground">
-            {t.statusEngine?.selectForCampaign || "Select statuses available for this campaign"}
-          </p>
+          <p className="text-sm text-muted-foreground">Správa dispozícií, statusov a Nexus Pulse pre túto kampaň</p>
         </div>
-        <div className="flex gap-2 items-center">
-          <div className="flex bg-muted rounded-lg p-0.5 mr-2">
+        <div className="flex bg-muted rounded-lg p-0.5">
+          {[
+            { key: "engine" as const, icon: Settings2, label: "Definície" },
+            { key: "assign" as const, icon: CheckSquare, label: "Priradenie" },
+            { key: "pulse" as const, icon: Eye, label: "Nexus Pulse" },
+          ].map(tab => (
             <Button
-              variant={viewMode === "manage" ? "default" : "ghost"}
+              key={tab.key}
+              variant={viewMode === tab.key ? "default" : "ghost"}
               size="sm"
-              onClick={() => setViewMode("manage")}
-              className="h-7 text-xs"
-              data-testid="button-mode-manage"
+              onClick={() => setViewMode(tab.key)}
+              className={`h-7 text-xs ${viewMode === tab.key && tab.key === "pulse" ? "bg-gradient-to-r from-blue-600 to-indigo-600" : ""}`}
+              data-testid={`button-mode-${tab.key}`}
             >
-              <Settings2 className="h-3.5 w-3.5 mr-1" />
-              {t.statusEngine?.manageTab || "Správa"}
+              <tab.icon className="h-3.5 w-3.5 mr-1" />
+              {tab.label}
             </Button>
-            <Button
-              variant={viewMode === "pulse" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("pulse")}
-              disabled={assignedStatuses.length === 0}
-              className={`h-7 text-xs ${viewMode === "pulse" ? "bg-gradient-to-r from-blue-600 to-indigo-600" : ""}`}
-              data-testid="button-mode-pulse"
-            >
-              <Eye className="h-3.5 w-3.5 mr-1" />
-              Nexus Pulse
-            </Button>
-          </div>
-          {viewMode === "manage" && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => assignAllMutation.mutate()}
-                disabled={assignAllMutation.isPending}
-                data-testid="button-assign-all-statuses"
-              >
-                <CheckSquare className="h-4 w-4 mr-1" />
-                {t.statusEngine?.assignAll || "Assign all"}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => clearMutation.mutate()}
-                disabled={clearMutation.isPending}
-                className="text-red-600"
-                data-testid="button-clear-campaign-statuses"
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                {t.statusEngine?.clear || "Clear"}
-              </Button>
-            </>
-          )}
-          {viewMode === "pulse" && (
-            <Badge variant="secondary" className="text-xs">
-              {assignedStatuses.length} statusov aktívnych
-            </Badge>
-          )}
+          ))}
         </div>
       </div>
 
-      {noGlobalStatuses && (
-        <Card className="p-8 text-center">
-          <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-          <p className="font-medium">{t.statusEngine?.noStatuses || "No global statuses"}</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t.statusEngine?.noStatusesHint || "First populate the status engine in Settings"}
-          </p>
-        </Card>
+      {isLoading && (
+        <div className="flex items-center justify-center h-32">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
       )}
 
-      {!noGlobalStatuses && viewMode === "manage" && (
+      {!isLoading && viewMode === "engine" && (
         <>
-          <div className="flex gap-3 items-center">
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t.statusEngine?.search || "Search status..."}
-                value={searchFilter}
-                onChange={(e: any) => setSearchFilter(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-campaign-status"
-              />
+          <div className="flex items-center justify-between">
+            <div className="flex gap-3 items-center flex-1">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Hľadať status..." value={searchQuery} onChange={(e: any) => setSearchQuery(e.target.value)} className="pl-9" data-testid="input-search-status" />
+              </div>
+              {categories.length > 0 && (
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-[220px]" data-testid="select-filter-category">
+                    <SelectValue placeholder="Kategória" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Všetky kategórie</SelectItem>
+                    {categories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-            <Select value={filterCat} onValueChange={setFilterCat}>
-              <SelectTrigger className="w-[220px]" data-testid="select-filter-campaign-cat">
-                <SelectValue placeholder="Kategória" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Všetky kategórie</SelectItem>
-                {categories.map((c: any) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Badge variant="secondary" className="text-sm">
-              {assignedIds.size} / {allStatuses.filter((s: any) => s.isActive).length} {t.statusEngine?.selected || "selected"}
-            </Badge>
+            <div className="flex gap-2">
+              {isEmpty ? (
+                <Button onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending} data-testid="button-seed-statuses" className="bg-blue-600 hover:bg-blue-700">
+                  {seedMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Layers className="h-4 w-4 mr-2" />}
+                  Naplniť predvolené statusy
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => { setIsNewCategory(true); setEditingCategory({ id: "", name: "", code: "", color: "gray", icon: "", sortOrder: categories.length + 1, isActive: true, createdAt: new Date(), updatedAt: new Date() }); }} data-testid="button-add-category">
+                    <Plus className="h-4 w-4 mr-1" /> Kategória
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { if (categories.length === 0) return; setIsNewStatus(true); setEditingStatus({ id: "", categoryId: categories[0].id, parentId: null, name: "", code: "", icon: "", color: "gray", defaultAction: "none", isFinal: false, isConversion: false, requiresNote: false, requiresCallback: false, allowRecontact: true, allowEmail: true, allowSms: true, allowPhone: true, isSystemStatus: false, callbackOffsetDays: null, rescheduleOptions: null, sortOrder: allStatuses.length + 1, isActive: true, visibleInCampaigns: true, createdAt: new Date(), updatedAt: new Date() }); }} data-testid="button-add-status">
+                    <Plus className="h-4 w-4 mr-1" /> Status
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
-          {filteredCategories.map((cat: any) => {
-            const catStatuses = getFilteredStatuses(cat.id);
-            const allCatSelected = catStatuses.length > 0 && catStatuses.every((s: any) => assignedIds.has(s.id));
+          {!isEmpty && (
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+                <CardContent className="p-3 text-center">
+                  <div className="text-xl font-bold text-blue-700">{categories.length}</div>
+                  <div className="text-xs text-blue-600">Kategórie</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-green-50 dark:bg-green-950 border-green-200">
+                <CardContent className="p-3 text-center">
+                  <div className="text-xl font-bold text-green-700">{allStatuses.length}</div>
+                  <div className="text-xs text-green-600">Statusy</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-purple-50 dark:bg-purple-950 border-purple-200">
+                <CardContent className="p-3 text-center">
+                  <div className="text-xl font-bold text-purple-700">{assignedIds.size}</div>
+                  <div className="text-xs text-purple-600">Priradených</div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {isEmpty && (
+            <Card className="p-8 text-center">
+              <Layers className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+              <h4 className="font-semibold mb-1">Žiadne statusy</h4>
+              <p className="text-sm text-muted-foreground">Klikni na "Naplniť predvolené statusy" pre naimportovanie kompletného setu.</p>
+            </Card>
+          )}
+
+          <div className="space-y-3">
+            {filteredCategories.map((cat: any) => {
+              const catStatuses = statusesByCategory[cat.id] || [];
+              const isExpanded = expandedCategories.has(cat.id);
+              const colorClass = CATEGORY_COLORS_MAP[cat.color] || CATEGORY_COLORS_MAP.gray;
+
+              return (
+                <Card key={cat.id} className="overflow-hidden" data-testid={`card-category-${cat.id}`}>
+                  <div className={`flex items-center justify-between p-3 cursor-pointer border-l-4 ${colorClass}`} onClick={() => toggleExpandCategory(cat.id)} data-testid={`button-toggle-category-${cat.id}`}>
+                    <div className="flex items-center gap-3">
+                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      <div>
+                        <div className="font-semibold text-sm">{cat.name}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{cat.code}</div>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">{catStatuses.length}</Badge>
+                    </div>
+                    <div className="flex gap-1" onClick={(e: any) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setIsNewCategory(false); setEditingCategory(cat); }} data-testid={`button-edit-category-${cat.id}`}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setDeleteTarget({ type: "category", id: cat.id, name: cat.name })} data-testid={`button-delete-category-${cat.id}`}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="border-t">
+                      <div className="p-2 bg-muted/30">
+                        <div className="grid grid-cols-[1fr_100px_120px_60px_60px_60px_50px_50px] gap-1 text-[10px] font-medium text-muted-foreground px-2">
+                          <div>Názov</div><div>Akcia</div><div>Meta</div>
+                          <div className="text-center"><Phone className="h-3 w-3 inline" /></div>
+                          <div className="text-center"><Mail className="h-3 w-3 inline" /></div>
+                          <div className="text-center"><MessageSquare className="h-3 w-3 inline" /></div>
+                          <div></div><div></div>
+                        </div>
+                      </div>
+                      {catStatuses.length === 0 ? (
+                        <div className="p-4 text-center text-muted-foreground text-sm">Žiadne statusy</div>
+                      ) : (
+                        <div className="divide-y">
+                          {(() => {
+                            const parents = catStatuses.filter((s: any) => !s.parentId);
+                            const localChildMap: Record<string, any[]> = {};
+                            for (const s of catStatuses) {
+                              if (s.parentId) {
+                                if (!localChildMap[s.parentId]) localChildMap[s.parentId] = [];
+                                localChildMap[s.parentId].push(s);
+                              }
+                            }
+                            const renderRow = (status: any, isChild: boolean) => (
+                              <div key={status.id} className={`grid grid-cols-[1fr_100px_120px_60px_60px_60px_50px_50px] gap-1 items-center px-3 py-2 hover:bg-muted/30 text-sm ${isChild ? "bg-muted/10" : ""}`} data-testid={`row-status-${status.id}`}>
+                                <div className={isChild ? "pl-5" : ""}>
+                                  <div className="flex items-center gap-1">
+                                    {isChild && <span className="text-muted-foreground text-xs">└</span>}
+                                    <span className="font-medium text-sm">{status.name}</span>
+                                    {status.parentId && <Badge variant="outline" className="text-[7px] px-0.5 py-0 border-sky-300 text-sky-600">Pod</Badge>}
+                                  </div>
+                                  <div className={`text-[10px] text-muted-foreground font-mono ${isChild ? "pl-4" : ""}`}>{status.code}</div>
+                                </div>
+                                <div>
+                                  <Badge className={`text-[9px] px-1 py-0 ${STATUS_ACTION_COLORS[status.defaultAction] || ""}`}>
+                                    {STATUS_ACTION_LABELS[status.defaultAction] || status.defaultAction}
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-0.5">
+                                  {status.isFinal && <Badge variant="outline" className="text-[8px] px-0.5 py-0 border-red-300 text-red-600">F</Badge>}
+                                  {status.isConversion && <Badge variant="outline" className="text-[8px] px-0.5 py-0 border-green-300 text-green-600">K</Badge>}
+                                  {status.requiresNote && <Badge variant="outline" className="text-[8px] px-0.5 py-0 border-amber-300 text-amber-600">N</Badge>}
+                                  {status.requiresCallback && <Badge variant="outline" className="text-[8px] px-0.5 py-0 border-blue-300 text-blue-600">CB</Badge>}
+                                </div>
+                                <div className="text-center">{status.allowPhone ? <CheckCircle className="h-3.5 w-3.5 text-green-500 mx-auto" /> : <XCircle className="h-3.5 w-3.5 text-red-400 mx-auto" />}</div>
+                                <div className="text-center">{status.allowEmail ? <CheckCircle className="h-3.5 w-3.5 text-green-500 mx-auto" /> : <XCircle className="h-3.5 w-3.5 text-red-400 mx-auto" />}</div>
+                                <div className="text-center">{status.allowSms ? <CheckCircle className="h-3.5 w-3.5 text-green-500 mx-auto" /> : <XCircle className="h-3.5 w-3.5 text-red-400 mx-auto" />}</div>
+                                <div className="flex">
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsNewStatus(false); setEditingStatus(status); }} data-testid={`button-edit-status-${status.id}`}>
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  {!isChild && (
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-sky-500" title="Pridať podstatus" onClick={() => {
+                                      setIsNewStatus(true);
+                                      setEditingStatus({ id: "", categoryId: cat.id, parentId: status.id, name: "", code: "", icon: "", color: status.color, defaultAction: "none", isFinal: false, isConversion: false, requiresNote: false, requiresCallback: false, allowRecontact: true, allowEmail: true, allowSms: true, allowPhone: true, isSystemStatus: false, callbackOffsetDays: null, rescheduleOptions: null, sortOrder: (localChildMap[status.id]?.length || 0) + 1, isActive: true, visibleInCampaigns: true, createdAt: new Date(), updatedAt: new Date() });
+                                    }} data-testid={`button-add-substatus-${status.id}`}>
+                                      <Plus className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                                <div>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={() => setDeleteTarget({ type: "status", id: status.id, name: status.name })} data-testid={`button-delete-status-${status.id}`}>
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                            return parents.map((parent: any) => (
+                              <div key={parent.id}>
+                                {renderRow(parent, false)}
+                                {(localChildMap[parent.id] || []).map((child: any) => renderRow(child, true))}
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      )}
+                      <div className="p-2 border-t bg-muted/20">
+                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => {
+                          setIsNewStatus(true);
+                          setEditingStatus({ id: "", categoryId: cat.id, parentId: null, name: "", code: "", icon: "", color: cat.color, defaultAction: "none", isFinal: false, isConversion: false, requiresNote: false, requiresCallback: false, allowRecontact: true, allowEmail: true, allowSms: true, allowPhone: true, isSystemStatus: false, callbackOffsetDays: null, rescheduleOptions: null, sortOrder: (catStatuses.length + 1), isActive: true, visibleInCampaigns: true, createdAt: new Date(), updatedAt: new Date() });
+                        }} data-testid={`button-add-status-to-${cat.id}`}>
+                          <Plus className="h-3 w-3 mr-1" /> Pridať status
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {!isLoading && viewMode === "assign" && (
+        <>
+          <div className="flex items-center justify-between">
+            <Badge variant="secondary">{assignedIds.size} / {allStatuses.filter((s: any) => s.isActive).length} priradených</Badge>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => assignAllMutation.mutate()} disabled={assignAllMutation.isPending} data-testid="button-assign-all-statuses">
+                <CheckSquare className="h-4 w-4 mr-1" /> Priradiť všetky
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => clearMutation.mutate()} disabled={clearMutation.isPending} className="text-red-600" data-testid="button-clear-campaign-statuses">
+                <Trash2 className="h-4 w-4 mr-1" /> Vymazať
+              </Button>
+            </div>
+          </div>
+
+          {categories.length === 0 && (
+            <Card className="p-8 text-center">
+              <AlertCircle className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+              <p className="font-medium">Najprv vytvorte statusy v záložke "Definície"</p>
+            </Card>
+          )}
+
+          {categories.map((cat: any) => {
+            const catStatuses = allStatuses.filter((s: any) => s.categoryId === cat.id && s.isActive);
+            if (catStatuses.length === 0) return null;
+            const allCatSelected = catStatuses.every((s: any) => assignedIds.has(s.id));
             const someCatSelected = catStatuses.some((s: any) => assignedIds.has(s.id));
-            const colorClass = CAT_COLORS[cat.color] || CAT_COLORS.gray;
+            const colorClass = CATEGORY_COLORS_MAP[cat.color] || CATEGORY_COLORS_MAP.gray;
 
             return (
-              <Card key={cat.id} className={`overflow-hidden border-l-4 ${colorClass}`} data-testid={`card-campaign-cat-${cat.id}`}>
+              <Card key={cat.id} className={`overflow-hidden border-l-4 ${colorClass}`} data-testid={`card-assign-cat-${cat.id}`}>
                 <div className="p-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-5 h-5 rounded border-2 cursor-pointer flex items-center justify-center transition-colors ${
-                        allCatSelected ? "bg-primary border-primary" : someCatSelected ? "bg-primary/30 border-primary" : "border-gray-300"
-                      }`}
-                      onClick={() => toggleCategory(cat.id)}
+                      className={`w-5 h-5 rounded border-2 cursor-pointer flex items-center justify-center transition-colors ${allCatSelected ? "bg-primary border-primary" : someCatSelected ? "bg-primary/30 border-primary" : "border-gray-300"}`}
+                      onClick={() => toggleCategoryAssignment(cat.id)}
                       data-testid={`checkbox-category-${cat.id}`}
                     >
                       {(allCatSelected || someCatSelected) && <Check className="h-3 w-3 text-white" />}
                     </div>
-                    <div>
-                      <span className="font-medium">{cat.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">({catStatuses.length})</span>
-                    </div>
+                    <span className="font-medium text-sm">{cat.name}</span>
+                    <span className="text-xs text-muted-foreground">({catStatuses.length})</span>
                   </div>
                 </div>
                 <div className="px-3 pb-3">
-                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                     {catStatuses.map((status: any) => {
                       const isAssigned = assignedIds.has(status.id);
                       return (
-                        <div
-                          key={status.id}
-                          className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
-                            isAssigned
-                              ? "border-primary bg-primary/5 shadow-sm"
-                              : "border-transparent bg-muted/30 hover:bg-muted/50"
-                          }`}
-                          onClick={() => toggleStatus(status.id)}
-                          data-testid={`status-toggle-${status.id}`}
-                        >
-                          <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
-                            isAssigned ? "bg-primary border-primary" : "border-gray-300"
-                          }`}>
+                        <div key={status.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${isAssigned ? "border-primary bg-primary/5 shadow-sm" : "border-transparent bg-muted/30 hover:bg-muted/50"}`} onClick={() => toggleAssignment(status.id)} data-testid={`status-toggle-${status.id}`}>
+                          <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${isAssigned ? "bg-primary border-primary" : "border-gray-300"}`}>
                             {isAssigned && <Check className="h-2.5 w-2.5 text-white" />}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-medium truncate">{status.name}</div>
                             <div className="flex items-center gap-1 mt-0.5">
-                              <Badge className={`text-[9px] px-1 py-0 ${ACTION_BADGE_COLORS[status.defaultAction] || ""}`}>
-                                {ACTION_LABELS[status.defaultAction] || status.defaultAction}
+                              <Badge className={`text-[9px] px-1 py-0 ${STATUS_ACTION_COLORS[status.defaultAction] || ""}`}>
+                                {STATUS_ACTION_LABELS[status.defaultAction] || status.defaultAction}
                               </Badge>
                               {status.isFinal && <Badge variant="outline" className="text-[8px] px-0.5 py-0 border-red-300 text-red-500">F</Badge>}
                               {status.isConversion && <Badge variant="outline" className="text-[8px] px-0.5 py-0 border-green-300 text-green-500">K</Badge>}
@@ -1879,12 +2129,260 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         </>
       )}
 
-      {!noGlobalStatuses && viewMode === "pulse" && assignedStatuses.length > 0 && (
-        <NexusPulseInline
+      {!isLoading && viewMode === "pulse" && (
+        <>
+          {assignedStatuses.length === 0 ? (
+            <Card className="p-8 text-center">
+              <AlertCircle className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+              <p className="font-medium">Najprv priraďte statusy v záložke "Priradenie"</p>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
+                  <h3 className="text-lg font-bold">Nexus Pulse</h3>
+                  <Badge variant="secondary" className="bg-white/20 text-white text-xs ml-auto">{assignedStatuses.length} statusov</Badge>
+                </div>
+                <p className="text-blue-100 text-sm mt-1">Takto uvidí agent výber statusov po ukončení hovoru</p>
+              </div>
+
+              {!pulseStatus ? (
+                <>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button variant={pulseCategory === "all" ? "default" : "outline"} size="sm" onClick={() => setPulseCategory("all")} data-testid="pulse-cat-all">
+                      Všetky ({parentStatuses.length})
+                    </Button>
+                    {pulseVisibleCategories.map((cat: any) => (
+                      <Button key={cat.id} variant={pulseCategory === cat.id ? "default" : "outline"} size="sm" onClick={() => setPulseCategory(cat.id)} data-testid={`pulse-cat-${cat.id}`}>
+                        {cat.name} ({(pulseStatusesByCat[cat.id] || []).length})
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {pulseVisibleStatuses.map((status: any) => {
+                      const colorClass = PULSE_STATUS_COLORS[status.color] || PULSE_STATUS_COLORS.gray;
+                      const children = childMap[status.id] || [];
+                      return (
+                        <button key={status.id} className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => { setPulseStatus(status); setPulseSubStatus(null); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }} data-testid={`pulse-status-${status.id}`}>
+                          <div className="font-semibold text-sm">{status.name}</div>
+                          <div className="text-xs opacity-70 mt-0.5 flex items-center gap-1">
+                            <Badge className={`${STATUS_ACTION_COLORS[status.defaultAction] || ""} text-[9px] px-1 py-0`}>
+                              {STATUS_ACTION_LABELS[status.defaultAction] || status.defaultAction}
+                            </Badge>
+                            {status.isFinal && <span className="text-red-600 font-bold">F</span>}
+                            {status.isConversion && <span className="text-green-600 font-bold">K</span>}
+                            {children.length > 0 && <span className="text-sky-600 font-bold">{children.length} pod</span>}
+                          </div>
+                          <div className="flex gap-1 mt-1">
+                            {status.allowPhone && <Phone className="h-3 w-3 text-blue-500" />}
+                            {status.allowEmail && <Mail className="h-3 w-3 text-purple-500" />}
+                            {status.allowSms && <MessageSquare className="h-3 w-3 text-teal-500" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {pulseVisibleStatuses.length === 0 && (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <XCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Žiadne statusy v tejto kategórii</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      if (pulseSubStatus) setPulseSubStatus(null);
+                      else { setPulseStatus(null); setPulseNotes(""); setPulseCallbackDate(""); setPulseReschedule(null); }
+                    }}>
+                      <ArrowLeft className="h-4 w-4 mr-1" /> Späť
+                    </Button>
+                    <h3 className="font-semibold text-lg">
+                      {pulseSubStatus ? <>{pulseStatus.name} <span className="text-muted-foreground mx-1">→</span> {pulseSubStatus.name}</> : pulseStatus.name}
+                    </h3>
+                    <Badge className={`${STATUS_ACTION_COLORS[(pulseActiveStatus || pulseStatus).defaultAction] || ""}`}>
+                      {STATUS_ACTION_LABELS[(pulseActiveStatus || pulseStatus).defaultAction]}
+                    </Badge>
+                  </div>
+
+                  {pulseHasChildren && !pulseSubStatus && (
+                    <Card className="p-4">
+                      <h4 className="font-medium mb-3">Vyberte podstatus</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {(childMap[pulseStatus.id] || []).map((sub: any) => {
+                          const colorClass = PULSE_STATUS_COLORS[sub.color || pulseStatus.color || "gray"] || PULSE_STATUS_COLORS.gray;
+                          return (
+                            <button key={sub.id} className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => setPulseSubStatus(sub)} data-testid={`pulse-substatus-${sub.id}`}>
+                              <div className="font-semibold text-sm">{sub.name}</div>
+                              <div className="text-xs opacity-70">{STATUS_ACTION_LABELS[sub.defaultAction] || sub.defaultAction}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  )}
+
+                  {(!pulseHasChildren || pulseSubStatus) && (
+                    <>
+                      <Card className="p-4 space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                            <span className="text-muted-foreground">Finálny:</span>
+                            <Badge variant={(pulseActiveStatus || pulseStatus).isFinal ? "destructive" : "secondary"}>
+                              {(pulseActiveStatus || pulseStatus).isFinal ? "Áno" : "Nie"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                            <span className="text-muted-foreground">Konverzia:</span>
+                            <Badge variant={(pulseActiveStatus || pulseStatus).isConversion ? "default" : "secondary"} className={(pulseActiveStatus || pulseStatus).isConversion ? "bg-green-600" : ""}>
+                              {(pulseActiveStatus || pulseStatus).isConversion ? "Áno" : "Nie"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                            <span className="text-muted-foreground">Kód:</span>
+                            <code className="text-xs bg-muted px-1 rounded">{(pulseActiveStatus || pulseStatus).code}</code>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                            <span className="text-muted-foreground">Akcia:</span>
+                            <Badge className={`${STATUS_ACTION_COLORS[(pulseActiveStatus || pulseStatus).defaultAction] || ""} text-xs`}>
+                              {STATUS_ACTION_LABELS[(pulseActiveStatus || pulseStatus).defaultAction]}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${(pulseActiveStatus || pulseStatus).allowPhone ? "bg-blue-50 border-blue-200" : "bg-muted/30 border-transparent"}`}>
+                            <Phone className={`h-5 w-5 ${(pulseActiveStatus || pulseStatus).allowPhone ? "text-blue-500" : "text-muted-foreground"}`} />
+                            <div>
+                              <div className="text-sm font-medium">Telefón</div>
+                              <div className="text-xs text-muted-foreground">{(pulseActiveStatus || pulseStatus).allowPhone ? "Povolený" : "Nepovolený"}</div>
+                            </div>
+                          </div>
+                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${(pulseActiveStatus || pulseStatus).allowEmail ? "bg-purple-50 border-purple-200" : "bg-muted/30 border-transparent"}`}>
+                            <Mail className={`h-5 w-5 ${(pulseActiveStatus || pulseStatus).allowEmail ? "text-purple-500" : "text-muted-foreground"}`} />
+                            <div>
+                              <div className="text-sm font-medium">Email</div>
+                              <div className="text-xs text-muted-foreground">{(pulseActiveStatus || pulseStatus).allowEmail ? "Povolený" : "Nepovolený"}</div>
+                            </div>
+                          </div>
+                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${(pulseActiveStatus || pulseStatus).allowSms ? "bg-teal-50 border-teal-200" : "bg-muted/30 border-transparent"}`}>
+                            <MessageSquare className={`h-5 w-5 ${(pulseActiveStatus || pulseStatus).allowSms ? "text-teal-500" : "text-muted-foreground"}`} />
+                            <div>
+                              <div className="text-sm font-medium">SMS</div>
+                              <div className="text-xs text-muted-foreground">{(pulseActiveStatus || pulseStatus).allowSms ? "Povolený" : "Nepovolený"}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {((pulseActiveStatus || pulseStatus).defaultAction === "reschedule" || (pulseActiveStatus || pulseStatus).defaultAction === "callback") && (pulseActiveStatus || pulseStatus).rescheduleOptions?.length > 0 && (
+                          <>
+                            <Separator />
+                            <div className="bg-sky-50 dark:bg-sky-950 p-4 rounded-lg border border-sky-200 dark:border-sky-800">
+                              <Label className="text-sm font-medium flex items-center gap-1 mb-3">
+                                <Settings2 className="h-4 w-4" />
+                                Preplánovať hovor na:
+                              </Label>
+                              <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                                {((pulseActiveStatus || pulseStatus).rescheduleOptions || []).map((optValue: string) => {
+                                  const opt = RESCHEDULE_PERIOD_OPTIONS.find((o: any) => o.value === optValue);
+                                  if (!opt) return null;
+                                  const isSelected = pulseReschedule === optValue;
+                                  return (
+                                    <button key={optValue} className={`p-2.5 rounded-lg border-2 text-center transition-all ${isSelected ? "border-sky-500 bg-sky-100 text-sky-800 shadow-md" : "border-gray-200 bg-white hover:border-sky-300 hover:bg-sky-50"}`} onClick={() => setPulseReschedule(isSelected ? null : optValue)} data-testid={`pulse-reschedule-${optValue}`}>
+                                      <div className="font-semibold text-sm">{opt.label}</div>
+                                      <div className="text-xs text-muted-foreground">{opt.days} dní</div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {(pulseActiveStatus || pulseStatus).requiresCallback && !((pulseActiveStatus || pulseStatus).rescheduleOptions?.length > 0) && (
+                          <>
+                            <Separator />
+                            <div>
+                              <Label className="text-sm font-medium">Callback dátum</Label>
+                              <div className="grid grid-cols-2 gap-2 mt-1">
+                                <Input type="date" value={pulseCallbackDate} onChange={(e: any) => setPulseCallbackDate(e.target.value)} data-testid="pulse-callback-date" />
+                                <Input type="time" value={pulseCallbackTime} onChange={(e: any) => setPulseCallbackTime(e.target.value)} data-testid="pulse-callback-time" />
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {(pulseActiveStatus || pulseStatus).requiresNote && (
+                          <>
+                            <Separator />
+                            <div>
+                              <Label className="text-sm font-medium">Poznámka (povinná)</Label>
+                              <textarea className="w-full mt-1 p-2 border rounded-md text-sm min-h-[60px] resize-none" placeholder="Zadajte poznámku..." value={pulseNotes} onChange={(e) => setPulseNotes(e.target.value)} data-testid="pulse-notes" />
+                            </div>
+                          </>
+                        )}
+                      </Card>
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="outline" onClick={() => { setPulseStatus(null); setPulseSubStatus(null); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }}>Zrušiť</Button>
+                        <Button className="bg-green-600 hover:bg-green-700" disabled={
+                          ((pulseActiveStatus || pulseStatus).requiresNote && !pulseNotes.trim()) ||
+                          ((pulseActiveStatus || pulseStatus).requiresCallback && !pulseCallbackDate && !pulseReschedule)
+                        } data-testid="pulse-confirm">
+                          <Check className="h-4 w-4 mr-1" /> Potvrdiť dispozíciu
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {editingStatus && (
+        <StatusEditDialogCampaign
+          status={editingStatus}
           categories={categories}
-          statuses={assignedStatuses}
+          allStatuses={allStatuses}
+          isNew={isNewStatus}
+          onSave={(data: any) => saveStatusMutation.mutate(data)}
+          onClose={() => { setEditingStatus(null); setIsNewStatus(false); }}
+          isPending={saveStatusMutation.isPending}
         />
       )}
+
+      {editingCategory && (
+        <CategoryEditDialogCampaign
+          category={editingCategory}
+          isNew={isNewCategory}
+          onSave={(data: any) => saveCategoryMutation.mutate(data)}
+          onClose={() => { setEditingCategory(null); setIsNewCategory(false); }}
+          isPending={saveCategoryMutation.isPending}
+        />
+      )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Odstrániť {deleteTarget?.type === "category" ? "kategóriu" : "status"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Naozaj chcete odstrániť <strong>{deleteTarget?.name}</strong>?
+              {deleteTarget?.type === "category" && " Všetky statusy v tejto kategórii budú tiež odstránené."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Zrušiť</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => deleteTarget && deleteMutation.mutate({ type: deleteTarget.type, id: deleteTarget.id })}>
+              Odstrániť
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 
@@ -1892,337 +2390,170 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   return <TabsContent value="dispositions" className="space-y-4">{content}</TabsContent>;
 }
 
-function NexusPulseInline({ categories, statuses }: {
-  categories: any[];
-  statuses: any[];
+function StatusEditDialogCampaign({ status, categories, allStatuses, isNew, onSave, onClose, isPending }: {
+  status: any; categories: any[]; allStatuses: any[]; isNew: boolean;
+  onSave: (data: any) => void; onClose: () => void; isPending: boolean;
 }) {
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [selectedStatus, setSelectedStatus] = useState<any | null>(null);
-  const [selectedSubStatus, setSelectedSubStatus] = useState<any | null>(null);
-  const [selectedReschedule, setSelectedReschedule] = useState<string | null>(null);
-  const [callbackDate, setCallbackDate] = useState("");
-  const [callbackTime, setCallbackTime] = useState("09:00");
-  const [notes, setNotes] = useState("");
-
-  const ACTION_LABELS: Record<string, string> = {
-    none: "Žiadna", callback: "Spätné volanie", do_not_call: "Nevolať", complete: "Dokončiť",
-    conversion: "Konverzia", send_email: "Odoslať email", send_sms: "Odoslať SMS",
-    schedule_email: "Schedule email", schedule_sms: "Schedule SMS", reschedule: "Preplánovať",
-  };
-
-  const ACTION_COLORS: Record<string, string> = {
-    none: "bg-gray-100 text-gray-700", callback: "bg-yellow-100 text-yellow-800",
-    do_not_call: "bg-red-100 text-red-800", complete: "bg-green-100 text-green-800",
-    conversion: "bg-emerald-100 text-emerald-800", send_email: "bg-purple-100 text-purple-800",
-    send_sms: "bg-teal-100 text-teal-800", reschedule: "bg-sky-100 text-sky-800",
-  };
-
-  const STATUS_COLORS: Record<string, string> = {
-    gray: "bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-800",
-    blue: "bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-800",
-    green: "bg-green-100 hover:bg-green-200 border-green-300 text-green-800",
-    purple: "bg-purple-100 hover:bg-purple-200 border-purple-300 text-purple-800",
-    cyan: "bg-cyan-100 hover:bg-cyan-200 border-cyan-300 text-cyan-800",
-    teal: "bg-teal-100 hover:bg-teal-200 border-teal-300 text-teal-800",
-    orange: "bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-800",
-    emerald: "bg-emerald-100 hover:bg-emerald-200 border-emerald-300 text-emerald-800",
-    red: "bg-red-100 hover:bg-red-200 border-red-300 text-red-800",
-    yellow: "bg-yellow-100 hover:bg-yellow-200 border-yellow-300 text-yellow-800",
-  };
-
-  const parentStatuses = useMemo(() => statuses.filter((s: any) => !s.parentId), [statuses]);
-
-  const childMap = useMemo(() => {
-    const map: Record<number, any[]> = {};
-    for (const s of statuses) {
-      if (s.parentId) {
-        if (!map[s.parentId]) map[s.parentId] = [];
-        map[s.parentId].push(s);
-      }
-    }
-    return map;
-  }, [statuses]);
-
-  const activeStatus = selectedSubStatus || selectedStatus;
-  const hasChildren = selectedStatus ? (childMap[selectedStatus.id] || []).length > 0 : false;
-
-  const statusesByCat = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    for (const s of parentStatuses) {
-      if (!map[s.categoryId]) map[s.categoryId] = [];
-      map[s.categoryId].push(s);
-    }
-    return map;
-  }, [parentStatuses]);
-
-  const visibleCategories = useMemo(() => {
-    return categories.filter(c => (statusesByCat[c.id] || []).length > 0);
-  }, [categories, statusesByCat]);
-
-  const visibleStatuses = useMemo(() => {
-    if (selectedCategory === "all") return parentStatuses;
-    return parentStatuses.filter(s => s.categoryId === selectedCategory);
-  }, [parentStatuses, selectedCategory]);
+  const [form, setForm] = useState({ ...status });
+  const parentOptions = allStatuses.filter((s: any) => !s.parentId && s.id !== status.id);
 
   return (
-    <div className="space-y-4">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-lg">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
-          <h3 className="text-lg font-bold">Nexus Pulse</h3>
-        </div>
-        <p className="text-blue-100 text-sm mt-1">
-          Takto uvidí agent výber statusov po ukončení hovoru
-        </p>
-      </div>
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isNew ? "Nový status" : "Upraviť status"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Názov</Label>
+              <Input value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} data-testid="input-status-name" />
+            </div>
+            <div>
+              <Label className="text-xs">Kód</Label>
+              <Input value={form.code} onChange={(e: any) => setForm({ ...form, code: e.target.value })} data-testid="input-status-code" />
+            </div>
+          </div>
 
-      {!selectedStatus ? (
-        <>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={selectedCategory === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory("all")}
-              data-testid="pulse-cat-all"
-            >
-              Všetky ({parentStatuses.length})
-            </Button>
-            {visibleCategories.map(cat => (
-              <Button
-                key={cat.id}
-                variant={selectedCategory === cat.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory(cat.id)}
-                data-testid={`pulse-cat-${cat.id}`}
-              >
-                {cat.name} ({(statusesByCat[cat.id] || []).length})
-              </Button>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Kategória</Label>
+              <Select value={form.categoryId} onValueChange={(v) => setForm({ ...form, categoryId: v })}>
+                <SelectTrigger data-testid="select-status-category"><SelectValue /></SelectTrigger>
+                <SelectContent>{categories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Predvolená akcia</Label>
+              <Select value={form.defaultAction} onValueChange={(v) => setForm({ ...form, defaultAction: v })}>
+                <SelectTrigger data-testid="select-status-action"><SelectValue /></SelectTrigger>
+                <SelectContent>{STATUS_ACTION_TYPES.map((a: string) => <SelectItem key={a} value={a}>{STATUS_ACTION_LABELS[a] || a}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Nadradený status (pod-status)</Label>
+            <Select value={form.parentId || "__none__"} onValueChange={(v) => setForm({ ...form, parentId: v === "__none__" ? null : v })}>
+              <SelectTrigger data-testid="select-parent-status"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— Žiadny (hlavný status) —</SelectItem>
+                {parentOptions.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Farba</Label>
+            <Select value={form.color || "gray"} onValueChange={(v) => setForm({ ...form, color: v })}>
+              <SelectTrigger data-testid="select-status-color"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["gray","blue","green","purple","cyan","teal","orange","emerald","red","yellow"].map(c => (
+                  <SelectItem key={c} value={c}><span className={`inline-block w-3 h-3 rounded mr-2 bg-${c}-400`} />{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+            {[
+              { key: "isFinal", label: "Finálny" },
+              { key: "isConversion", label: "Konverzia" },
+              { key: "requiresNote", label: "Vyžaduje poznámku" },
+              { key: "requiresCallback", label: "Vyžaduje callback" },
+              { key: "allowPhone", label: "Povoliť telefón" },
+              { key: "allowEmail", label: "Povoliť email" },
+              { key: "allowSms", label: "Povoliť SMS" },
+              { key: "isActive", label: "Aktívny" },
+            ].map(({ key, label }) => (
+              <div key={key} className="flex items-center justify-between py-1">
+                <Label className="text-xs">{label}</Label>
+                <Switch checked={!!form[key]} onCheckedChange={(v) => setForm({ ...form, [key]: v })} data-testid={`switch-${key}`} />
+              </div>
             ))}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {visibleStatuses.map((status: any) => {
-              const colorClass = STATUS_COLORS[status.color] || STATUS_COLORS.gray;
-              const children = childMap[status.id] || [];
-              return (
-                <button
-                  key={status.id}
-                  className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
-                  onClick={() => { setSelectedStatus(status); setSelectedSubStatus(null); setSelectedReschedule(null); setNotes(""); setCallbackDate(""); }}
-                  data-testid={`pulse-status-${status.id}`}
-                >
-                  <div className="font-semibold text-sm">{status.name}</div>
-                  <div className="text-xs opacity-70 mt-0.5 flex items-center gap-1">
-                    <Badge className={`${ACTION_COLORS[status.defaultAction] || ""} text-[9px] px-1 py-0`}>
-                      {ACTION_LABELS[status.defaultAction] || status.defaultAction}
-                    </Badge>
-                    {status.isFinal && <span className="text-red-600 font-bold">F</span>}
-                    {status.isConversion && <span className="text-green-600 font-bold">K</span>}
-                    {children.length > 0 && <span className="text-sky-600 font-bold">{children.length} pod</span>}
-                  </div>
-                  <div className="flex gap-1 mt-1">
-                    {status.allowPhone && <Phone className="h-3 w-3 text-blue-500" />}
-                    {status.allowEmail && <Mail className="h-3 w-3 text-purple-500" />}
-                    {status.allowSms && <MessageSquare className="h-3 w-3 text-teal-500" />}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {visibleStatuses.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <XCircle className="h-10 w-10 mx-auto mb-2 opacity-50" />
-              <p>Žiadne statusy v tejto kategórii</p>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => {
-              if (selectedSubStatus) { setSelectedSubStatus(null); }
-              else { setSelectedStatus(null); setNotes(""); setCallbackDate(""); setSelectedReschedule(null); }
-            }}>
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Späť
-            </Button>
-            <h3 className="font-semibold text-lg">
-              {selectedSubStatus ? <>{selectedStatus.name} <span className="text-muted-foreground mx-1">→</span> {selectedSubStatus.name}</> : selectedStatus.name}
-            </h3>
-            <Badge className={`${ACTION_COLORS[(activeStatus || selectedStatus).defaultAction] || ""}`}>
-              {ACTION_LABELS[(activeStatus || selectedStatus).defaultAction]}
-            </Badge>
-          </div>
-
-          {hasChildren && !selectedSubStatus && (
-            <Card className="p-4">
-              <h4 className="font-medium mb-3">Vyberte podstatus</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {(childMap[selectedStatus.id] || []).map((sub: any) => {
-                  const colorClass = STATUS_COLORS[sub.color || selectedStatus.color || "gray"] || STATUS_COLORS.gray;
+          {(form.defaultAction === "reschedule" || form.defaultAction === "callback") && (
+            <div>
+              <Label className="text-xs font-medium">Reschedule períody</Label>
+              <div className="grid grid-cols-3 gap-1.5 mt-1">
+                {RESCHEDULE_PERIOD_OPTIONS.map((opt: any) => {
+                  const checked = (form.rescheduleOptions || []).includes(opt.value);
                   return (
-                    <button
-                      key={sub.id}
-                      className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
-                      onClick={() => setSelectedSubStatus(sub)}
-                      data-testid={`pulse-substatus-${sub.id}`}
-                    >
-                      <div className="font-semibold text-sm">{sub.name}</div>
-                      <div className="text-xs opacity-70">{ACTION_LABELS[sub.defaultAction] || sub.defaultAction}</div>
-                    </button>
+                    <label key={opt.value} className={`flex items-center gap-1.5 p-1.5 rounded border text-xs cursor-pointer ${checked ? "border-sky-400 bg-sky-50" : "border-gray-200"}`}>
+                      <input type="checkbox" checked={checked} onChange={() => {
+                        const current = form.rescheduleOptions || [];
+                        const next = checked ? current.filter((v: string) => v !== opt.value) : [...current, opt.value];
+                        setForm({ ...form, rescheduleOptions: next });
+                      }} className="rounded" />
+                      {opt.label}
+                    </label>
                   );
                 })}
               </div>
-            </Card>
-          )}
-
-          {(!hasChildren || selectedSubStatus) && (
-          <>
-          <Card className="p-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                <span className="text-muted-foreground">Finálny:</span>
-                <Badge variant={(activeStatus || selectedStatus).isFinal ? "destructive" : "secondary"}>
-                  {(activeStatus || selectedStatus).isFinal ? "Áno" : "Nie"}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                <span className="text-muted-foreground">Konverzia:</span>
-                <Badge variant={(activeStatus || selectedStatus).isConversion ? "default" : "secondary"} className={(activeStatus || selectedStatus).isConversion ? "bg-green-600" : ""}>
-                  {(activeStatus || selectedStatus).isConversion ? "Áno" : "Nie"}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                <span className="text-muted-foreground">Systémový:</span>
-                <span>{(activeStatus || selectedStatus).isSystemStatus ? "Áno" : "Nie"}</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                <span className="text-muted-foreground">Kód:</span>
-                <code className="text-xs bg-muted px-1 rounded">{(activeStatus || selectedStatus).code}</code>
-              </div>
             </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className={`flex items-center gap-2 p-3 rounded-lg border ${(activeStatus || selectedStatus).allowPhone ? "bg-blue-50 border-blue-200" : "bg-muted/30 border-transparent"}`}>
-                <Phone className={`h-5 w-5 ${(activeStatus || selectedStatus).allowPhone ? "text-blue-500" : "text-muted-foreground"}`} />
-                <div>
-                  <div className="text-sm font-medium">Telefón</div>
-                  <div className="text-xs text-muted-foreground">{(activeStatus || selectedStatus).allowPhone ? "Povolený" : "Nepovolený"}</div>
-                </div>
-                {(activeStatus || selectedStatus).allowPhone && <Check className="h-4 w-4 text-green-500 ml-auto" />}
-              </div>
-              <div className={`flex items-center gap-2 p-3 rounded-lg border ${(activeStatus || selectedStatus).allowEmail ? "bg-purple-50 border-purple-200" : "bg-muted/30 border-transparent"}`}>
-                <Mail className={`h-5 w-5 ${(activeStatus || selectedStatus).allowEmail ? "text-purple-500" : "text-muted-foreground"}`} />
-                <div>
-                  <div className="text-sm font-medium">Email</div>
-                  <div className="text-xs text-muted-foreground">{(activeStatus || selectedStatus).allowEmail ? "Povolený" : "Nepovolený"}</div>
-                </div>
-                {(activeStatus || selectedStatus).allowEmail && <Check className="h-4 w-4 text-green-500 ml-auto" />}
-              </div>
-              <div className={`flex items-center gap-2 p-3 rounded-lg border ${(activeStatus || selectedStatus).allowSms ? "bg-teal-50 border-teal-200" : "bg-muted/30 border-transparent"}`}>
-                <MessageSquare className={`h-5 w-5 ${(activeStatus || selectedStatus).allowSms ? "text-teal-500" : "text-muted-foreground"}`} />
-                <div>
-                  <div className="text-sm font-medium">SMS</div>
-                  <div className="text-xs text-muted-foreground">{(activeStatus || selectedStatus).allowSms ? "Povolený" : "Nepovolený"}</div>
-                </div>
-                {(activeStatus || selectedStatus).allowSms && <Check className="h-4 w-4 text-green-500 ml-auto" />}
-              </div>
-            </div>
-
-            {((activeStatus || selectedStatus).defaultAction === "reschedule" || (activeStatus || selectedStatus).defaultAction === "callback") && (activeStatus || selectedStatus).rescheduleOptions?.length > 0 && (
-              <>
-                <Separator />
-                <div className="bg-sky-50 dark:bg-sky-950 p-4 rounded-lg border border-sky-200 dark:border-sky-800">
-                  <Label className="text-sm font-medium flex items-center gap-1 mb-3">
-                    <Settings2 className="h-4 w-4" />
-                    Preplánovať hovor na:
-                  </Label>
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                    {((activeStatus || selectedStatus).rescheduleOptions || []).map((optValue: string) => {
-                      const opt = RESCHEDULE_PERIOD_OPTIONS.find((o: any) => o.value === optValue);
-                      if (!opt) return null;
-                      const isSelected = selectedReschedule === optValue;
-                      return (
-                        <button
-                          key={optValue}
-                          className={`p-2.5 rounded-lg border-2 text-center transition-all ${
-                            isSelected
-                              ? "border-sky-500 bg-sky-100 text-sky-800 shadow-md"
-                              : "border-gray-200 bg-white hover:border-sky-300 hover:bg-sky-50"
-                          }`}
-                          onClick={() => setSelectedReschedule(isSelected ? null : optValue)}
-                          data-testid={`pulse-reschedule-${optValue}`}
-                        >
-                          <div className="font-semibold text-sm">{opt.label}</div>
-                          <div className="text-xs text-muted-foreground">{opt.days} dní</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {(activeStatus || selectedStatus).requiresCallback && !((activeStatus || selectedStatus).rescheduleOptions?.length > 0) && (
-              <>
-                <Separator />
-                <div>
-                  <Label className="text-sm font-medium">Callback dátum</Label>
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    <Input type="date" value={callbackDate} onChange={(e: any) => setCallbackDate(e.target.value)} data-testid="pulse-callback-date" />
-                    <Input type="time" value={callbackTime} onChange={(e: any) => setCallbackTime(e.target.value)} data-testid="pulse-callback-time" />
-                  </div>
-                  {(activeStatus || selectedStatus).callbackOffsetDays && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Predvolený offset: {(activeStatus || selectedStatus).callbackOffsetDays} dní
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
-
-            {(activeStatus || selectedStatus).requiresNote && (
-              <>
-                <Separator />
-                <div>
-                  <Label className="text-sm font-medium">Poznámka (povinná)</Label>
-                  <textarea
-                    className="w-full mt-1 p-2 border rounded-md text-sm min-h-[60px] resize-none"
-                    placeholder="Zadajte poznámku..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    data-testid="pulse-notes"
-                  />
-                </div>
-              </>
-            )}
-          </Card>
-
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => { setSelectedStatus(null); setSelectedSubStatus(null); setSelectedReschedule(null); setNotes(""); setCallbackDate(""); }}>
-              Zrušiť
-            </Button>
-            <Button
-              className="bg-green-600 hover:bg-green-700"
-              disabled={
-                ((activeStatus || selectedStatus).requiresNote && !notes.trim()) ||
-                ((activeStatus || selectedStatus).requiresCallback && !callbackDate && !selectedReschedule) ||
-                ((activeStatus || selectedStatus).defaultAction === "reschedule" && !selectedReschedule && !callbackDate)
-              }
-              data-testid="pulse-confirm"
-            >
-              <Check className="h-4 w-4 mr-1" />
-              Potvrdiť dispozíciu
-            </Button>
-          </div>
-          </>
           )}
         </div>
-      )}
-    </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Zrušiť</Button>
+          <Button onClick={() => onSave(form)} disabled={isPending || !form.name || !form.code} data-testid="button-save-status">
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Uložiť
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CategoryEditDialogCampaign({ category, isNew, onSave, onClose, isPending }: {
+  category: any; isNew: boolean;
+  onSave: (data: any) => void; onClose: () => void; isPending: boolean;
+}) {
+  const [form, setForm] = useState({ ...category });
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isNew ? "Nová kategória" : "Upraviť kategóriu"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Názov</Label>
+              <Input value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} data-testid="input-category-name" />
+            </div>
+            <div>
+              <Label className="text-xs">Kód</Label>
+              <Input value={form.code} onChange={(e: any) => setForm({ ...form, code: e.target.value })} data-testid="input-category-code" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Farba</Label>
+            <Select value={form.color || "gray"} onValueChange={(v) => setForm({ ...form, color: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["gray","blue","green","purple","cyan","teal","orange","emerald","red","yellow"].map(c => (
+                  <SelectItem key={c} value={c}><span className={`inline-block w-3 h-3 rounded mr-2 bg-${c}-400`} />{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Aktívna</Label>
+            <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Zrušiť</Button>
+          <Button onClick={() => onSave(form)} disabled={isPending || !form.name || !form.code} data-testid="button-save-category">
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Uložiť
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
