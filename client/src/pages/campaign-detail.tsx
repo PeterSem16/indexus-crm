@@ -14,7 +14,7 @@ import {
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
   Variable, Building2, Building, Loader2, Tag, Layers, BookOpen, ArrowUpDown, GripVertical, ArrowUp, ArrowDown,
-  Search, HelpCircle, Pencil, X, Check,
+  Search, HelpCircle, Pencil, X, Check, CheckSquare,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1590,627 +1590,477 @@ const ACTION_TYPE_COLORS: Record<string, string> = {
 };
 
 function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const { toast } = useToast();
-  const { user } = useAuth();
-
-  const userLocale = useMemo(() => {
-    const countryToLang: Record<string, string> = { SK: 'sk', CZ: 'cs', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en' };
-    if (user?.countries?.length) {
-      return countryToLang[user.countries[0]] || locale;
-    }
-    return locale;
-  }, [user?.countries, locale]);
-
-  const getDispName = (code: string, fallbackName: string) => {
-    return DISPOSITION_NAME_TRANSLATIONS[code]?.[userLocale] || fallbackName;
-  };
-
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
-  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
-  const [newDisp, setNewDisp] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null as number | null });
-  const [newCodeManual, setNewCodeManual] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null as number | null });
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [filterCat, setFilterCat] = useState<string>("all");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
-  const generateCode = useCallback((name: string) => {
-    return name
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, "")
-      .trim()
-      .replace(/\s+/g, "_")
-      .substring(0, 30);
-  }, []);
-
-  const actionLabels: Record<string, string> = {
-    none: t.campaigns.detail.dispActionNone,
-    callback: t.campaigns.detail.dispActionCallback,
-    dnd: t.campaigns.detail.dispActionDnd,
-    complete: t.campaigns.detail.dispActionComplete,
-    convert: t.campaigns.detail.dispActionConvert,
-    send_email: t.campaigns.detail.dispActionEmail,
-    send_sms: t.campaigns.detail.dispActionSms,
-    schedule_email: t.campaigns.detail.dispActionHelpScheduleEmail ? 'Schedule email' : 'Schedule email',
-    schedule_sms: t.campaigns.detail.dispActionHelpScheduleSms ? 'Schedule SMS' : 'Schedule SMS',
-  };
-
-  const { data: dispositions = [], isLoading } = useQuery<CampaignDisposition[]>({
-    queryKey: ["/api/campaigns", campaignId, "dispositions"],
-    enabled: !!campaignId,
+  const { data: categories = [] } = useQuery<any[]>({
+    queryKey: ["/api/status-categories"],
   });
 
-  const allParents = dispositions.filter(d => !d.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
-  const childrenMap = dispositions.reduce((acc, d) => {
-    if (d.parentId) {
-      if (!acc[d.parentId]) acc[d.parentId] = [];
-      acc[d.parentId].push(d);
+  const { data: allStatuses = [] } = useQuery<any[]>({
+    queryKey: ["/api/status-definitions"],
+  });
+
+  const { data: assignments = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaignId, "status-assignments"],
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/status-assignments`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error("Failed to fetch assignments"); return r.json(); }),
+  });
+
+  const assignedIds = useMemo(() => new Set(assignments.map((a: any) => a.statusDefinitionId)), [assignments]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return apiRequest("POST", `/api/campaigns/${campaignId}/status-assignments`, { statusDefinitionIds: ids });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-assignments"] });
+      toast({ title: t.common.saved || "Uložené" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const assignAllMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/status-assignments/assign-all`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-assignments"] });
+      toast({ title: t.statusEngine?.assignAll || "Assigned all" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-assignments`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-assignments"] });
+      toast({ title: t.statusEngine?.clearSuccess || "Cleared" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const toggleStatus = (statusId: string) => {
+    const newIds = assignedIds.has(statusId)
+      ? [...assignedIds].filter(id => id !== statusId)
+      : [...assignedIds, statusId];
+    saveMutation.mutate(newIds);
+  };
+
+  const toggleCategory = (catId: string) => {
+    const catStatusIds = allStatuses.filter((s: any) => s.categoryId === catId && s.isActive).map((s: any) => s.id);
+    const allSelected = catStatusIds.every((id: string) => assignedIds.has(id));
+    let newIds: string[];
+    if (allSelected) {
+      newIds = [...assignedIds].filter(id => !catStatusIds.includes(id));
+    } else {
+      newIds = [...new Set([...assignedIds, ...catStatusIds])];
     }
-    return acc;
-  }, {} as Record<string, CampaignDisposition[]>);
-
-  const filteredParents = useMemo(() => {
-    if (!searchFilter.trim()) return allParents;
-    const q = searchFilter.toLowerCase();
-    return allParents.filter(p => {
-      const pName = getDispName(p.code, p.name).toLowerCase();
-      const pCode = p.code.toLowerCase();
-      if (pName.includes(q) || pCode.includes(q)) return true;
-      const children = childrenMap[p.id] || [];
-      return children.some(c => {
-        const cName = getDispName(c.code, c.name).toLowerCase();
-        return cName.includes(q) || c.code.toLowerCase().includes(q);
-      });
-    });
-  }, [allParents, childrenMap, searchFilter]);
-
-  const toggleExpand = (id: string) => {
-    setExpandedParents(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    saveMutation.mutate(newIds);
   };
 
-  const startEdit = (disp: CampaignDisposition) => {
-    setEditingId(disp.id);
-    setEditData({
-      name: disp.name,
-      code: disp.code,
-      icon: disp.icon || "",
-      color: disp.color || "#6b7280",
-      actionType: disp.actionType,
-      callbackOffsetDays: disp.callbackOffsetDays,
-    });
-  };
+  const filteredCategories = useMemo(() => {
+    if (filterCat === "all") return categories;
+    return categories.filter((c: any) => c.id === filterCat);
+  }, [categories, filterCat]);
 
-  const cancelEdit = () => {
-    setEditingId(null);
-  };
-
-  const seedMutation = useMutation({
-    mutationFn: (force: boolean = false) => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions/seed`, { language: locale, force }),
-    onSuccess: () => {
-      toast({ title: t.campaigns.detail.dispDefaultsCreated });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
-    },
-    onError: () => toast({ title: t.campaigns.detail.error, variant: "destructive" }),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions`, data),
-    onSuccess: () => {
-      toast({ title: t.campaigns.detail.dispCreated });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
-      setShowAddForm(false);
-      setAddingSubFor(null);
-      setNewCodeManual(false);
-      setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null });
-    },
-    onError: () => toast({ title: t.campaigns.detail.dispCreateError, variant: "destructive" }),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
-      apiRequest("PATCH", `/api/campaigns/${campaignId}/dispositions/${id}`, data),
-    onSuccess: () => {
-      toast({ title: t.campaigns.detail.dispUpdateSuccess });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
-      setEditingId(null);
-    },
-    onError: () => toast({ title: t.campaigns.detail.dispUpdateError, variant: "destructive" }),
-  });
-
-  const toggleActiveMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      apiRequest("PATCH", `/api/campaigns/${campaignId}/dispositions/${id}`, { isActive }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
-    },
-    onError: () => toast({ title: t.campaigns.detail.error, variant: "destructive" }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/dispositions/${id}`),
-    onSuccess: () => {
-      toast({ title: t.campaigns.detail.dispDeleted });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
-    },
-    onError: () => toast({ title: t.campaigns.detail.dispDeleteError, variant: "destructive" }),
-  });
-
-  const handleCreate = (parentId?: string) => {
-    if (!newDisp.name || !newDisp.code) return;
-    createMutation.mutate({
-      campaignId,
-      parentId: parentId || null,
-      name: newDisp.name,
-      code: newDisp.code,
-      icon: newDisp.icon || null,
-      color: newDisp.color || null,
-      actionType: newDisp.actionType,
-      callbackOffsetDays: newDisp.callbackOffsetDays,
-    });
-  };
-
-  const handleUpdate = () => {
-    if (!editingId || !editData.name || !editData.code) return;
-    updateMutation.mutate({
-      id: editingId,
-      data: {
-        name: editData.name,
-        code: editData.code,
-        icon: editData.icon || null,
-        color: editData.color || null,
-        actionType: editData.actionType,
-        callbackOffsetDays: editData.callbackOffsetDays,
-      },
-    });
-  };
-
-  const renderCallbackDaysSelect = (value: number | null, onChange: (v: number | null) => void, testId: string) => (
-    <Select
-      value={value?.toString() || "_manual_"}
-      onValueChange={v => onChange(v === "_manual_" ? null : parseInt(v))}
-    >
-      <SelectTrigger className="w-36" data-testid={testId}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="_manual_">{t.campaigns.detail.dispManualSelect}</SelectItem>
-        <SelectItem value="1">{t.campaigns.detail.dispTomorrow}</SelectItem>
-        <SelectItem value="2">2 {t.campaigns.detail.dispWorkDays}</SelectItem>
-        <SelectItem value="3">3 {t.campaigns.detail.dispWorkDays}</SelectItem>
-        <SelectItem value="5">5 {t.campaigns.detail.dispWorkDays}</SelectItem>
-        <SelectItem value="7">1 {t.campaigns.detail.dispWeek}</SelectItem>
-        <SelectItem value="14">2 {t.campaigns.detail.dispWeeks}</SelectItem>
-        <SelectItem value="30">1 {t.campaigns.detail.dispMonth}</SelectItem>
-        <SelectItem value="60">2 {t.campaigns.detail.dispMonths}</SelectItem>
-        <SelectItem value="90">3 {t.campaigns.detail.dispMonths}</SelectItem>
-        <SelectItem value="120">4 {t.campaigns.detail.dispMonths}</SelectItem>
-        <SelectItem value="150">5 {t.campaigns.detail.dispMonths}</SelectItem>
-        <SelectItem value="180">6 {t.campaigns.detail.dispMonths}</SelectItem>
-        <SelectItem value="270">9 {t.campaigns.detail.dispMonths}</SelectItem>
-        <SelectItem value="365">1 {t.campaigns.detail.dispYear}</SelectItem>
-      </SelectContent>
-    </Select>
-  );
-
-  const renderIconPicker = (currentIcon: string, onSelect: (icon: string) => void, testPrefix: string) => (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="w-28 gap-2 justify-start" data-testid={`${testPrefix}-icon`}>
-          {currentIcon && ICON_MAP[currentIcon] ? (() => {
-            const Ic = ICON_MAP[currentIcon];
-            return <Ic className="h-4 w-4 shrink-0" />;
-          })() : <CircleDot className="h-4 w-4 shrink-0 opacity-40" />}
-          <span className="text-xs truncate">{currentIcon || t.common.select}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-72 p-2" align="start">
-        <div className="grid grid-cols-6 gap-1" data-testid={`${testPrefix}-icon-grid`}>
-          {ICON_PICKER_SET.map(({ name, icon: Ic }) => (
-            <Button
-              key={name}
-              size="icon"
-              variant={currentIcon === name ? "default" : "ghost"}
-              onClick={() => onSelect(name)}
-              title={name}
-              data-testid={`${testPrefix}-icon-pick-${name}`}
-            >
-              <Ic className="h-4 w-4" />
-            </Button>
-          ))}
-        </div>
-        {currentIcon && (
-          <Button variant="ghost" size="sm" className="w-full mt-1" onClick={() => onSelect("")} data-testid={`${testPrefix}-clear-icon`}>
-            {t.common.clear}
-          </Button>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-
-  const renderAddForm = (parentId?: string) => (
-    <div className="flex flex-wrap items-end gap-2 p-3 rounded-md border bg-muted/30" data-testid="disposition-add-form">
-      <div className="space-y-1">
-        <Label className="text-xs">{t.campaigns.detail.dispName}</Label>
-        <Input
-          value={newDisp.name}
-          onChange={e => {
-            const name = e.target.value;
-            setNewDisp(p => ({
-              ...p,
-              name,
-              ...(!newCodeManual ? { code: generateCode(name) } : {}),
-            }));
-          }}
-          placeholder={t.campaigns.detail.dispName}
-          className="w-40"
-          data-testid="input-disposition-name"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">{t.common.code}</Label>
-        <Input
-          value={newDisp.code}
-          onChange={e => { setNewCodeManual(true); setNewDisp(p => ({ ...p, code: e.target.value })); }}
-          placeholder="kod"
-          className="w-32"
-          data-testid="input-disposition-code"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">{t.campaigns.detail.dispSelectIcon}</Label>
-        {renderIconPicker(newDisp.icon, (icon) => setNewDisp(p => ({ ...p, icon })), "add")}
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">{t.common.status}</Label>
-        <Input
-          type="color"
-          value={newDisp.color}
-          onChange={e => setNewDisp(p => ({ ...p, color: e.target.value }))}
-          className="w-14"
-          data-testid="input-disposition-color"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">{t.common.actions}</Label>
-        <Select value={newDisp.actionType} onValueChange={v => setNewDisp(p => ({ ...p, actionType: v }))}>
-          <SelectTrigger className="w-32" data-testid="select-disposition-action">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DISPOSITION_ACTION_TYPES.map(at => (
-              <SelectItem key={at} value={at}>{actionLabels[at] || at}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {(newDisp.actionType === "callback" || newDisp.actionType === "schedule_email" || newDisp.actionType === "schedule_sms") && (
-        <div className="space-y-1">
-          <Label className="text-xs">{t.campaigns.detail.dispCallbackDays}</Label>
-          {renderCallbackDaysSelect(newDisp.callbackOffsetDays, (v) => setNewDisp(p => ({ ...p, callbackOffsetDays: v })), "select-add-callback-offset")}
-        </div>
-      )}
-      <Button
-        size="sm"
-        onClick={() => handleCreate(parentId)}
-        disabled={createMutation.isPending || !newDisp.name || !newDisp.code}
-        data-testid="button-save-disposition"
-      >
-        {createMutation.isPending ? "..." : t.campaigns.detail.dispSave}
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => { setShowAddForm(false); setAddingSubFor(null); }}
-        data-testid="button-cancel-disposition"
-      >
-        {t.campaigns.detail.cancel}
-      </Button>
-    </div>
-  );
-
-  const renderEditForm = (disp: CampaignDisposition) => (
-    <div className="flex flex-wrap items-end gap-2 p-3 rounded-md border border-primary/30 bg-primary/5" data-testid={`disposition-edit-form-${disp.id}`}>
-      <div className="space-y-1">
-        <Label className="text-xs">{t.campaigns.detail.dispName}</Label>
-        <Input
-          value={editData.name}
-          onChange={e => setEditData(p => ({ ...p, name: e.target.value }))}
-          placeholder={t.campaigns.detail.dispName}
-          className="w-40"
-          data-testid="input-edit-disposition-name"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">{t.common.code}</Label>
-        <Input
-          value={editData.code}
-          onChange={e => setEditData(p => ({ ...p, code: e.target.value }))}
-          placeholder="kod"
-          className="w-32"
-          data-testid="input-edit-disposition-code"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">{t.campaigns.detail.dispSelectIcon}</Label>
-        {renderIconPicker(editData.icon, (icon) => setEditData(p => ({ ...p, icon })), "edit")}
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">{t.common.status}</Label>
-        <Input
-          type="color"
-          value={editData.color}
-          onChange={e => setEditData(p => ({ ...p, color: e.target.value }))}
-          className="w-14"
-          data-testid="input-edit-disposition-color"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">{t.common.actions}</Label>
-        <Select value={editData.actionType} onValueChange={v => setEditData(p => ({ ...p, actionType: v }))}>
-          <SelectTrigger className="w-32" data-testid="select-edit-disposition-action">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DISPOSITION_ACTION_TYPES.map(at => (
-              <SelectItem key={at} value={at}>{actionLabels[at] || at}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {(editData.actionType === "callback" || editData.actionType === "schedule_email" || editData.actionType === "schedule_sms") && (
-        <div className="space-y-1">
-          <Label className="text-xs">{t.campaigns.detail.dispCallbackDays}</Label>
-          {renderCallbackDaysSelect(editData.callbackOffsetDays, (v) => setEditData(p => ({ ...p, callbackOffsetDays: v })), "select-edit-callback-offset")}
-        </div>
-      )}
-      <Button
-        size="sm"
-        onClick={handleUpdate}
-        disabled={updateMutation.isPending || !editData.name || !editData.code}
-        data-testid="button-update-disposition"
-      >
-        <Check className="w-3.5 h-3.5 mr-1" />
-        {updateMutation.isPending ? "..." : t.campaigns.detail.dispSave}
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={cancelEdit}
-        data-testid="button-cancel-edit-disposition"
-      >
-        <X className="w-3.5 h-3.5 mr-1" />
-        {t.campaigns.detail.cancel}
-      </Button>
-    </div>
-  );
-
-  const renderDispositionRow = (disp: CampaignDisposition, isChild: boolean = false) => {
-    if (editingId === disp.id) {
-      return renderEditForm(disp);
+  const getFilteredStatuses = (catId: string) => {
+    let sts = allStatuses.filter((s: any) => s.categoryId === catId && s.isActive);
+    if (searchFilter) {
+      const q = searchFilter.toLowerCase();
+      sts = sts.filter((s: any) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q));
     }
-
-    const IconComp = ICON_MAP[disp.icon || ""] || CircleDot;
-    const iconSize = isChild ? "w-3.5 h-3.5" : "w-4 h-4";
-    const textClass = isChild ? "text-sm" : "font-medium";
-
-    return (
-      <div className={`flex flex-wrap items-center gap-3 ${isChild ? "p-2 rounded-md border" : ""}`} data-testid={`row-disposition-${disp.id}`}>
-        {!isChild && (childrenMap[disp.id] || []).length > 0 && (
-          <Button size="icon" variant="ghost" onClick={() => toggleExpand(disp.id)} data-testid={`button-expand-${disp.id}`}>
-            {expandedParents.has(disp.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </Button>
-        )}
-        <IconComp className={`${iconSize} shrink-0`} style={disp.color ? { color: disp.color } : undefined} />
-        <div className="flex-1 min-w-0">
-          <span className={`${textClass} ${!disp.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${disp.id}`}>
-            {getDispName(disp.code, disp.name)}
-          </span>
-          <span className="ml-2 text-xs text-muted-foreground">{disp.code}</span>
-        </div>
-        {(isChild ? disp.actionType !== "none" : true) && (
-          <Badge className={ACTION_TYPE_COLORS[disp.actionType] || ACTION_TYPE_COLORS.none} data-testid={`badge-action-${disp.id}`}>
-            {actionLabels[disp.actionType] || disp.actionType}
-            {disp.callbackOffsetDays ? ` (${disp.callbackOffsetDays}d)` : ""}
-          </Badge>
-        )}
-        <Switch
-          checked={disp.isActive}
-          onCheckedChange={checked => toggleActiveMutation.mutate({ id: disp.id, isActive: checked })}
-          data-testid={`switch-active-${disp.id}`}
-        />
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8"
-          onClick={() => startEdit(disp)}
-          data-testid={`button-edit-disposition-${disp.id}`}
-        >
-          <Pencil className="w-3.5 h-3.5" />
-        </Button>
-        {!isChild && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8"
-            onClick={() => { setAddingSubFor(disp.id); setShowAddForm(false); setNewCodeManual(false); setNewDisp({ name: "", code: "", icon: "", color: disp.color || "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
-            data-testid={`button-add-sub-${disp.id}`}
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        )}
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 text-destructive hover:text-destructive"
-          onClick={() => deleteMutation.mutate(disp.id)}
-          disabled={deleteMutation.isPending}
-          data-testid={`button-delete-disposition-${disp.id}`}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
-      </div>
-    );
+    return sts;
   };
 
-  const actionHelpItems = [
-    { key: "none", label: actionLabels.none, desc: t.campaigns.detail.dispActionHelpNone, color: ACTION_TYPE_COLORS.none },
-    { key: "callback", label: actionLabels.callback, desc: t.campaigns.detail.dispActionHelpCallback, color: ACTION_TYPE_COLORS.callback },
-    { key: "dnd", label: actionLabels.dnd, desc: t.campaigns.detail.dispActionHelpDnd, color: ACTION_TYPE_COLORS.dnd },
-    { key: "complete", label: actionLabels.complete, desc: t.campaigns.detail.dispActionHelpComplete, color: ACTION_TYPE_COLORS.complete },
-    { key: "convert", label: actionLabels.convert, desc: t.campaigns.detail.dispActionHelpConvert, color: ACTION_TYPE_COLORS.convert },
-    { key: "send_email", label: actionLabels.send_email, desc: t.campaigns.detail.dispActionHelpEmail, color: ACTION_TYPE_COLORS.send_email },
-    { key: "send_sms", label: actionLabels.send_sms, desc: t.campaigns.detail.dispActionHelpSms, color: ACTION_TYPE_COLORS.send_sms },
-    { key: "schedule_email", label: "Schedule email", desc: t.campaigns.detail.dispActionHelpScheduleEmail, color: ACTION_TYPE_COLORS.schedule_email },
-    { key: "schedule_sms", label: "Schedule SMS", desc: t.campaigns.detail.dispActionHelpScheduleSms, color: ACTION_TYPE_COLORS.schedule_sms },
-  ];
+  const assignedStatuses = useMemo(() => allStatuses.filter((s: any) => assignedIds.has(s.id)), [allStatuses, assignedIds]);
+
+  const ACTION_BADGE_COLORS: Record<string, string> = {
+    none: "bg-gray-100 text-gray-700", callback: "bg-blue-100 text-blue-700",
+    do_not_call: "bg-red-100 text-red-700", complete: "bg-emerald-100 text-emerald-700",
+    conversion: "bg-green-100 text-green-700", send_email: "bg-cyan-100 text-cyan-700",
+    send_sms: "bg-purple-100 text-purple-700", schedule_email: "bg-sky-100 text-sky-700",
+    schedule_sms: "bg-indigo-100 text-indigo-700", assign_owner: "bg-amber-100 text-amber-700",
+    move_queue: "bg-orange-100 text-orange-700", start_onboarding: "bg-teal-100 text-teal-700",
+    create_task: "bg-violet-100 text-violet-700", verify_contact: "bg-yellow-100 text-yellow-700",
+  };
+  const ACTION_LABELS: Record<string, string> = {
+    none: "Žiadna", callback: "Spätné volanie", do_not_call: "Nevolať", complete: "Dokončiť",
+    conversion: "Konverzia", send_email: "Odoslať email", send_sms: "Odoslať SMS",
+    schedule_email: "Schedule email", schedule_sms: "Schedule SMS", assign_owner: "Priradiť vlastníkovi",
+    move_queue: "Presunúť do fronty", start_onboarding: "Spustiť onboarding",
+    create_task: "Vytvoriť task", verify_contact: "Verifikácia kontaktu",
+  };
+
+  const CAT_COLORS: Record<string, string> = {
+    gray: "border-gray-300 bg-gray-50", blue: "border-blue-300 bg-blue-50",
+    green: "border-green-300 bg-green-50", purple: "border-purple-300 bg-purple-50",
+    cyan: "border-cyan-300 bg-cyan-50", teal: "border-teal-300 bg-teal-50",
+    orange: "border-orange-300 bg-orange-50", emerald: "border-emerald-300 bg-emerald-50",
+    red: "border-red-300 bg-red-50", yellow: "border-yellow-300 bg-yellow-50",
+  };
+
+  const noGlobalStatuses = categories.length === 0;
 
   const content = (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold" data-testid="text-dispositions-title">{t.campaigns.detail.dispTitle}</h3>
-          <p className="text-sm text-muted-foreground">{t.campaigns.detail.dispTitle}</p>
+          <h3 className="text-lg font-semibold">{t.statusEngine?.title || "Status Engine"}</h3>
+          <p className="text-sm text-muted-foreground">
+            {t.statusEngine?.selectForCampaign || "Select statuses available for this campaign"}
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsHelpOpen(true)}
-            data-testid="button-actions-help"
+            onClick={() => setPreviewOpen(true)}
+            disabled={assignedStatuses.length === 0}
+            data-testid="button-preview-pulse"
           >
-            <HelpCircle className="w-4 h-4 mr-2" />
-            {t.campaigns.detail.dispActionsHelp}
+            <Eye className="h-4 w-4 mr-1" />
+            {t.statusEngine?.previewPulse || "Preview Nexus Pulse"}
           </Button>
           <Button
             variant="outline"
-            onClick={() => {
-              if (dispositions.length > 0) {
-                if (window.confirm(t.campaigns?.detail?.dispResetConfirm || "Existujúce dispozície budú nahradené predvolenými. Pokračovať?")) {
-                  seedMutation.mutate(true);
-                }
-              } else {
-                seedMutation.mutate(false);
-              }
-            }}
-            disabled={seedMutation.isPending}
-            data-testid="button-seed-dispositions"
+            size="sm"
+            onClick={() => assignAllMutation.mutate()}
+            disabled={assignAllMutation.isPending}
+            data-testid="button-assign-all-statuses"
           >
-            <ListChecks className="w-4 h-4 mr-2" />
-            {seedMutation.isPending
-              ? t.campaigns.detail.dispLoadDefaultsLoading
-              : dispositions.length > 0
-                ? (t.campaigns?.detail?.dispReloadDefaults || "Obnoviť predvolené")
-                : t.campaigns.detail.dispLoadDefaults}
+            <CheckSquare className="h-4 w-4 mr-1" />
+            {t.statusEngine?.assignAll || "Assign all"}
           </Button>
           <Button
-            onClick={() => { setShowAddForm(true); setAddingSubFor(null); setNewCodeManual(false); setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none", callbackOffsetDays: null }); }}
-            data-testid="button-add-disposition"
+            variant="ghost"
+            size="sm"
+            onClick={() => clearMutation.mutate()}
+            disabled={clearMutation.isPending}
+            className="text-red-600"
+            data-testid="button-clear-campaign-statuses"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            {t.campaigns.detail.dispAddResult}
+            <Trash2 className="h-4 w-4 mr-1" />
+            {t.statusEngine?.clear || "Clear"}
           </Button>
         </div>
       </div>
 
-      {dispositions.length > 3 && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={searchFilter}
-            onChange={e => setSearchFilter(e.target.value)}
-            placeholder={t.campaigns.detail.dispSearchPlaceholder}
-            className="pl-9 max-w-sm"
-            data-testid="input-search-dispositions"
-          />
-          {searchFilter && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => setSearchFilter("")}
-              data-testid="button-clear-search"
-            >
-              <X className="w-3.5 h-3.5" />
-            </Button>
-          )}
-        </div>
+      {noGlobalStatuses && (
+        <Card className="p-8 text-center">
+          <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+          <p className="font-medium">{t.statusEngine?.noStatuses || "No global statuses"}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t.statusEngine?.noStatusesHint || "First populate the status engine in Settings"}
+          </p>
+        </Card>
       )}
 
-      {showAddForm && !addingSubFor && renderAddForm()}
+      {!noGlobalStatuses && (
+        <>
+          <div className="flex gap-3 items-center">
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={t.statusEngine?.search || "Search status..."}
+                value={searchFilter}
+                onChange={(e: any) => setSearchFilter(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-campaign-status"
+              />
+            </div>
+            <Select value={filterCat} onValueChange={setFilterCat}>
+              <SelectTrigger className="w-[220px]" data-testid="select-filter-campaign-cat">
+                <SelectValue placeholder="Kategória" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Všetky kategórie</SelectItem>
+                {categories.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Badge variant="secondary" className="text-sm">
+              {assignedIds.size} / {allStatuses.filter((s: any) => s.isActive).length} {t.statusEngine?.selected || "selected"}
+            </Badge>
+          </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center h-32">
-          <RefreshCw className="w-5 h-5 animate-spin" />
-        </div>
-      ) : filteredParents.length === 0 && !showAddForm ? (
-        <div className="text-center py-12 text-muted-foreground" data-testid="text-no-dispositions">
-          {searchFilter ? `${t.campaigns.detail.noDataAvailable}` : t.campaigns.detail.noDataAvailable}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredParents.map(parent => {
-            const children = (childrenMap[parent.id] || []).sort((a, b) => a.sortOrder - b.sortOrder);
-            const isExpanded = expandedParents.has(parent.id);
+          {filteredCategories.map((cat: any) => {
+            const catStatuses = getFilteredStatuses(cat.id);
+            const allCatSelected = catStatuses.length > 0 && catStatuses.every((s: any) => assignedIds.has(s.id));
+            const someCatSelected = catStatuses.some((s: any) => assignedIds.has(s.id));
+            const colorClass = CAT_COLORS[cat.color] || CAT_COLORS.gray;
+
             return (
-              <Card key={parent.id} data-testid={`card-disposition-${parent.id}`}>
-                <CardContent className="p-4">
-                  {renderDispositionRow(parent, false)}
-
-                  {addingSubFor === parent.id && (
-                    <div className="mt-3">
-                      {renderAddForm(parent.id)}
+              <Card key={cat.id} className={`overflow-hidden border-l-4 ${colorClass}`} data-testid={`card-campaign-cat-${cat.id}`}>
+                <div className="p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-5 h-5 rounded border-2 cursor-pointer flex items-center justify-center transition-colors ${
+                        allCatSelected ? "bg-primary border-primary" : someCatSelected ? "bg-primary/30 border-primary" : "border-gray-300"
+                      }`}
+                      onClick={() => toggleCategory(cat.id)}
+                      data-testid={`checkbox-category-${cat.id}`}
+                    >
+                      {(allCatSelected || someCatSelected) && <Check className="h-3 w-3 text-white" />}
                     </div>
-                  )}
-
-                  {isExpanded && children.length > 0 && (
-                    <div className="mt-3 ml-8 space-y-2">
-                      {children.map(child => (
-                        <div key={child.id}>
-                          {renderDispositionRow(child, true)}
+                    <div>
+                      <span className="font-medium">{cat.name}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({catStatuses.length})</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-3 pb-3">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                    {catStatuses.map((status: any) => {
+                      const isAssigned = assignedIds.has(status.id);
+                      return (
+                        <div
+                          key={status.id}
+                          className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                            isAssigned
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "border-transparent bg-muted/30 hover:bg-muted/50"
+                          }`}
+                          onClick={() => toggleStatus(status.id)}
+                          data-testid={`status-toggle-${status.id}`}
+                        >
+                          <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
+                            isAssigned ? "bg-primary border-primary" : "border-gray-300"
+                          }`}>
+                            {isAssigned && <Check className="h-2.5 w-2.5 text-white" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium truncate">{status.name}</div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Badge className={`text-[9px] px-1 py-0 ${ACTION_BADGE_COLORS[status.defaultAction] || ""}`}>
+                                {ACTION_LABELS[status.defaultAction] || status.defaultAction}
+                              </Badge>
+                              {status.isFinal && <Badge variant="outline" className="text-[8px] px-0.5 py-0 border-red-300 text-red-500">F</Badge>}
+                              {status.isConversion && <Badge variant="outline" className="text-[8px] px-0.5 py-0 border-green-300 text-green-500">K</Badge>}
+                            </div>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
+                      );
+                    })}
+                  </div>
+                </div>
               </Card>
             );
           })}
-        </div>
+        </>
       )}
 
-      <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <HelpCircle className="h-5 w-5 text-primary" />
-              {t.campaigns.detail.dispActionsHelpTitle}
-            </DialogTitle>
-            <DialogDescription>
-              {t.campaigns.detail.dispActionsHelp}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 mt-2">
-            {actionHelpItems.map(item => (
-              <div key={item.key} className="flex gap-3 p-3 rounded-lg border bg-muted/20" data-testid={`help-action-${item.key}`}>
-                <Badge className={`${item.color} shrink-0 self-start mt-0.5`}>{item.label}</Badge>
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {previewOpen && (
+        <NexusPulsePreviewDialog
+          categories={categories}
+          statuses={assignedStatuses}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </div>
   );
 
   if (embedded) return content;
   return <TabsContent value="dispositions" className="space-y-4">{content}</TabsContent>;
+}
+
+function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
+  categories: any[];
+  statuses: any[];
+  onClose: () => void;
+}) {
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<any | null>(null);
+  const [callbackDate, setCallbackDate] = useState("");
+  const [callbackTime, setCallbackTime] = useState("09:00");
+  const [notes, setNotes] = useState("");
+
+  const ACTION_LABELS: Record<string, string> = {
+    none: "Žiadna", callback: "Spätné volanie", do_not_call: "Nevolať", complete: "Dokončiť",
+    conversion: "Konverzia", send_email: "Odoslať email", send_sms: "Odoslať SMS",
+    schedule_email: "Schedule email", schedule_sms: "Schedule SMS",
+  };
+
+  const STATUS_COLORS: Record<string, string> = {
+    gray: "bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-800",
+    blue: "bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-800",
+    green: "bg-green-100 hover:bg-green-200 border-green-300 text-green-800",
+    purple: "bg-purple-100 hover:bg-purple-200 border-purple-300 text-purple-800",
+    cyan: "bg-cyan-100 hover:bg-cyan-200 border-cyan-300 text-cyan-800",
+    teal: "bg-teal-100 hover:bg-teal-200 border-teal-300 text-teal-800",
+    orange: "bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-800",
+    emerald: "bg-emerald-100 hover:bg-emerald-200 border-emerald-300 text-emerald-800",
+    red: "bg-red-100 hover:bg-red-200 border-red-300 text-red-800",
+    yellow: "bg-yellow-100 hover:bg-yellow-200 border-yellow-300 text-yellow-800",
+  };
+
+  const statusesByCat = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const s of statuses) {
+      if (!map[s.categoryId]) map[s.categoryId] = [];
+      map[s.categoryId].push(s);
+    }
+    return map;
+  }, [statuses]);
+
+  const visibleCategories = useMemo(() => {
+    return categories.filter(c => (statusesByCat[c.id] || []).length > 0);
+  }, [categories, statusesByCat]);
+
+  const visibleStatuses = useMemo(() => {
+    if (selectedCategory === "all") return statuses;
+    return statuses.filter(s => s.categoryId === selectedCategory);
+  }, [statuses, selectedCategory]);
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
+            <DialogTitle className="text-white text-lg font-bold">
+              Nexus Pulse — Náhľad dispozície
+            </DialogTitle>
+          </div>
+          <p className="text-blue-100 text-sm mt-1">
+            Takto uvidí agent výber statusov po ukončení hovoru
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {!selectedStatus ? (
+            <>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant={selectedCategory === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory("all")}
+                  data-testid="preview-cat-all"
+                >
+                  Všetky ({statuses.length})
+                </Button>
+                {visibleCategories.map(cat => (
+                  <Button
+                    key={cat.id}
+                    variant={selectedCategory === cat.id ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategory(cat.id)}
+                    data-testid={`preview-cat-${cat.id}`}
+                  >
+                    {cat.name} ({(statusesByCat[cat.id] || []).length})
+                  </Button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {visibleStatuses.map((status: any) => {
+                  const colorClass = STATUS_COLORS[status.color] || STATUS_COLORS.gray;
+                  return (
+                    <button
+                      key={status.id}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
+                      onClick={() => setSelectedStatus(status)}
+                      data-testid={`preview-status-${status.id}`}
+                    >
+                      <div className="font-semibold text-sm">{status.name}</div>
+                      <div className="text-xs opacity-70 mt-0.5">
+                        {ACTION_LABELS[status.defaultAction] || status.defaultAction}
+                        {status.isFinal && " · Finálny"}
+                        {status.isConversion && " · Konverzia"}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedStatus(null)}>
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Späť
+                </Button>
+                <h3 className="font-semibold text-lg">{selectedStatus.name}</h3>
+              </div>
+
+              <Card className="p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-muted-foreground">Akcia:</span> <Badge className="ml-1">{ACTION_LABELS[selectedStatus.defaultAction]}</Badge></div>
+                  <div><span className="text-muted-foreground">Finálny:</span> <span className="ml-1">{selectedStatus.isFinal ? "Áno" : "Nie"}</span></div>
+                  <div><span className="text-muted-foreground">Konverzia:</span> <span className="ml-1">{selectedStatus.isConversion ? "Áno" : "Nie"}</span></div>
+                  <div><span className="text-muted-foreground">Systémový:</span> <span className="ml-1">{selectedStatus.isSystemStatus ? "Áno" : "Nie"}</span></div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="flex items-center gap-1">
+                    <Phone className={`h-4 w-4 ${selectedStatus.allowPhone ? "text-green-500" : "text-red-400"}`} />
+                    <span>Telefón: {selectedStatus.allowPhone ? "✓" : "✗"}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Mail className={`h-4 w-4 ${selectedStatus.allowEmail ? "text-green-500" : "text-red-400"}`} />
+                    <span>Email: {selectedStatus.allowEmail ? "✓" : "✗"}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MessageSquare className={`h-4 w-4 ${selectedStatus.allowSms ? "text-green-500" : "text-red-400"}`} />
+                    <span>SMS: {selectedStatus.allowSms ? "✓" : "✗"}</span>
+                  </div>
+                </div>
+
+                {selectedStatus.requiresCallback && (
+                  <>
+                    <Separator />
+                    <div>
+                      <Label className="text-sm font-medium">Callback dátum</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <Input type="date" value={callbackDate} onChange={(e: any) => setCallbackDate(e.target.value)} />
+                        <Input type="time" value={callbackTime} onChange={(e: any) => setCallbackTime(e.target.value)} />
+                      </div>
+                      {selectedStatus.callbackOffsetDays && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Predvolený offset: {selectedStatus.callbackOffsetDays} dní
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {selectedStatus.requiresNote && (
+                  <>
+                    <Separator />
+                    <div>
+                      <Label className="text-sm font-medium">Poznámka (povinná)</Label>
+                      <textarea
+                        className="w-full mt-1 p-2 border rounded-md text-sm min-h-[60px] resize-none"
+                        placeholder="Zadajte poznámku..."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+              </Card>
+
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setSelectedStatus(null)}>Zrušiť</Button>
+                <Button className="bg-green-600 hover:bg-green-700">
+                  Potvrdiť dispozíciu
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function QuotasCard({ campaignId, assignedAgentIds, allUsers, t }: {

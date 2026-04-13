@@ -3311,6 +3311,22 @@ export const insertStatusDefinitionSchema = createInsertSchema(statusDefinitions
 export type InsertStatusDefinition = z.infer<typeof insertStatusDefinitionSchema>;
 export type StatusDefinition = typeof statusDefinitions.$inferSelect;
 
+export const campaignStatusAssignments = pgTable("campaign_status_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  statusDefinitionId: varchar("status_definition_id").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignStatusAssignmentSchema = createInsertSchema(campaignStatusAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCampaignStatusAssignment = z.infer<typeof insertCampaignStatusAssignmentSchema>;
+export type CampaignStatusAssignment = typeof campaignStatusAssignments.$inferSelect;
+
 // Operator Script Types - structured interactive scripts for call center agents
 export const scriptElementTypes = [
   "heading",

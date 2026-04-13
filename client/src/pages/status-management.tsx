@@ -52,6 +52,8 @@ import {
   MessageSquare,
   ArrowLeft,
   RotateCcw,
+  Eye,
+  Check,
 } from "lucide-react";
 import type { StatusCategory, StatusDefinition } from "@shared/schema";
 import { STATUS_ACTION_TYPES } from "@shared/schema";
@@ -114,6 +116,7 @@ export default function StatusManagement() {
   const [isNewStatus, setIsNewStatus] = useState(false);
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "category" | "status"; id: string; name: string } | null>(null);
+  const [pulsePreviewOpen, setPulsePreviewOpen] = useState(false);
 
   const { data: categories = [], isLoading: catLoading } = useQuery<StatusCategory[]>({
     queryKey: ["/api/status-categories"],
@@ -317,6 +320,15 @@ export default function StatusManagement() {
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Status
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPulsePreviewOpen(true)}
+                data-testid="button-nexus-pulse-preview"
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Nexus Pulse
               </Button>
               <Button
                 variant="ghost"
@@ -637,7 +649,296 @@ export default function StatusManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {pulsePreviewOpen && (
+        <NexusPulsePreview
+          categories={categories}
+          statuses={statuses.filter(s => s.isActive)}
+          onClose={() => setPulsePreviewOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function NexusPulsePreview({ categories, statuses, onClose }: {
+  categories: StatusCategory[];
+  statuses: StatusDefinition[];
+  onClose: () => void;
+}) {
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<StatusDefinition | null>(null);
+  const [channelFilter, setChannelFilter] = useState<"all" | "phone" | "email" | "sms">("all");
+  const [callbackDate, setCallbackDate] = useState("");
+  const [callbackTime, setCallbackTime] = useState("09:00");
+  const [notes, setNotes] = useState("");
+
+  const STATUS_COLORS: Record<string, string> = {
+    gray: "bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-800",
+    blue: "bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-800",
+    green: "bg-green-100 hover:bg-green-200 border-green-300 text-green-800",
+    purple: "bg-purple-100 hover:bg-purple-200 border-purple-300 text-purple-800",
+    cyan: "bg-cyan-100 hover:bg-cyan-200 border-cyan-300 text-cyan-800",
+    teal: "bg-teal-100 hover:bg-teal-200 border-teal-300 text-teal-800",
+    orange: "bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-800",
+    emerald: "bg-emerald-100 hover:bg-emerald-200 border-emerald-300 text-emerald-800",
+    red: "bg-red-100 hover:bg-red-200 border-red-300 text-red-800",
+    yellow: "bg-yellow-100 hover:bg-yellow-200 border-yellow-300 text-yellow-800",
+  };
+
+  const statusesByCat = useMemo(() => {
+    const map: Record<string, StatusDefinition[]> = {};
+    for (const s of statuses) {
+      if (!map[s.categoryId]) map[s.categoryId] = [];
+      map[s.categoryId].push(s);
+    }
+    return map;
+  }, [statuses]);
+
+  const filteredStatuses = useMemo(() => {
+    let sts = selectedCategory === "all" ? statuses : statuses.filter(s => s.categoryId === selectedCategory);
+    if (channelFilter === "phone") sts = sts.filter(s => s.allowPhone);
+    if (channelFilter === "email") sts = sts.filter(s => s.allowEmail);
+    if (channelFilter === "sms") sts = sts.filter(s => s.allowSms);
+    return sts;
+  }, [statuses, selectedCategory, channelFilter]);
+
+  const visibleCategories = useMemo(() => {
+    return categories.filter(c => (statusesByCat[c.id] || []).length > 0).sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [categories, statusesByCat]);
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white p-5 rounded-t-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
+            <DialogTitle className="text-white text-xl font-bold">
+              Nexus Pulse — Simulátor dispozícií
+            </DialogTitle>
+          </div>
+          <p className="text-blue-100 text-sm mt-1">
+            Náhľad rozhrania agenta pre výber statusov po ukončení hovoru
+          </p>
+          <div className="flex gap-2 mt-3">
+            {(["all", "phone", "email", "sms"] as const).map(ch => (
+              <Button
+                key={ch}
+                variant={channelFilter === ch ? "secondary" : "ghost"}
+                size="sm"
+                className={channelFilter === ch ? "bg-white/20 text-white hover:bg-white/30" : "text-blue-200 hover:bg-white/10 hover:text-white"}
+                onClick={() => setChannelFilter(ch)}
+                data-testid={`pulse-channel-${ch}`}
+              >
+                {ch === "all" && "Všetky kanály"}
+                {ch === "phone" && <><Phone className="h-3.5 w-3.5 mr-1" /> Telefón</>}
+                {ch === "email" && <><Mail className="h-3.5 w-3.5 mr-1" /> Email</>}
+                {ch === "sms" && <><MessageSquare className="h-3.5 w-3.5 mr-1" /> SMS</>}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {!selectedStatus ? (
+            <>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant={selectedCategory === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory("all")}
+                  data-testid="pulse-cat-all"
+                >
+                  Všetky ({filteredStatuses.length})
+                </Button>
+                {visibleCategories.map(cat => {
+                  const catCount = (statusesByCat[cat.id] || []).filter(s => {
+                    if (channelFilter === "phone") return s.allowPhone;
+                    if (channelFilter === "email") return s.allowEmail;
+                    if (channelFilter === "sms") return s.allowSms;
+                    return true;
+                  }).length;
+                  if (catCount === 0) return null;
+                  return (
+                    <Button
+                      key={cat.id}
+                      variant={selectedCategory === cat.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedCategory(cat.id)}
+                      data-testid={`pulse-cat-${cat.id}`}
+                    >
+                      {cat.name} ({catCount})
+                    </Button>
+                  );
+                })}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {filteredStatuses.map((status) => {
+                  const colorClass = STATUS_COLORS[status.color || "gray"] || STATUS_COLORS.gray;
+                  return (
+                    <button
+                      key={status.id}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
+                      onClick={() => setSelectedStatus(status)}
+                      data-testid={`pulse-status-${status.id}`}
+                    >
+                      <div className="font-semibold text-sm">{status.name}</div>
+                      <div className="text-xs opacity-70 mt-0.5 flex items-center gap-1">
+                        <Badge className={`${ACTION_COLORS[status.defaultAction] || ""} text-[9px] px-1 py-0`}>
+                          {ACTION_LABELS[status.defaultAction] || status.defaultAction}
+                        </Badge>
+                        {status.isFinal && <span className="text-red-600 font-bold">F</span>}
+                        {status.isConversion && <span className="text-green-600 font-bold">K</span>}
+                      </div>
+                      <div className="flex gap-1 mt-1">
+                        {status.allowPhone && <Phone className="h-3 w-3 text-blue-500" />}
+                        {status.allowEmail && <Mail className="h-3 w-3 text-purple-500" />}
+                        {status.allowSms && <MessageSquare className="h-3 w-3 text-teal-500" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {filteredStatuses.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <XCircle className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p>Žiadne statusy pre vybraný filter</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => { setSelectedStatus(null); setNotes(""); setCallbackDate(""); }}>
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Späť
+                </Button>
+                <h3 className="font-semibold text-lg">{selectedStatus.name}</h3>
+                <Badge className={`${ACTION_COLORS[selectedStatus.defaultAction] || ""}`}>
+                  {ACTION_LABELS[selectedStatus.defaultAction]}
+                </Badge>
+              </div>
+
+              <Card className="p-4 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                    <span className="text-muted-foreground">Finálny:</span>
+                    <Badge variant={selectedStatus.isFinal ? "destructive" : "secondary"}>
+                      {selectedStatus.isFinal ? "Áno" : "Nie"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                    <span className="text-muted-foreground">Konverzia:</span>
+                    <Badge variant={selectedStatus.isConversion ? "default" : "secondary"} className={selectedStatus.isConversion ? "bg-green-600" : ""}>
+                      {selectedStatus.isConversion ? "Áno" : "Nie"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                    <span className="text-muted-foreground">Systémový:</span>
+                    <span>{selectedStatus.isSystemStatus ? "Áno" : "Nie"}</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                    <span className="text-muted-foreground">Kód:</span>
+                    <code className="text-xs bg-muted px-1 rounded">{selectedStatus.code}</code>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className={`flex items-center gap-2 p-3 rounded-lg border ${selectedStatus.allowPhone ? "bg-blue-50 border-blue-200" : "bg-muted/30 border-transparent"}`}>
+                    <Phone className={`h-5 w-5 ${selectedStatus.allowPhone ? "text-blue-500" : "text-muted-foreground"}`} />
+                    <div>
+                      <div className="text-sm font-medium">Telefón</div>
+                      <div className="text-xs text-muted-foreground">{selectedStatus.allowPhone ? "Povolený" : "Nepovolený"}</div>
+                    </div>
+                    {selectedStatus.allowPhone && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+                  </div>
+                  <div className={`flex items-center gap-2 p-3 rounded-lg border ${selectedStatus.allowEmail ? "bg-purple-50 border-purple-200" : "bg-muted/30 border-transparent"}`}>
+                    <Mail className={`h-5 w-5 ${selectedStatus.allowEmail ? "text-purple-500" : "text-muted-foreground"}`} />
+                    <div>
+                      <div className="text-sm font-medium">Email</div>
+                      <div className="text-xs text-muted-foreground">{selectedStatus.allowEmail ? "Povolený" : "Nepovolený"}</div>
+                    </div>
+                    {selectedStatus.allowEmail && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+                  </div>
+                  <div className={`flex items-center gap-2 p-3 rounded-lg border ${selectedStatus.allowSms ? "bg-teal-50 border-teal-200" : "bg-muted/30 border-transparent"}`}>
+                    <MessageSquare className={`h-5 w-5 ${selectedStatus.allowSms ? "text-teal-500" : "text-muted-foreground"}`} />
+                    <div>
+                      <div className="text-sm font-medium">SMS</div>
+                      <div className="text-xs text-muted-foreground">{selectedStatus.allowSms ? "Povolený" : "Nepovolený"}</div>
+                    </div>
+                    {selectedStatus.allowSms && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+                  </div>
+                </div>
+
+                {selectedStatus.requiresCallback && (
+                  <>
+                    <Separator />
+                    <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <Label className="text-sm font-medium flex items-center gap-1 mb-2">
+                        <Phone className="h-4 w-4" />
+                        Callback — povinné polia
+                      </Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Dátum</Label>
+                          <Input type="date" value={callbackDate} onChange={(e: any) => setCallbackDate(e.target.value)} data-testid="pulse-callback-date" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Čas</Label>
+                          <Input type="time" value={callbackTime} onChange={(e: any) => setCallbackTime(e.target.value)} data-testid="pulse-callback-time" />
+                        </div>
+                      </div>
+                      {selectedStatus.callbackOffsetDays && (
+                        <p className="text-xs text-blue-600 mt-2">
+                          Predvolený offset: +{selectedStatus.callbackOffsetDays} dní od teraz
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {selectedStatus.requiresNote && (
+                  <>
+                    <Separator />
+                    <div className="bg-amber-50 dark:bg-amber-950 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <Label className="text-sm font-medium mb-2 block">Poznámka (povinná)</Label>
+                      <textarea
+                        className="w-full p-2 border rounded-md text-sm min-h-[80px] resize-none bg-white dark:bg-gray-900"
+                        placeholder="Agent musí vyplniť poznámku..."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        data-testid="pulse-notes"
+                      />
+                    </div>
+                  </>
+                )}
+              </Card>
+
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => { setSelectedStatus(null); setNotes(""); setCallbackDate(""); }}>
+                  Zrušiť
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={
+                    (selectedStatus.requiresNote && !notes.trim()) ||
+                    (selectedStatus.requiresCallback && !callbackDate)
+                  }
+                  data-testid="pulse-confirm"
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Potvrdiť dispozíciu
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

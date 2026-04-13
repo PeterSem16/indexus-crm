@@ -162,9 +162,10 @@ import {
   leadSources, leadCampaigns,
   type LeadSource, type InsertLeadSource,
   type LeadCampaign, type InsertLeadCampaign,
-  statusCategories, statusDefinitions,
+  statusCategories, statusDefinitions, campaignStatusAssignments,
   type StatusCategory, type InsertStatusCategory,
   type StatusDefinition, type InsertStatusDefinition,
+  type CampaignStatusAssignment, type InsertCampaignStatusAssignment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull, count } from "drizzle-orm";
@@ -1177,6 +1178,10 @@ export interface IStorage {
   createStatusDefinition(data: InsertStatusDefinition): Promise<StatusDefinition>;
   updateStatusDefinition(id: string, data: Partial<InsertStatusDefinition>): Promise<StatusDefinition | undefined>;
   deleteStatusDefinition(id: string): Promise<boolean>;
+
+  getCampaignStatusAssignments(campaignId: string): Promise<CampaignStatusAssignment[]>;
+  setCampaignStatusAssignments(campaignId: string, statusDefinitionIds: string[]): Promise<CampaignStatusAssignment[]>;
+  deleteCampaignStatusAssignments(campaignId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7524,6 +7529,32 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteStatusDefinition(id: string): Promise<boolean> {
     await db.delete(statusDefinitions).where(eq(statusDefinitions.id, id));
+    return true;
+  }
+
+  async getCampaignStatusAssignments(campaignId: string): Promise<CampaignStatusAssignment[]> {
+    return db.select().from(campaignStatusAssignments)
+      .where(eq(campaignStatusAssignments.campaignId, campaignId))
+      .orderBy(asc(campaignStatusAssignments.sortOrder));
+  }
+
+  async setCampaignStatusAssignments(campaignId: string, statusDefinitionIds: string[]): Promise<CampaignStatusAssignment[]> {
+    return db.transaction(async (tx) => {
+      await tx.delete(campaignStatusAssignments).where(eq(campaignStatusAssignments.campaignId, campaignId));
+      if (statusDefinitionIds.length === 0) return [];
+      const uniqueIds = [...new Set(statusDefinitionIds)];
+      const values = uniqueIds.map((sid, i) => ({
+        campaignId,
+        statusDefinitionId: sid,
+        isActive: true,
+        sortOrder: i,
+      }));
+      return tx.insert(campaignStatusAssignments).values(values).returning();
+    });
+  }
+
+  async deleteCampaignStatusAssignments(campaignId: string): Promise<boolean> {
+    await db.delete(campaignStatusAssignments).where(eq(campaignStatusAssignments.campaignId, campaignId));
     return true;
   }
 }

@@ -43540,6 +43540,66 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
       res.status(500).json({ error: error.message });
     }
   });
+
+  // ============= Campaign Status Assignments =============
+
+  app.get("/api/campaigns/:campaignId/status-assignments", requireAuth, async (req, res) => {
+    try {
+      const assignments = await storage.getCampaignStatusAssignments(req.params.campaignId);
+      res.json(assignments);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/campaigns/:campaignId/assigned-statuses", requireAuth, async (req, res) => {
+    try {
+      const assignments = await storage.getCampaignStatusAssignments(req.params.campaignId);
+      const allStatuses = await storage.getAllStatusDefinitions();
+      const allCategories = await storage.getAllStatusCategories();
+      const assignedIds = new Set(assignments.map(a => a.statusDefinitionId));
+      const assignedStatuses = allStatuses.filter(s => assignedIds.has(s.id));
+      res.json({ categories: allCategories, statuses: assignedStatuses, assignments });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/campaigns/:campaignId/status-assignments", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      const { statusDefinitionIds } = req.body;
+      if (!Array.isArray(statusDefinitionIds)) {
+        return res.status(400).json({ error: "statusDefinitionIds must be an array" });
+      }
+      const result = await storage.setCampaignStatusAssignments(req.params.campaignId, statusDefinitionIds);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/campaigns/:campaignId/status-assignments/assign-all", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      const allStatuses = await storage.getAllStatusDefinitions();
+      const activeIds = allStatuses.filter(s => s.isActive).map(s => s.id);
+      const result = await storage.setCampaignStatusAssignments(req.params.campaignId, activeIds);
+      res.json({ message: `Assigned ${result.length} statuses`, assignments: result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/campaigns/:campaignId/status-assignments", requireAuth, async (req, res) => {
+    try {
+      if (!requireAdminForStatus(req, res)) return;
+      await storage.deleteCampaignStatusAssignments(req.params.campaignId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   return httpServer;
 }
 
