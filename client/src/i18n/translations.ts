@@ -2947,6 +2947,10 @@ export interface Translations {
     autoModeNotAllowed: string;
     autoModeNotAllowedDesc: string;
     noContactSelected: string;
+    quotaReached: string;
+    callQuotaReached: string;
+    emailQuotaReached: string;
+    smsQuotaReached: string;
     noteSaveError: string;
     taskCancelled: string;
     contactLoadError: string;
@@ -9108,6 +9112,10 @@ export const translations: Record<Locale, Translations> = {
       autoModeNotAllowed: 'Auto mode',
       autoModeNotAllowedDesc: 'This campaign does not have auto mode enabled. Set it in campaign settings.',
       noContactSelected: 'No contact selected',
+      quotaReached: 'Daily quota reached',
+      callQuotaReached: 'You have reached your daily call limit for this campaign.',
+      emailQuotaReached: 'You have reached your daily email limit for this campaign.',
+      smsQuotaReached: 'You have reached your daily SMS limit for this campaign.',
       noteSaveError: 'Failed to save note',
       taskCancelled: 'Task cancelled',
       contactLoadError: 'Failed to load contact',
@@ -14670,6 +14678,10 @@ export const translations: Record<Locale, Translations> = {
       autoModeNotAllowed: 'Automatický režim',
       autoModeNotAllowedDesc: 'Táto kampaň nemá povolený automatický režim. Nastavte ho v nastaveniach kampane.',
       noContactSelected: 'Kontakt nie je vybraný',
+      quotaReached: 'Denný limit dosiahnutý',
+      callQuotaReached: 'Dosiahli ste denný limit hovorov pre túto kampaň.',
+      emailQuotaReached: 'Dosiahli ste denný limit emailov pre túto kampaň.',
+      smsQuotaReached: 'Dosiahli ste denný limit SMS pre túto kampaň.',
       noteSaveError: 'Nepodarilo sa uložiť poznámku',
       taskCancelled: 'Úloha zrušená',
       contactLoadError: 'Nepodarilo sa načítať kontakt',
@@ -20211,6 +20223,10 @@ export const translations: Record<Locale, Translations> = {
       autoModeNotAllowed: 'Automatický režim',
       autoModeNotAllowedDesc: 'Tato kampaň nemá povolený automatický režim. Nastavte ho v nastavení kampaně.',
       noContactSelected: 'Kontakt není vybrán',
+      quotaReached: 'Denní limit dosažen',
+      callQuotaReached: 'Dosáhli jste denního limitu hovorů pro tuto kampaň.',
+      emailQuotaReached: 'Dosáhli jste denního limitu emailů pro tuto kampaň.',
+      smsQuotaReached: 'Dosáhli jste denního limitu SMS pro tuto kampaň.',
       noteSaveError: 'Nepodařilo se uložit poznámku',
       taskCancelled: 'Úkol zrušen',
       contactLoadError: 'Nepodařilo se načíst kontakt',
@@ -25716,6 +25732,10 @@ export const translations: Record<Locale, Translations> = {
       autoModeNotAllowed: 'Automatikus mód',
       autoModeNotAllowedDesc: 'Ez a kampány nem engedélyezi az automatikus módot. Állítsa be a kampány beállításainál.',
       noContactSelected: 'Nincs kiválasztott kapcsolat',
+      quotaReached: 'Napi kvóta elérve',
+      callQuotaReached: 'Elérte a napi hívási limitet ehhez a kampányhoz.',
+      emailQuotaReached: 'Elérte a napi email limitet ehhez a kampányhoz.',
+      smsQuotaReached: 'Elérte a napi SMS limitet ehhez a kampányhoz.',
       noteSaveError: 'Nem sikerült menteni a jegyzetet',
       taskCancelled: 'Feladat törölve',
       contactLoadError: 'Nem sikerült betölteni a kapcsolatot',
@@ -31143,6 +31163,10 @@ export const translations: Record<Locale, Translations> = {
       autoModeNotAllowed: 'Mod automat',
       autoModeNotAllowedDesc: 'Această campanie nu are modul automat activat. Setați-l în setările campaniei.',
       noContactSelected: 'Niciun contact selectat',
+      quotaReached: 'Limita zilnică atinsă',
+      callQuotaReached: 'Ați atins limita zilnică de apeluri pentru această campanie.',
+      emailQuotaReached: 'Ați atins limita zilnică de emailuri pentru această campanie.',
+      smsQuotaReached: 'Ați atins limita zilnică de SMS-uri pentru această campanie.',
       noteSaveError: 'Nu s-a putut salva nota',
       taskCancelled: 'Sarcină anulată',
       contactLoadError: 'Nu s-a putut încărca contactul',
@@ -36571,6 +36595,10 @@ export const translations: Record<Locale, Translations> = {
       autoModeNotAllowed: 'Modalità automatica',
       autoModeNotAllowedDesc: 'Questa campagna non ha la modalità automatica abilitata. Impostarla nelle impostazioni della campagna.',
       noContactSelected: 'Nessun contatto selezionato',
+      quotaReached: 'Quota giornaliera raggiunta',
+      callQuotaReached: 'Hai raggiunto il limite giornaliero di chiamate per questa campagna.',
+      emailQuotaReached: 'Hai raggiunto il limite giornaliero di email per questa campagna.',
+      smsQuotaReached: 'Hai raggiunto il limite giornaliero di SMS per questa campagna.',
       noteSaveError: 'Impossibile salvare la nota',
       taskCancelled: 'Attività annullata',
       contactLoadError: 'Impossibile caricare il contatto',
@@ -41999,6 +42027,10 @@ export const translations: Record<Locale, Translations> = {
       autoModeNotAllowed: 'Automatischer Modus',
       autoModeNotAllowedDesc: 'Diese Kampagne hat den automatischen Modus nicht aktiviert. Stellen Sie ihn in den Kampagneneinstellungen ein.',
       noContactSelected: 'Kein Kontakt ausgewählt',
+      quotaReached: 'Tageslimit erreicht',
+      callQuotaReached: 'Sie haben Ihr tägliches Anruflimit für diese Kampagne erreicht.',
+      emailQuotaReached: 'Sie haben Ihr tägliches E-Mail-Limit für diese Kampagne erreicht.',
+      smsQuotaReached: 'Sie haben Ihr tägliches SMS-Limit für diese Kampagne erreicht.',
       noteSaveError: 'Notiz konnte nicht gespeichert werden',
       taskCancelled: 'Aufgabe abgebrochen',
       contactLoadError: 'Kontakt konnte nicht geladen werden',

@@ -489,17 +489,23 @@ function TopBar({
           </div>
 
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1 text-xs" data-testid="stat-calls">
-              <Phone className="h-3 w-3 text-blue-500" />
-              <span className="font-bold text-blue-600 dark:text-blue-400">{stats.calls}</span>
+            <div className={`flex items-center gap-1 text-xs ${isQuotaBlocked("calls") ? "opacity-50" : ""}`} data-testid="stat-calls">
+              <Phone className={`h-3 w-3 ${isQuotaBlocked("calls") ? "text-destructive" : "text-blue-500"}`} />
+              <span className={`font-bold ${isQuotaBlocked("calls") ? "text-destructive" : "text-blue-600 dark:text-blue-400"}`}>
+                {stats.calls}{quotas?.calls !== null && quotas?.calls !== undefined ? `/${quotas.calls}` : ""}
+              </span>
             </div>
-            <div className="flex items-center gap-1 text-xs" data-testid="stat-emails">
-              <Mail className="h-3 w-3 text-green-500" />
-              <span className="font-bold text-green-600 dark:text-green-400">{stats.emails}</span>
+            <div className={`flex items-center gap-1 text-xs ${isQuotaBlocked("emails") ? "opacity-50" : ""}`} data-testid="stat-emails">
+              <Mail className={`h-3 w-3 ${isQuotaBlocked("emails") ? "text-destructive" : "text-green-500"}`} />
+              <span className={`font-bold ${isQuotaBlocked("emails") ? "text-destructive" : "text-green-600 dark:text-green-400"}`}>
+                {stats.emails}{quotas?.emails !== null && quotas?.emails !== undefined ? `/${quotas.emails}` : ""}
+              </span>
             </div>
-            <div className="flex items-center gap-1 text-xs" data-testid="stat-sms">
-              <MessageSquare className="h-3 w-3 text-orange-500" />
-              <span className="font-bold text-orange-600 dark:text-orange-400">{stats.sms}</span>
+            <div className={`flex items-center gap-1 text-xs ${isQuotaBlocked("sms") ? "opacity-50" : ""}`} data-testid="stat-sms">
+              <MessageSquare className={`h-3 w-3 ${isQuotaBlocked("sms") ? "text-destructive" : "text-orange-500"}`} />
+              <span className={`font-bold ${isQuotaBlocked("sms") ? "text-destructive" : "text-orange-600 dark:text-orange-400"}`}>
+                {stats.sms}{quotas?.sms !== null && quotas?.sms !== undefined ? `/${quotas.sms}` : ""}
+              </span>
             </div>
           </div>
 
@@ -4989,6 +4995,25 @@ export default function AgentWorkspacePage() {
   const [callNotes, setCallNotes] = useState("");
   const [channelFilter, setChannelFilter] = useState("all");
   const [stats, setStats] = useState({ calls: 0, emails: 0, sms: 0 });
+  const [quotas, setQuotas] = useState<{ calls: number | null; emails: number | null; sms: number | null } | null>(null);
+  const quotaCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const fetchQuotaCheck = useCallback(async (campaignId: string) => {
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.quotas) {
+        setQuotas(data.quotas);
+      } else {
+        setQuotas(null);
+      }
+      if (data.usage) {
+        setStats({ calls: data.usage.calls || 0, emails: data.usage.emails || 0, sms: data.usage.sms || 0 });
+      }
+    } catch {}
+  }, []);
+
   const [showOnlyAssigned, setShowOnlyAssigned] = useState(false);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -5102,6 +5127,34 @@ export default function AgentWorkspacePage() {
     const overdue = scheduledQueueItems.filter(item => new Date(item.scheduledAt) < now);
     return { total: scheduledQueueItems.length, overdue: overdue.length };
   }, [scheduledQueueItems]);
+
+  useEffect(() => {
+    if (quotaCheckIntervalRef.current) {
+      clearInterval(quotaCheckIntervalRef.current);
+      quotaCheckIntervalRef.current = null;
+    }
+    if (selectedCampaignId && agentSession.isSessionActive) {
+      fetchQuotaCheck(selectedCampaignId);
+      quotaCheckIntervalRef.current = setInterval(() => {
+        fetchQuotaCheck(selectedCampaignId);
+      }, 120000);
+    } else {
+      setQuotas(null);
+    }
+    return () => {
+      if (quotaCheckIntervalRef.current) {
+        clearInterval(quotaCheckIntervalRef.current);
+        quotaCheckIntervalRef.current = null;
+      }
+    };
+  }, [selectedCampaignId, agentSession.isSessionActive, fetchQuotaCheck]);
+
+  const isQuotaBlocked = useCallback((type: "calls" | "emails" | "sms") => {
+    if (!quotas) return false;
+    const limit = quotas[type];
+    if (limit === null || limit === undefined) return false;
+    return stats[type] >= limit;
+  }, [quotas, stats]);
 
   useEffect(() => {
     if (user && hasModuleAccess && !hasAccess && workspaceAccess !== undefined) {
@@ -5984,6 +6037,7 @@ export default function AgentWorkspacePage() {
       setActiveTaskId(null);
       setTimeline([]);
       setStats({ calls: 0, emails: 0, sms: 0 });
+      setQuotas(null);
       setIsAutoMode(false);
       if (autoTimerRef.current) {
         clearTimeout(autoTimerRef.current);
@@ -5999,6 +6053,14 @@ export default function AgentWorkspacePage() {
   const handleSendEmail = (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => {
     if (!currentContact) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
+      return;
+    }
+    if (isQuotaBlocked("emails")) {
+      toast({
+        title: t.agentWorkspace?.quotaReached || "Daily quota reached",
+        description: t.agentWorkspace?.emailQuotaReached || "You have reached your daily email limit for this campaign.",
+        variant: "destructive",
+      });
       return;
     }
     sendEmailMutation.mutate({
@@ -6018,6 +6080,14 @@ export default function AgentWorkspacePage() {
   const handleSendSms = (data: { to: string[]; message: string; compositionDurationSeconds?: number | null }) => {
     if (!currentContact) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
+      return;
+    }
+    if (isQuotaBlocked("sms")) {
+      toast({
+        title: t.agentWorkspace?.quotaReached || "Daily quota reached",
+        description: t.agentWorkspace?.smsQuotaReached || "You have reached your daily SMS limit for this campaign.",
+        variant: "destructive",
+      });
       return;
     }
     sendSmsMutation.mutate({
@@ -6187,6 +6257,14 @@ export default function AgentWorkspacePage() {
   };
 
   const handleMakeCall = (phoneNumber: string) => {
+    if (isQuotaBlocked("calls")) {
+      toast({
+        title: t.agentWorkspace?.quotaReached || "Daily quota reached",
+        description: t.agentWorkspace?.callQuotaReached || "You have reached your daily call limit for this campaign.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (makeCall && currentContact) {
       const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
       makeCall({
