@@ -14,7 +14,7 @@ import {
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
   Variable, Building2, Building, Loader2, Tag, Layers, BookOpen, ArrowUpDown, GripVertical, ArrowUp, ArrowDown,
-  Search, HelpCircle, Pencil, X, Check, CheckSquare,
+  Search, HelpCircle, Pencil, X, Check, CheckSquare, Settings2,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1594,7 +1594,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const { toast } = useToast();
   const [searchFilter, setSearchFilter] = useState("");
   const [filterCat, setFilterCat] = useState<string>("all");
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"manage" | "pulse">("manage");
 
   const { data: categories = [] } = useQuery<any[]>({
     queryKey: ["/api/status-categories"],
@@ -1717,38 +1717,60 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
             {t.statusEngine?.selectForCampaign || "Select statuses available for this campaign"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPreviewOpen(true)}
-            disabled={assignedStatuses.length === 0}
-            data-testid="button-preview-pulse"
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            {t.statusEngine?.previewPulse || "Preview Nexus Pulse"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => assignAllMutation.mutate()}
-            disabled={assignAllMutation.isPending}
-            data-testid="button-assign-all-statuses"
-          >
-            <CheckSquare className="h-4 w-4 mr-1" />
-            {t.statusEngine?.assignAll || "Assign all"}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => clearMutation.mutate()}
-            disabled={clearMutation.isPending}
-            className="text-red-600"
-            data-testid="button-clear-campaign-statuses"
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            {t.statusEngine?.clear || "Clear"}
-          </Button>
+        <div className="flex gap-2 items-center">
+          <div className="flex bg-muted rounded-lg p-0.5 mr-2">
+            <Button
+              variant={viewMode === "manage" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("manage")}
+              className="h-7 text-xs"
+              data-testid="button-mode-manage"
+            >
+              <Settings2 className="h-3.5 w-3.5 mr-1" />
+              {t.statusEngine?.manageTab || "Správa"}
+            </Button>
+            <Button
+              variant={viewMode === "pulse" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("pulse")}
+              disabled={assignedStatuses.length === 0}
+              className={`h-7 text-xs ${viewMode === "pulse" ? "bg-gradient-to-r from-blue-600 to-indigo-600" : ""}`}
+              data-testid="button-mode-pulse"
+            >
+              <Eye className="h-3.5 w-3.5 mr-1" />
+              Nexus Pulse
+            </Button>
+          </div>
+          {viewMode === "manage" && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => assignAllMutation.mutate()}
+                disabled={assignAllMutation.isPending}
+                data-testid="button-assign-all-statuses"
+              >
+                <CheckSquare className="h-4 w-4 mr-1" />
+                {t.statusEngine?.assignAll || "Assign all"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => clearMutation.mutate()}
+                disabled={clearMutation.isPending}
+                className="text-red-600"
+                data-testid="button-clear-campaign-statuses"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                {t.statusEngine?.clear || "Clear"}
+              </Button>
+            </>
+          )}
+          {viewMode === "pulse" && (
+            <Badge variant="secondary" className="text-xs">
+              {assignedStatuses.length} statusov aktívnych
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -1762,7 +1784,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         </Card>
       )}
 
-      {!noGlobalStatuses && (
+      {!noGlobalStatuses && viewMode === "manage" && (
         <>
           <div className="flex gap-3 items-center">
             <div className="relative flex-1 max-w-xs">
@@ -1857,11 +1879,10 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         </>
       )}
 
-      {previewOpen && (
-        <NexusPulsePreviewDialog
+      {!noGlobalStatuses && viewMode === "pulse" && assignedStatuses.length > 0 && (
+        <NexusPulseInline
           categories={categories}
           statuses={assignedStatuses}
-          onClose={() => setPreviewOpen(false)}
         />
       )}
     </div>
@@ -1871,10 +1892,9 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   return <TabsContent value="dispositions" className="space-y-4">{content}</TabsContent>;
 }
 
-function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
+function NexusPulseInline({ categories, statuses }: {
   categories: any[];
   statuses: any[];
-  onClose: () => void;
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<any | null>(null);
@@ -1887,8 +1907,14 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
   const ACTION_LABELS: Record<string, string> = {
     none: "Žiadna", callback: "Spätné volanie", do_not_call: "Nevolať", complete: "Dokončiť",
     conversion: "Konverzia", send_email: "Odoslať email", send_sms: "Odoslať SMS",
-    schedule_email: "Schedule email", schedule_sms: "Schedule SMS",
-    reschedule: "Preplánovať",
+    schedule_email: "Schedule email", schedule_sms: "Schedule SMS", reschedule: "Preplánovať",
+  };
+
+  const ACTION_COLORS: Record<string, string> = {
+    none: "bg-gray-100 text-gray-700", callback: "bg-yellow-100 text-yellow-800",
+    do_not_call: "bg-red-100 text-red-800", complete: "bg-green-100 text-green-800",
+    conversion: "bg-emerald-100 text-emerald-800", send_email: "bg-purple-100 text-purple-800",
+    send_sms: "bg-teal-100 text-teal-800", reschedule: "bg-sky-100 text-sky-800",
   };
 
   const STATUS_COLORS: Record<string, string> = {
@@ -1939,206 +1965,264 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
   }, [parentStatuses, selectedCategory]);
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-t-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
-            <DialogTitle className="text-white text-lg font-bold">
-              Nexus Pulse — Náhľad dispozície
-            </DialogTitle>
-          </div>
-          <p className="text-blue-100 text-sm mt-1">
-            Takto uvidí agent výber statusov po ukončení hovoru
-          </p>
+    <div className="space-y-4">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-lg">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
+          <h3 className="text-lg font-bold">Nexus Pulse</h3>
         </div>
+        <p className="text-blue-100 text-sm mt-1">
+          Takto uvidí agent výber statusov po ukončení hovoru
+        </p>
+      </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {!selectedStatus ? (
-            <>
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  variant={selectedCategory === "all" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory("all")}
-                  data-testid="preview-cat-all"
+      {!selectedStatus ? (
+        <>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={selectedCategory === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory("all")}
+              data-testid="pulse-cat-all"
+            >
+              Všetky ({parentStatuses.length})
+            </Button>
+            {visibleCategories.map(cat => (
+              <Button
+                key={cat.id}
+                variant={selectedCategory === cat.id ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(cat.id)}
+                data-testid={`pulse-cat-${cat.id}`}
+              >
+                {cat.name} ({(statusesByCat[cat.id] || []).length})
+              </Button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {visibleStatuses.map((status: any) => {
+              const colorClass = STATUS_COLORS[status.color] || STATUS_COLORS.gray;
+              const children = childMap[status.id] || [];
+              return (
+                <button
+                  key={status.id}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
+                  onClick={() => { setSelectedStatus(status); setSelectedSubStatus(null); setSelectedReschedule(null); setNotes(""); setCallbackDate(""); }}
+                  data-testid={`pulse-status-${status.id}`}
                 >
-                  Všetky ({statuses.length})
-                </Button>
-                {visibleCategories.map(cat => (
-                  <Button
-                    key={cat.id}
-                    variant={selectedCategory === cat.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    data-testid={`preview-cat-${cat.id}`}
-                  >
-                    {cat.name} ({(statusesByCat[cat.id] || []).length})
-                  </Button>
-                ))}
-              </div>
+                  <div className="font-semibold text-sm">{status.name}</div>
+                  <div className="text-xs opacity-70 mt-0.5 flex items-center gap-1">
+                    <Badge className={`${ACTION_COLORS[status.defaultAction] || ""} text-[9px] px-1 py-0`}>
+                      {ACTION_LABELS[status.defaultAction] || status.defaultAction}
+                    </Badge>
+                    {status.isFinal && <span className="text-red-600 font-bold">F</span>}
+                    {status.isConversion && <span className="text-green-600 font-bold">K</span>}
+                    {children.length > 0 && <span className="text-sky-600 font-bold">{children.length} pod</span>}
+                  </div>
+                  <div className="flex gap-1 mt-1">
+                    {status.allowPhone && <Phone className="h-3 w-3 text-blue-500" />}
+                    {status.allowEmail && <Mail className="h-3 w-3 text-purple-500" />}
+                    {status.allowSms && <MessageSquare className="h-3 w-3 text-teal-500" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {visibleStatuses.map((status: any) => {
-                  const colorClass = STATUS_COLORS[status.color] || STATUS_COLORS.gray;
-                  const children = childMap[status.id] || [];
+          {visibleStatuses.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <XCircle className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p>Žiadne statusy v tejto kategórii</p>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => {
+              if (selectedSubStatus) { setSelectedSubStatus(null); }
+              else { setSelectedStatus(null); setNotes(""); setCallbackDate(""); setSelectedReschedule(null); }
+            }}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Späť
+            </Button>
+            <h3 className="font-semibold text-lg">
+              {selectedSubStatus ? <>{selectedStatus.name} <span className="text-muted-foreground mx-1">→</span> {selectedSubStatus.name}</> : selectedStatus.name}
+            </h3>
+            <Badge className={`${ACTION_COLORS[(activeStatus || selectedStatus).defaultAction] || ""}`}>
+              {ACTION_LABELS[(activeStatus || selectedStatus).defaultAction]}
+            </Badge>
+          </div>
+
+          {hasChildren && !selectedSubStatus && (
+            <Card className="p-4">
+              <h4 className="font-medium mb-3">Vyberte podstatus</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {(childMap[selectedStatus.id] || []).map((sub: any) => {
+                  const colorClass = STATUS_COLORS[sub.color || selectedStatus.color || "gray"] || STATUS_COLORS.gray;
                   return (
                     <button
-                      key={status.id}
+                      key={sub.id}
                       className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
-                      onClick={() => { setSelectedStatus(status); setSelectedSubStatus(null); setSelectedReschedule(null); setNotes(""); setCallbackDate(""); }}
-                      data-testid={`preview-status-${status.id}`}
+                      onClick={() => setSelectedSubStatus(sub)}
+                      data-testid={`pulse-substatus-${sub.id}`}
                     >
-                      <div className="font-semibold text-sm">{status.name}</div>
-                      <div className="text-xs opacity-70 mt-0.5">
-                        {ACTION_LABELS[status.defaultAction] || status.defaultAction}
-                        {status.isFinal && " · Finálny"}
-                        {status.isConversion && " · Konverzia"}
-                        {children.length > 0 && ` · ${children.length} pod`}
-                      </div>
+                      <div className="font-semibold text-sm">{sub.name}</div>
+                      <div className="text-xs opacity-70">{ACTION_LABELS[sub.defaultAction] || sub.defaultAction}</div>
                     </button>
                   );
                 })}
               </div>
-            </>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => {
-                  if (selectedSubStatus) { setSelectedSubStatus(null); }
-                  else { setSelectedStatus(null); setNotes(""); setCallbackDate(""); setSelectedReschedule(null); }
-                }}>
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Späť
-                </Button>
-                <h3 className="font-semibold text-lg">
-                  {selectedSubStatus ? <>{selectedStatus.name} <span className="text-muted-foreground mx-1">→</span> {selectedSubStatus.name}</> : selectedStatus.name}
-                </h3>
-                <Badge>{ACTION_LABELS[(activeStatus || selectedStatus).defaultAction]}</Badge>
-              </div>
+            </Card>
+          )}
 
-              {hasChildren && !selectedSubStatus && (
-                <Card className="p-4">
-                  <h4 className="font-medium mb-3">Vyberte podstatus</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(childMap[selectedStatus.id] || []).map((sub: any) => {
-                      const colorClass = STATUS_COLORS[sub.color || selectedStatus.color || "gray"] || STATUS_COLORS.gray;
+          {(!hasChildren || selectedSubStatus) && (
+          <>
+          <Card className="p-4 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                <span className="text-muted-foreground">Finálny:</span>
+                <Badge variant={(activeStatus || selectedStatus).isFinal ? "destructive" : "secondary"}>
+                  {(activeStatus || selectedStatus).isFinal ? "Áno" : "Nie"}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                <span className="text-muted-foreground">Konverzia:</span>
+                <Badge variant={(activeStatus || selectedStatus).isConversion ? "default" : "secondary"} className={(activeStatus || selectedStatus).isConversion ? "bg-green-600" : ""}>
+                  {(activeStatus || selectedStatus).isConversion ? "Áno" : "Nie"}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                <span className="text-muted-foreground">Systémový:</span>
+                <span>{(activeStatus || selectedStatus).isSystemStatus ? "Áno" : "Nie"}</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                <span className="text-muted-foreground">Kód:</span>
+                <code className="text-xs bg-muted px-1 rounded">{(activeStatus || selectedStatus).code}</code>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className={`flex items-center gap-2 p-3 rounded-lg border ${(activeStatus || selectedStatus).allowPhone ? "bg-blue-50 border-blue-200" : "bg-muted/30 border-transparent"}`}>
+                <Phone className={`h-5 w-5 ${(activeStatus || selectedStatus).allowPhone ? "text-blue-500" : "text-muted-foreground"}`} />
+                <div>
+                  <div className="text-sm font-medium">Telefón</div>
+                  <div className="text-xs text-muted-foreground">{(activeStatus || selectedStatus).allowPhone ? "Povolený" : "Nepovolený"}</div>
+                </div>
+                {(activeStatus || selectedStatus).allowPhone && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+              </div>
+              <div className={`flex items-center gap-2 p-3 rounded-lg border ${(activeStatus || selectedStatus).allowEmail ? "bg-purple-50 border-purple-200" : "bg-muted/30 border-transparent"}`}>
+                <Mail className={`h-5 w-5 ${(activeStatus || selectedStatus).allowEmail ? "text-purple-500" : "text-muted-foreground"}`} />
+                <div>
+                  <div className="text-sm font-medium">Email</div>
+                  <div className="text-xs text-muted-foreground">{(activeStatus || selectedStatus).allowEmail ? "Povolený" : "Nepovolený"}</div>
+                </div>
+                {(activeStatus || selectedStatus).allowEmail && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+              </div>
+              <div className={`flex items-center gap-2 p-3 rounded-lg border ${(activeStatus || selectedStatus).allowSms ? "bg-teal-50 border-teal-200" : "bg-muted/30 border-transparent"}`}>
+                <MessageSquare className={`h-5 w-5 ${(activeStatus || selectedStatus).allowSms ? "text-teal-500" : "text-muted-foreground"}`} />
+                <div>
+                  <div className="text-sm font-medium">SMS</div>
+                  <div className="text-xs text-muted-foreground">{(activeStatus || selectedStatus).allowSms ? "Povolený" : "Nepovolený"}</div>
+                </div>
+                {(activeStatus || selectedStatus).allowSms && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+              </div>
+            </div>
+
+            {((activeStatus || selectedStatus).defaultAction === "reschedule" || (activeStatus || selectedStatus).defaultAction === "callback") && (activeStatus || selectedStatus).rescheduleOptions?.length > 0 && (
+              <>
+                <Separator />
+                <div className="bg-sky-50 dark:bg-sky-950 p-4 rounded-lg border border-sky-200 dark:border-sky-800">
+                  <Label className="text-sm font-medium flex items-center gap-1 mb-3">
+                    <Settings2 className="h-4 w-4" />
+                    Preplánovať hovor na:
+                  </Label>
+                  <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                    {((activeStatus || selectedStatus).rescheduleOptions || []).map((optValue: string) => {
+                      const opt = RESCHEDULE_PERIOD_OPTIONS.find((o: any) => o.value === optValue);
+                      if (!opt) return null;
+                      const isSelected = selectedReschedule === optValue;
                       return (
                         <button
-                          key={sub.id}
-                          className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
-                          onClick={() => setSelectedSubStatus(sub)}
-                          data-testid={`preview-substatus-${sub.id}`}
+                          key={optValue}
+                          className={`p-2.5 rounded-lg border-2 text-center transition-all ${
+                            isSelected
+                              ? "border-sky-500 bg-sky-100 text-sky-800 shadow-md"
+                              : "border-gray-200 bg-white hover:border-sky-300 hover:bg-sky-50"
+                          }`}
+                          onClick={() => setSelectedReschedule(isSelected ? null : optValue)}
+                          data-testid={`pulse-reschedule-${optValue}`}
                         >
-                          <div className="font-semibold text-sm">{sub.name}</div>
-                          <div className="text-xs opacity-70">{ACTION_LABELS[sub.defaultAction] || sub.defaultAction}</div>
+                          <div className="font-semibold text-sm">{opt.label}</div>
+                          <div className="text-xs text-muted-foreground">{opt.days} dní</div>
                         </button>
                       );
                     })}
                   </div>
-                </Card>
-              )}
-
-              {(!hasChildren || selectedSubStatus) && (
-              <>
-              <Card className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">Akcia:</span> <Badge className="ml-1">{ACTION_LABELS[(activeStatus || selectedStatus).defaultAction]}</Badge></div>
-                  <div><span className="text-muted-foreground">Finálny:</span> <span className="ml-1">{(activeStatus || selectedStatus).isFinal ? "Áno" : "Nie"}</span></div>
-                  <div><span className="text-muted-foreground">Konverzia:</span> <span className="ml-1">{(activeStatus || selectedStatus).isConversion ? "Áno" : "Nie"}</span></div>
-                  <div><span className="text-muted-foreground">Systémový:</span> <span className="ml-1">{(activeStatus || selectedStatus).isSystemStatus ? "Áno" : "Nie"}</span></div>
                 </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div className="flex items-center gap-1">
-                    <Phone className={`h-4 w-4 ${(activeStatus || selectedStatus).allowPhone ? "text-green-500" : "text-red-400"}`} />
-                    <span>Telefón: {(activeStatus || selectedStatus).allowPhone ? "✓" : "✗"}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Mail className={`h-4 w-4 ${(activeStatus || selectedStatus).allowEmail ? "text-green-500" : "text-red-400"}`} />
-                    <span>Email: {(activeStatus || selectedStatus).allowEmail ? "✓" : "✗"}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MessageSquare className={`h-4 w-4 ${(activeStatus || selectedStatus).allowSms ? "text-green-500" : "text-red-400"}`} />
-                    <span>SMS: {(activeStatus || selectedStatus).allowSms ? "✓" : "✗"}</span>
-                  </div>
-                </div>
-
-                {((activeStatus || selectedStatus).defaultAction === "reschedule" || (activeStatus || selectedStatus).defaultAction === "callback") && (activeStatus || selectedStatus).rescheduleOptions?.length > 0 && (
-                  <>
-                    <Separator />
-                    <div className="bg-sky-50 dark:bg-sky-950 p-3 rounded-lg border border-sky-200 dark:border-sky-800">
-                      <Label className="text-sm font-medium mb-2 block">Preplánovať hovor na:</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {((activeStatus || selectedStatus).rescheduleOptions || []).map((optValue: string) => {
-                          const opt = RESCHEDULE_PERIOD_OPTIONS.find((o: any) => o.value === optValue);
-                          if (!opt) return null;
-                          const isSelected = selectedReschedule === optValue;
-                          return (
-                            <button
-                              key={optValue}
-                              className={`p-2 rounded-lg border-2 text-center text-sm transition-all ${isSelected ? "border-sky-500 bg-sky-100 text-sky-800 shadow-md" : "border-gray-200 bg-white hover:border-sky-300"}`}
-                              onClick={() => setSelectedReschedule(isSelected ? null : optValue)}
-                              data-testid={`preview-reschedule-${optValue}`}
-                            >
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {(activeStatus || selectedStatus).requiresCallback && !((activeStatus || selectedStatus).rescheduleOptions?.length > 0) && (
-                  <>
-                    <Separator />
-                    <div>
-                      <Label className="text-sm font-medium">Callback dátum</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
-                        <Input type="date" value={callbackDate} onChange={(e: any) => setCallbackDate(e.target.value)} />
-                        <Input type="time" value={callbackTime} onChange={(e: any) => setCallbackTime(e.target.value)} />
-                      </div>
-                      {(activeStatus || selectedStatus).callbackOffsetDays && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Predvolený offset: {(activeStatus || selectedStatus).callbackOffsetDays} dní
-                        </p>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {(activeStatus || selectedStatus).requiresNote && (
-                  <>
-                    <Separator />
-                    <div>
-                      <Label className="text-sm font-medium">Poznámka (povinná)</Label>
-                      <textarea
-                        className="w-full mt-1 p-2 border rounded-md text-sm min-h-[60px] resize-none"
-                        placeholder="Zadajte poznámku..."
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                      />
-                    </div>
-                  </>
-                )}
-              </Card>
-
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => { setSelectedStatus(null); setSelectedSubStatus(null); setSelectedReschedule(null); setNotes(""); setCallbackDate(""); }}>Zrušiť</Button>
-                <Button className="bg-green-600 hover:bg-green-700">
-                  Potvrdiť dispozíciu
-                </Button>
-              </div>
               </>
-              )}
-            </div>
+            )}
+
+            {(activeStatus || selectedStatus).requiresCallback && !((activeStatus || selectedStatus).rescheduleOptions?.length > 0) && (
+              <>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-medium">Callback dátum</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <Input type="date" value={callbackDate} onChange={(e: any) => setCallbackDate(e.target.value)} data-testid="pulse-callback-date" />
+                    <Input type="time" value={callbackTime} onChange={(e: any) => setCallbackTime(e.target.value)} data-testid="pulse-callback-time" />
+                  </div>
+                  {(activeStatus || selectedStatus).callbackOffsetDays && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Predvolený offset: {(activeStatus || selectedStatus).callbackOffsetDays} dní
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {(activeStatus || selectedStatus).requiresNote && (
+              <>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-medium">Poznámka (povinná)</Label>
+                  <textarea
+                    className="w-full mt-1 p-2 border rounded-md text-sm min-h-[60px] resize-none"
+                    placeholder="Zadajte poznámku..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    data-testid="pulse-notes"
+                  />
+                </div>
+              </>
+            )}
+          </Card>
+
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => { setSelectedStatus(null); setSelectedSubStatus(null); setSelectedReschedule(null); setNotes(""); setCallbackDate(""); }}>
+              Zrušiť
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              disabled={
+                ((activeStatus || selectedStatus).requiresNote && !notes.trim()) ||
+                ((activeStatus || selectedStatus).requiresCallback && !callbackDate && !selectedReschedule) ||
+                ((activeStatus || selectedStatus).defaultAction === "reschedule" && !selectedReschedule && !callbackDate)
+              }
+              data-testid="pulse-confirm"
+            >
+              <Check className="h-4 w-4 mr-1" />
+              Potvrdiť dispozíciu
+            </Button>
+          </div>
+          </>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </div>
   );
 }
 
