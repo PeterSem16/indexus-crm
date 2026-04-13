@@ -345,6 +345,8 @@ function TopBar({
   status,
   onStatusChange,
   stats,
+  quotas,
+  isQuotaBlocked,
   workTime,
   breakTypes,
   activeBreakName,
@@ -365,6 +367,8 @@ function TopBar({
   status: AgentStatus;
   onStatusChange: (status: AgentStatus) => void;
   stats: { calls: number; emails: number; sms: number };
+  quotas: { calls: number | null; emails: number | null; sms: number | null } | null;
+  isQuotaBlocked: (type: "calls" | "emails" | "sms") => boolean;
   workTime: string;
   breakTypes: AgentBreakType[];
   activeBreakName: string | null;
@@ -7008,6 +7012,8 @@ export default function AgentWorkspacePage() {
         status={agentSession.status}
         onStatusChange={handleStatusChange}
         stats={stats}
+        quotas={quotas}
+        isQuotaBlocked={isQuotaBlocked}
         workTime={agentSession.workTime}
         breakTypes={agentSession.breakTypes}
         activeBreakName={activeBreakName}
