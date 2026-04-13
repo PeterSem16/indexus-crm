@@ -13337,20 +13337,18 @@ Return ONLY valid JSON, no markdown code blocks.`,
         .from(communicationMessages)
         .where(and(
           eq(communicationMessages.userId, userId),
-          eq(communicationMessages.channel, "email"),
+          eq(communicationMessages.type, "email"),
           eq(communicationMessages.direction, "outbound"),
-          gte(communicationMessages.createdAt, new Date(todayISO)),
-          sql`${communicationMessages.metadata}->>'campaignId' = ${campaignId}`
+          gte(communicationMessages.createdAt, new Date(todayISO))
         ));
 
       const smsToday = await db.select({ count: sql<number>`count(*)` })
         .from(communicationMessages)
         .where(and(
           eq(communicationMessages.userId, userId),
-          eq(communicationMessages.channel, "sms"),
+          eq(communicationMessages.type, "sms"),
           eq(communicationMessages.direction, "outbound"),
-          gte(communicationMessages.createdAt, new Date(todayISO)),
-          sql`${communicationMessages.metadata}->>'campaignId' = ${campaignId}`
+          gte(communicationMessages.createdAt, new Date(todayISO))
         ));
 
       const usage = {
