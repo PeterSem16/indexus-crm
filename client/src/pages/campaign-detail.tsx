@@ -37,7 +37,7 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES, DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
+import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES, DISPOSITION_NAME_TRANSLATIONS, RESCHEDULE_PERIOD_OPTIONS } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 
 function getDefaultSalesScript(lang: string): OperatorScript {
@@ -1878,6 +1878,8 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<any | null>(null);
+  const [selectedSubStatus, setSelectedSubStatus] = useState<any | null>(null);
+  const [selectedReschedule, setSelectedReschedule] = useState<string | null>(null);
   const [callbackDate, setCallbackDate] = useState("");
   const [callbackTime, setCallbackTime] = useState("09:00");
   const [notes, setNotes] = useState("");
@@ -1886,6 +1888,7 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
     none: "Žiadna", callback: "Spätné volanie", do_not_call: "Nevolať", complete: "Dokončiť",
     conversion: "Konverzia", send_email: "Odoslať email", send_sms: "Odoslať SMS",
     schedule_email: "Schedule email", schedule_sms: "Schedule SMS",
+    reschedule: "Preplánovať",
   };
 
   const STATUS_COLORS: Record<string, string> = {
@@ -1901,23 +1904,39 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
     yellow: "bg-yellow-100 hover:bg-yellow-200 border-yellow-300 text-yellow-800",
   };
 
+  const parentStatuses = useMemo(() => statuses.filter((s: any) => !s.parentId), [statuses]);
+
+  const childMap = useMemo(() => {
+    const map: Record<number, any[]> = {};
+    for (const s of statuses) {
+      if (s.parentId) {
+        if (!map[s.parentId]) map[s.parentId] = [];
+        map[s.parentId].push(s);
+      }
+    }
+    return map;
+  }, [statuses]);
+
+  const activeStatus = selectedSubStatus || selectedStatus;
+  const hasChildren = selectedStatus ? (childMap[selectedStatus.id] || []).length > 0 : false;
+
   const statusesByCat = useMemo(() => {
     const map: Record<string, any[]> = {};
-    for (const s of statuses) {
+    for (const s of parentStatuses) {
       if (!map[s.categoryId]) map[s.categoryId] = [];
       map[s.categoryId].push(s);
     }
     return map;
-  }, [statuses]);
+  }, [parentStatuses]);
 
   const visibleCategories = useMemo(() => {
     return categories.filter(c => (statusesByCat[c.id] || []).length > 0);
   }, [categories, statusesByCat]);
 
   const visibleStatuses = useMemo(() => {
-    if (selectedCategory === "all") return statuses;
-    return statuses.filter(s => s.categoryId === selectedCategory);
-  }, [statuses, selectedCategory]);
+    if (selectedCategory === "all") return parentStatuses;
+    return parentStatuses.filter(s => s.categoryId === selectedCategory);
+  }, [parentStatuses, selectedCategory]);
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -1962,11 +1981,12 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
               <div className="grid grid-cols-2 gap-2">
                 {visibleStatuses.map((status: any) => {
                   const colorClass = STATUS_COLORS[status.color] || STATUS_COLORS.gray;
+                  const children = childMap[status.id] || [];
                   return (
                     <button
                       key={status.id}
                       className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
-                      onClick={() => setSelectedStatus(status)}
+                      onClick={() => { setSelectedStatus(status); setSelectedSubStatus(null); setSelectedReschedule(null); setNotes(""); setCallbackDate(""); }}
                       data-testid={`preview-status-${status.id}`}
                     >
                       <div className="font-semibold text-sm">{status.name}</div>
@@ -1974,6 +1994,7 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
                         {ACTION_LABELS[status.defaultAction] || status.defaultAction}
                         {status.isFinal && " · Finálny"}
                         {status.isConversion && " · Konverzia"}
+                        {children.length > 0 && ` · ${children.length} pod`}
                       </div>
                     </button>
                   );
@@ -1983,39 +2004,95 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
           ) : (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setSelectedStatus(null)}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  if (selectedSubStatus) { setSelectedSubStatus(null); }
+                  else { setSelectedStatus(null); setNotes(""); setCallbackDate(""); setSelectedReschedule(null); }
+                }}>
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Späť
                 </Button>
-                <h3 className="font-semibold text-lg">{selectedStatus.name}</h3>
+                <h3 className="font-semibold text-lg">
+                  {selectedSubStatus ? <>{selectedStatus.name} <span className="text-muted-foreground mx-1">→</span> {selectedSubStatus.name}</> : selectedStatus.name}
+                </h3>
+                <Badge>{ACTION_LABELS[(activeStatus || selectedStatus).defaultAction]}</Badge>
               </div>
 
+              {hasChildren && !selectedSubStatus && (
+                <Card className="p-4">
+                  <h4 className="font-medium mb-3">Vyberte podstatus</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(childMap[selectedStatus.id] || []).map((sub: any) => {
+                      const colorClass = STATUS_COLORS[sub.color || selectedStatus.color || "gray"] || STATUS_COLORS.gray;
+                      return (
+                        <button
+                          key={sub.id}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
+                          onClick={() => setSelectedSubStatus(sub)}
+                          data-testid={`preview-substatus-${sub.id}`}
+                        >
+                          <div className="font-semibold text-sm">{sub.name}</div>
+                          <div className="text-xs opacity-70">{ACTION_LABELS[sub.defaultAction] || sub.defaultAction}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Card>
+              )}
+
+              {(!hasChildren || selectedSubStatus) && (
+              <>
               <Card className="p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">Akcia:</span> <Badge className="ml-1">{ACTION_LABELS[selectedStatus.defaultAction]}</Badge></div>
-                  <div><span className="text-muted-foreground">Finálny:</span> <span className="ml-1">{selectedStatus.isFinal ? "Áno" : "Nie"}</span></div>
-                  <div><span className="text-muted-foreground">Konverzia:</span> <span className="ml-1">{selectedStatus.isConversion ? "Áno" : "Nie"}</span></div>
-                  <div><span className="text-muted-foreground">Systémový:</span> <span className="ml-1">{selectedStatus.isSystemStatus ? "Áno" : "Nie"}</span></div>
+                  <div><span className="text-muted-foreground">Akcia:</span> <Badge className="ml-1">{ACTION_LABELS[(activeStatus || selectedStatus).defaultAction]}</Badge></div>
+                  <div><span className="text-muted-foreground">Finálny:</span> <span className="ml-1">{(activeStatus || selectedStatus).isFinal ? "Áno" : "Nie"}</span></div>
+                  <div><span className="text-muted-foreground">Konverzia:</span> <span className="ml-1">{(activeStatus || selectedStatus).isConversion ? "Áno" : "Nie"}</span></div>
+                  <div><span className="text-muted-foreground">Systémový:</span> <span className="ml-1">{(activeStatus || selectedStatus).isSystemStatus ? "Áno" : "Nie"}</span></div>
                 </div>
 
                 <Separator />
 
                 <div className="grid grid-cols-3 gap-2 text-sm">
                   <div className="flex items-center gap-1">
-                    <Phone className={`h-4 w-4 ${selectedStatus.allowPhone ? "text-green-500" : "text-red-400"}`} />
-                    <span>Telefón: {selectedStatus.allowPhone ? "✓" : "✗"}</span>
+                    <Phone className={`h-4 w-4 ${(activeStatus || selectedStatus).allowPhone ? "text-green-500" : "text-red-400"}`} />
+                    <span>Telefón: {(activeStatus || selectedStatus).allowPhone ? "✓" : "✗"}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Mail className={`h-4 w-4 ${selectedStatus.allowEmail ? "text-green-500" : "text-red-400"}`} />
-                    <span>Email: {selectedStatus.allowEmail ? "✓" : "✗"}</span>
+                    <Mail className={`h-4 w-4 ${(activeStatus || selectedStatus).allowEmail ? "text-green-500" : "text-red-400"}`} />
+                    <span>Email: {(activeStatus || selectedStatus).allowEmail ? "✓" : "✗"}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <MessageSquare className={`h-4 w-4 ${selectedStatus.allowSms ? "text-green-500" : "text-red-400"}`} />
-                    <span>SMS: {selectedStatus.allowSms ? "✓" : "✗"}</span>
+                    <MessageSquare className={`h-4 w-4 ${(activeStatus || selectedStatus).allowSms ? "text-green-500" : "text-red-400"}`} />
+                    <span>SMS: {(activeStatus || selectedStatus).allowSms ? "✓" : "✗"}</span>
                   </div>
                 </div>
 
-                {selectedStatus.requiresCallback && (
+                {((activeStatus || selectedStatus).defaultAction === "reschedule" || (activeStatus || selectedStatus).defaultAction === "callback") && (activeStatus || selectedStatus).rescheduleOptions?.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="bg-sky-50 dark:bg-sky-950 p-3 rounded-lg border border-sky-200 dark:border-sky-800">
+                      <Label className="text-sm font-medium mb-2 block">Preplánovať hovor na:</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {((activeStatus || selectedStatus).rescheduleOptions || []).map((optValue: string) => {
+                          const opt = RESCHEDULE_PERIOD_OPTIONS.find((o: any) => o.value === optValue);
+                          if (!opt) return null;
+                          const isSelected = selectedReschedule === optValue;
+                          return (
+                            <button
+                              key={optValue}
+                              className={`p-2 rounded-lg border-2 text-center text-sm transition-all ${isSelected ? "border-sky-500 bg-sky-100 text-sky-800 shadow-md" : "border-gray-200 bg-white hover:border-sky-300"}`}
+                              onClick={() => setSelectedReschedule(isSelected ? null : optValue)}
+                              data-testid={`preview-reschedule-${optValue}`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {(activeStatus || selectedStatus).requiresCallback && !((activeStatus || selectedStatus).rescheduleOptions?.length > 0) && (
                   <>
                     <Separator />
                     <div>
@@ -2024,16 +2101,16 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
                         <Input type="date" value={callbackDate} onChange={(e: any) => setCallbackDate(e.target.value)} />
                         <Input type="time" value={callbackTime} onChange={(e: any) => setCallbackTime(e.target.value)} />
                       </div>
-                      {selectedStatus.callbackOffsetDays && (
+                      {(activeStatus || selectedStatus).callbackOffsetDays && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          Predvolený offset: {selectedStatus.callbackOffsetDays} dní
+                          Predvolený offset: {(activeStatus || selectedStatus).callbackOffsetDays} dní
                         </p>
                       )}
                     </div>
                   </>
                 )}
 
-                {selectedStatus.requiresNote && (
+                {(activeStatus || selectedStatus).requiresNote && (
                   <>
                     <Separator />
                     <div>
@@ -2050,11 +2127,13 @@ function NexusPulsePreviewDialog({ categories, statuses, onClose }: {
               </Card>
 
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setSelectedStatus(null)}>Zrušiť</Button>
+                <Button variant="outline" onClick={() => { setSelectedStatus(null); setSelectedSubStatus(null); setSelectedReschedule(null); setNotes(""); setCallbackDate(""); }}>Zrušiť</Button>
                 <Button className="bg-green-600 hover:bg-green-700">
                   Potvrdiť dispozíciu
                 </Button>
               </div>
+              </>
+              )}
             </div>
           )}
         </div>

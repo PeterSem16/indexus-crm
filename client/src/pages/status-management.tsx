@@ -56,11 +56,12 @@ import {
   Check,
 } from "lucide-react";
 import type { StatusCategory, StatusDefinition } from "@shared/schema";
-import { STATUS_ACTION_TYPES } from "@shared/schema";
+import { STATUS_ACTION_TYPES, RESCHEDULE_PERIOD_OPTIONS } from "@shared/schema";
 
 const ACTION_LABELS: Record<string, string> = {
   none: "Žiadna",
   callback: "Spätné volanie",
+  reschedule: "Preplánovať hovor",
   do_not_call: "Nevolať",
   complete: "Dokončiť",
   conversion: "Konverzia",
@@ -91,6 +92,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 const ACTION_COLORS: Record<string, string> = {
   none: "bg-gray-100 text-gray-700",
   callback: "bg-blue-100 text-blue-700",
+  reschedule: "bg-sky-100 text-sky-700",
   do_not_call: "bg-red-100 text-red-700",
   complete: "bg-emerald-100 text-emerald-700",
   conversion: "bg-green-100 text-green-700",
@@ -294,6 +296,7 @@ export default function StatusManagement() {
                   setEditingStatus({
                     id: "",
                     categoryId: categories[0].id,
+                    parentId: null,
                     name: "",
                     code: "",
                     icon: "",
@@ -309,6 +312,7 @@ export default function StatusManagement() {
                     allowPhone: true,
                     isSystemStatus: false,
                     callbackOffsetDays: null,
+                    rescheduleOptions: null,
                     sortOrder: statuses.length + 1,
                     isActive: true,
                     visibleInCampaigns: true,
@@ -478,71 +482,132 @@ export default function StatusManagement() {
                         </div>
                       ) : (
                         <div className="divide-y">
-                          {catStatuses.map((status) => (
-                            <div
-                              key={status.id}
-                              className="grid grid-cols-[1fr_120px_140px_80px_80px_80px_80px_60px_60px] gap-2 items-center px-5 py-2.5 hover:bg-muted/30 transition-colors text-sm"
-                              data-testid={`row-status-${status.id}`}
-                            >
-                              <div>
-                                <div className="font-medium">{status.name}</div>
-                                <div className="text-xs text-muted-foreground font-mono">{status.code}</div>
+                          {(() => {
+                            const parents = catStatuses.filter(s => !s.parentId);
+                            const childMap: Record<string, StatusDefinition[]> = {};
+                            for (const s of catStatuses) {
+                              if (s.parentId) {
+                                if (!childMap[s.parentId]) childMap[s.parentId] = [];
+                                childMap[s.parentId].push(s);
+                              }
+                            }
+                            const renderStatusRow = (status: StatusDefinition, isChild: boolean) => (
+                              <div
+                                key={status.id}
+                                className={`grid grid-cols-[1fr_120px_140px_80px_80px_80px_80px_60px_60px] gap-2 items-center px-5 py-2.5 hover:bg-muted/30 transition-colors text-sm ${isChild ? "bg-muted/10" : ""}`}
+                                data-testid={`row-status-${status.id}`}
+                              >
+                                <div className={isChild ? "pl-6" : ""}>
+                                  <div className="flex items-center gap-1.5">
+                                    {isChild && <span className="text-muted-foreground">└</span>}
+                                    <div className="font-medium">{status.name}</div>
+                                    {status.parentId && <Badge variant="outline" className="text-[8px] px-1 py-0 border-sky-300 text-sky-600">Pod</Badge>}
+                                  </div>
+                                  <div className={`text-xs text-muted-foreground font-mono ${isChild ? "pl-5" : ""}`}>{status.code}</div>
+                                </div>
+                                <div>
+                                  <Badge className={`text-[10px] px-1.5 py-0 ${ACTION_COLORS[status.defaultAction] || ""}`}>
+                                    {ACTION_LABELS[status.defaultAction] || status.defaultAction}
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {status.isFinal && <Badge variant="outline" className="text-[9px] px-1 py-0 border-red-300 text-red-600">Finálny</Badge>}
+                                  {status.isConversion && <Badge variant="outline" className="text-[9px] px-1 py-0 border-green-300 text-green-600">Konverzia</Badge>}
+                                  {status.requiresNote && <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-300 text-amber-600">Poznámka</Badge>}
+                                  {status.requiresCallback && <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-300 text-blue-600">Callback</Badge>}
+                                  {status.isSystemStatus && <Badge variant="outline" className="text-[9px] px-1 py-0 border-purple-300 text-purple-600">Systém</Badge>}
+                                  {(status as any).rescheduleOptions?.length > 0 && <Badge variant="outline" className="text-[9px] px-1 py-0 border-sky-300 text-sky-600">Prepl.</Badge>}
+                                </div>
+                                <div className="text-center">
+                                  {status.allowPhone ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" /> : <XCircle className="h-4 w-4 text-red-400 mx-auto" />}
+                                </div>
+                                <div className="text-center">
+                                  {status.allowEmail ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" /> : <XCircle className="h-4 w-4 text-red-400 mx-auto" />}
+                                </div>
+                                <div className="text-center">
+                                  {status.allowSms ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" /> : <XCircle className="h-4 w-4 text-red-400 mx-auto" />}
+                                </div>
+                                <div className="text-center">
+                                  {status.isActive ? (
+                                    <Badge className="bg-green-100 text-green-700 text-[10px]">Áno</Badge>
+                                  ) : (
+                                    <Badge className="bg-red-100 text-red-700 text-[10px]">Nie</Badge>
+                                  )}
+                                </div>
+                                <div className="flex">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => {
+                                      setIsNewStatus(false);
+                                      setEditingStatus(status);
+                                    }}
+                                    data-testid={`button-edit-status-${status.id}`}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  {!isChild && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-sky-500"
+                                      title="Pridať podstatus"
+                                      onClick={() => {
+                                        setIsNewStatus(true);
+                                        setEditingStatus({
+                                          id: "",
+                                          categoryId: cat.id,
+                                          parentId: status.id,
+                                          name: "",
+                                          code: "",
+                                          icon: "",
+                                          color: status.color,
+                                          defaultAction: "none",
+                                          isFinal: false,
+                                          isConversion: false,
+                                          requiresNote: false,
+                                          requiresCallback: false,
+                                          allowRecontact: true,
+                                          allowEmail: true,
+                                          allowSms: true,
+                                          allowPhone: true,
+                                          isSystemStatus: false,
+                                          callbackOffsetDays: null,
+                                          rescheduleOptions: null,
+                                          sortOrder: (childMap[status.id]?.length || 0) + 1,
+                                          isActive: true,
+                                          visibleInCampaigns: true,
+                                          createdAt: new Date(),
+                                          updatedAt: new Date(),
+                                        });
+                                      }}
+                                      data-testid={`button-add-substatus-${status.id}`}
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                                <div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-red-500"
+                                    onClick={() => setDeleteTarget({ type: "status", id: status.id, name: status.name })}
+                                    data-testid={`button-delete-status-${status.id}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               </div>
-                              <div>
-                                <Badge className={`text-[10px] px-1.5 py-0 ${ACTION_COLORS[status.defaultAction] || ""}`}>
-                                  {ACTION_LABELS[status.defaultAction] || status.defaultAction}
-                                </Badge>
+                            );
+                            return parents.map(parent => (
+                              <div key={parent.id}>
+                                {renderStatusRow(parent, false)}
+                                {(childMap[parent.id] || []).map(child => renderStatusRow(child, true))}
                               </div>
-                              <div className="flex flex-wrap gap-1">
-                                {status.isFinal && <Badge variant="outline" className="text-[9px] px-1 py-0 border-red-300 text-red-600">Finálny</Badge>}
-                                {status.isConversion && <Badge variant="outline" className="text-[9px] px-1 py-0 border-green-300 text-green-600">Konverzia</Badge>}
-                                {status.requiresNote && <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-300 text-amber-600">Poznámka</Badge>}
-                                {status.requiresCallback && <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-300 text-blue-600">Callback</Badge>}
-                                {status.isSystemStatus && <Badge variant="outline" className="text-[9px] px-1 py-0 border-purple-300 text-purple-600">Systém</Badge>}
-                              </div>
-                              <div className="text-center">
-                                {status.allowPhone ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" /> : <XCircle className="h-4 w-4 text-red-400 mx-auto" />}
-                              </div>
-                              <div className="text-center">
-                                {status.allowEmail ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" /> : <XCircle className="h-4 w-4 text-red-400 mx-auto" />}
-                              </div>
-                              <div className="text-center">
-                                {status.allowSms ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" /> : <XCircle className="h-4 w-4 text-red-400 mx-auto" />}
-                              </div>
-                              <div className="text-center">
-                                {status.isActive ? (
-                                  <Badge className="bg-green-100 text-green-700 text-[10px]">Áno</Badge>
-                                ) : (
-                                  <Badge className="bg-red-100 text-red-700 text-[10px]">Nie</Badge>
-                                )}
-                              </div>
-                              <div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => {
-                                    setIsNewStatus(false);
-                                    setEditingStatus(status);
-                                  }}
-                                  data-testid={`button-edit-status-${status.id}`}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                              <div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-red-500"
-                                  onClick={() => setDeleteTarget({ type: "status", id: status.id, name: status.name })}
-                                  data-testid={`button-delete-status-${status.id}`}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                            ));
+                          })()}
                         </div>
                       )}
                       <div className="p-3 border-t bg-muted/20">
@@ -555,6 +620,7 @@ export default function StatusManagement() {
                             setEditingStatus({
                               id: "",
                               categoryId: cat.id,
+                              parentId: null,
                               name: "",
                               code: "",
                               icon: "",
@@ -570,6 +636,7 @@ export default function StatusManagement() {
                               allowPhone: true,
                               isSystemStatus: false,
                               callbackOffsetDays: null,
+                              rescheduleOptions: null,
                               sortOrder: (catStatuses.length + 1),
                               isActive: true,
                               visibleInCampaigns: true,
@@ -606,6 +673,7 @@ export default function StatusManagement() {
         <StatusEditDialog
           status={editingStatus}
           categories={categories}
+          allStatuses={statuses}
           isNew={isNewStatus}
           onSave={(data) => saveStatusMutation.mutate(data)}
           onClose={() => {
@@ -668,9 +736,11 @@ function NexusPulsePreview({ categories, statuses, onClose }: {
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<StatusDefinition | null>(null);
+  const [selectedSubStatus, setSelectedSubStatus] = useState<StatusDefinition | null>(null);
   const [channelFilter, setChannelFilter] = useState<"all" | "phone" | "email" | "sms">("all");
   const [callbackDate, setCallbackDate] = useState("");
   const [callbackTime, setCallbackTime] = useState("09:00");
+  const [selectedReschedule, setSelectedReschedule] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
 
   const STATUS_COLORS: Record<string, string> = {
@@ -686,26 +756,42 @@ function NexusPulsePreview({ categories, statuses, onClose }: {
     yellow: "bg-yellow-100 hover:bg-yellow-200 border-yellow-300 text-yellow-800",
   };
 
-  const statusesByCat = useMemo(() => {
+  const parentStatuses = useMemo(() => statuses.filter(s => !s.parentId), [statuses]);
+
+  const childMap = useMemo(() => {
     const map: Record<string, StatusDefinition[]> = {};
     for (const s of statuses) {
-      if (!map[s.categoryId]) map[s.categoryId] = [];
-      map[s.categoryId].push(s);
+      if (s.parentId) {
+        if (!map[s.parentId]) map[s.parentId] = [];
+        map[s.parentId].push(s);
+      }
     }
     return map;
   }, [statuses]);
 
+  const statusesByCat = useMemo(() => {
+    const map: Record<string, StatusDefinition[]> = {};
+    for (const s of parentStatuses) {
+      if (!map[s.categoryId]) map[s.categoryId] = [];
+      map[s.categoryId].push(s);
+    }
+    return map;
+  }, [parentStatuses]);
+
   const filteredStatuses = useMemo(() => {
-    let sts = selectedCategory === "all" ? statuses : statuses.filter(s => s.categoryId === selectedCategory);
+    let sts = selectedCategory === "all" ? parentStatuses : parentStatuses.filter(s => s.categoryId === selectedCategory);
     if (channelFilter === "phone") sts = sts.filter(s => s.allowPhone);
     if (channelFilter === "email") sts = sts.filter(s => s.allowEmail);
     if (channelFilter === "sms") sts = sts.filter(s => s.allowSms);
     return sts;
-  }, [statuses, selectedCategory, channelFilter]);
+  }, [parentStatuses, selectedCategory, channelFilter]);
 
   const visibleCategories = useMemo(() => {
     return categories.filter(c => (statusesByCat[c.id] || []).length > 0).sort((a, b) => a.sortOrder - b.sortOrder);
   }, [categories, statusesByCat]);
+
+  const activeStatus = selectedSubStatus || selectedStatus;
+  const hasChildren = selectedStatus ? (childMap[selectedStatus.id] || []).length > 0 : false;
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -776,11 +862,12 @@ function NexusPulsePreview({ categories, statuses, onClose }: {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {filteredStatuses.map((status) => {
                   const colorClass = STATUS_COLORS[status.color || "gray"] || STATUS_COLORS.gray;
+                  const children = childMap[status.id] || [];
                   return (
                     <button
                       key={status.id}
                       className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
-                      onClick={() => setSelectedStatus(status)}
+                      onClick={() => { setSelectedStatus(status); setSelectedSubStatus(null); setSelectedReschedule(null); setNotes(""); setCallbackDate(""); }}
                       data-testid={`pulse-status-${status.id}`}
                     >
                       <div className="font-semibold text-sm">{status.name}</div>
@@ -790,6 +877,7 @@ function NexusPulsePreview({ categories, statuses, onClose }: {
                         </Badge>
                         {status.isFinal && <span className="text-red-600 font-bold">F</span>}
                         {status.isConversion && <span className="text-green-600 font-bold">K</span>}
+                        {children.length > 0 && <span className="text-sky-600 font-bold">{children.length} pod</span>}
                       </div>
                       <div className="flex gap-1 mt-1">
                         {status.allowPhone && <Phone className="h-3 w-3 text-blue-500" />}
@@ -811,70 +899,142 @@ function NexusPulsePreview({ categories, statuses, onClose }: {
           ) : (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => { setSelectedStatus(null); setNotes(""); setCallbackDate(""); }}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  if (selectedSubStatus) {
+                    setSelectedSubStatus(null);
+                  } else {
+                    setSelectedStatus(null); setNotes(""); setCallbackDate(""); setSelectedReschedule(null);
+                  }
+                }}>
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Späť
                 </Button>
-                <h3 className="font-semibold text-lg">{selectedStatus.name}</h3>
-                <Badge className={`${ACTION_COLORS[selectedStatus.defaultAction] || ""}`}>
-                  {ACTION_LABELS[selectedStatus.defaultAction]}
+                <h3 className="font-semibold text-lg">
+                  {selectedSubStatus ? (
+                    <>{selectedStatus!.name} <span className="text-muted-foreground mx-1">→</span> {selectedSubStatus.name}</>
+                  ) : selectedStatus!.name}
+                </h3>
+                <Badge className={`${ACTION_COLORS[(activeStatus || selectedStatus)!.defaultAction] || ""}`}>
+                  {ACTION_LABELS[(activeStatus || selectedStatus)!.defaultAction]}
                 </Badge>
               </div>
 
+              {hasChildren && !selectedSubStatus && (
+                <Card className="p-4">
+                  <h4 className="font-medium mb-3">Vyberte podstatus</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {(childMap[selectedStatus!.id] || []).map((sub) => {
+                      const colorClass = STATUS_COLORS[sub.color || selectedStatus!.color || "gray"] || STATUS_COLORS.gray;
+                      return (
+                        <button
+                          key={sub.id}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`}
+                          onClick={() => setSelectedSubStatus(sub)}
+                          data-testid={`pulse-substatus-${sub.id}`}
+                        >
+                          <div className="font-semibold text-sm">{sub.name}</div>
+                          <div className="text-xs opacity-70 mt-0.5">
+                            <Badge className={`${ACTION_COLORS[sub.defaultAction] || ""} text-[9px] px-1 py-0`}>
+                              {ACTION_LABELS[sub.defaultAction] || sub.defaultAction}
+                            </Badge>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Card>
+              )}
+
+              {(!hasChildren || selectedSubStatus) && (
+              <>
               <Card className="p-4 space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                   <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                     <span className="text-muted-foreground">Finálny:</span>
-                    <Badge variant={selectedStatus.isFinal ? "destructive" : "secondary"}>
-                      {selectedStatus.isFinal ? "Áno" : "Nie"}
+                    <Badge variant={(activeStatus || selectedStatus)!.isFinal ? "destructive" : "secondary"}>
+                      {(activeStatus || selectedStatus)!.isFinal ? "Áno" : "Nie"}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                     <span className="text-muted-foreground">Konverzia:</span>
-                    <Badge variant={selectedStatus.isConversion ? "default" : "secondary"} className={selectedStatus.isConversion ? "bg-green-600" : ""}>
-                      {selectedStatus.isConversion ? "Áno" : "Nie"}
+                    <Badge variant={(activeStatus || selectedStatus)!.isConversion ? "default" : "secondary"} className={(activeStatus || selectedStatus)!.isConversion ? "bg-green-600" : ""}>
+                      {(activeStatus || selectedStatus)!.isConversion ? "Áno" : "Nie"}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                     <span className="text-muted-foreground">Systémový:</span>
-                    <span>{selectedStatus.isSystemStatus ? "Áno" : "Nie"}</span>
+                    <span>{(activeStatus || selectedStatus)!.isSystemStatus ? "Áno" : "Nie"}</span>
                   </div>
                   <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                     <span className="text-muted-foreground">Kód:</span>
-                    <code className="text-xs bg-muted px-1 rounded">{selectedStatus.code}</code>
+                    <code className="text-xs bg-muted px-1 rounded">{(activeStatus || selectedStatus)!.code}</code>
                   </div>
                 </div>
 
                 <Separator />
 
                 <div className="grid grid-cols-3 gap-3">
-                  <div className={`flex items-center gap-2 p-3 rounded-lg border ${selectedStatus.allowPhone ? "bg-blue-50 border-blue-200" : "bg-muted/30 border-transparent"}`}>
-                    <Phone className={`h-5 w-5 ${selectedStatus.allowPhone ? "text-blue-500" : "text-muted-foreground"}`} />
+                  <div className={`flex items-center gap-2 p-3 rounded-lg border ${(activeStatus || selectedStatus)!.allowPhone ? "bg-blue-50 border-blue-200" : "bg-muted/30 border-transparent"}`}>
+                    <Phone className={`h-5 w-5 ${(activeStatus || selectedStatus)!.allowPhone ? "text-blue-500" : "text-muted-foreground"}`} />
                     <div>
                       <div className="text-sm font-medium">Telefón</div>
-                      <div className="text-xs text-muted-foreground">{selectedStatus.allowPhone ? "Povolený" : "Nepovolený"}</div>
+                      <div className="text-xs text-muted-foreground">{(activeStatus || selectedStatus)!.allowPhone ? "Povolený" : "Nepovolený"}</div>
                     </div>
-                    {selectedStatus.allowPhone && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+                    {(activeStatus || selectedStatus)!.allowPhone && <Check className="h-4 w-4 text-green-500 ml-auto" />}
                   </div>
-                  <div className={`flex items-center gap-2 p-3 rounded-lg border ${selectedStatus.allowEmail ? "bg-purple-50 border-purple-200" : "bg-muted/30 border-transparent"}`}>
-                    <Mail className={`h-5 w-5 ${selectedStatus.allowEmail ? "text-purple-500" : "text-muted-foreground"}`} />
+                  <div className={`flex items-center gap-2 p-3 rounded-lg border ${(activeStatus || selectedStatus)!.allowEmail ? "bg-purple-50 border-purple-200" : "bg-muted/30 border-transparent"}`}>
+                    <Mail className={`h-5 w-5 ${(activeStatus || selectedStatus)!.allowEmail ? "text-purple-500" : "text-muted-foreground"}`} />
                     <div>
                       <div className="text-sm font-medium">Email</div>
-                      <div className="text-xs text-muted-foreground">{selectedStatus.allowEmail ? "Povolený" : "Nepovolený"}</div>
+                      <div className="text-xs text-muted-foreground">{(activeStatus || selectedStatus)!.allowEmail ? "Povolený" : "Nepovolený"}</div>
                     </div>
-                    {selectedStatus.allowEmail && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+                    {(activeStatus || selectedStatus)!.allowEmail && <Check className="h-4 w-4 text-green-500 ml-auto" />}
                   </div>
-                  <div className={`flex items-center gap-2 p-3 rounded-lg border ${selectedStatus.allowSms ? "bg-teal-50 border-teal-200" : "bg-muted/30 border-transparent"}`}>
-                    <MessageSquare className={`h-5 w-5 ${selectedStatus.allowSms ? "text-teal-500" : "text-muted-foreground"}`} />
+                  <div className={`flex items-center gap-2 p-3 rounded-lg border ${(activeStatus || selectedStatus)!.allowSms ? "bg-teal-50 border-teal-200" : "bg-muted/30 border-transparent"}`}>
+                    <MessageSquare className={`h-5 w-5 ${(activeStatus || selectedStatus)!.allowSms ? "text-teal-500" : "text-muted-foreground"}`} />
                     <div>
                       <div className="text-sm font-medium">SMS</div>
-                      <div className="text-xs text-muted-foreground">{selectedStatus.allowSms ? "Povolený" : "Nepovolený"}</div>
+                      <div className="text-xs text-muted-foreground">{(activeStatus || selectedStatus)!.allowSms ? "Povolený" : "Nepovolený"}</div>
                     </div>
-                    {selectedStatus.allowSms && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+                    {(activeStatus || selectedStatus)!.allowSms && <Check className="h-4 w-4 text-green-500 ml-auto" />}
                   </div>
                 </div>
 
-                {selectedStatus.requiresCallback && (
+                {((activeStatus || selectedStatus)!.defaultAction === "reschedule" || (activeStatus || selectedStatus)!.defaultAction === "callback") && (activeStatus as any)?.rescheduleOptions?.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="bg-sky-50 dark:bg-sky-950 p-4 rounded-lg border border-sky-200 dark:border-sky-800">
+                      <Label className="text-sm font-medium flex items-center gap-1 mb-3">
+                        <Settings2 className="h-4 w-4" />
+                        Preplánovať hovor na:
+                      </Label>
+                      <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                        {((activeStatus as any)?.rescheduleOptions || []).map((optValue: string) => {
+                          const opt = RESCHEDULE_PERIOD_OPTIONS.find(o => o.value === optValue);
+                          if (!opt) return null;
+                          const isSelected = selectedReschedule === optValue;
+                          return (
+                            <button
+                              key={optValue}
+                              className={`p-2.5 rounded-lg border-2 text-center transition-all ${
+                                isSelected
+                                  ? "border-sky-500 bg-sky-100 text-sky-800 shadow-md"
+                                  : "border-gray-200 bg-white hover:border-sky-300 hover:bg-sky-50"
+                              }`}
+                              onClick={() => setSelectedReschedule(isSelected ? null : optValue)}
+                              data-testid={`pulse-reschedule-${optValue}`}
+                            >
+                              <div className="font-semibold text-sm">{opt.label}</div>
+                              <div className="text-xs text-muted-foreground">{opt.days} dní</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {(activeStatus || selectedStatus)!.requiresCallback && !((activeStatus as any)?.rescheduleOptions?.length > 0) && (
                   <>
                     <Separator />
                     <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -919,14 +1079,15 @@ function NexusPulsePreview({ categories, statuses, onClose }: {
               </Card>
 
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => { setSelectedStatus(null); setNotes(""); setCallbackDate(""); }}>
+                <Button variant="outline" onClick={() => { setSelectedStatus(null); setSelectedSubStatus(null); setNotes(""); setCallbackDate(""); setSelectedReschedule(null); }}>
                   Zrušiť
                 </Button>
                 <Button
                   className="bg-green-600 hover:bg-green-700"
                   disabled={
-                    (selectedStatus.requiresNote && !notes.trim()) ||
-                    (selectedStatus.requiresCallback && !callbackDate)
+                    ((activeStatus || selectedStatus)!.requiresNote && !notes.trim()) ||
+                    ((activeStatus || selectedStatus)!.requiresCallback && !callbackDate && !selectedReschedule) ||
+                    ((activeStatus || selectedStatus)!.defaultAction === "reschedule" && !selectedReschedule && !callbackDate)
                   }
                   data-testid="pulse-confirm"
                 >
@@ -934,6 +1095,8 @@ function NexusPulsePreview({ categories, statuses, onClose }: {
                   Potvrdiť dispozíciu
                 </Button>
               </div>
+              </>
+              )}
             </div>
           )}
         </div>
@@ -945,6 +1108,7 @@ function NexusPulsePreview({ categories, statuses, onClose }: {
 function StatusEditDialog({
   status,
   categories,
+  allStatuses,
   isNew,
   onSave,
   onClose,
@@ -952,14 +1116,28 @@ function StatusEditDialog({
 }: {
   status: StatusDefinition;
   categories: StatusCategory[];
+  allStatuses: StatusDefinition[];
   isNew: boolean;
   onSave: (data: any) => void;
   onClose: () => void;
   isPending: boolean;
 }) {
-  const [form, setForm] = useState({ ...status });
+  const [form, setForm] = useState({ ...status, rescheduleOptions: (status as any).rescheduleOptions || [] });
 
-  const update = (key: string, value: any) => setForm((prev) => ({ ...prev, [key]: value }));
+  const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }));
+
+  const parentCandidates = useMemo(() => {
+    return allStatuses.filter(s => !s.parentId && s.id !== status.id);
+  }, [allStatuses, status.id]);
+
+  const toggleRescheduleOption = (value: string) => {
+    const current: string[] = form.rescheduleOptions || [];
+    if (current.includes(value)) {
+      update("rescheduleOptions", current.filter((v: string) => v !== value));
+    } else {
+      update("rescheduleOptions", [...current, value]);
+    }
+  };
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -995,8 +1173,18 @@ function StatusEditDialog({
               </Select>
             </div>
             <div>
-              <Label>Ikona</Label>
-              <Input value={form.icon || ""} onChange={(e) => update("icon", e.target.value)} placeholder="napr. PhoneOff" data-testid="input-status-icon" />
+              <Label>Nadradený status</Label>
+              <Select value={form.parentId || "__none__"} onValueChange={(v) => update("parentId", v === "__none__" ? null : v)}>
+                <SelectTrigger data-testid="select-status-parent">
+                  <SelectValue placeholder="Žiadny (hlavný status)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Žiadny (hlavný status) —</SelectItem>
+                  {parentCandidates.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Farba</Label>
@@ -1013,7 +1201,11 @@ function StatusEditDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label>Ikona</Label>
+              <Input value={form.icon || ""} onChange={(e) => update("icon", e.target.value)} placeholder="napr. PhoneOff" data-testid="input-status-icon" />
+            </div>
             <div>
               <Label>Predvolená akcia</Label>
               <Select value={form.defaultAction} onValueChange={(v) => update("defaultAction", v)}>
@@ -1038,6 +1230,42 @@ function StatusEditDialog({
               />
             </div>
           </div>
+
+          {(form.defaultAction === "reschedule" || form.defaultAction === "callback") && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="font-medium mb-2">Možnosti preplánovania</h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Vyberte časové obdobia, ktoré bude agent vidieť pri tomto statuse
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {RESCHEDULE_PERIOD_OPTIONS.map((opt) => {
+                    const isSelected = (form.rescheduleOptions || []).includes(opt.value);
+                    return (
+                      <div
+                        key={opt.value}
+                        className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-transparent bg-muted/30 hover:bg-muted/50"
+                        }`}
+                        onClick={() => toggleRescheduleOption(opt.value)}
+                        data-testid={`reschedule-opt-${opt.value}`}
+                      >
+                        <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
+                          isSelected ? "bg-primary border-primary" : "border-gray-300"
+                        }`}>
+                          {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                        </div>
+                        <span className="text-sm">{opt.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
 
           <Separator />
 

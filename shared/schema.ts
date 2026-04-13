@@ -3238,6 +3238,7 @@ export type StatusCategoryCode = typeof STATUS_CATEGORY_CODES[number];
 export const STATUS_ACTION_TYPES = [
   "none",
   "callback",
+  "reschedule",
   "do_not_call",
   "complete",
   "conversion",
@@ -3250,6 +3251,21 @@ export const STATUS_ACTION_TYPES = [
   "start_onboarding",
   "create_task",
   "verify_contact",
+] as const;
+
+export const RESCHEDULE_PERIOD_OPTIONS = [
+  { value: "1d", label: "1 deň", days: 1 },
+  { value: "2d", label: "2 dni", days: 2 },
+  { value: "3d", label: "3 dni", days: 3 },
+  { value: "5d", label: "5 dní", days: 5 },
+  { value: "7d", label: "1 týždeň", days: 7 },
+  { value: "14d", label: "2 týždne", days: 14 },
+  { value: "21d", label: "3 týždne", days: 21 },
+  { value: "30d", label: "1 mesiac", days: 30 },
+  { value: "60d", label: "2 mesiace", days: 60 },
+  { value: "90d", label: "3 mesiace", days: 90 },
+  { value: "180d", label: "Pol roka", days: 180 },
+  { value: "365d", label: "1 rok", days: 365 },
 ] as const;
 export type StatusActionType = typeof STATUS_ACTION_TYPES[number];
 
@@ -3276,6 +3292,7 @@ export type StatusCategory = typeof statusCategories.$inferSelect;
 export const statusDefinitions = pgTable("status_definitions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   categoryId: varchar("category_id").notNull(),
+  parentId: varchar("parent_id"),
   name: text("name").notNull(),
   code: text("code").notNull().unique(),
   icon: text("icon"),
@@ -3291,6 +3308,7 @@ export const statusDefinitions = pgTable("status_definitions", {
   allowPhone: boolean("allow_phone").notNull().default(true),
   isSystemStatus: boolean("is_system_status").notNull().default(false),
   callbackOffsetDays: integer("callback_offset_days"),
+  rescheduleOptions: jsonb("reschedule_options").$type<string[]>(),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   visibleInCampaigns: boolean("visible_in_campaigns").notNull().default(true),
@@ -3303,10 +3321,12 @@ export const insertStatusDefinitionSchema = createInsertSchema(statusDefinitions
   createdAt: true,
   updatedAt: true,
 }).extend({
+  parentId: z.string().optional().nullable(),
   icon: z.string().optional().nullable(),
   color: z.string().optional().nullable(),
   defaultAction: z.enum(STATUS_ACTION_TYPES).optional().default("none"),
   callbackOffsetDays: z.number().optional().nullable(),
+  rescheduleOptions: z.array(z.string()).optional().nullable(),
 });
 export type InsertStatusDefinition = z.infer<typeof insertStatusDefinitionSchema>;
 export type StatusDefinition = typeof statusDefinitions.$inferSelect;
