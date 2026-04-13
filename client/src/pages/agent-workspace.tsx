@@ -6071,10 +6071,34 @@ export default function AgentWorkspacePage() {
     }
   };
 
-  const handleSendEmail = (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => {
+  const handleSendEmail = async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => {
     if (!currentContact) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
       return;
+    }
+    if (selectedCampaignId) {
+      try {
+        const qRes = await fetch(`/api/campaigns/${selectedCampaignId}/quota-check`, { credentials: "include" });
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
+          if (hasAnyQuota) {
+            setQuotas(qData.quotas);
+            if (qData.usage) {
+              quotaDataRef.current = { usage: qData.usage };
+              setStats({ calls: qData.usage.calls || 0, emails: qData.usage.emails || 0, sms: qData.usage.sms || 0 });
+            }
+          }
+          if (qData.blocked?.emails) {
+            toast({
+              title: t.agentWorkspace?.quotaReached || "Daily quota reached",
+              description: t.agentWorkspace?.emailQuotaReached || "You have reached your daily email limit for this campaign.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      } catch {}
     }
     if (isQuotaBlocked("emails")) {
       toast({
@@ -6098,10 +6122,34 @@ export default function AgentWorkspacePage() {
     });
   };
 
-  const handleSendSms = (data: { to: string[]; message: string; compositionDurationSeconds?: number | null }) => {
+  const handleSendSms = async (data: { to: string[]; message: string; compositionDurationSeconds?: number | null }) => {
     if (!currentContact) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
       return;
+    }
+    if (selectedCampaignId) {
+      try {
+        const qRes = await fetch(`/api/campaigns/${selectedCampaignId}/quota-check`, { credentials: "include" });
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
+          if (hasAnyQuota) {
+            setQuotas(qData.quotas);
+            if (qData.usage) {
+              quotaDataRef.current = { usage: qData.usage };
+              setStats({ calls: qData.usage.calls || 0, emails: qData.usage.emails || 0, sms: qData.usage.sms || 0 });
+            }
+          }
+          if (qData.blocked?.sms) {
+            toast({
+              title: t.agentWorkspace?.quotaReached || "Daily quota reached",
+              description: t.agentWorkspace?.smsQuotaReached || "You have reached your daily SMS limit for this campaign.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      } catch {}
     }
     if (isQuotaBlocked("sms")) {
       toast({
@@ -6277,7 +6325,31 @@ export default function AgentWorkspacePage() {
     });
   };
 
-  const handleMakeCall = (phoneNumber: string) => {
+  const handleMakeCall = async (phoneNumber: string) => {
+    if (selectedCampaignId) {
+      try {
+        const qRes = await fetch(`/api/campaigns/${selectedCampaignId}/quota-check`, { credentials: "include" });
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
+          if (hasAnyQuota) {
+            setQuotas(qData.quotas);
+            if (qData.usage) {
+              quotaDataRef.current = { usage: qData.usage };
+              setStats({ calls: qData.usage.calls || 0, emails: qData.usage.emails || 0, sms: qData.usage.sms || 0 });
+            }
+          }
+          if (qData.blocked?.calls) {
+            toast({
+              title: t.agentWorkspace?.quotaReached || "Daily quota reached",
+              description: t.agentWorkspace?.callQuotaReached || "You have reached your daily call limit for this campaign.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      } catch {}
+    }
     if (isQuotaBlocked("calls")) {
       toast({
         title: t.agentWorkspace?.quotaReached || "Daily quota reached",
@@ -6346,17 +6418,25 @@ export default function AgentWorkspacePage() {
     try {
       const quotaType = channel === "phone" ? "calls" : channel === "email" ? "emails" : "sms";
       let blocked = false;
-      if (campaignId === selectedCampaignId) {
-        blocked = isQuotaBlocked(quotaType);
-      } else {
-        try {
-          const qRes = await fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" });
-          if (qRes.ok) {
-            const qData = await qRes.json();
-            if (qData.blocked && qData.blocked[quotaType]) blocked = true;
+      try {
+        const qRes = await fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" });
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          if (qData.blocked && qData.blocked[quotaType]) blocked = true;
+          const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
+          if (hasAnyQuota && campaignId === selectedCampaignId) {
+            setQuotas(qData.quotas);
+            if (qData.usage) {
+              quotaDataRef.current = { usage: qData.usage };
+              setStats({
+                calls: qData.usage.calls || 0,
+                emails: qData.usage.emails || 0,
+                sms: qData.usage.sms || 0,
+              });
+            }
           }
-        } catch {}
-      }
+        }
+      } catch {}
       if (blocked) {
         const quotaMsg = quotaType === "calls"
           ? (t.agentWorkspace?.callQuotaReached || "Daily call quota reached")
