@@ -1947,6 +1947,10 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                   <Button variant="outline" size="sm" onClick={() => { if (categories.length === 0) return; setIsNewStatus(true); setEditingStatus({ id: "", categoryId: categories[0].id, parentId: null, name: "", code: "", icon: "", color: "gray", defaultAction: "none", isFinal: false, isConversion: false, requiresNote: false, requiresCallback: false, allowRecontact: true, allowEmail: true, allowSms: true, allowPhone: true, isSystemStatus: false, callbackOffsetDays: null, rescheduleOptions: null, sortOrder: allStatuses.length + 1, isActive: true, visibleInCampaigns: true, createdAt: new Date(), updatedAt: new Date() }); }} data-testid="button-add-status">
                     <Plus className="h-4 w-4 mr-1" /> Status
                   </Button>
+                  <Button variant="outline" size="sm" onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending} data-testid="button-reseed-statuses" className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
+                    {seedMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                    {t.statusEngine?.seedDefaults || "Obnoviť predvolené"}
+                  </Button>
                 </>
               )}
             </div>
