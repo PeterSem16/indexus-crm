@@ -176,6 +176,43 @@ function PersonnelTabContent({ entityType, entityId, entityName }: { entityType:
   );
 }
 
+const REGION_MAP: Record<string, Record<string, string>> = {
+  SK: {
+    "Bratislava": "Bratislavský kraj", "Pezinok": "Bratislavský kraj", "Senec": "Bratislavský kraj", "Malacky": "Bratislavský kraj",
+    "Trnava": "Trnavský kraj", "Piešťany": "Trnavský kraj", "Dunajská Streda": "Trnavský kraj", "Galanta": "Trnavský kraj", "Hlohovec": "Trnavský kraj", "Senica": "Trnavský kraj", "Skalica": "Trnavský kraj",
+    "Trenčín": "Trenčiansky kraj", "Považská Bystrica": "Trenčiansky kraj", "Púchov": "Trenčiansky kraj", "Prievidza": "Trenčiansky kraj", "Nové Mesto nad Váhom": "Trenčiansky kraj", "Partizánske": "Trenčiansky kraj", "Bánovce nad Bebravou": "Trenčiansky kraj", "Ilava": "Trenčiansky kraj", "Myjava": "Trenčiansky kraj",
+    "Nitra": "Nitriansky kraj", "Komárno": "Nitriansky kraj", "Levice": "Nitriansky kraj", "Nové Zámky": "Nitriansky kraj", "Šaľa": "Nitriansky kraj", "Topoľčany": "Nitriansky kraj", "Zlaté Moravce": "Nitriansky kraj",
+    "Žilina": "Žilinský kraj", "Martin": "Žilinský kraj", "Čadca": "Žilinský kraj", "Dolný Kubín": "Žilinský kraj", "Liptovský Mikuláš": "Žilinský kraj", "Námestovo": "Žilinský kraj", "Ružomberok": "Žilinský kraj", "Tvrdošín": "Žilinský kraj", "Turčianske Teplice": "Žilinský kraj", "Bytča": "Žilinský kraj", "Kysucké Nové Mesto": "Žilinský kraj",
+    "Banská Bystrica": "Banskobystrický kraj", "Zvolen": "Banskobystrický kraj", "Lučenec": "Banskobystrický kraj", "Rimavská Sobota": "Banskobystrický kraj", "Žiar nad Hronom": "Banskobystrický kraj", "Brezno": "Banskobystrický kraj", "Detva": "Banskobystrický kraj", "Krupina": "Banskobystrický kraj", "Revúca": "Banskobystrický kraj", "Veľký Krtíš": "Banskobystrický kraj", "Banská Štiavnica": "Banskobystrický kraj", "Poltár": "Banskobystrický kraj",
+    "Prešov": "Prešovský kraj", "Poprad": "Prešovský kraj", "Bardejov": "Prešovský kraj", "Humenné": "Prešovský kraj", "Kežmarok": "Prešovský kraj", "Levoča": "Prešovský kraj", "Medzilaborce": "Prešovský kraj", "Sabinov": "Prešovský kraj", "Snina": "Prešovský kraj", "Stará Ľubovňa": "Prešovský kraj", "Stropkov": "Prešovský kraj", "Svidník": "Prešovský kraj", "Vranov nad Topľou": "Prešovský kraj", "Svit": "Prešovský kraj", "Vysoké Tatry": "Prešovský kraj", "Starý Smokovec": "Prešovský kraj",
+    "Košice": "Košický kraj", "Michalovce": "Košický kraj", "Spišská Nová Ves": "Košický kraj", "Trebišov": "Košický kraj", "Rožňava": "Košický kraj", "Gelnica": "Košický kraj", "Sobrance": "Košický kraj", "Moldava nad Bodvou": "Košický kraj",
+  },
+  CZ: {
+    "Praha": "Hlavní město Praha", "Brno": "Jihomoravský kraj", "Ostrava": "Moravskoslezský kraj", "Plzeň": "Plzeňský kraj",
+    "Liberec": "Liberecký kraj", "Olomouc": "Olomoucký kraj", "České Budějovice": "Jihočeský kraj", "Hradec Králové": "Královéhradecký kraj",
+    "Ústí nad Labem": "Ústecký kraj", "Pardubice": "Pardubický kraj", "Zlín": "Zlínský kraj", "Jihlava": "Kraj Vysočina",
+    "Karlovy Vary": "Karlovarský kraj", "Kladno": "Středočeský kraj",
+  },
+  HU: {
+    "Budapest": "Budapest", "Debrecen": "Hajdú-Bihar megye", "Szeged": "Csongrád-Csanád megye", "Miskolc": "Borsod-Abaúj-Zemplén megye",
+    "Pécs": "Baranya megye", "Győr": "Győr-Moson-Sopron megye", "Nyíregyháza": "Szabolcs-Szatmár-Bereg megye",
+  },
+};
+
+function getAutoRegion(countryCode: string, city: string): string | null {
+  if (!countryCode || !city) return null;
+  const countryMap = REGION_MAP[countryCode];
+  if (!countryMap) return null;
+  const trimmed = city.trim();
+  if (countryMap[trimmed]) return countryMap[trimmed];
+  const lower = trimmed.toLowerCase();
+  for (const [key, region] of Object.entries(countryMap)) {
+    if (key.toLowerCase() === lower) return region;
+    if (lower.startsWith(key.toLowerCase())) return region;
+  }
+  return null;
+}
+
 function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: HospitalType; onClose: () => void; onSuccess: () => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -218,11 +255,13 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
   });
 
   const handleSubmit = () => {
-    if (!formData.name || !formData.countryCode) {
+    if (!(formData.fullName || formData.name) || !formData.countryCode) {
       toast({ title: t.errors.required, variant: "destructive" });
       return;
     }
-    saveMutation.mutate(formData);
+    const data = { ...formData };
+    if (!data.name) data.name = data.fullName;
+    saveMutation.mutate(data);
   };
 
   const handleGetCurrentLocation = () => {
@@ -243,11 +282,9 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
   };
 
   const mpnT = (t as any).medicalPartnerNetwork || {};
+  const [showLaboratory, setShowLaboratory] = useState(false);
   const sections = [
     { id: "basic", label: t.clinics.steps.basic, icon: Building2 },
-    { id: "address", label: t.clinics.steps.address, icon: MapPin },
-    { id: "contacts", label: t.clinics.steps.web, icon: FileText },
-    { id: "settings", label: t.clinics.steps.settings, icon: Settings },
     { id: "personnel", label: mpnT.personnel || "Personnel", icon: Users },
     { id: "campaigns", label: "Kampane", icon: Target },
   ];
@@ -305,135 +342,146 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
 
           <div className="flex-1 overflow-y-auto p-5">
             {activeSection === "basic" && (
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="ed-name">{t.hospitals.name} *</Label>
-                    <Input id="ed-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.hospitals.name} data-testid="input-ed-hospital-name" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ed-fullName">{t.hospitals.fullName}</Label>
-                    <Input id="ed-fullName" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-ed-hospital-fullname" />
-                  </div>
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="ed-fullName">{t.hospitals.fullName} *</Label>
+                  <Input id="ed-fullName" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-ed-hospital-fullname" />
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
+                    <Label htmlFor="ed-name">{t.hospitals.name}</Label>
+                    <Input id="ed-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.hospitals.name} data-testid="input-ed-hospital-name" />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="ed-country">{t.common.country} *</Label>
-                    <Select value={formData.countryCode} onValueChange={(value) => setFormData({ ...formData, countryCode: value, laboratoryId: "" })}>
+                    <Select value={formData.countryCode} onValueChange={(value) => {
+                      const newRegion = getAutoRegion(value, formData.city);
+                      setFormData({ ...formData, countryCode: value, laboratoryId: "", region: newRegion || formData.region });
+                    }}>
                       <SelectTrigger data-testid="select-ed-hospital-country"><SelectValue placeholder={t.common.country} /></SelectTrigger>
                       <SelectContent>
                         {COUNTRIES.map((country) => (<SelectItem key={country.code} value={country.code}>{getCountryFlag(country.code)} {country.name}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ed-laboratory">{t.hospitals.laboratory}</Label>
-                    <Select value={formData.laboratoryId || "_none"} onValueChange={(value) => setFormData({ ...formData, laboratoryId: value === "_none" ? "" : value })}>
-                      <SelectTrigger data-testid="select-ed-hospital-laboratory"><SelectValue placeholder={t.hospitals.laboratory} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none">{t.common.noData}</SelectItem>
-                        {filteredLaboratories.map((lab) => (<SelectItem key={lab.id} value={lab.id}>{lab.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
-              </div>
-            )}
 
-            {activeSection === "address" && (
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label>{t.hospitals.streetNumber}</Label>
-                    <Input value={formData.streetNumber} onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })} data-testid="input-ed-hospital-street" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t.hospitals.city}</Label>
-                    <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} data-testid="input-ed-hospital-city" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t.hospitals.postalCode}</Label>
-                    <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} data-testid="input-ed-hospital-postalcode" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t.hospitals.region}</Label>
-                  <Input value={formData.region} onChange={(e) => setFormData({ ...formData, region: e.target.value })} data-testid="input-ed-hospital-region" />
-                </div>
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <Label className="text-base font-medium">{t.clinics.gpsCoordinates}</Label>
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={handleGetCurrentLocation} disabled={isLoadingLocation} data-testid="button-ed-get-location">
-                        <Navigation className={`h-4 w-4 mr-2 ${isLoadingLocation ? 'animate-spin' : ''}`} />
-                        {isLoadingLocation ? t.common.loading : t.clinics.getCurrentLocation}
-                      </Button>
-                      {formData.latitude && formData.longitude && (
-                        <Button type="button" variant="outline" size="sm" onClick={() => setShowMapDialog(true)} data-testid="button-ed-show-on-map">
-                          <ExternalLink className="h-4 w-4 mr-2" />{t.clinics.showOnMap}
-                        </Button>
-                      )}
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><MapPin className="h-3.5 w-3.5" /> {t.clinics.steps.address}</h3>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label>{t.hospitals.streetNumber}</Label>
+                      <Input value={formData.streetNumber} onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })} data-testid="input-ed-hospital-street" />
                     </div>
+                    <div className="space-y-2">
+                      <Label>{t.hospitals.city}</Label>
+                      <Input value={formData.city} onChange={(e) => {
+                        const newCity = e.target.value;
+                        const newRegion = getAutoRegion(formData.countryCode, newCity);
+                        setFormData({ ...formData, city: newCity, region: newRegion || formData.region });
+                      }} data-testid="input-ed-hospital-city" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.hospitals.postalCode}</Label>
+                      <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} data-testid="input-ed-hospital-postalcode" />
+                    </div>
+                  </div>
+                  <div className="space-y-2 mt-3">
+                    <Label>{t.hospitals.region}</Label>
+                    <Input value={formData.region} onChange={(e) => setFormData({ ...formData, region: e.target.value })} data-testid="input-ed-hospital-region" />
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-sm font-medium">{t.clinics.gpsCoordinates}</Label>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={handleGetCurrentLocation} disabled={isLoadingLocation} data-testid="button-ed-get-location">
+                          <Navigation className={`h-4 w-4 mr-2 ${isLoadingLocation ? 'animate-spin' : ''}`} />
+                          {isLoadingLocation ? t.common.loading : t.clinics.getCurrentLocation}
+                        </Button>
+                        {formData.latitude && formData.longitude && (
+                          <Button type="button" variant="outline" size="sm" onClick={() => setShowMapDialog(true)} data-testid="button-ed-show-on-map">
+                            <ExternalLink className="h-4 w-4 mr-2" />{t.clinics.showOnMap}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>{t.clinics.latitude}</Label>
+                        <Input type="number" step="0.0000001" value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} placeholder="48.7164" data-testid="input-ed-hospital-latitude" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t.clinics.longitude}</Label>
+                        <Input type="number" step="0.0000001" value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="21.2611" data-testid="input-ed-hospital-longitude" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><FileText className="h-3.5 w-3.5" /> {t.clinics.steps.web}</h3>
+                  <div className="space-y-2 mb-3">
+                    <Label>{t.hospitals.contactPerson}</Label>
+                    <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} data-testid="input-ed-hospital-contact" />
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>{t.clinics.latitude}</Label>
-                      <Input type="number" step="0.0000001" value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} placeholder="48.7164" data-testid="input-ed-hospital-latitude" />
+                      <Label>{t.hospitals.representative}</Label>
+                      <Select value={formData.representativeId || "_none"} onValueChange={(value) => setFormData({ ...formData, representativeId: value === "_none" ? "" : value })}>
+                        <SelectTrigger data-testid="select-ed-hospital-representative"><SelectValue placeholder={t.hospitals.representative} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">{t.common.noData}</SelectItem>
+                          {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>{t.clinics.longitude}</Label>
-                      <Input type="number" step="0.0000001" value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="21.2611" data-testid="input-ed-hospital-longitude" />
+                      <Label>{t.hospitals.responsiblePerson}</Label>
+                      <Select value={formData.responsiblePersonId || "_none"} onValueChange={(value) => setFormData({ ...formData, responsiblePersonId: value === "_none" ? "" : value })}>
+                        <SelectTrigger data-testid="select-ed-hospital-responsible"><SelectValue placeholder={t.hospitals.responsiblePerson} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">{t.common.noData}</SelectItem>
+                          {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {activeSection === "contacts" && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>{t.hospitals.contactPerson}</Label>
-                  <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} data-testid="input-ed-hospital-contact" />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>{t.hospitals.representative}</Label>
-                    <Select value={formData.representativeId || "_none"} onValueChange={(value) => setFormData({ ...formData, representativeId: value === "_none" ? "" : value })}>
-                      <SelectTrigger data-testid="select-ed-hospital-representative"><SelectValue placeholder={t.hospitals.representative} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none">{t.common.noData}</SelectItem>
-                        {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t.hospitals.responsiblePerson}</Label>
-                    <Select value={formData.responsiblePersonId || "_none"} onValueChange={(value) => setFormData({ ...formData, responsiblePersonId: value === "_none" ? "" : value })}>
-                      <SelectTrigger data-testid="select-ed-hospital-responsible"><SelectValue placeholder={t.hospitals.responsiblePerson} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none">{t.common.noData}</SelectItem>
-                        {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><Settings className="h-3.5 w-3.5" /> {t.clinics.steps.settings}</h3>
+                  <div className="flex flex-wrap gap-6">
+                    <div className="flex items-center space-x-2">
+                      <Switch id="ed-isActive" checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-ed-hospital-active" />
+                      <Label htmlFor="ed-isActive">{t.common.active}</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch id="ed-svetZdravia" checked={formData.svetZdravia} onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })} data-testid="switch-ed-hospital-svetzdravia" />
+                      <Label htmlFor="ed-svetZdravia">{t.hospitals.svetZdravia}</Label>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {activeSection === "settings" && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch id="ed-isActive" checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-ed-hospital-active" />
-                  <Label htmlFor="ed-isActive">{t.common.active}</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="ed-autoRecruiting" checked={formData.autoRecruiting} onCheckedChange={(checked) => setFormData({ ...formData, autoRecruiting: checked })} data-testid="switch-ed-hospital-autorecruiting" />
-                  <Label htmlFor="ed-autoRecruiting">{t.hospitals.autoRecruiting}</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="ed-svetZdravia" checked={formData.svetZdravia} onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })} data-testid="switch-ed-hospital-svetzdravia" />
-                  <Label htmlFor="ed-svetZdravia">{t.hospitals.svetZdravia}</Label>
-                </div>
+                {showLaboratory ? (
+                  <div className="border-t pt-4">
+                    <div className="space-y-2">
+                      <Label>{t.hospitals.laboratory}</Label>
+                      <Select value={formData.laboratoryId || "_none"} onValueChange={(value) => setFormData({ ...formData, laboratoryId: value === "_none" ? "" : value })}>
+                        <SelectTrigger data-testid="select-ed-hospital-laboratory"><SelectValue placeholder={t.hospitals.laboratory} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">{t.common.noData}</SelectItem>
+                          {filteredLaboratories.map((lab) => (<SelectItem key={lab.id} value={lab.id}>{lab.name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-t pt-3">
+                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => setShowLaboratory(true)} data-testid="button-show-laboratory">
+                      <Database className="h-3 w-3 mr-1.5" /> {t.hospitals.laboratory}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -505,11 +553,13 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
   });
 
   const handleSubmit = () => {
-    if (!formData.name || !formData.countryCode) {
+    if (!(formData.fullName || formData.name) || !formData.countryCode) {
       toast({ title: t.errors.required, variant: "destructive" });
       return;
     }
-    saveMutation.mutate(formData);
+    const data = { ...formData };
+    if (!data.name) data.name = data.fullName;
+    saveMutation.mutate(data);
   };
 
   const handleGetCurrentLocation = () => {
@@ -1760,12 +1810,12 @@ export default function HospitalsPage() {
   const columns = [
     {
       key: "name",
-      header: <HospitalSortableHeader field="name" label={t.hospitals.name} />,
+      header: <HospitalSortableHeader field="name" label={t.hospitals.fullName || "Full Name"} />,
       cell: (hospital: HospitalType) => {
         const pCount = personnelCounts[`hospital:${hospital.id}`] || 0;
         return (
           <div className="flex items-center gap-2">
-            <span className="font-medium">{hospital.name}</span>
+            <span className="font-medium">{hospital.fullName || hospital.name}</span>
             {pCount > 0 && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800" data-testid={`badge-personnel-hospital-${hospital.id}`}>
                 <Users className="h-2.5 w-2.5" />
@@ -1797,11 +1847,6 @@ export default function HospitalsPage() {
       key: "city",
       header: <HospitalSortableHeader field="city" label={t.hospitals.city} />,
       cell: (hospital: HospitalType) => hospital.city || "-",
-    },
-    {
-      key: "laboratory",
-      header: t.hospitals.laboratory,
-      cell: (hospital: HospitalType) => getLabName(hospital.laboratoryId),
     },
     {
       key: "representative",

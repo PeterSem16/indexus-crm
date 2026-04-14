@@ -102,9 +102,6 @@ export function InstitutionPersonnelPanel({
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [collabSearch, setCollabSearch] = useState("");
   const [selectedCollabId, setSelectedCollabId] = useState("");
-  const [assignDepartment, setAssignDepartment] = useState("");
-  const [assignPosition, setAssignPosition] = useState("");
-  const [assignRole, setAssignRole] = useState("");
   const [assignCategoryId, setAssignCategoryId] = useState("");
   const [assignIsPrimary, setAssignIsPrimary] = useState(false);
 
@@ -161,20 +158,19 @@ export function InstitutionPersonnelPanel({
     setShowAssignForm(false);
     setCollabSearch("");
     setSelectedCollabId("");
-    setAssignDepartment("");
-    setAssignPosition("");
-    setAssignRole("");
     setAssignCategoryId("");
     setAssignIsPrimary(false);
   }
 
   function handleAssign() {
     if (!selectedCollabId) return;
+    const cat = (categoriesQuery.data || []).find((c: any) => c.id === assignCategoryId);
+    const position = cat ? getLocalizedCategoryName(cat, locale) : null;
     assignMutation.mutate({
       personId: selectedCollabId,
-      department: assignDepartment || null,
-      position: assignPosition || null,
-      role: assignRole || null,
+      department: "Gynekologické oddelenie",
+      position: position,
+      role: null,
       categoryId: assignCategoryId || null,
       isPrimary: assignIsPrimary,
     });
@@ -278,26 +274,11 @@ export function InstitutionPersonnelPanel({
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label className="text-xs">{mpnT.department || "Department"}</Label>
-                    <Input className="h-8 mt-1" value={assignDepartment} onChange={e => setAssignDepartment(e.target.value)} data-testid="input-department" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">{mpnT.position || "Position"}</Label>
-                    <Input className="h-8 mt-1" value={assignPosition} onChange={e => setAssignPosition(e.target.value)} data-testid="input-position" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">{mpnT.role || "Role"}</Label>
-                    <Input className="h-8 mt-1" value={assignRole} onChange={e => setAssignRole(e.target.value)} data-testid="input-role" />
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs">{mpnT.category || "Category"}</Label>
+                    <Label className="text-xs">{mpnT.position || "Position"}</Label>
                     <Select value={assignCategoryId} onValueChange={setAssignCategoryId}>
-                      <SelectTrigger className="h-8 mt-1" data-testid="select-category">
+                      <SelectTrigger className="h-8 mt-1" data-testid="select-position">
                         <SelectValue placeholder="-" />
                       </SelectTrigger>
                       <SelectContent>
@@ -443,9 +424,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [collabSearch, setCollabSearch] = useState("");
   const [selectedCollabId, setSelectedCollabId] = useState("");
-  const [assignDepartment, setAssignDepartment] = useState("");
-  const [assignPosition, setAssignPosition] = useState("");
-  const [assignRole, setAssignRole] = useState("");
   const [assignCategoryId, setAssignCategoryId] = useState("");
   const [assignIsPrimary, setAssignIsPrimary] = useState(false);
   const [assignNotes, setAssignNotes] = useState("");
@@ -533,21 +511,24 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
     setShowAssignForm(false);
     setCollabSearch("");
     setSelectedCollabId("");
-    setAssignDepartment("");
-    setAssignPosition("");
-    setAssignRole("");
     setAssignCategoryId("");
     setAssignIsPrimary(false);
     setAssignNotes("");
   }
 
+  function getCategoryPosition(catId: string): string {
+    const cat = (categoriesQuery.data || []).find((c: any) => c.id === catId);
+    return cat ? getLocalizedCategoryName(cat, locale) : "";
+  }
+
   function handleAssign() {
     if (!selectedCollabId) return;
+    const position = getCategoryPosition(assignCategoryId);
     assignMutation.mutate({
       personId: selectedCollabId,
-      department: assignDepartment || null,
-      position: assignPosition || null,
-      role: assignRole || null,
+      department: "Gynekologické oddelenie",
+      position: position || null,
+      role: null,
       categoryId: assignCategoryId || null,
       isPrimary: assignIsPrimary,
       notes: assignNotes || null,
@@ -576,7 +557,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
     if (!p.assignment_id && p.person_id) {
       convertLegacyMutation.mutate({
         personId: p.person_id,
-        department: null,
+        department: "Gynekologické oddelenie",
         position: null,
         role: null,
         categoryId: null,
@@ -587,9 +568,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
     }
     setEditingId(p.assignment_id);
     setEditData({
-      department: p.department || "",
-      position: p.position || "",
-      role: p.role || "",
       categoryId: p.category_id || "",
       isPrimary: !!p.is_primary,
       notes: p.notes || "",
@@ -598,12 +576,13 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
 
   function saveEdit() {
     if (!editingId || editingId.length === 0) return;
+    const position = getCategoryPosition(editData.categoryId);
     updateMutation.mutate({
       assignmentId: editingId,
       data: {
-        department: editData.department || null,
-        position: editData.position || null,
-        role: editData.role || null,
+        department: "Gynekologické oddelenie",
+        position: position || null,
+        role: null,
         categoryId: editData.categoryId && editData.categoryId !== "_none" ? editData.categoryId : null,
         isPrimary: editData.isPrimary,
         notes: editData.notes || null,
@@ -669,26 +648,11 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
             {selectedCollabId && <Badge variant="secondary" className="mt-1">{collabSearch}</Badge>}
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label className="text-xs">{mpnT.department || "Department"}</Label>
-              <Input className="h-8 mt-1" value={assignDepartment} onChange={e => setAssignDepartment(e.target.value)} data-testid="input-assign-department" />
-            </div>
-            <div>
-              <Label className="text-xs">{mpnT.position || "Position"}</Label>
-              <Input className="h-8 mt-1" value={assignPosition} onChange={e => setAssignPosition(e.target.value)} data-testid="input-assign-position" />
-            </div>
-            <div>
-              <Label className="text-xs">{mpnT.role || "Role"}</Label>
-              <Input className="h-8 mt-1" value={assignRole} onChange={e => setAssignRole(e.target.value)} data-testid="input-assign-role" />
-            </div>
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">{mpnT.category || "Category"}</Label>
+              <Label className="text-xs">{mpnT.position || "Position"}</Label>
               <Select value={assignCategoryId} onValueChange={setAssignCategoryId}>
-                <SelectTrigger className="h-8 mt-1" data-testid="select-assign-category"><SelectValue placeholder="-" /></SelectTrigger>
+                <SelectTrigger className="h-8 mt-1" data-testid="select-assign-position"><SelectValue placeholder="-" /></SelectTrigger>
                 <SelectContent>
                   {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}>{getLocalizedCategoryName(cat, locale)}</SelectItem>))}
                 </SelectContent>
@@ -786,25 +750,11 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
                     </Button>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label className="text-xs">{mpnT.department || "Department"}</Label>
-                    <Input className="h-8 mt-1" value={editData.department} onChange={e => setEditData({ ...editData, department: e.target.value })} data-testid="input-edit-department" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">{mpnT.position || "Position"}</Label>
-                    <Input className="h-8 mt-1" value={editData.position} onChange={e => setEditData({ ...editData, position: e.target.value })} data-testid="input-edit-position" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">{mpnT.role || "Role"}</Label>
-                    <Input className="h-8 mt-1" value={editData.role} onChange={e => setEditData({ ...editData, role: e.target.value })} data-testid="input-edit-role" />
-                  </div>
-                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs">{mpnT.category || "Category"}</Label>
+                    <Label className="text-xs">{mpnT.position || "Position"}</Label>
                     <Select value={editData.categoryId} onValueChange={v => setEditData({ ...editData, categoryId: v })}>
-                      <SelectTrigger className="h-8 mt-1" data-testid="select-edit-category"><SelectValue placeholder="-" /></SelectTrigger>
+                      <SelectTrigger className="h-8 mt-1" data-testid="select-edit-position"><SelectValue placeholder="-" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="_none">-</SelectItem>
                         {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}>{getLocalizedCategoryName(cat, locale)}</SelectItem>))}
