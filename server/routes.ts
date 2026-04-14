@@ -43474,7 +43474,9 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
   app.post("/api/status-definitions/seed", requireAuth, async (req, res) => {
     try {
       if (!requireAdminForStatus(req, res)) return;
+      console.log("[StatusSeed] Starting seed...");
       const { SEED_CATEGORIES, SEED_STATUSES } = await import("./seed-statuses");
+      console.log(`[StatusSeed] Loaded ${SEED_CATEGORIES.length} categories, ${SEED_STATUSES.length} statuses from config`);
       
       const existingCategories = await storage.getAllStatusCategories();
       const existingCatCodes = new Set(existingCategories.map((c: any) => c.code));
@@ -43546,7 +43548,9 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
         }
       }
 
-      res.json({ message: `Seeded ${catCount} new categories and ${statusCount} new statuses (${existingCategories.length} categories and ${existingStatuses.length} statuses already existed)` });
+      const msg = `Seeded ${catCount} new categories and ${statusCount} new statuses (${existingCategories.length} categories and ${existingStatuses.length} statuses already existed)`;
+      console.log(`[StatusSeed] ${msg}`);
+      res.json({ message: msg });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

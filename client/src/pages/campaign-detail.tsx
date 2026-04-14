@@ -274,6 +274,7 @@ const ICON_PICKER_SET: { name: string; icon: LucideIcon }[] = [
   { name: "PhoneCall", icon: PhoneCall }, { name: "BookMarked", icon: BookMarked },
   { name: "Newspaper", icon: Newspaper }, { name: "Image", icon: Image },
   { name: "FileSignature", icon: FileSignature }, { name: "CalendarCheck", icon: CalendarCheck },
+  { name: "FileX", icon: FileX }, { name: "FileQuestion", icon: FileQuestion },
 ];
 
 const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
