@@ -19,6 +19,7 @@ import {
   FolderOpen, Wifi, WifiOff, Smartphone, ShieldAlert, ShieldCheck, Handshake, Hourglass,
   ClipboardCheck, PhoneForwarded, FileQuestion, FileWarning, FileX, MailPlus, MailCheck, MailWarning, MailX,
   MinusCircle, Slash, FolderClosed, TrendingUp, CalendarClock, MessageCircle,
+  UserPlus, UserMinus, PhoneCall, BookMarked, Newspaper, Image, FileSignature, CalendarCheck,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -269,6 +270,10 @@ const ICON_PICKER_SET: { name: string; icon: LucideIcon }[] = [
   { name: "Wand2", icon: Wand2 }, { name: "Smartphone", icon: Smartphone },
   { name: "Volume2", icon: Volume2 }, { name: "VolumeX", icon: VolumeX },
   { name: "CircleDot", icon: CircleDot }, { name: "FolderOpen", icon: FolderOpen },
+  { name: "UserPlus", icon: UserPlus }, { name: "UserMinus", icon: UserMinus },
+  { name: "PhoneCall", icon: PhoneCall }, { name: "BookMarked", icon: BookMarked },
+  { name: "Newspaper", icon: Newspaper }, { name: "Image", icon: Image },
+  { name: "FileSignature", icon: FileSignature }, { name: "CalendarCheck", icon: CalendarCheck },
 ];
 
 const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
@@ -1641,6 +1646,15 @@ const PULSE_STATUS_COLORS: Record<string, string> = {
   emerald: "bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700",
   red: "bg-red-50 hover:bg-red-100 border-red-200 text-red-700",
   yellow: "bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700",
+  indigo: "bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700",
+  sky: "bg-sky-50 hover:bg-sky-100 border-sky-200 text-sky-700",
+  amber: "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-700",
+  lime: "bg-lime-50 hover:bg-lime-100 border-lime-200 text-lime-700",
+  violet: "bg-violet-50 hover:bg-violet-100 border-violet-200 text-violet-700",
+  rose: "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-700",
+  pink: "bg-pink-50 hover:bg-pink-100 border-pink-200 text-pink-700",
+  fuchsia: "bg-fuchsia-50 hover:bg-fuchsia-100 border-fuchsia-200 text-fuchsia-700",
+  slate: "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700",
 };
 
 function getStatusIcon(iconName: string | null | undefined): LucideIcon | null {
@@ -1659,6 +1673,15 @@ const PULSE_CATEGORY_COLORS: Record<string, { bg: string; border: string; icon: 
   emerald: { bg: "bg-emerald-50", border: "border-emerald-200", icon: "text-emerald-500", hoverBg: "hover:bg-emerald-100" },
   red: { bg: "bg-rose-50", border: "border-rose-200", icon: "text-rose-500", hoverBg: "hover:bg-rose-100" },
   yellow: { bg: "bg-amber-50", border: "border-amber-200", icon: "text-amber-500", hoverBg: "hover:bg-amber-100" },
+  indigo: { bg: "bg-indigo-50", border: "border-indigo-200", icon: "text-indigo-500", hoverBg: "hover:bg-indigo-100" },
+  sky: { bg: "bg-sky-50", border: "border-sky-200", icon: "text-sky-500", hoverBg: "hover:bg-sky-100" },
+  amber: { bg: "bg-amber-50", border: "border-amber-200", icon: "text-amber-500", hoverBg: "hover:bg-amber-100" },
+  lime: { bg: "bg-lime-50", border: "border-lime-200", icon: "text-lime-600", hoverBg: "hover:bg-lime-100" },
+  violet: { bg: "bg-violet-50", border: "border-violet-200", icon: "text-violet-500", hoverBg: "hover:bg-violet-100" },
+  rose: { bg: "bg-rose-50", border: "border-rose-200", icon: "text-rose-500", hoverBg: "hover:bg-rose-100" },
+  pink: { bg: "bg-pink-50", border: "border-pink-200", icon: "text-pink-500", hoverBg: "hover:bg-pink-100" },
+  fuchsia: { bg: "bg-fuchsia-50", border: "border-fuchsia-200", icon: "text-fuchsia-500", hoverBg: "hover:bg-fuchsia-100" },
+  slate: { bg: "bg-slate-50", border: "border-slate-200", icon: "text-slate-500", hoverBg: "hover:bg-slate-100" },
 };
 
 function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
@@ -1675,8 +1698,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const [deleteTarget, setDeleteTarget] = useState<{ type: "category" | "status"; id: string; name: string } | null>(null);
 
   const [pulseCategory, setPulseCategory] = useState<string>("all");
-  const [pulseStatus, setPulseStatus] = useState<any | null>(null);
-  const [pulseSubStatus, setPulseSubStatus] = useState<any | null>(null);
+  const [pulseStack, setPulseStack] = useState<any[]>([]);
   const [pulseReschedule, setPulseReschedule] = useState<string | null>(null);
   const [pulseCallbackDate, setPulseCallbackDate] = useState("");
   const [pulseCallbackTime, setPulseCallbackTime] = useState("09:00");
@@ -1831,8 +1853,9 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     return map;
   }, [assignedStatuses]);
 
-  const pulseActiveStatus = pulseSubStatus || pulseStatus;
-  const pulseHasChildren = pulseStatus ? (childMap[pulseStatus.id] || []).length > 0 : false;
+  const pulseCurrentStatus = pulseStack.length > 0 ? pulseStack[pulseStack.length - 1] : null;
+  const pulseActiveStatus = pulseCurrentStatus;
+  const pulseHasChildren = pulseCurrentStatus ? (childMap[pulseCurrentStatus.id] || []).length > 0 : false;
 
   const pulseStatusesByCat = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -2179,7 +2202,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                 </div>
               </div>
 
-              {!pulseStatus ? (
+              {pulseStack.length === 0 ? (
                 <>
                   <div className="space-y-2">
                     {pulseVisibleCategories.map((cat: any) => {
@@ -2214,7 +2237,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                                   const children = childMap[status.id] || [];
                                   const StatusIcon = getStatusIcon(status.icon);
                                   return (
-                                    <button key={status.id} className={`p-3 rounded-lg border text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => { setPulseStatus(status); setPulseSubStatus(null); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }} data-testid={`pulse-status-${status.id}`}>
+                                    <button key={status.id} className={`p-3 rounded-lg border text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => { setPulseStack([status]); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }} data-testid={`pulse-status-${status.id}`}>
                                       <div className="flex items-center gap-1.5">
                                         {StatusIcon && <StatusIcon className="h-3.5 w-3.5 opacity-60" />}
                                         <div className="font-semibold text-sm truncate">{status.name}</div>
@@ -2251,35 +2274,53 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                 </>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button variant="ghost" size="sm" onClick={() => {
-                      if (pulseSubStatus) setPulseSubStatus(null);
-                      else { setPulseStatus(null); setPulseNotes(""); setPulseCallbackDate(""); setPulseReschedule(null); }
+                      if (pulseStack.length > 1) {
+                        setPulseStack(prev => prev.slice(0, -1));
+                      } else {
+                        setPulseStack([]); setPulseNotes(""); setPulseCallbackDate(""); setPulseReschedule(null);
+                      }
                     }}>
                       <ArrowLeft className="h-4 w-4 mr-1" /> Späť
                     </Button>
-                    <h3 className="font-semibold text-lg">
-                      {pulseSubStatus ? <>{pulseStatus.name} <span className="text-muted-foreground mx-1">→</span> {pulseSubStatus.name}</> : pulseStatus.name}
-                    </h3>
-                    <Badge className={`${STATUS_ACTION_COLORS[(pulseActiveStatus || pulseStatus).defaultAction] || ""}`}>
-                      {STATUS_ACTION_LABELS[(pulseActiveStatus || pulseStatus).defaultAction]}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {pulseStack.map((item: any, idx: number) => (
+                        <span key={item.id} className="flex items-center gap-1">
+                          {idx > 0 && <span className="text-muted-foreground mx-0.5">→</span>}
+                          <button
+                            className={`text-sm font-semibold ${idx === pulseStack.length - 1 ? "text-slate-900" : "text-indigo-600 hover:underline cursor-pointer"}`}
+                            onClick={() => { if (idx < pulseStack.length - 1) setPulseStack(prev => prev.slice(0, idx + 1)); }}
+                            data-testid={`pulse-breadcrumb-${idx}`}
+                          >
+                            {item.name}
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <Badge className={`${STATUS_ACTION_COLORS[pulseCurrentStatus.defaultAction] || ""}`}>
+                      {STATUS_ACTION_LABELS[pulseCurrentStatus.defaultAction]}
                     </Badge>
                   </div>
 
-                  {pulseHasChildren && !pulseSubStatus && (
+                  {pulseHasChildren && (
                     <Card className="p-4">
-                      <h4 className="font-medium mb-3">{t.statusEngine?.selectSubstatus || "Vyberte podstatus"}</h4>
+                      <h4 className="font-medium mb-3">{t.statusEngine?.selectSubstatus || "Vyberte podstatus"} <span className="text-xs text-muted-foreground ml-1">(úroveň {pulseStack.length + 1})</span></h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {(childMap[pulseStatus.id] || []).map((sub: any) => {
-                          const colorClass = PULSE_STATUS_COLORS[sub.color || pulseStatus.color || "gray"] || PULSE_STATUS_COLORS.gray;
+                        {(childMap[pulseCurrentStatus.id] || []).map((sub: any) => {
+                          const colorClass = PULSE_STATUS_COLORS[sub.color || pulseCurrentStatus.color || "gray"] || PULSE_STATUS_COLORS.gray;
                           const SubIcon = getStatusIcon(sub.icon);
+                          const subChildren = childMap[sub.id] || [];
                           return (
-                            <button key={sub.id} className={`p-3 rounded-lg border text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => setPulseSubStatus(sub)} data-testid={`pulse-substatus-${sub.id}`}>
+                            <button key={sub.id} className={`p-3 rounded-lg border text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => setPulseStack(prev => [...prev, sub])} data-testid={`pulse-substatus-${sub.id}`}>
                               <div className="flex items-center gap-1.5">
                                 {SubIcon && <SubIcon className="h-3.5 w-3.5 opacity-60" />}
                                 <div className="font-semibold text-sm">{sub.name}</div>
                               </div>
-                              <div className="text-xs opacity-70">{STATUS_ACTION_LABELS[sub.defaultAction] || sub.defaultAction}</div>
+                              <div className="text-xs opacity-70 flex items-center gap-1">
+                                {STATUS_ACTION_LABELS[sub.defaultAction] || sub.defaultAction}
+                                {subChildren.length > 0 && <span className="text-indigo-500 font-medium">→ {subChildren.length}</span>}
+                              </div>
                             </button>
                           );
                         })}
@@ -2287,61 +2328,82 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                     </Card>
                   )}
 
-                  {(!pulseHasChildren || pulseSubStatus) && (
+                  {!pulseHasChildren && (
                     <>
                       <Card className="p-4 space-y-4">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                           <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                             <span className="text-muted-foreground">Finálny:</span>
-                            <Badge variant={(pulseActiveStatus || pulseStatus).isFinal ? "destructive" : "secondary"}>
-                              {(pulseActiveStatus || pulseStatus).isFinal ? "Áno" : "Nie"}
+                            <Badge variant={pulseActiveStatus.isFinal ? "destructive" : "secondary"}>
+                              {pulseActiveStatus.isFinal ? "Áno" : "Nie"}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                             <span className="text-muted-foreground">Konverzia:</span>
-                            <Badge variant={(pulseActiveStatus || pulseStatus).isConversion ? "default" : "secondary"} className={(pulseActiveStatus || pulseStatus).isConversion ? "bg-green-600" : ""}>
-                              {(pulseActiveStatus || pulseStatus).isConversion ? "Áno" : "Nie"}
+                            <Badge variant={pulseActiveStatus.isConversion ? "default" : "secondary"} className={pulseActiveStatus.isConversion ? "bg-green-600" : ""}>
+                              {pulseActiveStatus.isConversion ? "Áno" : "Nie"}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                             <span className="text-muted-foreground">Kód:</span>
-                            <code className="text-xs bg-muted px-1 rounded">{(pulseActiveStatus || pulseStatus).code}</code>
+                            <code className="text-xs bg-muted px-1 rounded">{pulseActiveStatus.code}</code>
                           </div>
                           <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                             <span className="text-muted-foreground">Akcia:</span>
-                            <Badge className={`${STATUS_ACTION_COLORS[(pulseActiveStatus || pulseStatus).defaultAction] || ""} text-xs`}>
-                              {STATUS_ACTION_LABELS[(pulseActiveStatus || pulseStatus).defaultAction]}
+                            <Badge className={`${STATUS_ACTION_COLORS[pulseActiveStatus.defaultAction] || ""} text-xs`}>
+                              {STATUS_ACTION_LABELS[pulseActiveStatus.defaultAction]}
                             </Badge>
                           </div>
                         </div>
 
+                        {pulseStack.length > 1 && (
+                          <>
+                            <Separator />
+                            <div className="bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
+                              <div className="text-xs font-medium text-indigo-700 mb-1">Cesta výberu:</div>
+                              <div className="flex items-center gap-1 flex-wrap text-sm">
+                                {pulseStack.map((item: any, idx: number) => {
+                                  const ItemIcon = getStatusIcon(item.icon);
+                                  return (
+                                    <span key={item.id} className="flex items-center gap-1">
+                                      {idx > 0 && <ChevronRight className="h-3 w-3 text-indigo-300" />}
+                                      {ItemIcon && <ItemIcon className="h-3 w-3 text-indigo-400" />}
+                                      <span className={idx === pulseStack.length - 1 ? "font-semibold text-indigo-800" : "text-indigo-600"}>{item.name}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </>
+                        )}
+
                         <Separator />
 
                         <div className="grid grid-cols-3 gap-3">
-                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${(pulseActiveStatus || pulseStatus).allowPhone ? "bg-blue-50 border-blue-200" : "bg-muted/30 border-transparent"}`}>
-                            <Phone className={`h-5 w-5 ${(pulseActiveStatus || pulseStatus).allowPhone ? "text-blue-500" : "text-muted-foreground"}`} />
+                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${pulseActiveStatus.allowPhone ? "bg-blue-50 border-blue-200" : "bg-muted/30 border-transparent"}`}>
+                            <Phone className={`h-5 w-5 ${pulseActiveStatus.allowPhone ? "text-blue-500" : "text-muted-foreground"}`} />
                             <div>
                               <div className="text-sm font-medium">Telefón</div>
-                              <div className="text-xs text-muted-foreground">{(pulseActiveStatus || pulseStatus).allowPhone ? "Povolený" : "Nepovolený"}</div>
+                              <div className="text-xs text-muted-foreground">{pulseActiveStatus.allowPhone ? "Povolený" : "Nepovolený"}</div>
                             </div>
                           </div>
-                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${(pulseActiveStatus || pulseStatus).allowEmail ? "bg-purple-50 border-purple-200" : "bg-muted/30 border-transparent"}`}>
-                            <Mail className={`h-5 w-5 ${(pulseActiveStatus || pulseStatus).allowEmail ? "text-purple-500" : "text-muted-foreground"}`} />
+                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${pulseActiveStatus.allowEmail ? "bg-purple-50 border-purple-200" : "bg-muted/30 border-transparent"}`}>
+                            <Mail className={`h-5 w-5 ${pulseActiveStatus.allowEmail ? "text-purple-500" : "text-muted-foreground"}`} />
                             <div>
                               <div className="text-sm font-medium">Email</div>
-                              <div className="text-xs text-muted-foreground">{(pulseActiveStatus || pulseStatus).allowEmail ? "Povolený" : "Nepovolený"}</div>
+                              <div className="text-xs text-muted-foreground">{pulseActiveStatus.allowEmail ? "Povolený" : "Nepovolený"}</div>
                             </div>
                           </div>
-                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${(pulseActiveStatus || pulseStatus).allowSms ? "bg-teal-50 border-teal-200" : "bg-muted/30 border-transparent"}`}>
-                            <MessageSquare className={`h-5 w-5 ${(pulseActiveStatus || pulseStatus).allowSms ? "text-teal-500" : "text-muted-foreground"}`} />
+                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${pulseActiveStatus.allowSms ? "bg-teal-50 border-teal-200" : "bg-muted/30 border-transparent"}`}>
+                            <MessageSquare className={`h-5 w-5 ${pulseActiveStatus.allowSms ? "text-teal-500" : "text-muted-foreground"}`} />
                             <div>
                               <div className="text-sm font-medium">SMS</div>
-                              <div className="text-xs text-muted-foreground">{(pulseActiveStatus || pulseStatus).allowSms ? "Povolený" : "Nepovolený"}</div>
+                              <div className="text-xs text-muted-foreground">{pulseActiveStatus.allowSms ? "Povolený" : "Nepovolený"}</div>
                             </div>
                           </div>
                         </div>
 
-                        {((pulseActiveStatus || pulseStatus).defaultAction === "reschedule" || (pulseActiveStatus || pulseStatus).defaultAction === "callback") && (pulseActiveStatus || pulseStatus).rescheduleOptions?.length > 0 && (
+                        {(pulseActiveStatus.defaultAction === "reschedule" || pulseActiveStatus.defaultAction === "callback") && pulseActiveStatus.rescheduleOptions?.length > 0 && (
                           <>
                             <Separator />
                             <div className="bg-sky-50 dark:bg-sky-950 p-4 rounded-lg border border-sky-200 dark:border-sky-800">
@@ -2350,7 +2412,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                                 Preplánovať hovor na:
                               </Label>
                               <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                                {((pulseActiveStatus || pulseStatus).rescheduleOptions || []).map((optValue: string) => {
+                                {(pulseActiveStatus.rescheduleOptions || []).map((optValue: string) => {
                                   const opt = RESCHEDULE_PERIOD_OPTIONS.find((o: any) => o.value === optValue);
                                   if (!opt) return null;
                                   const isSelected = pulseReschedule === optValue;
@@ -2366,7 +2428,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                           </>
                         )}
 
-                        {(pulseActiveStatus || pulseStatus).requiresCallback && !((pulseActiveStatus || pulseStatus).rescheduleOptions?.length > 0) && (
+                        {pulseActiveStatus.requiresCallback && !(pulseActiveStatus.rescheduleOptions?.length > 0) && (
                           <>
                             <Separator />
                             <div>
@@ -2379,7 +2441,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                           </>
                         )}
 
-                        {(pulseActiveStatus || pulseStatus).requiresNote && (
+                        {pulseActiveStatus.requiresNote && (
                           <>
                             <Separator />
                             <div>
@@ -2390,10 +2452,10 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                         )}
                       </Card>
                       <div className="flex gap-2 justify-end">
-                        <Button variant="outline" onClick={() => { setPulseStatus(null); setPulseSubStatus(null); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }}>Zrušiť</Button>
+                        <Button variant="outline" onClick={() => { setPulseStack([]); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }}>Zrušiť</Button>
                         <Button className="bg-green-600 hover:bg-green-700" disabled={
-                          ((pulseActiveStatus || pulseStatus).requiresNote && !pulseNotes.trim()) ||
-                          ((pulseActiveStatus || pulseStatus).requiresCallback && !pulseCallbackDate && !pulseReschedule)
+                          (pulseActiveStatus.requiresNote && !pulseNotes.trim()) ||
+                          (pulseActiveStatus.requiresCallback && !pulseCallbackDate && !pulseReschedule)
                         } data-testid="pulse-confirm">
                           <Check className="h-4 w-4 mr-1" /> Potvrdiť dispozíciu
                         </Button>

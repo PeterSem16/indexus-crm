@@ -3232,6 +3232,15 @@ export const STATUS_CATEGORY_CODES = [
   "declined",
   "completed",
   "invalid",
+  "hcp_assignment",
+  "hcp_contact",
+  "hcp_qualification",
+  "hcp_willingness",
+  "hcp_contract",
+  "hcp_info_materials",
+  "hcp_leaflets",
+  "hcp_pregnancy_books",
+  "hcp_poster",
 ] as const;
 export type StatusCategoryCode = typeof STATUS_CATEGORY_CODES[number];
 

@@ -43495,10 +43495,13 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
       }
 
       let statusCount = 0;
+      const codeToId: Record<string, string> = {};
+      const parentFixups: { id: string; parentCode: string }[] = [];
+
       for (const status of SEED_STATUSES) {
         const categoryId = categoryMap[status.categoryCode];
         if (!categoryId) continue;
-        await storage.createStatusDefinition({
+        const created = await storage.createStatusDefinition({
           categoryId,
           name: status.name,
           code: status.code,
@@ -43519,7 +43522,18 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
           isActive: true,
           visibleInCampaigns: status.visibleInCampaigns,
         });
+        codeToId[status.code] = created.id;
+        if ((status as any).parentCode) {
+          parentFixups.push({ id: created.id, parentCode: (status as any).parentCode });
+        }
         statusCount++;
+      }
+
+      for (const fix of parentFixups) {
+        const parentId = codeToId[fix.parentCode];
+        if (parentId) {
+          await storage.updateStatusDefinition(fix.id, { parentId });
+        }
       }
 
       res.json({ message: `Seeded ${Object.keys(categoryMap).length} categories and ${statusCount} statuses` });

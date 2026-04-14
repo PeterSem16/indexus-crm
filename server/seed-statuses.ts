@@ -12,6 +12,7 @@ interface SeedStatus {
   categoryCode: StatusCategoryCode;
   name: string;
   code: string;
+  parentCode?: string | null;
   icon: string;
   color: string;
   defaultAction: StatusActionType;
@@ -39,6 +40,15 @@ export const SEED_CATEGORIES: SeedCategory[] = [
   { name: "Odmietnutie / stop", code: "declined", color: "orange", icon: "ThumbsDown", sortOrder: 7 },
   { name: "Dokončené / uzatvorené", code: "completed", color: "emerald", icon: "CheckCircle", sortOrder: 8 },
   { name: "Chybné / neplatné kontakty", code: "invalid", color: "red", icon: "AlertTriangle", sortOrder: 9 },
+  { name: "Assigned healthcare provider", code: "hcp_assignment", color: "indigo", icon: "UserPlus", sortOrder: 10 },
+  { name: "Contacted healthcare provider", code: "hcp_contact", color: "sky", icon: "PhoneCall", sortOrder: 11 },
+  { name: "Qualified or Unqualified Medical Partner", code: "hcp_qualification", color: "amber", icon: "Stethoscope", sortOrder: 12 },
+  { name: "Willingness to provide services", code: "hcp_willingness", color: "lime", icon: "Handshake", sortOrder: 13 },
+  { name: "Contract proposal with HCP", code: "hcp_contract", color: "violet", icon: "FileSignature", sortOrder: 14 },
+  { name: "Information materials (cord blood)", code: "hcp_info_materials", color: "rose", icon: "BookOpen", sortOrder: 15 },
+  { name: "Letáky do čakárne", code: "hcp_leaflets", color: "pink", icon: "Newspaper", sortOrder: 16 },
+  { name: "Tehotenské knižky", code: "hcp_pregnancy_books", color: "fuchsia", icon: "BookMarked", sortOrder: 17 },
+  { name: "Poster A3 do čakárne", code: "hcp_poster", color: "slate", icon: "Image", sortOrder: 18 },
 ];
 
 const cb = (days: number | null = null): Partial<SeedStatus> => ({
@@ -215,4 +225,57 @@ export const SEED_STATUSES: SeedStatus[] = [
   s("invalid", "Chyba v dátach", "data_error", "AlertTriangle", "orange", { ...done, defaultAction: "verify_contact" }),
   s("invalid", "Chýba telefón", "missing_phone", "PhoneOff", "orange", { defaultAction: "verify_contact", allowPhone: false }),
   s("invalid", "Chýba email", "missing_email", "MailX", "orange", { defaultAction: "verify_contact", allowEmail: false }),
+
+  s("hcp_assignment", "Assigned healthcare provider", "hcp_assigned", "UserPlus", "indigo"),
+  s("hcp_assignment", "Unassigned to a medical representative", "hcp_unassigned_medrep", "UserMinus", "gray", { parentCode: "hcp_assigned" }),
+  s("hcp_assignment", "Assigned to a medical representative", "hcp_assigned_medrep", "UserCheck", "green", { parentCode: "hcp_assigned", ...conv }),
+
+  s("hcp_contact", "Unreached", "hcp_unreached", "PhoneOff", "gray", cb()),
+  s("hcp_contact", "Reached", "hcp_reached", "PhoneCall", "green"),
+
+  s("hcp_qualification", "Qualified – provides healthcare to pregnant women", "hcp_qualified", "CheckCircle", "green", conv),
+  s("hcp_qualification", "Unqualified – does not provide healthcare to pregnant women", "hcp_unqualified", "XCircle", "red", done),
+
+  s("hcp_willingness", "Cooperation not offered", "hcp_coop_not_offered", "MinusCircle", "gray"),
+  s("hcp_willingness", "Cooperation offered – considering", "hcp_coop_considering", "HelpCircle", "yellow", cb()),
+  s("hcp_willingness", "Cooperation offered – agreed", "hcp_coop_agreed", "CheckCircle", "green", conv),
+  s("hcp_willingness", "Cooperation offered – disagreed", "hcp_coop_disagreed", "XCircle", "red", done),
+
+  s("hcp_contract", "Contract proposal not offered", "hcp_cp_not_offered", "MinusCircle", "gray"),
+  s("hcp_contract", "Contract proposal offered – considering", "hcp_cp_considering", "HelpCircle", "yellow", cb()),
+  s("hcp_contract", "Contract proposal not sent", "hcp_cp_not_sent", "FileX", "orange"),
+  s("hcp_contract", "Contract proposal sent", "hcp_cp_sent", "Send", "violet", { defaultAction: "callback", requiresCallback: true }),
+  s("hcp_contract", "Contract proposal offered – accepted", "hcp_cp_accepted", "CheckCircle", "green", conv),
+  s("hcp_contract", "Signed contract returned – not validated yet", "hcp_cp_signed_not_validated", "FileQuestion", "yellow", { defaultAction: "callback", requiresCallback: true }),
+  s("hcp_contract", "Contract not resent", "hcp_cp_signed_not_resent", "FileX", "orange", { parentCode: "hcp_cp_signed_not_validated" }),
+  s("hcp_contract", "Contract resent", "hcp_cp_signed_resent", "RefreshCw", "violet", { parentCode: "hcp_cp_signed_not_validated", defaultAction: "callback", requiresCallback: true }),
+  s("hcp_contract", "Contract did not pass validation", "hcp_cp_validation_failed", "AlertCircle", "red"),
+  s("hcp_contract", "Contract not resent (validation)", "hcp_cp_val_not_resent", "FileX", "orange", { parentCode: "hcp_cp_validation_failed" }),
+  s("hcp_contract", "Contract resent (validation)", "hcp_cp_val_resent", "RefreshCw", "violet", { parentCode: "hcp_cp_validation_failed", defaultAction: "callback", requiresCallback: true }),
+  s("hcp_contract", "Contract validated", "hcp_cp_validated", "ShieldCheck", "green", conv),
+  s("hcp_contract", "Contract proposal offered – unaccepted", "hcp_cp_unaccepted", "XCircle", "red", done),
+
+  s("hcp_info_materials", "Not offered yet", "hcp_info_not_offered", "MinusCircle", "gray"),
+  s("hcp_info_materials", "Offered and offer accepted", "hcp_info_accepted", "CheckCircle", "green"),
+  s("hcp_info_materials", "Not sent yet", "hcp_info_not_sent", "FileX", "orange", { parentCode: "hcp_info_accepted" }),
+  s("hcp_info_materials", "Sent – send again when new version released", "hcp_info_sent", "Send", "green", { parentCode: "hcp_info_accepted", defaultAction: "callback", requiresCallback: true }),
+  s("hcp_info_materials", "Offered and offer not accepted", "hcp_info_not_accepted", "XCircle", "red", done),
+
+  s("hcp_leaflets", "Not offered yet", "hcp_leaf_not_offered", "MinusCircle", "gray"),
+  s("hcp_leaflets", "Offered and offer accepted", "hcp_leaf_accepted", "CheckCircle", "green"),
+  s("hcp_leaflets", "Not sent yet", "hcp_leaf_not_sent", "FileX", "orange", { parentCode: "hcp_leaf_accepted" }),
+  s("hcp_leaflets", "Sent – check at routine callback", "hcp_leaf_sent", "Send", "green", { parentCode: "hcp_leaf_accepted", defaultAction: "callback", requiresCallback: true }),
+  s("hcp_leaflets", "Offered and offer not accepted", "hcp_leaf_not_accepted", "XCircle", "red", done),
+
+  s("hcp_pregnancy_books", "Not offered yet", "hcp_pregbook_not_offered", "MinusCircle", "gray"),
+  s("hcp_pregnancy_books", "Offered and offer accepted", "hcp_pregbook_accepted", "CheckCircle", "green"),
+  s("hcp_pregnancy_books", "Not sent yet", "hcp_pregbook_not_sent", "FileX", "orange", { parentCode: "hcp_pregbook_accepted" }),
+  s("hcp_pregnancy_books", "Sent – check at routine callback", "hcp_pregbook_sent", "Send", "green", { parentCode: "hcp_pregbook_accepted", defaultAction: "callback", requiresCallback: true }),
+  s("hcp_pregnancy_books", "Offered and offer not accepted", "hcp_pregbook_not_accepted", "XCircle", "red", done),
+
+  s("hcp_poster", "Not offered yet", "hcp_poster_not_offered", "MinusCircle", "gray"),
+  s("hcp_poster", "Offered and offer accepted", "hcp_poster_accepted", "CheckCircle", "green"),
+  s("hcp_poster", "Not sent yet", "hcp_poster_not_sent", "FileX", "orange", { parentCode: "hcp_poster_accepted" }),
+  s("hcp_poster", "Sent – send again when new version released", "hcp_poster_sent", "Send", "green", { parentCode: "hcp_poster_accepted", defaultAction: "callback", requiresCallback: true }),
+  s("hcp_poster", "Offered and offer not accepted", "hcp_poster_not_accepted", "XCircle", "red", done),
 ];
