@@ -43477,12 +43477,17 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
       const { SEED_CATEGORIES, SEED_STATUSES } = await import("./seed-statuses");
       
       const existingCategories = await storage.getAllStatusCategories();
-      if (existingCategories.length > 0) {
-        return res.status(400).json({ error: "Status data already seeded. Delete existing data first." });
-      }
+      const existingCatCodes = new Set(existingCategories.map((c: any) => c.code));
+      const existingStatuses = await storage.getAllStatusDefinitions();
+      const existingStatusCodes = new Set(existingStatuses.map((s: any) => s.code));
 
       const categoryMap: Record<string, string> = {};
+      for (const ec of existingCategories) {
+        categoryMap[ec.code] = ec.id;
+      }
+      let catCount = 0;
       for (const cat of SEED_CATEGORIES) {
+        if (existingCatCodes.has(cat.code)) continue;
         const created = await storage.createStatusCategory({
           name: cat.name,
           code: cat.code,
@@ -43492,13 +43497,18 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
           isActive: true,
         });
         categoryMap[cat.code] = created.id;
+        catCount++;
       }
 
       let statusCount = 0;
       const codeToId: Record<string, string> = {};
       const parentFixups: { id: string; parentCode: string }[] = [];
 
+      for (const es of existingStatuses) {
+        codeToId[es.code] = es.id;
+      }
       for (const status of SEED_STATUSES) {
+        if (existingStatusCodes.has(status.code)) continue;
         const categoryId = categoryMap[status.categoryCode];
         if (!categoryId) continue;
         const created = await storage.createStatusDefinition({
@@ -43536,7 +43546,7 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
         }
       }
 
-      res.json({ message: `Seeded ${Object.keys(categoryMap).length} categories and ${statusCount} statuses` });
+      res.json({ message: `Seeded ${catCount} new categories and ${statusCount} new statuses (${existingCategories.length} categories and ${existingStatuses.length} statuses already existed)` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
