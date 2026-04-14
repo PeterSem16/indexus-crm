@@ -1452,6 +1452,10 @@ export default function HospitalsPage() {
           aVal = a.countryCode;
           bVal = b.countryCode;
           break;
+        case "region":
+          aVal = (a.region || "").toLowerCase();
+          bVal = (b.region || "").toLowerCase();
+          break;
         case "isActive":
           aVal = a.isActive;
           bVal = b.isActive;
@@ -1847,6 +1851,11 @@ export default function HospitalsPage() {
       key: "city",
       header: <HospitalSortableHeader field="city" label={t.hospitals.city} />,
       cell: (hospital: HospitalType) => hospital.city || "-",
+    },
+    {
+      key: "region",
+      header: <HospitalSortableHeader field="region" label={t.hospitals.region} />,
+      cell: (hospital: HospitalType) => hospital.region || "-",
     },
     {
       key: "representative",
