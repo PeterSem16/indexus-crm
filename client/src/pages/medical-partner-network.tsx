@@ -1430,7 +1430,7 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
     try {
       const sourceLang = form.name ? "Slovak" : form.nameEn ? "English" : "Slovak";
       const res = await apiRequest("POST", "/api/mpn/categories/ai-translate", { text: sourceText, sourceLang });
-      const data = res as Record<string, string>;
+      const data = await res.json() as Record<string, string>;
       setForm(prev => ({
         ...prev,
         name: data.sk || prev.name,
