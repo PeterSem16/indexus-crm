@@ -271,78 +271,100 @@ function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinic
   const allPersonnel = [...assigned, ...legacy];
   const clinicDoctor = personnelData?.clinicDoctor;
 
-  if (allPersonnel.length === 0 && !clinicDoctor) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
-        <p className="text-sm">{(t as any).medicalPartnerNetwork?.noPersonnel || "No personnel assigned"}</p>
-      </div>
-    );
-  }
-
-  const totalCount = allPersonnel.length + (clinicDoctor ? 1 : 0);
-
   return (
-    <div className="space-y-3" data-testid="clinic-personnel-tab-content">
-      <div className="flex items-center gap-2 mb-4">
-        <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
-          <Users className="h-3 w-3 mr-1" />
-          {totalCount}
-        </Badge>
-        <span className="text-sm text-muted-foreground">{(t as any).medicalPartnerNetwork?.personnelAssigned || "personnel assigned"}</span>
-      </div>
+    <div className="space-y-4" data-testid="clinic-personnel-tab-content">
       {clinicDoctor && (
-        <div className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow" data-testid="clinic-personnel-doctor">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900 flex items-center justify-center">
-            <Users className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+        <div className="rounded-xl border-2 border-teal-300 dark:border-teal-700 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/40 dark:to-background p-4 shadow-sm" data-testid="clinic-personnel-doctor">
+          <div className="flex items-center gap-2 mb-3">
+            <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
+              {(t as any).medicalPartnerNetwork?.primaryContact || "Primary Contact"}
+            </span>
+            <Badge className="text-[10px] px-1.5 py-0 bg-teal-600 text-white border-teal-700 dark:bg-teal-700">
+              {(t as any).medicalPartnerNetwork?.doctor || "Doctor"}
+            </Badge>
           </div>
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-sm">{clinicDoctor.fullName}</span>
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800">{(t as any).medicalPartnerNetwork?.doctor || "Doctor"}</Badge>
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-teal-200 dark:bg-teal-800 flex items-center justify-center ring-2 ring-teal-400 dark:ring-teal-600 ring-offset-2 ring-offset-background">
+              <Stethoscope className="h-6 w-6 text-teal-700 dark:text-teal-300" />
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              {clinicDoctor.email && <span>{clinicDoctor.email}</span>}
-              {clinicDoctor.phone && <span>{clinicDoctor.phone}</span>}
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-base text-foreground">{clinicDoctor.fullName}</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                {clinicDoctor.phone && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5 text-teal-500" />
+                    <span>{clinicDoctor.phone}</span>
+                  </div>
+                )}
+                {clinicDoctor.email && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Mail className="h-3.5 w-3.5 text-teal-500" />
+                    <span>{clinicDoctor.email}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
-      {allPersonnel.map((row: any) => {
-        const fullName = `${row.title_before || ""} ${row.first_name || ""} ${row.last_name || ""} ${row.title_after || ""}`.trim();
-        return (
-          <div key={row.assignment_id || row.person_id} className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow" data-testid={`clinic-personnel-row-${row.assignment_id || row.person_id}`}>
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center">
-              <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+
+      {!clinicDoctor && allPersonnel.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p className="text-sm">{(t as any).medicalPartnerNetwork?.noPersonnel || "No personnel assigned"}</p>
+        </div>
+      )}
+
+      {allPersonnel.length > 0 && (
+        <>
+          {clinicDoctor && <Separator />}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
+                <Users className="h-3 w-3 mr-1" />
+                {allPersonnel.length}
+              </Badge>
+              <span className="text-sm text-muted-foreground">{(t as any).medicalPartnerNetwork?.personnelAssigned || "personnel assigned"}</span>
             </div>
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-sm">{fullName || row.person_id}</span>
-                {row.category_name && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.category_name}</Badge>
-                )}
-                {row.is_primary && (
-                  <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 border-amber-300">{(t.common as any).primary || "Primary"}</Badge>
-                )}
-                {row.source === "legacy_link" && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700">Link</Badge>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                {row.department && <span>{(t as any).medicalPartnerNetwork?.department || "Dept"}: {row.department}</span>}
-                {row.position && <span>{(t as any).medicalPartnerNetwork?.position || "Position"}: {row.position}</span>}
-                {row.role && <span>{(t as any).medicalPartnerNetwork?.role || "Role"}: {row.role}</span>}
-                {row.email && <span>{row.email}</span>}
-                {row.phone && <span>{row.phone}</span>}
-                {row.mobile && <span>{row.mobile}</span>}
-              </div>
-            </div>
-            <Badge variant={row.is_active !== false ? "default" : "secondary"} className="text-[10px] shrink-0">
-              {row.is_active !== false ? t.common.active : t.common.inactive}
-            </Badge>
+            {allPersonnel.map((row: any) => {
+              const fullName = `${row.title_before || ""} ${row.first_name || ""} ${row.last_name || ""} ${row.title_after || ""}`.trim();
+              return (
+                <div key={row.assignment_id || row.person_id} className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow" data-testid={`clinic-personnel-row-${row.assignment_id || row.person_id}`}>
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center">
+                    <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{fullName || row.person_id}</span>
+                      {row.category_name && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.category_name}</Badge>
+                      )}
+                      {row.is_primary && (
+                        <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 border-amber-300">{(t.common as any).primary || "Primary"}</Badge>
+                      )}
+                      {row.source === "legacy_link" && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700">Link</Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {row.department && <span>{(t as any).medicalPartnerNetwork?.department || "Dept"}: {row.department}</span>}
+                      {row.position && <span>{(t as any).medicalPartnerNetwork?.position || "Position"}: {row.position}</span>}
+                      {row.role && <span>{(t as any).medicalPartnerNetwork?.role || "Role"}: {row.role}</span>}
+                      {row.email && <span>{row.email}</span>}
+                      {row.phone && <span>{row.phone}</span>}
+                      {row.mobile && <span>{row.mobile}</span>}
+                    </div>
+                  </div>
+                  <Badge variant={row.is_active !== false ? "default" : "secondary"} className="text-[10px] shrink-0">
+                    {row.is_active !== false ? t.common.active : t.common.inactive}
+                  </Badge>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        </>
+      )}
     </div>
   );
 }
