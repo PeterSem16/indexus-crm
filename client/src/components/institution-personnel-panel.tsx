@@ -391,9 +391,7 @@ export function InstitutionPersonnelPanel({
                         <SelectValue placeholder="-" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(categoriesQuery.data || []).map((cat: any) => (
-                          <SelectItem key={cat.id} value={cat.id}>{getLocalizedCategoryName(cat, locale)}</SelectItem>
-                        ))}
+                        {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'H' : cat.entityScope === 'clinic' ? 'C' : 'I'}</Badge>}</span></SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
