@@ -817,11 +817,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const HeaderWrapper = mode === "inline" ? "div" : SheetHeader;
   const TitleWrapper = mode === "inline" ? "h3" : SheetTitle;
 
-  const { data: networkMemberships = [] } = useQuery<any[]>({
-    queryKey: ["/api/hospital-network-memberships"],
-  });
-  const clinicNetworks = initialData?.id ? (networkMemberships.filter((m: any) => m.clinic_id === initialData.id).map((m: any) => m.network_name).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)) : [];
-
   const formContent = (
     <>
           <HeaderWrapper className="px-6 pt-5 pb-2">

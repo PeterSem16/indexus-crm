@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff, Phone, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
@@ -1972,7 +1972,7 @@ function CollaboratorForm({
 }
 
 export function CollaboratorsContent({ embedded = false }: { embedded?: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
   const { selectedCountries } = useCountryFilter();
@@ -2022,6 +2022,15 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
   });
   const collaborators = collaboratorsPaginatedResult?.data || [];
   const serverCollaboratorsTotal = collaboratorsPaginatedResult?.total || 0;
+
+  const { data: partnerCategoriesList = [] } = useQuery<any[]>({
+    queryKey: ["/api/mpn/categories"],
+  });
+  const partnerCategoryMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    partnerCategoriesList.forEach((cat: any) => { map[cat.id] = cat; });
+    return map;
+  }, [partnerCategoriesList]);
 
   const { data: collabStats } = useQuery<{
     total: number; active: number; inactive: number;
@@ -2278,75 +2287,37 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
       cell: (c: Collaborator) => {
         const cat = (c as any).partnerCategory;
         if (!cat) return <span className="text-muted-foreground text-xs">-</span>;
-        const CATEGORY_COLORS: Record<string, string> = {
-          key_opinion_leader: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700",
-          strategic_partner: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700",
-          referral_source: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700",
-          training_partner: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700",
-          hospital_director: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700",
-          department_head: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700",
-          department_doctor: "bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700",
-          department_nurse: "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900 dark:text-rose-200 dark:border-rose-700",
-          head_nurse: "bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900 dark:text-pink-200 dark:border-pink-700",
-          delivery_midwife: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700",
-          neonatology_head: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-200 dark:border-teal-700",
-          neonatology_doctor: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-200 dark:border-teal-700",
-          neonatology_nurse: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-200 dark:border-teal-700",
-          gynecologist: "bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-200 dark:border-indigo-700",
-          ambulant_gynecologist: "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900 dark:text-violet-200 dark:border-violet-700",
-          pediatrician: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700",
-          prenatal_instructor: "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700",
-          doula: "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300 dark:bg-fuchsia-900 dark:text-fuchsia-200 dark:border-fuchsia-700",
-          lactation_consultant: "bg-lime-100 text-lime-800 border-lime-300 dark:bg-lime-900 dark:text-lime-200 dark:border-lime-700",
-          chief_physician: "bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700",
-          attending_physician: "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700",
-          nurse: "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950 dark:text-pink-300 dark:border-pink-800",
-          midwife: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800",
-          obstetrician: "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900 dark:text-rose-200 dark:border-rose-700",
-          neonatologist: "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700",
-          inactive_prospect: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
-          active_prospect: "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700",
-        };
-        const CATEGORY_LABELS: Record<string, string> = {
-          key_opinion_leader: "KOL",
-          strategic_partner: "Strategic Partner",
-          referral_source: "Referral Source",
-          training_partner: "Training Partner",
-          hospital_director: "Hospital Director",
-          department_head: "Dept. Head",
-          department_doctor: "Dept. Doctor",
-          department_nurse: "Dept. Nurse",
-          head_nurse: "Head Nurse",
-          delivery_midwife: "Midwife",
-          neonatology_head: "Neo. Head",
-          neonatology_doctor: "Neo. Doctor",
-          neonatology_nurse: "Neo. Nurse",
-          gynecologist: "Gynecologist",
-          ambulant_gynecologist: "Amb. Gynecologist",
-          pediatrician: "Pediatrician",
-          prenatal_instructor: "Prenatal Instructor",
-          doula: "Doula",
-          lactation_consultant: "Lactation Consultant",
-          chief_physician: "Chief Physician",
-          attending_physician: "Attending Physician",
-          nurse: "Nurse",
-          midwife: "Midwife",
-          obstetrician: "Obstetrician",
-          neonatologist: "Neonatologist",
-          inactive_prospect: "Inactive",
+        const resolved = partnerCategoryMap[cat];
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cat);
+        const SLUG_LABELS: Record<string, string> = {
+          key_opinion_leader: "KOL", strategic_partner: "Strategic Partner", referral_source: "Referral Source",
+          training_partner: "Training Partner", hospital_director: "Hospital Director", department_head: "Dept. Head",
+          department_doctor: "Dept. Doctor", department_nurse: "Dept. Nurse", head_nurse: "Head Nurse",
+          delivery_midwife: "Midwife", neonatology_head: "Neo. Head", neonatology_doctor: "Neo. Doctor",
+          neonatology_nurse: "Neo. Nurse", gynecologist: "Gynecologist", ambulant_gynecologist: "Amb. Gynecologist",
+          pediatrician: "Pediatrician", prenatal_instructor: "Prenatal Instructor", doula: "Doula",
+          lactation_consultant: "Lactation Consultant", chief_physician: "Chief Physician",
+          attending_physician: "Attending Physician", nurse: "Nurse", midwife: "Midwife",
+          obstetrician: "Obstetrician", neonatologist: "Neonatologist", inactive_prospect: "Inactive",
           active_prospect: "Active Prospect",
-          anesthesiologist: "Anesthesiologist",
-          surgeon: "Surgeon",
-          hematologist: "Hematologist",
-          oncologist: "Oncologist",
-          general_practitioner: "GP",
-          pharmacist: "Pharmacist",
-          laboratory_specialist: "Lab Specialist",
-          other_medical: "Other Medical",
         };
+        let displayName: string;
+        if (isUuid && resolved) {
+          const localeMap: Record<string, string | null> = {
+            sk: resolved.nameSk || resolved.name_sk, cs: resolved.nameCs || resolved.name_cs,
+            en: resolved.nameEn || resolved.name_en, hu: resolved.nameHu || resolved.name_hu,
+            ro: resolved.nameRo || resolved.name_ro, it: resolved.nameIt || resolved.name_it,
+            de: resolved.nameDe || resolved.name_de,
+          };
+          displayName = localeMap[locale] || resolved.name || cat;
+        } else if (isUuid) {
+          displayName = cat.substring(0, 8) + "…";
+        } else {
+          displayName = SLUG_LABELS[cat] || cat.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
+        }
         return (
-          <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 font-medium border ${CATEGORY_COLORS[cat] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
-            {CATEGORY_LABELS[cat] || cat.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 font-medium border bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600">
+            {displayName}
           </Badge>
         );
       },
