@@ -42405,19 +42405,26 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
 
   app.post("/api/hospital-networks", requireAuth, async (req, res) => {
     try {
-      const { name, countryCode, description } = req.body;
+      const { name, countryCode, description, fullName, address, city, postalCode, region, phone, email, website, contactPerson, latitude, longitude } = req.body;
       if (!name || !countryCode) return res.status(400).json({ error: "Name and country are required" });
-      const [row] = await db.insert(hospitalNetworks).values({ name, countryCode, description: description || null }).returning();
+      const [row] = await db.insert(hospitalNetworks).values({
+        name, countryCode, description: description || null, fullName: fullName || null,
+        address: address || null, city: city || null, postalCode: postalCode || null, region: region || null,
+        phone: phone || null, email: email || null, website: website || null, contactPerson: contactPerson || null,
+        latitude: latitude || null, longitude: longitude || null,
+      }).returning();
       res.json(row);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.patch("/api/hospital-networks/:id", requireAuth, async (req, res) => {
     try {
-      const { name, description } = req.body;
+      const allowedFields = ["name", "description", "fullName", "address", "city", "postalCode", "region", "phone", "email", "website", "contactPerson", "latitude", "longitude"];
       const updates: any = {};
-      if (name !== undefined) updates.name = name;
-      if (description !== undefined) updates.description = description || null;
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) updates[field] = req.body[field] || null;
+      }
+      if (req.body.name) updates.name = req.body.name;
       const [row] = await db.update(hospitalNetworks).set(updates).where(eq(hospitalNetworks.id, req.params.id)).returning();
       res.json(row);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -43021,7 +43028,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
   app.get("/api/mpn/network/institution/:entityType/:entityId", requireAuth, async (req, res) => {
     try {
       const { entityType, entityId } = req.params;
-      if (!["hospital", "clinic"].includes(entityType)) return res.status(400).json({ error: "Invalid entity type" });
+      if (!["hospital", "clinic", "network"].includes(entityType)) return res.status(400).json({ error: "Invalid entity type" });
 
       // Get institution info
       let instInfo: any = null;
@@ -43151,7 +43158,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
   app.get("/api/institutions/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
     try {
       const { entityType, entityId } = req.params;
-      if (!["hospital", "clinic"].includes(entityType)) {
+      if (!["hospital", "clinic", "network"].includes(entityType)) {
         return res.status(400).json({ error: "Invalid entity type" });
       }
 
@@ -43284,7 +43291,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
   app.post("/api/institutions/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
     try {
       const { entityType, entityId } = req.params;
-      if (!["hospital", "clinic"].includes(entityType)) {
+      if (!["hospital", "clinic", "network"].includes(entityType)) {
         return res.status(400).json({ error: "Invalid entity type" });
       }
       const { personId, department, position, role, categoryId, isPrimary, notes } = req.body;

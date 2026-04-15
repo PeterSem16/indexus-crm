@@ -377,8 +377,19 @@ export type ClinicReferral = typeof clinicReferrals.$inferSelect;
 export const hospitalNetworks = pgTable("hospital_networks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  fullName: text("full_name"),
   countryCode: text("country_code").notNull(),
   description: text("description"),
+  address: text("address"),
+  city: text("city"),
+  postalCode: text("postal_code"),
+  region: text("region"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  contactPerson: text("contact_person"),
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
