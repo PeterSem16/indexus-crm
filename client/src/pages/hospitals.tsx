@@ -1331,7 +1331,7 @@ function NetworkCard({ network, allHospitals, allClinics, allCollaborators, onEd
   const s = memberSearch.toLowerCase();
   const filteredHospitals = s ? allHospitals.filter((h: any) =>
     !memberIds.has(String(h.id)) && h.countryCode === network.countryCode &&
-    (h.name?.toLowerCase().includes(s) || h.city?.toLowerCase().includes(s))
+    ((h.fullName || h.name)?.toLowerCase().includes(s) || h.city?.toLowerCase().includes(s))
   ).slice(0, 10) : [];
   const filteredClinics = s ? allClinics.filter((c: any) =>
     !memberIds.has(String(c.id)) && c.countryCode === network.countryCode &&
@@ -1396,7 +1396,7 @@ function NetworkCard({ network, allHospitals, allClinics, allCollaborators, onEd
                   {filteredHospitals.map((h: any) => (
                     <button key={`h-${h.id}`} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent text-sm text-left" onClick={() => addMemberMut.mutate({ hospitalId: String(h.id) })} data-testid={`add-hospital-${h.id}`}>
                       <Hospital className="h-4 w-4 text-blue-500 shrink-0" />
-                      <span className="font-medium">{h.name}</span>
+                      <span className="font-medium">{h.fullName || h.name}</span>
                       {h.city && <span className="text-muted-foreground">- {h.city}</span>}
                     </button>
                   ))}

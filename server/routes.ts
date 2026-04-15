@@ -42414,7 +42414,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       const members = await db.execute(sql`
         SELECT hnm.id, hnm.network_id, hnm.hospital_id, hnm.clinic_id, hnm.collaborator_id,
                CASE
-                 WHEN hnm.hospital_id IS NOT NULL THEN h.name
+                 WHEN hnm.hospital_id IS NOT NULL THEN COALESCE(h.full_name, h.name)
                  WHEN hnm.clinic_id IS NOT NULL THEN cl.name
                  WHEN hnm.collaborator_id IS NOT NULL THEN COALESCE(co.title_before || ' ', '') || co.first_name || ' ' || co.last_name
                END as name,
