@@ -386,7 +386,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const { t } = useI18n();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState(initialData ? "source" : "basic");
+  const [activeTab, setActiveTab] = useState("source");
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [pipelineMenuOpen, setPipelineMenuOpen] = useState(false);
@@ -2665,6 +2665,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   }
 
   const clinicAddTabs = [
+    { key: "source", icon: CircleDot, label: t.clinics.steps?.source || "Lead Source" },
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "settings", icon: SettingsIcon, label: t.clinics.steps?.settings || "Settings" },
