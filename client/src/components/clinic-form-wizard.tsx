@@ -2669,6 +2669,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "settings", icon: SettingsIcon, label: t.clinics.steps?.settings || "Settings" },
+    { key: "history", icon: History, label: t.clinics.steps?.history || "History" },
+    { key: "personnel", icon: Users, label: (t as any).medicalPartnerNetwork?.personnel || "Personnel" },
+    { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
   ];
 
   return (
@@ -2957,6 +2960,27 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {activeTab === "history" && (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <History className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="text-sm">{(t.clinics as any).noHistory || "History will be available after saving."}</p>
+                </div>
+              )}
+
+              {activeTab === "personnel" && (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <Users className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="text-sm">{(t as any).medicalPartnerNetwork?.noPersonnel || "Personnel can be added after saving."}</p>
+                </div>
+              )}
+
+              {activeTab === "campaigns" && (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <Megaphone className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="text-sm">{(t as any).campaigns?.noCampaigns || "Campaigns can be added after saving."}</p>
                 </div>
               )}
             </div>

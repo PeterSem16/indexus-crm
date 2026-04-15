@@ -565,8 +565,11 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
     );
   };
 
+  const mpnT = (t as any).medicalPartnerNetwork || {};
   const sections = [
     { id: "basic", label: t.clinics.steps.basic, icon: Building2 },
+    { id: "personnel", label: mpnT.personnel || "Personnel", icon: Users },
+    { id: "campaigns", label: (t as any).campaigns?.title || "Campaigns", icon: Target },
   ];
 
   return (
@@ -761,6 +764,20 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                     </Button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeSection === "personnel" && (
+              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                <Users className="h-10 w-10 mb-3 opacity-40" />
+                <p className="text-sm">{mpnT.noPersonnel || "Personnel can be added after saving."}</p>
+              </div>
+            )}
+
+            {activeSection === "campaigns" && (
+              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                <Target className="h-10 w-10 mb-3 opacity-40" />
+                <p className="text-sm">{(t as any).campaigns?.noCampaigns || "Campaigns can be added after saving."}</p>
               </div>
             )}
           </div>
