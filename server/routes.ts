@@ -43048,8 +43048,8 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
 
   // --- MPN Network Graph: Get network data for visualization ---
   app.get("/api/mpn/network/institution/:entityType/:entityId", requireAuth, async (req, res) => {
+    const { entityType, entityId } = req.params;
     try {
-      const { entityType, entityId } = req.params;
       if (!["hospital", "clinic", "network"].includes(entityType)) return res.status(400).json({ error: "Invalid entity type" });
 
       let instInfo: any = null;
