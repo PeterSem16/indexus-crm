@@ -282,12 +282,17 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
     );
   };
 
+  const { data: drawerNetworkMemberships = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospital-network-memberships"],
+  });
+  const hospitalNetworks = drawerNetworkMemberships.filter((m: any) => m.hospital_id === String(hospital.id)).map((m: any) => m.network_name).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i);
+
   const mpnT = (t as any).medicalPartnerNetwork || {};
   const [showLaboratory, setShowLaboratory] = useState(false);
   const sections = [
     { id: "basic", label: t.clinics.steps.basic, icon: Building2 },
     { id: "personnel", label: mpnT.personnel || "Personnel", icon: Users },
-    { id: "campaigns", label: "Kampane", icon: Target },
+    { id: "campaigns", label: (t as any).campaigns?.title || "Campaigns", icon: Target },
   ];
 
   return (
@@ -300,7 +305,15 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
               <Building2 className="h-4.5 w-4.5 text-primary" />
             </div>
             <div>
-              <h2 className="text-base font-semibold" data-testid="text-hospital-drawer-name">{hospital.name}</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-semibold" data-testid="text-hospital-drawer-name">{hospital.name}</h2>
+                {hospitalNetworks.map((netName: string) => (
+                  <Badge key={netName} className="text-[10px] px-1.5 py-0 font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700" data-testid="badge-hospital-network-drawer">
+                    <Network className="h-2.5 w-2.5 mr-0.5" />
+                    {netName}
+                  </Badge>
+                ))}
+              </div>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0" data-testid="badge-hospital-drawer-country">
                   {getCountryFlag(hospital.countryCode)} {getCountryName(hospital.countryCode)}
@@ -507,7 +520,7 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              {formData.name || "Nemocnica"} - Poloha na mape
+              {formData.name || t.hospitals.title} - {t.clinics.sections?.mapLocation || "Map location"}
             </DialogTitle>
           </DialogHeader>
           <div className="w-full h-[400px] rounded-lg overflow-hidden border">
@@ -774,7 +787,7 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              {formData.name || "Nemocnica"} - Poloha na mape
+              {formData.name || t.hospitals.title} - {t.clinics.sections?.mapLocation || "Map location"}
             </DialogTitle>
           </DialogHeader>
           <div className="w-full h-[400px] rounded-lg overflow-hidden border">
@@ -1197,7 +1210,7 @@ function HospitalNetworksTab() {
       {!isLoading && filtered.length === 0 && (
         <Card>
           <CardContent className="text-center py-8 text-muted-foreground">
-            Žiadne nemocničné siete
+            {t.clinics.noNetworks || 'No healthcare networks'}
           </CardContent>
         </Card>
       )}
@@ -1351,7 +1364,7 @@ function NetworkCard({ network, allHospitals, allClinics, onEdit, onDelete, addM
               <Input
                 value={memberSearch}
                 onChange={(e) => setMemberSearch(e.target.value)}
-                placeholder="Hľadať nemocnicu alebo ambulanciu..."
+                placeholder={t.clinics.searchHospitalOrClinic || "Search hospital or clinic..."}
                 className="pl-9 h-9"
                 data-testid="input-member-search"
               />
@@ -1380,7 +1393,7 @@ function NetworkCard({ network, allHospitals, allClinics, onEdit, onDelete, addM
         {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
 
         {!isLoading && members.length === 0 && (
-          <p className="text-sm text-muted-foreground">Žiadni členovia</p>
+          <p className="text-sm text-muted-foreground">{t.clinics.noMembers || 'No members'}</p>
         )}
 
         {!isLoading && members.length > 0 && (
@@ -1391,7 +1404,7 @@ function NetworkCard({ network, allHospitals, allClinics, onEdit, onDelete, addM
                   {m.type === "hospital" ? <Hospital className="h-4 w-4 text-blue-500" /> : <Stethoscope className="h-4 w-4 text-emerald-500" />}
                   <span className="text-sm font-medium">{m.name}</span>
                   {m.city && <span className="text-xs text-muted-foreground">- {m.city}</span>}
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{m.type === "hospital" ? "Nemocnica" : "Ambulancia"}</Badge>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{m.type === "hospital" ? (t.clinics.memberHospital || "Hospital") : (t.clinics.memberClinic || "Clinic")}</Badge>
                 </div>
                 <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => removeMemberMut.mutate(m.id)} data-testid={`remove-member-${m.id}`}>
                   <X className="h-3.5 w-3.5 text-red-500" />

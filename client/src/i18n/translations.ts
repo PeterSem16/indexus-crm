@@ -1223,6 +1223,22 @@ export interface Translations {
     };
     noHistory: string;
     noHistoryDesc: string;
+    sections: {
+      clinic: string;
+      doctor: string;
+      contact: string;
+      callsAndContact: string;
+      additionalContact: string;
+      nextContactDate: string;
+      firstName: string;
+      mapLocation: string;
+    };
+    addClinicDesc: string;
+    noNetworks: string;
+    searchHospitalOrClinic: string;
+    noMembers: string;
+    memberHospital: string;
+    memberClinic: string;
   };
   collaborators: {
     title: string;
@@ -5875,7 +5891,7 @@ export const translations: Record<Locale, Translations> = {
       konfigurator: 'Configurator',
       executiveSummaries: 'Executive Summaries',
       campaignReports: 'Mission Reports',
-      medicalPartnerNetwork: 'Medical Partner Network',
+      medicalPartnerNetwork: 'Healthcare Network Partners',
       logout: 'Logout',
     },
     mpn: {
@@ -7494,6 +7510,22 @@ export const translations: Record<Locale, Translations> = {
         },
         noHistory: 'No history yet',
         noHistoryDesc: 'Events will be recorded after the first change',
+        sections: {
+          clinic: 'Clinic',
+          doctor: 'Doctor',
+          contact: 'Contact',
+          callsAndContact: 'Calls & Contact',
+          additionalContact: 'Additional contact',
+          nextContactDate: 'Next contact date',
+          firstName: 'First name',
+          mapLocation: 'Map location',
+        },
+        addClinicDesc: 'Add a new clinic to the system',
+        noNetworks: 'No healthcare networks',
+        searchHospitalOrClinic: 'Search hospital or clinic...',
+        noMembers: 'No members',
+        memberHospital: 'Hospital',
+        memberClinic: 'Clinic',
       },
       collaborators: {
         title: 'Collaborators',
@@ -11662,7 +11694,7 @@ export const translations: Record<Locale, Translations> = {
       webForms: 'Web Formuláre',
       executiveSummaries: 'Manažérske prehľady',
       campaignReports: 'Reporty misií',
-      medicalPartnerNetwork: 'Sieť medicínskych partnerov',
+      medicalPartnerNetwork: 'Healthcare Network Partners',
       logout: 'Odhlásiť',
     },
     mpn: {
@@ -13258,6 +13290,22 @@ export const translations: Record<Locale, Translations> = {
         },
         noHistory: 'Zatiaľ žiadna história',
         noHistoryDesc: 'Udalosti sa začnú zaznamenávať po prvej zmene',
+        sections: {
+          clinic: 'Clinic',
+          doctor: 'Doctor',
+          contact: 'Contact',
+          callsAndContact: 'Calls & Contact',
+          additionalContact: 'Additional contact',
+          nextContactDate: 'Next contact date',
+          firstName: 'First name',
+          mapLocation: 'Map location',
+        },
+        addClinicDesc: 'Add a new clinic to the system',
+        noNetworks: 'No healthcare networks',
+        searchHospitalOrClinic: 'Search hospital or clinic...',
+        noMembers: 'No members',
+        memberHospital: 'Hospital',
+        memberClinic: 'Clinic',
       },
       collaborators: {
         title: 'Spolupracovníci',
@@ -17402,7 +17450,7 @@ export const translations: Record<Locale, Translations> = {
       webForms: 'Web Formuláře',
       executiveSummaries: 'Manažerské přehledy',
       campaignReports: 'Reporty misií',
-      medicalPartnerNetwork: 'Síť medicínských partnerů',
+      medicalPartnerNetwork: 'Healthcare Network Partners',
       logout: 'Odhlásit',
     },
     mpn: {
@@ -18961,6 +19009,22 @@ export const translations: Record<Locale, Translations> = {
         },
         noHistory: 'Zatím žádná historie',
         noHistoryDesc: 'Události se začnou zaznamenávat po první změně',
+        sections: {
+          clinic: 'Clinic',
+          doctor: 'Doctor',
+          contact: 'Contact',
+          callsAndContact: 'Calls & Contact',
+          additionalContact: 'Additional contact',
+          nextContactDate: 'Next contact date',
+          firstName: 'First name',
+          mapLocation: 'Map location',
+        },
+        addClinicDesc: 'Add a new clinic to the system',
+        noNetworks: 'No healthcare networks',
+        searchHospitalOrClinic: 'Search hospital or clinic...',
+        noMembers: 'No members',
+        memberHospital: 'Hospital',
+        memberClinic: 'Clinic',
       },
       collaborators: {
         title: 'Spolupracovníci',
@@ -23067,7 +23131,7 @@ export const translations: Record<Locale, Translations> = {
       konfigurator: 'Konfigurátor',
       executiveSummaries: 'Vezetői összefoglalók',
       campaignReports: 'Missziójelentések',
-      medicalPartnerNetwork: 'Orvosi partner hálózat',
+      medicalPartnerNetwork: 'Healthcare Network Partners',
       logout: 'Kijelentkezés',
     },
     mpn: {
@@ -24628,6 +24692,22 @@ export const translations: Record<Locale, Translations> = {
         },
         noHistory: 'Még nincs előzmény',
         noHistoryDesc: 'Az események az első változtatás után kerülnek rögzítésre',
+        sections: {
+          clinic: 'Clinic',
+          doctor: 'Doctor',
+          contact: 'Contact',
+          callsAndContact: 'Calls & Contact',
+          additionalContact: 'Additional contact',
+          nextContactDate: 'Next contact date',
+          firstName: 'First name',
+          mapLocation: 'Map location',
+        },
+        addClinicDesc: 'Add a new clinic to the system',
+        noNetworks: 'No healthcare networks',
+        searchHospitalOrClinic: 'Search hospital or clinic...',
+        noMembers: 'No members',
+        memberHospital: 'Hospital',
+        memberClinic: 'Clinic',
       },
       collaborators: {
         title: 'Munkatársak',
@@ -28734,7 +28814,7 @@ export const translations: Record<Locale, Translations> = {
       konfigurator: 'Configurator',
       executiveSummaries: 'Rapoarte executive',
       campaignReports: 'Rapoarte campanii',
-      medicalPartnerNetwork: 'Rețeaua partenerilor medicali',
+      medicalPartnerNetwork: 'Healthcare Network Partners',
       logout: 'Deconectare',
     },
     mpn: {
@@ -30216,6 +30296,22 @@ export const translations: Record<Locale, Translations> = {
         },
         noHistory: 'Niciun istoric încă',
         noHistoryDesc: 'Evenimentele vor fi înregistrate după prima modificare',
+        sections: {
+          clinic: 'Clinic',
+          doctor: 'Doctor',
+          contact: 'Contact',
+          callsAndContact: 'Calls & Contact',
+          additionalContact: 'Additional contact',
+          nextContactDate: 'Next contact date',
+          firstName: 'First name',
+          mapLocation: 'Map location',
+        },
+        addClinicDesc: 'Add a new clinic to the system',
+        noNetworks: 'No healthcare networks',
+        searchHospitalOrClinic: 'Search hospital or clinic...',
+        noMembers: 'No members',
+        memberHospital: 'Hospital',
+        memberClinic: 'Clinic',
       },
       collaborators: {
         title: 'Colaboratori',
@@ -34321,7 +34417,7 @@ export const translations: Record<Locale, Translations> = {
       konfigurator: 'Configuratore',
       executiveSummaries: 'Report esecutivi',
       campaignReports: 'Report campagne',
-      medicalPartnerNetwork: 'Rete partner medici',
+      medicalPartnerNetwork: 'Healthcare Network Partners',
       logout: 'Esci',
     },
     mpn: {
@@ -35805,6 +35901,22 @@ export const translations: Record<Locale, Translations> = {
         },
         noHistory: 'Nessuna cronologia ancora',
         noHistoryDesc: 'Gli eventi verranno registrati dopo la prima modifica',
+        sections: {
+          clinic: 'Clinic',
+          doctor: 'Doctor',
+          contact: 'Contact',
+          callsAndContact: 'Calls & Contact',
+          additionalContact: 'Additional contact',
+          nextContactDate: 'Next contact date',
+          firstName: 'First name',
+          mapLocation: 'Map location',
+        },
+        addClinicDesc: 'Add a new clinic to the system',
+        noNetworks: 'No healthcare networks',
+        searchHospitalOrClinic: 'Search hospital or clinic...',
+        noMembers: 'No members',
+        memberHospital: 'Hospital',
+        memberClinic: 'Clinic',
       },
       collaborators: {
         title: 'Collaboratori',
@@ -39911,7 +40023,7 @@ export const translations: Record<Locale, Translations> = {
       konfigurator: 'Konfigurator',
       executiveSummaries: 'Managementberichte',
       campaignReports: 'Missionsberichte',
-      medicalPartnerNetwork: 'Medizinisches Partnernetzwerk',
+      medicalPartnerNetwork: 'Healthcare Network Partners',
       logout: 'Abmelden',
     },
     mpn: {
@@ -41395,6 +41507,22 @@ export const translations: Record<Locale, Translations> = {
         },
         noHistory: 'Noch keine Historie',
         noHistoryDesc: 'Ereignisse werden nach der ersten Änderung aufgezeichnet',
+        sections: {
+          clinic: 'Clinic',
+          doctor: 'Doctor',
+          contact: 'Contact',
+          callsAndContact: 'Calls & Contact',
+          additionalContact: 'Additional contact',
+          nextContactDate: 'Next contact date',
+          firstName: 'First name',
+          mapLocation: 'Map location',
+        },
+        addClinicDesc: 'Add a new clinic to the system',
+        noNetworks: 'No healthcare networks',
+        searchHospitalOrClinic: 'Search hospital or clinic...',
+        noMembers: 'No members',
+        memberHospital: 'Hospital',
+        memberClinic: 'Clinic',
       },
       collaborators: {
         title: 'Mitarbeiter',
