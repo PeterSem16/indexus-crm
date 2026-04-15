@@ -3031,11 +3031,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createHospital(data: InsertHospital): Promise<Hospital> {
+    if (!data.fullName && data.name) data.fullName = data.name;
+    if (data.fullName && !data.name) data.name = data.fullName;
     const [created] = await db.insert(hospitals).values(data).returning();
     return created;
   }
 
   async updateHospital(id: string, data: Partial<InsertHospital>): Promise<Hospital | undefined> {
+    if (data.fullName && !data.name) data.name = data.fullName;
+    if (data.name && !data.fullName) data.fullName = data.name;
     const [updated] = await db.update(hospitals).set(data).where(eq(hospitals.id, id)).returning();
     return updated || undefined;
   }

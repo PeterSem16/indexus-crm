@@ -98,6 +98,11 @@ app.use((req, res, next) => {
     console.log('[migration] Customer columns ensured');
 
     await pool.query(`
+      UPDATE hospitals SET full_name = name WHERE full_name IS NULL OR full_name = '';
+    `);
+    console.log('[migration] Hospital full_name synced');
+
+    await pool.query(`
       UPDATE customers 
       SET client_status = 'in_process', 
           registration_source = 'web_form',

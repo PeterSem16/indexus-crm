@@ -582,16 +582,20 @@ function NetworkExplorer() {
 
     setNetworkLoading(true);
     setNetworkData(null);
+    console.log("[MPN-FE] Fetching network data from:", url);
     fetch(url, { credentials: "include" })
       .then(res => {
-        if (!res.ok) throw new Error("Failed");
+        console.log("[MPN-FE] Response status:", res.status);
+        if (!res.ok) throw new Error(`Failed with status ${res.status}`);
         return res.json();
       })
       .then(data => {
+        console.log("[MPN-FE] Network data received:", JSON.stringify({ institution: data.institution?.entityType, personsCount: data.persons?.length, networksCount: data.networks?.length, otherAssignmentsCount: data.otherAssignments?.length }));
         setNetworkData(data);
         setNetworkLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("[MPN-FE] Error fetching network:", err.message);
         setNetworkData(null);
         setNetworkLoading(false);
       });
