@@ -722,12 +722,134 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
         />
       )}
 
-      {(clinicDoctor && allPersonnel.length > 0) && <Separator />}
+      {(() => {
+        const primaryPersonnel = allPersonnel.filter((p: any) => p.is_primary);
+        if (primaryPersonnel.length === 0 && !clinicDoctor) return null;
+        if (primaryPersonnel.length === 0 && clinicDoctor) return null;
+        return primaryPersonnel.map((p: any) => {
+          const fullName = [p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ");
+          const catCode = p.category_code || ((categoriesQuery.data || []).find((c: any) => c.id === p.category_id)?.code);
+          const catName = p.category_id
+            ? getLocalizedCategoryName((categoriesQuery.data || []).find((c: any) => c.id === p.category_id) || { name: p.category_name }, locale)
+            : null;
+          const catStyle = getCategoryStyle(catCode);
+          const CatIcon = catStyle.icon;
+          return (
+            <div key={p.assignment_id || p.person_id} className="rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-background p-4 shadow-sm" data-testid={`personnel-primary-person-${p.person_id}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                  {mpnT.primaryContact || "Primary Contact"}
+                </span>
+                {catName && (
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${catStyle.color} border-current/30`}>{catName}</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  className={`flex-shrink-0 w-12 h-12 rounded-full ${catStyle.bg} flex items-center justify-center ring-2 ring-amber-400 dark:ring-amber-600 ring-offset-2 ring-offset-background cursor-pointer hover:ring-primary/50 transition-all`}
+                  onClick={() => p.person_id && openCollaboratorDrawer(p.person_id)}
+                  disabled={isLoadingCollaborator}
+                  data-testid={`icon-primary-collab-${p.person_id}`}
+                >
+                  <CatIcon className={`h-6 w-6 ${catStyle.color}`} />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <button
+                    type="button"
+                    className="font-semibold text-base text-foreground cursor-pointer hover:text-primary hover:underline transition-colors text-left"
+                    onClick={() => p.person_id && openCollaboratorDrawer(p.person_id)}
+                    disabled={isLoadingCollaborator}
+                    data-testid={`link-primary-collab-${p.person_id}`}
+                  >{fullName}</button>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                    {p.phone && (
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Phone className="h-3.5 w-3.5 text-amber-500" />
+                        <span>{p.phone}</span>
+                      </div>
+                    )}
+                    {p.email && (
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Mail className="h-3.5 w-3.5 text-amber-500" />
+                        <span>{p.email}</span>
+                      </div>
+                    )}
+                    {p.mobile && (
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Smartphone className="h-3.5 w-3.5 text-amber-500" />
+                        <span>{p.mobile}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1 shrink-0">
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary"
+                    onClick={() => startEditing(p)} disabled={convertLegacyMutation.isPending} data-testid={`button-edit-primary-${p.person_id}`}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      if (p.assignment_id) removeMutation.mutate(p.assignment_id);
+                    }} disabled={removeMutation.isPending || !p.assignment_id} data-testid={`button-remove-primary-${p.person_id}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-800">
+                <Label className="text-xs font-medium text-amber-700 dark:text-amber-300">{mpnT.position || "Position"}</Label>
+                <Select
+                  value={p.category_id || "_none"}
+                  onValueChange={(val) => {
+                    const position = val === "_none" ? null : getLocalizedCategoryName((categoriesQuery.data || []).find((c: any) => c.id === val) || { name: "" }, locale);
+                    updateMutation.mutate({
+                      assignmentId: p.assignment_id,
+                      data: {
+                        department: p.department || null,
+                        position: position || null,
+                        role: p.role || null,
+                        categoryId: val === "_none" ? null : val,
+                        isPrimary: true,
+                        notes: p.notes || null,
+                      },
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-8 mt-1 border-amber-200 dark:border-amber-700" data-testid={`select-primary-position-${p.person_id}`}>
+                    <SelectValue placeholder="—" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">—</SelectItem>
+                    {(categoriesQuery.data || []).filter((c: any) => c.isActive !== false && c.is_active !== false).map((cat: any) => {
+                      const scope = cat.entityScope || cat.entity_scope || "hospital";
+                      const scopeStyle = SCOPE_BADGE[scope] || SCOPE_BADGE.hospital;
+                      const cName = getLocalizedCategoryName(cat, locale);
+                      return (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{cName}</span>
+                            <span className={`inline-flex text-[9px] px-1.5 py-0 rounded-full border font-medium ${scopeStyle.className}`}>
+                              {scopeStyle.label}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          );
+        });
+      })()}
+
+      {(clinicDoctor || allPersonnel.some((p: any) => p.is_primary)) && allPersonnel.filter((p: any) => !p.is_primary).length > 0 && <Separator />}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
-            <Users className="h-3 w-3 mr-1" />{allPersonnel.length}
+            <Users className="h-3 w-3 mr-1" />{allPersonnel.filter((p: any) => !p.is_primary).length}
           </Badge>
           <span className="text-sm text-muted-foreground">{mpnT.personnelAssigned || "personnel assigned"}</span>
         </div>
@@ -803,18 +925,19 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
         </div>
       )}
 
-      {allPersonnel.length === 0 && (
+      {allPersonnel.length === 0 && !clinicDoctor && (
         <div className="text-center py-12 text-muted-foreground">
           <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
           <p className="text-sm">{mpnT.noPersonnel || "No personnel assigned"}</p>
         </div>
       )}
 
-      {allPersonnel.length > 0 && (() => {
+      {allPersonnel.filter((p: any) => !p.is_primary).length > 0 && (() => {
+        const nonPrimary = allPersonnel.filter((p: any) => !p.is_primary);
         const cats = categoriesQuery.data || [];
         const counts: Record<string, { count: number; name: string; code: string }> = {};
         let uncategorized = 0;
-        for (const p of allPersonnel) {
+        for (const p of nonPrimary) {
           if (p.category_id) {
             const cat = cats.find((c: any) => c.id === p.category_id);
             const code = cat?.code || p.category_code || "unknown";
@@ -850,7 +973,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
       })()}
 
       <div className="space-y-1">
-        {allPersonnel.map((p: any, idx: number) => {
+        {allPersonnel.filter((p: any) => !p.is_primary).map((p: any, idx: number) => {
           const fullName = [p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ");
           const isLegacy = p.source === "legacy_link";
           const isEditing = editingId.length > 0 && editingId === p.assignment_id;
