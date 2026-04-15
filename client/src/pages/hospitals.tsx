@@ -456,10 +456,7 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
                       <Switch id="ed-isActive" checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-ed-hospital-active" />
                       <Label htmlFor="ed-isActive">{t.common.active}</Label>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch id="ed-svetZdravia" checked={formData.svetZdravia} onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })} data-testid="switch-ed-hospital-svetzdravia" />
-                      <Label htmlFor="ed-svetZdravia">{t.hospitals.svetZdravia}</Label>
-                    </div>
+                    
                   </div>
                 </div>
 
@@ -757,10 +754,7 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                   <Switch checked={formData.autoRecruiting} onCheckedChange={(checked) => setFormData({ ...formData, autoRecruiting: checked })} data-testid="switch-hospital-autorecruiting" />
                   <Label>{t.hospitals.autoRecruiting}</Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Switch checked={formData.svetZdravia} onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })} data-testid="switch-hospital-svetzdravia" />
-                  <Label>{t.hospitals.svetZdravia}</Label>
-                </div>
+                
               </div>
             )}
           </div>
@@ -1525,9 +1519,10 @@ export default function HospitalsPage() {
   const hospitalNetworkMap = useMemo(() => {
     const map: Record<string, string[]> = {};
     for (const m of networkMemberships) {
-      if (m.hospital_id) {
-        if (!map[m.hospital_id]) map[m.hospital_id] = [];
-        if (!map[m.hospital_id].includes(m.network_name)) map[m.hospital_id].push(m.network_name);
+      const key = m.hospital_id || m.clinic_id;
+      if (key) {
+        if (!map[key]) map[key] = [];
+        if (!map[key].includes(m.network_name)) map[key].push(m.network_name);
       }
     }
     return map;
@@ -1971,9 +1966,16 @@ export default function HospitalsPage() {
         const pCount = personnelCounts[`clinic:${clinic.id}`] || 0;
         const recommendedByCount = referralCounts?.recommendedBy?.[clinic.id] || 0;
         const recommendsCount = referralCounts?.recommends?.[clinic.id] || 0;
+        const nets = hospitalNetworkMap[clinic.id] || [];
         return (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium">{clinic.name}</span>
+            {nets.map((netName) => (
+              <Badge key={netName} className="text-[10px] px-1.5 py-0 font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700" data-testid={`badge-network-clinic-${clinic.id}`}>
+                <Network className="h-2.5 w-2.5 mr-0.5" />
+                {netName}
+              </Badge>
+            ))}
             {pCount > 0 && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800" data-testid={`badge-personnel-clinic-${clinic.id}`}>
                 <Users className="h-2.5 w-2.5" />
