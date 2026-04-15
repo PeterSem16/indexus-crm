@@ -3756,7 +3756,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              {!isHidden("legacy_id") && (
+              {isEditMode && !isHidden("legacy_id") && (
                 <div className="space-y-2">
                   <Label>{t.collaborators.legacyId}</Label>
                   <Input
@@ -3830,33 +3830,35 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label>{t.collaborators?.fields?.legacyType || "Legacy Type"}</Label>
-                  {isEditMode && (initialData as any)?.dataSource === 'iscbc' && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-                      ISCBC
-                    </Badge>
-                  )}
+              {isEditMode && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label>{t.collaborators?.fields?.legacyType || "Legacy Type"}</Label>
+                    {(initialData as any)?.dataSource === 'iscbc' && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                        ISCBC
+                      </Badge>
+                    )}
+                  </div>
+                  <Select
+                    value={formData.collaboratorType || "_none"}
+                    onValueChange={(value) => setFormData({ ...formData, collaboratorType: value === "_none" ? "" : value })}
+                    disabled={isEditMode}
+                  >
+                    <SelectTrigger data-testid="wizard-select-collaborator-type" className="bg-muted opacity-70">
+                      <SelectValue placeholder={t.collaborators?.fields?.legacyType || "Legacy Type"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">{t.common.noData}</SelectItem>
+                      {COLLABORATOR_TYPES.map((ct) => (
+                        <SelectItem key={ct.value} value={ct.value}>
+                          {(t.collaborators.types as Record<string, string>)[ct.labelKey]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Select
-                  value={formData.collaboratorType || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, collaboratorType: value === "_none" ? "" : value })}
-                  disabled={isEditMode}
-                >
-                  <SelectTrigger data-testid="wizard-select-collaborator-type" className={isEditMode ? "bg-muted opacity-70" : ""}>
-                    <SelectValue placeholder={t.collaborators?.fields?.legacyType || "Legacy Type"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {COLLABORATOR_TYPES.map((ct) => (
-                      <SelectItem key={ct.value} value={ct.value}>
-                        {(t.collaborators.types as Record<string, string>)[ct.labelKey]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              )}
               <PartnerCategoryField
                 value={formData.partnerCategory}
                 onChange={(val) => setFormData({ ...formData, partnerCategory: val })}
