@@ -1518,6 +1518,21 @@ export default function HospitalsPage() {
     queryKey: ["/api/mpn/entity-personnel-counts"],
   });
 
+  const { data: networkMemberships = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospital-network-memberships"],
+  });
+
+  const hospitalNetworkMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const m of networkMemberships) {
+      if (m.hospital_id) {
+        if (!map[m.hospital_id]) map[m.hospital_id] = [];
+        if (!map[m.hospital_id].includes(m.network_name)) map[m.hospital_id].push(m.network_name);
+      }
+    }
+    return map;
+  }, [networkMemberships]);
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/hospitals/${id}`),
     onSuccess: () => {
@@ -2014,59 +2029,6 @@ export default function HospitalsPage() {
       cell: (clinic: Clinic) => clinic.city || "-",
     },
     {
-      key: "website",
-      header: t.clinics.website,
-      cell: (clinic: Clinic) => 
-        clinic.website ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => window.open(getWebsiteUrl(clinic.website || ""), "_blank")}
-            data-testid={`link-clinic-website-${clinic.id}`}
-          >
-            <Globe className="h-4 w-4" />
-          </Button>
-        ) : "-",
-    },
-    {
-      key: "pipelineStatus",
-      header: (t.clinics as any).pipeline?.title || "Pipeline",
-      cell: (clinic: Clinic) => {
-        const c = clinic as any;
-        let pVal = "";
-        if (c.contractStatus) pVal = `contract:${c.contractStatus}`;
-        else if (c.interestContract) pVal = `contract_int:${c.interestContract}`;
-        else if (c.interestCooperation) pVal = `coop:${c.interestCooperation}`;
-        else if (c.initialStatus) pVal = `initial:${c.initialStatus}`;
-        if (!pVal) return <span className="text-muted-foreground text-xs">-</span>;
-        const pipelineLabelMap: Record<string, { labelKey: string; color: string }> = {
-          "initial:not_contacted": { labelKey: "notContacted", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" },
-          "initial:former": { labelKey: "formerCollaborator", color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-700" },
-          "initial:active_contract": { labelKey: "activeContract", color: "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700" },
-          "coop:unknown": { labelKey: "unknown", color: "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" },
-          "coop:interested": { labelKey: "interested", color: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-700" },
-          "coop:not_interested": { labelKey: "notInterested", color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700" },
-          "contract_int:unknown": { labelKey: "unknown", color: "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" },
-          "contract_int:interested": { labelKey: "interested", color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700" },
-          "contract_int:not_interested": { labelKey: "notInterested", color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700" },
-          "contract:none": { labelKey: "noContract", color: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900 dark:text-orange-300 dark:border-orange-700" },
-          "contract:active": { labelKey: "activeContract", color: "bg-green-100 text-green-800 border-green-400 dark:bg-green-900 dark:text-green-200 dark:border-green-600" },
-        };
-        const info = pipelineLabelMap[pVal];
-        if (!info) return <Badge variant="outline" className="text-[10px]">{pVal}</Badge>;
-        return (
-          <Badge variant="outline" className={`text-[10px] px-2 py-0.5 whitespace-nowrap font-semibold ${info.color}`} data-testid={`badge-pipeline-${clinic.id}`}>
-            {(t.clinics as any).pipeline?.[info.labelKey] || info.labelKey}
-          </Badge>
-        );
-      },
-    },
-    {
-      key: "phone",
-      header: t.clinics.phone,
-      cell: (clinic: Clinic) => clinic.phone || "-",
-    },
-    {
       key: "actions",
       header: t.common.actions,
       cell: (clinic: Clinic) => (
@@ -2111,9 +2073,16 @@ export default function HospitalsPage() {
       header: <HospitalSortableHeader field="name" label={t.hospitals.fullName || "Full Name"} />,
       cell: (hospital: HospitalType) => {
         const pCount = personnelCounts[`hospital:${hospital.id}`] || 0;
+        const nets = hospitalNetworkMap[hospital.id] || [];
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium">{hospital.fullName || hospital.name}</span>
+            {nets.map((netName) => (
+              <Badge key={netName} className="text-[10px] px-1.5 py-0 font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700" data-testid={`badge-network-${hospital.id}`}>
+                <Network className="h-2.5 w-2.5 mr-0.5" />
+                {netName}
+              </Badge>
+            ))}
             {pCount > 0 && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800" data-testid={`badge-personnel-hospital-${hospital.id}`}>
                 <Users className="h-2.5 w-2.5" />

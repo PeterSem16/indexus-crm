@@ -42447,6 +42447,18 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.get("/api/hospital-network-memberships", requireAuth, async (req, res) => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT hnm.hospital_id, hnm.clinic_id, hn.id as network_id, hn.name as network_name
+        FROM hospital_network_members hnm
+        JOIN hospital_networks hn ON hn.id = hnm.network_id
+        ORDER BY hn.name
+      `);
+      res.json(rows.rows || []);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.delete("/api/hospital-network-members/:memberId", requireAuth, async (req, res) => {
     try {
       await db.delete(hospitalNetworkMembers).where(eq(hospitalNetworkMembers.id, req.params.memberId));
