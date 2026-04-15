@@ -1098,7 +1098,7 @@ export interface Translations {
       agreements: string;
       templates: string;
       rewards: string;
-      networks: string;
+      healthcareNetworks: string;
     };
   };
   clinics: {
@@ -7145,7 +7145,7 @@ export const translations: Record<Locale, Translations> = {
         documents: 'Documents',
         templates: 'Templates',
         rewards: 'Rewards',
-        networks: 'Hospital Network',
+        healthcareNetworks: 'Healthcare Networks',
       },
     },
     collections: {
@@ -7515,7 +7515,7 @@ export const translations: Record<Locale, Translations> = {
         templates: 'Templates',
         rewards: 'Rewards',
         actions: 'Actions',
-        networks: 'Hospital Network',
+        healthcareNetworks: 'Healthcare Networks',
         history: 'History',
       },
       addressTabs: {
@@ -12910,7 +12910,7 @@ export const translations: Record<Locale, Translations> = {
         templates: 'Šablóny',
         rewards: 'Odmeny',
       },
-        networks: 'Nemocničná sieť',
+        healthcareNetworks: 'Healthcare Networks',
     },
     collections: {
       title: 'Odbery',
@@ -13281,7 +13281,7 @@ export const translations: Record<Locale, Translations> = {
         rewards: 'Odmeny',
         actions: 'Úkony',
       },
-        networks: 'Nemocničná sieť',
+        healthcareNetworks: 'Healthcare Networks',
       addressTabs: {
         permanent: 'Trvalé bydlisko',
         correspondence: 'Korešpondenčná adresa',
@@ -18837,7 +18837,7 @@ export const translations: Record<Locale, Translations> = {
         templates: 'Šablony',
         rewards: 'Odměny',
       },
-        networks: 'Nemocniční síť',
+        healthcareNetworks: 'Healthcare Networks',
     },
     clinics: {
       title: 'Ambulance',
@@ -18984,7 +18984,7 @@ export const translations: Record<Locale, Translations> = {
         rewards: 'Odměny',
         actions: 'Úkony',
       },
-        networks: 'Nemocniční síť',
+        healthcareNetworks: 'Healthcare Networks',
       addressTabs: {
         permanent: 'Trvalé bydliště',
         correspondence: 'Korespondenční adresa',
@@ -24506,7 +24506,7 @@ export const translations: Record<Locale, Translations> = {
       },
     },
     clinics: {
-        networks: 'Kórházi hálózat',
+        healthcareNetworks: 'Healthcare Networks',
       title: 'Rendelok',
       description: 'Rendelok és nohgyógyászati létesítmények kezelése',
       addClinic: 'Rendelo hozzáadása',
@@ -24653,7 +24653,7 @@ export const translations: Record<Locale, Translations> = {
       },
       addressTabs: {
         permanent: 'Állandó lakcím',
-        networks: 'Kórházi hálózat',
+        healthcareNetworks: 'Healthcare Networks',
         correspondence: 'Levelezési cím',
         work: 'Munkahelyi cím',
         company: 'Céges cím',
@@ -30096,7 +30096,7 @@ export const translations: Record<Locale, Translations> = {
     clinics: {
       title: 'Clinici',
       description: 'Gestionarea clinicilor și a cabinetelor ginecologice',
-        networks: 'Rețea spitalicească',
+        healthcareNetworks: 'Healthcare Networks',
       addClinic: 'Adaugă clinică',
       editClinic: 'Editează clinică',
       deleteClinic: 'Șterge clinică',
@@ -30242,7 +30242,7 @@ export const translations: Record<Locale, Translations> = {
         permanent: 'Domiciliu permanent',
         correspondence: 'Adresă de corespondență',
         work: 'Adresă de lucru',
-        networks: 'Rețea spitalicească',
+        healthcareNetworks: 'Healthcare Networks',
         company: 'Adresă companie',
       },
       fields: {
@@ -35688,7 +35688,7 @@ export const translations: Record<Locale, Translations> = {
       addClinic: 'Aggiungi clinica',
       editClinic: 'Modifica clinica',
       deleteClinic: 'Elimina clinica',
-        networks: 'Rete ospedaliera',
+        healthcareNetworks: 'Healthcare Networks',
       deleteConfirm: 'Sei sicuro di voler eliminare questa clinica?',
       searchPlaceholder: 'Cerca cliniche...',
       noClinics: 'Nessuna clinica trovata',
@@ -35835,7 +35835,7 @@ export const translations: Record<Locale, Translations> = {
         company: 'Indirizzo aziendale',
       },
       fields: {
-        networks: 'Rete ospedaliera',
+        healthcareNetworks: 'Healthcare Networks',
         country: 'Paese',
         titleBefore: 'Titolo (prima del nome)',
         firstName: 'Nome',
@@ -41281,7 +41281,7 @@ export const translations: Record<Locale, Translations> = {
       deleteConfirm: 'Sind Sie sicher, dass Sie diese Praxis löschen möchten?',
       searchPlaceholder: 'Praxen suchen...',
       noClinics: 'Keine Praxen gefunden',
-        networks: 'Krankenhausnetzwerk',
+        healthcareNetworks: 'Healthcare Networks',
       name: 'Name',
       doctorName: 'Arztname',
       specialization: 'Spezialisierung',
@@ -41428,7 +41428,7 @@ export const translations: Record<Locale, Translations> = {
         country: 'Land',
         titleBefore: 'Titel (vor dem Namen)',
         firstName: 'Vorname',
-        networks: 'Krankenhausnetzwerk',
+        healthcareNetworks: 'Healthcare Networks',
         lastName: 'Nachname',
         middleName: 'Zweiter Vorname',
         maidenName: 'Mädchenname',

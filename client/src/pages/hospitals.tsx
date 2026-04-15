@@ -1190,7 +1190,7 @@ function HospitalNetworksTab() {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Network className="h-5 w-5 text-amber-600" />
-          {t.hospitals.tabs.networks}
+          {t.hospitals.tabs.healthcareNetworks}
         </h3>
         <Button size="sm" onClick={() => setCreateOpen(true)} data-testid="button-create-network">
           <Plus className="h-4 w-4 mr-1" />
@@ -1219,7 +1219,7 @@ function HospitalNetworksTab() {
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{t.common?.add || "Add"} - {t.hospitals.tabs.networks}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t.common?.add || "Add"} - {t.hospitals.tabs.healthcareNetworks}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>{t.common?.name || "Name"} *</Label>
@@ -2174,6 +2174,10 @@ export default function HospitalsPage() {
             <Building2 className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.hospital}
           </TabsTrigger>
+          <TabsTrigger value="networks" data-testid="tab-networks">
+            <Network className="h-4 w-4 mr-2" />
+            {t.hospitals.tabs.healthcareNetworks}
+          </TabsTrigger>
           <TabsTrigger value="clinics" data-testid="tab-clinics">
             <Stethoscope className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.clinics}
@@ -2185,10 +2189,6 @@ export default function HospitalsPage() {
           <TabsTrigger value="rewards" data-testid="tab-rewards">
             <Gift className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.rewards}
-          </TabsTrigger>
-          <TabsTrigger value="networks" data-testid="tab-networks">
-            <Network className="h-4 w-4 mr-2" />
-            {t.hospitals.tabs.networks}
           </TabsTrigger>
         </TabsList>
 

@@ -734,6 +734,53 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
             : null;
           const catStyle = getCategoryStyle(catCode);
           const CatIcon = catStyle.icon;
+          const isPrimaryEditing = editingId.length > 0 && editingId === p.assignment_id;
+
+          if (isPrimaryEditing) {
+            return (
+              <div key={p.assignment_id || p.person_id} className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 shadow-sm space-y-3" data-testid={`card-edit-primary-${p.person_id}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                    <span className="font-medium text-sm">{fullName}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="default" onClick={saveEdit} disabled={updateMutation.isPending} data-testid="button-save-edit-primary">
+                      {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                      {t.common.save}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId("")} data-testid="button-cancel-edit-primary">
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">{mpnT.position || "Position"}</Label>
+                    <Select value={editData.categoryId} onValueChange={v => setEditData({ ...editData, categoryId: v })}>
+                      <SelectTrigger className="h-8 mt-1" data-testid="select-edit-primary-position"><SelectValue placeholder="-" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">-</SelectItem>
+                        {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}>{getLocalizedCategoryName(cat, locale)}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm h-8">
+                      <input type="checkbox" checked={editData.isPrimary} onChange={e => setEditData({ ...editData, isPrimary: e.target.checked })} data-testid="checkbox-edit-primary-flag" />
+                      <Star className="h-3.5 w-3.5 text-amber-500" />
+                      {mpnT.primaryContact || "Primary"}
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">{mpnT.notes || "Notes"}</Label>
+                  <Textarea className="mt-1 h-16 text-sm" value={editData.notes} onChange={e => setEditData({ ...editData, notes: e.target.value })} data-testid="textarea-edit-primary-notes" />
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div key={p.assignment_id || p.person_id} className="rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-background p-4 shadow-sm" data-testid={`personnel-primary-person-${p.person_id}`}>
               <div className="flex items-center gap-2 mb-3">
