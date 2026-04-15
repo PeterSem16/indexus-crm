@@ -733,14 +733,6 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                       <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-hospital-active" />
                       <Label>{t.common.active}</Label>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch checked={formData.autoRecruiting} onCheckedChange={(checked) => setFormData({ ...formData, autoRecruiting: checked })} data-testid="switch-hospital-autorecruiting" />
-                      <Label>{t.hospitals.autoRecruiting}</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch checked={formData.svetZdravia} onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })} data-testid="switch-hospital-svetzdravia" />
-                      <Label>Svet Zdravia</Label>
-                    </div>
                   </div>
                 </div>
 

@@ -3003,7 +3003,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   </div>
                   <Separator />
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900"><Stethoscope className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" /></div><h3 className="text-sm font-semibold tracking-wide">Lekar</h3></div>
+                    <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900"><Stethoscope className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.doctor || 'Doctor'}</h3></div>
                     <div className="grid gap-3 sm:grid-cols-3 pl-1">
                       <div className="space-y-1"><Label className="text-xs">{t.common.title || "Title"}</Label><Input value={formData.doctorTitle} onChange={(e) => setFormData({ ...formData, doctorTitle: e.target.value })} placeholder="MUDr." className="h-9" data-testid="input-add-doctor-title" /></div>
                       <div className="space-y-1"><Label className="text-xs">{t.clinics.sections?.firstName || "First name"}</Label><Input value={formData.doctorFirstName} onChange={(e) => setFormData({ ...formData, doctorFirstName: e.target.value })} placeholder={t.clinics.sections?.firstName || "First name"} className="h-9" data-testid="input-add-doctor-firstname" /></div>
@@ -3070,22 +3070,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
 
               {activeTab === "settings" && (
                 <div className="space-y-4 pb-4">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div><Label>{t.clinics.isActive || "Active clinic"}</Label><p className="text-sm text-muted-foreground">{t.clinics.isActiveDesc || "Clinic is active and shown in lists"}</p></div>
                     <Switch checked={formData.isActive} onCheckedChange={(v) => setFormData({ ...formData, isActive: v })} data-testid="switch-add-clinic-active" />
-                    <Label>{t.common.active}</Label>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch checked={formData.hasFlyers} onCheckedChange={(v) => setFormData({ ...formData, hasFlyers: v })} data-testid="switch-add-clinic-flyers" />
-                    <Label>{(t.clinics as any).hasFlyers || "Has flyers/posters"}</Label>
-                  </div>
-                  {formData.hasFlyers && (
-                    <div className="ml-8 space-y-3">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1"><Label className="text-xs">{(t.clinics as any).flyersSentDate || "Flyers sent date"}</Label><DateTimePicker value={formData.flyersSentDate} onChange={(v) => setFormData({ ...formData, flyersSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} /></div>
-                        <div className="space-y-1"><Label className="text-xs">{(t.clinics as any).flyersLocation || "Flyers location"}</Label><Input value={formData.flyersLocation} onChange={(e) => setFormData({ ...formData, flyersLocation: e.target.value })} className="h-9" /></div>
-                      </div>
-                    </div>
-                  )}
+                  <div className="space-y-1"><Label className="text-xs">{t.clinics.notes}</Label><Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={6} data-testid="input-add-clinic-notes" /></div>
                 </div>
               )}
 
