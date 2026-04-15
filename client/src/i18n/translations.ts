@@ -1264,6 +1264,7 @@ export interface Translations {
       healthInsurance: string;
       maritalStatus: string;
       collaboratorType: string;
+      legacyType: string;
       phone: string;
       mobile: string;
       mobile2: string;
@@ -7534,6 +7535,7 @@ export const translations: Record<Locale, Translations> = {
         healthInsurance: 'Health Insurance',
         maritalStatus: 'Marital Status',
         collaboratorType: 'Type',
+        legacyType: 'Legacy Type',
         phone: 'Phone',
         mobile: 'Mobile',
         mobile2: 'Mobile 2',
@@ -13295,6 +13297,7 @@ export const translations: Record<Locale, Translations> = {
         healthInsurance: 'Zdravotná poisťovňa',
         maritalStatus: 'Rodinný stav',
         collaboratorType: 'Typ',
+        legacyType: 'Pôvodný typ',
         phone: 'Telefón',
         mobile: 'Mobil',
         mobile2: 'Mobil 2',
@@ -18995,6 +18998,7 @@ export const translations: Record<Locale, Translations> = {
         healthInsurance: 'Zdravotní pojišťovna',
         maritalStatus: 'Rodinný stav',
         collaboratorType: 'Typ',
+        legacyType: 'Pôvodný typ',
         phone: 'Telefon',
         mobile: 'Mobil',
         mobile2: 'Mobil 2',
@@ -24659,6 +24663,7 @@ export const translations: Record<Locale, Translations> = {
         healthInsurance: 'Egészségbiztosító',
         maritalStatus: 'Családi állapot',
         collaboratorType: 'Típus',
+        legacyType: 'Eredeti típus',
         phone: 'Telefon',
         mobile: 'Mobil',
         mobile2: 'Mobil 2',
@@ -30243,6 +30248,7 @@ export const translations: Record<Locale, Translations> = {
         healthInsurance: 'Asigurare de sănătate',
         maritalStatus: 'Stare civilă',
         collaboratorType: 'Tip',
+        legacyType: 'Tip vechi',
         phone: 'Telefon',
         mobile: 'Mobil',
         mobile2: 'Mobil 2',
@@ -35830,6 +35836,7 @@ export const translations: Record<Locale, Translations> = {
         healthInsurance: 'Assicurazione sanitaria',
         maritalStatus: 'Stato civile',
         collaboratorType: 'Tipo',
+        legacyType: 'Tipo legacy',
         phone: 'Telefono',
         mobile: 'Cellulare',
         mobile2: 'Cellulare 2',
@@ -41417,6 +41424,7 @@ export const translations: Record<Locale, Translations> = {
         healthInsurance: 'Krankenversicherung',
         maritalStatus: 'Familienstand',
         collaboratorType: 'Typ',
+        legacyType: 'Legacy-Typ',
         phone: 'Telefon',
         mobile: 'Mobil',
         mobile2: 'Mobil 2',

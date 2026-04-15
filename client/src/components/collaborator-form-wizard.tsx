@@ -90,75 +90,61 @@ const PARTNER_CATEGORIES = [
   { value: "inactive_prospect", label: "Inactive Prospect", color: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200" },
 ] as const;
 
+const POSITION_SCOPE_BADGE: Record<string, { label: string; className: string }> = {
+  hospital: { label: "Hospital", className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800" },
+  clinic: { label: "Clinic", className: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800" },
+  independent: { label: "Independent", className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800" },
+};
+
+function getLocalizedCatName(cat: any, locale: string): string {
+  const localeMap: Record<string, string | null> = {
+    sk: cat.nameSk || cat.name_sk, cs: cat.nameCs || cat.name_cs, en: cat.nameEn || cat.name_en,
+    hu: cat.nameHu || cat.name_hu, ro: cat.nameRo || cat.name_ro, it: cat.nameIt || cat.name_it, de: cat.nameDe || cat.name_de,
+  };
+  return localeMap[locale] || cat.name || "";
+}
+
 function PartnerCategoryField({ value, onChange, collaboratorId, t }: {
   value: string;
   onChange: (val: string) => void;
   collaboratorId?: string;
   t: any;
 }) {
-  const [suggesting, setSuggesting] = useState(false);
-  const [aiResult, setAiResult] = useState<{ category: string; confidence: number; reasoning: string } | null>(null);
-
-  const suggestCategory = async () => {
-    if (!collaboratorId) return;
-    setSuggesting(true);
-    setAiResult(null);
-    try {
-      const res = await fetch(`/api/collaborators/${collaboratorId}/suggest-category`, { method: "POST", credentials: "include" });
-      const data = await res.json();
-      setAiResult(data);
-      if (data.category && data.category !== "uncategorized") {
-        onChange(data.category);
-      }
-    } catch { }
-    setSuggesting(false);
-  };
+  const { locale } = useI18n();
+  const categoriesQuery = useQuery<any[]>({
+    queryKey: ["/api/mpn/categories"],
+  });
+  const categories = categoriesQuery.data || [];
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Label>Partner Category</Label>
-        {collaboratorId && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs gap-1 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950"
-            onClick={suggestCategory}
-            disabled={suggesting}
-            data-testid="button-ai-suggest-category"
-          >
-            {suggesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-            AI Suggest
-          </Button>
-        )}
-      </div>
+      <Label>{(t as any).medicalPartnerNetwork?.position || "Position"}</Label>
       <Select
         value={value || "_none"}
         onValueChange={(val) => onChange(val === "_none" ? "" : val)}
       >
         <SelectTrigger data-testid="wizard-select-partner-category">
-          <SelectValue placeholder="Partner Category" />
+          <SelectValue placeholder={(t as any).medicalPartnerNetwork?.position || "Position"} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="_none">{t.common.noData}</SelectItem>
-          {PARTNER_CATEGORIES.map((pc) => (
-            <SelectItem key={pc.value} value={pc.value}>{pc.label}</SelectItem>
-          ))}
+          {categories.filter((c: any) => c.isActive !== false && c.is_active !== false).map((cat: any) => {
+            const scope = cat.entityScope || cat.entity_scope || "hospital";
+            const scopeStyle = POSITION_SCOPE_BADGE[scope] || POSITION_SCOPE_BADGE.hospital;
+            const catName = getLocalizedCatName(cat, locale);
+            return (
+              <SelectItem key={cat.id} value={cat.id}>
+                <div className="flex items-center gap-2">
+                  <span>{catName}</span>
+                  <span className={`inline-flex text-[9px] px-1.5 py-0 rounded-full border font-medium ${scopeStyle.className}`}>
+                    {scopeStyle.label}
+                  </span>
+                </div>
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
-      {aiResult && (
-        <div className="flex items-start gap-2 p-2 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 text-xs">
-          <Sparkles className="h-3.5 w-3.5 text-violet-500 mt-0.5 shrink-0" />
-          <div>
-            <span className="font-medium text-violet-700 dark:text-violet-300">
-              {PARTNER_CATEGORIES.find(c => c.value === aiResult.category)?.label || aiResult.category}
-            </span>
-            <span className="text-muted-foreground ml-1">({Math.round(aiResult.confidence * 100)}%)</span>
-            <p className="text-muted-foreground mt-0.5">{aiResult.reasoning}</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -3757,15 +3743,23 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 </Popover>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t.collaborators.fields.collaboratorType}</Label>
+                <div className="flex items-center gap-2">
+                  <Label>{t.collaborators?.fields?.legacyType || "Legacy Type"}</Label>
+                  {isEditMode && (initialData as any)?.dataSource === 'iscbc' && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                      ISCBC
+                    </Badge>
+                  )}
+                </div>
                 <Select
                   value={formData.collaboratorType || "_none"}
                   onValueChange={(value) => setFormData({ ...formData, collaboratorType: value === "_none" ? "" : value })}
+                  disabled={isEditMode}
                 >
-                  <SelectTrigger data-testid="wizard-select-collaborator-type">
-                    <SelectValue placeholder={t.collaborators.fields.collaboratorType} />
+                  <SelectTrigger data-testid="wizard-select-collaborator-type" className={isEditMode ? "bg-muted opacity-70" : ""}>
+                    <SelectValue placeholder={t.collaborators?.fields?.legacyType || "Legacy Type"} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_none">{t.common.noData}</SelectItem>
@@ -3783,60 +3777,76 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 collaboratorId={initialData?.id}
                 t={t}
               />
-              <div className="space-y-2">
-                <Label>{t.collaborators?.fields?.agreementType || "Typ dohody"}</Label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "DOVP" ? "" : "DOVP" })}
-                    className={cn(
-                      "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
-                      formData.agreementType === "DOVP"
-                        ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-400 shadow-sm"
-                        : "border-muted hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-muted-foreground"
-                    )}
-                    data-testid="btn-agreement-type-dovp"
-                  >
-                    <div className={cn(
-                      "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
-                      formData.agreementType === "DOVP"
-                        ? "bg-blue-500 text-white"
-                        : "bg-muted-foreground/10 text-muted-foreground"
-                    )}>D</div>
-                    <div className="text-left">
-                      <div className="leading-tight">DOVP</div>
-                      <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "DOVP" ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")}>
-                        {t.collaborators?.fields?.agreementDOVP || "Dohoda o vykonaní práce"}
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "ZOD" ? "" : "ZOD" })}
-                    className={cn(
-                      "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
-                      formData.agreementType === "ZOD"
-                        ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-400 shadow-sm"
-                        : "border-muted hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-muted-foreground"
-                    )}
-                    data-testid="btn-agreement-type-zod"
-                  >
-                    <div className={cn(
-                      "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
-                      formData.agreementType === "ZOD"
-                        ? "bg-amber-500 text-white"
-                        : "bg-muted-foreground/10 text-muted-foreground"
-                    )}>Z</div>
-                    <div className="text-left">
-                      <div className="leading-tight">ZOD</div>
-                      <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "ZOD" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
-                        {t.collaborators?.fields?.agreementZOD || "Zmluva o dielo"}
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
             </div>
+
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="gap-2 text-sm text-muted-foreground hover:text-foreground" data-testid="toggle-agreement-type">
+                  <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-90" />
+                  {t.collaborators?.fields?.agreementType || "Typ dohody"}
+                  {formData.agreementType && (
+                    <Badge variant="outline" className={cn(
+                      "text-[10px] px-1.5 py-0",
+                      formData.agreementType === "DOVP" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                    )}>{formData.agreementType}</Badge>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="pt-2">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "DOVP" ? "" : "DOVP" })}
+                      className={cn(
+                        "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
+                        formData.agreementType === "DOVP"
+                          ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-400 shadow-sm"
+                          : "border-muted hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-muted-foreground"
+                      )}
+                      data-testid="btn-agreement-type-dovp"
+                    >
+                      <div className={cn(
+                        "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                        formData.agreementType === "DOVP"
+                          ? "bg-blue-500 text-white"
+                          : "bg-muted-foreground/10 text-muted-foreground"
+                      )}>D</div>
+                      <div className="text-left">
+                        <div className="leading-tight">DOVP</div>
+                        <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "DOVP" ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")}>
+                          {t.collaborators?.fields?.agreementDOVP || "Dohoda o vykonaní práce"}
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "ZOD" ? "" : "ZOD" })}
+                      className={cn(
+                        "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
+                        formData.agreementType === "ZOD"
+                          ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-400 shadow-sm"
+                          : "border-muted hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-muted-foreground"
+                      )}
+                      data-testid="btn-agreement-type-zod"
+                    >
+                      <div className={cn(
+                        "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                        formData.agreementType === "ZOD"
+                          ? "bg-amber-500 text-white"
+                          : "bg-muted-foreground/10 text-muted-foreground"
+                      )}>Z</div>
+                      <div className="text-left">
+                        <div className="leading-tight">ZOD</div>
+                        <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "ZOD" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
+                          {t.collaborators?.fields?.agreementZOD || "Zmluva o dielo"}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             <div className="grid gap-4 sm:grid-cols-3">
               {!isHidden("title_before") && (
