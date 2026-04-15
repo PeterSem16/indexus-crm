@@ -1971,6 +1971,7 @@ export const collaborators = pgTable("collaborators", {
   professionalClassification: text("professional_classification"),
   highestEducation: text("highest_education"),
   workplaceName: text("workplace_name"),
+  isManager: boolean("is_manager").notNull().default(false),
   collaboratorType: text("collaborator_type"),
   partnerCategory: text("partner_category"),
   agreementType: text("agreement_type"),

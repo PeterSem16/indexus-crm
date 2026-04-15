@@ -1284,6 +1284,7 @@ export interface Translations {
       highestEducation: string;
       workplaceName: string;
       workplaceNameDesc: string;
+      isManager: string;
       collaboratorType: string;
       legacyType: string;
       phone: string;
@@ -7600,6 +7601,7 @@ export const translations: Record<Locale, Translations> = {
         highestEducation: 'Highest Education',
         workplaceName: 'Workplace',
         workplaceNameDesc: 'Name of workplace as stated in employment contract',
+        isManager: 'Manager / Senior Employee',
         collaboratorType: 'Type',
         legacyType: 'Legacy Type',
         phone: 'Phone',
@@ -13407,6 +13409,7 @@ export const translations: Record<Locale, Translations> = {
         highestEducation: 'Najvyššie dosiahnuté vzdelanie',
         workplaceName: 'Miesto výkonu práce',
         workplaceNameDesc: 'Názov miesta výkonu práce uvedené v pracovnej zmluve',
+        isManager: 'Vedúci zamestnanec',
         collaboratorType: 'Typ',
         legacyType: 'Pôvodný typ',
         phone: 'Telefón',
@@ -19153,6 +19156,7 @@ export const translations: Record<Locale, Translations> = {
         highestEducation: 'Najvyššie dosiahnuté vzdelanie',
         workplaceName: 'Miesto výkonu práce',
         workplaceNameDesc: 'Názov miesta výkonu práce uvedené v pracovnej zmluve',
+        isManager: 'Vedúci zamestnanec',
         collaboratorType: 'Typ',
         legacyType: 'Pôvodný typ',
         phone: 'Telefon',
@@ -24863,6 +24867,7 @@ export const translations: Record<Locale, Translations> = {
         highestEducation: 'Legmagasabb iskolai végzettség',
         workplaceName: 'Munkavégzés helye',
         workplaceNameDesc: 'A munkaszerződésben feltüntetett munkavégzési hely neve',
+        isManager: 'Vezető alkalmazott',
         collaboratorType: 'Típus',
         legacyType: 'Eredeti típus',
         phone: 'Telefon',
@@ -30493,6 +30498,7 @@ export const translations: Record<Locale, Translations> = {
         highestEducation: 'Cel mai înalt nivel de educație',
         workplaceName: 'Locul de muncă',
         workplaceNameDesc: 'Numele locului de muncă menționat în contractul de muncă',
+        isManager: 'Angajat cu funcție de conducere',
         collaboratorType: 'Tip',
         legacyType: 'Tip vechi',
         phone: 'Telefon',
@@ -36126,6 +36132,7 @@ export const translations: Record<Locale, Translations> = {
         highestEducation: 'Titolo di studio più alto',
         workplaceName: 'Luogo di lavoro',
         workplaceNameDesc: 'Nome del luogo di lavoro indicato nel contratto di lavoro',
+        isManager: 'Dipendente dirigente',
         collaboratorType: 'Tipo',
         legacyType: 'Tipo legacy',
         phone: 'Telefono',
@@ -41759,6 +41766,7 @@ export const translations: Record<Locale, Translations> = {
         highestEducation: 'Höchster Bildungsabschluss',
         workplaceName: 'Arbeitsort',
         workplaceNameDesc: 'Name des Arbeitsortes laut Arbeitsvertrag',
+        isManager: 'Leitender Angestellter',
         collaboratorType: 'Typ',
         legacyType: 'Legacy-Typ',
         phone: 'Telefon',

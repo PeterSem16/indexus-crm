@@ -91,6 +91,7 @@ interface CollaboratorFormData {
   professionalClassification: string;
   highestEducation: string;
   workplaceName: string;
+  isManager: boolean;
   collaboratorType: string;
   phone: string;
   mobile: string;
@@ -131,6 +132,7 @@ const defaultFormData: CollaboratorFormData = {
   professionalClassification: "",
   highestEducation: "",
   workplaceName: "",
+  isManager: false,
   collaboratorType: "",
   phone: "",
   mobile: "",
@@ -1336,6 +1338,7 @@ function CollaboratorForm({
           professionalClassification: collaborator.professionalClassification || "",
           highestEducation: collaborator.highestEducation || "",
           workplaceName: collaborator.workplaceName || "",
+          isManager: collaborator.isManager || false,
           collaboratorType: collaborator.collaboratorType || "",
           phone: collaborator.phone || "",
           mobile: collaborator.mobile || "",
@@ -1664,6 +1667,14 @@ function CollaboratorForm({
                 data-testid="input-collaborator-workplace-name"
               />
               <p className="text-xs text-muted-foreground">{t.collaborators.fields.workplaceNameDesc}</p>
+            </div>
+            <div className="flex items-center space-x-2 pt-2">
+              <Switch
+                checked={formData.isManager}
+                onCheckedChange={(checked) => setFormData({ ...formData, isManager: checked })}
+                data-testid="switch-collaborator-is-manager"
+              />
+              <Label>{t.collaborators.fields.isManager}</Label>
             </div>
           </div>
 

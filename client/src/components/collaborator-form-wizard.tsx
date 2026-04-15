@@ -194,6 +194,7 @@ interface CollaboratorFormData {
   professionalClassification: string;
   highestEducation: string;
   workplaceName: string;
+  isManager: boolean;
   collaboratorType: string;
   partnerCategory: string;
   agreementType: string;
@@ -3321,6 +3322,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           professionalClassification: initialData.professionalClassification || "",
           highestEducation: initialData.highestEducation || "",
           workplaceName: initialData.workplaceName || "",
+          isManager: initialData.isManager || false,
           collaboratorType: initialData.collaboratorType || "",
           partnerCategory: initialData.partnerCategory || "",
           agreementType: (initialData as any).agreementType || "",
@@ -3371,6 +3373,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           professionalClassification: "",
           highestEducation: "",
           workplaceName: "",
+          isManager: false,
           collaboratorType: "",
           partnerCategory: "",
           agreementType: "",
@@ -4095,6 +4098,14 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   data-testid="wizard-input-workplace-name"
                 />
                 <p className="text-xs text-muted-foreground">{t.collaborators.fields.workplaceNameDesc}</p>
+              </div>
+              <div className="flex items-center space-x-2 pt-2 sm:col-span-2">
+                <Switch
+                  checked={formData.isManager}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isManager: checked })}
+                  data-testid="wizard-switch-is-manager"
+                />
+                <Label>{t.collaborators.fields.isManager}</Label>
               </div>
             </div>
 
