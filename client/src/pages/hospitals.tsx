@@ -277,7 +277,7 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-semibold" data-testid="text-hospital-drawer-name">{hospital.name}</h2>
+                <h2 className="text-base font-semibold" data-testid="text-hospital-drawer-name">{hospital.fullName || hospital.name}</h2>
                 {hospitalNetworks.map((netName: string) => (
                   <Badge key={netName} className="text-[10px] px-1.5 py-0 font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700" data-testid="badge-hospital-network-drawer">
                     <Network className="h-2.5 w-2.5 mr-0.5" />
@@ -330,13 +330,9 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
               <div className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="ed-fullName">{t.hospitals.fullName} *</Label>
-                  <Input id="ed-fullName" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-ed-hospital-fullname" />
+                  <Input id="ed-fullName" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value, name: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-ed-hospital-fullname" />
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="ed-name">{t.hospitals.name}</Label>
-                    <Input id="ed-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.hospitals.name} data-testid="input-ed-hospital-name" />
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="ed-country">{t.common.country} *</Label>
                     <Select value={formData.countryCode} onValueChange={(value) => {
@@ -475,11 +471,11 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
             )}
 
             {activeSection === "personnel" && (
-              <InstitutionPersonnelManager entityType="hospital" entityId={hospital.id} entityName={hospital.name} countryCode={hospital.countryCode} />
+              <InstitutionPersonnelManager entityType="hospital" entityId={hospital.id} entityName={hospital.fullName || hospital.name} countryCode={hospital.countryCode} />
             )}
 
             {activeSection === "campaigns" && (
-              <EntityCampaignTimeline entityType="hospital" entityId={hospital.id} entityName={hospital.name} />
+              <EntityCampaignTimeline entityType="hospital" entityId={hospital.id} entityName={hospital.fullName || hospital.name} />
             )}
           </div>
         </div>
@@ -621,15 +617,9 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
           <div className="flex-1 overflow-y-auto p-5">
             {activeSection === "basic" && (
               <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>{t.hospitals.name} *</Label>
-                    <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.hospitals.name} data-testid="input-hospital-name" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t.hospitals.fullName}</Label>
-                    <Input value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-hospital-fullname" />
-                  </div>
+                <div className="space-y-2">
+                  <Label>{t.hospitals.fullName} *</Label>
+                  <Input value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value, name: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-hospital-fullname" />
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
@@ -1907,8 +1897,8 @@ export default function HospitalsPage() {
       
       switch (hospitalSortField) {
         case "name":
-          aVal = a.name.toLowerCase();
-          bVal = b.name.toLowerCase();
+          aVal = (a.fullName || a.name).toLowerCase();
+          bVal = (b.fullName || b.name).toLowerCase();
           break;
         case "city":
           aVal = (a.city || "").toLowerCase();
@@ -1927,8 +1917,8 @@ export default function HospitalsPage() {
           bVal = b.isActive;
           break;
         default:
-          aVal = a.name.toLowerCase();
-          bVal = b.name.toLowerCase();
+          aVal = (a.fullName || a.name).toLowerCase();
+          bVal = (b.fullName || b.name).toLowerCase();
       }
       
       if (aVal < bVal) return hospitalSortDirection === "asc" ? -1 : 1;
@@ -2305,7 +2295,7 @@ export default function HospitalsPage() {
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => setPersonnelEntity({ type: "hospital", id: hospital.id, name: hospital.name })}
+            onClick={() => setPersonnelEntity({ type: "hospital", id: hospital.id, name: hospital.fullName || hospital.name })}
             data-testid={`button-personnel-hospital-${hospital.id}`}
             title={(t as any).medicalPartnerNetwork?.personnel || "Personnel"}
           >

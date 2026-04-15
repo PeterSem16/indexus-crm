@@ -2991,7 +2991,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllHospitals(): Promise<Hospital[]> {
-    return db.select().from(hospitals).orderBy(hospitals.name);
+    return db.select().from(hospitals).orderBy(sql`COALESCE(${hospitals.fullName}, ${hospitals.name})`);
   }
 
   async getHospitalsLookup(): Promise<{ id: string; name: string; countryCode: string }[]> {
@@ -3017,7 +3017,7 @@ export class DatabaseStorage implements IStorage {
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(hospitals).where(where);
-    const data = await db.select().from(hospitals).where(where).orderBy(hospitals.name).limit(limit).offset(offset);
+    const data = await db.select().from(hospitals).where(where).orderBy(sql`COALESCE(${hospitals.fullName}, ${hospitals.name})`).limit(limit).offset(offset);
     return { data, total: countResult.count };
   }
 
@@ -3027,7 +3027,7 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(hospitals)
       .where(inArray(hospitals.countryCode, countryCodes))
-      .orderBy(hospitals.name);
+      .orderBy(sql`COALESCE(${hospitals.fullName}, ${hospitals.name})`);
   }
 
   async createHospital(data: InsertHospital): Promise<Hospital> {

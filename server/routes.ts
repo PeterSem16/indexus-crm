@@ -42530,13 +42530,13 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         const hConditions: any[] = [];
         if (search) {
           hConditions.push(or(
-            sql`lower(${hospitals.name}) LIKE ${`%${search}%`}`,
+            sql`lower(COALESCE(${hospitals.fullName}, ${hospitals.name})) LIKE ${`%${search}%`}`,
             sql`lower(${hospitals.city}) LIKE ${`%${search}%`}`
           ));
         }
         hospitalRows = await db.select({
           id: hospitals.id,
-          name: hospitals.name,
+          name: sql`COALESCE(${hospitals.fullName}, ${hospitals.name})`.as("name"),
           city: hospitals.city,
           countryCode: hospitals.countryCode,
           isActive: hospitals.isActive,
@@ -42544,7 +42544,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
           email: hospitals.email,
         }).from(hospitals)
           .where(hConditions.length > 0 ? and(...hConditions) : undefined)
-          .orderBy(asc(hospitals.name));
+          .orderBy(sql`COALESCE(${hospitals.fullName}, ${hospitals.name})`);
       }
 
       if (!typeFilter || typeFilter === "clinic") {
