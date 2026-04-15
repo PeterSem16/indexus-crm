@@ -30,7 +30,7 @@ import {
   Phone, Mail, MessageCircle, Star, Search, Filter, Hospital, Stethoscope,
   UserCheck, UserX, Link2, ChevronLeft, ChevronRight, Building, Clock, Loader2,
   Network, MapPin, X, User, Sparkles, ZoomIn, ZoomOut, Maximize2,
-  Activity, Calendar, CheckCircle, XCircle, AlertCircle, LogIn, Database, Download
+  Activity, Calendar, CheckCircle, XCircle, AlertCircle, LogIn, Database, Download, Share2
 } from "lucide-react";
 
 type PartnerCategory = {
@@ -603,8 +603,8 @@ function NetworkExplorer() {
     if (selectedResult.type === "institution") {
       const inst = networkData.institution;
       const center = {
-        id: `inst-${inst.entityType}-${inst.id}`,
-        type: inst.entityType as "hospital" | "clinic",
+        id: inst.entityType === "network" ? `network-${inst.id}` : `inst-${inst.entityType}-${inst.id}`,
+        type: inst.entityType as "hospital" | "clinic" | "network",
         label: inst.name,
         sublabel: inst.city || "",
         entityId: inst.id,
@@ -682,14 +682,14 @@ function NetworkExplorer() {
           }
           result.edges.push({ from: center.id, to: netNodeId, edgeType: "network" });
         }
-        const memberId = nm.hospital_id ? `inst-hospital-${nm.hospital_id}` : nm.clinic_id ? `inst-clinic-${nm.clinic_id}` : null;
+        const memberId = nm.hospital_id ? `inst-hospital-${nm.hospital_id}` : nm.clinic_id ? `inst-clinic-${nm.clinic_id}` : nm.collaborator_id ? `person-${nm.collaborator_id}` : null;
         if (memberId && memberId !== center.id && !result.nodes.some(n => n.id === memberId)) {
           const angle = Math.random() * 2 * Math.PI;
           const mDist = Math.max(180, ring1.length * 25) + 160;
           result.nodes.push({
-            id: memberId, type: (nm.member_type || "hospital") as any, label: nm.member_name || "?", sublabel: nm.member_city || "",
+            id: memberId, type: (nm.member_type === "collaborator" ? "person" : nm.member_type || "hospital") as any, label: nm.member_name || "?", sublabel: nm.member_city || "",
             x: 450 + mDist * Math.cos(angle), y: 300 + mDist * Math.sin(angle),
-            entityId: nm.hospital_id || nm.clinic_id, entityType: nm.member_type,
+            entityId: nm.hospital_id || nm.clinic_id || nm.collaborator_id, entityType: nm.member_type === "collaborator" ? "person" : nm.member_type,
           });
         }
         if (memberId && memberId !== center.id) {
@@ -834,8 +834,8 @@ function NetworkExplorer() {
                         data-testid={`search-result-${inst.id}`}
                       >
                         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                          inst.type === "hospital" ? "bg-blue-100 text-blue-600" : "bg-emerald-100 text-emerald-600")}>
-                          {inst.type === "hospital" ? <Hospital className="h-4 w-4" /> : <Stethoscope className="h-4 w-4" />}
+                          inst.type === "hospital" ? "bg-blue-100 text-blue-600" : inst.type === "network" ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600")}>
+                          {inst.type === "hospital" ? <Hospital className="h-4 w-4" /> : inst.type === "network" ? <Share2 className="h-4 w-4" /> : <Stethoscope className="h-4 w-4" />}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-sm truncate">{inst.name}</div>

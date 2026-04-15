@@ -1581,6 +1581,7 @@ function AddressesTabContent({ collaboratorId, countryCode, collaboratorName, t 
                     addressType={value}
                     existingAddress={address}
                     collaboratorName={collaboratorName}
+                    parentCountryCode={countryCode}
                     t={t}
                   />
                 </CardContent>
@@ -1594,7 +1595,7 @@ function AddressesTabContent({ collaboratorId, countryCode, collaboratorName, t 
 }
 
 // Company Address Form Component (inline display)
-function CompanyAddressForm({ collaboratorId, t }: { collaboratorId: string; t: any }) {
+function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collaboratorId: string; parentCountryCode?: string; t: any }) {
   const { toast } = useToast();
   
   const { data: addresses = [] } = useQuery<CollaboratorAddress[]>({
@@ -1614,7 +1615,7 @@ function CompanyAddressForm({ collaboratorId, t }: { collaboratorId: string; t: 
     city: companyAddress?.city || "",
     postalCode: companyAddress?.postalCode || "",
     region: companyAddress?.region || "",
-    countryCode: companyAddress?.countryCode || "",
+    countryCode: companyAddress?.countryCode || parentCountryCode || "SK",
   });
 
   useEffect(() => {
@@ -1624,7 +1625,7 @@ function CompanyAddressForm({ collaboratorId, t }: { collaboratorId: string; t: 
         city: companyAddress.city || "",
         postalCode: companyAddress.postalCode || "",
         region: companyAddress.region || "",
-        countryCode: companyAddress.countryCode || "",
+        countryCode: companyAddress.countryCode || parentCountryCode || "SK",
       });
     }
   }, [companyAddress]);
@@ -1644,6 +1645,8 @@ function CompanyAddressForm({ collaboratorId, t }: { collaboratorId: string; t: 
       toast({ title: t.errors.saveFailed, variant: "destructive" });
     },
   });
+
+  const regions = REGIONS_BY_COUNTRY[formData.countryCode] || [];
 
   return (
     <div className="space-y-4">
@@ -1675,11 +1678,24 @@ function CompanyAddressForm({ collaboratorId, t }: { collaboratorId: string; t: 
           />
         </div>
         <div className="space-y-2">
-          <Label>{t.collaborators.fields.region}</Label>
-          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
-            <SelectTrigger data-testid="select-company-address-region"><SelectValue placeholder={t.collaborators.fields.region} /></SelectTrigger>
+          <Label>{t.common?.country || "Country"}</Label>
+          <Select value={formData.countryCode} onValueChange={(v) => { const newRegion = getAutoRegion(v, formData.city); setFormData({ ...formData, countryCode: v, region: newRegion || "" }); }}>
+            <SelectTrigger data-testid="select-company-address-country"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+              {COUNTRIES.map((c: any) => (
+                <SelectItem key={c.code} value={c.code}>{getCountryFlag(c.code)} {c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.addressRegion || "Region"}</Label>
+          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+            <SelectTrigger data-testid="select-company-address-region"><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
+            <SelectContent>
+              {regions.map((r: string) => (
                 <SelectItem key={r} value={r}>{r}</SelectItem>
               ))}
             </SelectContent>
@@ -1696,11 +1712,12 @@ function CompanyAddressForm({ collaboratorId, t }: { collaboratorId: string; t: 
 }
 
 // Address Form Component
-function AddressForm({ collaboratorId, addressType, existingAddress, collaboratorName, t }: { 
+function AddressForm({ collaboratorId, addressType, existingAddress, collaboratorName, parentCountryCode, t }: { 
   collaboratorId: string; 
   addressType: string; 
   existingAddress?: CollaboratorAddress;
   collaboratorName?: string;
+  parentCountryCode?: string;
   t: any;
 }) {
   const { toast } = useToast();
@@ -1710,7 +1727,7 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
     city: existingAddress?.city || "",
     postalCode: existingAddress?.postalCode || "",
     region: existingAddress?.region || "",
-    countryCode: existingAddress?.countryCode || "",
+    countryCode: existingAddress?.countryCode || parentCountryCode || "SK",
   });
 
   const saveMutation = useMutation({
@@ -1784,9 +1801,20 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>{t.collaborators.fields.region}</Label>
+          <Label>{t.common?.country || "Country"}</Label>
+          <Select value={formData.countryCode} onValueChange={(v) => { const newRegion = getAutoRegion(v, formData.city); setFormData({ ...formData, countryCode: v, region: newRegion || "" }); }}>
+            <SelectTrigger data-testid={`select-address-${addressType}-country`}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {COUNTRIES.map((c: any) => (
+                <SelectItem key={c.code} value={c.code}>{getCountryFlag(c.code)} {c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.addressRegion || "Region"}</Label>
           <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
-            <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.region} /></SelectTrigger>
+            <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
             <SelectContent>
               {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                 <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -4456,7 +4484,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                     <MapPin className="h-4 w-4" />
                     {t.collaborators.addressTabs.company}
                   </h5>
-                  <CompanyAddressForm collaboratorId={initialData.id} t={t} />
+                  <CompanyAddressForm collaboratorId={initialData.id} parentCountryCode={initialData.countryCode} t={t} />
                 </div>
               )}
             </div>

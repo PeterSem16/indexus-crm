@@ -42568,9 +42568,31 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
           .orderBy(asc(clinics.name));
       }
 
+      let networkRows: any[] = [];
+      if (!typeFilter || typeFilter === "network") {
+        const nConditions: any[] = [];
+        if (search) {
+          nConditions.push(or(
+            sql`lower(${hospitalNetworks.name}) LIKE ${`%${search}%`}`,
+            sql`lower(${hospitalNetworks.city}) LIKE ${`%${search}%`}`
+          ));
+        }
+        networkRows = await db.select({
+          id: hospitalNetworks.id,
+          name: hospitalNetworks.name,
+          city: hospitalNetworks.city,
+          countryCode: hospitalNetworks.countryCode,
+          phone: hospitalNetworks.phone,
+          email: hospitalNetworks.email,
+        }).from(hospitalNetworks)
+          .where(nConditions.length > 0 ? and(...nConditions) : undefined)
+          .orderBy(asc(hospitalNetworks.name));
+      }
+
       const all = [
         ...hospitalRows.map(h => ({ ...h, type: "hospital" as const })),
         ...clinicRows.map(c => ({ ...c, type: "clinic" as const })),
+        ...networkRows.map(n => ({ ...n, isActive: true, type: "network" as const })),
       ];
 
       all.sort((a, b) => a.name.localeCompare(b.name));
@@ -43030,13 +43052,15 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       const { entityType, entityId } = req.params;
       if (!["hospital", "clinic", "network"].includes(entityType)) return res.status(400).json({ error: "Invalid entity type" });
 
-      // Get institution info
       let instInfo: any = null;
       if (entityType === "hospital") {
         const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email, address FROM hospitals WHERE id = ${entityId}`);
         instInfo = r.rows?.[0];
-      } else {
+      } else if (entityType === "clinic") {
         const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email, address FROM clinics WHERE id = ${entityId}`);
+        instInfo = r.rows?.[0];
+      } else if (entityType === "network") {
+        const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email, address FROM hospital_networks WHERE id = ${entityId}`);
         instInfo = r.rows?.[0];
       }
       if (!instInfo) return res.status(404).json({ error: "Not found" });
@@ -43088,21 +43112,38 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       }
 
       let networks: any[] = [];
-      const netRes = await db.execute(sql`
-        SELECT hn.id as network_id, hn.name as network_name,
-               hnm.hospital_id, hnm.clinic_id,
-               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.name WHEN hnm.clinic_id IS NOT NULL THEN cl.name END as member_name,
-               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.city WHEN hnm.clinic_id IS NOT NULL THEN cl.city END as member_city,
-               CASE WHEN hnm.hospital_id IS NOT NULL THEN 'hospital' WHEN hnm.clinic_id IS NOT NULL THEN 'clinic' END as member_type
-        FROM hospital_network_members hnm_self
-        JOIN hospital_networks hn ON hn.id = hnm_self.network_id
-        JOIN hospital_network_members hnm ON hnm.network_id = hn.id
-        LEFT JOIN hospitals h ON hnm.hospital_id = h.id
-        LEFT JOIN clinics cl ON hnm.clinic_id = cl.id
-        WHERE (${entityType} = 'hospital' AND hnm_self.hospital_id = ${entityId})
-           OR (${entityType} = 'clinic' AND hnm_self.clinic_id = ${entityId})
-      `);
-      networks = netRes.rows || [];
+      if (entityType === "network") {
+        const netRes = await db.execute(sql`
+          SELECT ${entityId}::text as network_id, hn.name as network_name,
+                 hnm.hospital_id, hnm.clinic_id, hnm.collaborator_id,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN COALESCE(h.full_name, h.name) WHEN hnm.clinic_id IS NOT NULL THEN cl.name WHEN hnm.collaborator_id IS NOT NULL THEN COALESCE(co.title_before || ' ', '') || co.first_name || ' ' || co.last_name END as member_name,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN h.city WHEN hnm.clinic_id IS NOT NULL THEN cl.city END as member_city,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN 'hospital' WHEN hnm.clinic_id IS NOT NULL THEN 'clinic' WHEN hnm.collaborator_id IS NOT NULL THEN 'collaborator' END as member_type
+          FROM hospital_network_members hnm
+          JOIN hospital_networks hn ON hn.id = hnm.network_id
+          LEFT JOIN hospitals h ON hnm.hospital_id = h.id
+          LEFT JOIN clinics cl ON hnm.clinic_id = cl.id
+          LEFT JOIN collaborators co ON hnm.collaborator_id = co.id
+          WHERE hnm.network_id = ${entityId}
+        `);
+        networks = netRes.rows || [];
+      } else {
+        const netRes = await db.execute(sql`
+          SELECT hn.id as network_id, hn.name as network_name,
+                 hnm.hospital_id, hnm.clinic_id,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN COALESCE(h.full_name, h.name) WHEN hnm.clinic_id IS NOT NULL THEN cl.name END as member_name,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN h.city WHEN hnm.clinic_id IS NOT NULL THEN cl.city END as member_city,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN 'hospital' WHEN hnm.clinic_id IS NOT NULL THEN 'clinic' END as member_type
+          FROM hospital_network_members hnm_self
+          JOIN hospital_networks hn ON hn.id = hnm_self.network_id
+          JOIN hospital_network_members hnm ON hnm.network_id = hn.id
+          LEFT JOIN hospitals h ON hnm.hospital_id = h.id
+          LEFT JOIN clinics cl ON hnm.clinic_id = cl.id
+          WHERE (${entityType} = 'hospital' AND hnm_self.hospital_id = ${entityId})
+             OR (${entityType} = 'clinic' AND hnm_self.clinic_id = ${entityId})
+        `);
+        networks = netRes.rows || [];
+      }
 
       res.json({ institution: { ...instInfo, entityType }, persons, otherAssignments, referrals, networks });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
