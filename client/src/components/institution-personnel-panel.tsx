@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -594,6 +595,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
   const assigned = data?.assigned || [];
   const legacy = data?.legacy || [];
   const allPersonnel = [...assigned, ...legacy];
+  const clinicDoctor = entityType === "clinic" ? data?.clinicDoctor : null;
 
   if (personnelQuery.isLoading) {
     return <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}</div>;
@@ -601,6 +603,44 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
 
   return (
     <div className="space-y-4" data-testid="institution-personnel-manager">
+      {clinicDoctor && (
+        <div className="rounded-xl border-2 border-teal-300 dark:border-teal-700 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/40 dark:to-background p-4 shadow-sm" data-testid="personnel-primary-contact">
+          <div className="flex items-center gap-2 mb-3">
+            <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
+              {mpnT.primaryContact || "Primary Contact"}
+            </span>
+            <Badge className="text-[10px] px-1.5 py-0 bg-teal-600 text-white border-teal-700 dark:bg-teal-700">
+              {mpnT.doctor || "Doctor"}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-teal-200 dark:bg-teal-800 flex items-center justify-center ring-2 ring-teal-400 dark:ring-teal-600 ring-offset-2 ring-offset-background">
+              <Stethoscope className="h-6 w-6 text-teal-700 dark:text-teal-300" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-base text-foreground">{clinicDoctor.fullName}</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                {clinicDoctor.phone && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5 text-teal-500" />
+                    <span>{clinicDoctor.phone}</span>
+                  </div>
+                )}
+                {clinicDoctor.email && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Mail className="h-3.5 w-3.5 text-teal-500" />
+                    <span>{clinicDoctor.email}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(clinicDoctor && allPersonnel.length > 0) && <Separator />}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
