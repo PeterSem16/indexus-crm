@@ -43132,10 +43132,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
           WHERE hnm.network_id = ${entityId}
         `);
         networks = netRes.rows || [];
-      } else {
-        const selfCondition = entityType === "hospital"
-          ? sql`hnm_self.hospital_id = ${entityId}`
-          : sql`hnm_self.clinic_id = ${entityId}`;
+      } else if (entityType === "hospital") {
         const netRes = await db.execute(sql`
           SELECT hn.id as network_id, hn.name as network_name,
                  hnm.hospital_id, hnm.clinic_id, hnm.collaborator_id,
@@ -43148,13 +43145,30 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
           LEFT JOIN hospitals h ON hnm.hospital_id = h.id
           LEFT JOIN clinics cl ON hnm.clinic_id = cl.id
           LEFT JOIN collaborators co ON hnm.collaborator_id = co.id
-          WHERE ${selfCondition}
+          WHERE hnm_self.hospital_id = ${entityId}
+        `);
+        networks = netRes.rows || [];
+      } else {
+        const netRes = await db.execute(sql`
+          SELECT hn.id as network_id, hn.name as network_name,
+                 hnm.hospital_id, hnm.clinic_id, hnm.collaborator_id,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN COALESCE(h.full_name, h.name) WHEN hnm.clinic_id IS NOT NULL THEN cl.name WHEN hnm.collaborator_id IS NOT NULL THEN COALESCE(co.title_before || ' ', '') || co.first_name || ' ' || co.last_name END as member_name,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN h.city WHEN hnm.clinic_id IS NOT NULL THEN cl.city END as member_city,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN 'hospital' WHEN hnm.clinic_id IS NOT NULL THEN 'clinic' WHEN hnm.collaborator_id IS NOT NULL THEN 'collaborator' END as member_type
+          FROM hospital_network_members hnm_self
+          JOIN hospital_networks hn ON hn.id = hnm_self.network_id
+          JOIN hospital_network_members hnm ON hnm.network_id = hn.id
+          LEFT JOIN hospitals h ON hnm.hospital_id = h.id
+          LEFT JOIN clinics cl ON hnm.clinic_id = cl.id
+          LEFT JOIN collaborators co ON hnm.collaborator_id = co.id
+          WHERE hnm_self.clinic_id = ${entityId}
         `);
         networks = netRes.rows || [];
       }
 
+      console.log(`[MPN] institution/${entityType}/${entityId}: persons=${persons.length}, networks=${networks.length}, otherAssignments=${otherAssignments.length}`);
       res.json({ institution: { ...instInfo, entityType }, persons, otherAssignments, referrals, networks });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { console.error(`[MPN] Error for ${entityType}/${entityId}:`, e.message); res.status(500).json({ error: e.message }); }
   });
 
   app.get("/api/mpn/network/person/:personId", requireAuth, async (req, res) => {

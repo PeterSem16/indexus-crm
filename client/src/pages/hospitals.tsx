@@ -2238,7 +2238,7 @@ export default function HospitalsPage() {
         const nets = hospitalNetworkMap[hospital.id] || [];
         return (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium">{hospital.fullName || hospital.name}</span>
+            <span className="font-medium">{hospital.fullName || hospital.name || "(unnamed)"}</span>
             {nets.map((netName) => (
               <Badge key={netName} className="text-[10px] px-1.5 py-0 font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700" data-testid={`badge-network-${hospital.id}`}>
                 <Network className="h-2.5 w-2.5 mr-0.5" />
