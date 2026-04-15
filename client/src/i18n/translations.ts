@@ -1155,6 +1155,8 @@ export interface Translations {
     referredToConference: string;
     recommendedBy: string;
     recommendsOthers: string;
+    hasBeenRecommendedBy: string;
+    hasSuggestedPartners: string;
     callNow: string;
     statusBar: string;
     leadSourceTypes: {
@@ -7420,6 +7422,8 @@ export const translations: Record<Locale, Translations> = {
       referredToConference: 'Conference referral',
       recommendedBy: 'Recommended',
       recommendsOthers: 'Recommends',
+      hasBeenRecommendedBy: 'The Medical Partner has been recommended by following medical partners:',
+      hasSuggestedPartners: 'The Medical Partner has suggested following potential medical partners:',
       callNow: 'Call',
       statusBar: 'Status',
       leadSourceTypes: {
@@ -13177,6 +13181,8 @@ export const translations: Record<Locale, Translations> = {
       referredToConference: 'Konferenčné odporučenie',
       recommendedBy: 'Odporúčaný',
       recommendsOthers: 'Odporúča',
+      hasBeenRecommendedBy: 'Potenciálny medicínsky partner bol odporučený nasledovnými medicínskymi partnermi:',
+      hasSuggestedPartners: 'Medicínsky partner odporučil nasledovných potenciálnych medicínskych partnerov:',
       callNow: 'Volať',
       statusBar: 'Stav',
       leadSourceTypes: {
@@ -18873,6 +18879,8 @@ export const translations: Record<Locale, Translations> = {
       referredToConference: 'Konferenční doporučení',
       recommendedBy: 'Doporučený',
       recommendsOthers: 'Doporučuje',
+      hasBeenRecommendedBy: 'Potenciální medicínský partner byl doporučen následujícími medicínskými partnery:',
+      hasSuggestedPartners: 'Medicínský partner doporučil následující potenciální medicínské partnery:',
       callNow: 'Volat',
       statusBar: 'Stav',
       leadSourceTypes: {
@@ -24533,6 +24541,8 @@ export const translations: Record<Locale, Translations> = {
       referredToConference: 'Konferencia ajánlás',
       recommendedBy: 'Ajánlott',
       recommendsOthers: 'Ajánl',
+      hasBeenRecommendedBy: 'A potenciális orvosi partnert a következő orvosi partnerek ajánlották:',
+      hasSuggestedPartners: 'Az orvosi partner a következő potenciális orvosi partnereket javasolta:',
       callNow: 'Hívás',
       statusBar: 'Állapot',
       leadSourceTypes: {
@@ -30114,6 +30124,8 @@ export const translations: Record<Locale, Translations> = {
       referredToConference: 'Recomandare conferință',
       recommendedBy: 'Recomandat',
       recommendsOthers: 'Recomandă',
+      hasBeenRecommendedBy: 'Partenerul medical potențial a fost recomandat de următorii parteneri medicali:',
+      hasSuggestedPartners: 'Partenerul medical a sugerat următorii parteneri medicali potențiali:',
       callNow: 'Apelează',
       statusBar: 'Stare',
       leadSourceTypes: {
@@ -35695,6 +35707,8 @@ export const translations: Record<Locale, Translations> = {
       referredTo: 'Ha raccomandato',
       recommendedBy: 'Raccomandato',
       recommendsOthers: 'Raccomanda',
+      hasBeenRecommendedBy: 'Il partner medico potenziale è stato raccomandato dai seguenti partner medici:',
+      hasSuggestedPartners: 'Il partner medico ha suggerito i seguenti potenziali partner medici:',
       referredToConference: 'Raccomandazione conferenza',
       callNow: 'Chiama',
       statusBar: 'Stato',
@@ -41279,6 +41293,8 @@ export const translations: Record<Locale, Translations> = {
       referredToConference: 'Konferenzempfehlung',
       recommendedBy: 'Empfohlen',
       recommendsOthers: 'Empfiehlt',
+      hasBeenRecommendedBy: 'Der potenzielle medizinische Partner wurde von folgenden medizinischen Partnern empfohlen:',
+      hasSuggestedPartners: 'Der medizinische Partner hat folgende potenzielle medizinische Partner vorgeschlagen:',
       callNow: 'Anrufen',
       statusBar: 'Status',
       leadSourceTypes: {

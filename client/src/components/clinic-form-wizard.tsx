@@ -780,51 +780,43 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
           </div>
 
           {initialData && (() => {
-            const docRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "doctor_referral")?.map(r => r.referringClinic!) || [];
-            const confRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "conference")?.map(r => r.referringClinic!) || [];
-            const myDocRefs = reverseReferrals?.filter(r => r.clinic && r.referralType === "doctor_referral")?.map(r => r.clinic!) || [];
-            const myConfRefs = reverseReferrals?.filter(r => r.clinic && r.referralType === "conference")?.map(r => r.clinic!) || [];
-            if (docRefs.length === 0 && confRefs.length === 0 && myDocRefs.length === 0 && myConfRefs.length === 0) return null;
+            const allRecommendedBy = existingReferrals?.filter(r => r.referringClinic)?.map(r => r.referringClinic!) || [];
+            const allRecommends = reverseReferrals?.filter(r => r.clinic)?.map(r => r.clinic!) || [];
+            if (allRecommendedBy.length === 0 && allRecommends.length === 0) return null;
             return (
-              <div className="mx-6 mb-1 space-y-1">
-                {docRefs.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                    <UserCheck className="h-3 w-3 text-purple-500" />
-                    <span className="font-medium text-purple-600 dark:text-purple-400">{t.clinics.referredBy}:</span>
-                    {docRefs.map((doc) => (
-                      <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">{getDoctorFullName(doc as any) || doc.name}</Badge>
-                    ))}
+              <div className="mx-6 mb-2 space-y-3">
+                {allRecommendedBy.length > 0 && (
+                  <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 p-3" data-testid="section-recommended-by">
+                    <div className="flex items-center gap-2 mb-2">
+                      <UserCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+                        {(t.clinics as any).hasBeenRecommendedBy || "The Medical Partner has been recommended by following medical partners:"}
+                      </span>
+                    </div>
+                    <div className="space-y-1 ml-6">
+                      {allRecommendedBy.map((doc) => (
+                        <div key={doc.id} className="text-sm font-medium text-foreground" data-testid={`recommended-by-${doc.id}`}>
+                          {getDoctorFullName(doc as any) || doc.name}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
-                {confRefs.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                    <GraduationCap className="h-3 w-3 text-rose-500" />
-                    <span className="font-medium text-rose-600 dark:text-rose-400">{t.clinics.leadSourceTypes?.conference || "Conference"}:</span>
-                    {confRefs.map((doc) => (
-                      <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">{getDoctorFullName(doc as any) || doc.name}</Badge>
-                    ))}
-                  </div>
-                )}
-                {myDocRefs.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                    <ArrowRight className="h-3 w-3 text-emerald-500" />
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400">{(t.clinics as any).referredTo || "Referred"}:</span>
-                    {myDocRefs.map((doc) => (
-                      <Badge key={doc.id} variant="outline" className="text-xs py-0 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700">
-                        {getDoctorFullName(doc as any) || doc.name}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {myConfRefs.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                    <ArrowRight className="h-3 w-3 text-emerald-500" />
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400">{(t.clinics as any).referredToConference || "Conference referral"}:</span>
-                    {myConfRefs.map((doc) => (
-                      <Badge key={doc.id} variant="outline" className="text-xs py-0 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700">
-                        {getDoctorFullName(doc as any) || doc.name}
-                      </Badge>
-                    ))}
+                {allRecommends.length > 0 && (
+                  <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 p-3" data-testid="section-recommends">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ArrowRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                        {(t.clinics as any).hasSuggestedPartners || "The Medical Partner has suggested following potential medical partners:"}
+                      </span>
+                    </div>
+                    <div className="space-y-1 ml-6">
+                      {allRecommends.map((doc) => (
+                        <div key={doc.id} className="text-sm font-medium text-foreground" data-testid={`recommends-${doc.id}`}>
+                          {getDoctorFullName(doc as any) || doc.name}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
