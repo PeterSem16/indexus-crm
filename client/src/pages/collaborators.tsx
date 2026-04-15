@@ -49,7 +49,9 @@ import {
   COUNTRIES, 
   WORLD_COUNTRIES,
   COLLABORATOR_TYPES, 
-  MARITAL_STATUSES, 
+  MARITAL_STATUSES,
+  PROFESSIONAL_CLASSIFICATIONS,
+  EDUCATION_LEVELS,
   REWARD_TYPES, 
   ADDRESS_TYPES,
 } from "@shared/schema";
@@ -86,6 +88,9 @@ interface CollaboratorFormData {
   birthPlace: string;
   healthInsuranceId: string;
   maritalStatus: string;
+  professionalClassification: string;
+  highestEducation: string;
+  workplaceName: string;
   collaboratorType: string;
   phone: string;
   mobile: string;
@@ -123,6 +128,9 @@ const defaultFormData: CollaboratorFormData = {
   birthPlace: "",
   healthInsuranceId: "",
   maritalStatus: "",
+  professionalClassification: "",
+  highestEducation: "",
+  workplaceName: "",
   collaboratorType: "",
   phone: "",
   mobile: "",
@@ -1325,6 +1333,9 @@ function CollaboratorForm({
           birthPlace: collaborator.birthPlace || "",
           healthInsuranceId: collaborator.healthInsuranceId || "",
           maritalStatus: collaborator.maritalStatus || "",
+          professionalClassification: collaborator.professionalClassification || "",
+          highestEducation: collaborator.highestEducation || "",
+          workplaceName: collaborator.workplaceName || "",
           collaboratorType: collaborator.collaboratorType || "",
           phone: collaborator.phone || "",
           mobile: collaborator.mobile || "",
@@ -1602,6 +1613,57 @@ function CollaboratorForm({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{t.collaborators.fields.professionalClassification}</Label>
+              <Select
+                value={formData.professionalClassification || "_none"}
+                onValueChange={(value) => setFormData({ ...formData, professionalClassification: value === "_none" ? "" : value })}
+              >
+                <SelectTrigger data-testid="select-collaborator-professional-classification">
+                  <SelectValue placeholder={t.collaborators.fields.professionalClassification} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">{t.common.noData}</SelectItem>
+                  {PROFESSIONAL_CLASSIFICATIONS.map((pc) => (
+                    <SelectItem key={pc.value} value={pc.value}>
+                      {(t.collaborators.professionalClassifications as Record<string, string>)[pc.labelKey] || pc.value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t.collaborators.fields.highestEducation}</Label>
+              <Select
+                value={formData.highestEducation || "_none"}
+                onValueChange={(value) => setFormData({ ...formData, highestEducation: value === "_none" ? "" : value })}
+              >
+                <SelectTrigger data-testid="select-collaborator-highest-education">
+                  <SelectValue placeholder={t.collaborators.fields.highestEducation} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">{t.common.noData}</SelectItem>
+                  {EDUCATION_LEVELS.map((el) => (
+                    <SelectItem key={el.value} value={el.value}>
+                      {(t.collaborators.educationLevels as Record<string, string>)[el.labelKey] || el.value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t.collaborators.fields.workplaceName}</Label>
+              <Input
+                value={formData.workplaceName}
+                onChange={(e) => setFormData({ ...formData, workplaceName: e.target.value })}
+                placeholder={t.collaborators.fields.workplaceName}
+                data-testid="input-collaborator-workplace-name"
+              />
+              <p className="text-xs text-muted-foreground">{t.collaborators.fields.workplaceNameDesc}</p>
             </div>
           </div>
 

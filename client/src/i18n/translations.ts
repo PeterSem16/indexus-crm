@@ -1280,6 +1280,10 @@ export interface Translations {
       birthPlace: string;
       healthInsurance: string;
       maritalStatus: string;
+      professionalClassification: string;
+      highestEducation: string;
+      workplaceName: string;
+      workplaceNameDesc: string;
       collaboratorType: string;
       legacyType: string;
       phone: string;
@@ -1342,6 +1346,29 @@ export interface Translations {
       married: string;
       divorced: string;
       widowed: string;
+    };
+    professionalClassifications: {
+      doctorGynecology: string;
+      midwife: string;
+      generalNurse: string;
+      otherStaff: string;
+    };
+    educationLevels: {
+      noEducation: string;
+      incompletePrimary: string;
+      primary: string;
+      lowerSecondary: string;
+      lowerSecondaryVocational: string;
+      secondaryVocationalCertificate: string;
+      secondaryWithoutCertificateOrExam: string;
+      upperSecondaryGeneral: string;
+      upperSecondaryVocationalWithCertAndExam: string;
+      upperSecondaryVocationalExamOnly: string;
+      higherVocational: string;
+      higherVocationalConservatory: string;
+      bachelorDegree: string;
+      masterDegree: string;
+      doctoralDegree: string;
     };
     types: {
       doctor: string;
@@ -7569,6 +7596,10 @@ export const translations: Record<Locale, Translations> = {
         birthPlace: 'Place of Birth',
         healthInsurance: 'Health Insurance',
         maritalStatus: 'Marital Status',
+        professionalClassification: 'Professional Classification',
+        highestEducation: 'Highest Education',
+        workplaceName: 'Workplace',
+        workplaceNameDesc: 'Name of workplace as stated in employment contract',
         collaboratorType: 'Type',
         legacyType: 'Legacy Type',
         phone: 'Phone',
@@ -7644,6 +7675,29 @@ export const translations: Record<Locale, Translations> = {
         married: 'Married',
         divorced: 'Divorced',
         widowed: 'Widowed',
+      },
+      professionalClassifications: {
+        doctorGynecology: 'Doctor (Gynecology & Obstetrics)',
+        midwife: 'Midwife (Delivery Room & Ward)',
+        generalNurse: 'General Nurse (Outpatient & Inpatient Ward)',
+        otherStaff: 'Other Staff (Outpatient & Support)',
+      },
+      educationLevels: {
+        noEducation: 'No education',
+        incompletePrimary: 'Incomplete primary education',
+        primary: 'Primary education',
+        lowerSecondary: 'Lower secondary education',
+        lowerSecondaryVocational: 'Lower secondary vocational education',
+        secondaryVocationalCertificate: 'Secondary vocational with apprenticeship certificate',
+        secondaryWithoutCertificateOrExam: 'Secondary without certificate or exam',
+        upperSecondaryGeneral: 'Upper secondary general education',
+        upperSecondaryVocationalWithCertAndExam: 'Upper secondary vocational with certificate and exam',
+        upperSecondaryVocationalExamOnly: 'Upper secondary vocational with exam only',
+        higherVocational: 'Higher vocational education',
+        higherVocationalConservatory: 'Higher vocational (conservatory)',
+        bachelorDegree: 'Bachelor\'s degree',
+        masterDegree: 'Master\'s degree',
+        doctoralDegree: 'Doctoral degree',
       },
       types: {
         doctor: 'Doctor',
@@ -13349,6 +13403,10 @@ export const translations: Record<Locale, Translations> = {
         birthPlace: 'Miesto narodenia',
         healthInsurance: 'Zdravotná poisťovňa',
         maritalStatus: 'Rodinný stav',
+        professionalClassification: 'Profesné zaradenie',
+        highestEducation: 'Najvyššie dosiahnuté vzdelanie',
+        workplaceName: 'Miesto výkonu práce',
+        workplaceNameDesc: 'Názov miesta výkonu práce uvedené v pracovnej zmluve',
         collaboratorType: 'Typ',
         legacyType: 'Pôvodný typ',
         phone: 'Telefón',
@@ -13424,6 +13482,29 @@ export const translations: Record<Locale, Translations> = {
         married: 'Ženatý/Vydatá',
         divorced: 'Rozvedený/-á',
         widowed: 'Vdovec/Vdova',
+      },
+      professionalClassifications: {
+        doctorGynecology: 'Lekári (Gynekológia a pôrodníctvo)',
+        midwife: 'Pôrodné asistentky (Pôrodnice a sály)',
+        generalNurse: 'Všeobecné sestry (Ambulancia a lôžkové oddelenia)',
+        otherStaff: 'Ostatný personál (Ambulancia a pomocné práce)',
+      },
+      educationLevels: {
+        noEducation: 'Bez vzdelania',
+        incompletePrimary: 'Neúplné základné vzdelanie',
+        primary: 'Základné vzdelanie',
+        lowerSecondary: 'Nižšie stredné vzdelanie',
+        lowerSecondaryVocational: 'Nižšie stredné odborné vzdelanie',
+        secondaryVocationalCertificate: 'Stredné odborné vzdelanie s výučným listom',
+        secondaryWithoutCertificateOrExam: 'Stredné vzdelanie bez maturity a výučného listu',
+        upperSecondaryGeneral: 'Úplné stredné všeobecné vzdelanie',
+        upperSecondaryVocationalWithCertAndExam: 'Úplné stredné odborné vzdelanie s výučným listom a maturitou',
+        upperSecondaryVocationalExamOnly: 'Úplné stredné odborné vzdelanie s maturitou (bez výučného listu)',
+        higherVocational: 'Vyššie odborné vzdelanie',
+        higherVocationalConservatory: 'Vyššie odborné vzdelanie v konzervatóriu',
+        bachelorDegree: 'Vysokoškolské bakalárske vzdelanie',
+        masterDegree: 'Vysokoškolské magisterské vzdelanie',
+        doctoralDegree: 'Vysokoškolské doktorské vzdelanie',
       },
       types: {
         doctor: 'Lekár',
@@ -19068,6 +19149,10 @@ export const translations: Record<Locale, Translations> = {
         birthPlace: 'Místo narození',
         healthInsurance: 'Zdravotní pojišťovna',
         maritalStatus: 'Rodinný stav',
+        professionalClassification: 'Profesné zaradenie',
+        highestEducation: 'Najvyššie dosiahnuté vzdelanie',
+        workplaceName: 'Miesto výkonu práce',
+        workplaceNameDesc: 'Názov miesta výkonu práce uvedené v pracovnej zmluve',
         collaboratorType: 'Typ',
         legacyType: 'Pôvodný typ',
         phone: 'Telefon',
@@ -19143,6 +19228,29 @@ export const translations: Record<Locale, Translations> = {
         married: 'Ženatý/Vdaná',
         divorced: 'Rozvedený/-á',
         widowed: 'Vdovec/Vdova',
+      },
+      professionalClassifications: {
+        doctorGynecology: 'Lekári (Gynekológia a pôrodníctvo)',
+        midwife: 'Pôrodné asistentky (Pôrodnice a sály)',
+        generalNurse: 'Všeobecné sestry (Ambulancia a lôžkové oddelenia)',
+        otherStaff: 'Ostatný personál (Ambulancia a pomocné práce)',
+      },
+      educationLevels: {
+        noEducation: 'Bez vzdelania',
+        incompletePrimary: 'Neúplné základné vzdelanie',
+        primary: 'Základné vzdelanie',
+        lowerSecondary: 'Nižšie stredné vzdelanie',
+        lowerSecondaryVocational: 'Nižšie stredné odborné vzdelanie',
+        secondaryVocationalCertificate: 'Stredné odborné vzdelanie s výučným listom',
+        secondaryWithoutCertificateOrExam: 'Stredné vzdelanie bez maturity a výučného listu',
+        upperSecondaryGeneral: 'Úplné stredné všeobecné vzdelanie',
+        upperSecondaryVocationalWithCertAndExam: 'Úplné stredné odborné vzdelanie s výučným listom a maturitou',
+        upperSecondaryVocationalExamOnly: 'Úplné stredné odborné vzdelanie s maturitou (bez výučného listu)',
+        higherVocational: 'Vyššie odborné vzdelanie',
+        higherVocationalConservatory: 'Vyššie odborné vzdelanie v konzervatóriu',
+        bachelorDegree: 'Vysokoškolské bakalárske vzdelanie',
+        masterDegree: 'Vysokoškolské magisterské vzdelanie',
+        doctoralDegree: 'Vysokoškolské doktorské vzdelanie',
       },
       types: {
         doctor: 'Lékař',
@@ -24751,6 +24859,10 @@ export const translations: Record<Locale, Translations> = {
         birthPlace: 'Születési hely',
         healthInsurance: 'Egészségbiztosító',
         maritalStatus: 'Családi állapot',
+        professionalClassification: 'Szakmai besorolás',
+        highestEducation: 'Legmagasabb iskolai végzettség',
+        workplaceName: 'Munkavégzés helye',
+        workplaceNameDesc: 'A munkaszerződésben feltüntetett munkavégzési hely neve',
         collaboratorType: 'Típus',
         legacyType: 'Eredeti típus',
         phone: 'Telefon',
@@ -24826,6 +24938,29 @@ export const translations: Record<Locale, Translations> = {
         married: 'Házas',
         divorced: 'Elvált',
         widowed: 'Özvegy',
+      },
+      professionalClassifications: {
+        doctorGynecology: 'Orvosok (Nőgyógyászat és szülészet)',
+        midwife: 'Szülésznők (Szülőszoba és osztály)',
+        generalNurse: 'Általános nővérek (Ambulancia és fekvőbeteg osztály)',
+        otherStaff: 'Egyéb személyzet (Ambulancia és kisegítő munkák)',
+      },
+      educationLevels: {
+        noEducation: 'Iskolai végzettség nélkül',
+        incompletePrimary: 'Befejezetlen alapfokú végzettség',
+        primary: 'Alapfokú végzettség',
+        lowerSecondary: 'Alsó középfokú végzettség',
+        lowerSecondaryVocational: 'Alsó középfokú szakmai végzettség',
+        secondaryVocationalCertificate: 'Középfokú szakmai végzettség szakmunkás bizonyítvánnyal',
+        secondaryWithoutCertificateOrExam: 'Középfokú végzettség bizonyítvány és érettségi nélkül',
+        upperSecondaryGeneral: 'Felső középfokú általános végzettség',
+        upperSecondaryVocationalWithCertAndExam: 'Felső középfokú szakmai végzettség bizonyítvánnyal és érettségivel',
+        upperSecondaryVocationalExamOnly: 'Felső középfokú szakmai végzettség csak érettségivel',
+        higherVocational: 'Felsőfokú szakképzés',
+        higherVocationalConservatory: 'Felsőfokú szakképzés (konzervatórium)',
+        bachelorDegree: 'Egyetemi alapképzés (BSc/BA)',
+        masterDegree: 'Egyetemi mesterképzés (MSc/MA)',
+        doctoralDegree: 'Doktori fokozat',
       },
       types: {
         doctor: 'Orvos',
@@ -30354,6 +30489,10 @@ export const translations: Record<Locale, Translations> = {
         birthPlace: 'Locul nașterii',
         healthInsurance: 'Asigurare de sănătate',
         maritalStatus: 'Stare civilă',
+        professionalClassification: 'Clasificare profesională',
+        highestEducation: 'Cel mai înalt nivel de educație',
+        workplaceName: 'Locul de muncă',
+        workplaceNameDesc: 'Numele locului de muncă menționat în contractul de muncă',
         collaboratorType: 'Tip',
         legacyType: 'Tip vechi',
         phone: 'Telefon',
@@ -30429,6 +30568,29 @@ export const translations: Record<Locale, Translations> = {
         married: 'Căsătorit/-ă',
         divorced: 'Divorțat/-ă',
         widowed: 'Văduv/-ă',
+      },
+      professionalClassifications: {
+        doctorGynecology: 'Medici (Ginecologie și obstetrică)',
+        midwife: 'Moașe (Sala de nașteri și secție)',
+        generalNurse: 'Asistente medicale (Ambulatoriu și secție)',
+        otherStaff: 'Alt personal (Ambulatoriu și activități auxiliare)',
+      },
+      educationLevels: {
+        noEducation: 'Fără studii',
+        incompletePrimary: 'Studii primare incomplete',
+        primary: 'Studii primare',
+        lowerSecondary: 'Studii gimnaziale',
+        lowerSecondaryVocational: 'Studii gimnaziale profesionale',
+        secondaryVocationalCertificate: 'Studii medii profesionale cu certificat',
+        secondaryWithoutCertificateOrExam: 'Studii medii fără certificat sau examen',
+        upperSecondaryGeneral: 'Studii medii generale (liceu)',
+        upperSecondaryVocationalWithCertAndExam: 'Studii medii profesionale cu certificat și bacalaureat',
+        upperSecondaryVocationalExamOnly: 'Studii medii profesionale doar cu bacalaureat',
+        higherVocational: 'Studii superioare profesionale',
+        higherVocationalConservatory: 'Studii superioare profesionale (conservator)',
+        bachelorDegree: 'Studii universitare de licență',
+        masterDegree: 'Studii universitare de master',
+        doctoralDegree: 'Studii universitare de doctorat',
       },
       types: {
         doctor: 'Doctor',
@@ -35960,6 +36122,10 @@ export const translations: Record<Locale, Translations> = {
         birthPlace: 'Luogo di nascita',
         healthInsurance: 'Assicurazione sanitaria',
         maritalStatus: 'Stato civile',
+        professionalClassification: 'Classificazione professionale',
+        highestEducation: 'Titolo di studio più alto',
+        workplaceName: 'Luogo di lavoro',
+        workplaceNameDesc: 'Nome del luogo di lavoro indicato nel contratto di lavoro',
         collaboratorType: 'Tipo',
         legacyType: 'Tipo legacy',
         phone: 'Telefono',
@@ -36035,6 +36201,29 @@ export const translations: Record<Locale, Translations> = {
         married: 'Sposato/a',
         divorced: 'Divorziato/a',
         widowed: 'Vedovo/a',
+      },
+      professionalClassifications: {
+        doctorGynecology: 'Medici (Ginecologia e ostetricia)',
+        midwife: 'Ostetriche (Sala parto e reparto)',
+        generalNurse: 'Infermiere generali (Ambulatorio e reparto)',
+        otherStaff: 'Altro personale (Ambulatorio e supporto)',
+      },
+      educationLevels: {
+        noEducation: 'Senza istruzione',
+        incompletePrimary: 'Istruzione primaria incompleta',
+        primary: 'Istruzione primaria',
+        lowerSecondary: 'Istruzione secondaria inferiore',
+        lowerSecondaryVocational: 'Istruzione professionale inferiore',
+        secondaryVocationalCertificate: 'Istruzione professionale con certificato',
+        secondaryWithoutCertificateOrExam: 'Istruzione secondaria senza certificato o esame',
+        upperSecondaryGeneral: 'Istruzione secondaria superiore generale',
+        upperSecondaryVocationalWithCertAndExam: 'Istruzione professionale superiore con certificato e diploma',
+        upperSecondaryVocationalExamOnly: 'Istruzione professionale superiore solo con diploma',
+        higherVocational: 'Istruzione professionale superiore',
+        higherVocationalConservatory: 'Istruzione professionale superiore (conservatorio)',
+        bachelorDegree: 'Laurea triennale',
+        masterDegree: 'Laurea magistrale',
+        doctoralDegree: 'Dottorato di ricerca',
       },
       types: {
         doctor: 'Dottore',
@@ -41566,6 +41755,10 @@ export const translations: Record<Locale, Translations> = {
         birthPlace: 'Geburtsort',
         healthInsurance: 'Krankenversicherung',
         maritalStatus: 'Familienstand',
+        professionalClassification: 'Berufliche Einordnung',
+        highestEducation: 'Höchster Bildungsabschluss',
+        workplaceName: 'Arbeitsort',
+        workplaceNameDesc: 'Name des Arbeitsortes laut Arbeitsvertrag',
         collaboratorType: 'Typ',
         legacyType: 'Legacy-Typ',
         phone: 'Telefon',
@@ -41641,6 +41834,29 @@ export const translations: Record<Locale, Translations> = {
         married: 'Verheiratet',
         divorced: 'Geschieden',
         widowed: 'Verwitwet',
+      },
+      professionalClassifications: {
+        doctorGynecology: 'Ärzte (Gynäkologie und Geburtshilfe)',
+        midwife: 'Hebammen (Kreißsaal und Station)',
+        generalNurse: 'Allgemeine Krankenschwestern (Ambulanz und Station)',
+        otherStaff: 'Sonstiges Personal (Ambulanz und Hilfsdienste)',
+      },
+      educationLevels: {
+        noEducation: 'Ohne Bildung',
+        incompletePrimary: 'Unvollständige Grundschulbildung',
+        primary: 'Grundschulbildung',
+        lowerSecondary: 'Niedere Sekundarbildung',
+        lowerSecondaryVocational: 'Niedere berufliche Sekundarbildung',
+        secondaryVocationalCertificate: 'Mittlere Berufsausbildung mit Gesellenbrief',
+        secondaryWithoutCertificateOrExam: 'Sekundarbildung ohne Abschluss',
+        upperSecondaryGeneral: 'Allgemeine Hochschulreife',
+        upperSecondaryVocationalWithCertAndExam: 'Berufsausbildung mit Gesellenbrief und Abitur',
+        upperSecondaryVocationalExamOnly: 'Berufsausbildung nur mit Abitur',
+        higherVocational: 'Höhere Berufsausbildung',
+        higherVocationalConservatory: 'Höhere Berufsausbildung (Konservatorium)',
+        bachelorDegree: 'Bachelor-Abschluss',
+        masterDegree: 'Master-Abschluss',
+        doctoralDegree: 'Doktorgrad',
       },
       types: {
         doctor: 'Arzt',

@@ -1877,6 +1877,35 @@ export const MARITAL_STATUSES = [
 
 export type MaritalStatus = typeof MARITAL_STATUSES[number]["value"];
 
+export const PROFESSIONAL_CLASSIFICATIONS = [
+  { value: "doctor_gynecology", labelKey: "doctorGynecology" },
+  { value: "midwife", labelKey: "midwife" },
+  { value: "general_nurse", labelKey: "generalNurse" },
+  { value: "other_staff", labelKey: "otherStaff" },
+] as const;
+
+export type ProfessionalClassification = typeof PROFESSIONAL_CLASSIFICATIONS[number]["value"];
+
+export const EDUCATION_LEVELS = [
+  { value: "A", labelKey: "noEducation" },
+  { value: "B", labelKey: "incompletePrimary" },
+  { value: "C", labelKey: "primary" },
+  { value: "D", labelKey: "lowerSecondary" },
+  { value: "E", labelKey: "lowerSecondaryVocational" },
+  { value: "H", labelKey: "secondaryVocationalCertificate" },
+  { value: "J", labelKey: "secondaryWithoutCertificateOrExam" },
+  { value: "K", labelKey: "upperSecondaryGeneral" },
+  { value: "L", labelKey: "upperSecondaryVocationalWithCertAndExam" },
+  { value: "M", labelKey: "upperSecondaryVocationalExamOnly" },
+  { value: "N", labelKey: "higherVocational" },
+  { value: "P", labelKey: "higherVocationalConservatory" },
+  { value: "R", labelKey: "bachelorDegree" },
+  { value: "T", labelKey: "masterDegree" },
+  { value: "V", labelKey: "doctoralDegree" },
+] as const;
+
+export type EducationLevel = typeof EDUCATION_LEVELS[number]["value"];
+
 // Reward types for agreements
 export const REWARD_TYPES = [
   { value: "recruitment", labelKey: "recruitment" },
@@ -1939,6 +1968,9 @@ export const collaborators = pgTable("collaborators", {
   // Health and status
   healthInsuranceId: varchar("health_insurance_id"),
   maritalStatus: text("marital_status"),
+  professionalClassification: text("professional_classification"),
+  highestEducation: text("highest_education"),
+  workplaceName: text("workplace_name"),
   collaboratorType: text("collaborator_type"),
   partnerCategory: text("partner_category"),
   agreementType: text("agreement_type"),

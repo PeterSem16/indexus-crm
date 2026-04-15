@@ -52,6 +52,31 @@ const MARITAL_STATUSES = [
   { value: "widowed", labelKey: "widowed" },
 ] as const;
 
+const PROFESSIONAL_CLASSIFICATIONS = [
+  { value: "doctor_gynecology", labelKey: "doctorGynecology" },
+  { value: "midwife", labelKey: "midwife" },
+  { value: "general_nurse", labelKey: "generalNurse" },
+  { value: "other_staff", labelKey: "otherStaff" },
+] as const;
+
+const EDUCATION_LEVELS = [
+  { value: "A", labelKey: "noEducation" },
+  { value: "B", labelKey: "incompletePrimary" },
+  { value: "C", labelKey: "primary" },
+  { value: "D", labelKey: "lowerSecondary" },
+  { value: "E", labelKey: "lowerSecondaryVocational" },
+  { value: "H", labelKey: "secondaryVocationalCertificate" },
+  { value: "J", labelKey: "secondaryWithoutCertificateOrExam" },
+  { value: "K", labelKey: "upperSecondaryGeneral" },
+  { value: "L", labelKey: "upperSecondaryVocationalWithCertAndExam" },
+  { value: "M", labelKey: "upperSecondaryVocationalExamOnly" },
+  { value: "N", labelKey: "higherVocational" },
+  { value: "P", labelKey: "higherVocationalConservatory" },
+  { value: "R", labelKey: "bachelorDegree" },
+  { value: "T", labelKey: "masterDegree" },
+  { value: "V", labelKey: "doctoralDegree" },
+] as const;
+
 const PARTNER_CATEGORIES = [
   { value: "key_opinion_leader", label: "Key Opinion Leader (KOL)", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
   { value: "strategic_partner", label: "Strategic Partner", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
@@ -166,6 +191,9 @@ interface CollaboratorFormData {
   birthPlace: string;
   healthInsuranceId: string;
   maritalStatus: string;
+  professionalClassification: string;
+  highestEducation: string;
+  workplaceName: string;
   collaboratorType: string;
   partnerCategory: string;
   agreementType: string;
@@ -3290,6 +3318,9 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           birthPlace: initialData.birthPlace || "",
           healthInsuranceId: initialData.healthInsuranceId || "",
           maritalStatus: initialData.maritalStatus || "",
+          professionalClassification: initialData.professionalClassification || "",
+          highestEducation: initialData.highestEducation || "",
+          workplaceName: initialData.workplaceName || "",
           collaboratorType: initialData.collaboratorType || "",
           partnerCategory: initialData.partnerCategory || "",
           agreementType: (initialData as any).agreementType || "",
@@ -3337,6 +3368,9 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           birthPlace: "",
           healthInsuranceId: "",
           maritalStatus: "",
+          professionalClassification: "",
+          highestEducation: "",
+          workplaceName: "",
           collaboratorType: "",
           partnerCategory: "",
           agreementType: "",
@@ -4010,6 +4044,57 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t.collaborators.fields.professionalClassification}</Label>
+                <Select
+                  value={formData.professionalClassification || "_none"}
+                  onValueChange={(value) => setFormData({ ...formData, professionalClassification: value === "_none" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="wizard-select-professional-classification">
+                    <SelectValue placeholder={t.collaborators.fields.professionalClassification} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">{t.common.noData}</SelectItem>
+                    {PROFESSIONAL_CLASSIFICATIONS.map((pc) => (
+                      <SelectItem key={pc.value} value={pc.value}>
+                        {(t.collaborators.professionalClassifications as Record<string, string>)[pc.labelKey] || pc.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.collaborators.fields.highestEducation}</Label>
+                <Select
+                  value={formData.highestEducation || "_none"}
+                  onValueChange={(value) => setFormData({ ...formData, highestEducation: value === "_none" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="wizard-select-highest-education">
+                    <SelectValue placeholder={t.collaborators.fields.highestEducation} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">{t.common.noData}</SelectItem>
+                    {EDUCATION_LEVELS.map((el) => (
+                      <SelectItem key={el.value} value={el.value}>
+                        {(t.collaborators.educationLevels as Record<string, string>)[el.labelKey] || el.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{t.collaborators.fields.workplaceName}</Label>
+                <Input
+                  value={formData.workplaceName}
+                  onChange={(e) => setFormData({ ...formData, workplaceName: e.target.value })}
+                  placeholder={t.collaborators.fields.workplaceName}
+                  data-testid="wizard-input-workplace-name"
+                />
+                <p className="text-xs text-muted-foreground">{t.collaborators.fields.workplaceNameDesc}</p>
               </div>
             </div>
 
