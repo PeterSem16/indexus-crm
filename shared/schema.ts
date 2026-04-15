@@ -309,6 +309,7 @@ export const clinics = pgTable("clinics", {
   doctorTitle: text("doctor_title"),
   doctorFirstName: text("doctor_first_name"),
   doctorLastName: text("doctor_last_name"),
+  doctorPositionCategoryId: text("doctor_position_category_id"),
   address: text("address"),
   city: text("city"),
   postalCode: text("postal_code"),

@@ -43049,12 +43049,19 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       if (entityType === "clinic") {
         const [clinic] = await db.select().from(clinics).where(eq(clinics.id, entityId));
         if (clinic && clinic.doctorName) {
+          let positionCategory: any = null;
+          if ((clinic as any).doctorPositionCategoryId) {
+            const [cat] = await db.select().from(partnerCategories).where(eq(partnerCategories.id, (clinic as any).doctorPositionCategoryId));
+            if (cat) positionCategory = cat;
+          }
           clinicDoctor = {
             fullName: (clinic as any).doctorFirstName
               ? [(clinic as any).doctorTitle, (clinic as any).doctorFirstName, (clinic as any).doctorLastName].filter(Boolean).join(" ")
               : clinic.doctorName,
             phone: clinic.phone || "",
             email: clinic.email || "",
+            positionCategoryId: (clinic as any).doctorPositionCategoryId || null,
+            positionCategory: positionCategory,
           };
         }
       }
@@ -43192,6 +43199,17 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         .where(eq(contactAssignments.id, assignmentId))
         .returning();
       if (!row) return res.status(404).json({ error: "Assignment not found" });
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/institutions/clinic/:clinicId/doctor-position", requireAuth, async (req, res) => {
+    try {
+      const { clinicId } = req.params;
+      const { positionCategoryId } = req.body;
+      await db.update(clinics)
+        .set({ doctorPositionCategoryId: positionCategoryId || null } as any)
+        .where(eq(clinics.id, clinicId));
       res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

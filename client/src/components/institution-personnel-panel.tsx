@@ -83,6 +83,114 @@ function getCategoryStyle(code: string | null | undefined) {
   return CATEGORY_STYLE[code] || DEFAULT_CATEGORY_STYLE;
 }
 
+const SCOPE_BADGE: Record<string, { label: string; className: string }> = {
+  hospital: { label: "Hospital", className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800" },
+  clinic: { label: "Clinic", className: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800" },
+  independent: { label: "Independent", className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800" },
+};
+
+function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, onPositionSaved }: {
+  clinicDoctor: any;
+  entityId: string;
+  categories: any[];
+  locale: string;
+  mpnT: any;
+  onPositionSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [selectedPositionId, setSelectedPositionId] = useState(clinicDoctor.positionCategoryId || "_none");
+
+  useEffect(() => {
+    setSelectedPositionId(clinicDoctor.positionCategoryId || "_none");
+  }, [clinicDoctor.positionCategoryId]);
+
+  const savePositionMutation = useMutation({
+    mutationFn: (positionCategoryId: string | null) =>
+      apiRequest("PATCH", `/api/institutions/clinic/${entityId}/doctor-position`, { positionCategoryId }),
+    onSuccess: () => {
+      toast({ title: t.success?.saved || "Saved" });
+      onPositionSaved();
+    },
+    onError: (err: any) => { toast({ title: err.message || "Error", variant: "destructive" }); },
+  });
+
+  function handlePositionChange(val: string) {
+    setSelectedPositionId(val);
+    savePositionMutation.mutate(val === "_none" ? null : val);
+  }
+
+  const selectedCat = categories.find((c: any) => c.id === selectedPositionId);
+
+  return (
+    <div className="rounded-xl border-2 border-teal-300 dark:border-teal-700 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/40 dark:to-background p-4 shadow-sm" data-testid="personnel-primary-contact">
+      <div className="flex items-center gap-2 mb-3">
+        <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+        <span className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
+          {mpnT.primaryContact || "Primary Contact"}
+        </span>
+        <Badge className="text-[10px] px-1.5 py-0 bg-teal-600 text-white border-teal-700 dark:bg-teal-700">
+          {mpnT.doctor || "Doctor"}
+        </Badge>
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-teal-200 dark:bg-teal-800 flex items-center justify-center ring-2 ring-teal-400 dark:ring-teal-600 ring-offset-2 ring-offset-background">
+          <Stethoscope className="h-6 w-6 text-teal-700 dark:text-teal-300" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-base text-foreground">{clinicDoctor.fullName}</div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+            {clinicDoctor.phone && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Phone className="h-3.5 w-3.5 text-teal-500" />
+                <span>{clinicDoctor.phone}</span>
+              </div>
+            )}
+            {clinicDoctor.email && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Mail className="h-3.5 w-3.5 text-teal-500" />
+                <span>{clinicDoctor.email}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 pt-3 border-t border-teal-200 dark:border-teal-800">
+        <Label className="text-xs font-medium text-teal-700 dark:text-teal-300">{mpnT.position || "Position"}</Label>
+        <Select value={selectedPositionId} onValueChange={handlePositionChange}>
+          <SelectTrigger className="h-8 mt-1 border-teal-200 dark:border-teal-700" data-testid="select-doctor-position">
+            <SelectValue placeholder="-" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_none">—</SelectItem>
+            {categories.filter((c: any) => c.isActive !== false && c.is_active !== false).map((cat: any) => {
+              const scope = cat.entityScope || cat.entity_scope || "hospital";
+              const scopeStyle = SCOPE_BADGE[scope] || SCOPE_BADGE.hospital;
+              const catName = getLocalizedCategoryName(cat, locale);
+              return (
+                <SelectItem key={cat.id} value={cat.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{catName}</span>
+                    <span className={`inline-flex text-[9px] px-1.5 py-0 rounded-full border font-medium ${scopeStyle.className}`}>
+                      {scopeStyle.label}
+                    </span>
+                  </div>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        {savePositionMutation.isPending && (
+          <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>{t.common?.loading || "Saving..."}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface PersonnelPanelProps {
   entityType: "hospital" | "clinic";
   entityId: string;
@@ -604,39 +712,14 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
   return (
     <div className="space-y-4" data-testid="institution-personnel-manager">
       {clinicDoctor && (
-        <div className="rounded-xl border-2 border-teal-300 dark:border-teal-700 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/40 dark:to-background p-4 shadow-sm" data-testid="personnel-primary-contact">
-          <div className="flex items-center gap-2 mb-3">
-            <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
-              {mpnT.primaryContact || "Primary Contact"}
-            </span>
-            <Badge className="text-[10px] px-1.5 py-0 bg-teal-600 text-white border-teal-700 dark:bg-teal-700">
-              {mpnT.doctor || "Doctor"}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-teal-200 dark:bg-teal-800 flex items-center justify-center ring-2 ring-teal-400 dark:ring-teal-600 ring-offset-2 ring-offset-background">
-              <Stethoscope className="h-6 w-6 text-teal-700 dark:text-teal-300" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-base text-foreground">{clinicDoctor.fullName}</div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-                {clinicDoctor.phone && (
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Phone className="h-3.5 w-3.5 text-teal-500" />
-                    <span>{clinicDoctor.phone}</span>
-                  </div>
-                )}
-                {clinicDoctor.email && (
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Mail className="h-3.5 w-3.5 text-teal-500" />
-                    <span>{clinicDoctor.email}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <PrimaryContactCard
+          clinicDoctor={clinicDoctor}
+          entityId={entityId}
+          categories={categoriesQuery.data || []}
+          locale={locale}
+          mpnT={mpnT}
+          onPositionSaved={() => personnelQuery.refetch()}
+        />
       )}
 
       {(clinicDoctor && allPersonnel.length > 0) && <Separator />}
