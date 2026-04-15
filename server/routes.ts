@@ -14607,6 +14607,24 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/clinic-referral-counts", requireAuth, async (req, res) => {
+    try {
+      const allRefs = await db.select({
+        clinicId: clinicReferrals.clinicId,
+        referringClinicId: clinicReferrals.referringClinicId,
+      }).from(clinicReferrals);
+      const recommendedBy: Record<string, number> = {};
+      const recommends: Record<string, number> = {};
+      for (const r of allRefs) {
+        recommendedBy[r.clinicId] = (recommendedBy[r.clinicId] || 0) + 1;
+        recommends[r.referringClinicId] = (recommends[r.referringClinicId] || 0) + 1;
+      }
+      res.json({ recommendedBy, recommends });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/clinic-referrals/:clinicId", requireAuth, async (req, res) => {
     try {
       console.log(`[Referrals] GET /api/clinic-referrals/${req.params.clinicId}`);

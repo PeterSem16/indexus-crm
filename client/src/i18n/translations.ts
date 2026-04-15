@@ -1153,6 +1153,8 @@ export interface Translations {
     referredBy: string;
     referredTo: string;
     referredToConference: string;
+    recommendedBy: string;
+    recommendsOthers: string;
     callNow: string;
     statusBar: string;
     leadSourceTypes: {
@@ -7416,6 +7418,8 @@ export const translations: Record<Locale, Translations> = {
       referredBy: 'Referred by',
       referredTo: 'Referred',
       referredToConference: 'Conference referral',
+      recommendedBy: 'Recommended',
+      recommendsOthers: 'Recommends',
       callNow: 'Call',
       statusBar: 'Status',
       leadSourceTypes: {
@@ -13171,6 +13175,8 @@ export const translations: Record<Locale, Translations> = {
       referredBy: 'Odporučil',
       referredTo: 'Odporučil ma',
       referredToConference: 'Konferenčné odporučenie',
+      recommendedBy: 'Odporúčaný',
+      recommendsOthers: 'Odporúča',
       callNow: 'Volať',
       statusBar: 'Stav',
       leadSourceTypes: {
@@ -18865,6 +18871,8 @@ export const translations: Record<Locale, Translations> = {
       referredBy: 'Doporučil',
       referredTo: 'Doporučil mě',
       referredToConference: 'Konferenční doporučení',
+      recommendedBy: 'Doporučený',
+      recommendsOthers: 'Doporučuje',
       callNow: 'Volat',
       statusBar: 'Stav',
       leadSourceTypes: {
@@ -24523,6 +24531,8 @@ export const translations: Record<Locale, Translations> = {
       referredBy: 'Ajánlotta',
       referredTo: 'Ajánlott',
       referredToConference: 'Konferencia ajánlás',
+      recommendedBy: 'Ajánlott',
+      recommendsOthers: 'Ajánl',
       callNow: 'Hívás',
       statusBar: 'Állapot',
       leadSourceTypes: {
@@ -30102,6 +30112,8 @@ export const translations: Record<Locale, Translations> = {
       referredBy: 'Recomandat de',
       referredTo: 'A recomandat',
       referredToConference: 'Recomandare conferință',
+      recommendedBy: 'Recomandat',
+      recommendsOthers: 'Recomandă',
       callNow: 'Apelează',
       statusBar: 'Stare',
       leadSourceTypes: {
@@ -35681,6 +35693,8 @@ export const translations: Record<Locale, Translations> = {
       removeReferral: 'Rimuovi',
       referredBy: 'Raccomandato da',
       referredTo: 'Ha raccomandato',
+      recommendedBy: 'Raccomandato',
+      recommendsOthers: 'Raccomanda',
       referredToConference: 'Raccomandazione conferenza',
       callNow: 'Chiama',
       statusBar: 'Stato',
@@ -41263,6 +41277,8 @@ export const translations: Record<Locale, Translations> = {
       referredBy: 'Empfohlen von',
       referredTo: 'Hat empfohlen',
       referredToConference: 'Konferenzempfehlung',
+      recommendedBy: 'Empfohlen',
+      recommendsOthers: 'Empfiehlt',
       callNow: 'Anrufen',
       statusBar: 'Status',
       leadSourceTypes: {

@@ -632,6 +632,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-referrals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinic-referral-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinic-referred-by-me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-events"] });
       toast({ title: t.success.saved });
       onSuccess();

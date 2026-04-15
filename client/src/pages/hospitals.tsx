@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, ArrowRight, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -1228,6 +1228,9 @@ export default function HospitalsPage() {
   const clinics = clinicsPaginatedResult?.data || [];
   const serverClinicsTotal = clinicsPaginatedResult?.total || 0;
 
+  const { data: referralCounts } = useQuery<{ recommendedBy: Record<string, number>; recommends: Record<string, number> }>({
+    queryKey: ["/api/clinic-referral-counts"],
+  });
   const { data: personnelCounts = {} } = useQuery<Record<string, number>>({
     queryKey: ["/api/mpn/entity-personnel-counts"],
   });
@@ -1668,6 +1671,8 @@ export default function HospitalsPage() {
       header: <SortableHeader field="name" label={t.clinics.name} />,
       cell: (clinic: Clinic) => {
         const pCount = personnelCounts[`clinic:${clinic.id}`] || 0;
+        const recommendedByCount = referralCounts?.recommendedBy?.[clinic.id] || 0;
+        const recommendsCount = referralCounts?.recommends?.[clinic.id] || 0;
         return (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium">{clinic.name}</span>
@@ -1680,10 +1685,16 @@ export default function HospitalsPage() {
             {!clinic.isActive && (
               <Badge variant="secondary">{t.common.inactive}</Badge>
             )}
-            {(clinic as any).isReferredByDoctor && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-purple-100 text-purple-700 border border-purple-300 dark:bg-purple-900/60 dark:text-purple-300 dark:border-purple-700" data-testid={`badge-referral-${clinic.id}`}>
+            {recommendedByCount > 0 && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-purple-100 text-purple-700 border border-purple-300 dark:bg-purple-900/60 dark:text-purple-300 dark:border-purple-700" data-testid={`badge-recommended-by-${clinic.id}`}>
                 <UserCheck className="h-2.5 w-2.5" />
-                Referral
+                {(t.clinics as any).recommendedBy || "Recommended"} {recommendedByCount}
+              </span>
+            )}
+            {recommendsCount > 0 && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-300 dark:border-emerald-700" data-testid={`badge-recommends-${clinic.id}`}>
+                <ArrowRight className="h-2.5 w-2.5" />
+                {(t.clinics as any).recommendsOthers || "Recommends"} {recommendsCount}
               </span>
             )}
             {(clinic as any).isFromConference && (
@@ -2257,13 +2268,23 @@ export default function HospitalsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-clinics-referrals">
+                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-clinics-recommended-by">
                     <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-500/15 dark:bg-purple-500/20">
                       <UserCheck className="h-4.5 w-4.5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-lg font-bold text-purple-700 dark:text-purple-300 leading-tight">{serverClinicStats.referralCount}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">Referrals</span>
+                      <span className="text-lg font-bold text-purple-700 dark:text-purple-300 leading-tight">{Object.keys(referralCounts?.recommendedBy || {}).length}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).recommendedBy || "Recommended"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-clinics-recommends">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
+                      <ArrowRight className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{Object.keys(referralCounts?.recommends || {}).length}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).recommendsOthers || "Recommends"}</span>
                     </div>
                   </div>
 
@@ -2498,10 +2519,16 @@ export default function HospitalsPage() {
                     </Badge>
                   )}
                   <span className="text-muted-foreground/40 mx-0.5">|</span>
-                  {pipelineStats.referralCount > 0 && (
-                    <Badge variant="outline" className="text-[10px] px-2.5 py-1 font-bold border shadow-sm bg-purple-200/80 text-purple-900 border-purple-500 dark:bg-purple-800 dark:text-purple-100 dark:border-purple-500" data-testid="stat-referral">
+                  {Object.keys(referralCounts?.recommendedBy || {}).length > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2.5 py-1 font-bold border shadow-sm bg-purple-200/80 text-purple-900 border-purple-500 dark:bg-purple-800 dark:text-purple-100 dark:border-purple-500" data-testid="stat-recommended-by">
                       <UserCheck className="h-3 w-3 mr-1" />
-                      Referral <span className="ml-1 font-black">{pipelineStats.referralCount}</span>
+                      {(t.clinics as any).recommendedBy || "Recommended"} <span className="ml-1 font-black">{Object.keys(referralCounts?.recommendedBy || {}).length}</span>
+                    </Badge>
+                  )}
+                  {Object.keys(referralCounts?.recommends || {}).length > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2.5 py-1 font-bold border shadow-sm bg-emerald-200/80 text-emerald-900 border-emerald-500 dark:bg-emerald-800 dark:text-emerald-100 dark:border-emerald-500" data-testid="stat-recommends">
+                      <ArrowRight className="h-3 w-3 mr-1" />
+                      {(t.clinics as any).recommendsOthers || "Recommends"} <span className="ml-1 font-black">{Object.keys(referralCounts?.recommends || {}).length}</span>
                     </Badge>
                   )}
                   {pipelineStats.conferenceCount > 0 && (
