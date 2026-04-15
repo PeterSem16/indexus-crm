@@ -1349,10 +1349,19 @@ export interface Translations {
       widowed: string;
     };
     professionalClassifications: {
-      doctorGynecology: string;
-      midwife: string;
-      generalNurse: string;
-      otherStaff: string;
+      gynecologySpecialists: string;
+      generalPractitioners: string;
+      chiefPhysicians: string;
+      medicalDirectors: string;
+      specializedMidwives: string;
+      chargeMidwives: string;
+      midwivesNoSpecialization: string;
+      headNurses: string;
+      surgicalNurses: string;
+      generalNursesNoSpec: string;
+      internalMedicineNurses: string;
+      practicalNurses: string;
+      healthcareAssistants: string;
     };
     educationLevels: {
       noEducation: string;
@@ -7679,10 +7688,19 @@ export const translations: Record<Locale, Translations> = {
         widowed: 'Widowed',
       },
       professionalClassifications: {
-        doctorGynecology: 'Doctor (Gynecology & Obstetrics)',
-        midwife: 'Midwife (Delivery Room & Ward)',
-        generalNurse: 'General Nurse (Outpatient & Inpatient Ward)',
-        otherStaff: 'Other Staff (Outpatient & Support)',
+        gynecologySpecialists: 'Gynecology & Obstetrics Specialists',
+        generalPractitioners: 'General Practitioners (Trainees/Graduates)',
+        chiefPhysicians: 'Chief Physicians in Healthcare',
+        medicalDirectors: 'Senior Physicians & Healthcare Facility Directors',
+        specializedMidwives: 'Specialized Midwives',
+        chargeMidwives: 'Charge Midwives',
+        midwivesNoSpecialization: 'Midwives without Specialization',
+        headNurses: 'Head & Charge Nurses (General Nurses)',
+        surgicalNurses: 'Surgical Nurses (often Gyn. OR)',
+        generalNursesNoSpec: 'General Nurses without Specialization (often Outpatient)',
+        internalMedicineNurses: 'Internal Medicine Nurses',
+        practicalNurses: 'Practical Nurses (formerly Healthcare Assistants)',
+        healthcareAssistants: 'Healthcare Assistants',
       },
       educationLevels: {
         noEducation: 'No education',
@@ -13487,10 +13505,19 @@ export const translations: Record<Locale, Translations> = {
         widowed: 'Vdovec/Vdova',
       },
       professionalClassifications: {
-        doctorGynecology: 'Lekári (Gynekológia a pôrodníctvo)',
-        midwife: 'Pôrodné asistentky (Pôrodnice a sály)',
-        generalNurse: 'Všeobecné sestry (Ambulancia a lôžkové oddelenia)',
-        otherStaff: 'Ostatný personál (Ambulancia a pomocné práce)',
+        gynecologySpecialists: 'Lekári v gynekológii a pôrodníctve (špecialisti)',
+        generalPractitioners: 'Všeobecní lekári (lekári v príprave/absolventi)',
+        chiefPhysicians: 'Primári v oblasti zdravotníctva',
+        medicalDirectors: 'Vedúci lekári a riaditelia zdravotníckych zariadení',
+        specializedMidwives: 'Pôrodné asistentky so špecializáciou',
+        chargeMidwives: 'Staničné sestry (pôrodné asistentky)',
+        midwivesNoSpecialization: 'Pôrodné asistentky bez špecializácie',
+        headNurses: 'Vrchné a staničné sestry (všeobecné sestry)',
+        surgicalNurses: 'Sestry pre starostlivosť v chirurgických odboroch (často gyn. sály)',
+        generalNursesNoSpec: 'Všeobecné sestry bez špecializácie (často v ambulanciách)',
+        internalMedicineNurses: 'Sestry pre starostlivosť v interných odboroch',
+        practicalNurses: 'Praktické sestry (predtým zdravotnícki asistenti)',
+        healthcareAssistants: 'Ošetrovatelia v zdravotníckych zariadeniach',
       },
       educationLevels: {
         noEducation: 'Bez vzdelania',
@@ -19234,10 +19261,19 @@ export const translations: Record<Locale, Translations> = {
         widowed: 'Vdovec/Vdova',
       },
       professionalClassifications: {
-        doctorGynecology: 'Lekári (Gynekológia a pôrodníctvo)',
-        midwife: 'Pôrodné asistentky (Pôrodnice a sály)',
-        generalNurse: 'Všeobecné sestry (Ambulancia a lôžkové oddelenia)',
-        otherStaff: 'Ostatný personál (Ambulancia a pomocné práce)',
+        gynecologySpecialists: 'Lékaři v gynekologii a porodnictví (specialisté)',
+        generalPractitioners: 'Všeobecní lékaři (lékaři v přípravě/absolventi)',
+        chiefPhysicians: 'Primáři v oblasti zdravotnictví',
+        medicalDirectors: 'Vedoucí lékaři a ředitelé zdravotnických zařízení',
+        specializedMidwives: 'Porodní asistentky se specializací',
+        chargeMidwives: 'Staniční sestry (porodní asistentky)',
+        midwivesNoSpecialization: 'Porodní asistentky bez specializace',
+        headNurses: 'Vrchní a staniční sestry (všeobecné sestry)',
+        surgicalNurses: 'Sestry pro péči v chirurgických oborech (často gyn. sály)',
+        generalNursesNoSpec: 'Všeobecné sestry bez specializace (často v ambulancích)',
+        internalMedicineNurses: 'Sestry pro péči v interních oborech',
+        practicalNurses: 'Praktické sestry (dříve zdravotničtí asistenti)',
+        healthcareAssistants: 'Ošetřovatelé ve zdravotnických zařízeních',
       },
       educationLevels: {
         noEducation: 'Bez vzdelania',
@@ -24945,10 +24981,19 @@ export const translations: Record<Locale, Translations> = {
         widowed: 'Özvegy',
       },
       professionalClassifications: {
-        doctorGynecology: 'Orvosok (Nőgyógyászat és szülészet)',
-        midwife: 'Szülésznők (Szülőszoba és osztály)',
-        generalNurse: 'Általános nővérek (Ambulancia és fekvőbeteg osztály)',
-        otherStaff: 'Egyéb személyzet (Ambulancia és kisegítő munkák)',
+        gynecologySpecialists: 'Nőgyógyászok és szülészek (specialisták)',
+        generalPractitioners: 'Általános orvosok (gyakornok/végzett)',
+        chiefPhysicians: 'Főorvosok az egészségügyben',
+        medicalDirectors: 'Vezető orvosok és egészségügyi intézményvezetők',
+        specializedMidwives: 'Szakosodott szülésznők',
+        chargeMidwives: 'Osztályvezető szülésznők',
+        midwivesNoSpecialization: 'Szülésznők szakosodás nélkül',
+        headNurses: 'Főnővérek és osztályvezető nővérek',
+        surgicalNurses: 'Sebészeti nővérek (gyakran szülészeti műtő)',
+        generalNursesNoSpec: 'Általános nővérek szakosodás nélkül (gyakran ambulanciákon)',
+        internalMedicineNurses: 'Belgyógyászati nővérek',
+        practicalNurses: 'Gyakorlati nővérek (korábban egészségügyi asszisztensek)',
+        healthcareAssistants: 'Ápolók egészségügyi intézményekben',
       },
       educationLevels: {
         noEducation: 'Iskolai végzettség nélkül',
@@ -30576,10 +30621,19 @@ export const translations: Record<Locale, Translations> = {
         widowed: 'Văduv/-ă',
       },
       professionalClassifications: {
-        doctorGynecology: 'Medici (Ginecologie și obstetrică)',
-        midwife: 'Moașe (Sala de nașteri și secție)',
-        generalNurse: 'Asistente medicale (Ambulatoriu și secție)',
-        otherStaff: 'Alt personal (Ambulatoriu și activități auxiliare)',
+        gynecologySpecialists: 'Medici în ginecologie și obstetrică (specialiști)',
+        generalPractitioners: 'Medici generaliști (stagiari/absolvenți)',
+        chiefPhysicians: 'Medici primari în sănătate',
+        medicalDirectors: 'Medici șefi și directori de unități sanitare',
+        specializedMidwives: 'Moașe cu specializare',
+        chargeMidwives: 'Moașe șefe de secție',
+        midwivesNoSpecialization: 'Moașe fără specializare',
+        headNurses: 'Asistente șefe și de secție (asistente generale)',
+        surgicalNurses: 'Asistente de chirurgie (adesea săli de gin.)',
+        generalNursesNoSpec: 'Asistente generale fără specializare (adesea ambulatoriu)',
+        internalMedicineNurses: 'Asistente de medicină internă',
+        practicalNurses: 'Asistente practiciante (foști asistenți medicali)',
+        healthcareAssistants: 'Îngrijitori în unități sanitare',
       },
       educationLevels: {
         noEducation: 'Fără studii',
@@ -36210,10 +36264,19 @@ export const translations: Record<Locale, Translations> = {
         widowed: 'Vedovo/a',
       },
       professionalClassifications: {
-        doctorGynecology: 'Medici (Ginecologia e ostetricia)',
-        midwife: 'Ostetriche (Sala parto e reparto)',
-        generalNurse: 'Infermiere generali (Ambulatorio e reparto)',
-        otherStaff: 'Altro personale (Ambulatorio e supporto)',
+        gynecologySpecialists: 'Medici in ginecologia e ostetricia (specialisti)',
+        generalPractitioners: 'Medici generici (tirocinanti/laureati)',
+        chiefPhysicians: 'Primari in sanità',
+        medicalDirectors: 'Medici dirigenti e direttori sanitari',
+        specializedMidwives: 'Ostetriche con specializzazione',
+        chargeMidwives: 'Caposala ostetriche',
+        midwivesNoSpecialization: 'Ostetriche senza specializzazione',
+        headNurses: 'Caposala e infermiere coordinatrici',
+        surgicalNurses: 'Infermiere chirurgiche (spesso sala op. gin.)',
+        generalNursesNoSpec: 'Infermiere generali senza specializzazione (spesso ambulatorio)',
+        internalMedicineNurses: 'Infermiere di medicina interna',
+        practicalNurses: 'Infermiere pratiche (ex assistenti sanitari)',
+        healthcareAssistants: 'Operatori sanitari nelle strutture sanitarie',
       },
       educationLevels: {
         noEducation: 'Senza istruzione',
@@ -41844,10 +41907,19 @@ export const translations: Record<Locale, Translations> = {
         widowed: 'Verwitwet',
       },
       professionalClassifications: {
-        doctorGynecology: 'Ärzte (Gynäkologie und Geburtshilfe)',
-        midwife: 'Hebammen (Kreißsaal und Station)',
-        generalNurse: 'Allgemeine Krankenschwestern (Ambulanz und Station)',
-        otherStaff: 'Sonstiges Personal (Ambulanz und Hilfsdienste)',
+        gynecologySpecialists: 'Fachärzte für Gynäkologie und Geburtshilfe',
+        generalPractitioners: 'Allgemeinmediziner (in Ausbildung/Absolventen)',
+        chiefPhysicians: 'Chefärzte im Gesundheitswesen',
+        medicalDirectors: 'Leitende Ärzte und Klinikdirektoren',
+        specializedMidwives: 'Spezialisierte Hebammen',
+        chargeMidwives: 'Stationshebammen',
+        midwivesNoSpecialization: 'Hebammen ohne Spezialisierung',
+        headNurses: 'Ober- und Stationsschwestern',
+        surgicalNurses: 'OP-Schwestern (häufig gyn. OP)',
+        generalNursesNoSpec: 'Allgemeine Krankenschwestern ohne Spezialisierung (häufig Ambulanz)',
+        internalMedicineNurses: 'Schwestern für Innere Medizin',
+        practicalNurses: 'Praktische Krankenschwestern (früher Gesundheitsassistenten)',
+        healthcareAssistants: 'Pflegekräfte in Gesundheitseinrichtungen',
       },
       educationLevels: {
         noEducation: 'Ohne Bildung',

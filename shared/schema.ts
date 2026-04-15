@@ -1878,10 +1878,19 @@ export const MARITAL_STATUSES = [
 export type MaritalStatus = typeof MARITAL_STATUSES[number]["value"];
 
 export const PROFESSIONAL_CLASSIFICATIONS = [
-  { value: "doctor_gynecology", labelKey: "doctorGynecology" },
-  { value: "midwife", labelKey: "midwife" },
-  { value: "general_nurse", labelKey: "generalNurse" },
-  { value: "other_staff", labelKey: "otherStaff" },
+  { value: "gynecology_specialists", labelKey: "gynecologySpecialists" },
+  { value: "general_practitioners", labelKey: "generalPractitioners" },
+  { value: "chief_physicians", labelKey: "chiefPhysicians" },
+  { value: "medical_directors", labelKey: "medicalDirectors" },
+  { value: "specialized_midwives", labelKey: "specializedMidwives" },
+  { value: "charge_midwives", labelKey: "chargeMidwives" },
+  { value: "midwives_no_specialization", labelKey: "midwivesNoSpecialization" },
+  { value: "head_nurses", labelKey: "headNurses" },
+  { value: "surgical_nurses", labelKey: "surgicalNurses" },
+  { value: "general_nurses_no_spec", labelKey: "generalNursesNoSpec" },
+  { value: "internal_medicine_nurses", labelKey: "internalMedicineNurses" },
+  { value: "practical_nurses", labelKey: "practicalNurses" },
+  { value: "healthcare_assistants", labelKey: "healthcareAssistants" },
 ] as const;
 
 export type ProfessionalClassification = typeof PROFESSIONAL_CLASSIFICATIONS[number]["value"];
