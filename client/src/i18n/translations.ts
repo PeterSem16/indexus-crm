@@ -1157,6 +1157,8 @@ export interface Translations {
     recommendsOthers: string;
     hasBeenRecommendedBy: string;
     hasSuggestedPartners: string;
+    addNewDoctor: string;
+    doctorNotInDatabase: string;
     callNow: string;
     statusBar: string;
     leadSourceTypes: {
@@ -7424,6 +7426,8 @@ export const translations: Record<Locale, Translations> = {
       recommendsOthers: 'Recommends',
       hasBeenRecommendedBy: 'The Medical Partner has been recommended by following medical partners:',
       hasSuggestedPartners: 'The Medical Partner has suggested following potential medical partners:',
+      addNewDoctor: 'Add new doctor',
+      doctorNotInDatabase: 'Doctor not found in database? Add new:',
       callNow: 'Call',
       statusBar: 'Status',
       leadSourceTypes: {
@@ -13183,6 +13187,8 @@ export const translations: Record<Locale, Translations> = {
       recommendsOthers: 'Odporúča',
       hasBeenRecommendedBy: 'Potenciálny medicínsky partner bol odporučený nasledovnými medicínskymi partnermi:',
       hasSuggestedPartners: 'Medicínsky partner odporučil nasledovných potenciálnych medicínskych partnerov:',
+      addNewDoctor: 'Pridať nového lekára',
+      doctorNotInDatabase: 'Lekár sa nenachádza v databáze? Pridať nového:',
       callNow: 'Volať',
       statusBar: 'Stav',
       leadSourceTypes: {
@@ -18881,6 +18887,8 @@ export const translations: Record<Locale, Translations> = {
       recommendsOthers: 'Doporučuje',
       hasBeenRecommendedBy: 'Potenciální medicínský partner byl doporučen následujícími medicínskými partnery:',
       hasSuggestedPartners: 'Medicínský partner doporučil následující potenciální medicínské partnery:',
+      addNewDoctor: 'Přidat nového lékaře',
+      doctorNotInDatabase: 'Lékař se nenachází v databázi? Přidat nového:',
       callNow: 'Volat',
       statusBar: 'Stav',
       leadSourceTypes: {
@@ -24543,6 +24551,8 @@ export const translations: Record<Locale, Translations> = {
       recommendsOthers: 'Ajánl',
       hasBeenRecommendedBy: 'A potenciális orvosi partnert a következő orvosi partnerek ajánlották:',
       hasSuggestedPartners: 'Az orvosi partner a következő potenciális orvosi partnereket javasolta:',
+      addNewDoctor: 'Új orvos hozzáadása',
+      doctorNotInDatabase: 'Az orvos nem található az adatbázisban? Új hozzáadása:',
       callNow: 'Hívás',
       statusBar: 'Állapot',
       leadSourceTypes: {
@@ -30126,6 +30136,8 @@ export const translations: Record<Locale, Translations> = {
       recommendsOthers: 'Recomandă',
       hasBeenRecommendedBy: 'Partenerul medical potențial a fost recomandat de următorii parteneri medicali:',
       hasSuggestedPartners: 'Partenerul medical a sugerat următorii parteneri medicali potențiali:',
+      addNewDoctor: 'Adaugă medic nou',
+      doctorNotInDatabase: 'Medicul nu se află în baza de date? Adaugă nou:',
       callNow: 'Apelează',
       statusBar: 'Stare',
       leadSourceTypes: {
@@ -35709,6 +35721,8 @@ export const translations: Record<Locale, Translations> = {
       recommendsOthers: 'Raccomanda',
       hasBeenRecommendedBy: 'Il partner medico potenziale è stato raccomandato dai seguenti partner medici:',
       hasSuggestedPartners: 'Il partner medico ha suggerito i seguenti potenziali partner medici:',
+      addNewDoctor: 'Aggiungi nuovo medico',
+      doctorNotInDatabase: 'Medico non trovato nel database? Aggiungi nuovo:',
       referredToConference: 'Raccomandazione conferenza',
       callNow: 'Chiama',
       statusBar: 'Stato',
@@ -41295,6 +41309,8 @@ export const translations: Record<Locale, Translations> = {
       recommendsOthers: 'Empfiehlt',
       hasBeenRecommendedBy: 'Der potenzielle medizinische Partner wurde von folgenden medizinischen Partnern empfohlen:',
       hasSuggestedPartners: 'Der medizinische Partner hat folgende potenzielle medizinische Partner vorgeschlagen:',
+      addNewDoctor: 'Neuen Arzt hinzufügen',
+      doctorNotInDatabase: 'Arzt nicht in der Datenbank gefunden? Neuen hinzufügen:',
       callNow: 'Anrufen',
       statusBar: 'Status',
       leadSourceTypes: {

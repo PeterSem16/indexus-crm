@@ -453,16 +453,24 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   });
 
   const [referrals, setReferrals] = useState<Array<{ clinicId: string; clinicName: string; referralType: string }>>([]);
+  const [suggestsReferrals, setSuggestsReferrals] = useState<Array<{ clinicId: string; clinicName: string }>>([]);
   const [referralSearch, setReferralSearch] = useState("");
+  const [suggestsSearch, setSuggestsSearch] = useState("");
   const [confReferralSearch, setConfReferralSearch] = useState("");
+  const [showNewDoctorForm, setShowNewDoctorForm] = useState<"recommendedBy" | "suggests" | null>(null);
+  const [newDoctorData, setNewDoctorData] = useState({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: "SK" });
   const userEditedReferralsRef = useRef(false);
 
   useEffect(() => {
     if (open) {
       setActiveTab("source");
       setReferrals([]);
+      setSuggestsReferrals([]);
       setReferralSearch("");
+      setSuggestsSearch("");
       setConfReferralSearch("");
+      setShowNewDoctorForm(null);
+      setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: "SK" });
       setShowMapDialog(false);
       setIsLoadingLocation(false);
       setPipelineMenuOpen(false);
@@ -484,17 +492,30 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     }
   }, [existingReferrals, open]);
 
-  const filterClinicsFor = (searchStr: string) => {
+  useEffect(() => {
+    if (!open) return;
+    if (userEditedReferralsRef.current) return;
+    if (reverseReferrals) {
+      setSuggestsReferrals(reverseReferrals.filter(r => r.clinic).map(r => ({
+        clinicId: String(r.clinicId),
+        clinicName: getDoctorFullName(r.clinic) || r.clinic?.name || "",
+      })));
+    }
+  }, [reverseReferrals, open]);
+
+  const filterClinicsFor = (searchStr: string, excludeList?: Array<{ clinicId: string }>) => {
     if (!searchStr) return [];
+    const excluded = excludeList || referrals;
     return (allClinics?.filter((c) => {
       if (initialData && String(c.id) === String(initialData.id)) return false;
-      if (referrals.some((r) => String(r.clinicId) === String(c.id))) return false;
+      if (excluded.some((r) => String(r.clinicId) === String(c.id))) return false;
       const s = searchStr.toLowerCase();
       const fullName = getDoctorFullName(c as any);
       return c.name.toLowerCase().includes(s) || fullName.toLowerCase().includes(s) || (c.doctorName && c.doctorName.toLowerCase().includes(s)) || (c.city && c.city.toLowerCase().includes(s));
     }) || []);
   };
-  const filteredClinics = filterClinicsFor(referralSearch);
+  const filteredClinics = filterClinicsFor(referralSearch, referrals);
+  const filteredClinicsSuggests = filterClinicsFor(suggestsSearch, suggestsReferrals);
   const filteredClinicsConf = filterClinicsFor(confReferralSearch);
 
   const addReferral = (clinic: Clinic, type: string) => {
@@ -505,9 +526,59 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     else setConfReferralSearch("");
   };
 
+  const addSuggestsReferral = (clinic: Clinic) => {
+    userEditedReferralsRef.current = true;
+    const displayName = getDoctorFullName(clinic as any) || clinic.name;
+    setSuggestsReferrals([...suggestsReferrals, { clinicId: String(clinic.id), clinicName: displayName }]);
+    setSuggestsSearch("");
+  };
+
+  const removeSuggestsReferral = (clinicId: string) => {
+    userEditedReferralsRef.current = true;
+    setSuggestsReferrals(suggestsReferrals.filter((r) => r.clinicId !== clinicId));
+  };
+
   const removeReferral = (clinicId: string) => {
     userEditedReferralsRef.current = true;
     setReferrals(referrals.filter((r) => r.clinicId !== clinicId));
+  };
+
+  const createNewDoctorAndAdd = async (direction: "recommendedBy" | "suggests") => {
+    const { title, firstName, lastName, clinicName, city, countryCode } = newDoctorData;
+    if (!lastName || !clinicName) {
+      toast({ title: "Please fill in at least last name and clinic name", variant: "destructive" });
+      return;
+    }
+    try {
+      const doctorName = [title, firstName, lastName].filter(Boolean).join(" ");
+      const res = await apiRequest("POST", "/api/clinics", {
+        name: clinicName,
+        doctorTitle: title || null,
+        doctorFirstName: firstName || null,
+        doctorLastName: lastName || null,
+        doctorName: doctorName || null,
+        city: city || null,
+        countryCode: countryCode || "SK",
+        leadSource: "new_contact",
+      });
+      const newClinic = await res.json();
+      if (newClinic?.id) {
+        userEditedReferralsRef.current = true;
+        const displayName = doctorName || clinicName;
+        if (direction === "recommendedBy") {
+          setReferrals([...referrals, { clinicId: String(newClinic.id), clinicName: displayName, referralType: "doctor_referral" }]);
+        } else {
+          setSuggestsReferrals([...suggestsReferrals, { clinicId: String(newClinic.id), clinicName: displayName }]);
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/clinics/lookup"] });
+        setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: "SK" });
+        setShowNewDoctorForm(null);
+        toast({ title: t.success.saved });
+      }
+    } catch (e: any) {
+      toast({ title: "Error creating doctor", description: e.message, variant: "destructive" });
+    }
   };
 
   const doctorReferrals = referrals.filter(r => r.referralType === "doctor_referral");
@@ -623,6 +694,20 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
               clinicId: savedClinic.id,
               referringClinicId: ref.clinicId,
               referralType: ref.referralType,
+            });
+          }
+        }
+        if (initialData && reverseReferrals && reverseReferrals.length > 0) {
+          for (const old of reverseReferrals) {
+            await apiRequest("DELETE", `/api/clinic-referrals/${old.id}`);
+          }
+        }
+        if (suggestsReferrals.length > 0) {
+          for (const ref of suggestsReferrals) {
+            await apiRequest("POST", "/api/clinic-referrals", {
+              clinicId: ref.clinicId,
+              referringClinicId: savedClinic.id,
+              referralType: "doctor_referral",
             });
           }
         }
@@ -779,49 +864,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
             )}
           </div>
 
-          {initialData && (() => {
-            const allRecommendedBy = existingReferrals?.filter(r => r.referringClinic)?.map(r => r.referringClinic!) || [];
-            const allRecommends = reverseReferrals?.filter(r => r.clinic)?.map(r => r.clinic!) || [];
-            if (allRecommendedBy.length === 0 && allRecommends.length === 0) return null;
-            return (
-              <div className="mx-6 mb-2 space-y-3">
-                {allRecommendedBy.length > 0 && (
-                  <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 p-3" data-testid="section-recommended-by">
-                    <div className="flex items-center gap-2 mb-2">
-                      <UserCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                      <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
-                        {(t.clinics as any).hasBeenRecommendedBy || "The Medical Partner has been recommended by following medical partners:"}
-                      </span>
-                    </div>
-                    <div className="space-y-1 ml-6">
-                      {allRecommendedBy.map((doc) => (
-                        <div key={doc.id} className="text-sm font-medium text-foreground" data-testid={`recommended-by-${doc.id}`}>
-                          {getDoctorFullName(doc as any) || doc.name}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {allRecommends.length > 0 && (
-                  <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 p-3" data-testid="section-recommends">
-                    <div className="flex items-center gap-2 mb-2">
-                      <ArrowRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                        {(t.clinics as any).hasSuggestedPartners || "The Medical Partner has suggested following potential medical partners:"}
-                      </span>
-                    </div>
-                    <div className="space-y-1 ml-6">
-                      {allRecommends.map((doc) => (
-                        <div key={doc.id} className="text-sm font-medium text-foreground" data-testid={`recommends-${doc.id}`}>
-                          {getDoctorFullName(doc as any) || doc.name}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
 
           {mode === "inline" ? (
             <div className="px-4 pb-4">
@@ -1427,41 +1469,128 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                 </div>
 
                 {formData.isReferredByDoctor && (
-                  <div className="ml-3 pl-3 border-l-2 border-purple-200 dark:border-purple-800 space-y-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input value={referralSearch} onChange={(e) => setReferralSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-referral-search" />
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-950/20 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+                          {(t.clinics as any).hasBeenRecommendedBy || "The potential Medical Partner has been recommended by following medical partners:"}
+                        </span>
+                      </div>
+                      {doctorReferrals.length > 0 && (
+                        <div className="space-y-1.5 ml-6">
+                          {doctorReferrals.map((ref) => (
+                            <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
+                              <div className="flex items-center gap-2"><UserCheck className="h-3.5 w-3.5 text-purple-500" /><span className="text-sm font-medium">{ref.clinicName}</span></div>
+                              <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-referral-${ref.clinicId}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="ml-6">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input value={referralSearch} onChange={(e) => setReferralSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-referral-search" />
+                        </div>
+                        {referralSearch && filteredClinics.length > 0 && (
+                          <div className="border rounded-lg max-h-36 overflow-y-auto mt-1">
+                            {filteredClinics.slice(0, 10).map((clinic) => (
+                              <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "doctor_referral")} data-testid={`referral-option-${clinic.id}`}>
+                                <div><span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span><span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span></div>
+                                <Plus className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {referralSearch && filteredClinics.length === 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
+                            {showNewDoctorForm !== "recommendedBy" ? (
+                              <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("recommendedBy"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-recommended">
+                                <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                              </Button>
+                            ) : (
+                              <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
+                                <div className="grid gap-2 grid-cols-3">
+                                  <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" />
+                                  <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" />
+                                  <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" />
+                                </div>
+                                <div className="grid gap-2 grid-cols-2">
+                                  <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *"} className="h-8 text-xs" />
+                                  <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" />
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("recommendedBy")}><Plus className="h-3 w-3" /> {t.common.save || "Save"}</Button>
+                                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)}>{t.common.cancel || "Cancel"}</Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    {referralSearch && filteredClinics.length > 0 && (
-                      <div className="border rounded-lg max-h-36 overflow-y-auto">
-                        {filteredClinics.slice(0, 10).map((clinic) => (
-                          <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "doctor_referral")} data-testid={`referral-option-${clinic.id}`}>
-                            <div>
-                              <span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span>
-                              <span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span>
-                            </div>
-                            <Plus className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        ))}
+
+                    <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <ArrowRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                          {(t.clinics as any).hasSuggestedPartners || "The Medical Partner has suggested following potential medical partners:"}
+                        </span>
                       </div>
-                    )}
-                    {doctorReferrals.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {doctorReferrals.map((ref) => (
-                          <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
-                            <div className="flex items-center gap-2">
-                              <UserCheck className="h-3.5 w-3.5 text-purple-500" />
-                              <span className="text-sm font-medium">{ref.clinicName}</span>
+                      {suggestsReferrals.length > 0 && (
+                        <div className="space-y-1.5 ml-6">
+                          {suggestsReferrals.map((ref) => (
+                            <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
+                              <div className="flex items-center gap-2"><ArrowRight className="h-3.5 w-3.5 text-emerald-500" /><span className="text-sm font-medium">{ref.clinicName}</span></div>
+                              <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeSuggestsReferral(ref.clinicId)} data-testid={`remove-suggests-${ref.clinicId}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                             </div>
-                            <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-referral-${ref.clinicId}`}>
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
+                          ))}
+                        </div>
+                      )}
+                      <div className="ml-6">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input value={suggestsSearch} onChange={(e) => setSuggestsSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-suggests-search" />
+                        </div>
+                        {suggestsSearch && filteredClinicsSuggests.length > 0 && (
+                          <div className="border rounded-lg max-h-36 overflow-y-auto mt-1">
+                            {filteredClinicsSuggests.slice(0, 10).map((clinic) => (
+                              <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addSuggestsReferral(clinic)} data-testid={`suggests-option-${clinic.id}`}>
+                                <div><span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span><span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span></div>
+                                <Plus className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
+                        {suggestsSearch && filteredClinicsSuggests.length === 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
+                            {showNewDoctorForm !== "suggests" ? (
+                              <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("suggests"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-suggests">
+                                <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                              </Button>
+                            ) : (
+                              <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
+                                <div className="grid gap-2 grid-cols-3">
+                                  <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" />
+                                  <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" />
+                                  <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" />
+                                </div>
+                                <div className="grid gap-2 grid-cols-2">
+                                  <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *"} className="h-8 text-xs" />
+                                  <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" />
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("suggests")}><Plus className="h-3 w-3" /> {t.common.save || "Save"}</Button>
+                                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)}>{t.common.cancel || "Cancel"}</Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic pl-1">{t.clinics.noReferrals}</p>
-                    )}
+                    </div>
                   </div>
                 )}
 
@@ -1530,50 +1659,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   </div>
                 )}
               </div>
-
-              {initialData && (() => {
-                const allRecommendedBy = existingReferrals?.filter(r => r.referringClinic)?.map(r => r.referringClinic!) || [];
-                const allRecommends = reverseReferrals?.filter(r => r.clinic)?.map(r => r.clinic!) || [];
-                if (allRecommendedBy.length === 0 && allRecommends.length === 0) return null;
-                return (
-                  <div className="space-y-3">
-                    {allRecommendedBy.length > 0 && (
-                      <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 p-3" data-testid="dialog-section-recommended-by">
-                        <div className="flex items-center gap-2 mb-2">
-                          <UserCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                          <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
-                            {(t.clinics as any).hasBeenRecommendedBy || "The Medical Partner has been recommended by following medical partners:"}
-                          </span>
-                        </div>
-                        <div className="space-y-1 ml-6">
-                          {allRecommendedBy.map((doc) => (
-                            <div key={doc.id} className="text-sm font-medium text-foreground" data-testid={`dialog-recommended-by-${doc.id}`}>
-                              {getDoctorFullName(doc as any) || doc.name}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {allRecommends.length > 0 && (
-                      <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 p-3" data-testid="dialog-section-recommends">
-                        <div className="flex items-center gap-2 mb-2">
-                          <ArrowRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                          <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                            {(t.clinics as any).hasSuggestedPartners || "The Medical Partner has suggested following potential medical partners:"}
-                          </span>
-                        </div>
-                        <div className="space-y-1 ml-6">
-                          {allRecommends.map((doc) => (
-                            <div key={doc.id} className="text-sm font-medium text-foreground" data-testid={`dialog-recommends-${doc.id}`}>
-                              {getDoctorFullName(doc as any) || doc.name}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
 
               {formData.leadSource && (
                 <>
@@ -2149,31 +2234,136 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                       </div>
                       {formData.isReferredByDoctor && (
-                        <div className="ml-3 pl-3 border-l-2 border-purple-200 dark:border-purple-800 space-y-2">
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input value={referralSearch} onChange={(e) => setReferralSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-referral-search" />
+                        <div className="space-y-4">
+                          <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-950/20 p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <UserCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                              <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+                                {(t.clinics as any).hasBeenRecommendedBy || "The potential Medical Partner has been recommended by following medical partners:"}
+                              </span>
+                            </div>
+                            {doctorReferrals.length > 0 && (
+                              <div className="space-y-1.5 ml-6">
+                                {doctorReferrals.map((ref) => (
+                                  <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
+                                    <div className="flex items-center gap-2"><UserCheck className="h-3.5 w-3.5 text-purple-500" /><span className="text-sm font-medium">{ref.clinicName}</span></div>
+                                    <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-referral-${ref.clinicId}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="ml-6">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input value={referralSearch} onChange={(e) => setReferralSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-referral-search" />
+                              </div>
+                              {referralSearch && filteredClinics.length > 0 && (
+                                <div className="border rounded-lg max-h-36 overflow-y-auto mt-1">
+                                  {filteredClinics.slice(0, 10).map((clinic) => (
+                                    <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "doctor_referral")} data-testid={`referral-option-${clinic.id}`}>
+                                      <div><span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span><span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span></div>
+                                      <Plus className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {referralSearch && filteredClinics.length === 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
+                                  {showNewDoctorForm !== "recommendedBy" ? (
+                                    <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("recommendedBy"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-recommended">
+                                      <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                                    </Button>
+                                  ) : (
+                                    <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
+                                      <div className="grid gap-2 grid-cols-3">
+                                        <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" data-testid="input-new-doctor-title" />
+                                        <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" data-testid="input-new-doctor-firstname" />
+                                        <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" data-testid="input-new-doctor-lastname" />
+                                      </div>
+                                      <div className="grid gap-2 grid-cols-2">
+                                        <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *" || "Clinic name *"} className="h-8 text-xs" data-testid="input-new-doctor-clinic" />
+                                        <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" data-testid="input-new-doctor-city" />
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("recommendedBy")} data-testid="button-save-new-doctor-recommended">
+                                          <Plus className="h-3 w-3" /> {t.common.save || "Save"}
+                                        </Button>
+                                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)} data-testid="button-cancel-new-doctor">
+                                          {t.common.cancel || "Cancel"}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          {referralSearch && filteredClinics.length > 0 && (
-                            <div className="border rounded-lg max-h-36 overflow-y-auto">
-                              {filteredClinics.slice(0, 10).map((clinic) => (
-                                <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "doctor_referral")} data-testid={`referral-option-${clinic.id}`}>
-                                  <div><span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span><span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span></div>
-                                  <Plus className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              ))}
+
+                          <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20 p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <ArrowRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                                {(t.clinics as any).hasSuggestedPartners || "The Medical Partner has suggested following potential medical partners:"}
+                              </span>
                             </div>
-                          )}
-                          {doctorReferrals.length > 0 ? (
-                            <div className="space-y-1.5">
-                              {doctorReferrals.map((ref) => (
-                                <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
-                                  <div className="flex items-center gap-2"><UserCheck className="h-3.5 w-3.5 text-purple-500" /><span className="text-sm font-medium">{ref.clinicName}</span></div>
-                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-referral-${ref.clinicId}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                            {suggestsReferrals.length > 0 && (
+                              <div className="space-y-1.5 ml-6">
+                                {suggestsReferrals.map((ref) => (
+                                  <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
+                                    <div className="flex items-center gap-2"><ArrowRight className="h-3.5 w-3.5 text-emerald-500" /><span className="text-sm font-medium">{ref.clinicName}</span></div>
+                                    <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeSuggestsReferral(ref.clinicId)} data-testid={`remove-suggests-${ref.clinicId}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="ml-6">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input value={suggestsSearch} onChange={(e) => setSuggestsSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-suggests-search" />
+                              </div>
+                              {suggestsSearch && filteredClinicsSuggests.length > 0 && (
+                                <div className="border rounded-lg max-h-36 overflow-y-auto mt-1">
+                                  {filteredClinicsSuggests.slice(0, 10).map((clinic) => (
+                                    <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addSuggestsReferral(clinic)} data-testid={`suggests-option-${clinic.id}`}>
+                                      <div><span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span><span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span></div>
+                                      <Plus className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                              )}
+                              {suggestsSearch && filteredClinicsSuggests.length === 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
+                                  {showNewDoctorForm !== "suggests" ? (
+                                    <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("suggests"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-suggests">
+                                      <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                                    </Button>
+                                  ) : (
+                                    <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
+                                      <div className="grid gap-2 grid-cols-3">
+                                        <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" data-testid="input-new-doctor-title-s" />
+                                        <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" data-testid="input-new-doctor-firstname-s" />
+                                        <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" data-testid="input-new-doctor-lastname-s" />
+                                      </div>
+                                      <div className="grid gap-2 grid-cols-2">
+                                        <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *" || "Clinic name *"} className="h-8 text-xs" data-testid="input-new-doctor-clinic-s" />
+                                        <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" data-testid="input-new-doctor-city-s" />
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("suggests")} data-testid="button-save-new-doctor-suggests">
+                                          <Plus className="h-3 w-3" /> {t.common.save || "Save"}
+                                        </Button>
+                                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)} data-testid="button-cancel-new-doctor-s">
+                                          {t.common.cancel || "Cancel"}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          ) : (<p className="text-xs text-muted-foreground italic pl-1">{t.clinics.noReferrals}</p>)}
+                          </div>
                         </div>
                       )}
                       <div className={cn("border rounded-lg px-3 py-2.5 transition-all cursor-pointer", formData.isFromConference ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.conference) : "hover:bg-muted/50 border-border")}
@@ -2219,49 +2409,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                       )}
                     </div>
-                    {(() => {
-                      const allRecommendedBy = existingReferrals?.filter(r => r.referringClinic)?.map(r => r.referringClinic!) || [];
-                      const allRecommends = reverseReferrals?.filter(r => r.clinic)?.map(r => r.clinic!) || [];
-                      if (allRecommendedBy.length === 0 && allRecommends.length === 0) return null;
-                      return (
-                        <div className="space-y-3">
-                          {allRecommendedBy.length > 0 && (
-                            <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 p-3" data-testid="sheet-section-recommended-by">
-                              <div className="flex items-center gap-2 mb-2">
-                                <UserCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                                <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
-                                  {(t.clinics as any).hasBeenRecommendedBy || "The Medical Partner has been recommended by following medical partners:"}
-                                </span>
-                              </div>
-                              <div className="space-y-1 ml-6">
-                                {allRecommendedBy.map((doc) => (
-                                  <div key={doc.id} className="text-sm font-medium text-foreground" data-testid={`sheet-recommended-by-${doc.id}`}>
-                                    {getDoctorFullName(doc as any) || doc.name}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {allRecommends.length > 0 && (
-                            <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 p-3" data-testid="sheet-section-recommends">
-                              <div className="flex items-center gap-2 mb-2">
-                                <ArrowRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                                  {(t.clinics as any).hasSuggestedPartners || "The Medical Partner has suggested following potential medical partners:"}
-                                </span>
-                              </div>
-                              <div className="space-y-1 ml-6">
-                                {allRecommends.map((doc) => (
-                                  <div key={doc.id} className="text-sm font-medium text-foreground" data-testid={`sheet-recommends-${doc.id}`}>
-                                    {getDoctorFullName(doc as any) || doc.name}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
                     {formData.leadSource && (
                       <>
                         <Separator />
