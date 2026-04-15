@@ -497,7 +497,7 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
             )}
 
             {activeSection === "personnel" && (
-              <InstitutionPersonnelManager entityType="hospital" entityId={hospital.id} entityName={hospital.name} />
+              <InstitutionPersonnelManager entityType="hospital" entityId={hospital.id} entityName={hospital.name} countryCode={hospital.countryCode} />
             )}
 
             {activeSection === "campaigns" && (

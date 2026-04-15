@@ -525,7 +525,7 @@ export function InstitutionPersonnelPanel({
   );
 }
 
-export function InstitutionPersonnelManager({ entityType, entityId, entityName }: { entityType: string; entityId: string; entityName: string }) {
+export function InstitutionPersonnelManager({ entityType, entityId, entityName, countryCode }: { entityType: string; entityId: string; entityName: string; countryCode?: string }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const mpnT = (t as any).medicalPartnerNetwork || {};
@@ -580,8 +580,12 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName }
   }, [collabSearch]);
 
   const collabLookupQuery = useQuery<any[]>({
-    queryKey: ["/api/collaborators/lookup", debouncedSearch],
-    queryFn: () => fetch(`/api/collaborators/lookup?q=${encodeURIComponent(debouncedSearch)}`, { credentials: "include" }).then(r => r.json()),
+    queryKey: ["/api/collaborators/lookup", debouncedSearch, countryCode],
+    queryFn: () => {
+      const params = new URLSearchParams({ q: debouncedSearch });
+      if (countryCode) params.set("countries", countryCode);
+      return fetch(`/api/collaborators/lookup?${params.toString()}`, { credentials: "include" }).then(r => r.json());
+    },
     enabled: showAssignForm && debouncedSearch.length >= 2,
   });
 

@@ -2619,7 +2619,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                 )}
 
                 {activeTab === "personnel" && (
-                  <InstitutionPersonnelManager entityType="clinic" entityId={initialData.id} entityName={initialData.name} />
+                  <InstitutionPersonnelManager entityType="clinic" entityId={initialData.id} entityName={initialData.name} countryCode={initialData.countryCode} />
                 )}
 
                 {activeTab === "campaigns" && (
