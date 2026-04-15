@@ -386,7 +386,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const { t } = useI18n();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("source");
+  const [activeTab, setActiveTab] = useState(initialData ? "source" : "basic");
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [pipelineMenuOpen, setPipelineMenuOpen] = useState(false);
@@ -2665,7 +2665,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   }
 
   const clinicAddTabs = [
-    { key: "source", icon: CircleDot, label: t.clinics.steps?.source || "Lead Source" },
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "settings", icon: SettingsIcon, label: t.clinics.steps?.settings || "Settings" },
@@ -2688,23 +2687,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => onOpenChange(false)} data-testid="button-close-clinic-add-drawer">
               <X className="h-4 w-4" />
             </Button>
-          </div>
-
-          <div className="shrink-0 mx-5 my-2 px-2 py-2.5 rounded-lg bg-muted/40 border" data-testid="clinic-status-bar-add">
-            <ProgressBar />
-            {currentPipelineOption && (
-              <div className="flex items-center justify-center mt-1.5">
-                <div className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-semibold border",
-                  currentPipelineOption.sentiment === "positive" ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700"
-                    : currentPipelineOption.sentiment === "negative" ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700"
-                      : "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
-                )}>
-                  {currentPipelineCategory && <span className="opacity-70">{(t.clinics as any).pipeline?.[currentPipelineCategory.labelKey] || currentPipelineCategory.labelKey}:</span>}
-                  <span>{(t.clinics as any).pipeline?.[currentPipelineOption.labelKey] || currentPipelineOption.labelKey}</span>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="flex flex-1 min-h-0">
