@@ -43054,7 +43054,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
 
       let instInfo: any = null;
       if (entityType === "hospital") {
-        const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email, address FROM hospitals WHERE id = ${entityId}`);
+        const r = await db.execute(sql`SELECT id, COALESCE(full_name, name) as name, city, country_code, phone, email, address FROM hospitals WHERE id = ${entityId}`);
         instInfo = r.rows?.[0];
       } else if (entityType === "clinic") {
         const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email, address FROM clinics WHERE id = ${entityId}`);
@@ -43082,15 +43082,20 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       let otherAssignments: any[] = [];
       if (personIds.length > 0) {
         const idList = sql.join(personIds.map((id: string) => sql`${id}`), sql`, `);
+        const excludeCondition = entityType === "hospital"
+          ? sql`NOT (ca.entity_type = 'hospital' AND ca.entity_id = ${entityId})`
+          : entityType === "clinic"
+          ? sql`NOT (ca.entity_type = 'clinic' AND ca.entity_id = ${entityId})`
+          : sql`NOT (ca.entity_type = 'network' AND ca.entity_id = ${entityId})`;
         const otherRes = await db.execute(sql`
           SELECT ca.person_id, ca.entity_type, ca.entity_id, ca.department, ca.position, ca.role, ca.is_active,
-                 CASE WHEN ca.entity_type = 'hospital' THEN h.name WHEN ca.entity_type = 'clinic' THEN cl.name END as entity_name,
+                 CASE WHEN ca.entity_type = 'hospital' THEN COALESCE(h.full_name, h.name) WHEN ca.entity_type = 'clinic' THEN cl.name END as entity_name,
                  CASE WHEN ca.entity_type = 'hospital' THEN h.city WHEN ca.entity_type = 'clinic' THEN cl.city END as entity_city
           FROM contact_assignments ca
           LEFT JOIN hospitals h ON ca.entity_type = 'hospital' AND h.id = ca.entity_id
           LEFT JOIN clinics cl ON ca.entity_type = 'clinic' AND cl.id = ca.entity_id
           WHERE ca.person_id IN (${idList})
-            AND NOT (ca.entity_type = ${entityType} AND ca.entity_id = ${entityId})
+            AND ${excludeCondition}
         `);
         otherAssignments = otherRes.rows || [];
       }
@@ -43128,19 +43133,22 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         `);
         networks = netRes.rows || [];
       } else {
+        const selfCondition = entityType === "hospital"
+          ? sql`hnm_self.hospital_id = ${entityId}`
+          : sql`hnm_self.clinic_id = ${entityId}`;
         const netRes = await db.execute(sql`
           SELECT hn.id as network_id, hn.name as network_name,
-                 hnm.hospital_id, hnm.clinic_id,
-                 CASE WHEN hnm.hospital_id IS NOT NULL THEN COALESCE(h.full_name, h.name) WHEN hnm.clinic_id IS NOT NULL THEN cl.name END as member_name,
+                 hnm.hospital_id, hnm.clinic_id, hnm.collaborator_id,
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN COALESCE(h.full_name, h.name) WHEN hnm.clinic_id IS NOT NULL THEN cl.name WHEN hnm.collaborator_id IS NOT NULL THEN COALESCE(co.title_before || ' ', '') || co.first_name || ' ' || co.last_name END as member_name,
                  CASE WHEN hnm.hospital_id IS NOT NULL THEN h.city WHEN hnm.clinic_id IS NOT NULL THEN cl.city END as member_city,
-                 CASE WHEN hnm.hospital_id IS NOT NULL THEN 'hospital' WHEN hnm.clinic_id IS NOT NULL THEN 'clinic' END as member_type
+                 CASE WHEN hnm.hospital_id IS NOT NULL THEN 'hospital' WHEN hnm.clinic_id IS NOT NULL THEN 'clinic' WHEN hnm.collaborator_id IS NOT NULL THEN 'collaborator' END as member_type
           FROM hospital_network_members hnm_self
           JOIN hospital_networks hn ON hn.id = hnm_self.network_id
           JOIN hospital_network_members hnm ON hnm.network_id = hn.id
           LEFT JOIN hospitals h ON hnm.hospital_id = h.id
           LEFT JOIN clinics cl ON hnm.clinic_id = cl.id
-          WHERE (${entityType} = 'hospital' AND hnm_self.hospital_id = ${entityId})
-             OR (${entityType} = 'clinic' AND hnm_self.clinic_id = ${entityId})
+          LEFT JOIN collaborators co ON hnm.collaborator_id = co.id
+          WHERE ${selfCondition}
         `);
         networks = netRes.rows || [];
       }
@@ -43165,7 +43173,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       const assignRes = await db.execute(sql`
         SELECT ca.entity_type, ca.entity_id, ca.department, ca.position, ca.role, ca.is_primary, ca.is_active, ca.category_id,
                pc.name as category_name,
-               CASE WHEN ca.entity_type = 'hospital' THEN h.name WHEN ca.entity_type = 'clinic' THEN cl.name END as entity_name,
+               CASE WHEN ca.entity_type = 'hospital' THEN COALESCE(h.full_name, h.name) WHEN ca.entity_type = 'clinic' THEN cl.name END as entity_name,
                CASE WHEN ca.entity_type = 'hospital' THEN h.city WHEN ca.entity_type = 'clinic' THEN cl.city END as entity_city
         FROM contact_assignments ca
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
