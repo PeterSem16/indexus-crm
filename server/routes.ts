@@ -37,7 +37,7 @@ import {
   sourceLearningMetrics, contactScores, leadFeedback, feedbackPatterns, leadEntities, entityRelations, entityEvidences, leadLifecycle,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
-  inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents,
+  inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents, hospitalNetworks, hospitalNetworkMembers,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance,
@@ -42368,6 +42368,92 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // --- Hospital Networks CRUD ---
+  app.get("/api/hospital-networks", requireAuth, async (req, res) => {
+    try {
+      const countryCode = req.query.countryCode as string;
+      let rows;
+      if (countryCode) {
+        rows = await db.select().from(hospitalNetworks).where(eq(hospitalNetworks.countryCode, countryCode)).orderBy(hospitalNetworks.name);
+      } else {
+        rows = await db.select().from(hospitalNetworks).orderBy(hospitalNetworks.name);
+      }
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/hospital-networks", requireAuth, async (req, res) => {
+    try {
+      const { name, countryCode, description } = req.body;
+      if (!name || !countryCode) return res.status(400).json({ error: "Name and country are required" });
+      const [row] = await db.insert(hospitalNetworks).values({ name, countryCode, description: description || null }).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/hospital-networks/:id", requireAuth, async (req, res) => {
+    try {
+      const { name, description } = req.body;
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (description !== undefined) updates.description = description || null;
+      const [row] = await db.update(hospitalNetworks).set(updates).where(eq(hospitalNetworks.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/hospital-networks/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(hospitalNetworks).where(eq(hospitalNetworks.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/hospital-networks/:id/members", requireAuth, async (req, res) => {
+    try {
+      const members = await db.execute(sql`
+        SELECT hnm.id, hnm.network_id, hnm.hospital_id, hnm.clinic_id,
+               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.name WHEN hnm.clinic_id IS NOT NULL THEN cl.name END as name,
+               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.city WHEN hnm.clinic_id IS NOT NULL THEN cl.city END as city,
+               CASE WHEN hnm.hospital_id IS NOT NULL THEN 'hospital' WHEN hnm.clinic_id IS NOT NULL THEN 'clinic' END as type,
+               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.country_code WHEN hnm.clinic_id IS NOT NULL THEN cl.country_code END as country_code
+        FROM hospital_network_members hnm
+        LEFT JOIN hospitals h ON hnm.hospital_id = h.id
+        LEFT JOIN clinics cl ON hnm.clinic_id = cl.id
+        WHERE hnm.network_id = ${req.params.id}
+        ORDER BY type, name
+      `);
+      res.json(members.rows || []);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/hospital-networks/:id/members", requireAuth, async (req, res) => {
+    try {
+      const { hospitalId, clinicId } = req.body;
+      if (!hospitalId && !clinicId) return res.status(400).json({ error: "Hospital or clinic ID required" });
+      const existing = await db.select().from(hospitalNetworkMembers).where(
+        and(
+          eq(hospitalNetworkMembers.networkId, req.params.id),
+          hospitalId ? eq(hospitalNetworkMembers.hospitalId, hospitalId) : eq(hospitalNetworkMembers.clinicId, clinicId)
+        )
+      );
+      if (existing.length > 0) return res.status(400).json({ error: "Already a member" });
+      const [row] = await db.insert(hospitalNetworkMembers).values({
+        networkId: req.params.id,
+        hospitalId: hospitalId || null,
+        clinicId: clinicId || null,
+      }).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/hospital-network-members/:memberId", requireAuth, async (req, res) => {
+    try {
+      await db.delete(hospitalNetworkMembers).where(eq(hospitalNetworkMembers.id, req.params.memberId));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // --- MPN Institutions (all, no country filter, with search & pagination) ---
   app.get("/api/mpn/institutions", requireAuth, async (req, res) => {
     try {
@@ -42925,7 +43011,40 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         otherAssignments = otherRes.rows || [];
       }
 
-      res.json({ institution: { ...instInfo, entityType }, persons, otherAssignments });
+      let referrals: any[] = [];
+      if (entityType === "clinic") {
+        const refRes = await db.execute(sql`
+          SELECT cr.id, cr.clinic_id, cr.referring_clinic_id, cr.referral_type,
+                 c1.name as clinic_name, c1.city as clinic_city, c1.country_code as clinic_country,
+                 c1.doctor_name as clinic_doctor,
+                 c2.name as referring_name, c2.city as referring_city, c2.country_code as referring_country,
+                 c2.doctor_name as referring_doctor
+          FROM clinic_referrals cr
+          LEFT JOIN clinics c1 ON c1.id = cr.clinic_id
+          LEFT JOIN clinics c2 ON c2.id = cr.referring_clinic_id
+          WHERE cr.clinic_id = ${entityId} OR cr.referring_clinic_id = ${entityId}
+        `);
+        referrals = refRes.rows || [];
+      }
+
+      let networks: any[] = [];
+      const netRes = await db.execute(sql`
+        SELECT hn.id as network_id, hn.name as network_name,
+               hnm.hospital_id, hnm.clinic_id,
+               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.name WHEN hnm.clinic_id IS NOT NULL THEN cl.name END as member_name,
+               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.city WHEN hnm.clinic_id IS NOT NULL THEN cl.city END as member_city,
+               CASE WHEN hnm.hospital_id IS NOT NULL THEN 'hospital' WHEN hnm.clinic_id IS NOT NULL THEN 'clinic' END as member_type
+        FROM hospital_network_members hnm_self
+        JOIN hospital_networks hn ON hn.id = hnm_self.network_id
+        JOIN hospital_network_members hnm ON hnm.network_id = hn.id
+        LEFT JOIN hospitals h ON hnm.hospital_id = h.id
+        LEFT JOIN clinics cl ON hnm.clinic_id = cl.id
+        WHERE (${entityType} = 'hospital' AND hnm_self.hospital_id = ${entityId})
+           OR (${entityType} = 'clinic' AND hnm_self.clinic_id = ${entityId})
+      `);
+      networks = netRes.rows || [];
+
+      res.json({ institution: { ...instInfo, entityType }, persons, otherAssignments, referrals, networks });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

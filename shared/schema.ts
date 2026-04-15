@@ -373,6 +373,36 @@ export const insertClinicReferralSchema = createInsertSchema(clinicReferrals).om
 export type InsertClinicReferral = z.infer<typeof insertClinicReferralSchema>;
 export type ClinicReferral = typeof clinicReferrals.$inferSelect;
 
+export const hospitalNetworks = pgTable("hospital_networks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  countryCode: text("country_code").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertHospitalNetworkSchema = createInsertSchema(hospitalNetworks).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertHospitalNetwork = z.infer<typeof insertHospitalNetworkSchema>;
+export type HospitalNetwork = typeof hospitalNetworks.$inferSelect;
+
+export const hospitalNetworkMembers = pgTable("hospital_network_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  networkId: varchar("network_id").notNull(),
+  hospitalId: varchar("hospital_id"),
+  clinicId: varchar("clinic_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertHospitalNetworkMemberSchema = createInsertSchema(hospitalNetworkMembers).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertHospitalNetworkMember = z.infer<typeof insertHospitalNetworkMemberSchema>;
+export type HospitalNetworkMember = typeof hospitalNetworkMembers.$inferSelect;
+
 export const clinicEvents = pgTable("clinic_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   clinicId: varchar("clinic_id").notNull(),

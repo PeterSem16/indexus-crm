@@ -93,7 +93,7 @@ type Person = {
 
 type NetworkNode = {
   id: string;
-  type: "hospital" | "clinic" | "person";
+  type: "hospital" | "clinic" | "person" | "network";
   label: string;
   sublabel?: string;
   x: number;
@@ -118,16 +118,18 @@ type NetworkEdge = {
   from: string;
   to: string;
   label?: string;
+  edgeType?: "assignment" | "referral_recommended" | "referral_suggests" | "network";
 };
 
 // ═══════════════════════════════════════════════════════════════
 // NETWORK EXPLORER - search-first + SVG network visualization
 // ═══════════════════════════════════════════════════════════════
 
-const NODE_COLORS = {
+const NODE_COLORS: Record<string, { fill: string; fillEnd: string; stroke: string; text: string; glow: string; shadow: string }> = {
   hospital: { fill: "#3b82f6", fillEnd: "#1d4ed8", stroke: "#2563eb", text: "#ffffff", glow: "rgba(59,130,246,0.35)", shadow: "rgba(59,130,246,0.2)" },
   clinic: { fill: "#10b981", fillEnd: "#047857", stroke: "#059669", text: "#ffffff", glow: "rgba(16,185,129,0.35)", shadow: "rgba(16,185,129,0.2)" },
   person: { fill: "#8b5cf6", fillEnd: "#6d28d9", stroke: "#7c3aed", text: "#ffffff", glow: "rgba(139,92,246,0.35)", shadow: "rgba(139,92,246,0.2)" },
+  network: { fill: "#f59e0b", fillEnd: "#d97706", stroke: "#f59e0b", text: "#ffffff", glow: "rgba(245,158,11,0.35)", shadow: "rgba(245,158,11,0.2)" },
 };
 
 function layoutNodes(
@@ -329,6 +331,16 @@ function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges
             <feComposite in="color" in2="blur" operator="in" result="glow" />
             <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
+          <linearGradient id="grad-network" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={NODE_COLORS.network.fill} />
+            <stop offset="100%" stopColor={NODE_COLORS.network.fillEnd} />
+          </linearGradient>
+          <filter id="glow-network" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="8" result="blur" />
+            <feFlood floodColor={NODE_COLORS.network.glow} result="color" />
+            <feComposite in="color" in2="blur" operator="in" result="glow" />
+            <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
           <linearGradient id="edge-gradient" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="#94a3b8" stopOpacity="0.3" />
             <stop offset="50%" stopColor="#94a3b8" stopOpacity="0.6" />
@@ -358,26 +370,37 @@ function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges
           const cx1 = mx + perpX;
           const cy1 = my + perpY;
 
-          const fromColors = NODE_COLORS[fromNode.type];
-          const toColors = NODE_COLORS[toNode.type];
+          const fromColors = NODE_COLORS[fromNode.type] || NODE_COLORS.person;
+          const toColors = NODE_COLORS[toNode.type] || NODE_COLORS.person;
           const gradId = `edge-grad-${i}`;
+          const isReferral = edge.edgeType === "referral_recommended" || edge.edgeType === "referral_suggests";
+          const isNetwork = edge.edgeType === "network";
+          const defaultColor = isReferral ? "#f97316" : isNetwork ? "#f59e0b" : "#cbd5e1";
 
           return (
             <g key={`edge-${i}`}>
               <defs>
                 <linearGradient id={gradId} x1={x1} y1={y1} x2={x2} y2={y2} gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor={isHovered ? fromColors.fill : "#cbd5e1"} stopOpacity={isHovered ? 0.8 : 0.5} />
-                  <stop offset="100%" stopColor={isHovered ? toColors.fill : "#cbd5e1"} stopOpacity={isHovered ? 0.8 : 0.5} />
+                  <stop offset="0%" stopColor={isHovered ? fromColors.fill : defaultColor} stopOpacity={isHovered ? 0.8 : isReferral || isNetwork ? 0.7 : 0.5} />
+                  <stop offset="100%" stopColor={isHovered ? toColors.fill : defaultColor} stopOpacity={isHovered ? 0.8 : isReferral || isNetwork ? 0.7 : 0.5} />
                 </linearGradient>
               </defs>
               <path
                 d={`M${x1},${y1} Q${cx1},${cy1} ${x2},${y2}`}
                 fill="none"
                 stroke={`url(#${gradId})`}
-                strokeWidth={isHovered ? 2.5 : 1.8}
+                strokeWidth={isHovered ? 2.5 : isReferral ? 2 : 1.8}
+                strokeDasharray={isReferral ? "6 3" : isNetwork ? "4 2" : undefined}
                 opacity={hoveredNode && !isHovered ? 0.15 : 1}
                 className="transition-all duration-300"
               />
+              {isReferral && !hoveredNode && (
+                <polygon
+                  points={`${x2},${y2} ${x2 - 6 * (dx/dist) + 4 * (dy/dist)},${y2 - 6 * (dy/dist) - 4 * (dx/dist)} ${x2 - 6 * (dx/dist) - 4 * (dy/dist)},${y2 - 6 * (dy/dist) + 4 * (dx/dist)}`}
+                  fill="#f97316"
+                  opacity={0.6}
+                />
+              )}
               {isHovered && (
                 <circle r="3" fill={toColors.fill}>
                   <animateMotion dur="1.5s" repeatCount="indefinite" path={`M${x1},${y1} Q${cx1},${cy1} ${x2},${y2}`} />
@@ -499,6 +522,16 @@ function NetworkSVG({ nodes, edges, onNodeClick }: { nodes: NetworkNode[]; edges
           <span className="w-3 h-3 rounded-full shadow-sm" style={{ background: `linear-gradient(135deg, ${NODE_COLORS.person.fill}, ${NODE_COLORS.person.fillEnd})` }} />
           Osoba
         </span>
+        <span className="w-px h-3 bg-slate-200 dark:bg-slate-600" />
+        <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+          <span className="w-3 h-3 rounded-full shadow-sm" style={{ background: `linear-gradient(135deg, ${NODE_COLORS.network.fill}, ${NODE_COLORS.network.fillEnd})` }} />
+          Sieť
+        </span>
+        <span className="w-px h-3 bg-slate-200 dark:bg-slate-600" />
+        <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+          <span className="w-8 h-0 border-t-2 border-dashed border-orange-400" />
+          Referral
+        </span>
       </div>
     </div>
   );
@@ -610,7 +643,61 @@ function NetworkExplorer() {
         const existing = ring2Map.get(personKey)!;
         if (!existing.some(x => x.id === item.id)) existing.push(item);
       }
-      return layoutNodes(center, ring1, ring2Map);
+      const result = layoutNodes(center, ring1, ring2Map);
+
+      for (const ref of (networkData.referrals || [])) {
+        const isRecommendedBy = String(ref.clinic_id) === String(inst.id);
+        const otherClinicId = isRecommendedBy ? ref.referring_clinic_id : ref.clinic_id;
+        const otherName = isRecommendedBy ? (ref.referring_doctor || ref.referring_name) : (ref.clinic_doctor || ref.clinic_name);
+        const otherCity = isRecommendedBy ? ref.referring_city : ref.clinic_city;
+        const nodeId = `inst-clinic-${otherClinicId}`;
+        if (!result.nodes.some(n => n.id === nodeId)) {
+          const angle = Math.random() * 2 * Math.PI;
+          const dist = Math.max(180, ring1.length * 25) + 60;
+          result.nodes.push({
+            id: nodeId, type: "clinic", label: otherName || "?", sublabel: otherCity || "",
+            x: 450 + dist * Math.cos(angle), y: 300 + dist * Math.sin(angle),
+            entityId: otherClinicId, entityType: "clinic",
+          });
+        }
+        if (isRecommendedBy) {
+          result.edges.push({ from: nodeId, to: center.id, label: "Referral", edgeType: "referral_recommended" });
+        } else {
+          result.edges.push({ from: center.id, to: nodeId, label: "Suggests", edgeType: "referral_suggests" });
+        }
+      }
+
+      const addedNetworks = new Set<string>();
+      for (const nm of (networkData.networks || [])) {
+        const netNodeId = `network-${nm.network_id}`;
+        if (!addedNetworks.has(nm.network_id)) {
+          addedNetworks.add(nm.network_id);
+          if (!result.nodes.some(n => n.id === netNodeId)) {
+            const angle = Math.random() * 2 * Math.PI;
+            const dist = Math.max(180, ring1.length * 25) + 100;
+            result.nodes.push({
+              id: netNodeId, type: "network" as any, label: nm.network_name || "Network", sublabel: "",
+              x: 450 + dist * Math.cos(angle), y: 300 + dist * Math.sin(angle),
+            });
+          }
+          result.edges.push({ from: center.id, to: netNodeId, edgeType: "network" });
+        }
+        const memberId = nm.hospital_id ? `inst-hospital-${nm.hospital_id}` : nm.clinic_id ? `inst-clinic-${nm.clinic_id}` : null;
+        if (memberId && memberId !== center.id && !result.nodes.some(n => n.id === memberId)) {
+          const angle = Math.random() * 2 * Math.PI;
+          const mDist = Math.max(180, ring1.length * 25) + 160;
+          result.nodes.push({
+            id: memberId, type: (nm.member_type || "hospital") as any, label: nm.member_name || "?", sublabel: nm.member_city || "",
+            x: 450 + mDist * Math.cos(angle), y: 300 + mDist * Math.sin(angle),
+            entityId: nm.hospital_id || nm.clinic_id, entityType: nm.member_type,
+          });
+        }
+        if (memberId && memberId !== center.id) {
+          result.edges.push({ from: netNodeId, to: memberId, edgeType: "network" });
+        }
+      }
+
+      return result;
     } else {
       const person = networkData.person;
       const center = {
