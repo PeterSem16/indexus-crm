@@ -43054,13 +43054,13 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
 
       let instInfo: any = null;
       if (entityType === "hospital") {
-        const r = await db.execute(sql`SELECT id, COALESCE(full_name, name) as name, city, country_code, phone, email, address FROM hospitals WHERE id = ${entityId}`);
+        const r = await db.execute(sql`SELECT id, COALESCE(full_name, name) as name, city, country_code, phone, email FROM hospitals WHERE id = ${entityId}`);
         instInfo = r.rows?.[0];
       } else if (entityType === "clinic") {
-        const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email, address FROM clinics WHERE id = ${entityId}`);
+        const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email FROM clinics WHERE id = ${entityId}`);
         instInfo = r.rows?.[0];
       } else if (entityType === "network") {
-        const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email, address FROM hospital_networks WHERE id = ${entityId}`);
+        const r = await db.execute(sql`SELECT id, name, city, country_code, phone, email FROM hospital_networks WHERE id = ${entityId}`);
         instInfo = r.rows?.[0];
       }
       if (!instInfo) return res.status(404).json({ error: "Not found" });
