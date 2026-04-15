@@ -451,6 +451,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
 
   const { data: allClinics } = useQuery<any[]>({ queryKey: ["/api/clinics/lookup"] });
 
+  const { data: networkMembershipsSheet = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospital-network-memberships"],
+  });
+  const clinicNetworks = initialData?.id ? (networkMembershipsSheet.filter((m: any) => m.clinic_id === initialData.id).map((m: any) => m.network_name).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)) : [];
+
   const { data: existingReferrals } = useQuery<Array<{ id: string; clinicId: string; referringClinicId: string; referralType: string; referringClinic: Clinic | null }>>({
     queryKey: ["/api/clinic-referrals", initialData?.id],
     queryFn: getQueryFn({ on401: "returnNull" }),
@@ -2095,7 +2100,15 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   <Stethoscope className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-base font-semibold">{t.clinics.editClinic}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-base font-semibold">{t.clinics.editClinic}</span>
+                    {clinicNetworks.map((netName: string) => (
+                      <Badge key={netName} className="text-[10px] px-1.5 py-0 font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700" data-testid="badge-clinic-network-header">
+                        <Network className="h-2.5 w-2.5 mr-0.5" />
+                        {netName}
+                      </Badge>
+                    ))}
+                  </div>
                   {doctorFullName && (
                     <p className="text-xs text-muted-foreground font-normal truncate">{doctorFullName} • {initialData.name}</p>
                   )}
