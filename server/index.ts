@@ -98,8 +98,8 @@ app.use((req, res, next) => {
     console.log('[migration] Customer columns ensured');
 
     await pool.query(`
-      UPDATE hospitals SET full_name = name WHERE (full_name IS NULL OR full_name = '') AND name IS NOT NULL AND name != '';
-      UPDATE hospitals SET name = full_name WHERE (name IS NULL OR name = '') AND full_name IS NOT NULL AND full_name != '';
+      UPDATE hospitals SET full_name = name WHERE (full_name IS NULL OR full_name = '' OR full_name = '-') AND name IS NOT NULL AND name != '' AND name != '-';
+      UPDATE hospitals SET name = full_name WHERE (name IS NULL OR name = '' OR name = '-') AND full_name IS NOT NULL AND full_name != '' AND full_name != '-';
     `);
     console.log('[migration] Hospital full_name synced');
 
