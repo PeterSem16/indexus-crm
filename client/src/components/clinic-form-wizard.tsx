@@ -480,7 +480,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const [suggestsSearch, setSuggestsSearch] = useState("");
   const [confReferralSearch, setConfReferralSearch] = useState("");
   const [showNewDoctorForm, setShowNewDoctorForm] = useState<"recommendedBy" | "suggests" | null>(null);
-  const [newDoctorData, setNewDoctorData] = useState({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: "SK" });
+  const [newDoctorData, setNewDoctorData] = useState({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" });
   const userEditedReferralsRef = useRef(false);
 
   useEffect(() => {
@@ -492,7 +492,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
       setSuggestsSearch("");
       setConfReferralSearch("");
       setShowNewDoctorForm(null);
-      setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: "SK" });
+      setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" });
       setShowMapDialog(false);
       setIsLoadingLocation(false);
       setPipelineMenuOpen(false);
@@ -528,7 +528,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const filterClinicsFor = (searchStr: string, excludeList?: Array<{ clinicId: string }>) => {
     if (!searchStr) return [];
     const excluded = excludeList || referrals;
+    const currentCountry = formData.countryCode;
     return (allClinics?.filter((c) => {
+      if (currentCountry && c.countryCode && c.countryCode !== currentCountry) return false;
       if (initialData && String(c.id) === String(initialData.id)) return false;
       if (excluded.some((r) => String(r.clinicId) === String(c.id))) return false;
       const s = searchStr.toLowerCase();
@@ -580,7 +582,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         doctorLastName: lastName || null,
         doctorName: doctorName || null,
         city: city || null,
-        countryCode: countryCode || "SK",
+        countryCode: countryCode || formData.countryCode || "SK",
         leadSource: "new_contact",
       });
       const newClinic = await res.json();
@@ -594,7 +596,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         }
         queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
         queryClient.invalidateQueries({ queryKey: ["/api/clinics/lookup"] });
-        setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: "SK" });
+        setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" });
         setShowNewDoctorForm(null);
         toast({ title: t.success.saved });
       }
