@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, ArrowRight, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save, Network } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, ArrowRight, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save, Network, User } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -1159,6 +1159,7 @@ function HospitalNetworksTab() {
 
   const { data: allHospitals = [] } = useQuery<any[]>({ queryKey: ["/api/hospitals"] });
   const { data: allClinics = [] } = useQuery<any[]>({ queryKey: ["/api/clinics/lookup"] });
+  const { data: allCollaborators = [] } = useQuery<any[]>({ queryKey: ["/api/collaborators"] });
 
   const createMut = useMutation({
     mutationFn: async () => {
@@ -1216,7 +1217,7 @@ function HospitalNetworksTab() {
       )}
 
       {filtered.map((net: any) => (
-        <NetworkCard key={net.id} network={net} allHospitals={allHospitals} allClinics={allClinics}
+        <NetworkCard key={net.id} network={net} allHospitals={allHospitals} allClinics={allClinics} allCollaborators={allCollaborators}
           onEdit={() => { setEditNetwork(net); setNewName(net.name); setNewDesc(net.description || ""); }}
           onDelete={() => deleteMut.mutate(net.id)}
           addMemberOpen={addMemberOpen} setAddMemberOpen={setAddMemberOpen}
@@ -1285,9 +1286,10 @@ function HospitalNetworksTab() {
   );
 }
 
-function NetworkCard({ network, allHospitals, allClinics, onEdit, onDelete, addMemberOpen, setAddMemberOpen, memberSearch, setMemberSearch }: any) {
+function NetworkCard({ network, allHospitals, allClinics, allCollaborators, onEdit, onDelete, addMemberOpen, setAddMemberOpen, memberSearch, setMemberSearch }: any) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const [expanded, setExpanded] = useState(false);
 
   const { data: members = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/hospital-networks", network.id, "members"],
@@ -1295,14 +1297,16 @@ function NetworkCard({ network, allHospitals, allClinics, onEdit, onDelete, addM
       const res = await fetch(`/api/hospital-networks/${network.id}/members`, { credentials: "include" });
       return res.json();
     },
+    enabled: expanded,
   });
 
   const addMemberMut = useMutation({
-    mutationFn: async (data: { hospitalId?: string; clinicId?: string }) => {
+    mutationFn: async (data: { hospitalId?: string; clinicId?: string; collaboratorId?: string }) => {
       await apiRequest("POST", `/api/hospital-networks/${network.id}/members`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hospital-networks", network.id, "members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hospital-network-memberships"] });
       setAddMemberOpen(null); setMemberSearch("");
       toast({ title: t.success?.saved || "Saved" });
     },
@@ -1317,11 +1321,13 @@ function NetworkCard({ network, allHospitals, allClinics, onEdit, onDelete, addM
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hospital-networks", network.id, "members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hospital-network-memberships"] });
       toast({ title: t.success?.deleted || "Removed" });
     },
   });
 
-  const memberIds = new Set(members.map((m: any) => m.hospital_id || m.clinic_id));
+  const memberIds = new Set(members.map((m: any) => m.hospital_id || m.clinic_id || m.collaborator_id));
+  const collabList = (allCollaborators?.data || allCollaborators || []);
   const s = memberSearch.toLowerCase();
   const filteredHospitals = s ? allHospitals.filter((h: any) =>
     !memberIds.has(String(h.id)) && h.countryCode === network.countryCode &&
@@ -1331,19 +1337,34 @@ function NetworkCard({ network, allHospitals, allClinics, onEdit, onDelete, addM
     !memberIds.has(String(c.id)) && c.countryCode === network.countryCode &&
     (c.name?.toLowerCase().includes(s) || c.doctorName?.toLowerCase().includes(s) || c.city?.toLowerCase().includes(s))
   ).slice(0, 10) : [];
+  const filteredCollaborators = s ? collabList.filter((co: any) =>
+    !memberIds.has(String(co.id)) &&
+    (`${co.titleBefore || ""} ${co.firstName || ""} ${co.lastName || ""}`.toLowerCase().includes(s) || co.email?.toLowerCase().includes(s))
+  ).slice(0, 10) : [];
+
+  const memberTypeIcon = (type: string) => {
+    if (type === "hospital") return <Hospital className="h-4 w-4 text-blue-500" />;
+    if (type === "clinic") return <Stethoscope className="h-4 w-4 text-emerald-500" />;
+    return <User className="h-4 w-4 text-violet-500" />;
+  };
+  const memberTypeLabel = (type: string) => {
+    if (type === "hospital") return t.clinics.memberHospital || "Hospital";
+    if (type === "clinic") return t.clinics.memberClinic || "Clinic";
+    return t.collaborators?.title || "Collaborator";
+  };
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 cursor-pointer" onClick={() => setExpanded(!expanded)} data-testid={`toggle-network-${network.id}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
+            {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
             <Network className="h-5 w-5 text-amber-600" />
             <CardTitle className="text-base">{network.name}</CardTitle>
             <Badge variant="outline" className="text-xs">{getCountryFlag(network.countryCode)} {network.countryCode}</Badge>
-            <Badge variant="secondary" className="text-xs">{members.length} {members.length === 1 ? "member" : "members"}</Badge>
           </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAddMemberOpen(addMemberOpen === network.id ? null : network.id)} data-testid={`button-add-member-${network.id}`}>
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { if (!expanded) setExpanded(true); setAddMemberOpen(addMemberOpen === network.id ? null : network.id); }} data-testid={`button-add-member-${network.id}`}>
               <Plus className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} data-testid={`button-edit-network-${network.id}`}>
@@ -1356,64 +1377,73 @@ function NetworkCard({ network, allHospitals, allClinics, onEdit, onDelete, addM
         </div>
         {network.description && <p className="text-sm text-muted-foreground mt-1">{network.description}</p>}
       </CardHeader>
-      <CardContent>
-        {addMemberOpen === network.id && (
-          <div className="mb-3 p-3 bg-muted/50 rounded-lg border space-y-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={memberSearch}
-                onChange={(e) => setMemberSearch(e.target.value)}
-                placeholder={t.clinics.searchHospitalOrClinic || "Search hospital or clinic..."}
-                className="pl-9 h-9"
-                data-testid="input-member-search"
-              />
-            </div>
-            {(filteredHospitals.length > 0 || filteredClinics.length > 0) && (
-              <div className="max-h-48 overflow-y-auto space-y-1">
-                {filteredHospitals.map((h: any) => (
-                  <button key={`h-${h.id}`} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent text-sm text-left" onClick={() => addMemberMut.mutate({ hospitalId: String(h.id) })} data-testid={`add-hospital-${h.id}`}>
-                    <Hospital className="h-4 w-4 text-blue-500 shrink-0" />
-                    <span className="font-medium">{h.name}</span>
-                    {h.city && <span className="text-muted-foreground">- {h.city}</span>}
-                  </button>
-                ))}
-                {filteredClinics.map((c: any) => (
-                  <button key={`c-${c.id}`} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent text-sm text-left" onClick={() => addMemberMut.mutate({ clinicId: String(c.id) })} data-testid={`add-clinic-${c.id}`}>
-                    <Stethoscope className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <span className="font-medium">{c.doctorName || c.name}</span>
-                    {c.city && <span className="text-muted-foreground">- {c.city}</span>}
-                  </button>
-                ))}
+      {expanded && (
+        <CardContent>
+          {addMemberOpen === network.id && (
+            <div className="mb-3 p-3 bg-muted/50 rounded-lg border space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder={t.clinics.searchHospitalOrClinic || "Search hospital, clinic or collaborator..."}
+                  className="pl-9 h-9"
+                  data-testid="input-member-search"
+                />
               </div>
-            )}
-          </div>
-        )}
-
-        {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-
-        {!isLoading && members.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t.clinics.noMembers || 'No members'}</p>
-        )}
-
-        {!isLoading && members.length > 0 && (
-          <div className="space-y-1">
-            {members.map((m: any) => (
-              <div key={m.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 group">
-                <div className="flex items-center gap-2">
-                  {m.type === "hospital" ? <Hospital className="h-4 w-4 text-blue-500" /> : <Stethoscope className="h-4 w-4 text-emerald-500" />}
-                  <span className="text-sm font-medium">{m.name}</span>
-                  {m.city && <span className="text-xs text-muted-foreground">- {m.city}</span>}
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{m.type === "hospital" ? (t.clinics.memberHospital || "Hospital") : (t.clinics.memberClinic || "Clinic")}</Badge>
+              {(filteredHospitals.length > 0 || filteredClinics.length > 0 || filteredCollaborators.length > 0) && (
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {filteredHospitals.map((h: any) => (
+                    <button key={`h-${h.id}`} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent text-sm text-left" onClick={() => addMemberMut.mutate({ hospitalId: String(h.id) })} data-testid={`add-hospital-${h.id}`}>
+                      <Hospital className="h-4 w-4 text-blue-500 shrink-0" />
+                      <span className="font-medium">{h.name}</span>
+                      {h.city && <span className="text-muted-foreground">- {h.city}</span>}
+                    </button>
+                  ))}
+                  {filteredClinics.map((c: any) => (
+                    <button key={`c-${c.id}`} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent text-sm text-left" onClick={() => addMemberMut.mutate({ clinicId: String(c.id) })} data-testid={`add-clinic-${c.id}`}>
+                      <Stethoscope className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <span className="font-medium">{c.doctorName || c.name}</span>
+                      {c.city && <span className="text-muted-foreground">- {c.city}</span>}
+                    </button>
+                  ))}
+                  {filteredCollaborators.map((co: any) => (
+                    <button key={`co-${co.id}`} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent text-sm text-left" onClick={() => addMemberMut.mutate({ collaboratorId: String(co.id) })} data-testid={`add-collaborator-${co.id}`}>
+                      <User className="h-4 w-4 text-violet-500 shrink-0" />
+                      <span className="font-medium">{[co.titleBefore, co.firstName, co.lastName].filter(Boolean).join(" ")}</span>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0">{getCountryFlag(co.countryCode)} {co.countryCode}</Badge>
+                    </button>
+                  ))}
                 </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => removeMemberMut.mutate(m.id)} data-testid={`remove-member-${m.id}`}>
-                  <X className="h-3.5 w-3.5 text-red-500" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+              )}
+            </div>
+          )}
+
+          {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+
+          {!isLoading && members.length === 0 && (
+            <p className="text-sm text-muted-foreground">{t.clinics.noMembers || 'No members'}</p>
+          )}
+
+          {!isLoading && members.length > 0 && (
+            <div className="space-y-1">
+              {members.map((m: any) => (
+                <div key={m.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 group">
+                  <div className="flex items-center gap-2">
+                    {memberTypeIcon(m.type)}
+                    <span className="text-sm font-medium">{m.name}</span>
+                    {m.city && <span className="text-xs text-muted-foreground">- {m.city}</span>}
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">{memberTypeLabel(m.type)}</Badge>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => removeMemberMut.mutate(m.id)} data-testid={`remove-member-${m.id}`}>
+                    <X className="h-3.5 w-3.5 text-red-500" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }

@@ -3309,6 +3309,11 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialData?.avatarUrl || null);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
+  const { data: networkMemberships = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospital-network-memberships"],
+  });
+  const collabNetworks = initialData?.id ? networkMemberships.filter((m: any) => m.collaborator_id === initialData.id).map((m: any) => m.network_name).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i) : [];
+
   const [formData, setFormData] = useState<CollaboratorFormData>(() =>
     initialData
       ? {
@@ -4726,6 +4731,12 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   ISCBC
                 </Badge>
               )}
+              {collabNetworks.map((netName: string) => (
+                <Badge key={netName} className="ml-2 text-[10px] px-1.5 py-0 font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700" data-testid="badge-collaborator-network-header">
+                  <Network className="h-2.5 w-2.5 mr-0.5" />
+                  {netName}
+                </Badge>
+              ))}
             </h2>
             <p className="text-xs text-muted-foreground">
               {isEditMode ? t.collaborators.editCollaborator : t.collaborators.addCollaborator}

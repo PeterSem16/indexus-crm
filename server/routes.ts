@@ -42412,14 +42412,31 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
   app.get("/api/hospital-networks/:id/members", requireAuth, async (req, res) => {
     try {
       const members = await db.execute(sql`
-        SELECT hnm.id, hnm.network_id, hnm.hospital_id, hnm.clinic_id,
-               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.name WHEN hnm.clinic_id IS NOT NULL THEN cl.name END as name,
-               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.city WHEN hnm.clinic_id IS NOT NULL THEN cl.city END as city,
-               CASE WHEN hnm.hospital_id IS NOT NULL THEN 'hospital' WHEN hnm.clinic_id IS NOT NULL THEN 'clinic' END as type,
-               CASE WHEN hnm.hospital_id IS NOT NULL THEN h.country_code WHEN hnm.clinic_id IS NOT NULL THEN cl.country_code END as country_code
+        SELECT hnm.id, hnm.network_id, hnm.hospital_id, hnm.clinic_id, hnm.collaborator_id,
+               CASE
+                 WHEN hnm.hospital_id IS NOT NULL THEN h.name
+                 WHEN hnm.clinic_id IS NOT NULL THEN cl.name
+                 WHEN hnm.collaborator_id IS NOT NULL THEN COALESCE(co.title_before || ' ', '') || co.first_name || ' ' || co.last_name
+               END as name,
+               CASE
+                 WHEN hnm.hospital_id IS NOT NULL THEN h.city
+                 WHEN hnm.clinic_id IS NOT NULL THEN cl.city
+                 WHEN hnm.collaborator_id IS NOT NULL THEN NULL
+               END as city,
+               CASE
+                 WHEN hnm.hospital_id IS NOT NULL THEN 'hospital'
+                 WHEN hnm.clinic_id IS NOT NULL THEN 'clinic'
+                 WHEN hnm.collaborator_id IS NOT NULL THEN 'collaborator'
+               END as type,
+               CASE
+                 WHEN hnm.hospital_id IS NOT NULL THEN h.country_code
+                 WHEN hnm.clinic_id IS NOT NULL THEN cl.country_code
+                 WHEN hnm.collaborator_id IS NOT NULL THEN co.country_code
+               END as country_code
         FROM hospital_network_members hnm
         LEFT JOIN hospitals h ON hnm.hospital_id = h.id
         LEFT JOIN clinics cl ON hnm.clinic_id = cl.id
+        LEFT JOIN collaborators co ON hnm.collaborator_id = co.id
         WHERE hnm.network_id = ${req.params.id}
         ORDER BY type, name
       `);
@@ -42429,19 +42446,22 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
 
   app.post("/api/hospital-networks/:id/members", requireAuth, async (req, res) => {
     try {
-      const { hospitalId, clinicId } = req.body;
-      if (!hospitalId && !clinicId) return res.status(400).json({ error: "Hospital or clinic ID required" });
+      const { hospitalId, clinicId, collaboratorId } = req.body;
+      if (!hospitalId && !clinicId && !collaboratorId) return res.status(400).json({ error: "Hospital, clinic, or collaborator ID required" });
+      const condition = hospitalId
+        ? eq(hospitalNetworkMembers.hospitalId, hospitalId)
+        : clinicId
+          ? eq(hospitalNetworkMembers.clinicId, clinicId)
+          : eq(hospitalNetworkMembers.collaboratorId, collaboratorId);
       const existing = await db.select().from(hospitalNetworkMembers).where(
-        and(
-          eq(hospitalNetworkMembers.networkId, req.params.id),
-          hospitalId ? eq(hospitalNetworkMembers.hospitalId, hospitalId) : eq(hospitalNetworkMembers.clinicId, clinicId)
-        )
+        and(eq(hospitalNetworkMembers.networkId, req.params.id), condition)
       );
       if (existing.length > 0) return res.status(400).json({ error: "Already a member" });
       const [row] = await db.insert(hospitalNetworkMembers).values({
         networkId: req.params.id,
         hospitalId: hospitalId || null,
         clinicId: clinicId || null,
+        collaboratorId: collaboratorId || null,
       }).returning();
       res.json(row);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -42450,7 +42470,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
   app.get("/api/hospital-network-memberships", requireAuth, async (req, res) => {
     try {
       const rows = await db.execute(sql`
-        SELECT hnm.hospital_id, hnm.clinic_id, hn.id as network_id, hn.name as network_name
+        SELECT hnm.hospital_id, hnm.clinic_id, hnm.collaborator_id, hn.id as network_id, hn.name as network_name
         FROM hospital_network_members hnm
         JOIN hospital_networks hn ON hn.id = hnm.network_id
         ORDER BY hn.name

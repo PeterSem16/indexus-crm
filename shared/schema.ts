@@ -393,6 +393,7 @@ export const hospitalNetworkMembers = pgTable("hospital_network_members", {
   networkId: varchar("network_id").notNull(),
   hospitalId: varchar("hospital_id"),
   clinicId: varchar("clinic_id"),
+  collaboratorId: varchar("collaborator_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

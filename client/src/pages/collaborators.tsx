@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff, Phone, PhoneIncoming, PhoneOutgoing } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff, Phone, PhoneIncoming, PhoneOutgoing, Network } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { Button } from "@/components/ui/button";
@@ -2026,6 +2026,9 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
   const { data: partnerCategoriesList = [] } = useQuery<any[]>({
     queryKey: ["/api/mpn/categories"],
   });
+  const { data: networkMemberships = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospital-network-memberships"],
+  });
   const partnerCategoryMap = useMemo(() => {
     const map: Record<string, any> = {};
     partnerCategoriesList.forEach((cat: any) => { map[cat.id] = cat; });
@@ -2256,6 +2259,15 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
                 {cCount}
               </Badge>
             )}
+            {(() => {
+              const nets = networkMemberships.filter((m: any) => m.collaborator_id === c.id).map((m: any) => m.network_name).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i);
+              return nets.map((netName: string) => (
+                <Badge key={netName} className="text-[10px] px-1.5 py-0 font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700" data-testid={`badge-network-${c.id}`}>
+                  <Network className="h-2.5 w-2.5 mr-0.5" />
+                  {netName}
+                </Badge>
+              ));
+            })()}
           </div>
         );
       },
