@@ -2283,7 +2283,7 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
     },
     {
       key: "partnerCategory",
-      header: "Partner Category",
+      header: "Position",
       cell: (c: Collaborator) => {
         const cat = (c as any).partnerCategory;
         if (!cat) return <span className="text-muted-foreground text-xs">-</span>;
