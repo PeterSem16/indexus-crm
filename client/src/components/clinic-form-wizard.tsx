@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/sheet";
 import { COUNTRIES } from "@shared/schema";
 import type { Clinic } from "@shared/schema";
+import { REGIONS_BY_COUNTRY, getAutoRegion } from "@/lib/regions";
 import {
   Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Network,
   Users, Save, X, UserPlus, Handshake, UserCheck, GraduationCap, Phone, Mail,
@@ -63,6 +64,7 @@ interface ClinicFormData {
   city: string;
   postalCode: string;
   countryCode: string;
+  region: string;
   phone: string;
   email: string;
   website: string;
@@ -393,7 +395,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const buildFormData = (data: Clinic | null | undefined): ClinicFormData => {
     if (!data) return {
       name: "", doctorTitle: "", doctorFirstName: "", doctorLastName: "",
-      address: "", city: "", postalCode: "", countryCode: "",
+      address: "", city: "", postalCode: "", countryCode: "", region: "",
       phone: "", email: "", website: "", latitude: "", longitude: "", isActive: true,
       notes: "", leadSource: "", leadSourceDate: "", leadSourceNotes: "", conferenceName: "",
       conferenceDate: "", isReferredByDoctor: false, isFromConference: false,
@@ -425,7 +427,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     return {
       name: data.name, doctorTitle: dTitle, doctorFirstName: dFirst, doctorLastName: dLast,
       address: data.address || "", city: data.city || "", postalCode: data.postalCode || "",
-      countryCode: data.countryCode, phone: data.phone || "", email: data.email || "",
+      countryCode: data.countryCode, region: (data as any).region || "", phone: data.phone || "", email: data.email || "",
       website: data.website || "", latitude: data.latitude || "", longitude: data.longitude || "",
       isActive: data.isActive, notes: data.notes || "", leadSource: mainSource,
       leadSourceDate: data.leadSourceDate ? new Date(data.leadSourceDate).toISOString().split("T")[0] : "",
@@ -677,6 +679,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         city: data.city || null,
         postalCode: data.postalCode || null,
         countryCode: data.countryCode || "SK",
+        region: data.region || null,
         phone: data.phone || null,
         email: data.email || null,
         website: data.website || null,
@@ -1142,11 +1145,22 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px]">{t.common.country} *</Label>
-                          <Select value={formData.countryCode} onValueChange={(value) => setFormData({ ...formData, countryCode: value })}>
+                          <Select value={formData.countryCode} onValueChange={(value) => { const newRegion = getAutoRegion(value, formData.city); setFormData({ ...formData, countryCode: value, region: newRegion || "" }); }}>
                             <SelectTrigger data-testid="select-clinic-country" className="h-8 text-sm"><SelectValue placeholder={t.common.country} /></SelectTrigger>
                             <SelectContent>
                               {COUNTRIES.map((country) => (
                                 <SelectItem key={country.code} value={country.code}>{getCountryFlag(country.code)} {country.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.hospitals.region}</Label>
+                          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+                            <SelectTrigger data-testid="select-clinic-region" className="h-8 text-sm"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                            <SelectContent>
+                              {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                                <SelectItem key={r} value={r}>{r}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -1217,7 +1231,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                       <div className="grid gap-x-3 gap-y-2 grid-cols-2">
                         <div className="space-y-1">
                           <Label className="text-[11px]">{t.clinics.city}</Label>
-                          <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} placeholder={t.clinics.city} className="h-8 text-sm" data-testid="input-clinic-city" />
+                          <Input value={formData.city} onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region }); }} placeholder={t.clinics.city} className="h-8 text-sm" data-testid="input-clinic-city" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px]">{t.clinics.postalCode}</Label>

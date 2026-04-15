@@ -314,6 +314,7 @@ export const clinics = pgTable("clinics", {
   city: text("city"),
   postalCode: text("postal_code"),
   countryCode: text("country_code").notNull().default("SK"),
+  region: text("region"),
   phone: text("phone"),
   email: text("email"),
   website: text("website"),

@@ -28,6 +28,7 @@ import type { CollaboratorAddress, CollaboratorAgreement, BillingDetails } from 
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getCountryFlag } from "@/lib/countries";
+import { REGIONS_BY_COUNTRY, getAutoRegion } from "@/lib/regions";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
@@ -1659,7 +1660,7 @@ function CompanyAddressForm({ collaboratorId, t }: { collaboratorId: string; t: 
           <Label>{t.collaborators.fields.city}</Label>
           <Input
             value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region }); }}
             data-testid="wizard-input-company-address-city"
           />
         </div>
@@ -1675,11 +1676,14 @@ function CompanyAddressForm({ collaboratorId, t }: { collaboratorId: string; t: 
         </div>
         <div className="space-y-2">
           <Label>{t.collaborators.fields.region}</Label>
-          <Input
-            value={formData.region}
-            onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-            data-testid="wizard-input-company-address-region"
-          />
+          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+            <SelectTrigger data-testid="select-company-address-region"><SelectValue placeholder={t.collaborators.fields.region} /></SelectTrigger>
+            <SelectContent>
+              {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="flex justify-end">
@@ -1765,7 +1769,7 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
           <Label>{t.collaborators.fields.city}</Label>
           <Input
             value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region }); }}
             data-testid={`input-address-${addressType}-city`}
           />
         </div>
@@ -1781,11 +1785,14 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.region}</Label>
-          <Input
-            value={formData.region}
-            onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-            data-testid={`input-address-${addressType}-region`}
-          />
+          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+            <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.region} /></SelectTrigger>
+            <SelectContent>
+              {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="flex justify-end">

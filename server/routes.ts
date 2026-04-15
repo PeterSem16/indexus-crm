@@ -14362,6 +14362,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }
       const hospital = await storage.createHospital(parsed.data);
       await logActivity(req.session.user!.id, "create", "hospital", hospital.id, hospital.name);
+      if (parsed.data.svetZdravia === true) {
+        try {
+          const svNetwork = await db.execute(sql`SELECT id FROM hospital_networks WHERE LOWER(name) = 'svet zdravia' AND country_code = ${hospital.countryCode} LIMIT 1`);
+          const networkRow = (svNetwork.rows || [])[0];
+          if (networkRow) {
+            await db.execute(sql`INSERT INTO hospital_network_members (id, network_id, hospital_id) VALUES (gen_random_uuid(), ${networkRow.id}, ${hospital.id})`);
+          }
+        } catch (e) { console.error("[SvetZdravia] auto-add failed:", e); }
+      }
       res.status(201).json(hospital);
     } catch (error) {
       res.status(500).json({ error: "Failed to create hospital" });
@@ -14380,6 +14389,18 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const hospital = await storage.updateHospital(req.params.id, data);
       if (!hospital) return res.status(404).json({ error: "Hospital not found" });
       await logActivity(req.session.user!.id, "update", "hospital", hospital.id, hospital.name);
+      if (data.svetZdravia === true) {
+        try {
+          const svNetwork = await db.execute(sql`SELECT id FROM hospital_networks WHERE LOWER(name) = 'svet zdravia' AND country_code = ${hospital.countryCode} LIMIT 1`);
+          const networkRow = (svNetwork.rows || [])[0];
+          if (networkRow) {
+            const existing = await db.execute(sql`SELECT id FROM hospital_network_members WHERE network_id = ${networkRow.id} AND hospital_id = ${hospital.id} LIMIT 1`);
+            if (!(existing.rows || []).length) {
+              await db.execute(sql`INSERT INTO hospital_network_members (id, network_id, hospital_id) VALUES (gen_random_uuid(), ${networkRow.id}, ${hospital.id})`);
+            }
+          }
+        } catch (e) { console.error("[SvetZdravia] auto-add failed:", e); }
+      }
       res.json(hospital);
     } catch (error) {
       console.error("Hospital update error:", error);

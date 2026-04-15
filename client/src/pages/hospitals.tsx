@@ -38,6 +38,7 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
+import { REGIONS_BY_COUNTRY, getAutoRegion } from "@/lib/regions";
 import type { Hospital as HospitalType, Laboratory, SafeUser, Clinic } from "@shared/schema";
 import { COUNTRIES } from "@shared/schema";
 import {
@@ -177,42 +178,6 @@ function PersonnelTabContent({ entityType, entityId, entityName }: { entityType:
   );
 }
 
-const REGION_MAP: Record<string, Record<string, string>> = {
-  SK: {
-    "Bratislava": "Bratislavský kraj", "Pezinok": "Bratislavský kraj", "Senec": "Bratislavský kraj", "Malacky": "Bratislavský kraj",
-    "Trnava": "Trnavský kraj", "Piešťany": "Trnavský kraj", "Dunajská Streda": "Trnavský kraj", "Galanta": "Trnavský kraj", "Hlohovec": "Trnavský kraj", "Senica": "Trnavský kraj", "Skalica": "Trnavský kraj",
-    "Trenčín": "Trenčiansky kraj", "Považská Bystrica": "Trenčiansky kraj", "Púchov": "Trenčiansky kraj", "Prievidza": "Trenčiansky kraj", "Nové Mesto nad Váhom": "Trenčiansky kraj", "Partizánske": "Trenčiansky kraj", "Bánovce nad Bebravou": "Trenčiansky kraj", "Ilava": "Trenčiansky kraj", "Myjava": "Trenčiansky kraj",
-    "Nitra": "Nitriansky kraj", "Komárno": "Nitriansky kraj", "Levice": "Nitriansky kraj", "Nové Zámky": "Nitriansky kraj", "Šaľa": "Nitriansky kraj", "Topoľčany": "Nitriansky kraj", "Zlaté Moravce": "Nitriansky kraj",
-    "Žilina": "Žilinský kraj", "Martin": "Žilinský kraj", "Čadca": "Žilinský kraj", "Dolný Kubín": "Žilinský kraj", "Liptovský Mikuláš": "Žilinský kraj", "Námestovo": "Žilinský kraj", "Ružomberok": "Žilinský kraj", "Tvrdošín": "Žilinský kraj", "Turčianske Teplice": "Žilinský kraj", "Bytča": "Žilinský kraj", "Kysucké Nové Mesto": "Žilinský kraj",
-    "Banská Bystrica": "Banskobystrický kraj", "Zvolen": "Banskobystrický kraj", "Lučenec": "Banskobystrický kraj", "Rimavská Sobota": "Banskobystrický kraj", "Žiar nad Hronom": "Banskobystrický kraj", "Brezno": "Banskobystrický kraj", "Detva": "Banskobystrický kraj", "Krupina": "Banskobystrický kraj", "Revúca": "Banskobystrický kraj", "Veľký Krtíš": "Banskobystrický kraj", "Banská Štiavnica": "Banskobystrický kraj", "Poltár": "Banskobystrický kraj",
-    "Prešov": "Prešovský kraj", "Poprad": "Prešovský kraj", "Bardejov": "Prešovský kraj", "Humenné": "Prešovský kraj", "Kežmarok": "Prešovský kraj", "Levoča": "Prešovský kraj", "Medzilaborce": "Prešovský kraj", "Sabinov": "Prešovský kraj", "Snina": "Prešovský kraj", "Stará Ľubovňa": "Prešovský kraj", "Stropkov": "Prešovský kraj", "Svidník": "Prešovský kraj", "Vranov nad Topľou": "Prešovský kraj", "Svit": "Prešovský kraj", "Vysoké Tatry": "Prešovský kraj", "Starý Smokovec": "Prešovský kraj",
-    "Košice": "Košický kraj", "Michalovce": "Košický kraj", "Spišská Nová Ves": "Košický kraj", "Trebišov": "Košický kraj", "Rožňava": "Košický kraj", "Gelnica": "Košický kraj", "Sobrance": "Košický kraj", "Moldava nad Bodvou": "Košický kraj",
-  },
-  CZ: {
-    "Praha": "Hlavní město Praha", "Brno": "Jihomoravský kraj", "Ostrava": "Moravskoslezský kraj", "Plzeň": "Plzeňský kraj",
-    "Liberec": "Liberecký kraj", "Olomouc": "Olomoucký kraj", "České Budějovice": "Jihočeský kraj", "Hradec Králové": "Královéhradecký kraj",
-    "Ústí nad Labem": "Ústecký kraj", "Pardubice": "Pardubický kraj", "Zlín": "Zlínský kraj", "Jihlava": "Kraj Vysočina",
-    "Karlovy Vary": "Karlovarský kraj", "Kladno": "Středočeský kraj",
-  },
-  HU: {
-    "Budapest": "Budapest", "Debrecen": "Hajdú-Bihar megye", "Szeged": "Csongrád-Csanád megye", "Miskolc": "Borsod-Abaúj-Zemplén megye",
-    "Pécs": "Baranya megye", "Győr": "Győr-Moson-Sopron megye", "Nyíregyháza": "Szabolcs-Szatmár-Bereg megye",
-  },
-};
-
-function getAutoRegion(countryCode: string, city: string): string | null {
-  if (!countryCode || !city) return null;
-  const countryMap = REGION_MAP[countryCode];
-  if (!countryMap) return null;
-  const trimmed = city.trim();
-  if (countryMap[trimmed]) return countryMap[trimmed];
-  const lower = trimmed.toLowerCase();
-  for (const [key, region] of Object.entries(countryMap)) {
-    if (key.toLowerCase() === lower) return region;
-    if (lower.startsWith(key.toLowerCase())) return region;
-  }
-  return null;
-}
 
 function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: HospitalType; onClose: () => void; onSuccess: () => void }) {
   const { t } = useI18n();
@@ -246,9 +211,13 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
 
   const saveMutation = useMutation({
     mutationFn: (data: HospitalFormData) => apiRequest("PUT", `/api/hospitals/${hospital.id}`, data),
-    onSuccess: () => {
+    onSuccess: (_res, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] });
+      if (variables.svetZdravia) {
+        queryClient.invalidateQueries({ queryKey: ["/api/hospital-network-memberships"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/hospital-networks"] });
+      }
       toast({ title: t.success.saved });
       onSuccess();
     },
@@ -402,7 +371,14 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
                   </div>
                   <div className="space-y-2 mt-3">
                     <Label>{t.hospitals.region}</Label>
-                    <Input value={formData.region} onChange={(e) => setFormData({ ...formData, region: e.target.value })} data-testid="input-ed-hospital-region" />
+                    <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+                      <SelectTrigger data-testid="select-ed-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                      <SelectContent>
+                        {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-3">
@@ -686,7 +662,7 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                   </div>
                   <div className="space-y-2">
                     <Label>{t.hospitals.city}</Label>
-                    <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} data-testid="input-hospital-city" />
+                    <Input value={formData.city} onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region }); }} data-testid="input-hospital-city" />
                   </div>
                   <div className="space-y-2">
                     <Label>{t.hospitals.postalCode}</Label>
@@ -695,7 +671,14 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                 </div>
                 <div className="space-y-2">
                   <Label>{t.hospitals.region}</Label>
-                  <Input value={formData.region} onChange={(e) => setFormData({ ...formData, region: e.target.value })} data-testid="input-hospital-region" />
+                  <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+                    <SelectTrigger data-testid="select-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                    <SelectContent>
+                      {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-3">
