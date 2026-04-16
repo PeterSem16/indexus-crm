@@ -7502,7 +7502,7 @@ export const translations: Record<Locale, Translations> = {
       },
       steps: {
         basic: 'Basic Info',
-        source: 'Lead Source',
+        source: 'Source',
         address: 'Address',
         web: 'Web & Contact',
         settings: 'Settings',

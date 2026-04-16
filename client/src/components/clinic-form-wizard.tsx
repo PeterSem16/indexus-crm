@@ -808,7 +808,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   };
 
   const clinicEditTabs = [
-    { key: "source", icon: CircleDot, label: t.clinics.steps?.source || "Lead Source" },
+    { key: "source", icon: CircleDot, label: t.clinics.steps?.source || "Source" },
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "settings", icon: SettingsIcon, label: t.clinics.steps?.settings || "Settings" },
@@ -1328,7 +1328,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
             <TabsList className={cn("grid w-full h-auto p-1 gap-0.5", initialData ? "grid-cols-6" : "grid-cols-4")}>
               <TabsTrigger value="source" data-testid="tab-clinic-source" className="text-xs px-2 py-1.5 data-[state=active]:shadow-sm">
                 <CircleDot className="h-3 w-3 mr-1 hidden sm:inline" />
-                {t.clinics.steps?.source || "Lead Source"}
+                {t.clinics.steps?.source || "Source"}
               </TabsTrigger>
               <TabsTrigger value="basic" data-testid="tab-clinic-basic" className="text-xs px-2 py-1.5 data-[state=active]:shadow-sm">
                 <Building2 className="h-3 w-3 mr-1 hidden sm:inline" />
@@ -2676,7 +2676,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   }
 
   const clinicAddTabs = [
-    { key: "source", icon: CircleDot, label: t.clinics.steps?.source || "Lead Source" },
+    { key: "source", icon: CircleDot, label: t.clinics.steps?.source || "Source" },
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "settings", icon: SettingsIcon, label: t.clinics.steps?.settings || "Settings" },
