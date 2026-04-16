@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, MapPinPlus, Building2, Stethoscope, Users, UserCheck, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, MapPinPlus, Building2, Stethoscope, Users, UserCheck, CheckCircle2, AlertCircle, MinusCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { COUNTRIES } from "@/lib/countries";
 import { getGeoLabels } from "@/lib/regions";
@@ -26,6 +26,10 @@ const MODULE_ICONS: Record<ModuleKey, typeof Building2> = {
 interface ModuleResult {
   updated: number;
   total: number;
+  status?: string;
+  hasMore?: boolean;
+  remaining?: number;
+  totalForCountry?: number;
   errors?: string[];
 }
 
@@ -64,6 +68,63 @@ export function BulkGeoMappingPanel() {
     }
   };
 
+  const processModule = async (mod: ModuleKey): Promise<ModuleResult> => {
+    let totalUpdated = 0;
+    let totalProcessed = 0;
+    let allErrors: string[] = [];
+    let lastResult: ModuleResult = { updated: 0, total: 0 };
+
+    let hasMore = true;
+    let passes = 0;
+    const maxPasses = 40;
+
+    while (hasMore && passes < maxPasses) {
+      passes++;
+      try {
+        const resp = await fetch("/api/bulk-suggest-region-district", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ entityType: mod, countryCode }),
+        });
+
+        if (!resp.ok) throw new Error("Failed");
+
+        const data: ModuleResult = await resp.json();
+        totalUpdated += data.updated || 0;
+        totalProcessed += data.total || 0;
+
+        if (data.errors) allErrors.push(...data.errors);
+        
+        hasMore = !!data.hasMore;
+        lastResult = {
+          updated: totalUpdated,
+          total: totalProcessed,
+          status: data.status,
+          hasMore: data.hasMore,
+          remaining: data.remaining,
+          totalForCountry: data.totalForCountry,
+          errors: allErrors.length > 0 ? allErrors : undefined,
+        };
+
+        setResults(prev => ({ ...prev, [mod]: lastResult }));
+
+        if (!data.hasMore) break;
+      } catch {
+        lastResult = {
+          updated: totalUpdated,
+          total: totalProcessed,
+          status: "error",
+          errors: [...allErrors, t.konfigurator.bulkGeoError],
+        };
+        setResults(prev => ({ ...prev, [mod]: lastResult }));
+        break;
+      }
+    }
+
+    return lastResult;
+  };
+
   const handleRun = async () => {
     if (!countryCode) {
       toast({ title: t.konfigurator.bulkGeoSelectCountry, variant: "destructive" });
@@ -87,23 +148,9 @@ export function BulkGeoMappingPanel() {
       setCurrentModule(mod);
       setProgress(Math.round((i / modules.length) * 100));
 
-      try {
-        const resp = await fetch("/api/bulk-suggest-region-district", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ entityType: mod, countryCode }),
-        });
-
-        if (!resp.ok) throw new Error("Failed");
-
-        const data = await resp.json();
-        setResults(prev => ({ ...prev, [mod]: data }));
-        totalUpdated += data.updated || 0;
-        totalRecords += data.total || 0;
-      } catch {
-        setResults(prev => ({ ...prev, [mod]: { updated: 0, total: 0, errors: [t.konfigurator.bulkGeoError] } }));
-      }
+      const result = await processModule(mod);
+      totalUpdated += result.updated || 0;
+      totalRecords += result.total || 0;
     }
 
     setProgress(100);
@@ -119,6 +166,33 @@ export function BulkGeoMappingPanel() {
   };
 
   const hasResults = Object.keys(results).length > 0;
+
+  const getStatusText = (r: ModuleResult): string => {
+    if (r.status === "no_records") return t.konfigurator.bulkGeoNoRecords;
+    if (r.status === "all_filled") return t.konfigurator.bulkGeoAllComplete;
+    if (r.status === "error") return r.errors?.[0] || t.konfigurator.bulkGeoError;
+    if (r.total === 0 && !r.status) return t.konfigurator.bulkGeoAllComplete;
+    return `${t.konfigurator.bulkGeoFilled}: ${r.updated} / ${r.total}`;
+  };
+
+  const getStatusIcon = (r: ModuleResult) => {
+    const hasErrors = r.errors && r.errors.length > 0;
+    if (r.updated > 0 && !hasErrors) return <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />;
+    if (r.updated > 0 && hasErrors) return <AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" title={r.errors?.join(", ")} />;
+    if (hasErrors) return <AlertCircle className="h-4 w-4 text-orange-500 shrink-0" title={r.errors?.join(", ")} />;
+    if (r.status === "no_records") return <MinusCircle className="h-4 w-4 text-muted-foreground shrink-0" />;
+    if (r.status === "all_filled") return <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0" />;
+    return null;
+  };
+
+  const getStatusBorder = (r: ModuleResult): string => {
+    const hasErrors = r.errors && r.errors.length > 0;
+    if (r.updated > 0 && !hasErrors) return "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20";
+    if (hasErrors) return "border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20";
+    if (r.status === "no_records") return "border-muted bg-muted/30";
+    if (r.status === "all_filled") return "border-blue-100 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20";
+    return "border-border";
+  };
 
   return (
     <Card className="border-dashed">
@@ -198,6 +272,9 @@ export function BulkGeoMappingPanel() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t.konfigurator.bulkGeoProcessing}: {currentModule ? moduleLabels[currentModule as ModuleKey] : ""}...
+              {currentModule && results[currentModule] && results[currentModule].updated > 0 && (
+                <span className="text-xs">({results[currentModule].updated} {t.konfigurator.bulkGeoFilled.toLowerCase()})</span>
+              )}
             </div>
             <Progress value={progress} className="h-2" />
           </div>
@@ -212,34 +289,26 @@ export function BulkGeoMappingPanel() {
                 {MODULE_KEYS.filter(key => results[key]).map((key) => {
                   const Icon = MODULE_ICONS[key];
                   const r = results[key];
-                  const hasErrors = r.errors && r.errors.length > 0;
                   return (
                     <div
                       key={key}
-                      className={`flex items-center gap-3 p-3 rounded-lg border text-sm ${
-                        r.updated > 0
-                          ? "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20"
-                          : r.total === 0
-                          ? "border-muted bg-muted/30"
-                          : "border-border"
-                      }`}
+                      className={`flex items-center gap-3 p-3 rounded-lg border text-sm ${getStatusBorder(r)}`}
+                      data-testid={`result-module-${key}`}
                     >
                       <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
                       <div className="flex-1 min-w-0">
                         <span className="font-medium">{moduleLabels[key]}</span>
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          {r.total === 0 ? (
-                            t.konfigurator.bulkGeoAllComplete
-                          ) : (
-                            <>{t.konfigurator.bulkGeoFilled}: <strong>{r.updated}</strong> / {r.total}</>
-                          )}
+                          {getStatusText(r)}
                         </div>
+                        {r.errors && r.errors.length > 0 && r.status !== "no_records" && (
+                          <div className="text-xs text-orange-600 dark:text-orange-400 mt-1 flex items-start gap-1">
+                            <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span>{r.errors[0]}</span>
+                          </div>
+                        )}
                       </div>
-                      {r.updated > 0 ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
-                      ) : hasErrors ? (
-                        <AlertCircle className="h-4 w-4 text-orange-500 shrink-0" />
-                      ) : null}
+                      {getStatusIcon(r)}
                     </div>
                   );
                 })}

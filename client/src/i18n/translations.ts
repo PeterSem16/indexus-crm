@@ -3936,8 +3936,10 @@ export interface Translations {
     bulkGeoResults: string;
     bulkGeoComplete: string;
     bulkGeoAllComplete: string;
+    bulkGeoNoRecords: string;
     bulkGeoFilled: string;
     bulkGeoError: string;
+    bulkGeoErrorTimeout: string;
     bulkGeoDoneTitle: string;
     bulkGeoDoneDescription: string;
   };
@@ -10308,8 +10310,10 @@ export const translations: Record<Locale, Translations> = {
       bulkGeoResults: 'Results',
       bulkGeoComplete: 'complete',
       bulkGeoAllComplete: 'All records are complete',
+      bulkGeoNoRecords: 'No records found for this country',
       bulkGeoFilled: 'Filled',
       bulkGeoError: 'Processing error',
+      bulkGeoErrorTimeout: 'Request timed out - too many records. Try again.',
       bulkGeoDoneTitle: 'Region filling complete',
       bulkGeoDoneDescription: 'Updated {updated} of {total} records',
     },
@@ -16119,8 +16123,10 @@ export const translations: Record<Locale, Translations> = {
       bulkGeoResults: 'Výsledky',
       bulkGeoComplete: 'dokončené',
       bulkGeoAllComplete: 'Všetky záznamy sú kompletné',
+      bulkGeoNoRecords: 'Žiadne záznamy pre túto krajinu',
       bulkGeoFilled: 'Doplnených',
       bulkGeoError: 'Chyba pri spracovaní',
+      bulkGeoErrorTimeout: 'Požiadavka vypršala - príliš veľa záznamov. Skúste znova.',
       bulkGeoDoneTitle: 'Doplnenie regiónov dokončené',
       bulkGeoDoneDescription: 'Aktualizovaných {updated} z {total} záznamov',
     },
@@ -21909,8 +21915,10 @@ export const translations: Record<Locale, Translations> = {
       bulkGeoResults: 'Výsledky',
       bulkGeoComplete: 'dokončeno',
       bulkGeoAllComplete: 'Všechny záznamy jsou kompletní',
+      bulkGeoNoRecords: 'Žádné záznamy pro tuto zemi',
       bulkGeoFilled: 'Doplněno',
       bulkGeoError: 'Chyba při zpracování',
+      bulkGeoErrorTimeout: 'Požadavek vypršel - příliš mnoho záznamů. Zkuste znovu.',
       bulkGeoDoneTitle: 'Doplnění regionů dokončeno',
       bulkGeoDoneDescription: 'Aktualizováno {updated} z {total} záznamů',
     },
