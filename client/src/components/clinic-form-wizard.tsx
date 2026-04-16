@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/sheet";
 import { COUNTRIES } from "@shared/schema";
 import type { Clinic } from "@shared/schema";
-import { REGIONS_BY_COUNTRY, getAutoRegion } from "@/lib/regions";
+import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
 import {
   Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Network,
   Users, Save, X, UserPlus, Handshake, UserCheck, GraduationCap, Phone, Mail,
@@ -65,6 +65,7 @@ interface ClinicFormData {
   postalCode: string;
   countryCode: string;
   region: string;
+  district: string;
   phone: string;
   email: string;
   website: string;
@@ -395,7 +396,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const buildFormData = (data: Clinic | null | undefined): ClinicFormData => {
     if (!data) return {
       name: "", doctorTitle: "", doctorFirstName: "", doctorLastName: "",
-      address: "", city: "", postalCode: "", countryCode: "", region: "",
+      address: "", city: "", postalCode: "", countryCode: "", region: "", district: "",
       phone: "", email: "", website: "", latitude: "", longitude: "", isActive: true,
       notes: "", leadSource: "", leadSourceDate: "", leadSourceNotes: "", conferenceName: "",
       conferenceDate: "", isReferredByDoctor: false, isFromConference: false,
@@ -427,7 +428,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     return {
       name: data.name, doctorTitle: dTitle, doctorFirstName: dFirst, doctorLastName: dLast,
       address: data.address || "", city: data.city || "", postalCode: data.postalCode || "",
-      countryCode: data.countryCode, region: (data as any).region || "", phone: data.phone || "", email: data.email || "",
+      countryCode: data.countryCode, region: (data as any).region || "", district: (data as any).district || "", phone: data.phone || "", email: data.email || "",
       website: data.website || "", latitude: data.latitude || "", longitude: data.longitude || "",
       isActive: data.isActive, notes: data.notes || "", leadSource: mainSource,
       leadSourceDate: data.leadSourceDate ? new Date(data.leadSourceDate).toISOString().split("T")[0] : "",
@@ -680,6 +681,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         postalCode: data.postalCode || null,
         countryCode: data.countryCode || "SK",
         region: data.region || null,
+        district: data.district || null,
         phone: data.phone || null,
         email: data.email || null,
         website: data.website || null,
@@ -1145,7 +1147,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px]">{t.common.country} *</Label>
-                          <Select value={formData.countryCode} onValueChange={(value) => { const newRegion = getAutoRegion(value, formData.city); setFormData({ ...formData, countryCode: value, region: newRegion || "" }); }}>
+                          <Select value={formData.countryCode} onValueChange={(value) => { const newRegion = getAutoRegion(value, formData.city); const newDistrict = getAutoDistrict(value, formData.city); setFormData({ ...formData, countryCode: value, region: newRegion || "", district: newDistrict || "" }); }}>
                             <SelectTrigger data-testid="select-clinic-country" className="h-8 text-sm"><SelectValue placeholder={t.common.country} /></SelectTrigger>
                             <SelectContent>
                               {COUNTRIES.map((country) => (
@@ -1156,11 +1158,22 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px]">{t.hospitals.region}</Label>
-                          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+                          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
                             <SelectTrigger data-testid="select-clinic-region" className="h-8 text-sm"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
                             <SelectContent>
                               {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                                 <SelectItem key={r} value={r}>{r}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.hospitals.district || "Okres"}</Label>
+                          <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
+                            <SelectTrigger data-testid="select-clinic-district" className="h-8 text-sm"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                            <SelectContent>
+                              {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                                <SelectItem key={d} value={d}>{d}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -1231,7 +1244,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                       <div className="grid gap-x-3 gap-y-2 grid-cols-2">
                         <div className="space-y-1">
                           <Label className="text-[11px]">{t.clinics.city}</Label>
-                          <Input value={formData.city} onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region }); }} placeholder={t.clinics.city} className="h-8 text-sm" data-testid="input-clinic-city" />
+                          <Input value={formData.city} onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); const newDistrict = getAutoDistrict(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region, district: newDistrict || formData.district }); }} placeholder={t.clinics.city} className="h-8 text-sm" data-testid="input-clinic-city" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px]">{t.clinics.postalCode}</Label>
@@ -2559,19 +2572,32 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   <div className="space-y-4 pb-4">
                     <div className="space-y-1"><Label className="text-xs">{t.clinics.address}</Label><Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder={t.clinics.address} className="h-9" data-testid="input-clinic-address" /></div>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1"><Label className="text-xs">{t.clinics.city}</Label><Input value={formData.city} onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region }); }} placeholder={t.clinics.city} className="h-9" data-testid="input-clinic-city" /></div>
+                      <div className="space-y-1"><Label className="text-xs">{t.clinics.city}</Label><Input value={formData.city} onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); const newDistrict = getAutoDistrict(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region, district: newDistrict || formData.district }); }} placeholder={t.clinics.city} className="h-9" data-testid="input-clinic-city" /></div>
                       <div className="space-y-1"><Label className="text-xs">{t.clinics.postalCode}</Label><Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} placeholder={t.clinics.postalCode} className="h-9" data-testid="input-clinic-postal" /></div>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">{t.hospitals.region}</Label>
-                      <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
-                        <SelectTrigger data-testid="select-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
-                        <SelectContent>
-                          {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                            <SelectItem key={r} value={r}>{r}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">{t.hospitals.region}</Label>
+                        <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+                          <SelectTrigger data-testid="select-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                          <SelectContent>
+                            {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                              <SelectItem key={r} value={r}>{r}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">{t.hospitals.district || "Okres"}</Label>
+                        <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
+                          <SelectTrigger data-testid="select-clinic-district" className="h-9"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                          <SelectContent>
+                            {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <Separator />
                     <div className="space-y-2">
@@ -3031,19 +3057,32 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                 <div className="space-y-4 pb-4">
                   <div className="space-y-1"><Label className="text-xs">{t.clinics.address}</Label><Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder={t.clinics.address} className="h-9" data-testid="input-add-clinic-address" /></div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1"><Label className="text-xs">{t.clinics.city}</Label><Input value={formData.city} onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region }); }} placeholder={t.clinics.city} className="h-9" data-testid="input-add-clinic-city" /></div>
+                    <div className="space-y-1"><Label className="text-xs">{t.clinics.city}</Label><Input value={formData.city} onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); const newDistrict = getAutoDistrict(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region, district: newDistrict || formData.district }); }} placeholder={t.clinics.city} className="h-9" data-testid="input-add-clinic-city" /></div>
                     <div className="space-y-1"><Label className="text-xs">{t.clinics.postalCode}</Label><Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} placeholder={t.clinics.postalCode} className="h-9" data-testid="input-add-clinic-postalcode" /></div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">{t.hospitals.region}</Label>
-                    <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
-                      <SelectTrigger data-testid="select-add-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
-                      <SelectContent>
-                        {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                          <SelectItem key={r} value={r}>{r}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t.hospitals.region}</Label>
+                      <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+                        <SelectTrigger data-testid="select-add-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                        <SelectContent>
+                          {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                            <SelectItem key={r} value={r}>{r}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t.hospitals.district || "Okres"}</Label>
+                      <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
+                        <SelectTrigger data-testid="select-add-clinic-district" className="h-9"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                        <SelectContent>
+                          {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between mb-3">

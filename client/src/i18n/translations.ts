@@ -1075,6 +1075,7 @@ export interface Translations {
     city: string;
     postalCode: string;
     region: string;
+    district: string;
     contactPerson: string;
     representative: string;
     responsiblePerson: string;
@@ -7174,6 +7175,7 @@ export const translations: Record<Locale, Translations> = {
       city: 'City',
       postalCode: 'Postal Code',
       region: 'Region',
+      district: 'District',
       contactPerson: 'Contact Person',
       representative: 'Representative',
       responsiblePerson: 'Responsible Person',
@@ -12995,6 +12997,7 @@ export const translations: Record<Locale, Translations> = {
       city: 'Mesto',
       postalCode: 'PSČ',
       region: 'Oblasť',
+      district: 'Okres',
       contactPerson: 'Kontaktná osoba',
       representative: 'Reprezentant',
       responsiblePerson: 'Zodpovedná osoba',
@@ -18978,6 +18981,7 @@ export const translations: Record<Locale, Translations> = {
       city: 'Město',
       postalCode: 'PSČ',
       region: 'Oblast',
+      district: 'Okres',
       contactPerson: 'Kontaktní osoba',
       representative: 'Reprezentant',
       responsiblePerson: 'Zodpovědná osoba',
@@ -24701,6 +24705,7 @@ export const translations: Record<Locale, Translations> = {
       city: 'Város',
       postalCode: 'Irányítószám',
       region: 'Régió',
+      district: 'Járás',
       contactPerson: 'Kapcsolattartó',
       representative: 'Képviselő',
       responsiblePerson: 'Felelős személy',
@@ -30346,6 +30351,7 @@ export const translations: Record<Locale, Translations> = {
       city: 'Oraș',
       postalCode: 'Cod poștal',
       region: 'Regiune',
+      district: 'Județ',
       contactPerson: 'Persoană de contact',
       representative: 'Reprezentant',
       responsiblePerson: 'Persoană responsabilă',
@@ -35990,6 +35996,7 @@ export const translations: Record<Locale, Translations> = {
       city: 'Città',
       postalCode: 'CAP',
       region: 'Regione',
+      district: 'Distretto',
       contactPerson: 'Persona di contatto',
       representative: 'Rappresentante',
       responsiblePerson: 'Persona responsabile',
@@ -41636,6 +41643,7 @@ export const translations: Record<Locale, Translations> = {
       city: 'Stadt',
       postalCode: 'Postleitzahl',
       region: 'Region',
+      district: 'Bezirk',
       contactPerson: 'Kontaktperson',
       representative: 'Vertreter',
       responsiblePerson: 'Verantwortliche Person',

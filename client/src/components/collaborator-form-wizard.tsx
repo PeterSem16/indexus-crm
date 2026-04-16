@@ -28,7 +28,7 @@ import type { CollaboratorAddress, CollaboratorAgreement, BillingDetails } from 
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getCountryFlag } from "@/lib/countries";
-import { REGIONS_BY_COUNTRY, getAutoRegion } from "@/lib/regions";
+import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
@@ -246,6 +246,7 @@ interface CollaboratorFormWizardProps {
   onSuccess: () => void;
   onCancel?: () => void;
   positionScopeFilter?: string;
+  hideSvetZdravia?: boolean;
 }
 
 // Pending address for Add mode (before collaborator is saved)
@@ -1591,6 +1592,7 @@ function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collabor
     city: companyAddress?.city || "",
     postalCode: companyAddress?.postalCode || "",
     region: companyAddress?.region || "",
+    district: (companyAddress as any)?.district || "",
     countryCode: companyAddress?.countryCode || parentCountryCode || "SK",
   });
 
@@ -1601,6 +1603,7 @@ function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collabor
         city: companyAddress.city || "",
         postalCode: companyAddress.postalCode || "",
         region: companyAddress.region || "",
+        district: (companyAddress as any).district || "",
         countryCode: companyAddress.countryCode || parentCountryCode || "SK",
       });
     }
@@ -1639,7 +1642,7 @@ function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collabor
           <Label>{t.collaborators.fields.city}</Label>
           <Input
             value={formData.city}
-            onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region }); }}
+            onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); const newDistrict = getAutoDistrict(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region, district: newDistrict || formData.district }); }}
             data-testid="wizard-input-company-address-city"
           />
         </div>
@@ -1655,7 +1658,7 @@ function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collabor
         </div>
         <div className="space-y-2">
           <Label>{t.common?.country || "Country"}</Label>
-          <Select value={formData.countryCode} onValueChange={(v) => { const newRegion = getAutoRegion(v, formData.city); setFormData({ ...formData, countryCode: v, region: newRegion || "" }); }}>
+          <Select value={formData.countryCode} onValueChange={(v) => { const newRegion = getAutoRegion(v, formData.city); const newDistrict = getAutoDistrict(v, formData.city); setFormData({ ...formData, countryCode: v, region: newRegion || "", district: newDistrict || "" }); }}>
             <SelectTrigger data-testid="select-company-address-country"><SelectValue /></SelectTrigger>
             <SelectContent>
               {COUNTRIES.map((c: any) => (
@@ -1668,11 +1671,22 @@ function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collabor
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.addressRegion || "Region"}</Label>
-          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
             <SelectTrigger data-testid="select-company-address-region"><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
             <SelectContent>
               {regions.map((r: string) => (
                 <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{t.hospitals.district || "Okres"}</Label>
+          <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
+            <SelectTrigger data-testid="select-company-address-district"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+            <SelectContent>
+              {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1703,6 +1717,7 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
     city: existingAddress?.city || "",
     postalCode: existingAddress?.postalCode || "",
     region: existingAddress?.region || "",
+    district: (existingAddress as any)?.district || "",
     countryCode: existingAddress?.countryCode || parentCountryCode || "SK",
   });
 
@@ -1762,7 +1777,7 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
           <Label>{t.collaborators.fields.city}</Label>
           <Input
             value={formData.city}
-            onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region }); }}
+            onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); const newDistrict = getAutoDistrict(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region, district: newDistrict || formData.district }); }}
             data-testid={`input-address-${addressType}-city`}
           />
         </div>
@@ -1778,7 +1793,7 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.common?.country || "Country"}</Label>
-          <Select value={formData.countryCode} onValueChange={(v) => { const newRegion = getAutoRegion(v, formData.city); setFormData({ ...formData, countryCode: v, region: newRegion || "" }); }}>
+          <Select value={formData.countryCode} onValueChange={(v) => { const newRegion = getAutoRegion(v, formData.city); const newDistrict = getAutoDistrict(v, formData.city); setFormData({ ...formData, countryCode: v, region: newRegion || "", district: newDistrict || "" }); }}>
             <SelectTrigger data-testid={`select-address-${addressType}-country`}><SelectValue /></SelectTrigger>
             <SelectContent>
               {COUNTRIES.map((c: any) => (
@@ -1789,11 +1804,22 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
         </div>
         <div className="space-y-2">
           <Label>{t.collaborators.fields.addressRegion || "Region"}</Label>
-          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
             <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
             <SelectContent>
               {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                 <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{t.hospitals.district || "Okres"}</Label>
+          <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
+            <SelectTrigger data-testid={`select-address-${addressType}-district`}><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+            <SelectContent>
+              {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -3289,7 +3315,7 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
   );
 }
 
-export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, positionScopeFilter }: CollaboratorFormWizardProps) {
+export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, positionScopeFilter, hideSvetZdravia }: CollaboratorFormWizardProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
@@ -4250,14 +4276,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                 />
                 <Label>{t.collaborators.fields.clientContact}</Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={formData.svetZdravia}
-                  onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })}
-                  data-testid="wizard-switch-collaborator-svet-zdravia"
-                />
-                <Label>{t.collaborators.fields.svetZdravia}</Label>
-              </div>
+              {!positionScopeFilter && !hideSvetZdravia && (
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={formData.svetZdravia}
+                    onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })}
+                    data-testid="wizard-switch-collaborator-svet-zdravia"
+                  />
+                  <Label>{t.collaborators.fields.svetZdravia}</Label>
+                </div>
+              )}
               <div className="flex items-center space-x-2">
                 <Switch
                   checked={formData.monthRewards}

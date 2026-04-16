@@ -40,7 +40,7 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
-import { REGIONS_BY_COUNTRY, getAutoRegion } from "@/lib/regions";
+import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
 import type { Hospital as HospitalType, Laboratory, SafeUser, Clinic } from "@shared/schema";
 import { COUNTRIES } from "@shared/schema";
 import {
@@ -66,6 +66,7 @@ interface HospitalFormData {
   postalCode: string;
   autoRecruiting: boolean;
   region: string;
+  district: string;
   responsiblePersonId: string;
   countryCode: string;
   contactPerson: string;
@@ -85,6 +86,7 @@ const defaultFormData: HospitalFormData = {
   postalCode: "",
   autoRecruiting: false,
   region: "",
+  district: "",
   responsiblePersonId: "",
   countryCode: "",
   contactPerson: "",
@@ -199,6 +201,7 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
     postalCode: hospital.postalCode || "",
     autoRecruiting: hospital.autoRecruiting,
     region: hospital.region || "",
+    district: hospital.district || "",
     responsiblePersonId: hospital.responsiblePersonId || "",
     countryCode: hospital.countryCode,
     contactPerson: hospital.contactPerson || "",
@@ -337,7 +340,8 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
                     <Label htmlFor="ed-country">{t.common.country} *</Label>
                     <Select value={formData.countryCode} onValueChange={(value) => {
                       const newRegion = getAutoRegion(value, formData.city);
-                      setFormData({ ...formData, countryCode: value, laboratoryId: "", region: newRegion || formData.region });
+                      const newDistrict = getAutoDistrict(value, formData.city);
+                      setFormData({ ...formData, countryCode: value, laboratoryId: "", region: newRegion || formData.region, district: newDistrict || formData.district });
                     }}>
                       <SelectTrigger data-testid="select-ed-hospital-country"><SelectValue placeholder={t.common.country} /></SelectTrigger>
                       <SelectContent>
@@ -359,7 +363,8 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
                       <Input value={formData.city} onChange={(e) => {
                         const newCity = e.target.value;
                         const newRegion = getAutoRegion(formData.countryCode, newCity);
-                        setFormData({ ...formData, city: newCity, region: newRegion || formData.region });
+                        const newDistrict = getAutoDistrict(formData.countryCode, newCity);
+                        setFormData({ ...formData, city: newCity, region: newRegion || formData.region, district: newDistrict || formData.district });
                       }} data-testid="input-ed-hospital-city" />
                     </div>
                     <div className="space-y-2">
@@ -369,11 +374,22 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
                   </div>
                   <div className="space-y-2 mt-3">
                     <Label>{t.hospitals.region}</Label>
-                    <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+                    <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
                       <SelectTrigger data-testid="select-ed-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
                       <SelectContent>
                         {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                           <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 mt-3">
+                    <Label>{t.hospitals.district || "Okres"}</Label>
+                    <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
+                      <SelectTrigger data-testid="select-ed-hospital-district"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                      <SelectContent>
+                        {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -627,7 +643,8 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                     <Label>{t.common.country} *</Label>
                     <Select value={formData.countryCode} onValueChange={(value) => {
                       const newRegion = getAutoRegion(value, formData.city);
-                      setFormData({ ...formData, countryCode: value, laboratoryId: "", region: newRegion || formData.region });
+                      const newDistrict = getAutoDistrict(value, formData.city);
+                      setFormData({ ...formData, countryCode: value, laboratoryId: "", region: newRegion || formData.region, district: newDistrict || formData.district });
                     }}>
                       <SelectTrigger data-testid="select-hospital-country"><SelectValue placeholder={t.common.country} /></SelectTrigger>
                       <SelectContent>
@@ -649,7 +666,8 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                       <Input value={formData.city} onChange={(e) => {
                         const newCity = e.target.value;
                         const newRegion = getAutoRegion(formData.countryCode, newCity);
-                        setFormData({ ...formData, city: newCity, region: newRegion || formData.region });
+                        const newDistrict = getAutoDistrict(formData.countryCode, newCity);
+                        setFormData({ ...formData, city: newCity, region: newRegion || formData.region, district: newDistrict || formData.district });
                       }} data-testid="input-hospital-city" />
                     </div>
                     <div className="space-y-2">
@@ -659,11 +677,22 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                   </div>
                   <div className="space-y-2 mt-3">
                     <Label>{t.hospitals.region}</Label>
-                    <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+                    <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
                       <SelectTrigger data-testid="select-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
                       <SelectContent>
                         {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                           <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 mt-3">
+                    <Label>{t.hospitals.district || "Okres"}</Label>
+                    <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
+                      <SelectTrigger data-testid="select-hospital-district"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                      <SelectContent>
+                        {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

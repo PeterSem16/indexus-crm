@@ -33,6 +33,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
+import { REGIONS_BY_COUNTRY, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
 import type { 
   Collaborator, 
   CollaboratorAddress, 
@@ -162,6 +163,7 @@ interface AddressFormData {
   city: string;
   postalCode: string;
   region: string;
+  district: string;
   countryCode: string;
 }
 
@@ -171,6 +173,7 @@ const defaultAddressData: AddressFormData = {
   city: "",
   postalCode: "",
   region: "",
+  district: "",
   countryCode: "",
 };
 
@@ -400,6 +403,7 @@ function AddressTab({
           city: (addr as any).city || "",
           postalCode: addr.postalCode || "",
           region: addr.region || "",
+          district: (addr as any).district || "",
           countryCode: addr.countryCode || "",
         });
       } else {
@@ -482,12 +486,28 @@ function AddressTab({
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.addressRegion}</Label>
-          <Input
-            value={formData.region}
-            onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-            data-testid={`input-address-${addressType}-region`}
-          />
+          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+            <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.addressRegion} /></SelectTrigger>
+            <SelectContent>
+              {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+        <div className="space-y-2">
+          <Label>{t.hospitals?.district || "Okres"}</Label>
+          <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
+            <SelectTrigger data-testid={`select-address-${addressType}-district`}><SelectValue placeholder={t.hospitals?.district || "Okres"} /></SelectTrigger>
+            <SelectContent>
+              {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.addressCountry}</Label>
           <Select
@@ -1807,14 +1827,16 @@ function CollaboratorForm({
               />
               <Label>{t.collaborators.fields.clientContact}</Label>
             </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                checked={formData.svetZdravia}
-                onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })}
-                data-testid="switch-collaborator-svet-zdravia"
-              />
-              <Label>{t.collaborators.fields.svetZdravia}</Label>
-            </div>
+            {!positionScope && !excludeScope && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={formData.svetZdravia}
+                  onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })}
+                  data-testid="switch-collaborator-svet-zdravia"
+                />
+                <Label>{t.collaborators.fields.svetZdravia}</Label>
+              </div>
+            )}
             <div className="flex items-center space-x-2">
               <Switch
                 checked={formData.monthRewards}
@@ -2765,6 +2787,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
               onSuccess={() => setIsFormOpen(false)}
               onCancel={() => setIsFormOpen(false)}
               positionScopeFilter={positionScope}
+              hideSvetZdravia={!!excludeScope}
             />
           </div>
         </>

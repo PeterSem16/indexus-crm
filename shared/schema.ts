@@ -285,7 +285,8 @@ export const hospitals = pgTable("hospitals", {
   laboratoryId: varchar("laboratory_id"), // Laboratórium (FK to laboratories)
   postalCode: text("postal_code"), // PSČ
   autoRecruiting: boolean("auto_recruiting").notNull().default(false), // Auto recruiting
-  region: text("region"), // Oblasť
+  region: text("region"), // Oblasť (Kraj)
+  district: text("district"), // Okres
   responsiblePersonId: varchar("responsible_person_id"), // Zodpovedná osoba (FK to users)
   countryCode: text("country_code").notNull(), // Krajina
   contactPerson: text("contact_person"), // Kontaktná osoba
@@ -315,6 +316,7 @@ export const clinics = pgTable("clinics", {
   postalCode: text("postal_code"),
   countryCode: text("country_code").notNull().default("SK"),
   region: text("region"),
+  district: text("district"),
   phone: text("phone"),
   email: text("email"),
   website: text("website"),
@@ -476,7 +478,8 @@ export const customers = pgTable("customers", {
   city: text("city"), // Mesto
   address: text("address"), // Ulica a číslo
   postalCode: text("postal_code"), // PSČ
-  region: text("region"), // Oblasť
+  region: text("region"), // Oblasť (Kraj)
+  district: text("district"), // Okres
   
   // Correspondence address (if different)
   useCorrespondenceAddress: boolean("use_correspondence_address").notNull().default(false),

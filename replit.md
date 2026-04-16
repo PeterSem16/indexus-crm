@@ -59,6 +59,12 @@ Preferred communication style: Simple, everyday language.
 - **Campaign Reports**: Detailed campaign reports including operator statistics and call analysis.
 - **AI Virtual Agent**: GPT-4o-mini powered voice bot for inbound calls with configurable greetings, TTS, multi-language support, conversation analysis, callback detection, transcript logging, customer context awareness, configurable AI parameters, queue MOH integration, SFTP connection pooling, and website knowledge base integration.
 
+### Geographic Data
+- **Region (Kraj)**: Selectable dropdown for hospitals, clinics, and collaborators. Auto-suggested from city name via `getAutoRegion()`.
+- **District (Okres)**: Selectable dropdown filtered by selected region. Auto-suggested from city name via `getAutoDistrict()`. Data available for SK, CZ, HU.
+- **Data file**: `client/src/lib/regions.ts` — contains `REGIONS_BY_COUNTRY`, `DISTRICTS_BY_REGION`, `REGION_MAP`, `DISTRICT_MAP`, and helper functions.
+- **DB columns**: `district` column added to `hospitals`, `clinics`, and `collaborators` tables.
+
 ### Multi-Language Support (i18n)
 - **Languages**: EN, SK, CS, HU, RO, IT, DE.
 - **Implementation**: Custom I18nProvider with React Context, localStorage persistence, and locale-aware formatting.

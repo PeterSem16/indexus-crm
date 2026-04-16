@@ -184,6 +184,83 @@ export const REGION_MAP: Record<string, Record<string, string>> = {
   },
 };
 
+export const DISTRICTS_BY_REGION: Record<string, Record<string, string[]>> = {
+  SK: {
+    "Bratislavský kraj": ["Bratislava I", "Bratislava II", "Bratislava III", "Bratislava IV", "Bratislava V", "Malacky", "Pezinok", "Senec"],
+    "Trnavský kraj": ["Dunajská Streda", "Galanta", "Hlohovec", "Piešťany", "Senica", "Skalica", "Trnava"],
+    "Trenčiansky kraj": ["Bánovce nad Bebravou", "Ilava", "Myjava", "Nové Mesto nad Váhom", "Partizánske", "Považská Bystrica", "Prievidza", "Púchov", "Trenčín"],
+    "Nitriansky kraj": ["Komárno", "Levice", "Nitra", "Nové Zámky", "Šaľa", "Topoľčany", "Zlaté Moravce"],
+    "Žilinský kraj": ["Bytča", "Čadca", "Dolný Kubín", "Kysucké Nové Mesto", "Liptovský Mikuláš", "Martin", "Námestovo", "Ružomberok", "Turčianske Teplice", "Tvrdošín", "Žilina"],
+    "Banskobystrický kraj": ["Banská Bystrica", "Banská Štiavnica", "Brezno", "Detva", "Krupina", "Lučenec", "Poltár", "Revúca", "Rimavská Sobota", "Veľký Krtíš", "Zvolen", "Žiar nad Hronom"],
+    "Prešovský kraj": ["Bardejov", "Humenné", "Kežmarok", "Levoča", "Medzilaborce", "Poprad", "Prešov", "Sabinov", "Snina", "Stará Ľubovňa", "Stropkov", "Svidník", "Vranov nad Topľou"],
+    "Košický kraj": ["Gelnica", "Košice I", "Košice II", "Košice III", "Košice IV", "Košice-okolie", "Michalovce", "Rožňava", "Sobrance", "Spišská Nová Ves", "Trebišov"],
+  },
+  CZ: {
+    "Hlavní město Praha": ["Praha"],
+    "Středočeský kraj": ["Benešov", "Beroun", "Kladno", "Kolín", "Kutná Hora", "Mělník", "Mladá Boleslav", "Nymburk", "Praha-východ", "Praha-západ", "Příbram", "Rakovník"],
+    "Jihočeský kraj": ["České Budějovice", "Český Krumlov", "Jindřichův Hradec", "Písek", "Prachatice", "Strakonice", "Tábor"],
+    "Plzeňský kraj": ["Domažlice", "Klatovy", "Plzeň-město", "Plzeň-jih", "Plzeň-sever", "Rokycany", "Tachov"],
+    "Karlovarský kraj": ["Cheb", "Karlovy Vary", "Sokolov"],
+    "Ústecký kraj": ["Děčín", "Chomutov", "Litoměřice", "Louny", "Most", "Teplice", "Ústí nad Labem"],
+    "Liberecký kraj": ["Česká Lípa", "Jablonec nad Nisou", "Liberec", "Semily"],
+    "Královéhradecký kraj": ["Hradec Králové", "Jičín", "Náchod", "Rychnov nad Kněžnou", "Trutnov"],
+    "Pardubický kraj": ["Chrudim", "Pardubice", "Svitavy", "Ústí nad Orlicí"],
+    "Kraj Vysočina": ["Havlíčkův Brod", "Jihlava", "Pelhřimov", "Třebíč", "Žďár nad Sázavou"],
+    "Jihomoravský kraj": ["Blansko", "Brno-město", "Brno-venkov", "Břeclav", "Hodonín", "Vyškov", "Znojmo"],
+    "Olomoucký kraj": ["Jeseník", "Olomouc", "Prostějov", "Přerov", "Šumperk"],
+    "Moravskoslezský kraj": ["Bruntál", "Frýdek-Místek", "Karviná", "Nový Jičín", "Opava", "Ostrava-město"],
+    "Zlínský kraj": ["Kroměříž", "Uherské Hradiště", "Vsetín", "Zlín"],
+  },
+  HU: {
+    "Budapest": ["Budapest"],
+    "Baranya megye": ["Pécs", "Komló", "Mohács", "Siklós", "Szigetvár"],
+    "Bács-Kiskun megye": ["Kecskemét", "Baja", "Kalocsa", "Kiskunfélegyháza", "Kiskunhalas"],
+    "Békés megye": ["Békéscsaba", "Gyula", "Orosháza", "Szarvas"],
+    "Borsod-Abaúj-Zemplén megye": ["Miskolc", "Kazincbarcika", "Ózd", "Tiszaújváros", "Sárospatak"],
+    "Csongrád-Csanád megye": ["Szeged", "Hódmezővásárhely", "Makó", "Szentes"],
+    "Fejér megye": ["Székesfehérvár", "Dunaújváros", "Mór"],
+    "Győr-Moson-Sopron megye": ["Győr", "Sopron", "Mosonmagyaróvár", "Csorna"],
+    "Hajdú-Bihar megye": ["Debrecen", "Hajdúböszörmény", "Hajdúszoboszló", "Balmazújváros"],
+    "Heves megye": ["Eger", "Gyöngyös", "Hatvan"],
+    "Jász-Nagykun-Szolnok megye": ["Szolnok", "Jászberény", "Karcag", "Mezőtúr"],
+    "Komárom-Esztergom megye": ["Tatabánya", "Esztergom", "Komárom", "Oroszlány"],
+    "Nógrád megye": ["Salgótarján", "Balassagyarmat", "Pásztó"],
+    "Pest megye": ["Budapest-agglomeráció", "Érd", "Gödöllő", "Szentendre", "Vác", "Cegléd", "Nagykőrös"],
+    "Somogy megye": ["Kaposvár", "Siófok", "Marcali"],
+    "Szabolcs-Szatmár-Bereg megye": ["Nyíregyháza", "Kisvárda", "Mátészalka", "Fehérgyarmat"],
+    "Tolna megye": ["Szekszárd", "Dombóvár", "Paks", "Bonyhád"],
+    "Vas megye": ["Szombathely", "Kőszeg", "Sárvár", "Celldömölk"],
+    "Veszprém megye": ["Veszprém", "Ajka", "Pápa", "Balatonfüred"],
+    "Zala megye": ["Zalaegerszeg", "Nagykanizsa", "Keszthely", "Lenti"],
+  },
+};
+
+export const DISTRICT_MAP: Record<string, Record<string, string>> = {
+  SK: {
+    "Bratislava": "Bratislava I", "Pezinok": "Pezinok", "Senec": "Senec", "Malacky": "Malacky",
+    "Trnava": "Trnava", "Piešťany": "Piešťany", "Dunajská Streda": "Dunajská Streda", "Galanta": "Galanta", "Hlohovec": "Hlohovec", "Senica": "Senica", "Skalica": "Skalica",
+    "Trenčín": "Trenčín", "Považská Bystrica": "Považská Bystrica", "Púchov": "Púchov", "Prievidza": "Prievidza", "Nové Mesto nad Váhom": "Nové Mesto nad Váhom", "Partizánske": "Partizánske", "Bánovce nad Bebravou": "Bánovce nad Bebravou", "Ilava": "Ilava", "Myjava": "Myjava",
+    "Nitra": "Nitra", "Komárno": "Komárno", "Levice": "Levice", "Nové Zámky": "Nové Zámky", "Šaľa": "Šaľa", "Topoľčany": "Topoľčany", "Zlaté Moravce": "Zlaté Moravce",
+    "Žilina": "Žilina", "Martin": "Martin", "Čadca": "Čadca", "Dolný Kubín": "Dolný Kubín", "Liptovský Mikuláš": "Liptovský Mikuláš", "Námestovo": "Námestovo", "Ružomberok": "Ružomberok", "Tvrdošín": "Tvrdošín", "Turčianske Teplice": "Turčianske Teplice", "Bytča": "Bytča", "Kysucké Nové Mesto": "Kysucké Nové Mesto",
+    "Banská Bystrica": "Banská Bystrica", "Zvolen": "Zvolen", "Lučenec": "Lučenec", "Rimavská Sobota": "Rimavská Sobota", "Žiar nad Hronom": "Žiar nad Hronom", "Brezno": "Brezno", "Detva": "Detva", "Krupina": "Krupina", "Revúca": "Revúca", "Veľký Krtíš": "Veľký Krtíš", "Banská Štiavnica": "Banská Štiavnica", "Poltár": "Poltár",
+    "Prešov": "Prešov", "Poprad": "Poprad", "Bardejov": "Bardejov", "Humenné": "Humenné", "Kežmarok": "Kežmarok", "Levoča": "Levoča", "Medzilaborce": "Medzilaborce", "Sabinov": "Sabinov", "Snina": "Snina", "Stará Ľubovňa": "Stará Ľubovňa", "Stropkov": "Stropkov", "Svidník": "Svidník", "Vranov nad Topľou": "Vranov nad Topľou",
+    "Košice": "Košice I", "Michalovce": "Michalovce", "Spišská Nová Ves": "Spišská Nová Ves", "Trebišov": "Trebišov", "Rožňava": "Rožňava", "Gelnica": "Gelnica", "Sobrance": "Sobrance", "Moldava nad Bodvou": "Košice-okolie",
+  },
+  CZ: {
+    "Praha": "Praha", "Brno": "Brno-město", "Ostrava": "Ostrava-město", "Plzeň": "Plzeň-město",
+    "Liberec": "Liberec", "Olomouc": "Olomouc", "České Budějovice": "České Budějovice", "Hradec Králové": "Hradec Králové",
+    "Ústí nad Labem": "Ústí nad Labem", "Pardubice": "Pardubice", "Zlín": "Zlín", "Jihlava": "Jihlava",
+    "Karlovy Vary": "Karlovy Vary", "Kladno": "Kladno",
+  },
+  HU: {
+    "Budapest": "Budapest", "Debrecen": "Debrecen", "Szeged": "Szeged", "Miskolc": "Miskolc",
+    "Pécs": "Pécs", "Győr": "Győr", "Nyíregyháza": "Nyíregyháza", "Kecskemét": "Kecskemét",
+    "Székesfehérvár": "Székesfehérvár", "Szombathely": "Szombathely", "Szolnok": "Szolnok",
+    "Eger": "Eger", "Tatabánya": "Tatabánya", "Veszprém": "Veszprém", "Kaposvár": "Kaposvár",
+    "Zalaegerszeg": "Zalaegerszeg", "Salgótarján": "Salgótarján", "Szekszárd": "Szekszárd", "Békéscsaba": "Békéscsaba",
+  },
+};
+
 export function getAutoRegion(countryCode: string, city: string): string | null {
   if (!countryCode || !city) return null;
   const countryMap = REGION_MAP[countryCode];
@@ -196,4 +273,24 @@ export function getAutoRegion(countryCode: string, city: string): string | null 
     if (lower.startsWith(key.toLowerCase())) return region;
   }
   return null;
+}
+
+export function getAutoDistrict(countryCode: string, city: string): string | null {
+  if (!countryCode || !city) return null;
+  const countryMap = DISTRICT_MAP[countryCode];
+  if (!countryMap) return null;
+  const trimmed = city.trim();
+  if (countryMap[trimmed]) return countryMap[trimmed];
+  const lower = trimmed.toLowerCase();
+  for (const [key, district] of Object.entries(countryMap)) {
+    if (key.toLowerCase() === lower) return district;
+    if (lower.startsWith(key.toLowerCase())) return district;
+  }
+  return null;
+}
+
+export function getDistrictsForRegion(countryCode: string, region: string): string[] {
+  const countryDistricts = DISTRICTS_BY_REGION[countryCode];
+  if (!countryDistricts) return [];
+  return countryDistricts[region] || [];
 }
