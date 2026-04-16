@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { COUNTRIES } from "@/lib/countries";
 import { getGeoLabels } from "@/lib/regions";
 import { Progress } from "@/components/ui/progress";
-import { useI18n } from "@/i18n/I18nProvider";
+import { useI18n } from "@/i18n";
 
 const MODULE_KEYS = ["hospitals", "clinics", "collaborators", "customers"] as const;
 type ModuleKey = typeof MODULE_KEYS[number];
@@ -42,10 +42,10 @@ export function BulkGeoMappingPanel() {
   const geoLabels = getGeoLabels(countryCode || "SK");
 
   const moduleLabels: Record<ModuleKey, string> = {
-    hospitals: t.configurator.bulkGeoHospitals,
-    clinics: t.configurator.bulkGeoClinics,
-    collaborators: t.configurator.bulkGeoCollaborators,
-    customers: t.configurator.bulkGeoCustomers,
+    hospitals: t.konfigurator.bulkGeoHospitals,
+    clinics: t.konfigurator.bulkGeoClinics,
+    collaborators: t.konfigurator.bulkGeoCollaborators,
+    customers: t.konfigurator.bulkGeoCustomers,
   };
 
   const toggleModule = (key: ModuleKey) => {
@@ -66,11 +66,11 @@ export function BulkGeoMappingPanel() {
 
   const handleRun = async () => {
     if (!countryCode) {
-      toast({ title: t.configurator.bulkGeoSelectCountry, variant: "destructive" });
+      toast({ title: t.konfigurator.bulkGeoSelectCountry, variant: "destructive" });
       return;
     }
     if (selectedModules.size === 0) {
-      toast({ title: t.configurator.bulkGeoSelectModule, variant: "destructive" });
+      toast({ title: t.konfigurator.bulkGeoSelectModule, variant: "destructive" });
       return;
     }
 
@@ -102,7 +102,7 @@ export function BulkGeoMappingPanel() {
         totalUpdated += data.updated || 0;
         totalRecords += data.total || 0;
       } catch {
-        setResults(prev => ({ ...prev, [mod]: { updated: 0, total: 0, errors: [t.configurator.bulkGeoError] } }));
+        setResults(prev => ({ ...prev, [mod]: { updated: 0, total: 0, errors: [t.konfigurator.bulkGeoError] } }));
       }
     }
 
@@ -111,8 +111,8 @@ export function BulkGeoMappingPanel() {
     setLoading(false);
 
     toast({
-      title: t.configurator.bulkGeoDoneTitle,
-      description: t.configurator.bulkGeoDoneDescription
+      title: t.konfigurator.bulkGeoDoneTitle,
+      description: t.konfigurator.bulkGeoDoneDescription
         .replace("{updated}", String(totalUpdated))
         .replace("{total}", String(totalRecords)),
     });
@@ -125,19 +125,19 @@ export function BulkGeoMappingPanel() {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <MapPinPlus className="h-5 w-5 text-primary" />
-          {t.configurator.bulkGeoTitle}
+          {t.konfigurator.bulkGeoTitle}
         </CardTitle>
         <CardDescription>
-          {t.configurator.bulkGeoDescription}
+          {t.konfigurator.bulkGeoDescription}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label className="text-sm font-medium">{t.configurator.bulkGeoCountry}</Label>
+            <Label className="text-sm font-medium">{t.konfigurator.bulkGeoCountry}</Label>
             <Select value={countryCode} onValueChange={(v) => { setCountryCode(v); setResults({}); }}>
               <SelectTrigger data-testid="select-bulk-geo-country">
-                <SelectValue placeholder={t.configurator.bulkGeoCountryPlaceholder} />
+                <SelectValue placeholder={t.konfigurator.bulkGeoCountryPlaceholder} />
               </SelectTrigger>
               <SelectContent>
                 {COUNTRIES.map((c) => (
@@ -157,14 +157,14 @@ export function BulkGeoMappingPanel() {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">{t.configurator.bulkGeoModules}</Label>
+              <Label className="text-sm font-medium">{t.konfigurator.bulkGeoModules}</Label>
               <button
                 type="button"
                 className="text-xs text-primary hover:underline"
                 onClick={selectAll}
                 data-testid="button-select-all-modules"
               >
-                {selectedModules.size === MODULE_KEYS.length ? t.configurator.bulkGeoDeselectAll : t.configurator.bulkGeoSelectAll}
+                {selectedModules.size === MODULE_KEYS.length ? t.konfigurator.bulkGeoDeselectAll : t.konfigurator.bulkGeoSelectAll}
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -197,7 +197,7 @@ export function BulkGeoMappingPanel() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {t.configurator.bulkGeoProcessing}: {currentModule ? moduleLabels[currentModule as ModuleKey] : ""}...
+              {t.konfigurator.bulkGeoProcessing}: {currentModule ? moduleLabels[currentModule as ModuleKey] : ""}...
             </div>
             <Progress value={progress} className="h-2" />
           </div>
@@ -207,7 +207,7 @@ export function BulkGeoMappingPanel() {
           <>
             <Separator />
             <div className="space-y-2">
-              <Label className="text-sm font-medium">{t.configurator.bulkGeoResults}</Label>
+              <Label className="text-sm font-medium">{t.konfigurator.bulkGeoResults}</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {MODULE_KEYS.filter(key => results[key]).map((key) => {
                   const Icon = MODULE_ICONS[key];
@@ -229,9 +229,9 @@ export function BulkGeoMappingPanel() {
                         <span className="font-medium">{moduleLabels[key]}</span>
                         <div className="text-xs text-muted-foreground mt-0.5">
                           {r.total === 0 ? (
-                            t.configurator.bulkGeoAllComplete
+                            t.konfigurator.bulkGeoAllComplete
                           ) : (
-                            <>{t.configurator.bulkGeoFilled}: <strong>{r.updated}</strong> / {r.total}</>
+                            <>{t.konfigurator.bulkGeoFilled}: <strong>{r.updated}</strong> / {r.total}</>
                           )}
                         </div>
                       </div>
@@ -258,12 +258,12 @@ export function BulkGeoMappingPanel() {
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {t.configurator.bulkGeoRunningButton}
+                {t.konfigurator.bulkGeoRunningButton}
               </>
             ) : (
               <>
                 <MapPinPlus className="h-4 w-4" />
-                {t.configurator.bulkGeoRunButton}
+                {t.konfigurator.bulkGeoRunButton}
               </>
             )}
           </Button>

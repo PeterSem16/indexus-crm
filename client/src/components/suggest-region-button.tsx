@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { REGIONS_BY_COUNTRY, getDistrictsForRegion } from "@/lib/regions";
-import { useI18n } from "@/i18n/I18nProvider";
+import { useI18n } from "@/i18n";
 
 interface SuggestRegionButtonProps {
   countryCode: string;
