@@ -102,80 +102,39 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
   const { toast } = useToast();
   const [selectedPositionId, setSelectedPositionId] = useState(clinicDoctor.positionCategoryId || "_none");
   const [savePersonOpen, setSavePersonOpen] = useState(false);
-  const [personData, setPersonData] = useState({
-    titleBefore: "", firstName: "", lastName: "", email: "", phone: "", mobile: "",
-    categoryId: "", isPrimary: true,
-  });
 
-  useEffect(() => {
-    if (savePersonOpen) {
-      let title = clinicDoctor.doctorTitle || "";
-      let first = clinicDoctor.doctorFirstName || "";
-      let last = clinicDoctor.doctorLastName || "";
-      if (!first && !last && clinicDoctor.fullName) {
-        const parts = String(clinicDoctor.fullName).trim().split(/\s+/);
-        if (parts[0] && /\.$/.test(parts[0])) { title = parts.shift() || ""; }
-        first = parts.shift() || "";
-        last = parts.join(" ");
-      }
-      setPersonData({
-        titleBefore: title, firstName: first, lastName: last,
-        email: clinicDoctor.email || "", phone: clinicDoctor.phone || "", mobile: "",
-        categoryId: clinicDoctor.positionCategoryId || "", isPrimary: true,
-      });
+  const collabPrefill = (() => {
+    let title = clinicDoctor.doctorTitle || "";
+    let first = clinicDoctor.doctorFirstName || "";
+    let last = clinicDoctor.doctorLastName || "";
+    if (!first && !last && clinicDoctor.fullName) {
+      const parts = String(clinicDoctor.fullName).trim().split(/\s+/);
+      if (parts[0] && /\.$/.test(parts[0])) { title = parts.shift() || ""; }
+      first = parts.shift() || "";
+      last = parts.join(" ");
     }
-  }, [savePersonOpen, clinicDoctor.fullName, clinicDoctor.positionCategoryId]);
+    return {
+      titleBefore: title,
+      firstName: first,
+      lastName: last,
+      email: clinicDoctor.email || "",
+      phone: clinicDoctor.phone || "",
+      countryCode: clinicDoctor.countryCode || countryCode || "SK",
+      countryCodes: [clinicDoctor.countryCode || countryCode || "SK"],
+      collaboratorType: "doctor",
+    };
+  })();
 
-  const savePersonMutation = useMutation({
-    mutationFn: async () => {
-      const collab = await apiRequest("POST", "/api/collaborators", {
-        titleBefore: personData.titleBefore.trim() || null,
-        firstName: personData.firstName.trim(),
-        lastName: personData.lastName.trim(),
-        email: personData.email.trim() || null,
-        phone: personData.phone.trim() || null,
-        mobile: personData.mobile.trim() || null,
-        countryCode: clinicDoctor.countryCode || countryCode || "SK",
-        collaboratorType: "doctor",
-        isActive: true,
+  async function assignToClinic(collabId: string) {
+    try {
+      await apiRequest("POST", `/api/institutions/clinic/${entityId}/personnel`, {
+        personId: collabId, department: null, position: null, role: null,
+        categoryId: clinicDoctor.positionCategoryId || null, isPrimary: true,
       });
-      const collabData = await collab.json();
-      const cat = categories.find((c: any) => c.id === personData.categoryId);
-      const position = cat ? getLocalizedCategoryName(cat, locale) : null;
-      try {
-        await apiRequest("POST", `/api/institutions/clinic/${entityId}/personnel`, {
-          personId: collabData.id, department: null, position, role: null,
-          categoryId: personData.categoryId || null, isPrimary: personData.isPrimary,
-        });
-      } catch (assignErr: any) {
-        const err: any = new Error(assignErr?.message || "Assignment failed");
-        err.collaboratorCreated = true;
-        throw err;
-      }
-      return collabData;
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/institutions", "clinic", entityId, "personnel"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
-      toast({ title: t.success?.saved || "Saved" });
-      setSavePersonOpen(false);
-    },
-    onError: (err: any) => {
-      if (err?.collaboratorCreated) {
-        queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
-        toast({ title: t.common?.warning || "Warning", description: err.message || "Person created but assignment failed", variant: "destructive" });
-      } else {
-        toast({ title: err?.message || "Error", variant: "destructive" });
-      }
-    },
-  });
-
-  function handleSavePerson() {
-    if (!personData.firstName.trim() || !personData.lastName.trim()) {
-      toast({ title: t.common?.error || "Error", description: "First name and last name are required", variant: "destructive" });
-      return;
+    } catch (err: any) {
+      toast({ title: t.common?.warning || "Warning", description: err?.message || "Person created but assignment to clinic failed", variant: "destructive" });
     }
-    savePersonMutation.mutate();
   }
 
   useEffect(() => {
@@ -270,65 +229,23 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
         )}
       </div>
 
-      <Dialog open={savePersonOpen} onOpenChange={setSavePersonOpen}>
-        <DialogContent className="max-w-md" data-testid="dialog-save-person-from-personnel">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4 text-teal-600" />
-              {(t.clinics as any)?.saveAsPerson || "Uložiť ako osobu"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">{t.common?.title || "Title"}</Label>
-                <Input value={personData.titleBefore} onChange={(e) => setPersonData({ ...personData, titleBefore: e.target.value })} placeholder="MUDr." className="h-9" data-testid="input-person-title" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{(t.clinics as any)?.sections?.firstName || "First name"} *</Label>
-                <Input value={personData.firstName} onChange={(e) => setPersonData({ ...personData, firstName: e.target.value })} className="h-9" data-testid="input-person-firstname" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t.common?.lastName || "Last name"} *</Label>
-                <Input value={personData.lastName} onChange={(e) => setPersonData({ ...personData, lastName: e.target.value })} className="h-9" data-testid="input-person-lastname" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">{(t.clinics as any)?.email || "Email"}</Label>
-                <Input type="email" value={personData.email} onChange={(e) => setPersonData({ ...personData, email: e.target.value })} className="h-9" data-testid="input-person-email" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{(t.clinics as any)?.phone || "Phone"}</Label>
-                <Input value={personData.phone} onChange={(e) => setPersonData({ ...personData, phone: e.target.value })} className="h-9" data-testid="input-person-phone" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">{mpnT.position || "Position"}</Label>
-              <Select value={personData.categoryId || "_none"} onValueChange={(v) => setPersonData({ ...personData, categoryId: v === "_none" ? "" : v })}>
-                <SelectTrigger className="h-9" data-testid="select-person-category"><SelectValue placeholder="-" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">—</SelectItem>
-                  {categories.filter((c: any) => c.isActive !== false).map((cat: any) => (
-                    <SelectItem key={cat.id} value={cat.id}>{getLocalizedCategoryName(cat, locale)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={personData.isPrimary} onChange={(e) => setPersonData({ ...personData, isPrimary: e.target.checked })} data-testid="checkbox-person-isprimary" />
-              <span>{(t as any).medicalPartnerNetwork?.primaryContact || "Primary contact"}</span>
-            </label>
+      {savePersonOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            onClick={() => setSavePersonOpen(false)}
+            data-testid="save-person-drawer-backdrop"
+          />
+          <div className="fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col" data-testid="save-person-drawer">
+            <CollaboratorFormWizard
+              prefillData={collabPrefill as any}
+              onCreated={async (collab) => { await assignToClinic(collab.id); }}
+              onSuccess={() => setSavePersonOpen(false)}
+              onCancel={() => setSavePersonOpen(false)}
+            />
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => setSavePersonOpen(false)} data-testid="button-cancel-save-person">{t.common.cancel}</Button>
-            <Button onClick={handleSavePerson} disabled={savePersonMutation.isPending} data-testid="button-confirm-save-person">
-              {savePersonMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-              {t.common.save}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </>
+      )}
     </div>
   );
 }

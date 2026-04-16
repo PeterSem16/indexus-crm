@@ -248,6 +248,8 @@ interface CollaboratorFormWizardProps {
   onCancel?: () => void;
   positionScopeFilter?: string;
   hideSvetZdravia?: boolean;
+  prefillData?: Partial<CollaboratorFormData>;
+  onCreated?: (collab: { id: string }) => void | Promise<void>;
 }
 
 // Pending address for Add mode (before collaborator is saved)
@@ -3481,6 +3483,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           note: "",
           hospitalId: "",
           hospitalIds: [],
+          ...(prefillData || {}),
         }
   );
 
@@ -3548,6 +3551,9 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           const newCollaborator = await response.json();
           collaboratorId = newCollaborator.id;
           console.log("[Wizard] Created collaborator with id:", collaboratorId);
+          if (onCreated) {
+            try { await onCreated({ id: collaboratorId }); } catch (e) { console.error("[Wizard] onCreated callback failed:", e); }
+          }
           
           // Save pending addresses for new collaborator
           for (const address of pendingAddresses) {
