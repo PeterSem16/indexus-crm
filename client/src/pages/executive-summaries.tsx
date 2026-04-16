@@ -96,7 +96,7 @@ export default function ExecutiveSummariesPage() {
     },
   });
 
-  const countries = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
+  const countries = ["SK", "CZ", "AT", "HU", "RO", "IT", "DE", "US"];
 
   const TrendIcon = ({ direction }: { direction: string }) => {
     if (direction === "up") return <TrendingUp className="h-4 w-4 text-green-500" />;

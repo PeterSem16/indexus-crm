@@ -4,6 +4,7 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
   US: 'en',
   SK: 'sk',
   CZ: 'cs',
+  AT: 'de',
   HU: 'hu',
   RO: 'ro',
   IT: 'it',

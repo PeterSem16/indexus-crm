@@ -114,7 +114,7 @@ interface VoicemailStats {
   archived: number;
 }
 
-const COUNTRIES = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
+const COUNTRIES = ["SK", "CZ", "AT", "HU", "RO", "IT", "DE", "US"];
 
 const TTS_VOICES = [
   { value: "nova", label: "Nova", gender: "female" },

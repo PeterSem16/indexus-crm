@@ -27,6 +27,7 @@ export interface PhoneCountry {
 export const PHONE_COUNTRIES: PhoneCountry[] = [
   { code: "SK", name: "Slovensko", dialCode: "+421", flag: "🇸🇰" },
   { code: "CZ", name: "Česká republika", dialCode: "+420", flag: "🇨🇿" },
+  { code: "AT", name: "Rakúsko", dialCode: "+43", flag: "🇦🇹" },
   { code: "HU", name: "Maďarsko", dialCode: "+36", flag: "🇭🇺" },
   { code: "RO", name: "Rumunsko", dialCode: "+40", flag: "🇷🇴" },
   { code: "IT", name: "Taliansko", dialCode: "+39", flag: "🇮🇹" },

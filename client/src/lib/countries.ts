@@ -1,6 +1,7 @@
 export const COUNTRIES = [
   { code: "SK", name: "Slovakia", flag: "🇸🇰" },
   { code: "CZ", name: "Czech Republic", flag: "🇨🇿" },
+  { code: "AT", name: "Austria", flag: "🇦🇹" },
   { code: "HU", name: "Hungary", flag: "🇭🇺" },
   { code: "RO", name: "Romania", flag: "🇷🇴" },
   { code: "IT", name: "Italy", flag: "🇮🇹" },

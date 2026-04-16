@@ -88,6 +88,7 @@ interface UserOption {
 const COUNTRY_OPTIONS = [
   { value: "SK", label: "Slovensko" },
   { value: "CZ", label: "Česko" },
+  { value: "AT", label: "Rakúsko" },
   { value: "HU", label: "Maďarsko" },
   { value: "RO", label: "Rumunsko" },
   { value: "IT", label: "Taliansko" },

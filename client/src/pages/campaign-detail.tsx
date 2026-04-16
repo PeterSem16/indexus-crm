@@ -506,7 +506,7 @@ function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
                     <div className="flex items-center gap-2">
                       <BookOpen className="h-4 w-4 text-primary" />
                       <span className="font-medium text-sm">{cat.name}</span>
-                      {cat.countryCode && <span className="text-xs" title={cat.countryCode}>{{"SK":"🇸🇰","CZ":"🇨🇿","US":"🇬🇧","HU":"🇭🇺","RO":"🇷🇴","IT":"🇮🇹","DE":"🇩🇪","GB":"🇬🇧"}[cat.countryCode] || cat.countryCode}</span>}
+                      {cat.countryCode && <span className="text-xs" title={cat.countryCode}>{{"SK":"🇸🇰","CZ":"🇨🇿","AT":"🇦🇹","US":"🇬🇧","HU":"🇭🇺","RO":"🇷🇴","IT":"🇮🇹","DE":"🇩🇪","GB":"🇬🇧"}[cat.countryCode] || cat.countryCode}</span>}
                       <Badge variant="outline" className="text-[10px] h-4">{linkedCount}/{catArticles.length}</Badge>
                     </div>
                     <div className="flex gap-1">
@@ -528,7 +528,7 @@ function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
                               className="rounded border-gray-300"
                             />
                             <span className={isLinked ? "font-medium" : "text-muted-foreground"}>{art.title}</span>
-                            {art.countryCode && <span className="text-xs opacity-70" title={art.countryCode}>{{"SK":"🇸🇰","CZ":"🇨🇿","US":"🇬🇧","HU":"🇭🇺","RO":"🇷🇴","IT":"🇮🇹","DE":"🇩🇪","GB":"🇬🇧"}[art.countryCode] || art.countryCode}</span>}
+                            {art.countryCode && <span className="text-xs opacity-70" title={art.countryCode}>{{"SK":"🇸🇰","CZ":"🇨🇿","AT":"🇦🇹","US":"🇬🇧","HU":"🇭🇺","RO":"🇷🇴","IT":"🇮🇹","DE":"🇩🇪","GB":"🇬🇧"}[art.countryCode] || art.countryCode}</span>}
                             {art.priority === "critical" && <Badge variant="destructive" className="text-[9px] h-4">!</Badge>}
                             {art.priority === "high" && <Badge className="text-[9px] h-4 bg-orange-500">!</Badge>}
                           </label>
@@ -2895,7 +2895,7 @@ export default function CampaignDetailPage() {
   const { user } = useAuth();
 
   const userLocale = useMemo(() => {
-    const countryToLang: Record<string, string> = { SK: 'sk', CZ: 'cs', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en' };
+    const countryToLang: Record<string, string> = { SK: 'sk', CZ: 'cs', AT: 'de', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en' };
     if (user?.countries?.length) {
       return countryToLang[user.countries[0]] || locale;
     }

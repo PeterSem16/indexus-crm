@@ -146,7 +146,7 @@ const TIMEZONES = [
   "UTC",
 ];
 
-const COUNTRIES = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
+const COUNTRIES = ["SK", "CZ", "AT", "HU", "RO", "IT", "DE", "US"];
 
 interface FormData {
   name: string;

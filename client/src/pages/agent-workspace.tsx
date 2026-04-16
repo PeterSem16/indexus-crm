@@ -5382,7 +5382,7 @@ export default function AgentWorkspacePage() {
   }, [currentContact]);
 
   const userLocale = useMemo(() => {
-    const countryToLang: Record<string, string> = { SK: 'sk', CZ: 'cs', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en' };
+    const countryToLang: Record<string, string> = { SK: 'sk', CZ: 'cs', AT: 'de', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en' };
     if (user?.countries?.length) {
       return countryToLang[user.countries[0]] || locale;
     }

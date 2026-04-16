@@ -1096,7 +1096,7 @@ export default function CollectionsPage() {
     { key: "status", label: t.collections?.status, icon: Clock },
   ];
 
-  const availableCountries = customerCountries.length > 0 ? customerCountries : ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
+  const availableCountries = customerCountries.length > 0 ? customerCountries : ["SK", "CZ", "AT", "HU", "RO", "IT", "DE", "US"];
   const countryLabels: Record<string, string | undefined> = t.countries || {};
 
   const productBillsets = formData.productId 
@@ -3151,7 +3151,7 @@ export default function CollectionsPage() {
   const calendarDays = getDaysInMonth(calendarMonth);
 
   const esT = t.executiveSummaries || {} as any;
-  const esCountries = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
+  const esCountries = ["SK", "CZ", "AT", "HU", "RO", "IT", "DE", "US"];
 
   const renderExecutiveSummaries = () => (
     <div className="space-y-4">

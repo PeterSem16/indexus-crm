@@ -27388,7 +27388,7 @@ Rules:
         return res.status(400).json({ error: "Country code is required" });
       }
       
-      const validCountryCodes = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
+      const validCountryCodes = ["SK", "CZ", "AT", "HU", "RO", "IT", "DE", "US"];
       const normalizedCountryCode = String(countryCode).toUpperCase().trim();
       if (!validCountryCodes.includes(normalizedCountryCode) || !/^[A-Z]{2}$/.test(normalizedCountryCode)) {
         return res.status(400).json({ error: "Invalid country code" });
@@ -40704,7 +40704,7 @@ Return ONLY the JSON object.`
   app.post("/api/sop/articles/:id/copy-translate", requireAuth, async (req, res) => {
     try {
       const { targetCountryCode, translate } = req.body;
-      const VALID_CODES = ["SK", "CZ", "US", "HU", "RO", "IT", "DE", "GB"];
+      const VALID_CODES = ["SK", "CZ", "AT", "US", "HU", "RO", "IT", "DE", "GB"];
       if (!targetCountryCode || !VALID_CODES.includes(targetCountryCode)) return res.status(400).json({ error: "Invalid targetCountryCode" });
 
       const source = await storage.getSopArticle(req.params.id);
