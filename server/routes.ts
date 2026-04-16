@@ -43348,8 +43348,12 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
             fullName: (clinic as any).doctorFirstName
               ? [(clinic as any).doctorTitle, (clinic as any).doctorFirstName, (clinic as any).doctorLastName].filter(Boolean).join(" ")
               : clinic.doctorName,
+            doctorTitle: (clinic as any).doctorTitle || "",
+            doctorFirstName: (clinic as any).doctorFirstName || "",
+            doctorLastName: (clinic as any).doctorLastName || "",
             phone: clinic.phone || "",
             email: clinic.email || "",
+            countryCode: clinic.countryCode || "SK",
             positionCategoryId: (clinic as any).doctorPositionCategoryId || null,
             positionCategory: positionCategory,
           };

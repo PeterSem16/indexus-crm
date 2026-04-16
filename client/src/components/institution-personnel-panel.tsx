@@ -89,17 +89,94 @@ const SCOPE_BADGE: Record<string, { label: string; className: string }> = {
   independent: { label: "Independent", className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800" },
 };
 
-function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, onPositionSaved }: {
+function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, onPositionSaved, countryCode }: {
   clinicDoctor: any;
   entityId: string;
   categories: any[];
   locale: string;
   mpnT: any;
   onPositionSaved: () => void;
+  countryCode?: string;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [selectedPositionId, setSelectedPositionId] = useState(clinicDoctor.positionCategoryId || "_none");
+  const [savePersonOpen, setSavePersonOpen] = useState(false);
+  const [personData, setPersonData] = useState({
+    titleBefore: "", firstName: "", lastName: "", email: "", phone: "", mobile: "",
+    categoryId: "", isPrimary: true,
+  });
+
+  useEffect(() => {
+    if (savePersonOpen) {
+      let title = clinicDoctor.doctorTitle || "";
+      let first = clinicDoctor.doctorFirstName || "";
+      let last = clinicDoctor.doctorLastName || "";
+      if (!first && !last && clinicDoctor.fullName) {
+        const parts = String(clinicDoctor.fullName).trim().split(/\s+/);
+        if (parts[0] && /\.$/.test(parts[0])) { title = parts.shift() || ""; }
+        first = parts.shift() || "";
+        last = parts.join(" ");
+      }
+      setPersonData({
+        titleBefore: title, firstName: first, lastName: last,
+        email: clinicDoctor.email || "", phone: clinicDoctor.phone || "", mobile: "",
+        categoryId: clinicDoctor.positionCategoryId || "", isPrimary: true,
+      });
+    }
+  }, [savePersonOpen, clinicDoctor.fullName, clinicDoctor.positionCategoryId]);
+
+  const savePersonMutation = useMutation({
+    mutationFn: async () => {
+      const collab = await apiRequest("POST", "/api/collaborators", {
+        titleBefore: personData.titleBefore.trim() || null,
+        firstName: personData.firstName.trim(),
+        lastName: personData.lastName.trim(),
+        email: personData.email.trim() || null,
+        phone: personData.phone.trim() || null,
+        mobile: personData.mobile.trim() || null,
+        countryCode: clinicDoctor.countryCode || countryCode || "SK",
+        collaboratorType: "doctor",
+        isActive: true,
+      });
+      const collabData = await collab.json();
+      const cat = categories.find((c: any) => c.id === personData.categoryId);
+      const position = cat ? getLocalizedCategoryName(cat, locale) : null;
+      try {
+        await apiRequest("POST", `/api/institutions/clinic/${entityId}/personnel`, {
+          personId: collabData.id, department: null, position, role: null,
+          categoryId: personData.categoryId || null, isPrimary: personData.isPrimary,
+        });
+      } catch (assignErr: any) {
+        const err: any = new Error(assignErr?.message || "Assignment failed");
+        err.collaboratorCreated = true;
+        throw err;
+      }
+      return collabData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/institutions", "clinic", entityId, "personnel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+      toast({ title: t.success?.saved || "Saved" });
+      setSavePersonOpen(false);
+    },
+    onError: (err: any) => {
+      if (err?.collaboratorCreated) {
+        queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+        toast({ title: t.common?.warning || "Warning", description: err.message || "Person created but assignment failed", variant: "destructive" });
+      } else {
+        toast({ title: err?.message || "Error", variant: "destructive" });
+      }
+    },
+  });
+
+  function handleSavePerson() {
+    if (!personData.firstName.trim() || !personData.lastName.trim()) {
+      toast({ title: t.common?.error || "Error", description: "First name and last name are required", variant: "destructive" });
+      return;
+    }
+    savePersonMutation.mutate();
+  }
 
   useEffect(() => {
     setSelectedPositionId(clinicDoctor.positionCategoryId || "_none");
@@ -124,11 +201,19 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
 
   return (
     <div className="rounded-xl border-2 border-teal-300 dark:border-teal-700 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/40 dark:to-background p-4 shadow-sm" data-testid="personnel-primary-contact">
-      <div className="flex items-center gap-2 mb-3">
-        <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-        <Badge className="text-[10px] px-1.5 py-0 bg-teal-600 text-white border-teal-700 dark:bg-teal-700">
-          {mpnT.doctor || "Doctor"}
-        </Badge>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+          <Badge className="text-[10px] px-1.5 py-0 bg-teal-600 text-white border-teal-700 dark:bg-teal-700">
+            {mpnT.doctor || "Doctor"}
+          </Badge>
+        </div>
+        {clinicDoctor.fullName && (
+          <Button type="button" variant="outline" size="sm" className="h-7 text-xs border-teal-300 dark:border-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900" onClick={() => setSavePersonOpen(true)} data-testid="button-save-doctor-as-person-personnel">
+            <UserPlus className="h-3 w-3 mr-1" />
+            {(t.clinics as any)?.saveAsPerson || "Uložiť ako osobu"}
+          </Button>
+        )}
       </div>
       <div className="flex items-center gap-4">
         <div className="flex-shrink-0 w-12 h-12 rounded-full bg-teal-200 dark:bg-teal-800 flex items-center justify-center ring-2 ring-teal-400 dark:ring-teal-600 ring-offset-2 ring-offset-background">
@@ -184,6 +269,66 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
           </div>
         )}
       </div>
+
+      <Dialog open={savePersonOpen} onOpenChange={setSavePersonOpen}>
+        <DialogContent className="max-w-md" data-testid="dialog-save-person-from-personnel">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-teal-600" />
+              {(t.clinics as any)?.saveAsPerson || "Uložiť ako osobu"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">{t.common?.title || "Title"}</Label>
+                <Input value={personData.titleBefore} onChange={(e) => setPersonData({ ...personData, titleBefore: e.target.value })} placeholder="MUDr." className="h-9" data-testid="input-person-title" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{(t.clinics as any)?.sections?.firstName || "First name"} *</Label>
+                <Input value={personData.firstName} onChange={(e) => setPersonData({ ...personData, firstName: e.target.value })} className="h-9" data-testid="input-person-firstname" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t.common?.lastName || "Last name"} *</Label>
+                <Input value={personData.lastName} onChange={(e) => setPersonData({ ...personData, lastName: e.target.value })} className="h-9" data-testid="input-person-lastname" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">{(t.clinics as any)?.email || "Email"}</Label>
+                <Input type="email" value={personData.email} onChange={(e) => setPersonData({ ...personData, email: e.target.value })} className="h-9" data-testid="input-person-email" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{(t.clinics as any)?.phone || "Phone"}</Label>
+                <Input value={personData.phone} onChange={(e) => setPersonData({ ...personData, phone: e.target.value })} className="h-9" data-testid="input-person-phone" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{mpnT.position || "Position"}</Label>
+              <Select value={personData.categoryId || "_none"} onValueChange={(v) => setPersonData({ ...personData, categoryId: v === "_none" ? "" : v })}>
+                <SelectTrigger className="h-9" data-testid="select-person-category"><SelectValue placeholder="-" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">—</SelectItem>
+                  {categories.filter((c: any) => c.isActive !== false).map((cat: any) => (
+                    <SelectItem key={cat.id} value={cat.id}>{getLocalizedCategoryName(cat, locale)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={personData.isPrimary} onChange={(e) => setPersonData({ ...personData, isPrimary: e.target.checked })} data-testid="checkbox-person-isprimary" />
+              <span>{(t as any).medicalPartnerNetwork?.primaryContact || "Primary contact"}</span>
+            </label>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setSavePersonOpen(false)} data-testid="button-cancel-save-person">{t.common.cancel}</Button>
+            <Button onClick={handleSavePerson} disabled={savePersonMutation.isPending} data-testid="button-confirm-save-person">
+              {savePersonMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+              {t.common.save}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -703,6 +848,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
           locale={locale}
           mpnT={mpnT}
           onPositionSaved={() => personnelQuery.refetch()}
+          countryCode={countryCode}
         />
       )}
 
