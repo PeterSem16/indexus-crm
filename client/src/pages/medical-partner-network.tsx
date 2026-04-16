@@ -834,6 +834,9 @@ function NetworkExplorer() {
                           setSelectedResult({ type: "institution", entityType: inst.type, id: inst.id, name: inst.name });
                           setSearch(inst.name);
                           setDebouncedSearch("");
+                          if (inst.type === "hospital" || inst.type === "clinic") {
+                            setDrawerEntity({ type: inst.type, id: inst.id });
+                          }
                         }}
                         data-testid={`search-result-${inst.id}`}
                       >
@@ -940,7 +943,12 @@ function NetworkExplorer() {
           ) : (
             <div className="flex gap-4">
               <div className="flex-1 min-w-0">
-                <NetworkSVG nodes={nodes} edges={edges} onNodeClick={setDetailNode} />
+                <NetworkSVG nodes={nodes} edges={edges} onNodeClick={(n) => {
+                  setDetailNode(n);
+                  if ((n.type === "hospital" || n.type === "clinic") && n.entityId) {
+                    setDrawerEntity({ type: n.type, id: n.entityId });
+                  }
+                }} />
               </div>
               {detailNode && (
                 <Card className="w-80 shrink-0 self-start">
