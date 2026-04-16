@@ -1314,9 +1314,6 @@ function SettingsTab() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">{t.mpn.categories}</CardTitle>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => seedDefaultsMut.mutate()} disabled={seedDefaultsMut.isPending} data-testid="btn-seed-default-categories">
-                <Database className="h-4 w-4 mr-1" /> {seedDefaultsMut.isPending ? "..." : ((t.mpn as any).seedDefaults || "Seed Defaults")}
-              </Button>
               <Button size="sm" onClick={() => setAddCategory(true)} data-testid="btn-add-category">
                 <Plus className="h-4 w-4 mr-1" /> {t.mpn.addCategory}
               </Button>
@@ -1326,10 +1323,8 @@ function SettingsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t.mpn.categoryCode}</TableHead>
                   <TableHead>{t.mpn.categoryName}</TableHead>
                   <TableHead>{t.mpn.entityScope}</TableHead>
-                  <TableHead>{t.mpn.sortOrder}</TableHead>
                   <TableHead>{t.mpn.status}</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -1337,7 +1332,6 @@ function SettingsTab() {
               <TableBody>
                 {(categories || []).map((cat) => (
                   <TableRow key={cat.id} data-testid={`row-category-${cat.id}`}>
-                    <TableCell className="font-mono text-xs">{cat.code}</TableCell>
                     <TableCell>
                       <div className="font-medium">{getLocalizedCategoryName(cat, locale)}</div>
                       {locale !== "sk" && cat.nameSk && (
@@ -1345,26 +1339,18 @@ function SettingsTab() {
                       )}
                     </TableCell>
                     <TableCell>{scopeBadge(cat.entityScope, t)}</TableCell>
-                    <TableCell>{cat.sortOrder}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Badge variant={cat.isActive ? "default" : "secondary"}>
-                          {cat.isActive ? t.mpn.active : t.mpn.inactive}
-                        </Badge>
-                        {cat.isDefault && (
-                          <Badge variant="outline" className="text-xs">Default</Badge>
-                        )}
-                      </div>
+                      <Badge variant={cat.isActive ? "default" : "secondary"}>
+                        {cat.isActive ? t.mpn.active : t.mpn.inactive}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="icon" onClick={() => setEditCategory(cat)} data-testid={`btn-edit-category-${cat.id}`}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      {!cat.isDefault && (
-                        <Button variant="ghost" size="icon" onClick={() => deleteCatMut.mutate(cat.id)} data-testid={`btn-delete-category-${cat.id}`}>
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      )}
+                      <Button variant="ghost" size="icon" onClick={() => deleteCatMut.mutate(cat.id)} data-testid={`btn-delete-category-${cat.id}`}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1407,10 +1393,14 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
 
   const saveMut = useMutation({
     mutationFn: () => {
-      if (isEdit) {
-        return apiRequest("PATCH", `/api/mpn/categories/${category!.id}`, form);
+      const payload = { ...form };
+      if (!payload.code && payload.name) {
+        payload.code = payload.name.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").slice(0, 30);
       }
-      return apiRequest("POST", "/api/mpn/categories", form);
+      if (isEdit) {
+        return apiRequest("PATCH", `/api/mpn/categories/${category!.id}`, payload);
+      }
+      return apiRequest("POST", "/api/mpn/categories", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/mpn/categories"] });
@@ -1467,16 +1457,6 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
           <DialogTitle>{isEdit ? t.mpn.editCategory : t.mpn.addCategory}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>{t.mpn.categoryCode}</Label>
-              <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} data-testid="input-category-code" />
-            </div>
-            <div>
-              <Label>{t.mpn.sortOrder}</Label>
-              <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })} data-testid="input-sort-order" />
-            </div>
-          </div>
           <div>
             <Label>{t.mpn.categoryName} (SK - Primary)</Label>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, nameSk: e.target.value })} data-testid="input-category-name" />
