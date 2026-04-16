@@ -126,9 +126,6 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
     <div className="rounded-xl border-2 border-teal-300 dark:border-teal-700 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/40 dark:to-background p-4 shadow-sm" data-testid="personnel-primary-contact">
       <div className="flex items-center gap-2 mb-3">
         <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-        <span className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
-          {mpnT.primaryContact || "Primary Contact"}
-        </span>
         <Badge className="text-[10px] px-1.5 py-0 bg-teal-600 text-white border-teal-700 dark:bg-teal-700">
           {mpnT.doctor || "Doctor"}
         </Badge>
@@ -395,18 +392,6 @@ export function InstitutionPersonnelPanel({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-end gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm h-8">
-                      <input
-                        type="checkbox"
-                        checked={assignIsPrimary}
-                        onChange={e => setAssignIsPrimary(e.target.checked)}
-                        data-testid="checkbox-primary"
-                      />
-                      <Star className="h-3.5 w-3.5 text-amber-500" />
-                      {mpnT.primaryContact || "Primary"}
-                    </label>
-                  </div>
                 </div>
 
                 <Button
@@ -454,9 +439,6 @@ export function InstitutionPersonnelPanel({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm">{fullName}</span>
-                          {p.is_primary && (
-                            <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
-                          )}
                           {p.category_name && (
                             <Badge variant="outline" className="text-[10px]">{
                               p.category_id 
@@ -743,7 +725,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
               <div key={p.assignment_id || p.person_id} className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 shadow-sm space-y-3" data-testid={`card-edit-primary-${p.person_id}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
                     <span className="font-medium text-sm">{fullName}</span>
                   </div>
                   <div className="flex gap-1">
@@ -767,13 +748,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-end gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm h-8">
-                      <input type="checkbox" checked={editData.isPrimary} onChange={e => setEditData({ ...editData, isPrimary: e.target.checked })} data-testid="checkbox-edit-primary-flag" />
-                      <Star className="h-3.5 w-3.5 text-amber-500" />
-                      {mpnT.primaryContact || "Primary"}
-                    </label>
-                  </div>
                 </div>
                 <div>
                   <Label className="text-xs">{mpnT.notes || "Notes"}</Label>
@@ -784,12 +758,8 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
           }
 
           return (
-            <div key={p.assignment_id || p.person_id} className="rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-background p-4 shadow-sm" data-testid={`personnel-primary-person-${p.person_id}`}>
+            <div key={p.assignment_id || p.person_id} className="rounded-xl border-2 border-border bg-gradient-to-br from-muted/30 to-background p-4 shadow-sm" data-testid={`personnel-primary-person-${p.person_id}`}>
               <div className="flex items-center gap-2 mb-3">
-                <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                  {mpnT.primaryContact || "Primary Contact"}
-                </span>
                 {catName && (
                   <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${catStyle.color} border-current/30`}>{catName}</Badge>
                 )}
@@ -893,12 +863,10 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
         });
       })()}
 
-      {(clinicDoctor || allPersonnel.some((p: any) => p.is_primary)) && allPersonnel.filter((p: any) => !p.is_primary).length > 0 && <Separator />}
-
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
-            <Users className="h-3 w-3 mr-1" />{allPersonnel.filter((p: any) => !p.is_primary).length}
+            <Users className="h-3 w-3 mr-1" />{allPersonnel.length}
           </Badge>
           <span className="text-sm text-muted-foreground">{mpnT.personnelAssigned || "personnel assigned"}</span>
         </div>
@@ -952,13 +920,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end gap-2">
-              <label className="flex items-center gap-2 cursor-pointer text-sm h-8">
-                <input type="checkbox" checked={assignIsPrimary} onChange={e => setAssignIsPrimary(e.target.checked)} data-testid="checkbox-assign-primary" />
-                <Star className="h-3.5 w-3.5 text-amber-500" />
-                {mpnT.primaryContact || "Primary"}
-              </label>
-            </div>
           </div>
 
           <div>
@@ -981,12 +942,11 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
         </div>
       )}
 
-      {allPersonnel.filter((p: any) => !p.is_primary).length > 0 && (() => {
-        const nonPrimary = allPersonnel.filter((p: any) => !p.is_primary);
+      {allPersonnel.length > 0 && (() => {
         const cats = categoriesQuery.data || [];
         const counts: Record<string, { count: number; name: string; code: string }> = {};
         let uncategorized = 0;
-        for (const p of nonPrimary) {
+        for (const p of allPersonnel) {
           if (p.category_id) {
             const cat = cats.find((c: any) => c.id === p.category_id);
             const code = cat?.code || p.category_code || "unknown";
@@ -1022,7 +982,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
       })()}
 
       <div className="space-y-1">
-        {allPersonnel.filter((p: any) => !p.is_primary).map((p: any, idx: number) => {
+        {allPersonnel.map((p: any, idx: number) => {
           const fullName = [p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ");
           const isLegacy = p.source === "legacy_link";
           const isEditing = editingId.length > 0 && editingId === p.assignment_id;
@@ -1055,13 +1015,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                         {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}</span></SelectItem>))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm h-8">
-                      <input type="checkbox" checked={editData.isPrimary} onChange={e => setEditData({ ...editData, isPrimary: e.target.checked })} data-testid="checkbox-edit-primary" />
-                      <Star className="h-3.5 w-3.5 text-amber-500" />
-                      {mpnT.primaryContact || "Primary"}
-                    </label>
                   </div>
                 </div>
                 <div>
@@ -1096,7 +1049,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                   disabled={isLoadingCollaborator}
                   data-testid={`link-open-collab-${p.person_id}`}
                 >{fullName}</button>
-                {p.is_primary && <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />}
                 {catName && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${catStyle.color} border-current/30`}>{catName}</Badge>}
                 {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
                 {p.is_active === false && <Badge variant="destructive" className="text-[9px] px-1.5 py-0 shrink-0">{t.common?.inactive || "Inactive"}</Badge>}

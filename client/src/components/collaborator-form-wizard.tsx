@@ -323,8 +323,17 @@ function getColorIndexForEntity(entityId: string): number {
   return Math.abs(hash) % INSTITUTION_COLORS.length;
 }
 
+function getLocalizedCategoryName(cat: any, locale: string): string {
+  const localeFieldMap: Record<string, string> = { en: "nameEn", sk: "nameSk", cs: "nameCs", hu: "nameHu", ro: "nameRo", it: "nameIt", de: "nameDe" };
+  const field = localeFieldMap[locale];
+  if (field && cat[field]) return cat[field];
+  return cat.name || "";
+}
+
 function MedicalNetworkContent({ personId, personName }: { personId: string; personName: string }) {
   const { toast } = useToast();
+  const { t, locale } = useI18n();
+  const mpnT = (t as any).medicalPartnerNetwork || {};
   const { data: assignments, isLoading, isError } = useQuery<any[]>({
     queryKey: ["/api/mpn/person", personId, "assignments"],
     queryFn: async () => {
@@ -473,9 +482,6 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
               <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0", colors.badge)}>
                 {isHospitalType ? "Nemocnica" : "Ambulancia"}
               </Badge>
-              {!isEditing && assignment.is_primary && (
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-              )}
               {!isEditing && (
                 <Button
                   variant="ghost"
@@ -492,58 +498,31 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
 
           {isEditing ? (
             <div className="space-y-3 mt-1">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Oddelenie</Label>
-                  <Input
-                    value={editData.department}
-                    onChange={e => setEditData({ ...editData, department: e.target.value })}
-                    placeholder="Oddelenie"
-                    className="h-8 text-xs"
-                    data-testid={`medical-network-edit-department-${assignment.id}`}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Pozícia</Label>
-                  <Input
-                    value={editData.position}
-                    onChange={e => setEditData({ ...editData, position: e.target.value })}
-                    placeholder="Pozícia"
-                    className="h-8 text-xs"
-                    data-testid={`medical-network-edit-position-${assignment.id}`}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Rola</Label>
-                  <Input
-                    value={editData.role}
-                    onChange={e => setEditData({ ...editData, role: e.target.value })}
-                    placeholder="Rola"
-                    className="h-8 text-xs"
-                    data-testid={`medical-network-edit-role-${assignment.id}`}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Kategória</Label>
-                  <Select value={editData.categoryId || "_none"} onValueChange={v => setEditData({ ...editData, categoryId: v })}>
-                    <SelectTrigger className="h-8 text-xs" data-testid={`medical-network-edit-category-${assignment.id}`}>
-                      <SelectValue placeholder="Vyberte" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">— Žiadna —</SelectItem>
-                      {(categoriesQuery.data || []).map((cat: any) => (
-                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{mpnT?.position || "Position"}</Label>
+                <Select value={editData.categoryId || "_none"} onValueChange={v => setEditData({ ...editData, categoryId: v })}>
+                  <SelectTrigger className="h-8 text-xs" data-testid={`medical-network-edit-category-${assignment.id}`}>
+                    <SelectValue placeholder="-" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— {t.common?.none || "None"} —</SelectItem>
+                    {(categoriesQuery.data || []).map((cat: any) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <span className="flex items-center gap-2">
+                          {getLocalizedCategoryName ? getLocalizedCategoryName(cat, locale) : cat.name}
+                          {cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Poznámka</Label>
+                <Label className="text-xs">{mpnT?.notes || "Notes"}</Label>
                 <Textarea
                   value={editData.notes}
                   onChange={e => setEditData({ ...editData, notes: e.target.value })}
-                  placeholder="Poznámka k zaradeniu"
+                  placeholder={mpnT?.notesPlaceholder || "Note..."}
                   className="text-xs min-h-[60px]"
                   data-testid={`medical-network-edit-notes-${assignment.id}`}
                 />
@@ -551,20 +530,11 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
               <div className="flex items-center gap-6">
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <Checkbox
-                    checked={editData.isPrimary}
-                    onCheckedChange={(v: boolean) => setEditData({ ...editData, isPrimary: v })}
-                    data-testid={`medical-network-edit-primary-${assignment.id}`}
-                  />
-                  <Star className="h-3.5 w-3.5 text-amber-500" />
-                  Primárne zaradenie
-                </label>
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <Checkbox
                     checked={editData.isActive}
                     onCheckedChange={(v: boolean) => setEditData({ ...editData, isActive: v })}
                     data-testid={`medical-network-edit-active-${assignment.id}`}
                   />
-                  Aktívne
+                  {t.common?.active || "Active"}
                 </label>
               </div>
               <div className="flex items-center gap-2 pt-1">
