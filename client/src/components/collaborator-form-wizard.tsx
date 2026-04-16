@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,17 +139,22 @@ function getLocalizedCatName(cat: any, locale: string): string {
   return localeMap[locale] || cat.name || "";
 }
 
-function PartnerCategoryField({ value, onChange, collaboratorId, t }: {
+function PartnerCategoryField({ value, onChange, collaboratorId, t, scopeFilter }: {
   value: string;
   onChange: (val: string) => void;
   collaboratorId?: string;
   t: any;
+  scopeFilter?: string;
 }) {
   const { locale } = useI18n();
   const categoriesQuery = useQuery<any[]>({
     queryKey: ["/api/mpn/categories"],
   });
-  const categories = categoriesQuery.data || [];
+  const categories = useMemo(() => {
+    const all = categoriesQuery.data || [];
+    if (!scopeFilter) return all;
+    return all.filter((c: any) => (c.entityScope || c.entity_scope) === scopeFilter);
+  }, [categoriesQuery.data, scopeFilter]);
 
   return (
     <div className="space-y-2">
@@ -240,6 +245,7 @@ interface CollaboratorFormWizardProps {
   initialData?: Collaborator | null;
   onSuccess: () => void;
   onCancel?: () => void;
+  positionScopeFilter?: string;
 }
 
 // Pending address for Add mode (before collaborator is saved)
@@ -3313,7 +3319,7 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
   );
 }
 
-export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: CollaboratorFormWizardProps) {
+export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, positionScopeFilter }: CollaboratorFormWizardProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
@@ -3864,6 +3870,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 onChange={(val) => setFormData({ ...formData, partnerCategory: val })}
                 collaboratorId={initialData?.id}
                 t={t}
+                scopeFilter={positionScopeFilter}
               />
             </div>
 

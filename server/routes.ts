@@ -14956,12 +14956,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const collabType = req.query.type as string;
       const agreement = req.query.agreement as string;
       const positionScope = req.query.positionScope as string;
+      const excludeScope = req.query.excludeScope as string;
 
       let scopeCategoryIds: Set<string> | null = null;
-      if (positionScope) {
+      let excludeCategoryIds: Set<string> | null = null;
+      if (positionScope || excludeScope) {
         const { mpnCategories: mpnCats } = await import("@shared/schema");
         const allCats = await db.select().from(mpnCats);
-        scopeCategoryIds = new Set(allCats.filter((c: any) => c.entityScope === positionScope).map((c: any) => c.id));
+        if (positionScope) {
+          scopeCategoryIds = new Set(allCats.filter((c: any) => c.entityScope === positionScope).map((c: any) => c.id));
+        }
+        if (excludeScope) {
+          excludeCategoryIds = new Set(allCats.filter((c: any) => c.entityScope === excludeScope).map((c: any) => c.id));
+        }
       }
 
       if (req.query.page || req.query.search) {
@@ -15005,6 +15012,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             return true;
           });
           if (scopeCategoryIds) filtered = filtered.filter((c: any) => c.partnerCategory && scopeCategoryIds!.has(c.partnerCategory));
+          if (excludeCategoryIds) filtered = filtered.filter((c: any) => !c.partnerCategory || !excludeCategoryIds!.has(c.partnerCategory));
           const offset = ((page || 1) - 1) * limit;
           return res.json({ data: filtered.slice(offset, offset + limit), total: filtered.length });
         }
@@ -15039,9 +15047,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             } catch { return { ...collab, hasExpiredAgreement: false, hasValidAgreement: false, hasNoAgreement: true, hospitalCount: 0, clinicCount: 0 }; }
           })
         );
+        let finalData = enrichedData;
         if (scopeCategoryIds) {
-          const scopeFiltered = enrichedData.filter((c: any) => c.partnerCategory && scopeCategoryIds!.has(c.partnerCategory));
-          return res.json({ data: scopeFiltered, total: scopeFiltered.length });
+          finalData = finalData.filter((c: any) => c.partnerCategory && scopeCategoryIds!.has(c.partnerCategory));
+        }
+        if (excludeCategoryIds) {
+          finalData = finalData.filter((c: any) => !c.partnerCategory || !excludeCategoryIds!.has(c.partnerCategory));
+        }
+        if (scopeCategoryIds || excludeCategoryIds) {
+          return res.json({ data: finalData, total: finalData.length });
         }
         return res.json({ data: enrichedData, total: result.total });
       }
@@ -15083,11 +15097,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const counts = assignmentMap2[collab.id] || { hospitalCount: 0, clinicCount: 0 };
         return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
       });
+      let finalCollabs = enrichedCollaborators;
       if (scopeCategoryIds) {
-        const scopeFiltered = enrichedCollaborators.filter((c: any) => c.partnerCategory && scopeCategoryIds!.has(c.partnerCategory));
-        return res.json(scopeFiltered);
+        finalCollabs = finalCollabs.filter((c: any) => c.partnerCategory && scopeCategoryIds!.has(c.partnerCategory));
       }
-      res.json(enrichedCollaborators);
+      if (excludeCategoryIds) {
+        finalCollabs = finalCollabs.filter((c: any) => !c.partnerCategory || !excludeCategoryIds!.has(c.partnerCategory));
+      }
+      res.json(finalCollabs);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch collaborators" });
     }

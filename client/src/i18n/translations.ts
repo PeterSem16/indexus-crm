@@ -7201,6 +7201,7 @@ export const translations: Record<Locale, Translations> = {
         healthcareNetworks: 'Healthcare Networks',
         midwifes: 'Midwifes',
         persons: 'Persons',
+        addMidwife: 'Add Midwife',
       },
     },
     collections: {
@@ -13020,6 +13021,7 @@ export const translations: Record<Locale, Translations> = {
         healthcareNetworks: 'Zdravotnícke siete',
         midwifes: 'Pôrodné asistentky',
         persons: 'Osoby',
+        addMidwife: 'Pridať pôrodnú asistentku',
       },
     },
     collections: {
@@ -19001,6 +19003,7 @@ export const translations: Record<Locale, Translations> = {
         healthcareNetworks: 'Zdravotnické sítě',
         midwifes: 'Porodní asistentky',
         persons: 'Osoby',
+        addMidwife: 'Přidat porodní asistentku',
       },
     },
     clinics: {

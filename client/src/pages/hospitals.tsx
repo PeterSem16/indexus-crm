@@ -3066,11 +3066,11 @@ export default function HospitalsPage() {
         </TabsContent>
 
         <TabsContent value="midwifes" className="mt-6">
-          <CollaboratorsContent embedded={true} positionScope="independent" />
+          <CollaboratorsContent embedded={true} positionScope="independent" addButtonLabel={t.hospitals.tabs.addMidwife || "Add Midwife"} />
         </TabsContent>
 
         <TabsContent value="collaborators" className="mt-6">
-          <CollaboratorsContent embedded={true} />
+          <CollaboratorsContent embedded={true} excludeScope="independent" />
         </TabsContent>
 
         <TabsContent value="networks" className="mt-6">

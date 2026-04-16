@@ -1971,7 +1971,7 @@ function CollaboratorForm({
   );
 }
 
-export function CollaboratorsContent({ embedded = false, positionScope }: { embedded?: boolean; positionScope?: string }) {
+export function CollaboratorsContent({ embedded = false, positionScope, excludeScope, addButtonLabel }: { embedded?: boolean; positionScope?: string; excludeScope?: string; addButtonLabel?: string }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2017,6 +2017,7 @@ export function CollaboratorsContent({ embedded = false, positionScope }: { embe
   if (filterType) collabQueryParams.type = filterType;
   if (filterAgreement) collabQueryParams.agreement = filterAgreement;
   if (positionScope) collabQueryParams.positionScope = positionScope;
+  if (excludeScope) collabQueryParams.excludeScope = excludeScope;
   const { data: collaboratorsPaginatedResult, isLoading, refetch: refetchCollaborators } = useQuery<{ data: Collaborator[], total: number }>({
     queryKey: ["/api/collaborators", collabQueryParams],
     refetchInterval: 60000,
@@ -2409,7 +2410,7 @@ export function CollaboratorsContent({ embedded = false, positionScope }: { embe
           {canAdd("collaborators") && (
             <Button onClick={handleAddNew} data-testid="button-add-collaborator">
               <Plus className="h-4 w-4 mr-2" />
-              {t.collaborators.addCollaborator}
+              {addButtonLabel || t.collaborators.addCollaborator}
             </Button>
           )}
         </PageHeader>
@@ -2534,7 +2535,7 @@ export function CollaboratorsContent({ embedded = false, positionScope }: { embe
                 {canAdd("collaborators") && (
                   <Button onClick={handleAddNew} className="bg-red-700 hover:bg-red-800 text-white" size="sm" data-testid="button-add-collaborator-inline">
                     <Plus className="h-4 w-4 mr-1.5" />
-                    {t.collaborators.addCollaborator}
+                    {addButtonLabel || t.collaborators.addCollaborator}
                   </Button>
                 )}
               </div>
@@ -2758,6 +2759,7 @@ export function CollaboratorsContent({ embedded = false, positionScope }: { embe
               initialData={selectedCollaborator || undefined}
               onSuccess={() => setIsFormOpen(false)}
               onCancel={() => setIsFormOpen(false)}
+              positionScopeFilter={positionScope}
             />
           </div>
         </>
