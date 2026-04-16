@@ -184,7 +184,7 @@ function PersonnelTabContent({ entityType, entityId, entityName }: { entityType:
 }
 
 
-function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: HospitalType; onClose: () => void; onSuccess: () => void }) {
+export function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: HospitalType; onClose: () => void; onSuccess: () => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState("basic");

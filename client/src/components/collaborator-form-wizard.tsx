@@ -23,6 +23,8 @@ import type { Collaborator, Hospital, SafeUser, HealthInsurance, Role, Collabora
 import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3, Sparkles, Loader2, Network, Hospital as HospitalIcon, Star, FolderOpen, File, FileUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ClinicFormSheet } from "@/components/clinic-form-wizard";
+import { HospitalEditDrawer } from "@/pages/hospitals";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CollaboratorAddress, CollaboratorAgreement, BillingDetails } from "@shared/schema";
@@ -666,126 +668,36 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
         </div>
       )}
 
-      <Sheet open={!!entityDrawer} onOpenChange={(open) => { if (!open) setEntityDrawer(null); }}>
-        <SheetContent className="sm:max-w-xl overflow-y-auto" data-testid="institution-detail-drawer">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              {entityDrawer?.type === "hospital" ? <HospitalIcon className="h-5 w-5 text-blue-600" /> : <Building2 className="h-5 w-5 text-emerald-600" />}
-              {entityDrawer?.name || ""}
-            </SheetTitle>
-          </SheetHeader>
-          {entityLoading ? (
+      {entityDrawer && entityLoading && (
+        <Sheet open={true} onOpenChange={() => setEntityDrawer(null)}>
+          <SheetContent className="sm:max-w-xl">
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : entityDetail ? (
-            <div className="space-y-4 mt-4">
-              <div className="flex flex-wrap gap-1.5">
-                <Badge variant="outline">
-                  {entityDrawer?.type === "hospital" ? "Nemocnica" : "Ambulancia"}
-                </Badge>
-                {entityDetail.countryCode && (
-                  <Badge variant="outline">{getCountryFlag(entityDetail.countryCode)} {entityDetail.countryCode}</Badge>
-                )}
-                {entityDetail.region && <Badge variant="secondary">{entityDetail.region}</Badge>}
-                {entityDetail.district && <Badge variant="secondary">{entityDetail.district}</Badge>}
-              </div>
-
-              <Card>
-                <CardContent className="p-4 space-y-2 text-sm">
-                  {entityDetail.name && (
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="font-medium">{entityDetail.name}</span>
-                    </div>
-                  )}
-                  {(entityDetail.address || entityDetail.city) && (
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                      <span>{[entityDetail.address, entityDetail.zipCode || entityDetail.zip, entityDetail.city].filter(Boolean).join(", ")}</span>
-                    </div>
-                  )}
-                  {entityDetail.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <a href={`tel:${entityDetail.phone}`} className="font-medium hover:underline">{entityDetail.phone}</a>
-                    </div>
-                  )}
-                  {entityDetail.phone2 && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <a href={`tel:${entityDetail.phone2}`} className="font-medium hover:underline">{entityDetail.phone2}</a>
-                    </div>
-                  )}
-                  {entityDetail.email && (
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <a href={`mailto:${entityDetail.email}`} className="font-medium hover:underline truncate">{entityDetail.email}</a>
-                    </div>
-                  )}
-                  {entityDetail.email2 && (
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <a href={`mailto:${entityDetail.email2}`} className="font-medium hover:underline truncate">{entityDetail.email2}</a>
-                    </div>
-                  )}
-                  {entityDetail.website && (
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <a href={entityDetail.website} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate text-blue-600">{entityDetail.website}</a>
-                    </div>
-                  )}
-                  {entityDetail.ico && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>IČO: <span className="font-medium text-foreground">{entityDetail.ico}</span></span>
-                      {entityDetail.dic && <span>· DIČ: <span className="font-medium text-foreground">{entityDetail.dic}</span></span>}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {(entityDetail.doctorFirstName || entityDetail.doctorLastName || entityDetail.doctorFullName) && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <h4 className="text-sm font-semibold flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      Primárny lekár
-                    </h4>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 space-y-1.5 text-sm">
-                    <div className="font-medium">
-                      {entityDetail.doctorFullName || [entityDetail.doctorTitle, entityDetail.doctorFirstName, entityDetail.doctorLastName].filter(Boolean).join(" ")}
-                    </div>
-                    {entityDetail.doctorPhone && (
-                      <div className="flex items-center gap-2 text-xs">
-                        <Phone className="h-3 w-3 text-muted-foreground" />
-                        <a href={`tel:${entityDetail.doctorPhone}`} className="hover:underline">{entityDetail.doctorPhone}</a>
-                      </div>
-                    )}
-                    {entityDetail.doctorEmail && (
-                      <div className="flex items-center gap-2 text-xs">
-                        <FileText className="h-3 w-3 text-muted-foreground" />
-                        <a href={`mailto:${entityDetail.doctorEmail}`} className="hover:underline truncate">{entityDetail.doctorEmail}</a>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {entityDetail.notes && (
-                <Card>
-                  <CardContent className="p-4 text-sm">
-                    <div className="text-xs text-muted-foreground mb-1">Poznámka</div>
-                    <div className="whitespace-pre-wrap">{entityDetail.notes}</div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          ) : (
-            <div className="py-12 text-center text-sm text-muted-foreground">Nepodarilo sa načítať detail.</div>
-          )}
-        </SheetContent>
-      </Sheet>
+          </SheetContent>
+        </Sheet>
+      )}
+      {entityDrawer && !entityLoading && entityDetail && entityDrawer.type === "clinic" && (
+        <ClinicFormSheet
+          open={true}
+          onOpenChange={(open) => { if (!open) setEntityDrawer(null); }}
+          initialData={entityDetail}
+          onSuccess={() => {
+            setEntityDrawer(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/mpn/person", personId, "assignments"] });
+          }}
+        />
+      )}
+      {entityDrawer && !entityLoading && entityDetail && entityDrawer.type === "hospital" && (
+        <HospitalEditDrawer
+          hospital={entityDetail}
+          onClose={() => setEntityDrawer(null)}
+          onSuccess={() => {
+            setEntityDrawer(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/mpn/person", personId, "assignments"] });
+          }}
+        />
+      )}
     </div>
   );
 }
