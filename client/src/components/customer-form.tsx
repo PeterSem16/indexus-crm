@@ -36,6 +36,8 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { EmbeddedPotentialCaseForm } from "./potential-case-form";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 import { PhoneNumberField } from "@/components/phone-number-field";
+import { SuggestRegionButton } from "@/components/suggest-region-button";
+import { REGIONS_BY_COUNTRY, getDistrictsForRegion, getGeoLabels } from "@/lib/regions";
 
 function validateIBAN(iban: string): boolean {
   if (!iban) return true;
@@ -78,6 +80,7 @@ const customerFormSchema = z.object({
   address: z.string().optional(),
   postalCode: z.string().optional(),
   region: z.string().optional(),
+  district: z.string().optional(),
   useCorrespondenceAddress: z.boolean().default(false),
   corrName: z.string().optional(),
   corrAddress: z.string().optional(),
@@ -322,6 +325,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
       address: initialData?.address || "",
       postalCode: initialData?.postalCode || "",
       region: initialData?.region || "",
+      district: (initialData as any)?.district || "",
       useCorrespondenceAddress: initialData?.useCorrespondenceAddress || false,
       corrName: initialData?.corrName || "",
       corrAddress: initialData?.corrAddress || "",
@@ -717,7 +721,50 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                   )}
                   {!isHidden("region") && (
                     <FormField control={form.control} name="region" render={({ field }) => (
-                      <FormItem><FormLabel>{t.customers.fields.region}</FormLabel><FormControl><Input {...field} data-testid="input-region" disabled={isReadonly("region")} className={isReadonly("region") ? "bg-muted" : ""} /></FormControl><FormMessage /></FormItem>
+                      <FormItem>
+                        <FormLabel>{getGeoLabels(selectedCountry).region}</FormLabel>
+                        <div className="flex gap-1.5">
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl><SelectTrigger data-testid="select-region" className={isReadonly("region") ? "bg-muted" : ""}><SelectValue placeholder={getGeoLabels(selectedCountry).region} /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              {(REGIONS_BY_COUNTRY[selectedCountry] || []).map((r: string) => (
+                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                              ))}
+                              {field.value && !(REGIONS_BY_COUNTRY[selectedCountry] || []).includes(field.value) && (
+                                <SelectItem value={field.value}>{field.value}</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <SuggestRegionButton
+                            countryCode={selectedCountry}
+                            city={form.watch("city") || ""}
+                            streetNumber={form.watch("address") || ""}
+                            postalCode={form.watch("postalCode") || ""}
+                            size="icon"
+                            onSuggestion={(region, district) => {
+                              form.setValue("region", region);
+                              form.setValue("district", district);
+                            }}
+                          />
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
+                  {!isHidden("region") && (
+                    <FormField control={form.control} name="district" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{getGeoLabels(selectedCountry).district}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl><SelectTrigger data-testid="select-district"><SelectValue placeholder={getGeoLabels(selectedCountry).district} /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {getDistrictsForRegion(selectedCountry, form.watch("region") || "", field.value).map((d: string) => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
                     )} />
                   )}
                   {!isHidden("country") && (
@@ -749,7 +796,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                       <FormField control={form.control} name="corrAddress" render={({ field }) => (<FormItem><FormLabel>{t.customers.fields.street}</FormLabel><FormControl><Input {...field} data-testid="input-corr-address" /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="corrCity" render={({ field }) => (<FormItem><FormLabel>{t.customers.city}</FormLabel><FormControl><Input {...field} data-testid="input-corr-city" /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="corrPostalCode" render={({ field }) => (<FormItem><FormLabel>{t.customers.postalCode}</FormLabel><FormControl><Input {...field} data-testid="input-corr-postal-code" /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="corrRegion" render={({ field }) => (<FormItem><FormLabel>{t.customers.fields.region}</FormLabel><FormControl><Input {...field} data-testid="input-corr-region" /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="corrRegion" render={({ field }) => (<FormItem><FormLabel>{getGeoLabels(form.watch("corrCountry") || selectedCountry).region}</FormLabel><FormControl><Input {...field} data-testid="input-corr-region" /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="corrCountry" render={({ field }) => (
                         <FormItem><FormLabel>{t.customers.country}</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>

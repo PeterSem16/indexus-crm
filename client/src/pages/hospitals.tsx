@@ -402,7 +402,7 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
                     <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
                       <SelectTrigger data-testid="select-ed-hospital-district"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                       <SelectContent>
-                        {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                        {getDistrictsForRegion(formData.countryCode, formData.region, formData.district).map((d: string) => (
                           <SelectItem key={d} value={d}>{d}</SelectItem>
                         ))}
                       </SelectContent>
@@ -717,7 +717,7 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                     <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
                       <SelectTrigger data-testid="select-hospital-district"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                       <SelectContent>
-                        {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                        {getDistrictsForRegion(formData.countryCode, formData.region, formData.district).map((d: string) => (
                           <SelectItem key={d} value={d}>{d}</SelectItem>
                         ))}
                       </SelectContent>
@@ -2840,6 +2840,7 @@ export default function HospitalsPage() {
                     <RefreshCw className="h-4 w-4 mr-1.5" />
                     {t.common.refresh}
                   </Button>
+                  <BulkGeoMappingButton entityType="clinics" entityLabel="Kliniky" />
                   {canAdd("hospitals") && (
                     <Button onClick={handleAddNewClinic} className="bg-red-700 hover:bg-red-800 text-white" data-testid="button-add-clinic">
                       <Plus className="h-4 w-4 mr-1.5" />

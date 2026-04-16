@@ -48,6 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageHeader } from "@/components/page-header";
+import { BulkGeoMappingButton } from "@/components/bulk-geo-mapping";
 import { AdvancedFilters, type CustomerFilters } from "@/components/advanced-filters";
 import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
@@ -7115,12 +7116,15 @@ export default function CustomersPage() {
         title={t.customers.title}
         description={t.customers.description}
       >
-        {canAdd("customers") && (
-          <Button onClick={() => setIsFormOpen(true)} data-testid="button-add-customer" data-tour="add-customer">
-            <Plus className="h-4 w-4 mr-2" />
-            {t.customers.addCustomer}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <BulkGeoMappingButton entityType="customers" entityLabel="Klienti" />
+          {canAdd("customers") && (
+            <Button onClick={() => setIsFormOpen(true)} data-testid="button-add-customer" data-tour="add-customer">
+              <Plus className="h-4 w-4 mr-2" />
+              {t.customers.addCustomer}
+            </Button>
+          )}
+        </div>
       </PageHeader>
 
       {(() => {

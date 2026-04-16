@@ -512,7 +512,7 @@ function AddressTab({
           <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
             <SelectTrigger data-testid={`select-address-${addressType}-district`}><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
             <SelectContent>
-              {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+              {getDistrictsForRegion(formData.countryCode, formData.region, formData.district).map((d: string) => (
                 <SelectItem key={d} value={d}>{d}</SelectItem>
               ))}
             </SelectContent>

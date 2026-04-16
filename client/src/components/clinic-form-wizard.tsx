@@ -1183,7 +1183,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
                             <SelectTrigger data-testid="select-clinic-district" className="h-8 text-sm"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                             <SelectContent>
-                              {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                              {getDistrictsForRegion(formData.countryCode, formData.region, formData.district).map((d: string) => (
                                 <SelectItem key={d} value={d}>{d}</SelectItem>
                               ))}
                             </SelectContent>
@@ -2613,7 +2613,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
                           <SelectTrigger data-testid="select-clinic-district" className="h-9"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                           <SelectContent>
-                            {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                            {getDistrictsForRegion(formData.countryCode, formData.region, formData.district).map((d: string) => (
                               <SelectItem key={d} value={d}>{d}</SelectItem>
                             ))}
                           </SelectContent>
@@ -3108,7 +3108,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                       <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
                         <SelectTrigger data-testid="select-add-clinic-district" className="h-9"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                         <SelectContent>
-                          {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
+                          {getDistrictsForRegion(formData.countryCode, formData.region, formData.district).map((d: string) => (
                             <SelectItem key={d} value={d}>{d}</SelectItem>
                           ))}
                         </SelectContent>

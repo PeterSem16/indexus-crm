@@ -43975,9 +43975,10 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
       };
       const table = tableMap[entityType];
 
-      const countryField = entityType === "customers" ? "country_code" : "country_code";
+      const countryField = entityType === "customers" ? "country" : "country_code";
+      const streetField = entityType === "customers" ? "address" : "street_number";
       const result = await pool.query(
-        `SELECT id, city, street_number, postal_code, region, district FROM ${table} WHERE ${countryField} = $1 AND city IS NOT NULL AND city != '' AND (region IS NULL OR region = '' OR district IS NULL OR district = '')`,
+        `SELECT id, city, ${streetField} as street_number, postal_code, region, district FROM ${table} WHERE ${countryField} = $1 AND city IS NOT NULL AND city != '' AND (region IS NULL OR region = '' OR district IS NULL OR district = '')`,
         [countryCode]
       );
 
