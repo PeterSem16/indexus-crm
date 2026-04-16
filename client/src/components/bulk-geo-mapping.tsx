@@ -3,165 +3,256 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, MapPin, Database } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, MapPinPlus, Building2, Stethoscope, Users, UserCheck, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { COUNTRIES } from "@/lib/countries";
 import { getGeoLabels } from "@/lib/regions";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 
-interface BulkGeoMappingProps {
-  entityType: "hospitals" | "clinics" | "collaborators" | "customers";
-  entityLabel: string;
+const MODULES = [
+  { key: "hospitals", label: "Nemocnice", icon: Building2 },
+  { key: "clinics", label: "Kliniky", icon: Stethoscope },
+  { key: "collaborators", label: "Spolupracovníci", icon: Users },
+  { key: "customers", label: "Klienti", icon: UserCheck },
+] as const;
+
+type ModuleKey = typeof MODULES[number]["key"];
+
+interface ModuleResult {
+  updated: number;
+  total: number;
+  errors?: string[];
 }
 
-export function BulkGeoMappingButton({ entityType, entityLabel }: BulkGeoMappingProps) {
-  const [open, setOpen] = useState(false);
+export function BulkGeoMappingPanel() {
   const [countryCode, setCountryCode] = useState("");
+  const [selectedModules, setSelectedModules] = useState<Set<ModuleKey>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ updated: number; total: number; errors?: string[] } | null>(null);
+  const [currentModule, setCurrentModule] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, ModuleResult>>({});
+  const [progress, setProgress] = useState(0);
   const { toast } = useToast();
 
   const geoLabels = getGeoLabels(countryCode || "SK");
 
-  const handleBulkMap = async () => {
+  const toggleModule = (key: ModuleKey) => {
+    setSelectedModules(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selectedModules.size === MODULES.length) {
+      setSelectedModules(new Set());
+    } else {
+      setSelectedModules(new Set(MODULES.map(m => m.key)));
+    }
+  };
+
+  const handleRun = async () => {
     if (!countryCode) {
       toast({ title: "Vyberte krajinu", variant: "destructive" });
       return;
     }
+    if (selectedModules.size === 0) {
+      toast({ title: "Vyberte aspoň jeden modul", variant: "destructive" });
+      return;
+    }
 
     setLoading(true);
-    setResult(null);
+    setResults({});
+    setProgress(0);
 
-    try {
-      const resp = await fetch("/api/bulk-suggest-region-district", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ entityType, countryCode }),
-      });
+    const modules = Array.from(selectedModules);
+    let totalUpdated = 0;
+    let totalRecords = 0;
 
-      if (!resp.ok) throw new Error("Failed");
+    for (let i = 0; i < modules.length; i++) {
+      const mod = modules[i];
+      setCurrentModule(mod);
+      setProgress(Math.round((i / modules.length) * 100));
 
-      const data = await resp.json();
-      setResult(data);
-
-      if (data.updated > 0) {
-        toast({
-          title: "Hromadné mapovanie dokončené",
-          description: `Aktualizovaných ${data.updated} z ${data.total} záznamov`,
+      try {
+        const resp = await fetch("/api/bulk-suggest-region-district", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ entityType: mod, countryCode }),
         });
-      } else if (data.total === 0) {
-        toast({
-          title: "Žiadne záznamy na aktualizáciu",
-          description: `Všetky záznamy pre ${countryCode} už majú vyplnený ${geoLabels.region} a ${geoLabels.district}`,
-        });
+
+        if (!resp.ok) throw new Error("Failed");
+
+        const data = await resp.json();
+        setResults(prev => ({ ...prev, [mod]: data }));
+        totalUpdated += data.updated || 0;
+        totalRecords += data.total || 0;
+      } catch {
+        setResults(prev => ({ ...prev, [mod]: { updated: 0, total: 0, errors: ["Chyba pri spracovaní"] } }));
       }
-    } catch (err) {
-      toast({ title: "Chyba pri hromadnom mapovaní", variant: "destructive" });
-    } finally {
-      setLoading(false);
     }
+
+    setProgress(100);
+    setCurrentModule(null);
+    setLoading(false);
+
+    toast({
+      title: "Doplnenie regiónov dokončené",
+      description: `Aktualizovaných ${totalUpdated} z ${totalRecords} záznamov`,
+    });
   };
 
+  const hasResults = Object.keys(results).length > 0;
+
   return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => { setOpen(true); setResult(null); setCountryCode(""); }}
-        className="gap-1.5"
-        data-testid={`button-bulk-geo-${entityType}`}
-      >
-        <Sparkles className="h-3.5 w-3.5" />
-        AI mapovanie
-      </Button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Hromadné AI mapovanie
-            </DialogTitle>
-            <DialogDescription>
-              AI prejde všetky záznamy <strong>{entityLabel}</strong> pre vybranú krajinu a doplní chýbajúci {geoLabels.region} a {geoLabels.district} podľa mesta/adresy.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Krajina</label>
-              <Select value={countryCode} onValueChange={(v) => { setCountryCode(v); setResult(null); }}>
-                <SelectTrigger data-testid="select-bulk-geo-country">
-                  <SelectValue placeholder="Vyberte krajinu" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.filter(c => c.code !== "US").map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.flag} {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
+    <Card className="border-dashed">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <MapPinPlus className="h-5 w-5 text-primary" />
+          Automatické doplnenie regiónov
+        </CardTitle>
+        <CardDescription>
+          Systém automaticky doplní chýbajúce regióny a okresy podľa mesta a adresy pomocou AI. Vyberte krajinu a moduly, ktoré chcete spracovať.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Krajina</Label>
+            <Select value={countryCode} onValueChange={(v) => { setCountryCode(v); setResults({}); }}>
+              <SelectTrigger data-testid="select-bulk-geo-country">
+                <SelectValue placeholder="Vyberte krajinu" />
+              </SelectTrigger>
+              <SelectContent>
+                {COUNTRIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.flag} {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {countryCode && (
-              <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Database className="h-3.5 w-3.5" />
-                  Mapovanie polí pre {countryCode}:
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <Badge variant="outline">{geoLabels.region}</Badge>
-                  <Badge variant="outline">{geoLabels.district}</Badge>
-                </div>
-              </div>
-            )}
-
-            {result && (
-              <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded-lg p-3 text-sm">
-                <div className="font-medium text-green-800 dark:text-green-200">
-                  Výsledok:
-                </div>
-                <div className="text-green-700 dark:text-green-300 mt-1">
-                  Aktualizovaných: <strong>{result.updated}</strong> / {result.total} záznamov
-                </div>
-                {result.errors && result.errors.length > 0 && (
-                  <div className="text-orange-600 dark:text-orange-400 mt-1 text-xs">
-                    {result.errors.length} chýb pri spracovaní
-                  </div>
-                )}
+              <div className="flex gap-2 mt-1">
+                <Badge variant="secondary" className="text-xs">{geoLabels.region}</Badge>
+                <Badge variant="secondary" className="text-xs">{geoLabels.district}</Badge>
               </div>
             )}
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)} data-testid="button-bulk-geo-cancel">
-              Zavrieť
-            </Button>
-            <Button onClick={handleBulkMap} disabled={loading || !countryCode} data-testid="button-bulk-geo-start">
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Mapujem...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Spustiť mapovanie
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Moduly</Label>
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline"
+                onClick={selectAll}
+                data-testid="button-select-all-modules"
+              >
+                {selectedModules.size === MODULES.length ? "Odznačiť všetko" : "Vybrať všetko"}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {MODULES.map(({ key, label, icon: Icon }) => (
+                <label
+                  key={key}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                    selectedModules.has(key)
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-border hover:border-muted-foreground/30"
+                  }`}
+                  data-testid={`checkbox-module-${key}`}
+                >
+                  <Checkbox
+                    checked={selectedModules.has(key)}
+                    onCheckedChange={() => toggleModule(key)}
+                  />
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {loading && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Spracovávam: {MODULES.find(m => m.key === currentModule)?.label || ""}...
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
+        )}
+
+        {hasResults && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Výsledky</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {MODULES.filter(m => results[m.key]).map(({ key, label, icon: Icon }) => {
+                  const r = results[key];
+                  const hasErrors = r.errors && r.errors.length > 0;
+                  return (
+                    <div
+                      key={key}
+                      className={`flex items-center gap-3 p-3 rounded-lg border text-sm ${
+                        r.updated > 0
+                          ? "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20"
+                          : r.total === 0
+                          ? "border-muted bg-muted/30"
+                          : "border-border"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium">{label}</span>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {r.total === 0 ? (
+                            "Všetky záznamy sú kompletné"
+                          ) : (
+                            <>Doplnených: <strong>{r.updated}</strong> / {r.total}</>
+                          )}
+                        </div>
+                      </div>
+                      {r.updated > 0 ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                      ) : hasErrors ? (
+                        <AlertCircle className="h-4 w-4 text-orange-500 shrink-0" />
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="flex justify-end">
+          <Button
+            onClick={handleRun}
+            disabled={loading || !countryCode || selectedModules.size === 0}
+            data-testid="button-run-geo-mapping"
+            className="gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Spracovávam...
+              </>
+            ) : (
+              <>
+                <MapPinPlus className="h-4 w-4" />
+                Spustiť doplnenie
+              </>
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

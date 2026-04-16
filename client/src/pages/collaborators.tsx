@@ -35,7 +35,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { REGIONS_BY_COUNTRY, getAutoRegion, getAutoDistrict, getDistrictsForRegion, getGeoLabels } from "@/lib/regions";
 import { SuggestRegionButton } from "@/components/suggest-region-button";
-import { BulkGeoMappingButton } from "@/components/bulk-geo-mapping";
 import type { 
   Collaborator, 
   CollaboratorAddress, 
@@ -2446,15 +2445,12 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
     <div className={embedded ? "space-y-4" : "space-y-6"}>
       {!embedded && (
         <PageHeader title={t.collaborators.title} description={t.collaborators.description}>
-          <div className="flex items-center gap-2">
-            <BulkGeoMappingButton entityType="collaborators" entityLabel="Collaborátori" />
-            {canAdd("collaborators") && (
-              <Button onClick={handleAddNew} data-testid="button-add-collaborator">
-                <Plus className="h-4 w-4 mr-2" />
-                {addButtonLabel || t.collaborators.addCollaborator}
-              </Button>
-            )}
-          </div>
+          {canAdd("collaborators") && (
+            <Button onClick={handleAddNew} data-testid="button-add-collaborator">
+              <Plus className="h-4 w-4 mr-2" />
+              {addButtonLabel || t.collaborators.addCollaborator}
+            </Button>
+          )}
         </PageHeader>
       )}
 

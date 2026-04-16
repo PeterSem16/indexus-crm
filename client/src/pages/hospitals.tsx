@@ -42,7 +42,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion, getGeoLabels } from "@/lib/regions";
 import { SuggestRegionButton } from "@/components/suggest-region-button";
-import { BulkGeoMappingButton } from "@/components/bulk-geo-mapping";
 import type { Hospital as HospitalType, Laboratory, SafeUser, Clinic } from "@shared/schema";
 import { COUNTRIES } from "@shared/schema";
 import {
@@ -2544,7 +2543,6 @@ export default function HospitalsPage() {
                     <RefreshCw className="h-4 w-4 mr-1.5" />
                     {t.common.refresh}
                   </Button>
-                  <BulkGeoMappingButton entityType="hospitals" entityLabel="Nemocnice" />
                   {canAdd("hospitals") && (
                     <Button onClick={handleAddNew} className="bg-red-700 hover:bg-red-800 text-white" data-testid="button-add-hospital">
                       <Plus className="h-4 w-4 mr-1.5" />
@@ -2840,7 +2838,6 @@ export default function HospitalsPage() {
                     <RefreshCw className="h-4 w-4 mr-1.5" />
                     {t.common.refresh}
                   </Button>
-                  <BulkGeoMappingButton entityType="clinics" entityLabel="Kliniky" />
                   {canAdd("hospitals") && (
                     <Button onClick={handleAddNewClinic} className="bg-red-700 hover:bg-red-800 text-white" data-testid="button-add-clinic">
                       <Plus className="h-4 w-4 mr-1.5" />

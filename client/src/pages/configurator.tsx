@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
+import { BulkGeoMappingPanel } from "@/components/bulk-geo-mapping";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16873,6 +16874,8 @@ function CountrySystemSettingsTab() {
           </Button>
         </div>
       )}
+
+      <BulkGeoMappingPanel />
 
       {!selectedCountry && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
