@@ -469,7 +469,7 @@ export function InstitutionPersonnelPanel({
               </div>
             )}
 
-            {clinicDoctor && (
+            {clinicDoctor && !assigned.some((p: any) => p.is_primary) && (
               <div className="border rounded-lg p-3 bg-blue-50/50 dark:bg-blue-950/20" data-testid="card-clinic-doctor">
                 <div className="flex items-center gap-2 mb-1">
                   <Stethoscope className="h-4 w-4 text-blue-600" />
@@ -757,7 +757,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
 
   return (
     <div className="space-y-4" data-testid="institution-personnel-manager">
-      {clinicDoctor && (
+      {clinicDoctor && !assigned.some((p: any) => p.is_primary) && (
         <PrimaryContactCard
           clinicDoctor={clinicDoctor}
           entityId={entityId}
