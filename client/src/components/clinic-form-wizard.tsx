@@ -68,7 +68,9 @@ interface ClinicFormData {
   region: string;
   district: string;
   phone: string;
+  phone2: string;
   email: string;
+  email2: string;
   website: string;
   latitude: string;
   longitude: string;
@@ -393,12 +395,14 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [pipelineMenuOpen, setPipelineMenuOpen] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [showExtraContacts, setShowExtraContacts] = useState(false);
+  const [savePersonDialogOpen, setSavePersonDialogOpen] = useState(false);
 
   const buildFormData = (data: Clinic | null | undefined): ClinicFormData => {
     if (!data) return {
       name: "", doctorTitle: "", doctorFirstName: "", doctorLastName: "",
       address: "", city: "", postalCode: "", countryCode: "", region: "", district: "",
-      phone: "", email: "", website: "", latitude: "", longitude: "", isActive: true,
+      phone: "", phone2: "", email: "", email2: "", website: "", latitude: "", longitude: "", isActive: true,
       notes: "", leadSource: "", leadSourceDate: "", leadSourceNotes: "", conferenceName: "",
       conferenceDate: "", isReferredByDoctor: false, isFromConference: false,
       initialStatus: "", interestCooperation: "", interestContract: "", contractStatus: "",
@@ -429,7 +433,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     return {
       name: data.name, doctorTitle: dTitle, doctorFirstName: dFirst, doctorLastName: dLast,
       address: data.address || "", city: data.city || "", postalCode: data.postalCode || "",
-      countryCode: data.countryCode, region: (data as any).region || "", district: (data as any).district || "", phone: data.phone || "", email: data.email || "",
+      countryCode: data.countryCode, region: (data as any).region || "", district: (data as any).district || "", phone: data.phone || "", phone2: (data as any).phone2 || "", email: data.email || "", email2: (data as any).email2 || "",
       website: data.website || "", latitude: data.latitude || "", longitude: data.longitude || "",
       isActive: data.isActive, notes: data.notes || "", leadSource: mainSource,
       leadSourceDate: data.leadSourceDate ? new Date(data.leadSourceDate).toISOString().split("T")[0] : "",
@@ -684,7 +688,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         region: data.region || null,
         district: data.district || null,
         phone: data.phone || null,
+        phone2: data.phone2 || null,
         email: data.email || null,
+        email2: data.email2 || null,
         website: data.website || null,
         latitude: data.latitude ? data.latitude : null,
         longitude: data.longitude ? data.longitude : null,
@@ -1208,6 +1214,21 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           <Input value={formData.doctorLastName} onChange={(e) => setFormData({ ...formData, doctorLastName: e.target.value })} placeholder={t.common.lastName || "Last name"} className="h-8 text-sm" data-testid="input-doctor-lastname" />
                         </div>
                       </div>
+                      {initialData?.id && (formData.doctorFirstName || formData.doctorLastName) && (
+                        <div className="pt-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => setSavePersonDialogOpen(true)}
+                            data-testid="button-save-doctor-as-person-compact"
+                          >
+                            <UserPlus className="h-3 w-3" />
+                            {(t.clinics.sections as any)?.saveAsPerson || "Uložiť ako osobu"}
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -1229,6 +1250,23 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-8 text-sm" data-testid="input-clinic-email" />
                         </div>
                       </div>
+                      {(formData.phone2 || formData.email2 || showExtraContacts) ? (
+                        <div className="grid gap-x-3 gap-y-2 grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">{t.clinics.phone} 2</Label>
+                            <Input value={formData.phone2} onChange={(e) => setFormData({ ...formData, phone2: e.target.value })} placeholder={`${t.clinics.phone} 2`} className="h-8 text-sm" data-testid="input-clinic-phone2" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">{t.clinics.email} 2</Label>
+                            <Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-8 text-sm" data-testid="input-clinic-email2" />
+                          </div>
+                        </div>
+                      ) : (
+                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowExtraContacts(true)} data-testid="button-show-extra-contacts">
+                          <Plus className="h-3 w-3 mr-1" />
+                          {(t.clinics.sections as any)?.addMoreContacts || "Pridať ďalší telefón / email"}
+                        </Button>
+                      )}
                       <div className="space-y-1">
                         <Label className="text-[11px]">{t.clinics.website}</Label>
                         <div className="flex gap-2">
@@ -1795,6 +1833,19 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     <Stethoscope className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
                   </div>
                   <h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.doctor || 'Doctor'}</h3>
+                  {initialData?.id && (formData.doctorFirstName || formData.doctorLastName) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 ml-auto text-xs gap-1"
+                      onClick={() => setSavePersonDialogOpen(true)}
+                      data-testid="button-save-doctor-as-person"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      {(t.clinics.sections as any)?.saveAsPerson || "Uložiť ako osobu"}
+                    </Button>
+                  )}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3 pl-1">
                   <div className="space-y-1">
@@ -1831,6 +1882,25 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-9" data-testid="input-clinic-email" />
                   </div>
                 </div>
+                {(formData.phone2 || formData.email2 || showExtraContacts) ? (
+                  <div className="grid gap-3 sm:grid-cols-2 pl-1">
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t.clinics.phone} 2</Label>
+                      <Input value={formData.phone2} onChange={(e) => setFormData({ ...formData, phone2: e.target.value })} placeholder={`${t.clinics.phone} 2`} className="h-9" data-testid="input-clinic-phone2" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t.clinics.email} 2</Label>
+                      <Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-9" data-testid="input-clinic-email2" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pl-1">
+                    <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowExtraContacts(true)} data-testid="button-show-extra-contacts-tab">
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      {(t.clinics.sections as any)?.addMoreContacts || "Pridať ďalší telefón / email"}
+                    </Button>
+                  </div>
+                )}
                 <div className="space-y-1 pl-1">
                   <Label className="text-xs">{t.clinics.website}</Label>
                   <div className="flex gap-2">
@@ -3190,6 +3260,230 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         </SheetContent>
       </Sheet>
       {mapDialog}
+      {initialData?.id && (
+        <SavePersonFromClinicDialog
+          open={savePersonDialogOpen}
+          onOpenChange={setSavePersonDialogOpen}
+          clinic={initialData}
+          formData={formData}
+        />
+      )}
     </>
+  );
+}
+
+function getLocalizedCategoryName(cat: any, locale: string): string {
+  if (!cat) return "";
+  const key = `name_${locale}`;
+  return cat[key] || cat.name_en || cat.name || "";
+}
+
+function SavePersonFromClinicDialog({
+  open,
+  onOpenChange,
+  clinic,
+  formData,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clinic: Clinic;
+  formData: ClinicFormData;
+}) {
+  const { t, locale } = useI18n();
+  const { toast } = useToast();
+  const [personData, setPersonData] = useState({
+    titleBefore: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    mobile: "",
+    categoryId: "",
+    isPrimary: true,
+  });
+
+  useEffect(() => {
+    if (open) {
+      setPersonData({
+        titleBefore: formData.doctorTitle || "",
+        firstName: formData.doctorFirstName || "",
+        lastName: formData.doctorLastName || "",
+        email: formData.email || "",
+        phone: formData.phone || "",
+        mobile: "",
+        categoryId: (clinic as any).doctorPositionCategoryId || "",
+        isPrimary: true,
+      });
+    }
+  }, [open, clinic.id]);
+
+  const categoriesQuery = useQuery<any[]>({
+    queryKey: ["/api/mpn/categories"],
+    enabled: open,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const collab = await apiRequest("POST", "/api/collaborators", {
+        titleBefore: personData.titleBefore.trim() || null,
+        firstName: personData.firstName.trim(),
+        lastName: personData.lastName.trim(),
+        email: personData.email.trim() || null,
+        phone: personData.phone.trim() || null,
+        mobile: personData.mobile.trim() || null,
+        countryCode: clinic.countryCode || "SK",
+        collaboratorType: "doctor",
+        isActive: true,
+      });
+      const collabData = await collab.json();
+
+      const cat = (categoriesQuery.data || []).find((c: any) => c.id === personData.categoryId);
+      const position = cat ? getLocalizedCategoryName(cat, locale) : null;
+
+      try {
+        await apiRequest("POST", `/api/institutions/clinic/${clinic.id}/personnel`, {
+          personId: collabData.id,
+          department: null,
+          position,
+          role: null,
+          categoryId: personData.categoryId || null,
+          isPrimary: personData.isPrimary,
+        });
+      } catch (assignErr: any) {
+        const err: any = new Error(assignErr?.message || "Assignment failed");
+        err.collaboratorCreated = true;
+        err.collaboratorId = collabData.id;
+        throw err;
+      }
+
+      return collabData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/institutions", "clinic", clinic.id, "personnel"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+      toast({ title: t.success?.saved || "Saved" });
+      onOpenChange(false);
+    },
+    onError: (err: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+      if (err?.collaboratorCreated) {
+        toast({
+          title: t.success?.saved || "Person created",
+          description: `Osoba bola uložená, ale priradenie k ambulancii zlyhalo: ${err.message}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: err?.message || "Error", variant: "destructive" });
+      }
+    },
+  });
+
+  const canSave = personData.firstName.trim().length > 0 && personData.lastName.trim().length > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2" data-testid="dialog-title-save-person">
+            <UserPlus className="h-5 w-5" />
+            {(t.clinics.sections as any)?.saveAsPerson || "Uložiť ako osobu"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">{t.common.title || "Title"}</Label>
+              <Input
+                value={personData.titleBefore}
+                onChange={(e) => setPersonData({ ...personData, titleBefore: e.target.value })}
+                className="h-9"
+                data-testid="input-person-title"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{t.clinics.sections?.firstName || "First name"}</Label>
+              <Input
+                value={personData.firstName}
+                onChange={(e) => setPersonData({ ...personData, firstName: e.target.value })}
+                className="h-9"
+                data-testid="input-person-firstname"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{t.common.lastName || "Last name"}</Label>
+              <Input
+                value={personData.lastName}
+                onChange={(e) => setPersonData({ ...personData, lastName: e.target.value })}
+                className="h-9"
+                data-testid="input-person-lastname"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">{t.clinics.email}</Label>
+              <Input
+                type="email"
+                value={personData.email}
+                onChange={(e) => setPersonData({ ...personData, email: e.target.value })}
+                className="h-9"
+                data-testid="input-person-email"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{t.clinics.phone}</Label>
+              <Input
+                value={personData.phone}
+                onChange={(e) => setPersonData({ ...personData, phone: e.target.value })}
+                className="h-9"
+                data-testid="input-person-phone"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">{(t as any).medicalPartnerNetwork?.position || "Position"}</Label>
+            <Select
+              value={personData.categoryId}
+              onValueChange={(v) => setPersonData({ ...personData, categoryId: v })}
+            >
+              <SelectTrigger className="h-9" data-testid="select-person-category">
+                <SelectValue placeholder="-" />
+              </SelectTrigger>
+              <SelectContent>
+                {(categoriesQuery.data || []).map((cat: any) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {getLocalizedCategoryName(cat, locale)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Checkbox
+              id="person-is-primary"
+              checked={personData.isPrimary}
+              onCheckedChange={(v) => setPersonData({ ...personData, isPrimary: !!v })}
+              data-testid="checkbox-person-primary"
+            />
+            <Label htmlFor="person-is-primary" className="text-sm cursor-pointer">
+              {(t.common as any)?.primary || "Primary"}
+            </Label>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-save-person">
+            {t.common.cancel}
+          </Button>
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={!canSave || saveMutation.isPending}
+            data-testid="button-confirm-save-person"
+          >
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+            {t.common.save}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
