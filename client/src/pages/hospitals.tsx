@@ -2403,7 +2403,7 @@ export default function HospitalsPage() {
           </TabsTrigger>
           <TabsTrigger value="midwifes" data-testid="tab-midwifes">
             <Baby className="h-4 w-4 mr-2" />
-            {t.hospitals.tabs.midwifes || "Midwifes"}
+            {t.hospitals.tabs.midwifes || "Midwives"}
           </TabsTrigger>
         </TabsList>
         <div className="mt-1">
