@@ -14955,6 +14955,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const status = req.query.status as string;
       const collabType = req.query.type as string;
       const agreement = req.query.agreement as string;
+      const positionScope = req.query.positionScope as string;
+
+      let scopeCategoryIds: Set<string> | null = null;
+      if (positionScope) {
+        const { mpnCategories: mpnCats } = await import("@shared/schema");
+        const allCats = await db.select().from(mpnCats);
+        scopeCategoryIds = new Set(allCats.filter((c: any) => c.entityScope === positionScope).map((c: any) => c.id));
+      }
+
       if (req.query.page || req.query.search) {
         const needsAgreementFilter = agreement === "valid" || agreement === "expired" || agreement === "none";
 
@@ -14989,12 +14998,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               } catch { return { ...collab, hasExpiredAgreement: false, hasValidAgreement: false, hasNoAgreement: true, hospitalCount: 0, clinicCount: 0 }; }
             })
           );
-          const filtered = enrichedAll.filter((c: any) => {
+          let filtered = enrichedAll.filter((c: any) => {
             if (agreement === "valid") return c.hasValidAgreement === true;
             if (agreement === "expired") return c.hasExpiredAgreement === true;
             if (agreement === "none") return c.hasNoAgreement === true;
             return true;
           });
+          if (scopeCategoryIds) filtered = filtered.filter((c: any) => c.partnerCategory && scopeCategoryIds!.has(c.partnerCategory));
           const offset = ((page || 1) - 1) * limit;
           return res.json({ data: filtered.slice(offset, offset + limit), total: filtered.length });
         }
@@ -15029,6 +15039,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             } catch { return { ...collab, hasExpiredAgreement: false, hasValidAgreement: false, hasNoAgreement: true, hospitalCount: 0, clinicCount: 0 }; }
           })
         );
+        if (scopeCategoryIds) {
+          const scopeFiltered = enrichedData.filter((c: any) => c.partnerCategory && scopeCategoryIds!.has(c.partnerCategory));
+          return res.json({ data: scopeFiltered, total: scopeFiltered.length });
+        }
         return res.json({ data: enrichedData, total: result.total });
       }
       const countryCodes = req.query.countries ? String(req.query.countries).split(",") : undefined;
@@ -15069,6 +15083,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const counts = assignmentMap2[collab.id] || { hospitalCount: 0, clinicCount: 0 };
         return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
       });
+      if (scopeCategoryIds) {
+        const scopeFiltered = enrichedCollaborators.filter((c: any) => c.partnerCategory && scopeCategoryIds!.has(c.partnerCategory));
+        return res.json(scopeFiltered);
+      }
       res.json(enrichedCollaborators);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch collaborators" });

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, ArrowRight, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save, Network, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, ArrowRight, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save, Network, User, Baby } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -1609,7 +1609,7 @@ export default function HospitalsPage() {
   const [selectedClinic, setSelectedClinic] = useState<Clinic | undefined>();
   const [hospitalToDelete, setHospitalToDelete] = useState<Hospital | null>(null);
   const [clinicToDelete, setClinicToDelete] = useState<Clinic | null>(null);
-  const [activeTab, setActiveTab] = useState("hospital");
+  const [activeTab, setActiveTab] = useState("networks");
   const [personnelEntity, setPersonnelEntity] = useState<{ type: "hospital" | "clinic"; id: string; name: string } | null>(null);
   const [clinicCountryTab, setClinicCountryTab] = useState<string>("ALL");
   const [countryTab, setCountryTab] = useState<string>("ALL");
@@ -2360,25 +2360,25 @@ export default function HospitalsPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex flex-wrap gap-1 h-auto">
-          <TabsTrigger value="hospital" data-testid="tab-hospital">
-            <Building2 className="h-4 w-4 mr-2" />
-            {t.hospitals.tabs.hospital}
-          </TabsTrigger>
           <TabsTrigger value="networks" data-testid="tab-networks">
             <Network className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.healthcareNetworks}
+          </TabsTrigger>
+          <TabsTrigger value="hospital" data-testid="tab-hospital">
+            <Building2 className="h-4 w-4 mr-2" />
+            {t.hospitals.tabs.hospital}
           </TabsTrigger>
           <TabsTrigger value="clinics" data-testid="tab-clinics">
             <Stethoscope className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.clinics}
           </TabsTrigger>
+          <TabsTrigger value="midwifes" data-testid="tab-midwifes">
+            <Baby className="h-4 w-4 mr-2" />
+            {t.hospitals.tabs.midwifes || "Midwifes"}
+          </TabsTrigger>
           <TabsTrigger value="collaborators" data-testid="tab-collaborators">
             <Users className="h-4 w-4 mr-2" />
-            {t.nav?.collaborators || "Collaborators"}
-          </TabsTrigger>
-          <TabsTrigger value="rewards" data-testid="tab-rewards">
-            <Gift className="h-4 w-4 mr-2" />
-            {t.hospitals.tabs.rewards}
+            {t.hospitals.tabs.persons || "Persons"}
           </TabsTrigger>
         </TabsList>
 
@@ -3065,23 +3065,12 @@ export default function HospitalsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="collaborators" className="mt-6">
-          <CollaboratorsContent embedded={true} />
+        <TabsContent value="midwifes" className="mt-6">
+          <CollaboratorsContent embedded={true} positionScope="independent" />
         </TabsContent>
 
-
-        <TabsContent value="rewards" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.hospitals.tabs.rewards}</CardTitle>
-              <CardDescription>{t.hospitals.rewardsDesc}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                {t.hospitals.comingSoon}
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="collaborators" className="mt-6">
+          <CollaboratorsContent embedded={true} />
         </TabsContent>
 
         <TabsContent value="networks" className="mt-6">

@@ -1971,7 +1971,7 @@ function CollaboratorForm({
   );
 }
 
-export function CollaboratorsContent({ embedded = false }: { embedded?: boolean }) {
+export function CollaboratorsContent({ embedded = false, positionScope }: { embedded?: boolean; positionScope?: string }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2016,6 +2016,7 @@ export function CollaboratorsContent({ embedded = false }: { embedded?: boolean 
   if (filterStatus) collabQueryParams.status = filterStatus;
   if (filterType) collabQueryParams.type = filterType;
   if (filterAgreement) collabQueryParams.agreement = filterAgreement;
+  if (positionScope) collabQueryParams.positionScope = positionScope;
   const { data: collaboratorsPaginatedResult, isLoading, refetch: refetchCollaborators } = useQuery<{ data: Collaborator[], total: number }>({
     queryKey: ["/api/collaborators", collabQueryParams],
     refetchInterval: 60000,
