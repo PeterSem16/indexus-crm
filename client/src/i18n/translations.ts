@@ -7192,7 +7192,7 @@ export const translations: Record<Locale, Translations> = {
       seedSkipped: 'Skipped',
       seedTotal: 'total',
       tabs: {
-        hospital: 'Hospital',
+        hospital: 'Hospitals',
         clinics: 'Clinics',
         agreements: 'Agreements',
         documents: 'Documents',

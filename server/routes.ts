@@ -14961,8 +14961,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       let scopeCategoryIds: Set<string> | null = null;
       let excludeCategoryIds: Set<string> | null = null;
       if (positionScope || excludeScope) {
-        const { mpnCategories: mpnCats } = await import("@shared/schema");
-        const allCats = await db.select().from(mpnCats);
+        const { partnerCategories: pcTable } = await import("@shared/schema");
+        const allCats = await db.select().from(pcTable);
         if (positionScope) {
           scopeCategoryIds = new Set(allCats.filter((c: any) => c.entityScope === positionScope).map((c: any) => c.id));
         }
@@ -15106,6 +15106,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
       res.json(finalCollabs);
     } catch (error) {
+      console.error("[Collaborators] Error fetching:", error);
       res.status(500).json({ error: "Failed to fetch collaborators" });
     }
   });
