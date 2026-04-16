@@ -43954,6 +43954,78 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
       res.status(500).json({ error: error.message });
     }
   });
+
+  app.post("/api/suggest-region-district", async (req: Request, res: Response) => {
+    try {
+      const { countryCode, city, streetNumber, postalCode } = req.body;
+      if (!countryCode || !city) {
+        return res.status(400).json({ error: "countryCode and city are required" });
+      }
+
+      const countryNames: Record<string, string> = {
+        SK: "Slovakia", CZ: "Czech Republic", AT: "Austria", HU: "Hungary",
+        RO: "Romania", IT: "Italy", DE: "Germany", US: "USA"
+      };
+
+      const regionLabels: Record<string, string> = {
+        SK: "kraj", CZ: "kraj", AT: "Bundesland", HU: "megye",
+        RO: "județ", IT: "regione", DE: "Bundesland", US: "state"
+      };
+
+      const districtLabels: Record<string, string> = {
+        SK: "okres", CZ: "okres", AT: "Bezirk", HU: "járás",
+        RO: "județ", IT: "distretto", DE: "Bezirk", US: "county"
+      };
+
+      const countryName = countryNames[countryCode] || countryCode;
+      const regionLabel = regionLabels[countryCode] || "region";
+      const districtLabel = districtLabels[countryCode] || "district";
+
+      const addressParts = [city];
+      if (streetNumber) addressParts.push(streetNumber);
+      if (postalCode) addressParts.push(postalCode);
+      const address = addressParts.join(", ");
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const prompt = `For the address "${address}" in ${countryName} (${countryCode}), determine the correct administrative ${regionLabel} and ${districtLabel}.
+
+Return a JSON object with exactly these fields:
+- "region": the correct ${regionLabel} name (full official name as used in ${countryName})
+- "district": the correct ${districtLabel} name (full official name as used in ${countryName})
+- "confidence": "high" or "medium" or "low"
+
+Rules:
+- For Slovakia (SK): region = kraj (e.g. "Bratislavský kraj"), district = okres (e.g. "Bratislava I")
+- For Czech Republic (CZ): region = kraj (e.g. "Jihomoravský kraj"), district = okres (e.g. "Brno-město")
+- For Austria (AT): region = Bundesland (e.g. "Wien", "Steiermark"), district = Bezirk (e.g. "Graz", "Innsbruck-Land")
+- For Hungary (HU): region = megye (e.g. "Pest megye", "Budapest"), district = járás (e.g. "Budapest")
+- For Germany (DE): region = Bundesland (e.g. "Bayern"), district = Bezirk/Kreis
+- For Romania (RO): region = județ, district = județ
+- For Italy (IT): region = regione (e.g. "Lombardia"), district = distretto
+
+Return ONLY valid JSON, no markdown.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        max_tokens: 200,
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) return res.status(500).json({ error: "Empty AI response" });
+
+      const result = JSON.parse(content);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[SuggestRegion] Error:", error.message);
+      res.status(500).json({ error: "Failed to get suggestion" });
+    }
+  });
+
   return httpServer;
 }
 

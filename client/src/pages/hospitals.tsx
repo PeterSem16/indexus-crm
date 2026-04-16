@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
+import { SuggestRegionButton } from "@/components/suggest-region-button";
 import type { Hospital as HospitalType, Laboratory, SafeUser, Clinic } from "@shared/schema";
 import { COUNTRIES } from "@shared/schema";
 import {
@@ -372,16 +373,28 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
                       <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} data-testid="input-ed-hospital-postalcode" />
                     </div>
                   </div>
-                  <div className="space-y-2 mt-3">
-                    <Label>{t.hospitals.region}</Label>
-                    <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                      <SelectTrigger data-testid="select-ed-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
-                      <SelectContent>
-                        {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                          <SelectItem key={r} value={r}>{r}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex items-center gap-2 mt-3">
+                    <div className="space-y-2 flex-1">
+                      <Label>{t.hospitals.region}</Label>
+                      <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+                        <SelectTrigger data-testid="select-ed-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                        <SelectContent>
+                          {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                            <SelectItem key={r} value={r}>{r}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="pt-6">
+                      <SuggestRegionButton
+                        countryCode={formData.countryCode}
+                        city={formData.city}
+                        streetNumber={formData.streetNumber}
+                        postalCode={formData.postalCode}
+                        size="icon"
+                        onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2 mt-3">
                     <Label>{t.hospitals.district || "Okres"}</Label>
@@ -675,16 +688,28 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                       <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} data-testid="input-hospital-postalcode" />
                     </div>
                   </div>
-                  <div className="space-y-2 mt-3">
-                    <Label>{t.hospitals.region}</Label>
-                    <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                      <SelectTrigger data-testid="select-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
-                      <SelectContent>
-                        {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                          <SelectItem key={r} value={r}>{r}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex items-center gap-2 mt-3">
+                    <div className="space-y-2 flex-1">
+                      <Label>{t.hospitals.region}</Label>
+                      <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+                        <SelectTrigger data-testid="select-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                        <SelectContent>
+                          {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                            <SelectItem key={r} value={r}>{r}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="pt-6">
+                      <SuggestRegionButton
+                        countryCode={formData.countryCode}
+                        city={formData.city}
+                        streetNumber={formData.streetNumber}
+                        postalCode={formData.postalCode}
+                        size="icon"
+                        onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2 mt-3">
                     <Label>{t.hospitals.district || "Okres"}</Label>

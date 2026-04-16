@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getCountryFlag } from "@/lib/countries";
 import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
+import { SuggestRegionButton } from "@/components/suggest-region-button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
@@ -1671,14 +1672,24 @@ function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collabor
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.addressRegion || "Region"}</Label>
-          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-            <SelectTrigger data-testid="select-company-address-region"><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
-            <SelectContent>
-              {regions.map((r: string) => (
-                <SelectItem key={r} value={r}>{r}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1">
+            <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+              <SelectTrigger data-testid="select-company-address-region"><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
+              <SelectContent>
+                {regions.map((r: string) => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <SuggestRegionButton
+              countryCode={formData.countryCode}
+              city={formData.city}
+              streetNumber={formData.streetNumber}
+              postalCode={formData.postalCode}
+              size="icon"
+              onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label>{t.hospitals.district || "Okres"}</Label>
@@ -1804,14 +1815,24 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
         </div>
         <div className="space-y-2">
           <Label>{t.collaborators.fields.addressRegion || "Region"}</Label>
-          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-            <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
-            <SelectContent>
-              {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                <SelectItem key={r} value={r}>{r}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1">
+            <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+              <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
+              <SelectContent>
+                {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <SuggestRegionButton
+              countryCode={formData.countryCode}
+              city={formData.city}
+              streetNumber={formData.streetNumber}
+              postalCode={formData.postalCode}
+              size="icon"
+              onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label>{t.hospitals.district || "Okres"}</Label>

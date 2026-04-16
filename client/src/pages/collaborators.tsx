@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { REGIONS_BY_COUNTRY, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
+import { SuggestRegionButton } from "@/components/suggest-region-button";
 import type { 
   Collaborator, 
   CollaboratorAddress, 
@@ -486,14 +487,24 @@ function AddressTab({
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.addressRegion}</Label>
-          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-            <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.addressRegion} /></SelectTrigger>
-            <SelectContent>
-              {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                <SelectItem key={r} value={r}>{r}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1">
+            <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+              <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.addressRegion} /></SelectTrigger>
+              <SelectContent>
+                {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <SuggestRegionButton
+              countryCode={formData.countryCode}
+              city={formData.city}
+              streetNumber={formData.streetNumber}
+              postalCode={formData.postalCode}
+              size="icon"
+              onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label>{t.hospitals?.district || "Okres"}</Label>

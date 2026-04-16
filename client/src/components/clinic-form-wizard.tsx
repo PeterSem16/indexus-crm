@@ -23,6 +23,7 @@ import {
 import { COUNTRIES } from "@shared/schema";
 import type { Clinic } from "@shared/schema";
 import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
+import { SuggestRegionButton } from "@/components/suggest-region-button";
 import {
   Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Network,
   Users, Save, X, UserPlus, Handshake, UserCheck, GraduationCap, Phone, Mail,
@@ -1158,14 +1159,24 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px]">{t.hospitals.region}</Label>
-                          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                            <SelectTrigger data-testid="select-clinic-region" className="h-8 text-sm"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
-                            <SelectContent>
-                              {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                                <SelectItem key={r} value={r}>{r}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center gap-1">
+                            <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+                              <SelectTrigger data-testid="select-clinic-region" className="h-8 text-sm"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                              <SelectContent>
+                                {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <SuggestRegionButton
+                              countryCode={formData.countryCode}
+                              city={formData.city}
+                              streetNumber={formData.streetNumber}
+                              postalCode={formData.postalCode}
+                              size="icon"
+                              onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+                            />
+                          </div>
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px]">{t.hospitals.district || "Okres"}</Label>
@@ -2578,14 +2589,24 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
                         <Label className="text-xs">{t.hospitals.region}</Label>
-                        <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                          <SelectTrigger data-testid="select-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
-                          <SelectContent>
-                            {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                              <SelectItem key={r} value={r}>{r}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-1">
+                          <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+                            <SelectTrigger data-testid="select-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                            <SelectContent>
+                              {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <SuggestRegionButton
+                            countryCode={formData.countryCode}
+                            city={formData.city}
+                            streetNumber={formData.streetNumber}
+                            postalCode={formData.postalCode}
+                            size="icon"
+                            onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+                          />
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">{t.hospitals.district || "Okres"}</Label>
@@ -3063,14 +3084,24 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label className="text-xs">{t.hospitals.region}</Label>
-                      <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                        <SelectTrigger data-testid="select-add-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
-                        <SelectContent>
-                          {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                            <SelectItem key={r} value={r}>{r}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-1">
+                        <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
+                          <SelectTrigger data-testid="select-add-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                          <SelectContent>
+                            {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
+                              <SelectItem key={r} value={r}>{r}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <SuggestRegionButton
+                          countryCode={formData.countryCode}
+                          city={formData.city}
+                          streetNumber={formData.streetNumber}
+                          postalCode={formData.postalCode}
+                          size="icon"
+                          onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">{t.hospitals.district || "Okres"}</Label>
