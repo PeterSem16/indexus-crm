@@ -1283,7 +1283,31 @@ function SettingsTab() {
   const [editCategory, setEditCategory] = useState<PartnerCategory | null>(null);
   const [addCategory, setAddCategory] = useState(false);
 
+  const [filterScope, setFilterScope] = useState<string>("all");
+  const [filterName, setFilterName] = useState("");
+
   const { data: categories } = useQuery<PartnerCategory[]>({ queryKey: ["/api/mpn/categories"] });
+
+  const filteredCategories = useMemo(() => {
+    if (!categories) return [];
+    return categories.filter((cat) => {
+      if (filterScope !== "all" && cat.entityScope !== filterScope) return false;
+      if (filterName) {
+        const name = getLocalizedCategoryName(cat, locale).toLowerCase();
+        if (!name.includes(filterName.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [categories, filterScope, filterName, locale]);
+
+  const availableScopes = useMemo(() => {
+    if (!categories) return ["hospital", "clinic", "independent"];
+    const scopes = new Set(categories.map((c) => c.entityScope));
+    scopes.add("hospital");
+    scopes.add("clinic");
+    scopes.add("independent");
+    return Array.from(scopes).sort();
+  }, [categories]);
 
   const deleteCatMut = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/mpn/categories/${id}`),
@@ -1305,32 +1329,54 @@ function SettingsTab() {
     <Tabs value={settingsTab} onValueChange={setSettingsTab}>
       <TabsList className="mb-4">
         <TabsTrigger value="categories" data-testid="tab-categories">
-          <Star className="h-4 w-4 mr-1" /> {t.mpn.categories}
+          <Star className="h-4 w-4 mr-1" /> {(t.mpn as any).positions || "Positions"}
         </TabsTrigger>
       </TabsList>
 
       <TabsContent value="categories">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">{t.mpn.categories}</CardTitle>
+            <CardTitle className="text-lg">{(t.mpn as any).positions || "Positions"}</CardTitle>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={() => setAddCategory(true)} data-testid="btn-add-category">
-                <Plus className="h-4 w-4 mr-1" /> {t.mpn.addCategory}
+                <Plus className="h-4 w-4 mr-1" /> {(t.mpn as any).addPosition || "Add Position"}
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <Input
+                  placeholder={(t.mpn as any).filterByName || "Filter by position name..."}
+                  value={filterName}
+                  onChange={(e) => setFilterName(e.target.value)}
+                  className="h-9"
+                  data-testid="input-filter-position-name"
+                />
+              </div>
+              <Select value={filterScope} onValueChange={setFilterScope}>
+                <SelectTrigger className="w-[180px] h-9" data-testid="select-filter-scope">
+                  <SelectValue placeholder="All scopes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{(t.mpn as any).allScopes || "All scopes"}</SelectItem>
+                  {availableScopes.map((s) => (
+                    <SelectItem key={s} value={s}>{scopeBadge(s, t)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t.mpn.categoryName}</TableHead>
+                  <TableHead>{(t.mpn as any).positionName || t.mpn.categoryName}</TableHead>
                   <TableHead>{t.mpn.entityScope}</TableHead>
                   <TableHead>{t.mpn.status}</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(categories || []).map((cat) => (
+                {filteredCategories.map((cat) => (
                   <TableRow key={cat.id} data-testid={`row-category-${cat.id}`}>
                     <TableCell>
                       <div className="font-medium">{getLocalizedCategoryName(cat, locale)}</div>
@@ -1390,6 +1436,17 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
     sortOrder: category?.sortOrder || 0,
     isActive: category?.isActive ?? true,
   });
+
+  const [showCustomScope, setShowCustomScope] = useState(false);
+
+  const { data: allCategoriesForScopes } = useQuery<PartnerCategory[]>({ queryKey: ["/api/mpn/categories"] });
+  const allScopes = useMemo(() => {
+    const scopes = new Set(["hospital", "clinic", "independent"]);
+    if (allCategoriesForScopes) {
+      allCategoriesForScopes.forEach((c) => { if (c.entityScope) scopes.add(c.entityScope); });
+    }
+    return Array.from(scopes).sort();
+  }, [allCategoriesForScopes]);
 
   const saveMut = useMutation({
     mutationFn: () => {
@@ -1454,23 +1511,42 @@ function CategoryFormDialog({ category, onClose }: { category: PartnerCategory |
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? t.mpn.editCategory : t.mpn.addCategory}</DialogTitle>
+          <DialogTitle>{isEdit ? ((t.mpn as any).editPosition || "Edit Position") : ((t.mpn as any).addPosition || "Add Position")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>{t.mpn.categoryName} (SK - Primary)</Label>
+            <Label>{(t.mpn as any).positionName || "Position name"} (SK - Primary)</Label>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, nameSk: e.target.value })} data-testid="input-category-name" />
           </div>
           <div>
             <Label>{t.mpn.entityScope}</Label>
-            <Select value={form.entityScope} onValueChange={(v) => setForm({ ...form, entityScope: v })}>
-              <SelectTrigger data-testid="select-entity-scope"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hospital">{t.mpn.hospital}</SelectItem>
-                <SelectItem value="clinic">{t.mpn.clinic}</SelectItem>
-                <SelectItem value="independent">{t.mpn.independent}</SelectItem>
-              </SelectContent>
-            </Select>
+            {!showCustomScope ? (
+              <div className="flex items-center gap-2">
+                <Select value={form.entityScope} onValueChange={(v) => { if (v === "__custom__") { setShowCustomScope(true); setForm({ ...form, entityScope: "" }); } else { setForm({ ...form, entityScope: v }); } }}>
+                  <SelectTrigger data-testid="select-entity-scope"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {allScopes.map((s) => (
+                      <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                    ))}
+                    <SelectItem value="__custom__">+ {(t.mpn as any).newScope || "New scope..."}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={form.entityScope}
+                  onChange={(e) => setForm({ ...form, entityScope: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
+                  placeholder={(t.mpn as any).scopeName || "Scope name"}
+                  className="h-9"
+                  autoFocus
+                  data-testid="input-custom-scope"
+                />
+                <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => { setShowCustomScope(false); setForm({ ...form, entityScope: "hospital" }); }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} data-testid="switch-is-active" />
