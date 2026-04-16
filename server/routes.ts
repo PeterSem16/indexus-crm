@@ -43967,30 +43967,50 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
         return res.status(400).json({ error: "Invalid entityType" });
       }
 
-      const tableMap: Record<string, string> = {
-        hospitals: "hospitals",
-        clinics: "clinics",
-        collaborators: "collaborators",
-        customers: "customers",
-      };
-      const table = tableMap[entityType];
-
-      const countryField = entityType === "customers" ? "country" : "country_code";
-      const streetField = entityType === "customers" ? "address" : "street_number";
-      const result = await pool.query(
-        `SELECT id, city, ${streetField} as street_number, postal_code, region, district FROM ${table} WHERE ${countryField} = $1 AND city IS NOT NULL AND city != '' AND (region IS NULL OR region = '' OR district IS NULL OR district = '')`,
-        [countryCode]
-      );
-
-      if (result.rows.length === 0) {
-        return res.json({ updated: 0, total: 0, message: "No records to update" });
-      }
-
       const countryNames: Record<string, string> = {
         SK: "Slovakia", CZ: "Czech Republic", AT: "Austria", HU: "Hungary",
         RO: "Romania", IT: "Italy", DE: "Germany", US: "USA"
       };
       const countryName = countryNames[countryCode] || countryCode;
+
+      let rows: any[] = [];
+      let updateTable = "";
+      let hasDistrict = true;
+
+      if (entityType === "hospitals") {
+        updateTable = "hospitals";
+        const result = await pool.query(
+          `SELECT id, city, street_number, postal_code, region, district FROM hospitals WHERE country_code = $1 AND city IS NOT NULL AND city != '' AND (region IS NULL OR region = '' OR district IS NULL OR district = '')`,
+          [countryCode]
+        );
+        rows = result.rows;
+      } else if (entityType === "clinics") {
+        updateTable = "clinics";
+        const result = await pool.query(
+          `SELECT id, city, address as street_number, postal_code, region, district FROM clinics WHERE country_code = $1 AND city IS NOT NULL AND city != '' AND (region IS NULL OR region = '' OR district IS NULL OR district = '')`,
+          [countryCode]
+        );
+        rows = result.rows;
+      } else if (entityType === "collaborators") {
+        updateTable = "collaborator_addresses";
+        hasDistrict = false;
+        const result = await pool.query(
+          `SELECT ca.id, ca.city, ca.street_number, ca.postal_code, ca.region FROM collaborator_addresses ca WHERE ca.country_code = $1 AND ca.city IS NOT NULL AND ca.city != '' AND (ca.region IS NULL OR ca.region = '')`,
+          [countryCode]
+        );
+        rows = result.rows;
+      } else if (entityType === "customers") {
+        updateTable = "customers";
+        const result = await pool.query(
+          `SELECT id, city, address as street_number, postal_code, region, district FROM customers WHERE country = $1 AND city IS NOT NULL AND city != '' AND (region IS NULL OR region = '' OR district IS NULL OR district = '')`,
+          [countryCode]
+        );
+        rows = result.rows;
+      }
+
+      if (rows.length === 0) {
+        return res.json({ updated: 0, total: 0, message: "No records to update" });
+      }
 
       const OpenAI = (await import("openai")).default;
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -43999,8 +44019,8 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
       const batchSize = 10;
       const errors: string[] = [];
 
-      for (let i = 0; i < result.rows.length; i += batchSize) {
-        const batch = result.rows.slice(i, i + batchSize);
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize);
         const batchPrompt = batch.map((row: any, idx: number) => 
           `${idx + 1}. city="${row.city}"${row.street_number ? `, street="${row.street_number}"` : ""}${row.postal_code ? `, postal="${row.postal_code}"` : ""}`
         ).join("\n");
@@ -44058,7 +44078,7 @@ Return ONLY valid JSON.`;
               updates.push(`region = $${paramIdx++}`);
               values.push(region);
             }
-            if (district && (!row.district || row.district === "")) {
+            if (hasDistrict && district && (!row.district || row.district === "")) {
               updates.push(`district = $${paramIdx++}`);
               values.push(district);
             }
@@ -44066,7 +44086,7 @@ Return ONLY valid JSON.`;
             if (updates.length > 0) {
               values.push(row.id);
               await pool.query(
-                `UPDATE ${table} SET ${updates.join(", ")} WHERE id = $${paramIdx}`,
+                `UPDATE ${updateTable} SET ${updates.join(", ")} WHERE id = $${paramIdx}`,
                 values
               );
               updated++;
@@ -44077,7 +44097,7 @@ Return ONLY valid JSON.`;
         }
       }
 
-      res.json({ updated, total: result.rows.length, errors: errors.length > 0 ? errors : undefined });
+      res.json({ updated, total: rows.length, errors: errors.length > 0 ? errors : undefined });
     } catch (error: any) {
       console.error("[BulkSuggestRegion] Error:", error.message);
       res.status(500).json({ error: "Failed to process bulk suggestion" });

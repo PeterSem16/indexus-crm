@@ -1679,6 +1679,9 @@ function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collabor
                 {regions.map((r: string) => (
                   <SelectItem key={r} value={r}>{r}</SelectItem>
                 ))}
+                {formData.region && !regions.includes(formData.region) && (
+                  <SelectItem value={formData.region}>{formData.region}</SelectItem>
+                )}
               </SelectContent>
             </Select>
             <SuggestRegionButton
@@ -1822,6 +1825,9 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
                 {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                   <SelectItem key={r} value={r}>{r}</SelectItem>
                 ))}
+                {formData.region && !(REGIONS_BY_COUNTRY[formData.countryCode] || []).includes(formData.region) && (
+                  <SelectItem value={formData.region}>{formData.region}</SelectItem>
+                )}
               </SelectContent>
             </Select>
             <SuggestRegionButton

@@ -494,6 +494,9 @@ function AddressTab({
                 {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                   <SelectItem key={r} value={r}>{r}</SelectItem>
                 ))}
+                {formData.region && !(REGIONS_BY_COUNTRY[formData.countryCode] || []).includes(formData.region) && (
+                  <SelectItem value={formData.region}>{formData.region}</SelectItem>
+                )}
               </SelectContent>
             </Select>
             <SuggestRegionButton

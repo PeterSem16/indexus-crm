@@ -1166,12 +1166,15 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                                 {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                                   <SelectItem key={r} value={r}>{r}</SelectItem>
                                 ))}
+                                {formData.region && !(REGIONS_BY_COUNTRY[formData.countryCode] || []).includes(formData.region) && (
+                                  <SelectItem value={formData.region}>{formData.region}</SelectItem>
+                                )}
                               </SelectContent>
                             </Select>
                             <SuggestRegionButton
                               countryCode={formData.countryCode}
                               city={formData.city}
-                              streetNumber={formData.streetNumber}
+                              streetNumber={formData.address}
                               postalCode={formData.postalCode}
                               size="icon"
                               onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
@@ -2596,12 +2599,15 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                               {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                                 <SelectItem key={r} value={r}>{r}</SelectItem>
                               ))}
+                              {formData.region && !(REGIONS_BY_COUNTRY[formData.countryCode] || []).includes(formData.region) && (
+                                <SelectItem value={formData.region}>{formData.region}</SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                           <SuggestRegionButton
                             countryCode={formData.countryCode}
                             city={formData.city}
-                            streetNumber={formData.streetNumber}
+                            streetNumber={formData.address}
                             postalCode={formData.postalCode}
                             size="icon"
                             onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
@@ -3091,12 +3097,15 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                               <SelectItem key={r} value={r}>{r}</SelectItem>
                             ))}
+                            {formData.region && !(REGIONS_BY_COUNTRY[formData.countryCode] || []).includes(formData.region) && (
+                              <SelectItem value={formData.region}>{formData.region}</SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         <SuggestRegionButton
                           countryCode={formData.countryCode}
                           city={formData.city}
-                          streetNumber={formData.streetNumber}
+                          streetNumber={formData.address}
                           postalCode={formData.postalCode}
                           size="icon"
                           onSuggestion={(region, district) => setFormData({ ...formData, region, district })}

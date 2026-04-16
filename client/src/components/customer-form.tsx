@@ -742,8 +742,10 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                             postalCode={form.watch("postalCode") || ""}
                             size="icon"
                             onSuggestion={(region, district) => {
-                              form.setValue("region", region);
-                              form.setValue("district", district);
+                              form.setValue("region", region, { shouldValidate: true, shouldDirty: true });
+                              setTimeout(() => {
+                                form.setValue("district", district, { shouldValidate: true, shouldDirty: true });
+                              }, 50);
                             }}
                           />
                         </div>
