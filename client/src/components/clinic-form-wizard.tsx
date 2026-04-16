@@ -2593,7 +2593,15 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     </div>
                     <Separator />
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900"><Stethoscope className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.doctor || 'Doctor'}</h3></div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900"><Stethoscope className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.doctor || 'Doctor'}</h3></div>
+                        {initialData?.id && (formData.doctorFirstName || formData.doctorLastName) && (
+                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setSavePersonDialogOpen(true)} data-testid="button-save-doctor-as-person-drawer">
+                            <UserPlus className="h-3 w-3 mr-1" />
+                            {(t.clinics as any).saveAsPerson || "Uložiť ako osobu"}
+                          </Button>
+                        )}
+                      </div>
                       <div className="grid gap-3 sm:grid-cols-3 pl-1">
                         <div className="space-y-1"><Label className="text-xs">{t.common.title || "Title"}</Label><Input value={formData.doctorTitle} onChange={(e) => setFormData({ ...formData, doctorTitle: e.target.value })} placeholder="MUDr." className="h-9" data-testid="input-doctor-title" /></div>
                         <div className="space-y-1"><Label className="text-xs">{t.clinics.sections?.firstName || "First name"}</Label><Input value={formData.doctorFirstName} onChange={(e) => setFormData({ ...formData, doctorFirstName: e.target.value })} placeholder={t.clinics.sections?.firstName || "First name"} className="h-9" data-testid="input-doctor-firstname" /></div>
@@ -2607,6 +2615,19 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label><Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder={t.clinics.phone} className="h-9" data-testid="input-clinic-phone" /></div>
                         <div className="space-y-1"><Label className="text-xs">{t.clinics.email}</Label><Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-9" data-testid="input-clinic-email" /></div>
                       </div>
+                      {(formData.phone2 || formData.email2 || showExtraContacts) ? (
+                        <div className="grid gap-3 sm:grid-cols-2 pl-1">
+                          <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 2</Label><Input value={formData.phone2} onChange={(e) => setFormData({ ...formData, phone2: e.target.value })} placeholder={`${t.clinics.phone} 2`} className="h-9" data-testid="input-clinic-phone2" /></div>
+                          <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 2</Label><Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-9" data-testid="input-clinic-email2" /></div>
+                        </div>
+                      ) : (
+                        <div className="pl-1">
+                          <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowExtraContacts(true)} data-testid="button-show-extra-contacts-drawer">
+                            <Plus className="h-3 w-3 mr-1" />
+                            {(t.clinics as any).addExtraContacts || "Pridať ďalší telefón / email"}
+                          </Button>
+                        </div>
+                      )}
                       <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.website}</Label>
                         <div className="flex gap-2">
                           <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="www.example.com" className="flex-1 h-9" data-testid="input-clinic-website" />
@@ -3140,6 +3161,19 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                       <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label><Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder={t.clinics.phone} className="h-9" data-testid="input-add-clinic-phone" /></div>
                       <div className="space-y-1"><Label className="text-xs">{t.clinics.email}</Label><Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-9" data-testid="input-add-clinic-email" /></div>
                     </div>
+                    {(formData.phone2 || formData.email2 || showExtraContacts) ? (
+                      <div className="grid gap-3 sm:grid-cols-2 pl-1">
+                        <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 2</Label><Input value={formData.phone2} onChange={(e) => setFormData({ ...formData, phone2: e.target.value })} placeholder={`${t.clinics.phone} 2`} className="h-9" data-testid="input-add-clinic-phone2" /></div>
+                        <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 2</Label><Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-9" data-testid="input-add-clinic-email2" /></div>
+                      </div>
+                    ) : (
+                      <div className="pl-1">
+                        <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowExtraContacts(true)} data-testid="button-show-extra-contacts-add">
+                          <Plus className="h-3 w-3 mr-1" />
+                          {(t.clinics as any).addExtraContacts || "Pridať ďalší telefón / email"}
+                        </Button>
+                      </div>
+                    )}
                     <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.website}</Label>
                       <div className="flex gap-2">
                         <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="www.example.com" className="flex-1 h-9" data-testid="input-add-clinic-website" />
