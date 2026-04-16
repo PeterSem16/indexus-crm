@@ -925,7 +925,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           <div key={type}>
                             <button type="button"
                               className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left",
-                                selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border",
+                                selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : formData.leadSource ? "opacity-40 border-border hover:opacity-70" : "hover:bg-muted/50 border-border",
                                 isExpanded && "rounded-b-none"
                               )}
                               onClick={() => {
@@ -1378,7 +1378,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           type="button"
                           className={cn(
                             "flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left",
-                            selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border",
+                            selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : formData.leadSource ? "opacity-40 border-border hover:opacity-70" : "hover:bg-muted/50 border-border",
                             isExpanded && "rounded-b-none"
                           )}
                           onClick={() => {
@@ -2209,7 +2209,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           const isExpanded = selected && pipelineMenuOpen;
                           return (
                             <div key={type}>
-                              <button type="button" className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left", selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border", isExpanded && "rounded-b-none")}
+                              <button type="button" className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left", selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : formData.leadSource ? "opacity-40 border-border hover:opacity-70" : "hover:bg-muted/50 border-border", isExpanded && "rounded-b-none")}
                                 onClick={() => { if (selected) { setPipelineMenuOpen(!pipelineMenuOpen); setExpandedCategory(null); } else { setFormData(prev => ({ ...prev, leadSource: type })); setPipelineMenuOpen(true); setExpandedCategory(null); } }} data-testid={`source-card-${type}`}>
                                 <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG[type])}><Icon className="h-4 w-4" /></div>
                                 <div className="flex-1 min-w-0">
@@ -2743,7 +2743,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         const isExpanded = selected && pipelineMenuOpen;
                         return (
                           <div key={type}>
-                            <button type="button" className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left", selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border", isExpanded && "rounded-b-none")}
+                            <button type="button" className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left", selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : formData.leadSource ? "opacity-40 border-border hover:opacity-70" : "hover:bg-muted/50 border-border", isExpanded && "rounded-b-none")}
                               onClick={() => { if (selected) { setPipelineMenuOpen(!pipelineMenuOpen); setExpandedCategory(null); } else { setFormData(prev => ({ ...prev, leadSource: type })); setPipelineMenuOpen(true); setExpandedCategory(null); } }} data-testid={`source-card-add-${type}`}>
                               <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG[type])}><Icon className="h-4 w-4" /></div>
                               <div className="flex-1 min-w-0">
