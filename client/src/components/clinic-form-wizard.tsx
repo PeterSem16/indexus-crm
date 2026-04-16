@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/sheet";
 import { COUNTRIES } from "@shared/schema";
 import type { Clinic } from "@shared/schema";
-import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
+import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion, getGeoLabels } from "@/lib/regions";
 import { SuggestRegionButton } from "@/components/suggest-region-button";
 import {
   Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Network,
@@ -1158,10 +1158,10 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           </Select>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px]">{t.hospitals.region}</Label>
+                          <Label className="text-[11px]">{getGeoLabels(formData.countryCode).region}</Label>
                           <div className="flex items-center gap-1">
                             <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                              <SelectTrigger data-testid="select-clinic-region" className="h-8 text-sm"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                              <SelectTrigger data-testid="select-clinic-region" className="h-8 text-sm"><SelectValue placeholder={getGeoLabels(formData.countryCode).region} /></SelectTrigger>
                               <SelectContent>
                                 {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                                   <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -1179,9 +1179,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px]">{t.hospitals.district || "Okres"}</Label>
+                          <Label className="text-[11px]">{getGeoLabels(formData.countryCode).district}</Label>
                           <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
-                            <SelectTrigger data-testid="select-clinic-district" className="h-8 text-sm"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                            <SelectTrigger data-testid="select-clinic-district" className="h-8 text-sm"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                             <SelectContent>
                               {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
                                 <SelectItem key={d} value={d}>{d}</SelectItem>
@@ -2588,10 +2588,10 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
-                        <Label className="text-xs">{t.hospitals.region}</Label>
+                        <Label className="text-xs">{getGeoLabels(formData.countryCode).region}</Label>
                         <div className="flex items-center gap-1">
                           <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                            <SelectTrigger data-testid="select-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                            <SelectTrigger data-testid="select-clinic-region" className="h-9"><SelectValue placeholder={getGeoLabels(formData.countryCode).region} /></SelectTrigger>
                             <SelectContent>
                               {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                                 <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -2609,9 +2609,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">{t.hospitals.district || "Okres"}</Label>
+                        <Label className="text-xs">{getGeoLabels(formData.countryCode).district}</Label>
                         <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
-                          <SelectTrigger data-testid="select-clinic-district" className="h-9"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                          <SelectTrigger data-testid="select-clinic-district" className="h-9"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                           <SelectContent>
                             {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
                               <SelectItem key={d} value={d}>{d}</SelectItem>
@@ -3083,10 +3083,10 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
-                      <Label className="text-xs">{t.hospitals.region}</Label>
+                      <Label className="text-xs">{getGeoLabels(formData.countryCode).region}</Label>
                       <div className="flex items-center gap-1">
                         <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                          <SelectTrigger data-testid="select-add-clinic-region" className="h-9"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                          <SelectTrigger data-testid="select-add-clinic-region" className="h-9"><SelectValue placeholder={getGeoLabels(formData.countryCode).region} /></SelectTrigger>
                           <SelectContent>
                             {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                               <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -3104,9 +3104,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">{t.hospitals.district || "Okres"}</Label>
+                      <Label className="text-xs">{getGeoLabels(formData.countryCode).district}</Label>
                       <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
-                        <SelectTrigger data-testid="select-add-clinic-district" className="h-9"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-add-clinic-district" className="h-9"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                         <SelectContent>
                           {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
                             <SelectItem key={d} value={d}>{d}</SelectItem>

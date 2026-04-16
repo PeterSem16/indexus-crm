@@ -27,6 +27,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getCountryFlag } from "@/lib/countries";
+import { getGeoLabels } from "@/lib/regions";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
@@ -391,11 +392,11 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
               )}
               {!isHidden("region") && (
                 <div className="space-y-2">
-                  <Label>{t.hospitals.region}</Label>
+                  <Label>{getGeoLabels(formData.countryCode).region}</Label>
                   <Input
                     value={formData.region}
                     onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                    placeholder={t.hospitals.region}
+                    placeholder={getGeoLabels(formData.countryCode).region}
                     data-testid="wizard-input-hospital-region"
                     disabled={isReadonly("region")}
                     className={isReadonly("region") ? "bg-muted" : ""}
@@ -633,7 +634,7 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
                   )}
                   {formData.region && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.hospitals.region}:</span>
+                      <span className="text-muted-foreground">{getGeoLabels(formData.countryCode).region}:</span>
                       <span className="font-medium">{formData.region}</span>
                     </div>
                   )}

@@ -348,3 +348,26 @@ export function getDistrictsForRegion(countryCode: string, region: string): stri
   if (!countryDistricts) return [];
   return countryDistricts[region] || [];
 }
+
+export interface GeoLabels {
+  region: string;
+  district: string;
+  city: string;
+}
+
+const GEO_LABELS: Record<string, GeoLabels> = {
+  SK: { region: "Kraj", district: "Okres", city: "Obec" },
+  CZ: { region: "Kraj", district: "Okres", city: "Obec" },
+  HU: { region: "Vármegye", district: "Járás", city: "Település" },
+  DE: { region: "Bundesland", district: "Landkreis", city: "Gemeinde" },
+  AT: { region: "Bundesland", district: "Bezirk", city: "Gemeinde" },
+  IT: { region: "Regione", district: "Provincia", city: "Comune" },
+  RO: { region: "Județ", district: "Localitate", city: "Sat/Sector" },
+  US: { region: "State", district: "County", city: "City" },
+};
+
+const DEFAULT_GEO_LABELS: GeoLabels = { region: "Region", district: "District", city: "City" };
+
+export function getGeoLabels(countryCode: string): GeoLabels {
+  return GEO_LABELS[countryCode] || DEFAULT_GEO_LABELS;
+}

@@ -43955,6 +43955,134 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
     }
   });
 
+  app.post("/api/bulk-suggest-region-district", async (req: Request, res: Response) => {
+    try {
+      const { entityType, countryCode } = req.body;
+      if (!entityType || !countryCode) {
+        return res.status(400).json({ error: "entityType and countryCode are required" });
+      }
+
+      const validTypes = ["hospitals", "clinics", "collaborators", "customers"];
+      if (!validTypes.includes(entityType)) {
+        return res.status(400).json({ error: "Invalid entityType" });
+      }
+
+      const tableMap: Record<string, string> = {
+        hospitals: "hospitals",
+        clinics: "clinics",
+        collaborators: "collaborators",
+        customers: "customers",
+      };
+      const table = tableMap[entityType];
+
+      const countryField = entityType === "customers" ? "country_code" : "country_code";
+      const result = await pool.query(
+        `SELECT id, city, street_number, postal_code, region, district FROM ${table} WHERE ${countryField} = $1 AND city IS NOT NULL AND city != '' AND (region IS NULL OR region = '' OR district IS NULL OR district = '')`,
+        [countryCode]
+      );
+
+      if (result.rows.length === 0) {
+        return res.json({ updated: 0, total: 0, message: "No records to update" });
+      }
+
+      const countryNames: Record<string, string> = {
+        SK: "Slovakia", CZ: "Czech Republic", AT: "Austria", HU: "Hungary",
+        RO: "Romania", IT: "Italy", DE: "Germany", US: "USA"
+      };
+      const countryName = countryNames[countryCode] || countryCode;
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      let updated = 0;
+      const batchSize = 10;
+      const errors: string[] = [];
+
+      for (let i = 0; i < result.rows.length; i += batchSize) {
+        const batch = result.rows.slice(i, i + batchSize);
+        const batchPrompt = batch.map((row: any, idx: number) => 
+          `${idx + 1}. city="${row.city}"${row.street_number ? `, street="${row.street_number}"` : ""}${row.postal_code ? `, postal="${row.postal_code}"` : ""}`
+        ).join("\n");
+
+        try {
+          const prompt = `For these addresses in ${countryName} (${countryCode}), determine the correct administrative region and district for each.
+
+Addresses:
+${batchPrompt}
+
+Return a JSON object with a "results" array. Each item must have:
+- "index": the address number (1-based)
+- "region": the correct region name
+- "district": the correct district name
+
+Rules by country:
+- SK: region = kraj (e.g. "Bratislavský kraj"), district = okres (e.g. "Bratislava I")
+- CZ: region = kraj (e.g. "Jihomoravský kraj"), district = okres (e.g. "Brno-město")
+- AT: region = Bundesland (e.g. "Wien"), district = Bezirk (e.g. "Graz")
+- HU: region = megye (e.g. "Pest megye"), district = járás
+- DE: region = Bundesland (e.g. "Bayern"), district = Landkreis
+- RO: region = județ, district = localitate
+- IT: region = regione (e.g. "Lombardia"), district = provincia
+- US: region = state, district = county
+
+Return ONLY valid JSON.`;
+
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.1,
+            max_tokens: 1500,
+            response_format: { type: "json_object" },
+          });
+
+          const content = response.choices[0]?.message?.content;
+          if (!content) continue;
+
+          const parsed = JSON.parse(content);
+          const results = parsed.results || [];
+
+          for (const item of results) {
+            const idx = (item.index || 0) - 1;
+            if (idx < 0 || idx >= batch.length) continue;
+            const row = batch[idx];
+            const region = item.region || "";
+            const district = item.district || "";
+            if (!region && !district) continue;
+
+            const updates: string[] = [];
+            const values: any[] = [];
+            let paramIdx = 1;
+
+            if (region && (!row.region || row.region === "")) {
+              updates.push(`region = $${paramIdx++}`);
+              values.push(region);
+            }
+            if (district && (!row.district || row.district === "")) {
+              updates.push(`district = $${paramIdx++}`);
+              values.push(district);
+            }
+
+            if (updates.length > 0) {
+              values.push(row.id);
+              await pool.query(
+                `UPDATE ${table} SET ${updates.join(", ")} WHERE id = $${paramIdx}`,
+                values
+              );
+              updated++;
+            }
+          }
+        } catch (batchErr: any) {
+          errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${batchErr.message}`);
+        }
+      }
+
+      res.json({ updated, total: result.rows.length, errors: errors.length > 0 ? errors : undefined });
+    } catch (error: any) {
+      console.error("[BulkSuggestRegion] Error:", error.message);
+      res.status(500).json({ error: "Failed to process bulk suggestion" });
+    }
+  });
+
   app.post("/api/suggest-region-district", async (req: Request, res: Response) => {
     try {
       const { countryCode, city, streetNumber, postalCode } = req.body;

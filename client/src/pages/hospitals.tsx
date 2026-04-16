@@ -40,8 +40,9 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
-import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
+import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion, getGeoLabels } from "@/lib/regions";
 import { SuggestRegionButton } from "@/components/suggest-region-button";
+import { BulkGeoMappingButton } from "@/components/bulk-geo-mapping";
 import type { Hospital as HospitalType, Laboratory, SafeUser, Clinic } from "@shared/schema";
 import { COUNTRIES } from "@shared/schema";
 import {
@@ -375,9 +376,9 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
                   </div>
                   <div className="flex items-center gap-2 mt-3">
                     <div className="space-y-2 flex-1">
-                      <Label>{t.hospitals.region}</Label>
+                      <Label>{getGeoLabels(formData.countryCode).region}</Label>
                       <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                        <SelectTrigger data-testid="select-ed-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-ed-hospital-region"><SelectValue placeholder={getGeoLabels(formData.countryCode).region} /></SelectTrigger>
                         <SelectContent>
                           {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                             <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -397,9 +398,9 @@ function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: Hospit
                     </div>
                   </div>
                   <div className="space-y-2 mt-3">
-                    <Label>{t.hospitals.district || "Okres"}</Label>
+                    <Label>{getGeoLabels(formData.countryCode).district}</Label>
                     <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
-                      <SelectTrigger data-testid="select-ed-hospital-district"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                      <SelectTrigger data-testid="select-ed-hospital-district"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                       <SelectContent>
                         {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
                           <SelectItem key={d} value={d}>{d}</SelectItem>
@@ -690,9 +691,9 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                   </div>
                   <div className="flex items-center gap-2 mt-3">
                     <div className="space-y-2 flex-1">
-                      <Label>{t.hospitals.region}</Label>
+                      <Label>{getGeoLabels(formData.countryCode).region}</Label>
                       <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                        <SelectTrigger data-testid="select-hospital-region"><SelectValue placeholder={t.hospitals.region} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-hospital-region"><SelectValue placeholder={getGeoLabels(formData.countryCode).region} /></SelectTrigger>
                         <SelectContent>
                           {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                             <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -712,9 +713,9 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                     </div>
                   </div>
                   <div className="space-y-2 mt-3">
-                    <Label>{t.hospitals.district || "Okres"}</Label>
+                    <Label>{getGeoLabels(formData.countryCode).district}</Label>
                     <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
-                      <SelectTrigger data-testid="select-hospital-district"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+                      <SelectTrigger data-testid="select-hospital-district"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
                       <SelectContent>
                         {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
                           <SelectItem key={d} value={d}>{d}</SelectItem>
@@ -2543,6 +2544,7 @@ export default function HospitalsPage() {
                     <RefreshCw className="h-4 w-4 mr-1.5" />
                     {t.common.refresh}
                   </Button>
+                  <BulkGeoMappingButton entityType="hospitals" entityLabel="Nemocnice" />
                   {canAdd("hospitals") && (
                     <Button onClick={handleAddNew} className="bg-red-700 hover:bg-red-800 text-white" data-testid="button-add-hospital">
                       <Plus className="h-4 w-4 mr-1.5" />

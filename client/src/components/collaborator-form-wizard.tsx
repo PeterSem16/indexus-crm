@@ -28,7 +28,7 @@ import type { CollaboratorAddress, CollaboratorAgreement, BillingDetails } from 
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getCountryFlag } from "@/lib/countries";
-import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
+import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion, getGeoLabels } from "@/lib/regions";
 import { SuggestRegionButton } from "@/components/suggest-region-button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1671,10 +1671,10 @@ function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collabor
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>{t.collaborators.fields.addressRegion || "Region"}</Label>
+          <Label>{getGeoLabels(formData.countryCode).region}</Label>
           <div className="flex items-center gap-1">
             <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-              <SelectTrigger data-testid="select-company-address-region"><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
+              <SelectTrigger data-testid="select-company-address-region"><SelectValue placeholder={getGeoLabels(formData.countryCode).region} /></SelectTrigger>
               <SelectContent>
                 {regions.map((r: string) => (
                   <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -1692,9 +1692,9 @@ function CompanyAddressForm({ collaboratorId, parentCountryCode, t }: { collabor
           </div>
         </div>
         <div className="space-y-2">
-          <Label>{t.hospitals.district || "Okres"}</Label>
+          <Label>{getGeoLabels(formData.countryCode).district}</Label>
           <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
-            <SelectTrigger data-testid="select-company-address-district"><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+            <SelectTrigger data-testid="select-company-address-district"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
             <SelectContent>
               {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
                 <SelectItem key={d} value={d}>{d}</SelectItem>
@@ -1814,10 +1814,10 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>{t.collaborators.fields.addressRegion || "Region"}</Label>
+          <Label>{getGeoLabels(formData.countryCode).region}</Label>
           <div className="flex items-center gap-1">
             <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-              <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.addressRegion || "Region"} /></SelectTrigger>
+              <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={getGeoLabels(formData.countryCode).region} /></SelectTrigger>
               <SelectContent>
                 {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                   <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -1835,9 +1835,9 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
           </div>
         </div>
         <div className="space-y-2">
-          <Label>{t.hospitals.district || "Okres"}</Label>
+          <Label>{getGeoLabels(formData.countryCode).district}</Label>
           <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
-            <SelectTrigger data-testid={`select-address-${addressType}-district`}><SelectValue placeholder={t.hospitals.district || "Okres"} /></SelectTrigger>
+            <SelectTrigger data-testid={`select-address-${addressType}-district`}><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
             <SelectContent>
               {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
                 <SelectItem key={d} value={d}>{d}</SelectItem>

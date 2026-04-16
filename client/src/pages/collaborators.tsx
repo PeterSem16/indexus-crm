@@ -33,8 +33,9 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
-import { REGIONS_BY_COUNTRY, getAutoRegion, getAutoDistrict, getDistrictsForRegion } from "@/lib/regions";
+import { REGIONS_BY_COUNTRY, getAutoRegion, getAutoDistrict, getDistrictsForRegion, getGeoLabels } from "@/lib/regions";
 import { SuggestRegionButton } from "@/components/suggest-region-button";
+import { BulkGeoMappingButton } from "@/components/bulk-geo-mapping";
 import type { 
   Collaborator, 
   CollaboratorAddress, 
@@ -486,10 +487,10 @@ function AddressTab({
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>{t.collaborators.fields.addressRegion}</Label>
+          <Label>{getGeoLabels(formData.countryCode).region}</Label>
           <div className="flex items-center gap-1">
             <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-              <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={t.collaborators.fields.addressRegion} /></SelectTrigger>
+              <SelectTrigger data-testid={`select-address-${addressType}-region`}><SelectValue placeholder={getGeoLabels(formData.countryCode).region} /></SelectTrigger>
               <SelectContent>
                 {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
                   <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -507,9 +508,9 @@ function AddressTab({
           </div>
         </div>
         <div className="space-y-2">
-          <Label>{t.hospitals?.district || "Okres"}</Label>
+          <Label>{getGeoLabels(formData.countryCode).district}</Label>
           <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
-            <SelectTrigger data-testid={`select-address-${addressType}-district`}><SelectValue placeholder={t.hospitals?.district || "Okres"} /></SelectTrigger>
+            <SelectTrigger data-testid={`select-address-${addressType}-district`}><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
             <SelectContent>
               {getDistrictsForRegion(formData.countryCode, formData.region).map((d: string) => (
                 <SelectItem key={d} value={d}>{d}</SelectItem>
@@ -2445,12 +2446,15 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
     <div className={embedded ? "space-y-4" : "space-y-6"}>
       {!embedded && (
         <PageHeader title={t.collaborators.title} description={t.collaborators.description}>
-          {canAdd("collaborators") && (
-            <Button onClick={handleAddNew} data-testid="button-add-collaborator">
-              <Plus className="h-4 w-4 mr-2" />
-              {addButtonLabel || t.collaborators.addCollaborator}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <BulkGeoMappingButton entityType="collaborators" entityLabel="Collaborátori" />
+            {canAdd("collaborators") && (
+              <Button onClick={handleAddNew} data-testid="button-add-collaborator">
+                <Plus className="h-4 w-4 mr-2" />
+                {addButtonLabel || t.collaborators.addCollaborator}
+              </Button>
+            )}
+          </div>
         </PageHeader>
       )}
 
