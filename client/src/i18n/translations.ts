@@ -7202,6 +7202,7 @@ export const translations: Record<Locale, Translations> = {
         midwifes: 'Midwifes',
         persons: 'Persons',
         addMidwife: 'Add Midwife',
+        addPerson: 'Add Person',
       },
     },
     collections: {
@@ -13022,6 +13023,7 @@ export const translations: Record<Locale, Translations> = {
         midwifes: 'Pôrodné asistentky',
         persons: 'Osoby',
         addMidwife: 'Pridať pôrodnú asistentku',
+        addPerson: 'Pridať osobu',
       },
     },
     collections: {
@@ -19004,6 +19006,7 @@ export const translations: Record<Locale, Translations> = {
         midwifes: 'Porodní asistentky',
         persons: 'Osoby',
         addMidwife: 'Přidat porodní asistentku',
+        addPerson: 'Přidat osobu',
       },
     },
     clinics: {
@@ -24723,6 +24726,10 @@ export const translations: Record<Locale, Translations> = {
         templates: 'Sablonok',
         rewards: 'Jutalmak',
         healthcareNetworks: 'Egészségügyi hálózatok',
+        midwifes: 'Bábák',
+        persons: 'Személyek',
+        addMidwife: 'Bába hozzáadása',
+        addPerson: 'Személy hozzáadása',
       },
     },
     clinics: {
@@ -30363,6 +30370,10 @@ export const translations: Record<Locale, Translations> = {
         templates: 'Șabloane',
         rewards: 'Recompense',
         healthcareNetworks: 'Rețele de sănătate',
+        midwifes: 'Moașe',
+        persons: 'Persoane',
+        addMidwife: 'Adaugă moașă',
+        addPerson: 'Adaugă persoană',
       },
     },
     clinics: {
@@ -36004,6 +36015,10 @@ export const translations: Record<Locale, Translations> = {
         templates: 'Modelli',
         rewards: 'Ricompense',
         healthcareNetworks: 'Reti sanitarie',
+        midwifes: 'Ostetriche',
+        persons: 'Persone',
+        addMidwife: 'Aggiungi ostetrica',
+        addPerson: 'Aggiungi persona',
       },
     },
     clinics: {
@@ -41646,6 +41661,10 @@ export const translations: Record<Locale, Translations> = {
         templates: 'Vorlagen',
         rewards: 'Belohnungen',
         healthcareNetworks: 'Gesundheitsnetzwerke',
+        midwifes: 'Hebammen',
+        persons: 'Personen',
+        addMidwife: 'Hebamme hinzufügen',
+        addPerson: 'Person hinzufügen',
       },
     },
     clinics: {

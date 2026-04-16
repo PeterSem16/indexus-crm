@@ -14799,12 +14799,24 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Collaborators routes
   app.get("/api/collaborators/stats", requireAuth, async (req, res) => {
     try {
-      const allCollabs = await db.select({
+      const positionScope = req.query.positionScope as string;
+      const excludeScope = req.query.excludeScope as string;
+      let scopeCatIds: Set<string> | null = null;
+      let excludeCatIds: Set<string> | null = null;
+      if (positionScope || excludeScope) {
+        const { partnerCategories: pcTable } = await import("@shared/schema");
+        const cats = await db.select().from(pcTable);
+        if (positionScope) scopeCatIds = new Set(cats.filter((c: any) => c.entityScope === positionScope).map((c: any) => c.id));
+        if (excludeScope) excludeCatIds = new Set(cats.filter((c: any) => c.entityScope === excludeScope).map((c: any) => c.id));
+      }
+      let allCollabs = await db.select({
         id: collaborators.id,
         isActive: collaborators.isActive,
         collaboratorType: collaborators.collaboratorType,
         partnerCategory: collaborators.partnerCategory,
       }).from(collaborators);
+      if (scopeCatIds) allCollabs = allCollabs.filter((c: any) => c.partnerCategory && scopeCatIds!.has(c.partnerCategory));
+      if (excludeCatIds) allCollabs = allCollabs.filter((c: any) => !c.partnerCategory || !excludeCatIds!.has(c.partnerCategory));
 
       const today = new Date();
       let activeCount = 0;

@@ -2376,10 +2376,6 @@ export default function HospitalsPage() {
             <Baby className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.midwifes || "Midwifes"}
           </TabsTrigger>
-          <TabsTrigger value="collaborators" data-testid="tab-collaborators">
-            <Users className="h-4 w-4 mr-2" />
-            {t.hospitals.tabs.persons || "Persons"}
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="hospital" className="mt-6">
@@ -3069,14 +3065,18 @@ export default function HospitalsPage() {
           <CollaboratorsContent embedded={true} positionScope="independent" addButtonLabel={t.hospitals.tabs.addMidwife || "Add Midwife"} />
         </TabsContent>
 
-        <TabsContent value="collaborators" className="mt-6">
-          <CollaboratorsContent embedded={true} excludeScope="independent" />
-        </TabsContent>
-
         <TabsContent value="networks" className="mt-6">
           <HospitalNetworksTab />
         </TabsContent>
       </Tabs>
+
+      <div className="mt-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">{t.hospitals.tabs.persons || "Persons"}</h2>
+        </div>
+        <CollaboratorsContent embedded={true} excludeScope="independent" addButtonLabel={t.hospitals.tabs.addPerson || "Add Person"} />
+      </div>
 
       {isFormOpen && (
         <HospitalAddDrawer

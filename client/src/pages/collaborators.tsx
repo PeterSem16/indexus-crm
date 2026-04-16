@@ -2037,13 +2037,18 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
     return map;
   }, [partnerCategoriesList]);
 
+  const statsParams: Record<string, string> = {};
+  if (positionScope) statsParams.positionScope = positionScope;
+  if (excludeScope) statsParams.excludeScope = excludeScope;
+  const statsQs = Object.keys(statsParams).length > 0 ? "?" + new URLSearchParams(statsParams).toString() : "";
   const { data: collabStats } = useQuery<{
     total: number; active: number; inactive: number;
     validAgreement: number; expiredAgreement: number; noAgreement: number;
     types: Record<string, number>;
     categories: Record<string, number>;
   }>({
-    queryKey: ["/api/collaborators/stats"],
+    queryKey: ["/api/collaborators/stats", statsParams],
+    queryFn: async () => { const res = await fetch(`/api/collaborators/stats${statsQs}`, { credentials: "include" }); if (!res.ok) throw new Error("Failed"); return res.json(); },
     refetchInterval: 120000,
     staleTime: 60000,
   });
