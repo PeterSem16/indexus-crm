@@ -198,7 +198,7 @@ export default function LandingPage() {
     {
       icon: Globe,
       title: "Multi-Country Support",
-      description: "Manage customers across Slovakia, Czech Republic, Hungary, Romania, Italy, Germany, and USA",
+      description: "Manage customers across Slovakia, Czech Republic, Austria, Hungary, Romania, Italy, Germany, and USA",
     },
     {
       icon: Users,
