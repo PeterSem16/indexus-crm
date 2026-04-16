@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { REGIONS_BY_COUNTRY, getDistrictsForRegion } from "@/lib/regions";
+import { useI18n } from "@/i18n/I18nProvider";
 
 interface SuggestRegionButtonProps {
   countryCode: string;
@@ -25,12 +26,13 @@ export function SuggestRegionButton({
 }: SuggestRegionButtonProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const handleSuggest = async () => {
     if (!countryCode || !city?.trim()) {
       toast({
-        title: "Chýba mesto",
-        description: "Zadajte najprv krajinu a mesto",
+        title: t.common.aiSuggestMissingCity,
+        description: t.common.aiSuggestMissingCityDesc,
         variant: "destructive",
       });
       return;
@@ -68,13 +70,13 @@ export function SuggestRegionButton({
       onSuggestion(matchedRegion, matchedDistrict);
 
       toast({
-        title: "Návrh regiónu",
+        title: t.common.aiSuggestRegionTitle,
         description: `${matchedRegion}${matchedDistrict ? ` / ${matchedDistrict}` : ""} (${confidence})`,
       });
     } catch (err) {
       toast({
-        title: "Chyba",
-        description: "Nepodarilo sa získať návrh",
+        title: t.common.aiSuggestError,
+        description: t.common.aiSuggestErrorDesc,
         variant: "destructive",
       });
     } finally {
@@ -91,7 +93,7 @@ export function SuggestRegionButton({
         onClick={handleSuggest}
         disabled={disabled || loading || !city?.trim()}
         className="h-8 w-8 shrink-0"
-        title="AI návrh regiónu a okresu"
+        title={t.common.aiSuggestRegion}
         data-testid="button-suggest-region"
       >
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
@@ -110,7 +112,7 @@ export function SuggestRegionButton({
       data-testid="button-suggest-region"
     >
       {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-      AI návrh
+      {t.common.aiSuggestButton}
     </Button>
   );
 }

@@ -322,6 +322,13 @@ export interface Translations {
     offline: string;
     indexusConnect: string;
     copy: string;
+    aiSuggestRegion: string;
+    aiSuggestRegionTitle: string;
+    aiSuggestMissingCity: string;
+    aiSuggestMissingCityDesc: string;
+    aiSuggestError: string;
+    aiSuggestErrorDesc: string;
+    aiSuggestButton: string;
   };
   advancedFilters: {
     title: string;
@@ -3910,6 +3917,29 @@ export interface Translations {
     systemSettingsSaveError: string;
     selectCountryForSettings: string;
     selectCountryRequired: string;
+    bulkGeoTitle: string;
+    bulkGeoDescription: string;
+    bulkGeoCountry: string;
+    bulkGeoCountryPlaceholder: string;
+    bulkGeoModules: string;
+    bulkGeoSelectAll: string;
+    bulkGeoDeselectAll: string;
+    bulkGeoHospitals: string;
+    bulkGeoClinics: string;
+    bulkGeoCollaborators: string;
+    bulkGeoCustomers: string;
+    bulkGeoSelectCountry: string;
+    bulkGeoSelectModule: string;
+    bulkGeoProcessing: string;
+    bulkGeoRunButton: string;
+    bulkGeoRunningButton: string;
+    bulkGeoResults: string;
+    bulkGeoComplete: string;
+    bulkGeoAllComplete: string;
+    bulkGeoFilled: string;
+    bulkGeoError: string;
+    bulkGeoDoneTitle: string;
+    bulkGeoDoneDescription: string;
   };
   auth: {
     login: string;
@@ -6229,6 +6259,13 @@ export const translations: Record<Locale, Translations> = {
       offline: 'Offline',
       indexusConnect: 'Activity',
       copy: 'Copy',
+      aiSuggestRegion: 'AI region and district suggestion',
+      aiSuggestRegionTitle: 'Region suggestion',
+      aiSuggestMissingCity: 'City is missing',
+      aiSuggestMissingCityDesc: 'Enter a country and city first',
+      aiSuggestError: 'Error',
+      aiSuggestErrorDesc: 'Failed to get suggestion',
+      aiSuggestButton: 'AI suggest',
     },
     advancedFilters: {
       title: 'Advanced Filters',
@@ -10252,6 +10289,29 @@ export const translations: Record<Locale, Translations> = {
       systemSettingsSaveError: 'Failed to save settings',
       selectCountryForSettings: 'Select a country to view system settings',
       selectCountryRequired: 'Select a country',
+      bulkGeoTitle: 'Automatic region filling',
+      bulkGeoDescription: 'The system will automatically fill in missing regions and districts based on city and address using AI. Select a country and modules to process.',
+      bulkGeoCountry: 'Country',
+      bulkGeoCountryPlaceholder: 'Select country',
+      bulkGeoModules: 'Modules',
+      bulkGeoSelectAll: 'Select all',
+      bulkGeoDeselectAll: 'Deselect all',
+      bulkGeoHospitals: 'Hospitals',
+      bulkGeoClinics: 'Clinics',
+      bulkGeoCollaborators: 'Collaborators',
+      bulkGeoCustomers: 'Customers',
+      bulkGeoSelectCountry: 'Select a country',
+      bulkGeoSelectModule: 'Select at least one module',
+      bulkGeoProcessing: 'Processing',
+      bulkGeoRunButton: 'Run filling',
+      bulkGeoRunningButton: 'Processing...',
+      bulkGeoResults: 'Results',
+      bulkGeoComplete: 'complete',
+      bulkGeoAllComplete: 'All records are complete',
+      bulkGeoFilled: 'Filled',
+      bulkGeoError: 'Processing error',
+      bulkGeoDoneTitle: 'Region filling complete',
+      bulkGeoDoneDescription: 'Updated {updated} of {total} records',
     },
     auth: {
       login: 'Login',
@@ -12058,6 +12118,13 @@ export const translations: Record<Locale, Translations> = {
       offline: 'Offline',
       indexusConnect: 'Aktivita',
       copy: 'Kopírovať',
+      aiSuggestRegion: 'AI návrh regiónu a okresu',
+      aiSuggestRegionTitle: 'Návrh regiónu',
+      aiSuggestMissingCity: 'Chýba mesto',
+      aiSuggestMissingCityDesc: 'Zadajte najprv krajinu a mesto',
+      aiSuggestError: 'Chyba',
+      aiSuggestErrorDesc: 'Nepodarilo sa získať návrh',
+      aiSuggestButton: 'AI návrh',
     },
     advancedFilters: {
       title: 'Pokročilé filtre',
@@ -16033,6 +16100,29 @@ export const translations: Record<Locale, Translations> = {
       systemSettingsSaveError: 'Nepodarilo sa uložiť nastavenia',
       selectCountryForSettings: 'Vyberte krajinu pre zobrazenie systémových nastavení',
       selectCountryRequired: 'Vyberte krajinu',
+      bulkGeoTitle: 'Automatické doplnenie regiónov',
+      bulkGeoDescription: 'Systém automaticky doplní chýbajúce regióny a okresy podľa mesta a adresy pomocou AI. Vyberte krajinu a moduly, ktoré chcete spracovať.',
+      bulkGeoCountry: 'Krajina',
+      bulkGeoCountryPlaceholder: 'Vyberte krajinu',
+      bulkGeoModules: 'Moduly',
+      bulkGeoSelectAll: 'Vybrať všetko',
+      bulkGeoDeselectAll: 'Odznačiť všetko',
+      bulkGeoHospitals: 'Nemocnice',
+      bulkGeoClinics: 'Kliniky',
+      bulkGeoCollaborators: 'Spolupracovníci',
+      bulkGeoCustomers: 'Klienti',
+      bulkGeoSelectCountry: 'Vyberte krajinu',
+      bulkGeoSelectModule: 'Vyberte aspoň jeden modul',
+      bulkGeoProcessing: 'Spracovávam',
+      bulkGeoRunButton: 'Spustiť doplnenie',
+      bulkGeoRunningButton: 'Spracovávam...',
+      bulkGeoResults: 'Výsledky',
+      bulkGeoComplete: 'dokončené',
+      bulkGeoAllComplete: 'Všetky záznamy sú kompletné',
+      bulkGeoFilled: 'Doplnených',
+      bulkGeoError: 'Chyba pri spracovaní',
+      bulkGeoDoneTitle: 'Doplnenie regiónov dokončené',
+      bulkGeoDoneDescription: 'Aktualizovaných {updated} z {total} záznamov',
     },
     auth: {
       login: 'Prihlásenie',
@@ -17855,6 +17945,13 @@ export const translations: Record<Locale, Translations> = {
       offline: 'Offline',
       indexusConnect: 'Aktivita',
       copy: 'Kopírovat',
+      aiSuggestRegion: 'AI návrh regionu a okresu',
+      aiSuggestRegionTitle: 'Návrh regionu',
+      aiSuggestMissingCity: 'Chybí město',
+      aiSuggestMissingCityDesc: 'Zadejte nejprve zemi a město',
+      aiSuggestError: 'Chyba',
+      aiSuggestErrorDesc: 'Nepodařilo se získat návrh',
+      aiSuggestButton: 'AI návrh',
     },
     advancedFilters: {
       title: 'Pokročilé filtry',
@@ -21793,6 +21890,29 @@ export const translations: Record<Locale, Translations> = {
       systemSettingsSaveError: 'Nepodařilo se uložit nastavení',
       selectCountryForSettings: 'Vyberte zemi pro zobrazení systémových nastavení',
       selectCountryRequired: 'Vyberte zemi',
+      bulkGeoTitle: 'Automatické doplnění regionů',
+      bulkGeoDescription: 'Systém automaticky doplní chybějící regiony a okresy podle města a adresy pomocí AI. Vyberte zemi a moduly, které chcete zpracovat.',
+      bulkGeoCountry: 'Země',
+      bulkGeoCountryPlaceholder: 'Vyberte zemi',
+      bulkGeoModules: 'Moduly',
+      bulkGeoSelectAll: 'Vybrat vše',
+      bulkGeoDeselectAll: 'Odznačit vše',
+      bulkGeoHospitals: 'Nemocnice',
+      bulkGeoClinics: 'Kliniky',
+      bulkGeoCollaborators: 'Spolupracovníci',
+      bulkGeoCustomers: 'Klienti',
+      bulkGeoSelectCountry: 'Vyberte zemi',
+      bulkGeoSelectModule: 'Vyberte alespoň jeden modul',
+      bulkGeoProcessing: 'Zpracovávám',
+      bulkGeoRunButton: 'Spustit doplnění',
+      bulkGeoRunningButton: 'Zpracovávám...',
+      bulkGeoResults: 'Výsledky',
+      bulkGeoComplete: 'dokončeno',
+      bulkGeoAllComplete: 'Všechny záznamy jsou kompletní',
+      bulkGeoFilled: 'Doplněno',
+      bulkGeoError: 'Chyba při zpracování',
+      bulkGeoDoneTitle: 'Doplnění regionů dokončeno',
+      bulkGeoDoneDescription: 'Aktualizováno {updated} z {total} záznamů',
     },
     auth: {
       login: 'Přihlášení',

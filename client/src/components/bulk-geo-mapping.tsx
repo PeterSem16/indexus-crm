@@ -11,15 +11,17 @@ import { useToast } from "@/hooks/use-toast";
 import { COUNTRIES } from "@/lib/countries";
 import { getGeoLabels } from "@/lib/regions";
 import { Progress } from "@/components/ui/progress";
+import { useI18n } from "@/i18n/I18nProvider";
 
-const MODULES = [
-  { key: "hospitals", label: "Nemocnice", icon: Building2 },
-  { key: "clinics", label: "Kliniky", icon: Stethoscope },
-  { key: "collaborators", label: "Spolupracovníci", icon: Users },
-  { key: "customers", label: "Klienti", icon: UserCheck },
-] as const;
+const MODULE_KEYS = ["hospitals", "clinics", "collaborators", "customers"] as const;
+type ModuleKey = typeof MODULE_KEYS[number];
 
-type ModuleKey = typeof MODULES[number]["key"];
+const MODULE_ICONS: Record<ModuleKey, typeof Building2> = {
+  hospitals: Building2,
+  clinics: Stethoscope,
+  collaborators: Users,
+  customers: UserCheck,
+};
 
 interface ModuleResult {
   updated: number;
@@ -28,6 +30,7 @@ interface ModuleResult {
 }
 
 export function BulkGeoMappingPanel() {
+  const { t } = useI18n();
   const [countryCode, setCountryCode] = useState("");
   const [selectedModules, setSelectedModules] = useState<Set<ModuleKey>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -38,6 +41,13 @@ export function BulkGeoMappingPanel() {
 
   const geoLabels = getGeoLabels(countryCode || "SK");
 
+  const moduleLabels: Record<ModuleKey, string> = {
+    hospitals: t.configurator.bulkGeoHospitals,
+    clinics: t.configurator.bulkGeoClinics,
+    collaborators: t.configurator.bulkGeoCollaborators,
+    customers: t.configurator.bulkGeoCustomers,
+  };
+
   const toggleModule = (key: ModuleKey) => {
     setSelectedModules(prev => {
       const next = new Set(prev);
@@ -47,20 +57,20 @@ export function BulkGeoMappingPanel() {
   };
 
   const selectAll = () => {
-    if (selectedModules.size === MODULES.length) {
+    if (selectedModules.size === MODULE_KEYS.length) {
       setSelectedModules(new Set());
     } else {
-      setSelectedModules(new Set(MODULES.map(m => m.key)));
+      setSelectedModules(new Set([...MODULE_KEYS]));
     }
   };
 
   const handleRun = async () => {
     if (!countryCode) {
-      toast({ title: "Vyberte krajinu", variant: "destructive" });
+      toast({ title: t.configurator.bulkGeoSelectCountry, variant: "destructive" });
       return;
     }
     if (selectedModules.size === 0) {
-      toast({ title: "Vyberte aspoň jeden modul", variant: "destructive" });
+      toast({ title: t.configurator.bulkGeoSelectModule, variant: "destructive" });
       return;
     }
 
@@ -92,7 +102,7 @@ export function BulkGeoMappingPanel() {
         totalUpdated += data.updated || 0;
         totalRecords += data.total || 0;
       } catch {
-        setResults(prev => ({ ...prev, [mod]: { updated: 0, total: 0, errors: ["Chyba pri spracovaní"] } }));
+        setResults(prev => ({ ...prev, [mod]: { updated: 0, total: 0, errors: [t.configurator.bulkGeoError] } }));
       }
     }
 
@@ -101,8 +111,10 @@ export function BulkGeoMappingPanel() {
     setLoading(false);
 
     toast({
-      title: "Doplnenie regiónov dokončené",
-      description: `Aktualizovaných ${totalUpdated} z ${totalRecords} záznamov`,
+      title: t.configurator.bulkGeoDoneTitle,
+      description: t.configurator.bulkGeoDoneDescription
+        .replace("{updated}", String(totalUpdated))
+        .replace("{total}", String(totalRecords)),
     });
   };
 
@@ -113,19 +125,19 @@ export function BulkGeoMappingPanel() {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <MapPinPlus className="h-5 w-5 text-primary" />
-          Automatické doplnenie regiónov
+          {t.configurator.bulkGeoTitle}
         </CardTitle>
         <CardDescription>
-          Systém automaticky doplní chýbajúce regióny a okresy podľa mesta a adresy pomocou AI. Vyberte krajinu a moduly, ktoré chcete spracovať.
+          {t.configurator.bulkGeoDescription}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Krajina</Label>
+            <Label className="text-sm font-medium">{t.configurator.bulkGeoCountry}</Label>
             <Select value={countryCode} onValueChange={(v) => { setCountryCode(v); setResults({}); }}>
               <SelectTrigger data-testid="select-bulk-geo-country">
-                <SelectValue placeholder="Vyberte krajinu" />
+                <SelectValue placeholder={t.configurator.bulkGeoCountryPlaceholder} />
               </SelectTrigger>
               <SelectContent>
                 {COUNTRIES.map((c) => (
@@ -145,35 +157,38 @@ export function BulkGeoMappingPanel() {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Moduly</Label>
+              <Label className="text-sm font-medium">{t.configurator.bulkGeoModules}</Label>
               <button
                 type="button"
                 className="text-xs text-primary hover:underline"
                 onClick={selectAll}
                 data-testid="button-select-all-modules"
               >
-                {selectedModules.size === MODULES.length ? "Odznačiť všetko" : "Vybrať všetko"}
+                {selectedModules.size === MODULE_KEYS.length ? t.configurator.bulkGeoDeselectAll : t.configurator.bulkGeoSelectAll}
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {MODULES.map(({ key, label, icon: Icon }) => (
-                <label
-                  key={key}
-                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                    selectedModules.has(key)
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border hover:border-muted-foreground/30"
-                  }`}
-                  data-testid={`checkbox-module-${key}`}
-                >
-                  <Checkbox
-                    checked={selectedModules.has(key)}
-                    onCheckedChange={() => toggleModule(key)}
-                  />
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{label}</span>
-                </label>
-              ))}
+              {MODULE_KEYS.map((key) => {
+                const Icon = MODULE_ICONS[key];
+                return (
+                  <label
+                    key={key}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      selectedModules.has(key)
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border hover:border-muted-foreground/30"
+                    }`}
+                    data-testid={`checkbox-module-${key}`}
+                  >
+                    <Checkbox
+                      checked={selectedModules.has(key)}
+                      onCheckedChange={() => toggleModule(key)}
+                    />
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{moduleLabels[key]}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -182,7 +197,7 @@ export function BulkGeoMappingPanel() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Spracovávam: {MODULES.find(m => m.key === currentModule)?.label || ""}...
+              {t.configurator.bulkGeoProcessing}: {currentModule ? moduleLabels[currentModule as ModuleKey] : ""}...
             </div>
             <Progress value={progress} className="h-2" />
           </div>
@@ -192,9 +207,10 @@ export function BulkGeoMappingPanel() {
           <>
             <Separator />
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Výsledky</Label>
+              <Label className="text-sm font-medium">{t.configurator.bulkGeoResults}</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {MODULES.filter(m => results[m.key]).map(({ key, label, icon: Icon }) => {
+                {MODULE_KEYS.filter(key => results[key]).map((key) => {
+                  const Icon = MODULE_ICONS[key];
                   const r = results[key];
                   const hasErrors = r.errors && r.errors.length > 0;
                   return (
@@ -210,12 +226,12 @@ export function BulkGeoMappingPanel() {
                     >
                       <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <span className="font-medium">{label}</span>
+                        <span className="font-medium">{moduleLabels[key]}</span>
                         <div className="text-xs text-muted-foreground mt-0.5">
                           {r.total === 0 ? (
-                            "Všetky záznamy sú kompletné"
+                            t.configurator.bulkGeoAllComplete
                           ) : (
-                            <>Doplnených: <strong>{r.updated}</strong> / {r.total}</>
+                            <>{t.configurator.bulkGeoFilled}: <strong>{r.updated}</strong> / {r.total}</>
                           )}
                         </div>
                       </div>
@@ -242,12 +258,12 @@ export function BulkGeoMappingPanel() {
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Spracovávam...
+                {t.configurator.bulkGeoRunningButton}
               </>
             ) : (
               <>
                 <MapPinPlus className="h-4 w-4" />
-                Spustiť doplnenie
+                {t.configurator.bulkGeoRunButton}
               </>
             )}
           </Button>
