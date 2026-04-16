@@ -862,6 +862,7 @@ function NetworkExplorer() {
                           setSelectedResult({ type: "person", id: person.id, name: person.fullName || `${person.firstName} ${person.lastName}` });
                           setSearch(person.fullName || `${person.firstName} ${person.lastName}`);
                           setDebouncedSearch("");
+                          setDrawerEntity({ type: "person", id: person.id });
                         }}
                         data-testid={`search-result-${person.id}`}
                       >
