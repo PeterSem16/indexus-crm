@@ -44008,7 +44008,34 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
         rows = result.rows;
       }
 
+      console.log(`[BulkGeo] entityType=${entityType}, countryCode=${countryCode}, rows found=${rows.length}`);
       if (rows.length === 0) {
+        try {
+          let totalForCountry = 0;
+          let alreadyFilled = 0;
+          const countryCol = entityType === "customers" ? "country" : "country_code";
+          const table = entityType === "collaborators" ? "collaborator_addresses" : entityType;
+
+          if (entityType === "collaborators") {
+            const totalRes = await pool.query(`SELECT COUNT(*) as cnt FROM collaborator_addresses WHERE country_code = $1`, [countryCode]);
+            totalForCountry = parseInt(totalRes.rows[0]?.cnt || "0");
+            const filledRes = await pool.query(`SELECT COUNT(*) as cnt FROM collaborator_addresses WHERE country_code = $1 AND region IS NOT NULL AND region != ''`, [countryCode]);
+            alreadyFilled = parseInt(filledRes.rows[0]?.cnt || "0");
+          } else {
+            const totalRes = await pool.query(`SELECT COUNT(*) as cnt FROM ${table} WHERE ${countryCol} = $1`, [countryCode]);
+            totalForCountry = parseInt(totalRes.rows[0]?.cnt || "0");
+            const filledRes = await pool.query(`SELECT COUNT(*) as cnt FROM ${table} WHERE ${countryCol} = $1 AND region IS NOT NULL AND region != '' AND district IS NOT NULL AND district != ''`, [countryCode]);
+            alreadyFilled = parseInt(filledRes.rows[0]?.cnt || "0");
+          }
+          console.log(`[BulkGeo] ${entityType} with ${countryCol}=${countryCode}: total=${totalForCountry}, alreadyFilled=${alreadyFilled}`);
+          
+          if (totalForCountry === 0) {
+            const distinctCountries = await pool.query(`SELECT DISTINCT ${countryCol} FROM ${table} WHERE ${countryCol} IS NOT NULL ORDER BY ${countryCol} LIMIT 20`);
+            console.log(`[BulkGeo] Available ${countryCol} values in ${table}: ${JSON.stringify(distinctCountries.rows.map((r: any) => r[countryCol]))}`);
+          }
+        } catch (dbgErr: any) {
+          console.log(`[BulkGeo] Debug query error: ${dbgErr.message}`);
+        }
         return res.json({ updated: 0, total: 0, message: "No records to update" });
       }
 
