@@ -274,6 +274,7 @@ interface CustomerFormProps {
 export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCardLayout = false }: CustomerFormProps) {
   const { t, locale } = useI18n();
   const [activeSection, setActiveSection] = useState("status");
+  const [districtKey, setDistrictKey] = useState(0);
   const { isHidden, isReadonly } = useModuleFieldPermissions("customers");
   const { toast } = useToast();
 
@@ -724,7 +725,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                       <FormItem>
                         <FormLabel>{getGeoLabels(selectedCountry).region}</FormLabel>
                         <div className="flex gap-1.5">
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <Select key={`region-${districtKey}`} onValueChange={field.onChange} value={field.value || ""}>
                             <FormControl><SelectTrigger data-testid="select-region" className={isReadonly("region") ? "bg-muted" : ""}><SelectValue placeholder={getGeoLabels(selectedCountry).region} /></SelectTrigger></FormControl>
                             <SelectContent>
                               {(REGIONS_BY_COUNTRY[selectedCountry] || []).map((r: string) => (
@@ -743,9 +744,8 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                             size="icon"
                             onSuggestion={(region, district) => {
                               form.setValue("region", region, { shouldValidate: true, shouldDirty: true });
-                              setTimeout(() => {
-                                form.setValue("district", district, { shouldValidate: true, shouldDirty: true });
-                              }, 50);
+                              form.setValue("district", district, { shouldValidate: true, shouldDirty: true });
+                              setDistrictKey(k => k + 1);
                             }}
                           />
                         </div>
@@ -757,7 +757,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                     <FormField control={form.control} name="district" render={({ field }) => (
                       <FormItem>
                         <FormLabel>{getGeoLabels(selectedCountry).district}</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <Select key={`district-${districtKey}`} onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl><SelectTrigger data-testid="select-district"><SelectValue placeholder={getGeoLabels(selectedCountry).district} /></SelectTrigger></FormControl>
                           <SelectContent>
                             {getDistrictsForRegion(selectedCountry, form.watch("region") || "", field.value).map((d: string) => (

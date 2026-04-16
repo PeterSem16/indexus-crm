@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { REGIONS_BY_COUNTRY, getDistrictsForRegion } from "@/lib/regions";
+import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getDistrictsForRegion } from "@/lib/regions";
 import { useI18n } from "@/i18n";
 
 interface SuggestRegionButtonProps {
@@ -13,6 +13,23 @@ interface SuggestRegionButtonProps {
   onSuggestion: (region: string, district: string) => void;
   disabled?: boolean;
   size?: "sm" | "default" | "icon";
+}
+
+function findRegionForDistrict(countryCode: string, district: string, preferredRegion?: string): string | null {
+  const countryDistricts = DISTRICTS_BY_REGION[countryCode];
+  if (!countryDistricts || !district) return null;
+  const lowerDistrict = district.toLowerCase();
+  if (preferredRegion && countryDistricts[preferredRegion]) {
+    if (countryDistricts[preferredRegion].some(d => d.toLowerCase() === lowerDistrict)) {
+      return preferredRegion;
+    }
+  }
+  for (const [region, districts] of Object.entries(countryDistricts)) {
+    if (districts.some(d => d.toLowerCase() === lowerDistrict)) {
+      return region;
+    }
+  }
+  return null;
 }
 
 export function SuggestRegionButton({
@@ -53,17 +70,29 @@ export function SuggestRegionButton({
       const { region, district, confidence } = data;
 
       const availableRegions = REGIONS_BY_COUNTRY[countryCode] || [];
-      const matchedRegion = availableRegions.find(
+      let matchedRegion = availableRegions.find(
         (r: string) => r.toLowerCase() === region?.toLowerCase()
       ) || region || "";
 
       let matchedDistrict = district || "";
-      if (matchedRegion) {
-        const availableDistricts = getDistrictsForRegion(countryCode, matchedRegion);
-        if (availableDistricts.length > 0) {
+
+      if (matchedDistrict) {
+        const correctRegion = findRegionForDistrict(countryCode, matchedDistrict, matchedRegion);
+        if (correctRegion) {
+          matchedRegion = correctRegion;
+          const availableDistricts = getDistrictsForRegion(countryCode, correctRegion);
           matchedDistrict = availableDistricts.find(
             (d: string) => d.toLowerCase() === district?.toLowerCase()
           ) || matchedDistrict;
+        }
+      }
+
+      if (!matchedDistrict && matchedRegion) {
+        const availableDistricts = getDistrictsForRegion(countryCode, matchedRegion);
+        if (availableDistricts.length > 0 && district) {
+          matchedDistrict = availableDistricts.find(
+            (d: string) => d.toLowerCase() === district.toLowerCase()
+          ) || district;
         }
       }
 
