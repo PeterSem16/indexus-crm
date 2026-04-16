@@ -2376,12 +2376,15 @@ export default function HospitalsPage() {
             <Baby className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.midwifes || "Midwifes"}
           </TabsTrigger>
-          <div className="h-6 w-px bg-border mx-1 self-center" />
-          <TabsTrigger value="collaborators" data-testid="tab-collaborators" className="text-muted-foreground data-[state=active]:text-foreground">
-            <Users className="h-4 w-4 mr-2" />
-            {t.hospitals.tabs.persons || "Persons"}
-          </TabsTrigger>
         </TabsList>
+        <div className="mt-1">
+          <TabsList className="h-8 bg-muted/40 px-1">
+            <TabsTrigger value="collaborators" data-testid="tab-collaborators" className="h-6 text-xs px-3">
+              <Users className="h-3.5 w-3.5 mr-1.5" />
+              {t.hospitals.tabs.persons || "Persons"}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="hospital" className="mt-6">
           <Card>
