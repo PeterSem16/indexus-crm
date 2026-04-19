@@ -108,6 +108,7 @@ export function AppSidebar() {
     { title: t.nav.users, url: "/users", icon: UserCog, testId: "users", moduleKey: "users" },
     { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings", moduleKey: "settings" },
     { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
+    { title: "Automations", url: "/automations", icon: Zap, testId: "automations", moduleKey: "configurator" },
   ];
 
   const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;
