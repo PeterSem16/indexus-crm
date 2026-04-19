@@ -62,7 +62,9 @@ type RuleDraft = {
   module: string;
   countryCode: string | null;
   enabled: boolean;
-  trigger: { type: "event"; entityType: string; eventType: string };
+  trigger:
+    | { type: "event"; entityType: string; eventType: string }
+    | { type: "schedule"; interval: string };
   conditions: ConditionNode | null;
   actions: ActionNode[];
   rateLimitPerHour: number | null;
@@ -380,41 +382,97 @@ function RuleEditor({
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm">When this happens (Trigger)</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <CardContent className="space-y-3">
                 <div>
-                  <Label>Module</Label>
+                  <Label>Trigger type</Label>
                   <Select
-                    value={draft.module}
-                    onValueChange={(v) =>
-                      setDraft({
-                        ...draft,
-                        module: v,
-                        trigger: { ...draft.trigger, entityType: v },
-                      })
-                    }
+                    value={draft.trigger.type}
+                    onValueChange={(v) => {
+                      if (v === "schedule") {
+                        setDraft({ ...draft, trigger: { type: "schedule", interval: "hourly" } });
+                      } else {
+                        setDraft({
+                          ...draft,
+                          trigger: { type: "event", entityType: draft.module, eventType: catalog.eventTypes[0]?.value || "updated" },
+                        });
+                      }
+                    }}
                   >
-                    <SelectTrigger data-testid="select-module"><SelectValue /></SelectTrigger>
+                    <SelectTrigger data-testid="select-trigger-type" className="w-64"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {catalog.modules.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                      ))}
+                      <SelectItem value="event">Event (entity changed)</SelectItem>
+                      <SelectItem value="schedule">Schedule (recurring)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Event</Label>
-                  <Select
-                    value={draft.trigger.eventType}
-                    onValueChange={(v) => setDraft({ ...draft, trigger: { ...draft.trigger, eventType: v } })}
-                  >
-                    <SelectTrigger data-testid="select-event"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {catalog.eventTypes.map((e) => (
-                        <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+
+                {draft.trigger.type === "event" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label>Module</Label>
+                      <Select
+                        value={draft.module}
+                        onValueChange={(v) =>
+                          setDraft({
+                            ...draft,
+                            module: v,
+                            trigger: { type: "event", entityType: v, eventType: (draft.trigger as any).eventType },
+                          })
+                        }
+                      >
+                        <SelectTrigger data-testid="select-module"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {catalog.modules.map((m) => (
+                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Event</Label>
+                      <Select
+                        value={(draft.trigger as any).eventType}
+                        onValueChange={(v) =>
+                          setDraft({
+                            ...draft,
+                            trigger: { type: "event", entityType: draft.module, eventType: v },
+                          })
+                        }
+                      >
+                        <SelectTrigger data-testid="select-event"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {catalog.eventTypes.map((e) => (
+                            <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Label>Run interval</Label>
+                    <Select
+                      value={(draft.trigger as any).interval}
+                      onValueChange={(v) =>
+                        setDraft({ ...draft, trigger: { type: "schedule", interval: v } })
+                      }
+                    >
+                      <SelectTrigger data-testid="select-schedule-interval" className="w-64"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="every_5_min">Every 5 minutes</SelectItem>
+                        <SelectItem value="every_15_min">Every 15 minutes</SelectItem>
+                        <SelectItem value="every_30_min">Every 30 minutes</SelectItem>
+                        <SelectItem value="hourly">Every hour</SelectItem>
+                        <SelectItem value="every_6_hours">Every 6 hours</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Schedule triggers fire on a recurring tick. Conditions still apply against the chosen module's data.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
