@@ -1326,6 +1326,51 @@ function GlobalRunsView({ rules }: { rules: Rule[] }) {
     return list.filter((r) => r.status === statusFilter);
   }, [runsQ.data, statusFilter]);
 
+  const stats = useMemo(() => {
+    const list = runsQ.data || [];
+    const acc = { total: list.length, success: 0, failed: 0, skipped: 0, running: 0, totalMs: 0, finishedCount: 0 };
+    for (const r of list) {
+      if (r.status === "success") acc.success++;
+      else if (r.status === "failed") acc.failed++;
+      else if (r.status === "skipped") acc.skipped++;
+      else if (r.status === "running") acc.running++;
+      if (r.finishedAt) {
+        acc.totalMs += new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime();
+        acc.finishedCount++;
+      }
+    }
+    const denom = acc.success + acc.failed;
+    const successRate = denom > 0 ? Math.round((acc.success / denom) * 100) : null;
+    const avgMs = acc.finishedCount > 0 ? Math.round(acc.totalMs / acc.finishedCount) : null;
+    return { ...acc, successRate, avgMs };
+  }, [runsQ.data]);
+
+  const sparklineRuns = useMemo(() => (runsQ.data || []).slice(0, 50).reverse(), [runsQ.data]);
+
+  const perRuleStats = useMemo(() => {
+    const list = runsQ.data || [];
+    const m: Record<string, { name: string; success: number; failed: number; total: number }> = {};
+    for (const r of list) {
+      const name = ruleNameById[r.ruleId] || r.ruleId.slice(0, 8);
+      if (!m[r.ruleId]) m[r.ruleId] = { name, success: 0, failed: 0, total: 0 };
+      m[r.ruleId].total++;
+      if (r.status === "success") m[r.ruleId].success++;
+      else if (r.status === "failed") m[r.ruleId].failed++;
+    }
+    return Object.entries(m)
+      .map(([id, v]) => ({ id, ...v, rate: v.success + v.failed > 0 ? Math.round((v.success / (v.success + v.failed)) * 100) : null }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
+  }, [runsQ.data, ruleNameById]);
+
+  const dotColor = (s: string) => {
+    if (s === "success") return "bg-green-500";
+    if (s === "failed") return "bg-red-500";
+    if (s === "skipped") return "bg-gray-400";
+    if (s === "running") return "bg-blue-400 animate-pulse";
+    return "bg-yellow-500";
+  };
+
   const fmtDuration = (start: string, end: string | null) => {
     if (!end) return "—";
     const ms = new Date(end).getTime() - new Date(start).getTime();
@@ -1342,6 +1387,78 @@ function GlobalRunsView({ rules }: { rules: Rule[] }) {
 
   return (
     <div className="space-y-3">
+      {/* Stats summary */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+        <div className="border rounded-md p-2" data-testid="stat-total">
+          <div className="text-[10px] uppercase text-muted-foreground">Total</div>
+          <div className="text-lg font-semibold">{stats.total}</div>
+        </div>
+        <div className="border rounded-md p-2" data-testid="stat-success">
+          <div className="text-[10px] uppercase text-green-600">Success</div>
+          <div className="text-lg font-semibold text-green-600">{stats.success}</div>
+        </div>
+        <div className="border rounded-md p-2" data-testid="stat-failed">
+          <div className="text-[10px] uppercase text-red-600">Failed</div>
+          <div className="text-lg font-semibold text-red-600">{stats.failed}</div>
+        </div>
+        <div className="border rounded-md p-2" data-testid="stat-skipped">
+          <div className="text-[10px] uppercase text-muted-foreground">Skipped</div>
+          <div className="text-lg font-semibold">{stats.skipped}</div>
+        </div>
+        <div className="border rounded-md p-2" data-testid="stat-success-rate">
+          <div className="text-[10px] uppercase text-muted-foreground">Success rate</div>
+          <div className="text-lg font-semibold">{stats.successRate !== null ? `${stats.successRate}%` : "—"}</div>
+        </div>
+        <div className="border rounded-md p-2" data-testid="stat-avg-duration">
+          <div className="text-[10px] uppercase text-muted-foreground">Avg duration</div>
+          <div className="text-lg font-semibold">
+            {stats.avgMs !== null ? (stats.avgMs < 1000 ? `${stats.avgMs}ms` : `${(stats.avgMs / 1000).toFixed(2)}s`) : "—"}
+          </div>
+        </div>
+      </div>
+
+      {/* Sparkline of last 50 runs */}
+      {sparklineRuns.length > 0 && (
+        <div className="border rounded-md p-2">
+          <div className="text-[10px] uppercase text-muted-foreground mb-1">Recent runs (oldest → newest)</div>
+          <div className="flex items-center gap-[2px]" data-testid="sparkline-runs">
+            {sparklineRuns.map((r) => (
+              <div
+                key={r.id}
+                className={`h-5 w-2 rounded-sm cursor-pointer ${dotColor(r.status)}`}
+                title={`${r.status} · ${new Date(r.startedAt).toLocaleString()}${r.error ? ` · ${r.error}` : ""}`}
+                onClick={() => setSelectedRun(r.id)}
+                data-testid={`spark-${r.id}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Per-rule top 8 */}
+      {perRuleStats.length > 1 && (
+        <div className="border rounded-md p-2">
+          <div className="text-[10px] uppercase text-muted-foreground mb-1">Top rules by activity</div>
+          <div className="space-y-1">
+            {perRuleStats.map((r) => (
+              <div key={r.id} className="flex items-center gap-2 text-xs" data-testid={`perrule-${r.id}`}>
+                <div className="flex-1 truncate font-medium">{r.name}</div>
+                <div className="text-muted-foreground tabular-nums">
+                  {r.success}✓ {r.failed}✗ / {r.total}
+                </div>
+                <div className="w-24 h-2 bg-muted rounded overflow-hidden flex">
+                  {r.success > 0 && <div className="h-full bg-green-500" style={{ width: `${(r.success / r.total) * 100}%` }} />}
+                  {r.failed > 0 && <div className="h-full bg-red-500" style={{ width: `${(r.failed / r.total) * 100}%` }} />}
+                </div>
+                <div className="w-12 text-right tabular-nums text-muted-foreground">
+                  {r.rate !== null ? `${r.rate}%` : "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <Label className="text-xs">Status</Label>
