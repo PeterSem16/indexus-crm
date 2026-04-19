@@ -306,6 +306,7 @@ function RuleEditor({
   );
   const [jsonText, setJsonText] = useState(() => JSON.stringify(draft, null, 2));
   const [tab, setTab] = useState<string>("builder");
+  const [showTest, setShowTest] = useState(false);
 
   useEffect(() => {
     if (tab === "json") setJsonText(JSON.stringify(draft, null, 2));
@@ -607,11 +608,170 @@ function RuleEditor({
         </Tabs>
 
         <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setShowTest(true)}
+            disabled={!rule}
+            title={!rule ? "Save the rule first to enable dry-run" : "Run a dry-run with sample event data"}
+            data-testid="button-open-dryrun"
+          >
+            Test (dry-run)
+          </Button>
+          <div className="flex-1" />
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={submit} disabled={saving} data-testid="button-save-rule">
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Save
           </Button>
+        </DialogFooter>
+      </DialogContent>
+
+      {rule && (
+        <DryRunDialog
+          open={showTest}
+          rule={rule}
+          draft={draft}
+          onClose={() => setShowTest(false)}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+/* ----------------- Dry-run dialog ----------------- */
+function DryRunDialog({
+  open,
+  rule,
+  draft,
+  onClose,
+}: {
+  open: boolean;
+  rule: Rule;
+  draft: RuleDraft;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const sampleDefault = JSON.stringify(
+    {
+      entityType: rule.module,
+      entityId: "sample-id-123",
+      eventType: (draft.trigger as any).eventType || "updated",
+      newValues: { status: "in_progress", title: "Sample task" },
+      oldValues: { status: "pending", title: "Sample task" },
+      countryCode: rule.countryCode || "SK",
+    },
+    null,
+    2,
+  );
+  const [sampleText, setSampleText] = useState(sampleDefault);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  useEffect(() => {
+    if (open) {
+      setSampleText(sampleDefault);
+      setResult(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, rule.id]);
+
+  const runTest = async () => {
+    let sampleEvent: any;
+    try {
+      sampleEvent = JSON.parse(sampleText);
+    } catch (e: any) {
+      toast({ title: "Invalid JSON", description: e.message, variant: "destructive" });
+      return;
+    }
+    setRunning(true);
+    setResult(null);
+    try {
+      const res = await apiRequest("POST", `/api/automation/rules/${rule.id}/test`, { sampleEvent });
+      const data = await res.json();
+      setResult(data);
+    } catch (e: any) {
+      toast({ title: "Dry-run failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Dry-run: {rule.name}</DialogTitle>
+          <DialogDescription>
+            Test conditions and see rendered action configs WITHOUT executing actions or writing to run history.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Sample event (JSON)</Label>
+            <Textarea
+              rows={10}
+              className="text-xs font-mono"
+              value={sampleText}
+              onChange={(e) => setSampleText(e.target.value)}
+              data-testid="textarea-dryrun-sample"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Tweak <code>newValues</code> / <code>oldValues</code> to simulate different field changes. The
+              engine evaluates conditions against this payload.
+            </p>
+          </div>
+
+          <Button onClick={runTest} disabled={running} data-testid="button-run-dryrun">
+            {running && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Run dry-run
+          </Button>
+
+          {result && (
+            <div className="space-y-3 border-t pt-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">Conditions:</span>
+                <Badge variant={result.conditionMet ? "default" : "secondary"} data-testid="badge-condition-result">
+                  {result.conditionMet ? "MATCH (actions would fire)" : "NO MATCH (rule skipped)"}
+                </Badge>
+              </div>
+
+              <div>
+                <div className="text-sm font-semibold mb-1">
+                  Actions ({result.actions?.length || 0}) {result.conditionMet ? "would execute" : "(suppressed)"}
+                </div>
+                <div className="space-y-2">
+                  {(result.actions || []).map((a: any, i: number) => (
+                    <div key={i} className="border rounded p-2 bg-muted/30" data-testid={`dryrun-action-${i}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-[10px]">#{i + 1}</Badge>
+                        <span className="text-xs font-mono font-semibold">{a.type}</span>
+                      </div>
+                      <pre className="text-[10px] bg-background p-2 rounded overflow-auto">
+                        {JSON.stringify(a.rendered, null, 2)}
+                      </pre>
+                    </div>
+                  ))}
+                  {(!result.actions || result.actions.length === 0) && (
+                    <div className="text-xs text-muted-foreground italic">No actions configured.</div>
+                  )}
+                </div>
+              </div>
+
+              <details>
+                <summary className="cursor-pointer text-xs text-muted-foreground">
+                  Raw evaluation context (for debugging templates)
+                </summary>
+                <pre className="text-[10px] bg-muted p-2 rounded overflow-auto max-h-60 mt-1">
+                  {JSON.stringify(result.ctx, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
