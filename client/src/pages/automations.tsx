@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -95,6 +95,7 @@ export default function AutomationsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [historyFor, setHistoryFor] = useState<Rule | null>(null);
 
+  const [topTab, setTopTab] = useState<"rules" | "runs">("rules");
   const rulesQ = useQuery<Rule[]>({ queryKey: ["/api/automation/rules"] });
   const catalogQ = useQuery<Catalog>({ queryKey: ["/api/automation/catalog"] });
   const usersQ = useQuery<UserOpt[]>({ queryKey: ["/api/automation/users"] });
@@ -155,6 +156,15 @@ export default function AutomationsPage() {
         </Button>
       </div>
 
+      <Tabs value={topTab} onValueChange={(v) => setTopTab(v as any)}>
+        <TabsList>
+          <TabsTrigger value="rules" data-testid="tab-rules">Rules</TabsTrigger>
+          <TabsTrigger value="runs" data-testid="tab-runs">
+            <History className="h-3.5 w-3.5 mr-1" /> Run history
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="rules" className="pt-4">
       {rulesQ.isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -222,6 +232,12 @@ export default function AutomationsPage() {
           )}
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="runs" className="pt-4">
+          <GlobalRunsView rules={rulesQ.data || []} />
+        </TabsContent>
+      </Tabs>
 
       {(editing || showCreate) && catalogQ.data && (
         <RuleEditor
@@ -908,6 +924,208 @@ function RunHistory({ ruleId }: { ruleId: string }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ----------------- Global runs view (top-level Runs tab) ----------------- */
+function GlobalRunsView({ rules }: { rules: Rule[] }) {
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [ruleFilter, setRuleFilter] = useState<string>("all");
+  const [selectedRun, setSelectedRun] = useState<string | null>(null);
+
+  const queryKey = ruleFilter === "all"
+    ? ["/api/automation/runs"]
+    : ["/api/automation/runs", { ruleId: ruleFilter }];
+  const runsQ = useQuery<Run[]>({ queryKey, refetchInterval: 5000 });
+
+  const detailQ = useQuery<any>({
+    queryKey: ["/api/automation/runs", selectedRun],
+    enabled: !!selectedRun,
+  });
+
+  const ruleNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of rules) m[r.id] = r.name;
+    return m;
+  }, [rules]);
+
+  const filtered = useMemo(() => {
+    const list = runsQ.data || [];
+    if (statusFilter === "all") return list;
+    return list.filter((r) => r.status === statusFilter);
+  }, [runsQ.data, statusFilter]);
+
+  const fmtDuration = (start: string, end: string | null) => {
+    if (!end) return "—";
+    const ms = new Date(end).getTime() - new Date(start).getTime();
+    if (ms < 1000) return `${ms} ms`;
+    return `${(ms / 1000).toFixed(2)} s`;
+  };
+
+  const statusVariant = (s: string): "default" | "destructive" | "secondary" | "outline" => {
+    if (s === "success") return "default";
+    if (s === "failed") return "destructive";
+    if (s === "skipped") return "outline";
+    return "secondary";
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <Label className="text-xs">Status</Label>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40" data-testid="select-runs-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="success">Success</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="skipped">Skipped</SelectItem>
+              <SelectItem value="running">Running</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-xs">Rule</Label>
+          <Select value={ruleFilter} onValueChange={setRuleFilter}>
+            <SelectTrigger className="w-64" data-testid="select-runs-rule">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All rules</SelectItem>
+              {rules.map((r) => (
+                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          {runsQ.isFetching && <Loader2 className="h-3 w-3 animate-spin" />}
+          <span data-testid="text-runs-count">{filtered.length} run(s) · auto-refresh 5s</span>
+        </div>
+      </div>
+
+      {runsQ.isLoading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center text-muted-foreground py-12 text-sm border rounded-md">
+          No runs match the current filters.
+        </div>
+      ) : (
+        <div className="border rounded-md overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50 text-left">
+              <tr>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Rule</th>
+                <th className="px-3 py-2">Started</th>
+                <th className="px-3 py-2">Duration</th>
+                <th className="px-3 py-2">Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((run) => {
+                const expanded = selectedRun === run.id;
+                return (
+                  <Fragment key={run.id}>
+                    <tr className="border-t hover:bg-muted/30" data-testid={`row-globalrun-${run.id}`}>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col gap-1">
+                          <Badge variant={statusVariant(run.status)} data-testid={`badge-status-${run.id}`}>
+                            {run.status}
+                          </Badge>
+                          {run.skippedReason && (
+                            <Badge variant="outline" className="text-[10px]">{run.skippedReason}</Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 font-medium" data-testid={`text-rule-${run.id}`}>
+                        {ruleNameById[run.ruleId] || (
+                          <span className="text-muted-foreground italic">{run.ruleId.slice(0, 8)}…</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {new Date(run.startedAt).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {fmtDuration(run.startedAt, run.finishedAt)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedRun(expanded ? null : run.id)}
+                          data-testid={`button-toggle-${run.id}`}
+                        >
+                          {expanded ? "Hide" : "View"}
+                        </Button>
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr className="border-t bg-muted/20">
+                        <td colSpan={5} className="px-3 py-3">
+                          {run.error && (
+                            <div className="text-red-500 mb-2 text-[11px]">Error: {run.error}</div>
+                          )}
+                          {detailQ.isLoading ? (
+                            <div className="flex justify-center py-4">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            </div>
+                          ) : detailQ.data ? (
+                            <div className="space-y-3">
+                              {detailQ.data.event && (
+                                <div>
+                                  <div className="font-semibold text-[11px] mb-1">Trigger event</div>
+                                  <div className="text-[11px] text-muted-foreground">
+                                    {detailQ.data.event.module} · {detailQ.data.event.entityType} · {detailQ.data.event.eventType}
+                                    {detailQ.data.event.entityId ? ` · id=${detailQ.data.event.entityId}` : ""}
+                                  </div>
+                                </div>
+                              )}
+                              {Array.isArray(detailQ.data.actions) && detailQ.data.actions.length > 0 && (
+                                <div>
+                                  <div className="font-semibold text-[11px] mb-1">Actions</div>
+                                  <div className="space-y-1">
+                                    {detailQ.data.actions.map((a: any) => (
+                                      <div key={a.id} className="flex items-center gap-2 text-[11px]">
+                                        <Badge variant={statusVariant(a.status)} className="text-[10px]">
+                                          {a.status}
+                                        </Badge>
+                                        <span className="font-mono">#{a.actionIndex} {a.actionType}</span>
+                                        {a.error && <span className="text-red-500">{a.error}</span>}
+                                        {a.output && (
+                                          <span className="text-muted-foreground truncate">
+                                            → {JSON.stringify(a.output).slice(0, 100)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              <details>
+                                <summary className="cursor-pointer text-[11px] text-muted-foreground">Raw JSON</summary>
+                                <pre className="mt-1 bg-background p-2 rounded overflow-auto text-[10px] max-h-72">
+                                  {JSON.stringify(detailQ.data, null, 2)}
+                                </pre>
+                              </details>
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
