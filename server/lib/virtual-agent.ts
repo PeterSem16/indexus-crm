@@ -421,7 +421,9 @@ export class VirtualAgentEngine {
     session.turnCount++;
 
     while (session.turnCount < config.maxTurns * 2 && !session.channelGone) {
+      const recStart = Date.now();
       const recordingResult = await this.recordUserSpeech(session, config);
+      const recWaitMs = Date.now() - recStart;
       if (session.channelGone || !recordingResult) break;
 
       this.playThinkingTone(session.channelId, session.mohSoundName);
@@ -433,12 +435,10 @@ export class VirtualAgentEngine {
         await this.stopThinkingTone(session.channelId);
         break;
       }
-      const sttTime = Date.now() - turnStart;
+      const sttMs = Date.now() - turnStart;
 
       session.turns.push({ role: "user", content: userSpeech });
       session.turnCount++;
-
-      console.log(`[VirtualAgent] Turn ${session.turnCount}: STT=${sttTime}ms, said: "${userSpeech.substring(0, 100)}..."`);
 
       const gptStart = Date.now();
       const aiResponse = await this.generateResponse(session, config, userSpeech);
@@ -446,7 +446,7 @@ export class VirtualAgentEngine {
         await this.stopThinkingTone(session.channelId);
         break;
       }
-      const gptTime = Date.now() - gptStart;
+      const gptMs = Date.now() - gptStart;
 
       session.turns.push({ role: "assistant", content: aiResponse });
       session.turnCount++;
@@ -457,13 +457,15 @@ export class VirtualAgentEngine {
         await this.stopThinkingTone(session.channelId);
         break;
       }
-      const ttsTime = Date.now() - ttsStart;
-
-      console.log(`[VirtualAgent] Turn ${session.turnCount}: STT=${sttTime}ms, GPT=${gptTime}ms, TTS=${ttsTime}ms, total=${Date.now() - turnStart}ms: "${aiResponse.substring(0, 80)}"`);
+      const ttsMs = Date.now() - ttsStart;
 
       await this.stopThinkingTone(session.channelId);
 
+      const playStart = Date.now();
       await this.playAudioFile(session.channelId, responseAudio);
+      const playMs = Date.now() - playStart;
+      const totalUserPerceived = sttMs + gptMs + ttsMs;
+      console.log(`[VA-LATENCY] turn=${session.turnCount} recWait=${recWaitMs}ms STT=${sttMs}ms GPT=${gptMs}ms TTS=${ttsMs}ms playStart=${playMs}ms totalUserPerceived=${totalUserPerceived}ms heard="${userSpeech.substring(0, 60)}" said="${aiResponse.substring(0, 60)}"`);
       if (session.channelGone) break;
     }
 

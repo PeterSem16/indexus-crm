@@ -1292,6 +1292,38 @@ export async function registerRoutes(
   const { registerUdidRoutes } = await import("./lib/udid-routes");
   registerUdidRoutes(app);
 
+  // OpenAI Realtime SIP — tool-call webhook (called by OpenAI Realtime agent during a live call)
+  // Auth: shared secret in header `x-realtime-secret` (set REALTIME_WEBHOOK_SECRET env var)
+  app.post("/api/realtime/webhook", async (req, res) => {
+    const t0 = Date.now();
+    try {
+      const expected = process.env.REALTIME_WEBHOOK_SECRET;
+      if (expected) {
+        const got = String(req.headers["x-realtime-secret"] || "");
+        if (got !== expected) {
+          return res.status(401).json({ ok: false, error: "Invalid webhook secret" });
+        }
+      }
+      const { name, arguments: args, callId } = req.body || {};
+      if (!name) return res.status(400).json({ ok: false, error: "Missing tool name" });
+      const { executeRealtimeTool } = await import("./lib/realtime-tools");
+      const parsedArgs = typeof args === "string" ? JSON.parse(args) : (args || {});
+      const result = await executeRealtimeTool(String(name), parsedArgs);
+      const totalMs = Date.now() - t0;
+      console.log(`[Realtime] tool=${name} callId=${callId || "-"} ok=${result.ok} toolMs=${result.ms} totalMs=${totalMs}`);
+      return res.json(result);
+    } catch (err: any) {
+      console.error("[Realtime] webhook error:", err);
+      return res.status(500).json({ ok: false, error: err?.message || "Internal error", ms: Date.now() - t0 });
+    }
+  });
+
+  // Returns OpenAI Realtime tool definitions JSON (use this to configure the agent in OpenAI dashboard or API)
+  app.get("/api/realtime/tool-definitions", async (_req, res) => {
+    const { REALTIME_TOOL_DEFINITIONS } = await import("./lib/realtime-tools");
+    res.json(REALTIME_TOOL_DEFINITIONS);
+  });
+
   // Initialize WebSocket notification service
   notificationService.initialize(httpServer);
 
