@@ -150,12 +150,18 @@ export function registerAutomationRoutes(app: Express) {
         { value: "contract", label: "Contract" },
         { value: "hospital", label: "Hospital" },
         { value: "clinic", label: "Clinic" },
+        { value: "call", label: "Inbound call" },
       ],
       eventTypes: [
         { value: "created", label: "Entity created" },
         { value: "updated", label: "Entity updated" },
         { value: "status_changed", label: "Status changed" },
         { value: "task.completed", label: "Task completed" },
+        { value: "call.assigned", label: "Inbound call assigned to agent" },
+        { value: "call.answered", label: "Inbound call answered" },
+        { value: "call.completed", label: "Inbound call completed" },
+        { value: "call.abandoned", label: "Inbound call abandoned (caller hangup)" },
+        { value: "call.timeout", label: "Inbound call timed out" },
         { value: "manual", label: "Manual trigger" },
       ],
       actionTypes: [

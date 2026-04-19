@@ -2,7 +2,7 @@ import { db } from "../db";
 import { workflowEvents } from "@shared/schema";
 
 type EventInput = {
-  source?: "storage" | "webhook" | "cron" | "manual";
+  source?: "storage" | "webhook" | "cron" | "manual" | "inbound-call";
   module: string;
   entityType: string;
   entityId?: string | null;

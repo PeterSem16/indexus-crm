@@ -26,6 +26,7 @@ import multer from "multer";
 import * as path from "path";
 import * as fs from "fs";
 import { STORAGE_PATHS, DATA_ROOT } from "./config/storage-paths";
+import { emitEvent } from "./lib/event-bus";
 
 const ivrUpload = multer({
   storage: multer.diskStorage({
@@ -2668,6 +2669,25 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       channelId: data.channelId || "",
       recordCalls: data.recordCalls ?? false,
     });
+    emitEvent({
+      source: "inbound-call",
+      module: "call",
+      entityType: "call",
+      entityId: data.callId,
+      eventType: "call.assigned",
+      newValues: {
+        callId: data.callId,
+        callerNumber: data.callerNumber,
+        callerName: data.callerName,
+        queueId: data.queueId,
+        queueName: data.queueName,
+        agentId: data.agentId,
+        waitDuration: data.waitDuration || 0,
+        channelId: data.channelId || "",
+      },
+      actorUserId: data.agentId,
+      countryCode: data.countryCode || null,
+    }).catch(() => {});
   });
 
   engine.on("call-cancelled-for-agent", async (data) => {
@@ -2678,14 +2698,69 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
 
   engine.on("call-answered", (data) => {
     console.log(`[QueueEngine] Call answered: ${data.callerNumber} by agent ${data.agentId}`);
+    emitEvent({
+      source: "inbound-call",
+      module: "call",
+      entityType: "call",
+      entityId: data.callId,
+      eventType: "call.answered",
+      newValues: {
+        callId: data.callId,
+        callerNumber: data.callerNumber,
+        callerName: data.callerName,
+        queueId: data.queueId,
+        queueName: data.queueName,
+        agentId: data.agentId,
+        answeredAt: new Date().toISOString(),
+      },
+      actorUserId: data.agentId,
+      countryCode: data.countryCode || null,
+    }).catch(() => {});
   });
+  // (call-answered emit handled inline above)
 
   engine.on("call-completed", (data) => {
     console.log(`[QueueEngine] Call completed: ${data.callId}, talk: ${data.talkDuration}s`);
+    emitEvent({
+      source: "inbound-call",
+      module: "call",
+      entityType: "call",
+      entityId: data.callId,
+      eventType: "call.completed",
+      newValues: {
+        callId: data.callId,
+        callerNumber: data.callerNumber,
+        callerName: data.callerName,
+        queueId: data.queueId,
+        queueName: data.queueName,
+        agentId: data.agentId,
+        talkDuration: data.talkDuration || 0,
+        completedAt: new Date().toISOString(),
+      },
+      actorUserId: data.agentId || null,
+      countryCode: data.countryCode || null,
+    }).catch(() => {});
   });
 
   engine.on("call-abandoned", async (data) => {
     console.log(`[QueueEngine] Call abandoned: ${data.callerNumber}, reason: ${data.reason}`);
+    emitEvent({
+      source: "inbound-call",
+      module: "call",
+      entityType: "call",
+      entityId: data.callId,
+      eventType: "call.abandoned",
+      newValues: {
+        callId: data.callId,
+        callerNumber: data.callerNumber,
+        callerName: data.callerName,
+        queueId: data.queueId,
+        queueName: data.queueName,
+        reason: data.reason || "caller_hangup",
+        assignedAgentId: data.assignedAgentId || null,
+      },
+      countryCode: data.countryCode || null,
+    }).catch(() => {});
     const ws = await getWs();
     let queueName = data.queueName || "";
     if (!queueName && data.queueId) {
@@ -2712,6 +2787,22 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
 
   engine.on("call-timeout", async (data) => {
     console.log(`[QueueEngine] Call timeout: ${data.callerNumber}`);
+    emitEvent({
+      source: "inbound-call",
+      module: "call",
+      entityType: "call",
+      entityId: data.callId,
+      eventType: "call.timeout",
+      newValues: {
+        callId: data.callId,
+        callerNumber: data.callerNumber,
+        callerName: data.callerName,
+        queueId: data.queueId,
+        queueName: data.queueName,
+        assignedAgentId: data.assignedAgentId || null,
+      },
+      countryCode: data.countryCode || null,
+    }).catch(() => {});
     const ws = await getWs();
     let queueName = data.queueName || "";
     if (!queueName && data.queueId) {
