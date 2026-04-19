@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { CHART_PALETTE } from "@/lib/chart-colors";
@@ -1688,6 +1688,7 @@ const PULSE_CATEGORY_COLORS: Record<string, { bg: string; border: string; icon: 
 function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [viewMode, setViewMode] = useState<"engine" | "assign" | "pulse">("engine");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -2017,12 +2018,14 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                   {isExpanded && (
                     <div className="border-t">
                       <div className="p-2 bg-muted/30">
-                        <div className="grid grid-cols-[1fr_100px_120px_60px_60px_60px_50px_50px] gap-1 text-[10px] font-medium text-muted-foreground px-2">
+                        <div className="grid grid-cols-[1fr_100px_120px_60px_60px_60px_50px_50px_50px] gap-1 text-[10px] font-medium text-muted-foreground px-2">
                           <div>Názov</div><div>Akcia</div><div>Meta</div>
                           <div className="text-center"><Phone className="h-3 w-3 inline" /></div>
                           <div className="text-center"><Mail className="h-3 w-3 inline" /></div>
                           <div className="text-center"><MessageSquare className="h-3 w-3 inline" /></div>
-                          <div></div><div></div>
+                          <div></div>
+                          <div className="text-center" title="Automatizácia"><Zap className="h-3 w-3 inline text-amber-500" /></div>
+                          <div></div>
                         </div>
                       </div>
                       {catStatuses.length === 0 ? (
@@ -2039,7 +2042,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                               }
                             }
                             const renderRow = (status: any, isChild: boolean) => (
-                              <div key={status.id} className={`grid grid-cols-[1fr_100px_120px_60px_60px_60px_50px_50px] gap-1 items-center px-3 py-2 hover:bg-muted/30 text-sm ${isChild ? "bg-muted/10" : ""}`} data-testid={`row-status-${status.id}`}>
+                              <div key={status.id} className={`grid grid-cols-[1fr_100px_120px_60px_60px_60px_50px_50px_50px] gap-1 items-center px-3 py-2 hover:bg-muted/30 text-sm ${isChild ? "bg-muted/10" : ""}`} data-testid={`row-status-${status.id}`}>
                                 <div className={isChild ? "pl-5" : ""}>
                                   <div className="flex items-center gap-1">
                                     {isChild && <span className="text-muted-foreground text-xs">└</span>}
@@ -2074,6 +2077,26 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                                       <Plus className="h-3 w-3" />
                                     </Button>
                                   )}
+                                </div>
+                                <div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                                    title="Vytvoriť automatizáciu pre tento status"
+                                    onClick={() => {
+                                      const catCode = categories.find((c: any) => c.id === status.categoryId)?.code || "";
+                                      const params = new URLSearchParams({
+                                        prefillStatusCode: status.code,
+                                        prefillStatusName: status.name,
+                                        prefillStatusCategory: catCode,
+                                      });
+                                      setLocation(`/automations?${params.toString()}`);
+                                    }}
+                                    data-testid={`button-create-automation-${status.id}`}
+                                  >
+                                    <Zap className="h-3 w-3" />
+                                  </Button>
                                 </div>
                                 <div>
                                   <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={() => setDeleteTarget({ type: "status", id: status.id, name: status.name })} data-testid={`button-delete-status-${status.id}`}>
@@ -2525,7 +2548,36 @@ function StatusEditDialogCampaign({ status, categories, allStatuses, isNew, onSa
   onSave: (data: any) => void; onClose: () => void; isPending: boolean;
 }) {
   const [form, setForm] = useState({ ...status });
+  const [, setLocation] = useLocation();
   const parentOptions = allStatuses.filter((s: any) => !s.parentId && s.id !== status.id);
+
+  const categoryCode = useMemo(
+    () => categories.find((c: any) => c.id === form.categoryId)?.code || "",
+    [categories, form.categoryId]
+  );
+  const { data: linkedRules = [] } = useQuery<Array<{ id: string; name: string; enabled: boolean; module: string }>>({
+    queryKey: ["/api/automation/rules/by-status", form.code, categoryCode],
+    queryFn: async () => {
+      if (!form.code && !categoryCode) return [];
+      const params = new URLSearchParams();
+      if (form.code) params.set("code", form.code);
+      if (categoryCode) params.set("category", categoryCode);
+      const res = await fetch(`/api/automation/rules/by-status?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !isNew && !!form.code,
+  });
+
+  const goCreateAutomation = () => {
+    const params = new URLSearchParams({
+      prefillStatusCode: form.code,
+      prefillStatusName: form.name,
+      prefillStatusCategory: categoryCode,
+    });
+    onClose();
+    setLocation(`/automations?${params.toString()}`);
+  };
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -2553,13 +2605,7 @@ function StatusEditDialogCampaign({ status, categories, allStatuses, isNew, onSa
                 <SelectContent>{categories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-xs">Predvolená akcia</Label>
-              <Select value={form.defaultAction} onValueChange={(v) => setForm({ ...form, defaultAction: v })}>
-                <SelectTrigger data-testid="select-status-action"><SelectValue /></SelectTrigger>
-                <SelectContent>{STATUS_ACTION_TYPES.map((a: string) => <SelectItem key={a} value={a}>{STATUS_ACTION_LABELS[a] || a}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+            <div />
           </div>
 
           <div>
@@ -2606,6 +2652,78 @@ function StatusEditDialogCampaign({ status, categories, allStatuses, isNew, onSa
               </DropdownMenu>
             </div>
           </div>
+
+          {!isNew && form.code && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <Zap className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium text-sm text-amber-900">Súvisiace automatizácie</h4>
+                    <p className="text-xs text-amber-800/80 mt-0.5">
+                      Pravidlá, ktoré sa spustia keď agent zvolí tento status (email, SMS, task, tag, pridelenie agenta…).
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-amber-300 text-amber-700 hover:bg-amber-100 flex-shrink-0"
+                  onClick={goCreateAutomation}
+                  data-testid="button-create-linked-automation"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Vytvoriť pravidlo
+                </Button>
+              </div>
+              {linkedRules.length > 0 ? (
+                <div className="space-y-1.5">
+                  {linkedRules.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between bg-white rounded border border-amber-200/70 px-3 py-1.5 text-xs"
+                      data-testid={`linked-rule-${r.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[9px] px-1 py-0">{r.module}</Badge>
+                        <span className="font-medium">{r.name}</span>
+                        {!r.enabled && <Badge variant="outline" className="text-[9px] text-muted-foreground">vypnuté</Badge>}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => { onClose(); setLocation(`/automations`); }}
+                        title="Otvoriť v Automations"
+                      >
+                        <ArrowRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-800/60 italic">Zatiaľ žiadne automatizácie pre tento status.</p>
+              )}
+            </div>
+          )}
+
+          <details className="border rounded-md p-2">
+            <summary className="text-xs text-muted-foreground cursor-pointer">
+              Zastarané nastavenia (defaultAction, callback offset)
+            </summary>
+            <div className="mt-2 space-y-2">
+              <p className="text-[11px] text-muted-foreground">
+                Tieto polia sú nahradené automatizáciami vyššie. Ponechané pre spätnú kompatibilitu.
+              </p>
+              <div>
+                <Label className="text-xs">Predvolená akcia</Label>
+                <Select value={form.defaultAction} onValueChange={(v) => setForm({ ...form, defaultAction: v })}>
+                  <SelectTrigger data-testid="select-status-action"><SelectValue /></SelectTrigger>
+                  <SelectContent>{STATUS_ACTION_TYPES.map((a: string) => <SelectItem key={a} value={a}>{STATUS_ACTION_LABELS[a] || a}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+          </details>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-2">
             {[
