@@ -456,7 +456,228 @@ Všetky obsahujú `oldValues` / `newValues` snapshoty + `country`.
 
 ---
 
-## 11. Roadmap (post-MVP)
+## 11. Nexus Pulse — statusy a integrácia s automatizáciami
+
+**Nexus Pulse** je centrálny dispozičný engine pre statusy interakcií (najmä
+hovorov v kampaniach). Statusy sú jeden z najsilnejších zdrojov triggerov pre
+automatizácie — väčšina obchodných pravidiel sa odpaľuje práve pri ich zmene.
+
+### 11.1 Hierarchia
+```
+Status Category   →   Status Definition   →   Campaign Assignment   →   Default Action
+(farba/ikona)         (konkrétny disp)        (povolené v kampani)       (auto-akcia)
+```
+
+### 11.2 Tabuľky
+| Tabuľka | Účel |
+|---|---|
+| `status_categories` | 9 farebných skupín (gray/blue/green/purple/cyan/teal/orange/emerald/red) |
+| `status_definitions` | konkrétne statusy + meta-flagy + `defaultAction` |
+| `campaign_status_assignments` | ktoré statusy môže agent použiť v danej kampani |
+
+### 11.3 Kategórie
+| Code | Názov | Farba |
+|---|---|---|
+| `not_reached` | Nedovolané / bez spojenia | gray |
+| `callback` | Callback / odložené | blue |
+| `interest` | Záujem / obchodný progres | green |
+| `contract` | Zmluva / dokumenty | purple |
+| `email_sms` | Email / SMS komunikácia | cyan |
+| `materials` | Materiály / onboarding | teal |
+| `declined` | Odmietnutie / stop | orange |
+| `completed` | Dokončené / uzatvorené | emerald |
+| `invalid` | Chybné / neplatné kontakty | red |
+
+### 11.4 Meta-pravidlá per status
+| Flag | Význam pre agenta | Význam pre automation engine |
+|---|---|---|
+| `isFinal` | ukončí lead — kontakt zmizne z queue | spoľahlivý trigger pre **archive / report / VIP escalation** |
+| `isConversion` | úspech (zmluva, predaj) | trigger pre **welcome flow, accountant notify, commission task** |
+| `requiresNote` | vynúti poznámku | poznámka je dostupná v `newValues.lastCallNote` pre šablóny `{{...}}` |
+| `requiresCallback` | vynúti naplánovanie callbacku | trigger pre `create_task` s `dueDate` z formulára |
+| `defaultAction` | builtin akcia (callback / send_email / start_onboarding / do_not_call / reschedule) | beží **pred** automatizáciami; rule môže defaultnú akciu doplniť alebo prepísať |
+
+### 11.5 Eventy emitované pri zmene statusu
+
+Keď agent zvolí status v Nexus Pulse, systém emituje:
+
+| Event | Modul | `newValues` obsahuje |
+|---|---|---|
+| `customer.updated` (`status_changed`) | customer | `clientStatus`, `leadStatus`, `lastCallResult`, `lastCallNote`, `lastDispositionId`, `lastDispositionCategory` |
+| `clinic.updated` (`status_changed`) | clinic | `contractStatus`, `lastCallResult`, `lastCallNote`, `nextContactDate` |
+| `hospital.updated` (`status_changed`) | hospital | `lastDispositionId`, `lastCallResult` |
+| `call.completed` | call | `callId`, `disposition`, `dispositionCategory`, `dispositionFlags` (isFinal/isConversion), `durationSec`, `agentId` |
+
+**Kľúčová zhoda:** v podmienkach pravidiel používajte:
+- `newValues.lastCallResult` — kód statusu (napr. `contract.signed`)
+- `newValues.lastDispositionCategory` — kategória (napr. `contract`, `interest`)
+- `event.dispositionFlags.isConversion` — pri `call.completed`
+
+### 11.6 Recepty — automatizácie naviazané na Pulse statusy
+
+#### A) Konverzia → kompletný onboarding flow
+Spustí sa kedykoľvek agent vyberie status z kategórie `contract` s `isConversion=true`.
+```jsonc
+{
+  "name": "Konverzia → onboarding",
+  "module": "customer",
+  "trigger": { "type": "event", "entityType": "customer", "eventType": "updated" },
+  "conditions": {
+    "all": [
+      { "field": "newValues.lastDispositionCategory", "op": "eq", "value": "contract" },
+      { "field": "newValues.lastCallResult", "op": "changed_to", "value": "contract.signed" }
+    ]
+  },
+  "actions": [
+    { "type": "add_tag", "config": { "entityType": "customer", "tags": ["converted-2026", "onboarding"] } },
+    { "type": "send_email", "config": { "templateId": "tpl-welcome-pack", "to": "{{newValues.email}}" } },
+    { "type": "create_task", "config": {
+        "title": "Odoslať odberovú sadu — {{newValues.firstName}} {{newValues.lastName}}",
+        "priority": "high", "dueDate": "+1d",
+        "customerId": "{{event.entityId}}",
+        "description": "Adresa: {{newValues.address}}, {{newValues.city}}\nPoznámka agenta: {{newValues.lastCallNote}}"
+      } },
+    { "type": "assign_user", "config": {
+        "entityType": "customer", "strategy": "least_loaded", "roleFilter": "onboarding-specialist"
+      } },
+    { "type": "notify_user", "config": {
+        "userId": "{{newValues.salesManagerId}}",
+        "title": "Nová konverzia",
+        "body": "{{newValues.firstName}} podpísal zmluvu (provízia: {{newValues.contractValue}})"
+      } }
+  ]
+}
+```
+
+#### B) Callback status → automatický task s deadline
+```jsonc
+{
+  "name": "Callback → task pre agenta",
+  "module": "customer",
+  "trigger": { "type": "event", "entityType": "customer", "eventType": "updated" },
+  "conditions": { "field": "newValues.lastDispositionCategory", "op": "eq", "value": "callback" },
+  "actions": [
+    { "type": "create_task", "config": {
+        "title": "Callback: {{newValues.firstName}} {{newValues.lastName}}",
+        "description": "Dôvod: {{newValues.lastCallNote}}",
+        "priority": "high",
+        "dueDate": "{{newValues.nextContactDate}}",
+        "assignedUserId": "{{newValues.assignedUserId}}",
+        "customerId": "{{event.entityId}}"
+      } },
+    { "type": "add_tag", "config": { "entityType": "customer", "tags": ["pending-callback"] } }
+  ]
+}
+```
+
+#### C) Odmietnutie → odhlásenie z marketingu + archív
+```jsonc
+{
+  "name": "Declined → unsubscribe",
+  "module": "customer",
+  "trigger": { "type": "event", "entityType": "customer", "eventType": "updated" },
+  "conditions": {
+    "any": [
+      { "field": "newValues.lastDispositionCategory", "op": "eq", "value": "declined" },
+      { "field": "newValues.lastCallResult", "op": "eq", "value": "invalid.do_not_call" }
+    ]
+  },
+  "actions": [
+    { "type": "remove_tag", "config": { "entityType": "customer", "tags": ["newsletter", "promo-eligible"] } },
+    { "type": "add_tag", "config": { "entityType": "customer", "tags": ["do-not-contact"] } },
+    { "type": "update_entity", "config": {
+        "entityType": "customer",
+        "entityId": "{{event.entityId}}",
+        "fields": { "clientStatus": "terminated", "leadStatus": "lost" }
+      } }
+  ]
+}
+```
+
+#### D) Nedovolané 3×+ → preradiť na seniora
+Vyžaduje políčko `noAnswerCount` na zákazníkovi — engine inkrementuje pri každom statuse z kategórie `not_reached` (cez `update_entity` v inom pravidle alebo backendovo).
+```jsonc
+{
+  "name": "3× nedovolané → senior agent",
+  "module": "customer",
+  "trigger": { "type": "event", "entityType": "customer", "eventType": "updated" },
+  "conditions": {
+    "all": [
+      { "field": "newValues.lastDispositionCategory", "op": "eq", "value": "not_reached" },
+      { "field": "newValues.noAnswerCount", "op": "gte", "value": 3 }
+    ]
+  },
+  "actions": [
+    { "type": "assign_user", "config": {
+        "entityType": "customer", "strategy": "least_loaded", "roleFilter": "senior-agent"
+      } },
+    { "type": "add_tag", "config": { "entityType": "customer", "tags": ["hard-to-reach"] } },
+    { "type": "notify_user", "config": {
+        "userId": "{{newValues.assignedUserId}}",
+        "title": "Lead preradený", "body": "{{newValues.firstName}} — 3× nedovolané, prevzatý seniorom"
+      } }
+  ]
+}
+```
+
+#### E) Final disposition → email s materiálmi
+```jsonc
+{
+  "name": "Materiály odoslané → tracking SMS",
+  "module": "customer",
+  "trigger": { "type": "event", "entityType": "customer", "eventType": "updated" },
+  "conditions": {
+    "all": [
+      { "field": "newValues.lastDispositionCategory", "op": "eq", "value": "materials" },
+      { "field": "newValues.lastCallResult", "op": "changed_to", "value": "materials.sent" }
+    ]
+  },
+  "actions": [
+    { "type": "send_sms", "config": {
+        "to": "{{newValues.mobile}}",
+        "text": "Dobrý deň, balík s informáciami sme odoslali. Sledovanie: {{newValues.shipmentTrackingUrl}}"
+      } },
+    { "type": "create_task", "config": {
+        "title": "Follow-up po doručení materiálov — {{newValues.firstName}}",
+        "priority": "medium", "dueDate": "+5d",
+        "customerId": "{{event.entityId}}"
+      } }
+  ]
+}
+```
+
+### 11.7 Best practices
+
+1. **Filtrujte podľa kategórie, nie status kódu**, ak je to možné — pravidlo prežije
+   pridanie nových statusov do tej istej kategórie.
+2. **Kombinujte `changed_to` s konkrétnym statusom** keď chcete reagovať len pri
+   prechode (nie pri každom uložení toho istého statusu).
+3. **`requiresNote` statusy** garantujú, že `newValues.lastCallNote` nebude
+   prázdny — bezpečne ho použite v šablónach.
+4. **`isFinal=true` statusy** používajte ako trigger pre archív/audit/report
+   pravidlá — kontakt sa už nebude nikdy zmení.
+5. **`defaultAction`** beží **pred** automation enginom. Ak `defaultAction=send_email`
+   a aj automation rule pošle email, klient dostane dva — buď vypnite jeden,
+   alebo nechajte automatizácii dokončenie cez `update_entity`.
+6. **Per-kampaň scope** — to isté pravidlo môžete obmedziť cez podmienku
+   `event.campaignId == "..."` ak chcete inú logiku v rôznych kampaniach.
+
+### 11.8 Mapovanie polí v automations katalógu
+V Builder UI nájdete tieto polia pre Pulse-driven podmienky:
+| Pole v UI | Skutočná cesta | Typ |
+|---|---|---|
+| Posledný status | `newValues.lastCallResult` | string (kód) |
+| Kategória statusu | `newValues.lastDispositionCategory` | enum |
+| Klient status | `newValues.clientStatus` | enum (potential/in_process/acquired/terminated) |
+| Lead status | `newValues.leadStatus` | enum (new/qualified/lost/won) |
+| Posledná poznámka | `newValues.lastCallNote` | text |
+| Nasledujúci kontakt | `newValues.nextContactDate` | date |
+| Status flag isFinal | `event.dispositionFlags.isFinal` | bool (len v `call.completed`) |
+| Status flag isConversion | `event.dispositionFlags.isConversion` | bool (len v `call.completed`) |
+
+---
+
+## 12. Roadmap (post-MVP)
 
 - [x] A1 — Catalog field metadata
 - [x] A2 — Visual rule builder UI
