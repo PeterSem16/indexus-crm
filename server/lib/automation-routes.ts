@@ -193,8 +193,83 @@ export function registerAutomationRoutes(app: Express) {
           },
         },
       ],
-      operators: ["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "starts_with", "is_null", "is_not_null", "changed", "changed_to", "changed_from"],
+      operators: [
+        { value: "eq", label: "equals", arity: 1 },
+        { value: "neq", label: "not equals", arity: 1 },
+        { value: "gt", label: ">", arity: 1 },
+        { value: "gte", label: ">=", arity: 1 },
+        { value: "lt", label: "<", arity: 1 },
+        { value: "lte", label: "<=", arity: 1 },
+        { value: "in", label: "in (comma list)", arity: 1 },
+        { value: "not_in", label: "not in (comma list)", arity: 1 },
+        { value: "contains", label: "contains", arity: 1 },
+        { value: "starts_with", label: "starts with", arity: 1 },
+        { value: "is_null", label: "is empty", arity: 0 },
+        { value: "is_not_null", label: "is set", arity: 0 },
+        { value: "changed", label: "changed (any)", arity: 0 },
+        { value: "changed_to", label: "changed to", arity: 1 },
+        { value: "changed_from", label: "changed from", arity: 1 },
+      ],
+      fields: {
+        customer: [
+          { value: "newValues.firstName", label: "First name", type: "string" },
+          { value: "newValues.lastName", label: "Last name", type: "string" },
+          { value: "newValues.email", label: "Email", type: "string" },
+          { value: "newValues.phone", label: "Phone", type: "string" },
+          { value: "newValues.country", label: "Country", type: "string" },
+          { value: "newValues.status", label: "Status", type: "enum", options: ["new", "in_process", "client", "rejected", "lost", "archived"] },
+          { value: "newValues.clientStatus", label: "Client status", type: "string" },
+          { value: "newValues.assignedUserId", label: "Assigned user", type: "string" },
+          { value: "newValues.complaintTypeId", label: "Complaint type", type: "string" },
+          { value: "newValues.cooperationTypeId", label: "Cooperation type", type: "string" },
+          { value: "newValues.vipStatusId", label: "VIP status", type: "string" },
+          { value: "newValues.newsletter", label: "Newsletter", type: "boolean" },
+        ],
+        task: [
+          { value: "newValues.title", label: "Title", type: "string" },
+          { value: "newValues.priority", label: "Priority", type: "enum", options: ["low", "medium", "high", "urgent"] },
+          { value: "newValues.status", label: "Status", type: "enum", options: ["pending", "in_progress", "completed", "cancelled"] },
+          { value: "newValues.assignedUserId", label: "Assignee", type: "string" },
+          { value: "newValues.assignedDepartmentId", label: "Department", type: "string" },
+          { value: "newValues.createdByUserId", label: "Creator", type: "string" },
+          { value: "newValues.customerId", label: "Customer", type: "string" },
+          { value: "newValues.country", label: "Country", type: "string" },
+        ],
+        contract: [
+          { value: "newValues.status", label: "Status", type: "string" },
+          { value: "newValues.country", label: "Country", type: "string" },
+        ],
+        hospital: [
+          { value: "newValues.status", label: "Status", type: "enum", options: ["active", "pending", "inactive"] },
+          { value: "newValues.country", label: "Country", type: "string" },
+        ],
+        clinic: [
+          { value: "newValues.status", label: "Status", type: "enum", options: ["active", "pending", "inactive"] },
+          { value: "newValues.country", label: "Country", type: "string" },
+        ],
+      },
+      countries: [
+        { value: "SK", label: "Slovakia" },
+        { value: "CZ", label: "Czech Republic" },
+        { value: "RO", label: "Romania" },
+        { value: "IT", label: "Italy" },
+        { value: "DE", label: "Germany" },
+      ],
     });
+  });
+
+  /* -------- USERS LIST (for assignee/notify pickers) -------- */
+  app.get("/api/automation/users", requireAuth, async (_req, res) => {
+    try {
+      const { db } = await import("../db");
+      const { users } = await import("@shared/schema");
+      const rows = await db
+        .select({ id: users.id, fullName: users.fullName, email: users.email, role: users.role })
+        .from(users);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message || "Failed to load users" });
+    }
   });
 }
 

@@ -7605,6 +7605,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
       console.log("[InvoiceCreate] Success - returning invoice");
       res.status(201).json(invoice);
 
+      try {
+        const { emitEntityCreated } = await import("./lib/event-bus");
+        const invCustomer = await storage.getCustomer(invoice.customerId);
+        await emitEntityCreated("invoice", "invoice", invoice.id, invoice, req.session.user!.id, invCustomer?.country || null);
+      } catch (err) { console.error("[EventBus] invoice create emit error:", err); }
+
       generateAndSaveInvoicePdf(invoice.id).catch(err =>
         console.error("[InvoiceCreate] Background PDF generation failed:", err)
       );
@@ -7636,7 +7642,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
       // Update invoice
       invoiceData.updatedAt = new Date();
       const updated = await storage.updateInvoice(req.params.id, invoiceData);
-      
+
+      try {
+        const { emitEntityUpdated } = await import("./lib/event-bus");
+        const invCustomerId = (updated as any)?.customerId || (existing as any)?.customerId;
+        const invCustomer = invCustomerId ? await storage.getCustomer(invCustomerId) : null;
+        await emitEntityUpdated("invoice", "invoice", req.params.id, existing, updated, req.session.user!.id, invCustomer?.country || null);
+      } catch (err) { console.error("[EventBus] invoice update emit error:", err); }
+
       res.json(updated);
     } catch (error) {
       console.error("Error updating invoice:", error);
@@ -14509,6 +14522,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }
       const hospital = await storage.createHospital(parsed.data);
       await logActivity(req.session.user!.id, "create", "hospital", hospital.id, hospital.name);
+      try {
+        const { emitEntityCreated } = await import("./lib/event-bus");
+        await emitEntityCreated("hospital", "hospital", hospital.id, hospital, req.session.user!.id, hospital.countryCode);
+      } catch (err) { console.error("[EventBus] hospital create emit error:", err); }
       if (parsed.data.svetZdravia === true) {
         try {
           const svNetwork = await db.execute(sql`SELECT id FROM hospital_networks WHERE LOWER(name) = 'svet zdravia' AND country_code = ${hospital.countryCode} LIMIT 1`);
@@ -14533,9 +14550,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
           data[field] = null;
         }
       }
+      const oldHospital = await storage.getHospital(req.params.id);
       const hospital = await storage.updateHospital(req.params.id, data);
       if (!hospital) return res.status(404).json({ error: "Hospital not found" });
       await logActivity(req.session.user!.id, "update", "hospital", hospital.id, hospital.name);
+      try {
+        const { emitEntityUpdated } = await import("./lib/event-bus");
+        await emitEntityUpdated("hospital", "hospital", hospital.id, oldHospital, hospital, req.session.user!.id, hospital.countryCode);
+      } catch (err) { console.error("[EventBus] hospital update emit error:", err); }
       if (data.svetZdravia === true) {
         try {
           const svNetwork = await db.execute(sql`SELECT id FROM hospital_networks WHERE LOWER(name) = 'svet zdravia' AND country_code = ${hospital.countryCode} LIMIT 1`);
@@ -14717,6 +14739,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }
       const clinic = await storage.createClinic(parsed.data);
       await logActivity(req.session.user!.id, "create", "clinic", clinic.id, clinic.name);
+      try {
+        const { emitEntityCreated } = await import("./lib/event-bus");
+        await emitEntityCreated("clinic", "clinic", clinic.id, clinic, req.session.user!.id, (clinic as any).countryCode);
+      } catch (err) { console.error("[EventBus] clinic create emit error:", err); }
       await db.insert(clinicEvents).values({
         clinicId: clinic.id,
         eventType: "clinic_created",
@@ -14739,6 +14765,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const clinic = await storage.updateClinic(req.params.id, coerced);
       if (!clinic) return res.status(404).json({ error: "Clinic not found" });
       await logActivity(req.session.user!.id, "update", "clinic", clinic.id, clinic.name);
+      try {
+        const { emitEntityUpdated } = await import("./lib/event-bus");
+        await emitEntityUpdated("clinic", "clinic", clinic.id, oldClinic, clinic, req.session.user!.id, (clinic as any).countryCode);
+      } catch (err) { console.error("[EventBus] clinic update emit error:", err); }
       if (oldClinic) {
         const changes: string[] = [];
         if (oldClinic.isActive !== clinic.isActive) changes.push(`isActive: ${oldClinic.isActive} → ${clinic.isActive}`);
@@ -33387,6 +33417,12 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
       }
       
       const contract = await storage.updateContractInstance(req.params.id, updateData);
+
+      try {
+        const { emitEntityUpdated } = await import("./lib/event-bus");
+        const contractCustomer = (contract as any)?.customerId ? await storage.getCustomer((contract as any).customerId) : null;
+        await emitEntityUpdated("contract", "contract", contract!.id, existingContract, contract, req.session.user!.id, contractCustomer?.country || null);
+      } catch (err) { console.error("[EventBus] contract update emit error:", err); }
       
       try {
         await storage.createContractAuditLog({
@@ -35702,10 +35738,23 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
         return res.status(400).json({ error: "Contract must be signed before completing" });
       }
       
-      await storage.updateContractInstance(contract.id, {
+      const updatedContract = await storage.updateContractInstance(contract.id, {
         status: "completed",
         completedAt: new Date()
       });
+
+      try {
+        const { emitEntityUpdated, emitEvent } = await import("./lib/event-bus");
+        const contractCustomer = contract.customerId ? await storage.getCustomer(contract.customerId) : null;
+        const cc = contractCustomer?.country || null;
+        await emitEntityUpdated("contract", "contract", contract.id, contract, updatedContract, req.session.user!.id, cc);
+        await emitEvent({
+          source: "storage", module: "contract", entityType: "contract",
+          entityId: contract.id, eventType: "contract.completed",
+          oldValues: contract, newValues: updatedContract,
+          actorUserId: req.session.user!.id, countryCode: cc,
+        });
+      } catch (err) { console.error("[EventBus] contract complete emit error:", err); }
       
       await storage.createContractAuditLog({
         contractId: contract.id,
@@ -35734,12 +35783,25 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
       
       const { reason } = req.body;
       
-      await storage.updateContractInstance(contract.id, {
+      const cancelledContract = await storage.updateContractInstance(contract.id, {
         status: "cancelled",
         cancelledAt: new Date(),
         cancelledBy: req.session.user!.id,
         cancellationReason: reason
       });
+
+      try {
+        const { emitEntityUpdated, emitEvent } = await import("./lib/event-bus");
+        const contractCustomer = contract.customerId ? await storage.getCustomer(contract.customerId) : null;
+        const cc = contractCustomer?.country || null;
+        await emitEntityUpdated("contract", "contract", contract.id, contract, cancelledContract, req.session.user!.id, cc);
+        await emitEvent({
+          source: "storage", module: "contract", entityType: "contract",
+          entityId: contract.id, eventType: "contract.cancelled",
+          oldValues: contract, newValues: cancelledContract,
+          actorUserId: req.session.user!.id, countryCode: cc,
+        });
+      } catch (err) { console.error("[EventBus] contract cancel emit error:", err); }
       
       await storage.createContractAuditLog({
         contractId: contract.id,

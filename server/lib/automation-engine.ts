@@ -217,6 +217,38 @@ async function findMatchingRules(event: WorkflowEvent): Promise<WorkflowRule[]> 
   });
 }
 
+/** Used by the cron driver in alert-evaluator to fire schedule-triggered rules. */
+export async function runScheduledRule(rule: WorkflowRule): Promise<void> {
+  const syntheticEvent = {
+    id: `schedule-${rule.id}-${Date.now()}`,
+    source: "cron",
+    module: rule.module,
+    entityType: "schedule",
+    entityId: rule.id,
+    eventType: "schedule.tick",
+    oldValues: null,
+    newValues: { firedAt: new Date().toISOString(), trigger: rule.trigger },
+    changedFields: null,
+    actorUserId: null,
+    countryCode: rule.countryCode,
+    causationRunId: null,
+    createdAt: new Date(),
+  } as any;
+  try {
+    await runRule(rule, syntheticEvent, []);
+  } catch (err) {
+    console.error(`[Automation] runScheduledRule error rule=${rule.id}:`, err);
+  }
+}
+
+export async function getEnabledScheduleRules(): Promise<WorkflowRule[]> {
+  const all = await db.select().from(workflowRules).where(eq(workflowRules.enabled, true));
+  return all.filter((r) => {
+    const t: any = r.trigger || {};
+    return t.type === "schedule";
+  });
+}
+
 async function rateLimitOk(rule: WorkflowRule): Promise<boolean> {
   if (!rule.rateLimitPerHour || rule.rateLimitPerHour <= 0) return true;
   const since = new Date(Date.now() - 3600_000);

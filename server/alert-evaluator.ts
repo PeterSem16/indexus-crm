@@ -1,7 +1,9 @@
 import { storage } from "./storage";
 import { db } from "./db";
-import { collections, collectionLabResults, customers, invoices, tasks, apiKeys, users, scheduledInvoices, notifications } from "@shared/schema";
-import { eq, sql, and, isNull, lt, gte, lte, inArray } from "drizzle-orm";
+import { collections, collectionLabResults, customers, invoices, tasks, apiKeys, users, scheduledInvoices, notifications, workflowEvents } from "@shared/schema";
+import { eq, sql, and, isNull, lt, gte, lte, inArray, ne } from "drizzle-orm";
+import { emitEvent } from "./lib/event-bus";
+import { runScheduledRule, getEnabledScheduleRules } from "./lib/automation-engine";
 
 type MetricType = 
   | 'pending_lab_results'
@@ -478,6 +480,96 @@ async function checkScheduledInvoiceNotifications(): Promise<void> {
   }
 }
 
+/* ============================================================
+ *  Phase C: Automation cron driver
+ *    - schedule-triggered workflow rules
+ *    - auto-emission of `task.overdue` once per task
+ * ============================================================ */
+
+const scheduleIntervalMs: Record<string, number> = {
+  every_5_min: 5 * 60 * 1000,
+  every_15_min: 15 * 60 * 1000,
+  every_30_min: 30 * 60 * 1000,
+  hourly: 60 * 60 * 1000,
+  every_6_hours: 6 * 60 * 60 * 1000,
+  daily: 24 * 60 * 60 * 1000,
+  weekly: 7 * 24 * 60 * 60 * 1000,
+};
+
+const lastScheduleFiredAt = new Map<string, number>();
+
+async function processScheduledAutomationRules(): Promise<void> {
+  try {
+    const rules = await getEnabledScheduleRules();
+    const now = Date.now();
+    for (const rule of rules) {
+      const t: any = rule.trigger || {};
+      const intervalMs = scheduleIntervalMs[String(t.interval)] ?? 0;
+      if (intervalMs <= 0) continue;
+      const last = lastScheduleFiredAt.get(rule.id) ?? 0;
+      if (now - last < intervalMs) continue;
+      lastScheduleFiredAt.set(rule.id, now);
+      try {
+        await runScheduledRule(rule);
+      } catch (err) {
+        console.error(`[AutomationCron] runScheduledRule failed rule=${rule.id}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("[AutomationCron] processScheduledAutomationRules failed:", err);
+  }
+}
+
+async function emitTaskOverdueEvents(): Promise<void> {
+  try {
+    const now = new Date();
+    // Find tasks past due that are still open
+    const overdue = await db
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          inArray(tasks.status, ["pending", "in_progress"]),
+          lt(tasks.dueDate, now)
+        )
+      );
+    if (!overdue.length) return;
+
+    // Skip ones that already have a task.overdue event
+    const ids = overdue.map((t) => t.id);
+    const existing = await db
+      .select({ entityId: workflowEvents.entityId })
+      .from(workflowEvents)
+      .where(
+        and(
+          eq(workflowEvents.eventType, "task.overdue"),
+          inArray(workflowEvents.entityId, ids)
+        )
+      );
+    const seen = new Set(existing.map((r) => r.entityId).filter(Boolean) as string[]);
+
+    for (const task of overdue) {
+      if (seen.has(task.id)) continue;
+      try {
+        await emitEvent({
+          source: "cron",
+          module: "task",
+          entityType: "task",
+          entityId: task.id,
+          eventType: "task.overdue",
+          newValues: task,
+          actorUserId: null,
+          countryCode: task.country || null,
+        });
+      } catch (err) {
+        console.error(`[AutomationCron] failed to emit task.overdue for ${task.id}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("[AutomationCron] emitTaskOverdueEvents failed:", err);
+  }
+}
+
 let evaluationInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startAlertEvaluator(intervalMs: number = 60 * 1000): void {
@@ -490,10 +582,14 @@ export function startAlertEvaluator(intervalMs: number = 60 * 1000): void {
   
   evaluateAlerts();
   checkScheduledInvoiceNotifications();
+  processScheduledAutomationRules();
+  emitTaskOverdueEvents();
 
   evaluationInterval = setInterval(() => {
     evaluateAlerts();
     checkScheduledInvoiceNotifications();
+    processScheduledAutomationRules();
+    emitTaskOverdueEvents();
   }, intervalMs);
 }
 
