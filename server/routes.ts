@@ -1318,11 +1318,91 @@ export async function registerRoutes(
     }
   });
 
-  // Returns OpenAI Realtime tool definitions JSON (use this to configure the agent in OpenAI dashboard or API)
+  // Returns OpenAI Realtime tool definitions JSON (for inspection / sanity check)
   app.get("/api/realtime/tool-definitions", async (_req, res) => {
     const { REALTIME_TOOL_DEFINITIONS } = await import("./lib/realtime-tools");
     res.json(REALTIME_TOOL_DEFINITIONS);
   });
+
+  // OpenAI Realtime SIP — incoming-call webhook.
+  // OpenAI POSTs `realtime.call.incoming` here when a SIP INVITE arrives at
+  // sip:<projectId>@sip.api.openai.com. We respond with the session config
+  // (model, voice, instructions, tools) for THIS call.
+  // Signature: OpenAI signs the body with the project webhook signing secret
+  // (header `openai-signature` or `webhook-signature`).
+  app.post(
+    "/api/realtime/incoming-call",
+    // capture raw body for signature verification
+    (await import("express")).default.raw({ type: "*/*", limit: "1mb" }),
+    async (req, res) => {
+      try {
+        const signingSecret = process.env.OPENAI_WEBHOOK_SECRET;
+        const rawBody: Buffer = req.body instanceof Buffer ? req.body : Buffer.from(JSON.stringify(req.body || {}));
+
+        if (signingSecret) {
+          const sigHeader = String(
+            req.headers["openai-signature"] || req.headers["webhook-signature"] || ""
+          );
+          if (!sigHeader) {
+            return res.status(401).json({ error: "Missing signature header" });
+          }
+          const crypto = await import("crypto");
+          const expected = crypto
+            .createHmac("sha256", signingSecret)
+            .update(rawBody)
+            .digest("hex");
+          // Header may be "sha256=<hex>" or "v1,<base64>" — accept hex match anywhere
+          if (!sigHeader.includes(expected)) {
+            console.warn("[Realtime] incoming-call signature mismatch");
+            return res.status(401).json({ error: "Invalid signature" });
+          }
+        }
+
+        const event = JSON.parse(rawBody.toString("utf8") || "{}");
+        const callId =
+          event?.data?.call_id || event?.data?.id || event?.call_id || "unknown";
+        const fromNumber =
+          event?.data?.from || event?.data?.caller_number || event?.from || null;
+
+        console.log(
+          `[Realtime] incoming-call event=${event?.type || "?"} callId=${callId} from=${fromNumber}`
+        );
+
+        const { REALTIME_SESSION_CONFIG, REALTIME_TOOL_DEFINITIONS } = await import(
+          "./lib/realtime-tools"
+        );
+
+        // Pre-seed the system prompt with the caller number so the model can
+        // call lookup_customer immediately without asking.
+        const instructions =
+          REALTIME_SESSION_CONFIG.instructions +
+          (fromNumber ? `\n\nCaller phone number: ${fromNumber}` : "");
+
+        const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+        const host = req.headers.host;
+        const toolWebhookUrl = `${proto}://${host}/api/realtime/webhook`;
+
+        return res.json({
+          type: "realtime.call.accept",
+          session: {
+            ...REALTIME_SESSION_CONFIG,
+            instructions,
+            tools: REALTIME_TOOL_DEFINITIONS,
+            tool_choice: "auto",
+            tool_webhook: {
+              url: toolWebhookUrl,
+              headers: process.env.REALTIME_WEBHOOK_SECRET
+                ? { "x-realtime-secret": process.env.REALTIME_WEBHOOK_SECRET }
+                : {},
+            },
+          },
+        });
+      } catch (err: any) {
+        console.error("[Realtime] incoming-call error:", err);
+        return res.status(500).json({ error: err?.message || "Internal error" });
+      }
+    }
+  );
 
   // Initialize WebSocket notification service
   notificationService.initialize(httpServer);

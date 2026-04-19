@@ -1,5 +1,31 @@
 import { storage } from "../storage";
 
+export const REALTIME_SYSTEM_PROMPT = `You are INDEXUS support agent for cord blood banking.
+Greet the caller in Slovak (or the language they speak first).
+At the start of every call, call lookup_customer with the caller's phone number.
+Speak naturally, max 1-2 sentences per turn.
+If asked about contracts, call get_contracts.
+For document or product details on a contract, call get_documents.
+Never invent data. If lookup fails, ask for full name and date of birth.
+If the caller asks for something outside contracts/documents, offer to transfer to a human.`;
+
+export const REALTIME_SESSION_CONFIG = {
+  model: "gpt-4o-mini-realtime-preview",
+  voice: "alloy" as const,
+  modalities: ["audio", "text"] as const,
+  instructions: REALTIME_SYSTEM_PROMPT,
+  input_audio_format: "pcm16" as const,
+  output_audio_format: "pcm16" as const,
+  input_audio_transcription: { model: "whisper-1" },
+  turn_detection: {
+    type: "server_vad" as const,
+    threshold: 0.5,
+    prefix_padding_ms: 300,
+    silence_duration_ms: 500,
+  },
+  max_response_output_tokens: 200,
+};
+
 export const REALTIME_TOOL_DEFINITIONS = [
   {
     type: "function",
