@@ -55,7 +55,10 @@ import {
   UserPlus,
   Eye,
   Send,
-  Trash2
+  Trash2,
+  Square,
+  CheckSquare,
+  ListChecks
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
@@ -336,6 +339,7 @@ export default function TasksPage() {
                   {task.description}
                 </p>
               )}
+              <ChecklistSection taskId={task.id} canEdit={isActive} />
               <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap">
                 {assignedUser && (
                   <div className="flex items-center gap-1.5">
@@ -1040,6 +1044,111 @@ export default function TasksPage() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ChecklistSection({ taskId, canEdit }: { taskId: string; canEdit: boolean }) {
+  const [newLabel, setNewLabel] = useState("");
+  const { data: items = [], isLoading } = useQuery<Array<{ id: string; label: string; required: boolean; doneAt: string | null; doneByUserId: string | null; position: number }>>({
+    queryKey: ["/api/tasks", taskId, "checklist"],
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/${taskId}/checklist`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: async ({ id, done }: { id: string; done: boolean }) => apiRequest("PATCH", `/api/task-checklist/${id}`, { done }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId, "checklist"] }),
+  });
+  const addMut = useMutation({
+    mutationFn: async (label: string) => apiRequest("POST", `/api/tasks/${taskId}/checklist`, { label, position: items.length }),
+    onSuccess: () => {
+      setNewLabel("");
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId, "checklist"] });
+    },
+  });
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => apiRequest("DELETE", `/api/task-checklist/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId, "checklist"] }),
+  });
+
+  if (isLoading) return null;
+  if (items.length === 0 && !canEdit) return null;
+
+  const doneCount = items.filter((i) => !!i.doneAt).length;
+  const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
+
+  return (
+    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50/40 dark:bg-amber-900/10 p-2 space-y-1.5" data-testid={`checklist-${taskId}`}>
+      <div className="flex items-center gap-2 text-xs font-medium text-amber-800 dark:text-amber-200">
+        <ListChecks className="h-3.5 w-3.5" />
+        <span>Checklist</span>
+        {items.length > 0 && (
+          <span className="text-[10px] text-muted-foreground">{doneCount}/{items.length} ({pct}%)</span>
+        )}
+      </div>
+      {items.map((it) => {
+        const done = !!it.doneAt;
+        return (
+          <div key={it.id} className="flex items-center gap-2 group" data-testid={`checklist-item-${it.id}`}>
+            <button
+              type="button"
+              disabled={!canEdit || toggleMut.isPending}
+              onClick={() => toggleMut.mutate({ id: it.id, done: !done })}
+              className="flex-shrink-0 text-amber-600 hover:text-amber-800 disabled:opacity-50"
+              data-testid={`button-toggle-${it.id}`}
+            >
+              {done ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+            </button>
+            <span className={`text-xs flex-1 ${done ? "line-through text-muted-foreground" : ""}`}>
+              {it.label}
+              {it.required && <span className="text-red-500 ml-1">*</span>}
+            </span>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => deleteMut.mutate(it.id)}
+                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 text-xs"
+                title="Odstrániť"
+                data-testid={`button-delete-checklist-${it.id}`}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {canEdit && (
+        <div className="flex items-center gap-1 pt-1">
+          <Input
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newLabel.trim()) {
+                e.preventDefault();
+                addMut.mutate(newLabel.trim());
+              }
+            }}
+            placeholder="Pridať položku…"
+            className="h-7 text-xs"
+            data-testid={`input-checklist-add-${taskId}`}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!newLabel.trim() || addMut.isPending}
+            onClick={() => addMut.mutate(newLabel.trim())}
+            className="h-7 px-2"
+            data-testid={`button-checklist-add-${taskId}`}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

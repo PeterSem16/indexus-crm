@@ -47,6 +47,7 @@ import {
   trainingRoomArchives,
   scriptTemplates,
   collaboratorDocuments,
+  taskChecklistItems,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -6789,6 +6790,111 @@ Return ONLY valid JSON, no markdown code blocks.`,
     } catch (error) {
       console.error("Error creating task comment:", error);
       res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+
+  // Task checklist items — auth: assignee, creator, admin, or member of assignedDepartmentId
+  async function canAccessTask(userId: string, role: string | undefined, taskId: string): Promise<{ ok: boolean; task?: any }> {
+    const task = await storage.getTask(taskId);
+    if (!task) return { ok: false };
+    if (role === "admin") return { ok: true, task };
+    if (task.assignedUserId === userId) return { ok: true, task };
+    if (task.createdByUserId === userId) return { ok: true, task };
+    if (task.assignedDepartmentId) {
+      try {
+        const me: any = await storage.getUser(userId);
+        if (me?.departmentId === task.assignedDepartmentId) return { ok: true, task };
+      } catch {}
+    }
+    return { ok: false, task };
+  }
+  async function canAccessChecklistItem(userId: string, role: string | undefined, itemId: string): Promise<{ ok: boolean; item?: any }> {
+    const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId));
+    if (!item) return { ok: false };
+    const access = await canAccessTask(userId, role, item.taskId);
+    return { ok: access.ok, item };
+  }
+
+  app.get("/api/tasks/:taskId/checklist", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const access = await canAccessTask(me.id, me.role, req.params.taskId);
+      if (!access.task) return res.status(404).json({ error: "Task not found" });
+      if (!access.ok) return res.status(403).json({ error: "Not authorized" });
+      const items = await db
+        .select()
+        .from(taskChecklistItems)
+        .where(eq(taskChecklistItems.taskId, req.params.taskId))
+        .orderBy(asc(taskChecklistItems.position));
+      res.json(items);
+    } catch (error: any) {
+      console.error("Error fetching task checklist:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch checklist" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/checklist", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const access = await canAccessTask(me.id, me.role, req.params.taskId);
+      if (!access.task) return res.status(404).json({ error: "Task not found" });
+      if (!access.ok) return res.status(403).json({ error: "Not authorized" });
+      const { label, required, position } = req.body || {};
+      if (!label) return res.status(400).json({ error: "label required" });
+      const [item] = await db
+        .insert(taskChecklistItems)
+        .values({
+          taskId: req.params.taskId,
+          label: String(label),
+          required: required !== false,
+          position: typeof position === "number" ? position : 0,
+        })
+        .returning();
+      res.status(201).json(item);
+    } catch (error: any) {
+      console.error("Error creating checklist item:", error);
+      res.status(500).json({ error: error.message || "Failed to create item" });
+    }
+  });
+
+  app.patch("/api/task-checklist/:id", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const access = await canAccessChecklistItem(me.id, me.role, req.params.id);
+      if (!access.item) return res.status(404).json({ error: "Item not found" });
+      if (!access.ok) return res.status(403).json({ error: "Not authorized" });
+      const { done, label, note } = req.body || {};
+      const updates: any = {};
+      if (typeof done === "boolean") {
+        updates.doneAt = done ? new Date() : null;
+        updates.doneByUserId = done ? me.id : null;
+      }
+      if (typeof label === "string") updates.label = label;
+      if (typeof note === "string") updates.note = note;
+      const [item] = await db
+        .update(taskChecklistItems)
+        .set(updates)
+        .where(eq(taskChecklistItems.id, req.params.id))
+        .returning();
+      if (!item) return res.status(404).json({ error: "Item not found" });
+      res.json(item);
+    } catch (error: any) {
+      console.error("Error updating checklist item:", error);
+      res.status(500).json({ error: error.message || "Failed to update item" });
+    }
+  });
+
+  app.delete("/api/task-checklist/:id", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const access = await canAccessChecklistItem(me.id, me.role, req.params.id);
+      if (!access.item) return res.status(404).json({ error: "Item not found" });
+      if (!access.ok) return res.status(403).json({ error: "Not authorized" });
+      await db.delete(taskChecklistItems).where(eq(taskChecklistItems.id, req.params.id));
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting checklist item:", error);
+      res.status(500).json({ error: error.message || "Failed to delete item" });
     }
   });
 

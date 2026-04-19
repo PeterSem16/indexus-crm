@@ -130,6 +130,7 @@ export default function AutomationsPage() {
   const rulesQ = useQuery<Rule[]>({ queryKey: ["/api/automation/rules"] });
   const catalogQ = useQuery<Catalog>({ queryKey: ["/api/automation/catalog"] });
   const usersQ = useQuery<UserOpt[]>({ queryKey: ["/api/automation/users"] });
+  const departmentsQ = useQuery<Array<{ id: string; name: string }>>({ queryKey: ["/api/departments"] });
 
   const createMut = useMutation({
     mutationFn: async (data: any) => apiRequest("POST", "/api/automation/rules", data),
@@ -277,6 +278,7 @@ export default function AutomationsPage() {
           initialDraft={prefillDraft}
           catalog={catalogQ.data}
           users={usersQ.data || []}
+          departments={departmentsQ.data || []}
           onClose={() => {
             setEditing(null);
             setShowCreate(false);
@@ -308,6 +310,7 @@ function RuleEditor({
   initialDraft,
   catalog,
   users,
+  departments,
   onClose,
   onSave,
   saving,
@@ -317,6 +320,7 @@ function RuleEditor({
   initialDraft?: RuleDraft | null;
   catalog: Catalog;
   users: UserOpt[];
+  departments?: Array<{ id: string; name: string }>;
   onClose: () => void;
   onSave: (draft: RuleDraft) => void;
   saving: boolean;
@@ -582,6 +586,7 @@ function RuleEditor({
                     index={i}
                     actionTypes={catalog.actionTypes}
                     users={users}
+                    departments={departments || []}
                     onChange={(updated) => {
                       const next = [...draft.actions];
                       next[i] = updated;
@@ -972,6 +977,7 @@ function ActionEditor({
   index,
   actionTypes,
   users,
+  departments,
   onChange,
   onRemove,
 }: {
@@ -979,6 +985,7 @@ function ActionEditor({
   index: number;
   actionTypes: Catalog["actionTypes"];
   users: UserOpt[];
+  departments?: Array<{ id: string; name: string }>;
   onChange: (a: ActionNode) => void;
   onRemove: () => void;
 }) {
@@ -1092,8 +1099,24 @@ function ActionEditor({
             />
           </div>
           <div>
-            <Label className="text-xs">Department ID (opt)</Label>
-            <Input className="h-8 text-xs" value={action.config.assignedDepartmentId || ""} onChange={(e) => setCfg("assignedDepartmentId", e.target.value)} />
+            <Label className="text-xs">Skupina / oddelenie (voliteľné)</Label>
+            <Select
+              value={action.config.assignedDepartmentId || "__none__"}
+              onValueChange={(v) => setCfg("assignedDepartmentId", v === "__none__" ? "" : v)}
+            >
+              <SelectTrigger className="h-8 text-xs" data-testid={`select-department-${index}`}>
+                <SelectValue placeholder="— bez skupiny —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— bez skupiny —</SelectItem>
+                {(departments || []).map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Ak je vybraná skupina, úloha sa zobrazí všetkým členom (assignee zostáva primárny vlastník).
+            </p>
           </div>
           <div className="md:col-span-2">
             <Label className="text-xs">Checklist (one item per line)</Label>
