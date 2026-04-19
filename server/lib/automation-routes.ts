@@ -192,6 +192,28 @@ export function registerAutomationRoutes(app: Express) {
             body: "string (template)",
           },
         },
+        {
+          value: "send_sms",
+          label: "Send SMS (BulkGate)",
+          configSchema: {
+            to: "string (phone number, E.164 or template)",
+            text: "string (template, max ~160 chars per part)",
+            country: "ISO country code (optional, defaults to event country)",
+            kind: "transactional|promotional (default transactional)",
+            unicode: "boolean (optional, for non-GSM characters)",
+            tag: "string (optional, audit tag)",
+          },
+        },
+        {
+          value: "webhook",
+          label: "Call webhook (HTTP)",
+          configSchema: {
+            url: "string (URL, supports template)",
+            method: "GET|POST|PUT|PATCH|DELETE (default POST)",
+            headers: "object (optional)",
+            body: "any (optional, defaults to event payload)",
+          },
+        },
       ],
       operators: [
         { value: "eq", label: "equals", arity: 1 },

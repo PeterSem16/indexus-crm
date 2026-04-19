@@ -930,6 +930,107 @@ function ActionEditor({
           </div>
         </div>
       )}
+
+      {action.type === "send_sms" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+          <div>
+            <Label className="text-xs">To (phone or template)</Label>
+            <Input
+              className="h-8 text-xs"
+              value={action.config.to || ""}
+              onChange={(e) => setCfg("to", e.target.value)}
+              placeholder="{{newValues.phone}}"
+              data-testid={`input-sms-to-${index}`}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Kind</Label>
+            <Select value={action.config.kind || "transactional"} onValueChange={(v) => setCfg("kind", v)}>
+              <SelectTrigger className="h-8 text-xs" data-testid={`select-sms-kind-${index}`}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="transactional">Transactional</SelectItem>
+                <SelectItem value="promotional">Promotional</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Country (optional)</Label>
+            <Input
+              className="h-8 text-xs"
+              value={action.config.country || ""}
+              onChange={(e) => setCfg("country", e.target.value)}
+              placeholder="SK / CZ / AT"
+            />
+          </div>
+          <div className="flex items-end gap-2">
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={action.config.unicode === true}
+                onChange={(e) => setCfg("unicode", e.target.checked)}
+                data-testid={`checkbox-sms-unicode-${index}`}
+              />
+              Unicode (non-GSM)
+            </label>
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Message text</Label>
+            <Textarea
+              rows={3}
+              className="text-xs"
+              value={action.config.text || ""}
+              onChange={(e) => setCfg("text", e.target.value)}
+              placeholder="Hi {{newValues.firstName}}, your appointment is confirmed."
+              data-testid={`textarea-sms-text-${index}`}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              ~160 chars per part (70 with unicode). Sent via BulkGate using country sender config.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {action.type === "webhook" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+          <div className="md:col-span-2">
+            <Label className="text-xs">URL</Label>
+            <Input
+              className="h-8 text-xs"
+              value={action.config.url || ""}
+              onChange={(e) => setCfg("url", e.target.value)}
+              placeholder="https://example.com/hooks/automation"
+              data-testid={`input-webhook-url-${index}`}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Method</Label>
+            <Select value={action.config.method || "POST"} onValueChange={(v) => setCfg("method", v)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GET">GET</SelectItem>
+                <SelectItem value="POST">POST</SelectItem>
+                <SelectItem value="PUT">PUT</SelectItem>
+                <SelectItem value="PATCH">PATCH</SelectItem>
+                <SelectItem value="DELETE">DELETE</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-3">
+            <Label className="text-xs">Body (JSON, leave empty for default event payload)</Label>
+            <Textarea
+              rows={3}
+              className="text-xs font-mono"
+              value={typeof action.config.body === "string" ? action.config.body : action.config.body ? JSON.stringify(action.config.body, null, 2) : ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v.trim()) { setCfg("body", undefined); return; }
+                try { setCfg("body", JSON.parse(v)); } catch { setCfg("body", v); }
+              }}
+              placeholder={'{"event":"{{event.eventType}}","id":"{{entityId}}"}'}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

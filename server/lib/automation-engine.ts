@@ -191,10 +191,107 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
   }
 }
 
+async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
+  try {
+    const rendered = renderTemplate(config, ctx);
+    const to: string = String(rendered.to || "").trim();
+    const text: string = String(rendered.text || rendered.message || "").trim();
+    if (!to) return { ok: false, error: "send_sms requires `to` (phone number)" };
+    if (!text) return { ok: false, error: "send_sms requires `text`" };
+
+    const promotional = rendered.kind === "promotional" || rendered.promotional === true;
+    const country: string | undefined =
+      rendered.country || ctx.event?.countryCode || undefined;
+
+    const { sendTransactionalSms, sendPromotionalSms } = await import("./bulkgate");
+    const send = promotional ? sendPromotionalSms : sendTransactionalSms;
+    const result = await send({
+      number: to,
+      text,
+      country,
+      unicode: rendered.unicode === true,
+      tag: rendered.tag || `automation-rule`,
+    });
+
+    if (!result.success) {
+      return { ok: false, error: result.error || "send_sms failed", output: { errorCode: result.errorCode } };
+    }
+    return { ok: true, output: { smsId: result.smsId, number: result.number, kind: promotional ? "promotional" : "transactional" } };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "send_sms failed" };
+  }
+}
+
+function isBlockedWebhookHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "0.0.0.0") return true;
+  if (h.endsWith(".local") || h.endsWith(".internal")) return true;
+  const m = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (m) {
+    const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+    if (a === 10) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 127) return true;
+  }
+  if (h.startsWith("fe80:") || h.startsWith("fc") || h.startsWith("fd")) return true;
+  return false;
+}
+
+async function actionWebhook(config: any, ctx: any): Promise<ActionResult> {
+  try {
+    const rendered = renderTemplate(config, ctx);
+    const url: string = String(rendered.url || "").trim();
+    if (!url) return { ok: false, error: "webhook requires `url`" };
+
+    let parsed: URL;
+    try { parsed = new URL(url); } catch { return { ok: false, error: "webhook url is not a valid URL" }; }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return { ok: false, error: `webhook protocol ${parsed.protocol} not allowed` };
+    }
+    if (isBlockedWebhookHost(parsed.hostname)) {
+      return { ok: false, error: `webhook host ${parsed.hostname} is blocked (private/internal address)` };
+    }
+
+    const method = String(rendered.method || "POST").toUpperCase();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(rendered.headers && typeof rendered.headers === "object" ? rendered.headers : {}),
+    };
+    const bodyValue =
+      rendered.body !== undefined ? rendered.body : { event: ctx.event, newValues: ctx.newValues, oldValues: ctx.oldValues };
+
+    const controller = new AbortController();
+    const timeoutMs = Number(rendered.timeoutMs) > 0 ? Math.min(Number(rendered.timeoutMs), 30000) : 10000;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const init: RequestInit = { method, headers, signal: controller.signal };
+    if (method !== "GET" && method !== "HEAD") {
+      init.body = typeof bodyValue === "string" ? bodyValue : JSON.stringify(bodyValue);
+    }
+    try {
+      const res = await fetch(url, init);
+      const text = await res.text().catch(() => "");
+      if (!res.ok) {
+        return { ok: false, error: `webhook ${res.status}`, output: { status: res.status, body: text.slice(0, 500) } };
+      }
+      return { ok: true, output: { status: res.status, body: text.slice(0, 500) } };
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err: any) {
+    if (err?.name === "AbortError") return { ok: false, error: "webhook timed out" };
+    return { ok: false, error: err?.message || "webhook failed" };
+  }
+}
+
 const ACTION_HANDLERS: Record<string, (cfg: any, ctx: any, runId: string) => Promise<ActionResult>> = {
   create_task: actionCreateTask,
   notify_user: actionNotifyUser,
   send_email: actionSendEmail,
+  send_sms: actionSendSms,
+  webhook: actionWebhook,
 };
 
 /* ============================================================
