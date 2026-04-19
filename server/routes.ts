@@ -15321,6 +15321,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       console.log("[Collaborators] Validation passed, parsed data:", JSON.stringify(parsed.data, null, 2));
       const collaborator = await storage.createCollaborator(parsed.data);
       await logActivity(req.session.user!.id, "create", "collaborator", collaborator.id, `${collaborator.firstName} ${collaborator.lastName}`);
+      try {
+        const { emitEntityCreated } = await import("./lib/event-bus");
+        await emitEntityCreated("collaborator", "collaborator", collaborator.id, collaborator, req.session.user!.id, (collaborator as any).countryCode || null);
+      } catch (err) { console.error("[EventBus] collaborator create emit error:", err); }
       res.status(201).json(collaborator);
     } catch (error) {
       res.status(500).json({ error: "Failed to create collaborator" });
@@ -15337,7 +15341,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       
       const collaborator = await storage.updateCollaborator(req.params.id, req.body);
       if (!collaborator) return res.status(404).json({ error: "Collaborator not found" });
-      
+
+      try {
+        const { emitEntityUpdated } = await import("./lib/event-bus");
+        await emitEntityUpdated("collaborator", "collaborator", collaborator.id, oldCollaborator, collaborator, req.session.user!.id, (collaborator as any).countryCode || (oldCollaborator as any)?.countryCode || null);
+      } catch (err) { console.error("[EventBus] collaborator update emit error:", err); }
+
       // Calculate changes for activity log
       const changes: Record<string, { from: any; to: any }> = {};
       const fieldsToTrack = [
