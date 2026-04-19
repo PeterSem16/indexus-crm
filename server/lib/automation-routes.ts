@@ -197,6 +197,7 @@ export function registerAutomationRoutes(app: Express) {
             subject: "string (template)",
             body: "string (template; HTML auto-detected, plain text gets <br/> conversion)",
             from: "string (optional sender email; falls back to EMAIL_FROM env)",
+            attachments: "array of { name, url } or { name, contentType, contentBase64 } (max 5, 10MB each, 25MB total; only http/https URLs to public hosts)",
           },
         },
         {

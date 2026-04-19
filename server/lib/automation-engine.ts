@@ -200,6 +200,65 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
     const isHtml = /<[a-z][\s\S]*>/i.test(bodyRaw);
     const html = isHtml ? bodyRaw : bodyRaw.replace(/\n/g, "<br/>");
     const from = rendered.from ? String(rendered.from).trim() : undefined;
+
+    // ----- Resolve attachments (max 5, max 10MB each, max 25MB total) -----
+    const MAX_ATT = 5;
+    const MAX_ONE = 10 * 1024 * 1024;
+    const MAX_TOTAL = 25 * 1024 * 1024;
+    const attRaw: any[] = Array.isArray(rendered.attachments) ? rendered.attachments : [];
+    const attachments: Array<{ name: string; contentType: string; contentBase64: string }> = [];
+    const attErrors: string[] = [];
+    let totalBytes = 0;
+    for (const a of attRaw.slice(0, MAX_ATT)) {
+      try {
+        const name = String(a?.name || "attachment").slice(0, 200);
+        // Inline base64
+        if (a?.contentBase64) {
+          const b64 = String(a.contentBase64).replace(/^data:[^;]+;base64,/, "");
+          const size = Math.floor((b64.length * 3) / 4);
+          if (size > MAX_ONE) { attErrors.push(`${name}: exceeds 10MB`); continue; }
+          if (totalBytes + size > MAX_TOTAL) { attErrors.push(`${name}: total exceeds 25MB`); continue; }
+          totalBytes += size;
+          attachments.push({
+            name,
+            contentType: String(a.contentType || "application/octet-stream"),
+            contentBase64: b64,
+          });
+          continue;
+        }
+        // URL-based
+        if (a?.url) {
+          const url = String(a.url).trim();
+          let parsed: URL;
+          try { parsed = new URL(url); } catch { attErrors.push(`${name}: invalid url`); continue; }
+          if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+            attErrors.push(`${name}: protocol ${parsed.protocol} not allowed`); continue;
+          }
+          if (isBlockedWebhookHost(parsed.hostname)) {
+            attErrors.push(`${name}: host blocked (private/internal)`); continue;
+          }
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 15000);
+          try {
+            const res = await fetch(url, { signal: controller.signal });
+            if (!res.ok) { attErrors.push(`${name}: fetch ${res.status}`); continue; }
+            const contentType = a.contentType || res.headers.get("content-type") || "application/octet-stream";
+            const buf = Buffer.from(await res.arrayBuffer());
+            if (buf.length > MAX_ONE) { attErrors.push(`${name}: exceeds 10MB`); continue; }
+            if (totalBytes + buf.length > MAX_TOTAL) { attErrors.push(`${name}: total exceeds 25MB`); continue; }
+            totalBytes += buf.length;
+            attachments.push({ name, contentType: String(contentType), contentBase64: buf.toString("base64") });
+          } finally {
+            clearTimeout(timer);
+          }
+          continue;
+        }
+        attErrors.push(`${name}: missing url or contentBase64`);
+      } catch (err: any) {
+        attErrors.push(`attachment error: ${err?.message || "unknown"}`);
+      }
+    }
+
     const sent: string[] = [];
     const failed: string[] = [];
     let provider: "ms365" | "sendgrid" | "log" = "log";
@@ -237,7 +296,15 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
           provider = "ms365";
           for (const to of recipients) {
             try {
-              await ms365SendEmail(tokenInfo.accessToken, [to], subject, html, true);
+              await ms365SendEmail(
+                tokenInfo.accessToken,
+                [to],
+                subject,
+                html,
+                true,
+                undefined,
+                attachments.length > 0 ? attachments : undefined,
+              );
               sent.push(to);
             } catch (err: any) {
               failed.push(`${to} (${err?.message || "ms365 error"})`);
@@ -272,6 +339,8 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
         from: from || (provider === "ms365" ? ms365Conn?.email : null),
         countryCode: countryCode || null,
         simulated: provider === "log",
+        attachments: attachments.map((a) => ({ name: a.name, contentType: a.contentType, sizeBytes: Math.floor((a.contentBase64.length * 3) / 4) })),
+        attachmentErrors: attErrors.length > 0 ? attErrors : undefined,
       },
     };
   } catch (err: any) {
