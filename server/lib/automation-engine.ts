@@ -13,6 +13,11 @@ import {
 } from "@shared/schema";
 import { setEventDispatcher } from "./event-bus";
 import { sendEmail as sendEmailViaProvider } from "../email";
+import { storage } from "../storage";
+import {
+  getValidAccessToken as getMs365ValidToken,
+  sendEmail as ms365SendEmail,
+} from "./ms365";
 
 const MAX_CAUSATION_DEPTH = 5;
 
@@ -197,17 +202,77 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
     const from = rendered.from ? String(rendered.from).trim() : undefined;
     const sent: string[] = [];
     const failed: string[] = [];
-    for (const to of recipients) {
-      const ok = await sendEmailViaProvider({ to, subject, html, from });
-      if (ok) sent.push(to);
-      else failed.push(to);
+    let provider: "ms365" | "sendgrid" | "log" = "log";
+
+    // Prefer MS365 system mailbox for the event's country (or `cc` config override)
+    const countryCode: string | undefined =
+      (rendered.countryCode as string) ||
+      ctx.event?.countryCode ||
+      undefined;
+    let ms365Conn: any = null;
+    if (countryCode) {
+      try {
+        ms365Conn = await storage.getSystemMs365Connection(countryCode);
+      } catch {}
     }
+
+    if (ms365Conn?.accessToken) {
+      try {
+        const tokenInfo = await getMs365ValidToken(
+          ms365Conn.accessToken,
+          ms365Conn.tokenExpiresAt,
+          ms365Conn.refreshToken,
+        );
+        if (tokenInfo?.accessToken) {
+          // Persist refreshed token for reuse
+          if (tokenInfo.refreshed) {
+            try {
+              await storage.updateSystemMs365Connection(countryCode!, {
+                accessToken: tokenInfo.accessToken,
+                refreshToken: tokenInfo.refreshToken || ms365Conn.refreshToken,
+                tokenExpiresAt: tokenInfo.expiresOn || undefined,
+              } as any);
+            } catch {}
+          }
+          provider = "ms365";
+          for (const to of recipients) {
+            try {
+              await ms365SendEmail(tokenInfo.accessToken, [to], subject, html, true);
+              sent.push(to);
+            } catch (err: any) {
+              failed.push(`${to} (${err?.message || "ms365 error"})`);
+            }
+          }
+        }
+      } catch (err: any) {
+        // Fall through to SendGrid below
+        console.warn("[Automation] MS365 send failed, falling back:", err?.message);
+      }
+    }
+
+    if (provider === "log") {
+      provider = process.env.SENDGRID_API_KEY ? "sendgrid" : "log";
+      for (const to of recipients) {
+        const ok = await sendEmailViaProvider({ to, subject, html, from });
+        if (ok) sent.push(to);
+        else failed.push(to);
+      }
+    }
+
     if (sent.length === 0) {
       return { ok: false, error: `send_email failed for all recipients: ${failed.join(", ")}` };
     }
     return {
       ok: true,
-      output: { sent, failed, subject, from: from || null, simulated: !process.env.SENDGRID_API_KEY },
+      output: {
+        provider,
+        sent,
+        failed,
+        subject,
+        from: from || (provider === "ms365" ? ms365Conn?.email : null),
+        countryCode: countryCode || null,
+        simulated: provider === "log",
+      },
     };
   } catch (err: any) {
     return { ok: false, error: err?.message || "send_email failed" };
