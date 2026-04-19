@@ -1293,11 +1293,10 @@ export async function registerRoutes(
   registerUdidRoutes(app);
 
   // Automation engine (MVP-1): rules CRUD, runs history, dry-run, manual trigger
-  const { registerAutomationRoutes, seedSystemAutomationRules } = await import("./lib/automation-routes");
+  // NOTE: route registration moved AFTER session middleware (further below) so
+  // requireAuth can read req.session.user. We only init the engine here.
   const { initAutomationEngine } = await import("./lib/automation-engine");
   initAutomationEngine();
-  registerAutomationRoutes(app);
-  seedSystemAutomationRules().catch((err) => console.error("[Automation] seed error:", err));
 
   // OpenAI Realtime SIP — tool-call webhook (called by OpenAI Realtime agent during a live call)
   // Auth: shared secret in header `x-realtime-secret` (set REALTIME_WEBHOOK_SECRET env var)
@@ -1545,6 +1544,13 @@ export async function registerRoutes(
     }
     next();
   });
+
+  // Automation engine routes — registered AFTER session middleware so auth works
+  {
+    const { registerAutomationRoutes, seedSystemAutomationRules } = await import("./lib/automation-routes");
+    registerAutomationRoutes(app);
+    seedSystemAutomationRules().catch((err) => console.error("[Automation] seed error:", err));
+  }
 
   // Serve uploaded files statically from DATA_ROOT
   // On Ubuntu: /data -> /var/www/indexus-crm/data
