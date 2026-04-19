@@ -1053,7 +1053,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
       })()}
 
       <div className="space-y-1">
-        {allPersonnel.map((p: any, idx: number) => {
+        {allPersonnel.filter((p: any) => !p.is_primary).map((p: any, idx: number) => {
           const fullName = [p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ");
           const isLegacy = p.source === "legacy_link";
           const isEditing = editingId.length > 0 && editingId === p.assignment_id;
