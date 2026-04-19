@@ -12,6 +12,7 @@ import {
   type WorkflowEvent,
 } from "@shared/schema";
 import { setEventDispatcher } from "./event-bus";
+import { sendEmail as sendEmailViaProvider } from "../email";
 
 const MAX_CAUSATION_DEPTH = 5;
 
@@ -179,13 +180,35 @@ async function actionNotifyUser(config: any, ctx: any): Promise<ActionResult> {
 async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
   try {
     const rendered = renderTemplate(config, ctx);
-    const to = rendered.to;
-    if (!to) return { ok: false, error: "send_email requires `to`" };
-    // MVP: log-only sender. Wire to real email infra later.
-    console.log(
-      `[Automation] send_email to=${to} subject="${rendered.subject || ""}" body="${(rendered.body || "").substring(0, 80)}"`
-    );
-    return { ok: true, output: { to, subject: rendered.subject } };
+    const toRaw = rendered.to;
+    if (!toRaw) return { ok: false, error: "send_email requires `to`" };
+    const recipients: string[] = Array.isArray(toRaw)
+      ? toRaw.map((s) => String(s).trim()).filter(Boolean)
+      : String(toRaw)
+          .split(/[,;\s]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+    if (recipients.length === 0) return { ok: false, error: "send_email: no valid recipients" };
+    const subject = String(rendered.subject || "").trim();
+    if (!subject) return { ok: false, error: "send_email requires `subject`" };
+    const bodyRaw = String(rendered.body || "");
+    const isHtml = /<[a-z][\s\S]*>/i.test(bodyRaw);
+    const html = isHtml ? bodyRaw : bodyRaw.replace(/\n/g, "<br/>");
+    const from = rendered.from ? String(rendered.from).trim() : undefined;
+    const sent: string[] = [];
+    const failed: string[] = [];
+    for (const to of recipients) {
+      const ok = await sendEmailViaProvider({ to, subject, html, from });
+      if (ok) sent.push(to);
+      else failed.push(to);
+    }
+    if (sent.length === 0) {
+      return { ok: false, error: `send_email failed for all recipients: ${failed.join(", ")}` };
+    }
+    return {
+      ok: true,
+      output: { sent, failed, subject, from: from || null, simulated: !process.env.SENDGRID_API_KEY },
+    };
   } catch (err: any) {
     return { ok: false, error: err?.message || "send_email failed" };
   }

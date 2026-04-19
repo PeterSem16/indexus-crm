@@ -193,9 +193,10 @@ export function registerAutomationRoutes(app: Express) {
           value: "send_email",
           label: "Send email",
           configSchema: {
-            to: "string (email or template)",
-            subject: "string",
-            body: "string (template)",
+            to: "string (email, comma-separated list, or template)",
+            subject: "string (template)",
+            body: "string (template; HTML auto-detected, plain text gets <br/> conversion)",
+            from: "string (optional sender email; falls back to EMAIL_FROM env)",
           },
         },
         {
