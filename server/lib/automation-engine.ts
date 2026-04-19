@@ -286,12 +286,93 @@ async function actionWebhook(config: any, ctx: any): Promise<ActionResult> {
   }
 }
 
+/* Allow-list of entity types updateable via update_entity action.
+ * Each entry maps to the corresponding storage method and allowed fields. */
+const UPDATE_ENTITY_MAP: Record<
+  string,
+  { method: string; allowedFields: string[] }
+> = {
+  task: {
+    method: "updateTask",
+    allowedFields: [
+      "status", "priority", "assignedUserId", "assignedDepartmentId",
+      "dueDate", "title", "description", "resolution", "resolvedByUserId", "resolvedAt",
+    ],
+  },
+  customer: {
+    method: "updateCustomer",
+    allowedFields: [
+      "status", "clientStatus", "leadStatus", "leadScore",
+      "assignedUserId", "notes", "country",
+    ],
+  },
+  hospital: {
+    method: "updateHospital",
+    allowedFields: ["isActive", "autoRecruiting", "responsiblePersonId", "representativeId"],
+  },
+  clinic: {
+    method: "updateClinic",
+    allowedFields: [
+      "isActive", "notes", "initialStatus", "contractStatus",
+      "lastCallResult", "lastCallNote", "nextContactDate",
+    ],
+  },
+  invoice: {
+    method: "updateInvoice",
+    allowedFields: ["status", "note", "sendDate", "dueDate", "paidAmount"],
+  },
+};
+
+async function actionUpdateEntity(config: any, ctx: any): Promise<ActionResult> {
+  try {
+    const rendered = renderTemplate(config, ctx);
+    const entityType: string = String(rendered.entityType || ctx.event?.entityType || "").trim();
+    const entityId: string = String(rendered.entityId || ctx.event?.entityId || "").trim();
+    const fields = rendered.fields && typeof rendered.fields === "object" ? rendered.fields : null;
+
+    const cfg = UPDATE_ENTITY_MAP[entityType];
+    if (!cfg) return { ok: false, error: `update_entity: unsupported entityType "${entityType}"` };
+    if (!entityId) return { ok: false, error: "update_entity requires entityId" };
+    if (!fields || Object.keys(fields).length === 0) return { ok: false, error: "update_entity requires non-empty fields" };
+
+    // Filter to allow-listed fields only
+    const safe: Record<string, any> = {};
+    for (const k of Object.keys(fields)) {
+      if (cfg.allowedFields.includes(k)) safe[k] = fields[k];
+    }
+    if (Object.keys(safe).length === 0) {
+      return { ok: false, error: `update_entity: no allowed fields. Allowed for ${entityType}: ${cfg.allowedFields.join(", ")}` };
+    }
+
+    // Coerce dueDate / completedAt / paidDate strings to Date objects when present
+    for (const dateField of ["dueDate", "resolvedAt", "sendDate", "nextContactDate"]) {
+      if (safe[dateField] && typeof safe[dateField] === "string") {
+        const d = new Date(safe[dateField]);
+        if (!isNaN(d.getTime())) safe[dateField] = d;
+      }
+    }
+
+    const { storage } = await import("../storage");
+    const fn = (storage as any)[cfg.method];
+    if (typeof fn !== "function") {
+      return { ok: false, error: `update_entity: storage.${cfg.method} not available` };
+    }
+    const updated = await fn.call(storage, entityId, safe);
+    if (!updated) return { ok: false, error: `update_entity: ${entityType} ${entityId} not found` };
+
+    return { ok: true, output: { entityType, entityId, updatedFields: Object.keys(safe) } };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "update_entity failed" };
+  }
+}
+
 const ACTION_HANDLERS: Record<string, (cfg: any, ctx: any, runId: string) => Promise<ActionResult>> = {
   create_task: actionCreateTask,
   notify_user: actionNotifyUser,
   send_email: actionSendEmail,
   send_sms: actionSendSms,
   webhook: actionWebhook,
+  update_entity: actionUpdateEntity,
 };
 
 /* ============================================================

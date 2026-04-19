@@ -214,6 +214,15 @@ export function registerAutomationRoutes(app: Express) {
             body: "any (optional, defaults to event payload)",
           },
         },
+        {
+          value: "update_entity",
+          label: "Update entity (mutate fields)",
+          configSchema: {
+            entityType: "task|customer|hospital|clinic|invoice (defaults to event entityType)",
+            entityId: "string (defaults to event entityId, supports template)",
+            fields: "object - only allow-listed fields per entity type are applied",
+          },
+        },
       ],
       operators: [
         { value: "eq", label: "equals", arity: 1 },

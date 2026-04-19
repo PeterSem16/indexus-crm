@@ -1031,6 +1031,57 @@ function ActionEditor({
           </div>
         </div>
       )}
+
+      {action.type === "update_entity" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+          <div>
+            <Label className="text-xs">Entity type</Label>
+            <Select value={action.config.entityType || ""} onValueChange={(v) => setCfg("entityType", v)}>
+              <SelectTrigger className="h-8 text-xs" data-testid={`select-update-entity-type-${index}`}>
+                <SelectValue placeholder="(use event entityType)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="task">Task</SelectItem>
+                <SelectItem value="customer">Customer</SelectItem>
+                <SelectItem value="hospital">Hospital</SelectItem>
+                <SelectItem value="clinic">Clinic</SelectItem>
+                <SelectItem value="invoice">Invoice</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Entity ID (template ok)</Label>
+            <Input
+              className="h-8 text-xs"
+              value={action.config.entityId || ""}
+              onChange={(e) => setCfg("entityId", e.target.value)}
+              placeholder="{{entityId}}"
+              data-testid={`input-update-entity-id-${index}`}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Fields to set (JSON object)</Label>
+            <Textarea
+              rows={4}
+              className="text-xs font-mono"
+              value={action.config.fields ? JSON.stringify(action.config.fields, null, 2) : ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v.trim()) { setCfg("fields", undefined); return; }
+                try { setCfg("fields", JSON.parse(v)); } catch { /* keep last valid */ }
+              }}
+              placeholder={'{"status":"completed","assignedUserId":"{{newValues.assignedUserId}}"}'}
+              data-testid={`textarea-update-fields-${index}`}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Allowed fields per type: task = status, priority, assignedUserId, assignedDepartmentId, dueDate, title, description, completedAt;
+              customer = status, leadScore, assignedUserId, notes, stage, country;
+              hospital/clinic = status, notes, isActive; invoice = status, paidDate, notes.
+              Other fields are silently ignored.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
