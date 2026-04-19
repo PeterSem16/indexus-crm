@@ -82,7 +82,6 @@ export function AppSidebar() {
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
-    { title: "Úlohy", url: "/tasks", icon: ListChecks, testId: "tasks", moduleKey: "dashboard", badge: pendingTasksCount },
     { title: "Reports", url: "/reports", icon: BarChart3, testId: "reports", moduleKey: "reports" },
   ];
 
@@ -241,12 +240,7 @@ export function AppSidebar() {
                   >
                     <Link href={item.url} data-testid={`nav-${item.testId}`}>
                       <item.icon className="h-4 w-4" />
-                      <span className="flex-1">{item.title}</span>
-                      {(item as any).badge > 0 && (
-                        <Badge variant="destructive" className="text-xs px-1.5 py-0 ml-auto" data-testid={`badge-nav-${item.testId}`}>
-                          {(item as any).badge}
-                        </Badge>
-                      )}
+                      <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
