@@ -1048,12 +1048,16 @@ export const tasks = pgTable("tasks", {
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
   status: text("status").notNull().default("pending"), // pending, in_progress, completed, cancelled
   assignedUserId: varchar("assigned_user_id").notNull(),
+  assignedDepartmentId: varchar("assigned_department_id"), // optional group assignment (Automation MVP-1)
   createdByUserId: varchar("created_by_user_id").notNull(),
   customerId: varchar("customer_id"), // optional - link to customer
+  relatedEntityType: text("related_entity_type"), // generic link (Automation MVP-1)
+  relatedEntityId: varchar("related_entity_id"),
   country: text("country"), // optional - for filtering by country
   resolution: text("resolution"), // solution/response when completing the task
   resolvedByUserId: varchar("resolved_by_user_id"), // who resolved the task
   resolvedAt: timestamp("resolved_at"), // when task was resolved
+  sourceRunId: varchar("source_run_id"), // automation_runs.id (Automation MVP-1)
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7234,3 +7238,99 @@ export const trainingRoomArchives = pgTable("training_room_archives", {
 export const insertTrainingRoomArchiveSchema = createInsertSchema(trainingRoomArchives).omit({ id: true, createdAt: true });
 export type InsertTrainingRoomArchive = z.infer<typeof insertTrainingRoomArchiveSchema>;
 export type TrainingRoomArchive = typeof trainingRoomArchives.$inferSelect;
+
+// =====================================================
+// AUTOMATION ENGINE (MVP-1)
+// =====================================================
+
+export const workflowRules = pgTable("workflow_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  module: text("module").notNull(), // 'customer', 'task', 'contract', 'hospital', ...
+  countryCode: text("country_code"), // null = global
+  enabled: boolean("enabled").notNull().default(true),
+  isSystem: boolean("is_system").notNull().default(false),
+  trigger: jsonb("trigger").notNull(), // { type, eventType?, entityType?, ... }
+  conditions: jsonb("conditions"),     // DSL { all|any: [...] } | null
+  actions: jsonb("actions").notNull(), // [{ type, config }, ...]
+  rateLimitPerHour: integer("rate_limit_per_hour"),
+  createdByUserId: varchar("created_by_user_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+export const insertWorkflowRuleSchema = createInsertSchema(workflowRules).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertWorkflowRule = z.infer<typeof insertWorkflowRuleSchema>;
+export type WorkflowRule = typeof workflowRules.$inferSelect;
+
+export const workflowEvents = pgTable("workflow_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  source: text("source").notNull(), // 'storage', 'webhook', 'cron', 'manual'
+  module: text("module").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id"),
+  eventType: text("event_type").notNull(), // 'created' | 'updated' | 'status_changed' | 'deleted' | 'task.completed' | ...
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  changedFields: text("changed_fields").array(),
+  actorUserId: varchar("actor_user_id"),
+  countryCode: text("country_code"),
+  causationRunId: varchar("causation_run_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+export type WorkflowEvent = typeof workflowEvents.$inferSelect;
+export type InsertWorkflowEvent = typeof workflowEvents.$inferInsert;
+
+export const workflowRuns = pgTable("workflow_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: varchar("rule_id").notNull(),
+  eventId: varchar("event_id"),
+  status: text("status").notNull().default("pending"), // pending | running | success | failed | skipped
+  skippedReason: text("skipped_reason"),
+  payload: jsonb("payload"),
+  actionResults: jsonb("action_results"),
+  error: text("error"),
+  causationChain: text("causation_chain").array(),
+  startedAt: timestamp("started_at").notNull().default(sql`now()`),
+  finishedAt: timestamp("finished_at"),
+});
+export type WorkflowRun = typeof workflowRuns.$inferSelect;
+export type InsertWorkflowRun = typeof workflowRuns.$inferInsert;
+
+export const workflowActionLog = pgTable("workflow_action_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: varchar("run_id").notNull(),
+  actionIndex: integer("action_index").notNull(),
+  actionType: text("action_type").notNull(),
+  status: text("status").notNull(), // success | failed | skipped
+  output: jsonb("output"),
+  error: text("error"),
+  retryCount: integer("retry_count").notNull().default(0),
+  executedAt: timestamp("executed_at").notNull().default(sql`now()`),
+});
+export type WorkflowActionLog = typeof workflowActionLog.$inferSelect;
+
+export const taskChecklistItems = pgTable("task_checklist_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull(),
+  position: integer("position").notNull().default(0),
+  label: text("label").notNull(),
+  required: boolean("required").notNull().default(true),
+  doneAt: timestamp("done_at"),
+  doneByUserId: varchar("done_by_user_id"),
+  note: text("note"),
+});
+export const insertTaskChecklistItemSchema = createInsertSchema(taskChecklistItems).omit({ id: true });
+export type TaskChecklistItem = typeof taskChecklistItems.$inferSelect;
+export type InsertTaskChecklistItem = z.infer<typeof insertTaskChecklistItemSchema>;
+
+export const taskSubscriptions = pgTable("task_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: text("role").notNull().default("watcher"), // creator | assignee | watcher
+  notifyOn: text("notify_on").array().notNull().default(sql`ARRAY['completed','overdue']::text[]`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+export type TaskSubscription = typeof taskSubscriptions.$inferSelect;
+export type InsertTaskSubscription = typeof taskSubscriptions.$inferInsert;

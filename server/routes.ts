@@ -1292,6 +1292,13 @@ export async function registerRoutes(
   const { registerUdidRoutes } = await import("./lib/udid-routes");
   registerUdidRoutes(app);
 
+  // Automation engine (MVP-1): rules CRUD, runs history, dry-run, manual trigger
+  const { registerAutomationRoutes, seedSystemAutomationRules } = await import("./lib/automation-routes");
+  const { initAutomationEngine } = await import("./lib/automation-engine");
+  initAutomationEngine();
+  registerAutomationRoutes(app);
+  seedSystemAutomationRules().catch((err) => console.error("[Automation] seed error:", err));
+
   // OpenAI Realtime SIP — tool-call webhook (called by OpenAI Realtime agent during a live call)
   // Auth: shared secret in header `x-realtime-secret` (set REALTIME_WEBHOOK_SECRET env var)
   app.post("/api/realtime/webhook", async (req, res) => {
@@ -2666,6 +2673,12 @@ export async function registerRoutes(
       triggerCustomerAutomations(customer, changedFields, oldCustomer, req.session?.user?.id).catch(err => 
         console.error("Customer automation trigger error:", err)
       );
+
+      // Automation engine v2 — generic event bus (customers store country code in `country`)
+      try {
+        const { emitEntityUpdated } = await import("./lib/event-bus");
+        await emitEntityUpdated("customer", "customer", customer.id, oldCustomer, customer, req.session?.user?.id, (customer as any).country);
+      } catch (err) { console.error("[EventBus] customer update emit error:", err); }
       
       res.json(customer);
     } catch (error) {
@@ -6601,6 +6614,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
         { priority: task.priority, assignedUserId: task.assignedUserId },
         req.ip
       );
+
+      try {
+        const { emitEntityCreated } = await import("./lib/event-bus");
+        await emitEntityCreated("task", "task", task.id, task, req.session.user!.id, task.country);
+      } catch (err) { console.error("[EventBus] task create emit error:", err); }
       
       res.status(201).json(task);
     } catch (error: any) {
@@ -6611,6 +6629,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
     try {
+      const oldTask = await storage.getTask(req.params.id);
       const task = await storage.updateTask(req.params.id, req.body);
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
@@ -6625,6 +6644,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
         req.body,
         req.ip
       );
+
+      try {
+        const { emitEntityUpdated, emitTaskCompleted } = await import("./lib/event-bus");
+        await emitEntityUpdated("task", "task", task.id, oldTask, task, req.session.user!.id, task.country);
+        if (oldTask && oldTask.status !== "completed" && task.status === "completed") {
+          await emitTaskCompleted(task.id, task, req.session.user!.id);
+        }
+      } catch (err) { console.error("[EventBus] task update emit error:", err); }
       
       res.json(task);
     } catch (error) {
@@ -6682,6 +6709,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
         { resolution },
         req.ip
       );
+
+      try {
+        const { emitEntityUpdated, emitTaskCompleted } = await import("./lib/event-bus");
+        // Emit a generic update so rules listening for status_changed/updated also fire
+        const oldSnap = { status: "open" };
+        await emitEntityUpdated("task", "task", task.id, oldSnap, task, req.session.user!.id, task.country);
+        await emitTaskCompleted(task.id, task, req.session.user!.id);
+      } catch (err) { console.error("[EventBus] task resolve emit error:", err); }
       
       res.json(task);
     } catch (error) {

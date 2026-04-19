@@ -56,6 +56,7 @@ import MedicalPartnerNetworkPage from "@/pages/medical-partner-network";
 import ReportsPage from "@/pages/reports";
 import TrainingRoomPage from "@/pages/training-room";
 import StatusManagementPage from "@/pages/status-management";
+import AutomationsPage from "@/pages/automations";
 import PublicFormPage from "@/pages/public-form";
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
@@ -218,6 +219,7 @@ function AuthenticatedApp() {
                     <Route path="/reports" component={ReportsPage} />
                     <Route path="/settings" component={SettingsPage} />
                     <Route path="/status-management" component={StatusManagementPage} />
+                    <Route path="/automations" component={AutomationsPage} />
                     <Route path="/configurator" component={ConfiguratorPage} />
                     <Route path="/ms365" component={MS365IntegrationPage} />
                     <Route path="/email" component={EmailClientPage} />
