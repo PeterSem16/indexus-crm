@@ -182,8 +182,62 @@ async function actionNotifyUser(config: any, ctx: any): Promise<ActionResult> {
   }
 }
 
+/** Load a stored message template by id and merge into config (config wins for non-empty fields). */
+async function applyMessageTemplate(
+  config: any,
+  expectedType: "email" | "sms",
+): Promise<any> {
+  const templateId = config?.templateId;
+  if (!templateId || typeof templateId !== "string") return config;
+  try {
+    const tpl = await storage.getMessageTemplate(templateId);
+    if (!tpl || tpl.isActive === false) return config;
+    if (tpl.type !== expectedType) return config;
+    const merged = { ...config };
+    if (expectedType === "email") {
+      if (!merged.subject && tpl.subject) merged.subject = tpl.subject;
+      if (!merged.body) {
+        merged.body =
+          tpl.format === "html" && tpl.contentHtml ? tpl.contentHtml : tpl.content;
+      }
+      // Append template attachments (read from disk into base64) when not overridden
+      if (!Array.isArray(merged.attachments) && Array.isArray(tpl.attachments) && tpl.attachments.length > 0) {
+        const fs = await import("fs");
+        const loaded: any[] = [];
+        for (const a of tpl.attachments) {
+          try {
+            if (a?.filePath && fs.existsSync(a.filePath)) {
+              const buf = fs.readFileSync(a.filePath);
+              loaded.push({
+                name: a.fileName || "attachment",
+                contentType: a.mimeType || "application/octet-stream",
+                contentBase64: buf.toString("base64"),
+              });
+            }
+          } catch (e) {
+            console.warn("[Automation] template attachment load failed:", (e as any)?.message);
+          }
+        }
+        if (loaded.length > 0) merged.attachments = loaded;
+      }
+    } else {
+      // sms: use plain content as text
+      if (!merged.text && !merged.message) {
+        merged.text = tpl.content;
+      }
+    }
+    // Bump usage counter (best-effort)
+    storage.incrementMessageTemplateUsage?.(templateId).catch?.(() => {});
+    return merged;
+  } catch (err) {
+    console.warn("[Automation] applyMessageTemplate failed:", (err as any)?.message);
+    return config;
+  }
+}
+
 async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
   try {
+    config = await applyMessageTemplate(config, "email");
     const rendered = renderTemplate(config, ctx);
     const toRaw = rendered.to;
     if (!toRaw) return { ok: false, error: "send_email requires `to`" };
@@ -362,6 +416,7 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
 
 async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
   try {
+    config = await applyMessageTemplate(config, "sms");
     const rendered = renderTemplate(config, ctx);
     const to: string = String(rendered.to || "").trim();
     const text: string = String(rendered.text || rendered.message || "").trim();
