@@ -194,6 +194,8 @@ export function registerAutomationRoutes(app: Express) {
           label: "Send email",
           configSchema: {
             to: "string (email, comma-separated list, or template)",
+            cc: "string (optional carbon copy: email, comma-separated list, or template)",
+            bcc: "string (optional blind carbon copy; MS365 only)",
             subject: "string (template)",
             body: "string (template; HTML auto-detected, plain text gets <br/> conversion)",
             from: "string (optional sender email; falls back to EMAIL_FROM env)",

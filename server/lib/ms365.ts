@@ -285,7 +285,8 @@ export async function sendEmail(
   body: string,
   isHtml: boolean = true,
   cc?: string[],
-  attachments?: Array<{ name: string; contentType: string; contentBase64: string }>
+  attachments?: Array<{ name: string; contentType: string; contentBase64: string }>,
+  bcc?: string[]
 ): Promise<void> {
   const client = createGraphClient(accessToken);
   
@@ -302,6 +303,12 @@ export async function sendEmail(
   
   if (cc && cc.length > 0) {
     message.ccRecipients = cc.map(email => ({
+      emailAddress: { address: email },
+    }));
+  }
+
+  if (bcc && bcc.length > 0) {
+    message.bccRecipients = bcc.map(email => ({
       emailAddress: { address: email },
     }));
   }

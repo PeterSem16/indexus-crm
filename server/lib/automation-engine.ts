@@ -194,6 +194,15 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
           .map((s) => s.trim())
           .filter(Boolean);
     if (recipients.length === 0) return { ok: false, error: "send_email: no valid recipients" };
+
+    const parseList = (v: any): string[] => {
+      if (!v) return [];
+      const arr = Array.isArray(v) ? v : String(v).split(/[,;\s]+/);
+      return arr.map((s) => String(s).trim()).filter(Boolean);
+    };
+    const ccList = parseList(rendered.cc);
+    const bccList = parseList(rendered.bcc);
+
     const subject = String(rendered.subject || "").trim();
     if (!subject) return { ok: false, error: "send_email requires `subject`" };
     const bodyRaw = String(rendered.body || "");
@@ -302,8 +311,9 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
                 subject,
                 html,
                 true,
-                undefined,
+                ccList.length > 0 ? ccList : undefined,
                 attachments.length > 0 ? attachments : undefined,
+                bccList.length > 0 ? bccList : undefined,
               );
               sent.push(to);
             } catch (err: any) {
@@ -339,6 +349,8 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
         from: from || (provider === "ms365" ? ms365Conn?.email : null),
         countryCode: countryCode || null,
         simulated: provider === "log",
+        cc: ccList.length > 0 ? ccList : undefined,
+        bcc: bccList.length > 0 ? bccList : undefined,
         attachments: attachments.map((a) => ({ name: a.name, contentType: a.contentType, sizeBytes: Math.floor((a.contentBase64.length * 3) / 4) })),
         attachmentErrors: attErrors.length > 0 ? attErrors : undefined,
       },
