@@ -44,6 +44,22 @@ export function registerAutomationRoutes(app: Express) {
     res.json(rows);
   });
 
+  // Lookup rules referencing a specific Pulse status code or category
+  // Used by Status Management UI to show "rules linked to this status"
+  app.get("/api/automation/rules/by-status", requireAuth, async (req, res) => {
+    const code = (req.query.code as string) || "";
+    const category = (req.query.category as string) || "";
+    if (!code && !category) return res.json([]);
+    const all = await db.select().from(workflowRules).orderBy(desc(workflowRules.updatedAt));
+    const matches = all.filter((r) => {
+      const json = JSON.stringify(r.conditions || {}) + JSON.stringify(r.actions || []);
+      if (code && json.includes(`"${code}"`)) return true;
+      if (category && json.includes(`"${category}"`)) return true;
+      return false;
+    });
+    res.json(matches);
+  });
+
   app.get("/api/automation/rules/:id", requireAuth, async (req, res) => {
     const [row] = await db.select().from(workflowRules).where(eq(workflowRules.id, req.params.id));
     if (!row) return res.status(404).json({ error: "Not found" });

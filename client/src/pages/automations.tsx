@@ -96,6 +96,35 @@ export default function AutomationsPage() {
   const [editing, setEditing] = useState<Rule | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [historyFor, setHistoryFor] = useState<Rule | null>(null);
+  const [prefillDraft, setPrefillDraft] = useState<RuleDraft | null>(null);
+
+  // Prefill from URL params (e.g. when arriving from Status Management "⚡ Create automation")
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("prefillStatusCode");
+    const name = params.get("prefillStatusName") || code;
+    const cat = params.get("prefillStatusCategory");
+    if (!code && !cat) return;
+    const draft: RuleDraft = {
+      name: name ? `Pri statuse: ${name}` : "Pri zmene statusu",
+      description: "Automaticky vytvorené zo Status Management",
+      module: "customer",
+      countryCode: null,
+      enabled: true,
+      trigger: { type: "event", entityType: "customer", eventType: "updated" },
+      conditions: code
+        ? { all: [{ field: "newValues.lastCallResult", op: "changed_to", value: code }] }
+        : { all: [{ field: "newValues.lastDispositionCategory", op: "eq", value: cat }] },
+      actions: [
+        { type: "notify_user", config: { userId: "{{newValues.assignedUserId}}", title: name || "Status zmena", message: "Klient: {{newValues.firstName}} {{newValues.lastName}}" } },
+      ],
+      rateLimitPerHour: null,
+    };
+    setPrefillDraft(draft);
+    setShowCreate(true);
+    // clear URL so refresh doesn't re-open
+    window.history.replaceState({}, "", "/automations");
+  }, []);
 
   const [topTab, setTopTab] = useState<"rules" | "runs">("rules");
   const rulesQ = useQuery<Rule[]>({ queryKey: ["/api/automation/rules"] });
@@ -245,11 +274,13 @@ export default function AutomationsPage() {
         <RuleEditor
           open={!!editing || showCreate}
           rule={editing}
+          initialDraft={prefillDraft}
           catalog={catalogQ.data}
           users={usersQ.data || []}
           onClose={() => {
             setEditing(null);
             setShowCreate(false);
+            setPrefillDraft(null);
           }}
           onSave={onSave}
           saving={createMut.isPending || updateMut.isPending}
@@ -274,6 +305,7 @@ export default function AutomationsPage() {
 function RuleEditor({
   open,
   rule,
+  initialDraft,
   catalog,
   users,
   onClose,
@@ -282,6 +314,7 @@ function RuleEditor({
 }: {
   open: boolean;
   rule: Rule | null;
+  initialDraft?: RuleDraft | null;
   catalog: Catalog;
   users: UserOpt[];
   onClose: () => void;
@@ -302,7 +335,7 @@ function RuleEditor({
           actions: rule.actions || [],
           rateLimitPerHour: rule.rateLimitPerHour,
         }
-      : EMPTY_DRAFT()
+      : (initialDraft || EMPTY_DRAFT())
   );
   const [jsonText, setJsonText] = useState(() => JSON.stringify(draft, null, 2));
   const [tab, setTab] = useState<string>("builder");
