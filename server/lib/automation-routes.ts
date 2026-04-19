@@ -235,6 +235,19 @@ export function registerAutomationRoutes(app: Express) {
             fields: "object - only allow-listed fields per entity type are applied",
           },
         },
+        {
+          value: "assign_user",
+          label: "Assign user (auto-distribute owner)",
+          configSchema: {
+            entityType: "task|customer|hospital|clinic (defaults to event entityType)",
+            entityId: "string (defaults to event entityId, supports template)",
+            strategy: "round_robin|least_loaded|random|specific (default round_robin)",
+            userIds: "array or CSV of user IDs (used by round_robin/least_loaded/random; if empty, all active users are eligible)",
+            userId: "string (required for strategy=specific)",
+            roleFilter: "string (optional, filter eligible users by role when userIds is empty)",
+            countryFilter: "string|array (optional ISO codes, intersect with user's countries)",
+          },
+        },
       ],
       operators: [
         { value: "eq", label: "equals", arity: 1 },

@@ -590,6 +590,112 @@ async function actionUpdateEntity(config: any, ctx: any): Promise<ActionResult> 
   }
 }
 
+/* ============================================================
+ *  assign_user — auto-assign owner using round-robin / least-loaded / random / specific
+ * ============================================================ */
+const ASSIGN_RR_CURSOR: Map<string, number> = new Map();
+
+const ASSIGN_TARGET_MAP: Record<string, { method: string; field: string }> = {
+  task: { method: "updateTask", field: "assignedUserId" },
+  customer: { method: "updateCustomer", field: "assignedUserId" },
+  hospital: { method: "updateHospital", field: "responsiblePersonId" },
+  clinic: { method: "updateClinic", field: "responsiblePersonId" },
+};
+
+async function actionAssignUser(config: any, ctx: any, runId: string): Promise<ActionResult> {
+  try {
+    const rendered = renderTemplate(config, ctx);
+    const entityType: string = String(rendered.entityType || ctx.event?.entityType || "").trim();
+    const entityId: string = String(rendered.entityId || ctx.event?.entityId || "").trim();
+    const strategy: string = String(rendered.strategy || "round_robin").trim();
+
+    const target = ASSIGN_TARGET_MAP[entityType];
+    if (!target) return { ok: false, error: `assign_user: unsupported entityType "${entityType}" (allowed: ${Object.keys(ASSIGN_TARGET_MAP).join(", ")})` };
+    if (!entityId) return { ok: false, error: "assign_user requires entityId" };
+
+    const { storage } = await import("../storage");
+
+    // Resolve candidate users
+    let candidates: string[] = [];
+    if (strategy === "specific") {
+      const uid = String(rendered.userId || "").trim();
+      if (!uid) return { ok: false, error: "assign_user(specific) requires userId" };
+      candidates = [uid];
+    } else {
+      const explicit = Array.isArray(rendered.userIds)
+        ? rendered.userIds.map((x: any) => String(x).trim()).filter(Boolean)
+        : (typeof rendered.userIds === "string"
+            ? rendered.userIds.split(",").map((s: string) => s.trim()).filter(Boolean)
+            : []);
+      if (explicit.length > 0) {
+        candidates = explicit;
+      } else {
+        // Fallback: load all active users, optionally filter by role / country
+        const allUsers: any[] = await (storage as any).getAllUsers();
+        const roleFilter = rendered.roleFilter ? String(rendered.roleFilter).trim() : null;
+        const countryFilter = rendered.countryFilter
+          ? (Array.isArray(rendered.countryFilter)
+              ? rendered.countryFilter.map((c: any) => String(c).trim().toUpperCase())
+              : String(rendered.countryFilter).split(",").map((c: string) => c.trim().toUpperCase()).filter(Boolean))
+          : null;
+        candidates = allUsers
+          .filter(u => u.isActive !== false)
+          .filter(u => !roleFilter || u.role === roleFilter)
+          .filter(u => {
+            if (!countryFilter || countryFilter.length === 0) return true;
+            const uc = Array.isArray(u.countries) ? u.countries : (u.country ? [u.country] : []);
+            return uc.some((c: string) => countryFilter.includes(String(c).toUpperCase()));
+          })
+          .map(u => u.id);
+      }
+    }
+
+    if (candidates.length === 0) {
+      return { ok: false, error: "assign_user: no eligible users found" };
+    }
+
+    // Pick one
+    let chosen: string;
+    if (strategy === "specific" || candidates.length === 1) {
+      chosen = candidates[0];
+    } else if (strategy === "random") {
+      chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    } else if (strategy === "least_loaded") {
+      // Count open tasks per candidate (tasks where status not in completed/cancelled)
+      const counts = await Promise.all(candidates.map(async (uid) => {
+        try {
+          const tasks: any[] = await (storage as any).getTasksByUser(uid);
+          const open = tasks.filter(t => t.status !== "completed" && t.status !== "cancelled").length;
+          return { uid, open };
+        } catch {
+          return { uid, open: Number.MAX_SAFE_INTEGER };
+        }
+      }));
+      counts.sort((a, b) => a.open - b.open);
+      chosen = counts[0].uid;
+    } else {
+      // round_robin (default) — in-memory cursor keyed by ruleId + sorted candidates
+      const key = `${ctx.rule?.id || "global"}:${[...candidates].sort().join(",")}`;
+      const idx = (ASSIGN_RR_CURSOR.get(key) ?? -1) + 1;
+      const next = idx % candidates.length;
+      ASSIGN_RR_CURSOR.set(key, next);
+      chosen = candidates[next];
+    }
+
+    // Apply update
+    const fn = (storage as any)[target.method];
+    if (typeof fn !== "function") {
+      return { ok: false, error: `assign_user: storage.${target.method} not available` };
+    }
+    const updated = await fn.call(storage, entityId, { [target.field]: chosen });
+    if (!updated) return { ok: false, error: `assign_user: ${entityType} ${entityId} not found` };
+
+    return { ok: true, output: { entityType, entityId, strategy, assignedTo: chosen, candidatePool: candidates.length } };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "assign_user failed" };
+  }
+}
+
 const ACTION_HANDLERS: Record<string, (cfg: any, ctx: any, runId: string) => Promise<ActionResult>> = {
   create_task: actionCreateTask,
   notify_user: actionNotifyUser,
@@ -597,6 +703,7 @@ const ACTION_HANDLERS: Record<string, (cfg: any, ctx: any, runId: string) => Pro
   send_sms: actionSendSms,
   webhook: actionWebhook,
   update_entity: actionUpdateEntity,
+  assign_user: actionAssignUser,
 };
 
 /* ============================================================
