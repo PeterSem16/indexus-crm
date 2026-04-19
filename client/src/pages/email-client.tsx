@@ -174,6 +174,7 @@ import type {
 } from "@/components/nexus/nexus-types";
 import { typeColors } from "@/components/nexus/nexus-types";
 import TrainingRoomPage from "@/pages/training-room";
+import { ChecklistSection } from "@/pages/tasks";
 
 const avatarColors = [
   "bg-blue-600", "bg-emerald-600", "bg-violet-600", "bg-amber-600", "bg-rose-600",
@@ -2754,6 +2755,11 @@ export default function EmailClientPage() {
 
   const { data: allSystemUsers = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
+    enabled: !!user?.id,
+  });
+
+  const { data: allDepartments = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["/api/departments"],
     enabled: !!user?.id,
   });
 
@@ -7740,6 +7746,12 @@ export default function EmailClientPage() {
                 <span>{t.tasks.linkedTo}: {linkedCustomer.firstName} {linkedCustomer.lastName}</span>
               </div>
             )}
+            {(selectedTask as any).assignedDepartmentId && (
+              <div className="flex items-center gap-1" data-testid="text-task-department">
+                <Users className="h-3 w-3" />
+                <span>Skupina: {allDepartments.find(d => d.id === (selectedTask as any).assignedDepartmentId)?.name || (selectedTask as any).assignedDepartmentId}</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {isActive && (
@@ -7790,6 +7802,9 @@ export default function EmailClientPage() {
         <div className="flex-1 min-h-0 flex flex-col overflow-auto">
           <div className="p-4 border-b">
             <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{selectedTask.description || t.tasks.noDescription}</p>
+          </div>
+          <div className="p-4 border-b">
+            <ChecklistSection taskId={selectedTask.id} canEdit={isActive} />
           </div>
           <div className="p-4 flex-1 flex flex-col min-h-0">
             <div className="flex items-center gap-2 mb-3">

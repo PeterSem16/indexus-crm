@@ -1048,7 +1048,7 @@ export default function TasksPage() {
   );
 }
 
-function ChecklistSection({ taskId, canEdit }: { taskId: string; canEdit: boolean }) {
+export function ChecklistSection({ taskId, canEdit }: { taskId: string; canEdit: boolean }) {
   const [newLabel, setNewLabel] = useState("");
   const { data: items = [], isLoading } = useQuery<Array<{ id: string; label: string; required: boolean; doneAt: string | null; doneByUserId: string | null; position: number }>>({
     queryKey: ["/api/tasks", taskId, "checklist"],
