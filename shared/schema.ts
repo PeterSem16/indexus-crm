@@ -290,6 +290,7 @@ export const hospitals = pgTable("hospitals", {
   responsiblePersonId: varchar("responsible_person_id"), // Zodpovedná osoba (FK to users)
   countryCode: text("country_code").notNull(), // Krajina
   contactPerson: text("contact_person"), // Kontaktná osoba
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // Automation tags
   svetZdravia: boolean("svet_zdravia").notNull().default(false), // Svet zdravia
   phone: text("phone"), // Telefón
   email: text("email"), // Email
@@ -326,6 +327,7 @@ export const clinics = pgTable("clinics", {
   longitude: decimal("longitude", { precision: 10, scale: 7 }),
   isActive: boolean("is_active").notNull().default(true),
   notes: text("notes"),
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // Automation tags
   leadSource: text("lead_source"),
   leadSourceDate: timestamp("lead_source_date"),
   leadSourceNotes: text("lead_source_notes"),
@@ -525,6 +527,7 @@ export const customers = pgTable("customers", {
   leadStatus: text("lead_status").notNull().default("cold"), // cold, warm, hot, qualified
   
   dataSource: text("data_source"),
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // Automation tags
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
@@ -1058,6 +1061,7 @@ export const tasks = pgTable("tasks", {
   resolvedByUserId: varchar("resolved_by_user_id"), // who resolved the task
   resolvedAt: timestamp("resolved_at"), // when task was resolved
   sourceRunId: varchar("source_run_id"), // automation_runs.id (Automation MVP-1)
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // Automation tags
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });

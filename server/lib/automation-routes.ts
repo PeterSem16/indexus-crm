@@ -236,6 +236,24 @@ export function registerAutomationRoutes(app: Express) {
           },
         },
         {
+          value: "add_tag",
+          label: "Add tag(s)",
+          configSchema: {
+            entityType: "task|customer|hospital|clinic (defaults to event entityType)",
+            entityId: "string (defaults to event entityId, supports template)",
+            tags: "string|array - one or more tag names (CSV or array; deduplicated)",
+          },
+        },
+        {
+          value: "remove_tag",
+          label: "Remove tag(s)",
+          configSchema: {
+            entityType: "task|customer|hospital|clinic (defaults to event entityType)",
+            entityId: "string (defaults to event entityId, supports template)",
+            tags: "string|array - one or more tag names (CSV or array)",
+          },
+        },
+        {
           value: "assign_user",
           label: "Assign user (auto-distribute owner)",
           configSchema: {

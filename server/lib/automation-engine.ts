@@ -696,6 +696,70 @@ async function actionAssignUser(config: any, ctx: any, runId: string): Promise<A
   }
 }
 
+/* ============================================================
+ *  add_tag / remove_tag — manipulate the tags[] column on supported entities
+ * ============================================================ */
+const TAG_TARGET_MAP: Record<string, { table: string }> = {
+  task: { table: "tasks" },
+  customer: { table: "customers" },
+  hospital: { table: "hospitals" },
+  clinic: { table: "clinics" },
+};
+
+function normalizeTagList(input: any): string[] {
+  if (Array.isArray(input)) {
+    return input.map(t => String(t).trim()).filter(Boolean);
+  }
+  if (typeof input === "string") {
+    return input.split(",").map(t => t.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+async function actionTagMutation(
+  config: any,
+  ctx: any,
+  mode: "add" | "remove",
+): Promise<ActionResult> {
+  try {
+    const rendered = renderTemplate(config, ctx);
+    const entityType: string = String(rendered.entityType || ctx.event?.entityType || "").trim();
+    const entityId: string = String(rendered.entityId || ctx.event?.entityId || "").trim();
+    const tags = normalizeTagList(rendered.tags ?? rendered.tag);
+
+    const target = TAG_TARGET_MAP[entityType];
+    if (!target) return { ok: false, error: `${mode}_tag: unsupported entityType "${entityType}" (allowed: ${Object.keys(TAG_TARGET_MAP).join(", ")})` };
+    if (!entityId) return { ok: false, error: `${mode}_tag requires entityId` };
+    if (tags.length === 0) return { ok: false, error: `${mode}_tag requires at least one tag` };
+
+    const { pool } = await import("../db");
+    const sqlText = mode === "add"
+      ? `UPDATE ${target.table}
+         SET tags = (
+           SELECT ARRAY(SELECT DISTINCT unnest(COALESCE(tags, ARRAY[]::text[]) || $2::text[]))
+         )
+         WHERE id = $1
+         RETURNING tags`
+      : `UPDATE ${target.table}
+         SET tags = COALESCE(
+           ARRAY(SELECT t FROM unnest(COALESCE(tags, ARRAY[]::text[])) AS t WHERE t <> ALL($2::text[])),
+           ARRAY[]::text[]
+         )
+         WHERE id = $1
+         RETURNING tags`;
+    const result = await pool.query(sqlText, [entityId, tags]);
+    if (result.rowCount === 0) {
+      return { ok: false, error: `${mode}_tag: ${entityType} ${entityId} not found` };
+    }
+    return {
+      ok: true,
+      output: { entityType, entityId, mode, requested: tags, currentTags: result.rows[0].tags },
+    };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || `${mode}_tag failed` };
+  }
+}
+
 const ACTION_HANDLERS: Record<string, (cfg: any, ctx: any, runId: string) => Promise<ActionResult>> = {
   create_task: actionCreateTask,
   notify_user: actionNotifyUser,
@@ -704,6 +768,8 @@ const ACTION_HANDLERS: Record<string, (cfg: any, ctx: any, runId: string) => Pro
   webhook: actionWebhook,
   update_entity: actionUpdateEntity,
   assign_user: actionAssignUser,
+  add_tag: (cfg, ctx) => actionTagMutation(cfg, ctx, "add"),
+  remove_tag: (cfg, ctx) => actionTagMutation(cfg, ctx, "remove"),
 };
 
 /* ============================================================
