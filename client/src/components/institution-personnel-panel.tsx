@@ -748,7 +748,15 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
   const data = personnelQuery.data;
   const assigned = data?.assigned || [];
   const legacy = data?.legacy || [];
-  const allPersonnel = [...assigned, ...legacy];
+  const _combined = [...assigned, ...legacy];
+  const _seenPersonIds = new Set<string>();
+  const allPersonnel = _combined.filter((p: any) => {
+    const key = p.person_id || p.assignment_id;
+    if (!key) return true;
+    if (_seenPersonIds.has(key)) return false;
+    _seenPersonIds.add(key);
+    return true;
+  });
   const clinicDoctor = entityType === "clinic" ? data?.clinicDoctor : null;
 
   if (personnelQuery.isLoading) {
@@ -757,7 +765,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
 
   return (
     <div className="space-y-4" data-testid="institution-personnel-manager">
-      {clinicDoctor && !assigned.some((p: any) => p.is_primary) && (
+      {clinicDoctor && !allPersonnel.some((p: any) => p.is_primary) && (
         <PrimaryContactCard
           clinicDoctor={clinicDoctor}
           entityId={entityId}
