@@ -48,6 +48,7 @@ import {
   scriptTemplates,
   collaboratorDocuments,
   taskChecklistItems,
+  collaboratorAgreements,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -15277,36 +15278,41 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const needsScopeFilter = !!(scopeCategoryIds || excludeCategoryIds);
 
         if (needsAgreementFilter || needsScopeFilter) {
-          const allResult = await storage.getCollaboratorsPaginated(1, 10000, search, country, countries, status, collabType);
+          const [allResult, allAssignments, allAgreementsBulk] = await Promise.all([
+            storage.getCollaboratorsPaginated(1, 10000, search, country, countries, status, collabType),
+            db.select({
+              personId: contactAssignments.personId,
+              entityType: contactAssignments.entityType,
+            }).from(contactAssignments).where(eq(contactAssignments.isActive, true)),
+            storage.getAllCollaboratorAgreements(),
+          ]);
           const today = new Date();
-          const allAssignments = await db.select({
-            personId: contactAssignments.personId,
-            entityType: contactAssignments.entityType,
-          }).from(contactAssignments).where(eq(contactAssignments.isActive, true));
           const assignmentMap: Record<string, { hospitalCount: number; clinicCount: number }> = {};
           for (const a of allAssignments) {
             if (!assignmentMap[a.personId]) assignmentMap[a.personId] = { hospitalCount: 0, clinicCount: 0 };
             if (a.entityType === 'hospital') assignmentMap[a.personId].hospitalCount++;
             else if (a.entityType === 'clinic') assignmentMap[a.personId].clinicCount++;
           }
-          const enrichedAll = await Promise.all(
-            allResult.data.map(async (collab) => {
-              try {
-                const agreements = await storage.getCollaboratorAgreements(collab.id);
-                let hasExpiredAgreement = false;
-                let hasValidAgreement = false;
-                const hasNoAgreement = agreements.length === 0;
-                for (const ag of agreements) {
-                  if (ag.validToYear && ag.validToMonth && ag.validToDay) {
-                    const validTo = new Date(ag.validToYear, ag.validToMonth - 1, ag.validToDay);
-                    if (validTo < today) { hasExpiredAgreement = true; } else if (ag.isValid) { hasValidAgreement = true; }
-                  } else if (ag.isValid) { hasValidAgreement = true; }
-                }
-                const counts = assignmentMap[collab.id] || { hospitalCount: 0, clinicCount: 0 };
-                return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
-              } catch { return { ...collab, hasExpiredAgreement: false, hasValidAgreement: false, hasNoAgreement: true, hospitalCount: 0, clinicCount: 0 }; }
-            })
-          );
+          const agreementsByCollabBulk = new Map<string, typeof allAgreementsBulk>();
+          for (const ag of allAgreementsBulk) {
+            const list = agreementsByCollabBulk.get(ag.collaboratorId) || [];
+            list.push(ag);
+            agreementsByCollabBulk.set(ag.collaboratorId, list);
+          }
+          const enrichedAll = allResult.data.map((collab) => {
+            const agreements = agreementsByCollabBulk.get(collab.id) || [];
+            let hasExpiredAgreement = false;
+            let hasValidAgreement = false;
+            const hasNoAgreement = agreements.length === 0;
+            for (const ag of agreements) {
+              if (ag.validToYear && ag.validToMonth && ag.validToDay) {
+                const validTo = new Date(ag.validToYear, ag.validToMonth - 1, ag.validToDay);
+                if (validTo < today) { hasExpiredAgreement = true; } else if (ag.isValid) { hasValidAgreement = true; }
+              } else if (ag.isValid) { hasValidAgreement = true; }
+            }
+            const counts = assignmentMap[collab.id] || { hospitalCount: 0, clinicCount: 0 };
+            return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
+          });
           let filtered = enrichedAll.filter((c: any) => {
             if (agreement === "valid") return c.hasValidAgreement === true;
             if (agreement === "expired") return c.hasExpiredAgreement === true;
@@ -15320,35 +15326,43 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
 
         const result = await storage.getCollaboratorsPaginated(page || 1, limit, search, country, countries, status, collabType);
+        const pageIds = result.data.map((c) => c.id);
         const today = new Date();
-        const allAssignments = await db.select({
-          personId: contactAssignments.personId,
-          entityType: contactAssignments.entityType,
-        }).from(contactAssignments).where(eq(contactAssignments.isActive, true));
+        const [allAssignments, pageAgreements] = await Promise.all([
+          db.select({
+            personId: contactAssignments.personId,
+            entityType: contactAssignments.entityType,
+          }).from(contactAssignments).where(eq(contactAssignments.isActive, true)),
+          pageIds.length > 0
+            ? db.select().from(collaboratorAgreements).where(inArray(collaboratorAgreements.collaboratorId, pageIds))
+            : Promise.resolve([] as any[]),
+        ]);
         const assignmentMap: Record<string, { hospitalCount: number; clinicCount: number }> = {};
         for (const a of allAssignments) {
           if (!assignmentMap[a.personId]) assignmentMap[a.personId] = { hospitalCount: 0, clinicCount: 0 };
           if (a.entityType === 'hospital') assignmentMap[a.personId].hospitalCount++;
           else if (a.entityType === 'clinic') assignmentMap[a.personId].clinicCount++;
         }
-        const enrichedData = await Promise.all(
-          result.data.map(async (collab) => {
-            try {
-              const agreements = await storage.getCollaboratorAgreements(collab.id);
-              let hasExpiredAgreement = false;
-              let hasValidAgreement = false;
-              const hasNoAgreement = agreements.length === 0;
-              for (const ag of agreements) {
-                if (ag.validToYear && ag.validToMonth && ag.validToDay) {
-                  const validTo = new Date(ag.validToYear, ag.validToMonth - 1, ag.validToDay);
-                  if (validTo < today) { hasExpiredAgreement = true; } else if (ag.isValid) { hasValidAgreement = true; }
-                } else if (ag.isValid) { hasValidAgreement = true; }
-              }
-              const counts = assignmentMap[collab.id] || { hospitalCount: 0, clinicCount: 0 };
-              return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
-            } catch { return { ...collab, hasExpiredAgreement: false, hasValidAgreement: false, hasNoAgreement: true, hospitalCount: 0, clinicCount: 0 }; }
-          })
-        );
+        const agreementsByCollabPage = new Map<string, any[]>();
+        for (const ag of pageAgreements as any[]) {
+          const list = agreementsByCollabPage.get(ag.collaboratorId) || [];
+          list.push(ag);
+          agreementsByCollabPage.set(ag.collaboratorId, list);
+        }
+        const enrichedData = result.data.map((collab) => {
+          const agreements = agreementsByCollabPage.get(collab.id) || [];
+          let hasExpiredAgreement = false;
+          let hasValidAgreement = false;
+          const hasNoAgreement = agreements.length === 0;
+          for (const ag of agreements) {
+            if (ag.validToYear && ag.validToMonth && ag.validToDay) {
+              const validTo = new Date(ag.validToYear, ag.validToMonth - 1, ag.validToDay);
+              if (validTo < today) { hasExpiredAgreement = true; } else if (ag.isValid) { hasValidAgreement = true; }
+            } else if (ag.isValid) { hasValidAgreement = true; }
+          }
+          const counts = assignmentMap[collab.id] || { hospitalCount: 0, clinicCount: 0 };
+          return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
+        });
         let finalData = enrichedData;
         if (scopeCategoryIds) {
           finalData = finalData.filter((c: any) => c.partnerCategory && scopeCategoryIds!.has(c.partnerCategory));
