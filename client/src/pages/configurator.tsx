@@ -18617,6 +18617,7 @@ function LeadSearchTab() {
   const [sourceForm, setSourceForm] = useState({ url: "", name: "", type: "directory", countryCode: "", segment: "" });
   const [campaignForm, setCampaignForm] = useState({ name: "", targetModule: "hospitals", country: "", segment: "", location: "", keywords: "", schedule: "weekly" });
   const [expandedCampaign, setExpandedCampaign] = useState<number | null>(null);
+  const [historyCampaign, setHistoryCampaign] = useState<{ id: number; name: string } | null>(null);
   const [historyJobId, setHistoryJobId] = useState<number | null>(null);
   const [historyJobName, setHistoryJobName] = useState<string>("");
   const [editingSource, setEditingSource] = useState<any>(null);
@@ -19579,7 +19580,7 @@ function LeadSearchTab() {
                           <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`toggle-campaign-${campaign.id}`} onClick={() => toggleCampaign(campaign)}>
                             {campaign.isActive ? "Pozastaviť" : "Aktivovať"}
                           </Button>
-                          <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`history-campaign-${campaign.id}`} onClick={() => setExpandedCampaign(expandedCampaign === campaign.id ? null : campaign.id)}>
+                          <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`history-campaign-${campaign.id}`} onClick={() => setHistoryCampaign({ id: campaign.id, name: campaign.name })}>
                             <ClipboardList className="h-3 w-3 mr-1" /> História
                           </Button>
                           <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" data-testid={`delete-campaign-${campaign.id}`} onClick={() => deleteCampaign(campaign.id)}>
@@ -19587,7 +19588,6 @@ function LeadSearchTab() {
                           </Button>
                         </div>
                       </div>
-                      {expandedCampaign === campaign.id && <CampaignHistory campaignId={campaign.id} />}
                     </div>
                   ))}
                 </div>
@@ -20734,6 +20734,19 @@ function LeadSearchTab() {
       {activeSubTab === "lifecycle" && (
         <LifecycleTab />
       )}
+
+      <Sheet open={!!historyCampaign} onOpenChange={(o) => { if (!o) { setHistoryCampaign(null); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              História behov
+            </SheetTitle>
+            <SheetDescription className="truncate">{historyCampaign?.name}</SheetDescription>
+          </SheetHeader>
+          {historyCampaign && <CampaignHistory campaignId={historyCampaign.id} />}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={!!historyJobId} onOpenChange={(o) => { if (!o) setHistoryJobId(null); }}>
         <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
