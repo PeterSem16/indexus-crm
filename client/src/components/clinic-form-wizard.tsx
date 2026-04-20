@@ -1874,6 +1874,10 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     )}
                   </div>
                 </div>
+                <div className="space-y-1 pl-1">
+                  <Label className="text-xs">{t.clinics.notes}</Label>
+                  <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={4} data-testid="input-clinic-notes" />
+                </div>
               </div>
 
               <Separator />
@@ -2010,10 +2014,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   <p className="text-sm text-muted-foreground">{t.clinics.isActiveDesc || "Clinic is active and shown in lists"}</p>
                 </div>
                 <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-clinic-active" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t.clinics.notes}</Label>
-                <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={6} data-testid="input-clinic-notes" />
               </div>
             </TabsContent>
 
@@ -2579,6 +2579,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           {formData.website && (<Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => window.open(getWebsiteUrl(formData.website), "_blank")} data-testid="button-open-website"><ExternalLink className="h-4 w-4" /></Button>)}
                         </div>
                       </div>
+                      <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.notes}</Label><Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={4} data-testid="input-clinic-notes" /></div>
                     </div>
                     <Separator />
                     <div className="space-y-3">
@@ -2688,7 +2689,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                       <div><Label>{t.clinics.isActive || "Active clinic"}</Label><p className="text-sm text-muted-foreground">{t.clinics.isActiveDesc || "Clinic is active and shown in lists"}</p></div>
                       <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-clinic-active" />
                     </div>
-                    <div className="space-y-1"><Label className="text-xs">{t.clinics.notes}</Label><Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={6} data-testid="input-clinic-notes" /></div>
                   </div>
                 )}
 
