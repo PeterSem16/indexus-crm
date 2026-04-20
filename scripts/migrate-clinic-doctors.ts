@@ -93,7 +93,21 @@ async function main() {
         console.log(`  + CREATE person  ${tag}`);
       } else {
         reused++;
-        console.log(`  = REUSE  person  ${tag}  (id=${person.id})`);
+        const currentCat = (person as any).partnerCategory || "";
+        const needsUpdate = currentCat !== "gynecologist_private";
+        if (needsUpdate) {
+          if (APPLY) {
+            await db
+              .update(collaborators)
+              .set({ partnerCategory: "gynecologist_private" })
+              .where(eq(collaborators.id, person.id));
+          }
+          console.log(
+            `  = REUSE  person  ${tag}  (id=${person.id})  · position "${currentCat}" → gynecologist_private`,
+          );
+        } else {
+          console.log(`  = REUSE  person  ${tag}  (id=${person.id})  · position OK`);
+        }
       }
 
       // 2b) Skontroluj existujúce priradenie
