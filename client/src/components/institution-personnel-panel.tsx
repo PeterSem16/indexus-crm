@@ -204,7 +204,11 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="_none">—</SelectItem>
-            {categories.filter((c: any) => c.isActive !== false && c.is_active !== false).map((cat: any) => {
+            {categories.filter((c: any) => {
+              if (c.isActive === false || c.is_active === false) return false;
+              const sc = c.entityScope || c.entity_scope;
+              return sc === "clinic";
+            }).map((cat: any) => {
               const scope = cat.entityScope || cat.entity_scope || "hospital";
               const scopeStyle = SCOPE_BADGE[scope] || SCOPE_BADGE.hospital;
               const catName = getLocalizedCategoryName(cat, locale);
@@ -450,7 +454,7 @@ export function InstitutionPersonnelPanel({
                         <SelectValue placeholder="-" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}</span></SelectItem>))}
+                        {(categoriesQuery.data || []).filter((c: any) => { if (c.isActive === false || c.is_active === false) return false; if (entityType === "clinic") { const sc = c.entityScope || c.entity_scope; return sc === "clinic"; } return true; }).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}</span></SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -815,7 +819,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                       <SelectTrigger className="h-8 mt-1" data-testid="select-edit-primary-position"><SelectValue placeholder="-" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="_none">-</SelectItem>
-                        {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}</span></SelectItem>))}
+                        {(categoriesQuery.data || []).filter((c: any) => { if (c.isActive === false || c.is_active === false) return false; if (entityType === "clinic") { const sc = c.entityScope || c.entity_scope; return sc === "clinic"; } return true; }).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}</span></SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -907,7 +911,14 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_none">—</SelectItem>
-                    {(categoriesQuery.data || []).filter((c: any) => c.isActive !== false && c.is_active !== false).map((cat: any) => {
+                    {(categoriesQuery.data || []).filter((c: any) => {
+                      if (c.isActive === false || c.is_active === false) return false;
+                      if (entityType === "clinic") {
+                        const sc = c.entityScope || c.entity_scope;
+                        return sc === "clinic";
+                      }
+                      return true;
+                    }).map((cat: any) => {
                       const scope = cat.entityScope || cat.entity_scope || "hospital";
                       const scopeStyle = SCOPE_BADGE[scope] || SCOPE_BADGE.hospital;
                       const cName = getLocalizedCategoryName(cat, locale);
@@ -983,7 +994,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
               <Select value={assignCategoryId} onValueChange={setAssignCategoryId}>
                 <SelectTrigger className="h-8 mt-1" data-testid="select-assign-position"><SelectValue placeholder="-" /></SelectTrigger>
                 <SelectContent>
-                  {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}</span></SelectItem>))}
+                  {(categoriesQuery.data || []).filter((c: any) => { if (c.isActive === false || c.is_active === false) return false; if (entityType === "clinic") { const sc = c.entityScope || c.entity_scope; return sc === "clinic"; } return true; }).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}</span></SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -1079,7 +1090,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                       <SelectTrigger className="h-8 mt-1" data-testid="select-edit-position"><SelectValue placeholder="-" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="_none">-</SelectItem>
-                        {(categoriesQuery.data || []).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}</span></SelectItem>))}
+                        {(categoriesQuery.data || []).filter((c: any) => { if (c.isActive === false || c.is_active === false) return false; if (entityType === "clinic") { const sc = c.entityScope || c.entity_scope; return sc === "clinic"; } return true; }).map((cat: any) => (<SelectItem key={cat.id} value={cat.id}><span className="flex items-center gap-2">{getLocalizedCategoryName(cat, locale)}{cat.entityScope && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 leading-tight ${cat.entityScope === 'hospital' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800' : cat.entityScope === 'clinic' ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>{cat.entityScope === 'hospital' ? 'Hospital' : cat.entityScope === 'clinic' ? 'Clinic' : 'Independent'}</Badge>}</span></SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>

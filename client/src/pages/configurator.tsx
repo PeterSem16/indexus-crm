@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -18616,6 +18617,8 @@ function LeadSearchTab() {
   const [sourceForm, setSourceForm] = useState({ url: "", name: "", type: "directory", countryCode: "", segment: "" });
   const [campaignForm, setCampaignForm] = useState({ name: "", targetModule: "hospitals", country: "", segment: "", location: "", keywords: "", schedule: "weekly" });
   const [expandedCampaign, setExpandedCampaign] = useState<number | null>(null);
+  const [historyJobId, setHistoryJobId] = useState<number | null>(null);
+  const [historyJobName, setHistoryJobName] = useState<string>("");
   const [editingSource, setEditingSource] = useState<any>(null);
   const [aiSourceSuggestions, setAiSourceSuggestions] = useState<any[]>([]);
   const [aiSourceLoading, setAiSourceLoading] = useState(false);
@@ -18994,14 +18997,21 @@ function LeadSearchTab() {
         ) : (
           <div className="space-y-1">
             {history.map((job: any) => (
-              <div key={job.id} className="flex items-center justify-between text-xs border rounded px-3 py-1.5">
-                <span className="font-medium">{job.name}</span>
-                <div className="flex items-center gap-3">
+              <button
+                key={job.id}
+                type="button"
+                onClick={() => { setHistoryJobId(job.id); setHistoryJobName(job.name || ""); }}
+                className="w-full flex items-center justify-between text-xs border rounded px-3 py-1.5 hover-elevate active-elevate-2 text-left"
+                data-testid={`history-job-${job.id}`}
+              >
+                <span className="font-medium truncate">{job.name}</span>
+                <div className="flex items-center gap-3 shrink-0">
                   <span className={cn("px-1.5 py-0.5 rounded-full text-[10px]", job.status === "completed" ? "bg-green-100 text-green-700" : job.status === "failed" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700")}>{job.status}</span>
                   <span>{job.totalResults || 0} leadov</span>
                   <span>{new Date(job.createdAt).toLocaleDateString("sk-SK")}</span>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -20725,6 +20735,100 @@ function LeadSearchTab() {
         <LifecycleTab />
       )}
 
+      <Sheet open={!!historyJobId} onOpenChange={(o) => { if (!o) setHistoryJobId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Výsledky vyhľadávania
+            </SheetTitle>
+            <SheetDescription className="truncate">{historyJobName}</SheetDescription>
+          </SheetHeader>
+          {historyJobId && <HistoryJobResults jobId={historyJobId} />}
+        </SheetContent>
+      </Sheet>
+
+    </div>
+  );
+}
+
+function HistoryJobResults({ jobId }: { jobId: number }) {
+  const { data: results = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/lead-search/jobs", jobId, "results"],
+    queryFn: async () => {
+      const r = await fetch(`/api/lead-search/jobs/${jobId}/results`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!jobId,
+  });
+
+  const stats = {
+    total: results.length,
+    new: results.filter((r: any) => r.status === "new").length,
+    approved: results.filter((r: any) => r.status === "approved").length,
+    rejected: results.filter((r: any) => r.status === "rejected").length,
+    merged: results.filter((r: any) => r.status === "merged").length,
+  };
+  const [filter, setFilter] = useState<"all" | "new" | "approved" | "rejected" | "merged">("all");
+  const filtered = filter === "all" ? results : results.filter((r: any) => r.status === filter);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
+  if (results.length === 0) {
+    return <div className="py-10 text-center text-sm text-muted-foreground">Žiadne výsledky pre toto vyhľadávanie.</div>;
+  }
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="grid grid-cols-5 gap-2">
+        {[
+          { k: "all", l: "Všetky", v: stats.total, cls: "bg-muted" },
+          { k: "new", l: "Nové", v: stats.new, cls: "bg-blue-50 dark:bg-blue-950" },
+          { k: "approved", l: "Schválené", v: stats.approved, cls: "bg-green-50 dark:bg-green-950" },
+          { k: "rejected", l: "Zamietnuté", v: stats.rejected, cls: "bg-red-50 dark:bg-red-950" },
+          { k: "merged", l: "Zlúčené", v: stats.merged, cls: "bg-violet-50 dark:bg-violet-950" },
+        ].map(s => (
+          <button
+            key={s.k}
+            onClick={() => setFilter(s.k as any)}
+            className={cn(
+              "rounded-md border px-2 py-2 text-left transition-all",
+              s.cls,
+              filter === s.k ? "border-primary ring-1 ring-primary" : "hover-elevate"
+            )}
+            data-testid={`history-filter-${s.k}`}
+          >
+            <div className="text-lg font-semibold leading-none">{s.v}</div>
+            <div className="text-[10px] text-muted-foreground mt-1">{s.l}</div>
+          </button>
+        ))}
+      </div>
+      <div className="space-y-2">
+        {filtered.map((r: any) => (
+          <div key={r.id} className="border rounded-lg p-3 text-sm space-y-1.5" data-testid={`history-result-${r.id}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="font-semibold truncate flex-1">{r.name || r.title || "—"}</div>
+              <span className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded-full shrink-0",
+                r.status === "merged" ? "bg-violet-100 text-violet-700" :
+                r.status === "approved" ? "bg-green-100 text-green-700" :
+                r.status === "rejected" ? "bg-red-100 text-red-700" :
+                "bg-blue-100 text-blue-700"
+              )}>{r.status}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {r.email && <div className="flex items-center gap-1.5"><Mail className="h-3 w-3" /><span className="truncate">{r.email}</span></div>}
+              {r.phone && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" /><span>{r.phone}</span></div>}
+              {(r.city || r.country) && <div className="flex items-center gap-1.5"><MapPin className="h-3 w-3" /><span className="truncate">{[r.city, r.country].filter(Boolean).join(", ")}</span></div>}
+              {r.website && <div className="flex items-center gap-1.5"><Globe className="h-3 w-3" /><a href={r.website.startsWith("http") ? r.website : `https://${r.website}`} target="_blank" rel="noreferrer" className="truncate text-blue-600 hover:underline">{r.website}</a></div>}
+            </div>
+            {r.confidence != null && (
+              <div className="text-[10px] text-muted-foreground">Kvalita: {Math.round((r.confidence || 0) * (r.confidence > 1 ? 1 : 100))}%</div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
