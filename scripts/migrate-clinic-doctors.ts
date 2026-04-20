@@ -81,7 +81,7 @@ async function main() {
               email,
               phone,
               collaboratorType: "doctor",
-              partnerCategory: "gynecologist_private",
+              partnerCategory: gpCategory.id,
               isActive: true,
             })
             .returning();
@@ -94,12 +94,12 @@ async function main() {
       } else {
         reused++;
         const currentCat = (person as any).partnerCategory || "";
-        const needsUpdate = currentCat !== "gynecologist_private";
+        const needsUpdate = currentCat !== gpCategory.id;
         if (needsUpdate) {
           if (APPLY) {
             await db
               .update(collaborators)
-              .set({ partnerCategory: "gynecologist_private" })
+              .set({ partnerCategory: gpCategory.id })
               .where(eq(collaborators.id, person.id));
           }
           console.log(
