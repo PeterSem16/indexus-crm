@@ -875,10 +875,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary"
-                    onClick={() => startEditing(p)} disabled={convertLegacyMutation.isPending} data-testid={`button-edit-primary-${p.person_id}`}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
                   <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
                     onClick={() => {
                       if (p.assignment_id) removeMutation.mutate(p.assignment_id);
@@ -1142,10 +1138,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                 <span className="text-[11px] text-muted-foreground truncate max-w-[150px] hidden md:inline">{p.email || p.phone}</span>
               )}
               <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary"
-                  onClick={() => startEditing(p)} disabled={convertLegacyMutation.isPending} data-testid={`button-edit-person-${p.person_id}`}>
-                  {convertLegacyMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pencil className="h-3 w-3" />}
-                </Button>
                 {p.assignment_id && (
                   <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive"
                     onClick={() => removeMutation.mutate(p.assignment_id)} disabled={removeMutation.isPending} data-testid={`button-remove-person-drawer-${p.person_id}`}>

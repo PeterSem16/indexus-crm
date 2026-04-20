@@ -502,17 +502,6 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
               <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0", colors.badge)}>
                 {isHospitalType ? "Nemocnica" : "Ambulancia"}
               </Badge>
-              {!isEditing && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => startEdit(assignment)}
-                  data-testid={`medical-network-edit-${assignment.id}`}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-              )}
             </div>
           </div>
 

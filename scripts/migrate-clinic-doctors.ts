@@ -14,9 +14,49 @@
 
 import { db } from "../server/db";
 import { clinics, collaborators, partnerCategories, contactAssignments } from "../shared/schema";
-import { and, eq, sql, isNotNull } from "drizzle-orm";
+import { and, eq, sql, isNotNull, or } from "drizzle-orm";
 
 const APPLY = process.argv.includes("--apply");
+
+// Známe tituly — zoznam je doplňovaný podľa SK/CZ reálnych dát
+const TITLE_PREFIXES = [
+  "MUDr.", "MDDr.", "MVDr.", "RNDr.", "PhDr.", "JUDr.", "PaedDr.", "ThDr.",
+  "Dr.", "MD", "MD.", "Ing.", "Mgr.", "Bc.", "Prof.", "Doc.", "prof.", "doc.",
+];
+const TITLE_SUFFIXES = [
+  "PhD.", "Ph.D.", "PhD", "CSc.", "CSc", "DrSc.", "MPH", "MBA", "MHA", "MSc.", "MSc",
+  "FEBO", "FACOG", "MRCOG",
+];
+
+function parseDoctorName(raw: string): { title: string | null; firstName: string; lastName: string } | null {
+  if (!raw) return null;
+  let s = raw.trim().replace(/\s+/g, " ");
+  // Vlož medzeru za bodku titulu, ak chýba ("MUDr.Ingrid" → "MUDr. Ingrid")
+  s = s.replace(/([A-Za-záäčďéíĺľňóôŕšťúýž])\.([A-ZÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ])/g, "$1. $2");
+
+  // Preskoč podozrivé reťazce — viacero doktorov, firemný dodatok, atď.
+  if (/[\/\\(),;]|&| a /i.test(s)) return null;
+
+  const tokens = s.split(" ").filter(Boolean);
+  const titleTokens: string[] = [];
+  // Odstráň prefix tituly z čela
+  while (tokens.length && TITLE_PREFIXES.some(t => t.toLowerCase() === tokens[0].toLowerCase())) {
+    titleTokens.push(tokens.shift()!);
+  }
+  // Odstráň suffix tituly z konca
+  while (tokens.length && TITLE_SUFFIXES.some(t => t.toLowerCase() === tokens[tokens.length - 1].replace(/,$/, "").toLowerCase())) {
+    tokens.pop();
+  }
+  if (tokens.length < 1) return null;
+  if (tokens.length === 1) {
+    // iba priezvisko (zriedkavé) — preskočiť, lebo nevieme firstName
+    return null;
+  }
+  const lastName = tokens[tokens.length - 1];
+  const firstName = tokens.slice(0, -1).join(" ");
+  const title = titleTokens.length ? titleTokens.join(" ") : null;
+  return { title, firstName, lastName };
+}
 
 async function main() {
   console.log(`\n=== Migrate Clinic Doctors → Persons + MPN ===`);
@@ -34,31 +74,58 @@ async function main() {
   }
   console.log(`Kategória: ${gpCategory.name} (id=${gpCategory.id})\n`);
 
-  // 2. Vyber všetky kliniky s doktorom
+  // 2. Vyber všetky kliniky, kde je nejaká forma doktora — buď first/last, alebo doctor_name
   const rows = await db
     .select()
     .from(clinics)
     .where(
-      and(
-        isNotNull(clinics.doctorFirstName),
-        isNotNull(clinics.doctorLastName),
-        sql`TRIM(${clinics.doctorFirstName}) <> ''`,
-        sql`TRIM(${clinics.doctorLastName}) <> ''`,
+      or(
+        and(
+          isNotNull(clinics.doctorFirstName),
+          isNotNull(clinics.doctorLastName),
+          sql`TRIM(${clinics.doctorFirstName}) <> ''`,
+          sql`TRIM(${clinics.doctorLastName}) <> ''`,
+        ),
+        and(
+          isNotNull((clinics as any).doctorName),
+          sql`TRIM(${(clinics as any).doctorName}) <> ''`,
+        ),
       ),
     );
 
-  console.log(`Nájdených klinik s doktorom: ${rows.length}\n`);
+  console.log(`Nájdených klinik s nejakým doktorom: ${rows.length}\n`);
 
   let created = 0;
   let reused = 0;
   let assigned = 0;
   let skippedAssign = 0;
+  let parsedFromName = 0;
+  let unparseable = 0;
   const errors: Array<{ clinic: string; error: string }> = [];
 
   for (const c of rows) {
-    const fn = (c.doctorFirstName || "").trim();
-    const ln = (c.doctorLastName || "").trim();
-    const title = (c.doctorTitle || "").trim() || null;
+    let fn = (c.doctorFirstName || "").trim();
+    let ln = (c.doctorLastName || "").trim();
+    let title = (c.doctorTitle || "").trim() || null;
+    const rawName = ((c as any).doctorName || "").trim();
+
+    // Ak chýba first/last, skús parsovať z doctor_name
+    if ((!fn || !ln) && rawName) {
+      const parsed = parseDoctorName(rawName);
+      if (parsed) {
+        fn = fn || parsed.firstName;
+        ln = ln || parsed.lastName;
+        title = title || parsed.title;
+        parsedFromName++;
+      }
+    }
+
+    if (!fn || !ln) {
+      unparseable++;
+      console.log(`  ! SKIP    [${c.name}]  (nepodarilo sa získať first+last z "${rawName || "(prázdne)"}")`);
+      continue;
+    }
+
     const email = (c.email || "").trim() || null;
     const phone = (c.phone || "").trim() || null;
     const country = c.countryCode;
