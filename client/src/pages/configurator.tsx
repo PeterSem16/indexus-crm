@@ -20078,7 +20078,7 @@ function LeadSearchTab() {
       </div>
 
       <Sheet open={!!selectedJobId} onOpenChange={(o) => { if (!o) setSelectedJobId(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto p-0">
+        <SheetContent side="right" className="w-screen sm:max-w-none sm:w-[95vw] overflow-y-auto p-0">
           <div className="p-6">
         <Card>
           <CardHeader className="pb-3">
