@@ -26,6 +26,11 @@ type Rule = {
   conditions: any;
   actions: any[];
   rateLimitPerHour: number | null;
+  consecutiveErrorCount?: number;
+  lastErrorAt?: string | null;
+  lastErrorMessage?: string | null;
+  disabledReason?: string | null;
+  autoDisableThreshold?: number;
   updatedAt: string;
 };
 
@@ -212,9 +217,29 @@ export default function AutomationsPage() {
                       {rule.name}
                       {rule.isSystem && <Badge variant="secondary">system</Badge>}
                       {!rule.enabled && <Badge variant="outline">disabled</Badge>}
+                      {rule.disabledReason && (
+                        <Badge variant="destructive" data-testid={`badge-auto-disabled-${rule.id}`}>
+                          auto-disabled
+                        </Badge>
+                      )}
+                      {!rule.disabledReason && (rule.consecutiveErrorCount ?? 0) > 0 && (
+                        <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400" data-testid={`badge-error-count-${rule.id}`}>
+                          {rule.consecutiveErrorCount} err
+                        </Badge>
+                      )}
                     </CardTitle>
                     {rule.description && (
                       <CardDescription className="mt-1">{rule.description}</CardDescription>
+                    )}
+                    {rule.disabledReason && (
+                      <CardDescription className="mt-1 text-destructive text-xs" data-testid={`text-disabled-reason-${rule.id}`}>
+                        {rule.disabledReason}
+                      </CardDescription>
+                    )}
+                    {!rule.disabledReason && rule.lastErrorMessage && (
+                      <CardDescription className="mt-1 text-amber-600 dark:text-amber-400 text-xs" data-testid={`text-last-error-${rule.id}`}>
+                        Posledná chyba: {rule.lastErrorMessage}
+                      </CardDescription>
                     )}
                   </div>
                   <Switch
@@ -241,6 +266,23 @@ export default function AutomationsPage() {
                     <History className="h-3.5 w-3.5 mr-1" />
                     Runs
                   </Button>
+                  {(rule.disabledReason || (rule.consecutiveErrorCount ?? 0) > 0) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        await apiRequest(
+                          "POST",
+                          `/api/automation/rules/${rule.id}/reset-errors`,
+                          { reEnable: !!rule.disabledReason },
+                        );
+                        queryClient.invalidateQueries({ queryKey: ["/api/automation/rules"] });
+                      }}
+                      data-testid={`button-reset-errors-${rule.id}`}
+                    >
+                      Reset errors
+                    </Button>
+                  )}
                   {!rule.isSystem && (
                     <Button
                       size="sm"

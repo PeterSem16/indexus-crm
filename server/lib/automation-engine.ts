@@ -949,6 +949,63 @@ async function runRule(
       finishedAt: new Date(),
     })
     .where(eq(workflowRuns.id, run.id));
+
+  // Track consecutive errors → auto-disable when threshold reached.
+  // Use atomic SQL increment + RETURNING to be safe against concurrent runs of the same rule.
+  try {
+    if (overallOk) {
+      // Reset counter only if it's not already 0 (cheap fast path keeps row untouched).
+      if ((rule as any).consecutiveErrorCount && (rule as any).consecutiveErrorCount > 0) {
+        await db
+          .update(workflowRules)
+          .set({ consecutiveErrorCount: 0, lastErrorMessage: null, updatedAt: new Date() })
+          .where(eq(workflowRules.id, rule.id));
+      }
+    } else {
+      const firstError =
+        results.find((r) => r.error)?.error ||
+        results.find((r) => !r.ok)?.error ||
+        "Unknown error";
+      const truncated = String(firstError).slice(0, 1000);
+
+      // Atomic increment: postgres adds 1 even if other workers already bumped the counter.
+      const [updated] = await db
+        .update(workflowRules)
+        .set({
+          consecutiveErrorCount: sql`${workflowRules.consecutiveErrorCount} + 1`,
+          lastErrorAt: new Date(),
+          lastErrorMessage: truncated,
+          updatedAt: new Date(),
+        })
+        .where(eq(workflowRules.id, rule.id))
+        .returning({
+          newCount: workflowRules.consecutiveErrorCount,
+          enabled: workflowRules.enabled,
+          threshold: workflowRules.autoDisableThreshold,
+        });
+
+      if (
+        updated &&
+        updated.enabled &&
+        updated.threshold > 0 &&
+        updated.newCount >= updated.threshold
+      ) {
+        await db
+          .update(workflowRules)
+          .set({
+            enabled: false,
+            disabledReason: `Auto-disabled po ${updated.newCount} po sebe idúcich chybách. Posledná: ${String(firstError).slice(0, 200)}`,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(workflowRules.id, rule.id), eq(workflowRules.enabled, true)));
+        console.warn(
+          `[Automation] Rule ${rule.id} (${rule.name}) AUTO-DISABLED after ${updated.newCount} consecutive failures`,
+        );
+      }
+    }
+  } catch (err) {
+    console.error(`[Automation] error tracking update failed for rule=${rule.id}:`, err);
+  }
 }
 
 export async function processEvent(eventId: string): Promise<void> {

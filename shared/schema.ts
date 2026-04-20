@@ -7259,11 +7259,24 @@ export const workflowRules = pgTable("workflow_rules", {
   conditions: jsonb("conditions"),     // DSL { all|any: [...] } | null
   actions: jsonb("actions").notNull(), // [{ type, config }, ...]
   rateLimitPerHour: integer("rate_limit_per_hour"),
+  consecutiveErrorCount: integer("consecutive_error_count").notNull().default(0),
+  lastErrorAt: timestamp("last_error_at"),
+  lastErrorMessage: text("last_error_message"),
+  disabledReason: text("disabled_reason"),
+  autoDisableThreshold: integer("auto_disable_threshold").notNull().default(5),
   createdByUserId: varchar("created_by_user_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
-export const insertWorkflowRuleSchema = createInsertSchema(workflowRules).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkflowRuleSchema = createInsertSchema(workflowRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  consecutiveErrorCount: true,
+  lastErrorAt: true,
+  lastErrorMessage: true,
+  disabledReason: true,
+});
 export type InsertWorkflowRule = z.infer<typeof insertWorkflowRuleSchema>;
 export type WorkflowRule = typeof workflowRules.$inferSelect;
 

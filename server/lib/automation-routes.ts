@@ -80,9 +80,44 @@ export function registerAutomationRoutes(app: Express) {
   app.patch("/api/automation/rules/:id", requireAutomationAdmin, async (req, res) => {
     const partial = insertWorkflowRuleSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "Invalid", details: partial.error.errors });
+
+    // If user re-enables the rule manually, also clear auto-disable tracking
+    // so the next single failure does not immediately disable it again.
+    const extra: Record<string, any> = {};
+    if (partial.data.enabled === true) {
+      const [current] = await db
+        .select({ enabled: workflowRules.enabled, count: workflowRules.consecutiveErrorCount })
+        .from(workflowRules)
+        .where(eq(workflowRules.id, req.params.id));
+      if (current && (!current.enabled || (current.count ?? 0) > 0)) {
+        extra.consecutiveErrorCount = 0;
+        extra.disabledReason = null;
+        extra.lastErrorMessage = null;
+      }
+    }
+
     const [row] = await db
       .update(workflowRules)
-      .set({ ...partial.data, updatedAt: new Date() })
+      .set({ ...partial.data, ...extra, updatedAt: new Date() })
+      .where(eq(workflowRules.id, req.params.id))
+      .returning();
+    if (!row) return res.status(404).json({ error: "Not found" });
+    res.json(row);
+  });
+
+  /** Manually clear error tracking (used by "Reset errors" button). */
+  app.post("/api/automation/rules/:id/reset-errors", requireAutomationAdmin, async (req, res) => {
+    const reEnable = req.body?.reEnable === true;
+    const update: Record<string, any> = {
+      consecutiveErrorCount: 0,
+      lastErrorMessage: null,
+      disabledReason: null,
+      updatedAt: new Date(),
+    };
+    if (reEnable) update.enabled = true;
+    const [row] = await db
+      .update(workflowRules)
+      .set(update)
       .where(eq(workflowRules.id, req.params.id))
       .returning();
     if (!row) return res.status(404).json({ error: "Not found" });
