@@ -2555,23 +2555,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     </div>
                     <Separator />
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900"><Stethoscope className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.doctor || 'Doctor'}</h3></div>
-                        {initialData?.id && (formData.doctorFirstName || formData.doctorLastName) && (
-                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setSavePersonDialogOpen(true)} data-testid="button-save-doctor-as-person-drawer">
-                            <UserPlus className="h-3 w-3 mr-1" />
-                            {(t.clinics as any).saveAsPerson || "Uložiť ako osobu"}
-                          </Button>
-                        )}
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-3 pl-1">
-                        <div className="space-y-1"><Label className="text-xs">{t.common.title || "Title"}</Label><Input value={formData.doctorTitle} onChange={(e) => setFormData({ ...formData, doctorTitle: e.target.value })} placeholder="MUDr." className="h-9" data-testid="input-doctor-title" /></div>
-                        <div className="space-y-1"><Label className="text-xs">{t.clinics.sections?.firstName || "First name"}</Label><Input value={formData.doctorFirstName} onChange={(e) => setFormData({ ...formData, doctorFirstName: e.target.value })} placeholder={t.clinics.sections?.firstName || "First name"} className="h-9" data-testid="input-doctor-firstname" /></div>
-                        <div className="space-y-1"><Label className="text-xs">{t.common.lastName || "Last name"}</Label><Input value={formData.doctorLastName} onChange={(e) => setFormData({ ...formData, doctorLastName: e.target.value })} placeholder={t.common.lastName || "Last name"} className="h-9" data-testid="input-doctor-lastname" /></div>
-                      </div>
-                    </div>
-                    <Separator />
-                    <div className="space-y-3">
                       <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-sky-100 dark:bg-sky-900"><Phone className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.contact || 'Contact'}</h3></div>
                       <div className="grid gap-3 sm:grid-cols-2 pl-1">
                         <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label><Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder={t.clinics.phone} className="h-9" data-testid="input-clinic-phone" /></div>
