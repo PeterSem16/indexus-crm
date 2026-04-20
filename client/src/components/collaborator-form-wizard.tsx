@@ -341,6 +341,26 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
   const { toast } = useToast();
   const { t, locale } = useI18n();
   const mpnT = (t as any).medicalPartnerNetwork || {};
+  const mn = (() => {
+    const dict: Record<string, Record<string, string>> = {
+      sk: { save: "Uložiť", saved: "Zaradenie aktualizované", saveError: "Chyba pri ukladaní", loadError: "Chyba pri načítaní", loadErrorDesc: "Nepodarilo sa načítať zaradenia. Skúste to znova neskôr.", subcategory: "Podkategória", note: "Poznámka", noAssignment: "Žiadne zaradenie", noAssignmentDesc: "nie je zaradený/á v žiadnej nemocnici ani ambulancii. Zaradenie je možné pridať cez záložku Personál v karte nemocnice alebo ambulancie.", hospital: "Nemocnica", clinic: "Ambulancia", category: "Kategória", department: "Oddelenie", position: "Pozícia", role: "Rola", from: "Od", to: "Do", active: "aktívne", inactive: "Neaktívne zaradenia", cancel: "Zrušiť", assignment_1: "zaradenie", assignment_few: "zaradenia", assignment_many: "zaradení" },
+      cs: { save: "Uložit", saved: "Zařazení aktualizováno", saveError: "Chyba při ukládání", loadError: "Chyba při načítání", loadErrorDesc: "Nepodařilo se načíst zařazení. Zkuste to znovu později.", subcategory: "Podkategorie", note: "Poznámka", noAssignment: "Žádné zařazení", noAssignmentDesc: "není zařazen/a v žádné nemocnici ani ambulanci. Zařazení je možné přidat přes záložku Personál v kartě nemocnice nebo ambulance.", hospital: "Nemocnice", clinic: "Ambulance", category: "Kategorie", department: "Oddělení", position: "Pozice", role: "Role", from: "Od", to: "Do", active: "aktivní", inactive: "Neaktivní zařazení", cancel: "Zrušit", assignment_1: "zařazení", assignment_few: "zařazení", assignment_many: "zařazení" },
+      en: { save: "Save", saved: "Assignment updated", saveError: "Error saving", loadError: "Failed to load", loadErrorDesc: "Could not load assignments. Please try again later.", subcategory: "Subcategory", note: "Note", noAssignment: "No assignments", noAssignmentDesc: "is not assigned to any hospital or clinic. You can add an assignment via the Personnel tab in the hospital or clinic card.", hospital: "Hospital", clinic: "Clinic", category: "Category", department: "Department", position: "Position", role: "Role", from: "From", to: "To", active: "active", inactive: "Inactive assignments", cancel: "Cancel", assignment_1: "assignment", assignment_few: "assignments", assignment_many: "assignments" },
+      hu: { save: "Mentés", saved: "Hozzárendelés frissítve", saveError: "Mentési hiba", loadError: "Betöltési hiba", loadErrorDesc: "Nem sikerült betölteni a hozzárendeléseket. Próbálja újra később.", subcategory: "Alkategória", note: "Megjegyzés", noAssignment: "Nincs hozzárendelés", noAssignmentDesc: "nincs hozzárendelve egyetlen kórházhoz vagy rendelőhöz sem. Hozzárendelést a kórház vagy rendelő kártyájának Személyzet fülén lehet hozzáadni.", hospital: "Kórház", clinic: "Rendelő", category: "Kategória", department: "Osztály", position: "Pozíció", role: "Szerep", from: "Tól", to: "Ig", active: "aktív", inactive: "Inaktív hozzárendelések", cancel: "Mégse", assignment_1: "hozzárendelés", assignment_few: "hozzárendelés", assignment_many: "hozzárendelés" },
+      ro: { save: "Salvează", saved: "Atribuire actualizată", saveError: "Eroare la salvare", loadError: "Eroare la încărcare", loadErrorDesc: "Nu s-au putut încărca atribuirile. Încercați din nou mai târziu.", subcategory: "Subcategorie", note: "Notă", noAssignment: "Fără atribuiri", noAssignmentDesc: "nu este atribuit la niciun spital sau clinică. Puteți adăuga o atribuire prin fila Personal din cardul spitalului sau clinicii.", hospital: "Spital", clinic: "Clinică", category: "Categorie", department: "Departament", position: "Poziție", role: "Rol", from: "De la", to: "Până la", active: "activ", inactive: "Atribuiri inactive", cancel: "Anulează", assignment_1: "atribuire", assignment_few: "atribuiri", assignment_many: "atribuiri" },
+      it: { save: "Salva", saved: "Assegnazione aggiornata", saveError: "Errore durante il salvataggio", loadError: "Errore di caricamento", loadErrorDesc: "Impossibile caricare le assegnazioni. Riprovare più tardi.", subcategory: "Sottocategoria", note: "Nota", noAssignment: "Nessuna assegnazione", noAssignmentDesc: "non è assegnato a nessun ospedale o clinica. Puoi aggiungere un'assegnazione tramite la scheda Personale nella scheda dell'ospedale o della clinica.", hospital: "Ospedale", clinic: "Clinica", category: "Categoria", department: "Reparto", position: "Posizione", role: "Ruolo", from: "Da", to: "A", active: "attivo", inactive: "Assegnazioni inattive", cancel: "Annulla", assignment_1: "assegnazione", assignment_few: "assegnazioni", assignment_many: "assegnazioni" },
+      de: { save: "Speichern", saved: "Zuordnung aktualisiert", saveError: "Fehler beim Speichern", loadError: "Fehler beim Laden", loadErrorDesc: "Zuordnungen konnten nicht geladen werden. Bitte später erneut versuchen.", subcategory: "Unterkategorie", note: "Notiz", noAssignment: "Keine Zuordnungen", noAssignmentDesc: "ist keinem Krankenhaus oder keiner Praxis zugeordnet. Eine Zuordnung kann über den Reiter Personal in der Krankenhaus- oder Praxiskarte hinzugefügt werden.", hospital: "Krankenhaus", clinic: "Praxis", category: "Kategorie", department: "Abteilung", position: "Position", role: "Rolle", from: "Von", to: "Bis", active: "aktiv", inactive: "Inaktive Zuordnungen", cancel: "Abbrechen", assignment_1: "Zuordnung", assignment_few: "Zuordnungen", assignment_many: "Zuordnungen" },
+    };
+    return dict[locale] || dict.en;
+  })();
+  const pluralAssignment = (n: number) => n === 1 ? mn.assignment_1 : (n < 5 ? mn.assignment_few : mn.assignment_many);
+  const localizePosition = (a: any) => {
+    if (a.category_id) {
+      const cat = (categoriesQuery.data || []).find((c: any) => c.id === a.category_id);
+      if (cat) return getLocalizedCategoryName(cat, locale);
+    }
+    return a.position || "";
+  };
   const { data: assignments, isLoading, isError } = useQuery<any[]>({
     queryKey: ["/api/mpn/person", personId, "assignments"],
     queryFn: async () => {
@@ -403,11 +423,11 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
         }
       );
       if (!res.ok) throw new Error("Failed to update");
-      toast({ title: "Zaradenie aktualizované" });
+      toast({ title: mn.saved });
       setEditingId(null);
       queryClient.invalidateQueries({ queryKey: ["/api/mpn/person", personId, "assignments"] });
     } catch {
-      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+      toast({ title: mn.saveError, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -419,8 +439,8 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
         <div className="w-16 h-16 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center mb-4">
           <Network className="h-8 w-8 text-red-400" />
         </div>
-        <h3 className="font-medium text-lg mb-1">Chyba pri načítaní</h3>
-        <p className="text-sm text-muted-foreground">Nepodarilo sa načítať zaradenia. Skúste to znova neskôr.</p>
+        <h3 className="font-medium text-lg mb-1">{mn.loadError}</h3>
+        <p className="text-sm text-muted-foreground">{mn.loadErrorDesc}</p>
       </div>
     );
   }
@@ -448,9 +468,9 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
           <Network className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="font-medium text-lg mb-1">Žiadne zaradenie</h3>
+        <h3 className="font-medium text-lg mb-1">{mn.noAssignment}</h3>
         <p className="text-sm text-muted-foreground max-w-sm">
-          {personName} nie je zaradený/á v žiadnej nemocnici ani ambulancii. Zaradenie je možné pridať cez záložku Personál v karte nemocnice alebo ambulancie.
+          {personName} {mn.noAssignmentDesc}
         </p>
       </div>
     );
@@ -500,7 +520,7 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0", colors.badge)}>
-                {isHospitalType ? "Nemocnica" : "Ambulancia"}
+                {isHospitalType ? mn.hospital : mn.clinic}
               </Badge>
             </div>
           </div>
@@ -555,7 +575,7 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
                   data-testid={`medical-network-save-${assignment.id}`}
                 >
                   {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                  Uložiť
+                  {mn.save}
                 </Button>
                 <Button
                   variant="ghost"
@@ -565,7 +585,7 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
                   disabled={saving}
                   data-testid={`medical-network-cancel-${assignment.id}`}
                 >
-                  Zrušiť
+                  {mn.cancel}
                 </Button>
               </div>
             </div>
@@ -574,31 +594,31 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                 {assignment.category_name && (
                   <div>
-                    <span className="text-muted-foreground">Kategória:</span>
-                    <span className="ml-1 font-medium">{assignment.category_name}</span>
+                    <span className="text-muted-foreground">{mn.category}:</span>
+                    <span className="ml-1 font-medium">{(() => { const cat = (categoriesQuery.data || []).find((c: any) => c.id === assignment.category_id); return cat ? getLocalizedCategoryName(cat, locale) : assignment.category_name; })()}</span>
                   </div>
                 )}
                 {assignment.department && (
                   <div>
-                    <span className="text-muted-foreground">Oddelenie:</span>
+                    <span className="text-muted-foreground">{mn.department}:</span>
                     <span className="ml-1 font-medium">{assignment.department}</span>
                   </div>
                 )}
                 {assignment.position && (
                   <div>
-                    <span className="text-muted-foreground">Pozícia:</span>
-                    <span className="ml-1 font-medium">{assignment.position}</span>
+                    <span className="text-muted-foreground">{mn.position}:</span>
+                    <span className="ml-1 font-medium">{localizePosition(assignment)}</span>
                   </div>
                 )}
                 {assignment.role && (
                   <div>
-                    <span className="text-muted-foreground">Rola:</span>
+                    <span className="text-muted-foreground">{mn.role}:</span>
                     <span className="ml-1 font-medium">{assignment.role}</span>
                   </div>
                 )}
                 {assignment.subcategory && (
                   <div>
-                    <span className="text-muted-foreground">Podkategória:</span>
+                    <span className="text-muted-foreground">{mn.subcategory}:</span>
                     <span className="ml-1 font-medium">{assignment.subcategory}</span>
                   </div>
                 )}
@@ -606,7 +626,7 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
 
               {assignment.notes && (
                 <div className="mt-2.5 text-xs bg-white/60 dark:bg-black/20 rounded px-2.5 py-1.5 border border-dashed border-muted-foreground/20">
-                  <span className="text-muted-foreground">Poznámka: </span>
+                  <span className="text-muted-foreground">{mn.note}: </span>
                   <span>{assignment.notes}</span>
                 </div>
               )}
@@ -614,8 +634,8 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
               {(assignment.start_date || assignment.end_date) && (
                 <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                   <Calendar className="h-3 w-3" />
-                  {assignment.start_date && <span>Od: {new Date(assignment.start_date).toLocaleDateString("sk-SK")}</span>}
-                  {assignment.end_date && <span>Do: {new Date(assignment.end_date).toLocaleDateString("sk-SK")}</span>}
+                  {assignment.start_date && <span>{mn.from}: {new Date(assignment.start_date).toLocaleDateString(locale === "en" ? "en-GB" : `${locale}-${locale.toUpperCase()}`)}</span>}
+                  {assignment.end_date && <span>{mn.to}: {new Date(assignment.end_date).toLocaleDateString(locale === "en" ? "en-GB" : `${locale}-${locale.toUpperCase()}`)}</span>}
                 </div>
               )}
             </>
@@ -630,11 +650,11 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-xs">
-            {assignments.length} {assignments.length === 1 ? "zaradenie" : assignments.length < 5 ? "zaradenia" : "zaradení"}
+            {assignments.length} {pluralAssignment(assignments.length)}
           </Badge>
           {activeAssignments.length > 0 && (
             <Badge variant="outline" className="text-xs text-green-600 border-green-300">
-              {activeAssignments.length} aktívne
+              {activeAssignments.length} {mn.active}
             </Badge>
           )}
         </div>
@@ -648,7 +668,7 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
 
       {inactiveAssignments.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-2">Neaktívne zaradenia</h4>
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-2">{mn.inactive}</h4>
           {inactiveAssignments.map((a: any) => (
             <div key={a.id} className="opacity-50">
               {renderAssignmentCard(a)}
@@ -3774,7 +3794,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
       actions: t.collaborators.tabs.actions || "Úkony",
       history: t.collaborators.tabs.history,
       connect: t.common.indexusConnect,
-      medicalNetwork: "Medical Network",
+      medicalNetwork: (() => { const d: Record<string, string> = { sk: "Zdravotnícka sieť", cs: "Zdravotnická síť", en: "Medical Network", hu: "Egészségügyi hálózat", ro: "Rețea medicală", it: "Rete medica", de: "Medizinisches Netzwerk" }; return d[locale] || "Medical Network"; })(),
       mobile: steps.mobile,
     };
     return stepTitles[stepId] || stepId;
@@ -3792,7 +3812,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
       actions: t.collaborators.actionsDesc || "Prehľad úkonov spolupracovníka",
       history: t.collaborators.historyDescription,
       connect: t.collaborators.connectDescription || "Call history, visits and activities from INDEXUS Connect",
-      medicalNetwork: "Prehľad nemocníc a ambulancií kde je spolupracovník zaradený",
+      medicalNetwork: (() => { const d: Record<string, string> = { sk: "Prehľad nemocníc a ambulancií kde je spolupracovník zaradený", cs: "Přehled nemocnic a ambulancí, kde je spolupracovník zařazen", en: "Overview of hospitals and clinics where the collaborator is assigned", hu: "A munkatárs hozzárendelt kórházainak és rendelőinek áttekintése", ro: "Prezentare generală a spitalelor și clinicilor în care este atribuit colaboratorul", it: "Panoramica degli ospedali e delle cliniche in cui è assegnato il collaboratore", de: "Übersicht der Krankenhäuser und Praxen, denen der Mitarbeiter zugeordnet ist" }; return d[locale] || "Medical Network"; })(),
       mobile: steps.mobileDesc,
     };
     return stepDescs[stepId] || "";
