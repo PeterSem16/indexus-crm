@@ -33407,6 +33407,12 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
       
       await logActivity(req.session.user!.id, "create", "contract", contract.id, contract.contractNumber, null, req.ip);
 
+      // Emit automation event for new contract
+      try {
+        const { emitEntityCreated } = await import("./lib/event-bus");
+        await emitEntityCreated("contract", "contract", contract.id, contract, req.session.user!.id, customer?.country || null);
+      } catch (err) { console.error("[EventBus] contract create emit error:", err); }
+
       // Auto-generate PDF after contract creation
       try {
         const hasDocxTemplate = categoryDefaultTemplate.sourceDocxPath && 

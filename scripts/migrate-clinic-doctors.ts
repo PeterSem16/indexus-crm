@@ -28,6 +28,14 @@ const TITLE_SUFFIXES = [
   "FEBO", "FACOG", "MRCOG",
 ];
 
+// Typické SK/CZ koncovky priezvisk — silné indikátory že ide o priezvisko, nie meno
+const SURNAME_SUFFIX_RE = /(ová|ská|cká|ská|žská|čská|ský|cký|žský|čský|ovič|enko|áková|íková)$/i;
+
+function looksLikeSurname(token: string): boolean {
+  if (!token) return false;
+  return SURNAME_SUFFIX_RE.test(token);
+}
+
 function parseDoctorName(raw: string): { title: string | null; firstName: string; lastName: string } | null {
   if (!raw) return null;
   let s = raw.trim().replace(/\s+/g, " ");
@@ -52,8 +60,24 @@ function parseDoctorName(raw: string): { title: string | null; firstName: string
     // iba priezvisko (zriedkavé) — preskočiť, lebo nevieme firstName
     return null;
   }
-  const lastName = tokens[tokens.length - 1];
-  const firstName = tokens.slice(0, -1).join(" ");
+
+  let firstName: string;
+  let lastName: string;
+
+  // Heuristika: ak prvý token vyzerá ako priezvisko a posledný nie, mená sú v opačnom poradí
+  const firstLooksSurname = looksLikeSurname(tokens[0]);
+  const lastLooksSurname = looksLikeSurname(tokens[tokens.length - 1]);
+
+  if (firstLooksSurname && !lastLooksSurname) {
+    // "Klacik Vladimír" → priezvisko=Klacik, meno=Vladimír
+    lastName = tokens[0];
+    firstName = tokens.slice(1).join(" ");
+  } else {
+    // Štandardné poradie: posledný token = priezvisko
+    lastName = tokens[tokens.length - 1];
+    firstName = tokens.slice(0, -1).join(" ");
+  }
+
   const title = titleTokens.length ? titleTokens.join(" ") : null;
   return { title, firstName, lastName };
 }
