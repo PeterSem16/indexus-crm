@@ -15274,8 +15274,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       if (req.query.page || req.query.search) {
         const needsAgreementFilter = agreement === "valid" || agreement === "expired" || agreement === "none";
+        const needsScopeFilter = !!(scopeCategoryIds || excludeCategoryIds);
 
-        if (needsAgreementFilter) {
+        if (needsAgreementFilter || needsScopeFilter) {
           const allResult = await storage.getCollaboratorsPaginated(1, 10000, search, country, countries, status, collabType);
           const today = new Date();
           const allAssignments = await db.select({
