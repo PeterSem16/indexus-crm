@@ -24,3 +24,9 @@ id = "uCI6gbk5LGax22A8Naj5V"
 uri = "file://docs/INDEXUS_Connect_User_Guide.md"
 type = "text"
 title = "INDEXUS Connect — User Guide (English)"
+
+[[outputs]]
+id = "Ebttcabq0UTz5vkDUQX0f"
+uri = "file://exports/INDEXUS_AI_naklady_odhad.md"
+type = "text"
+title = "INDEXUS – Odhad nákladov na AI tokeny"
