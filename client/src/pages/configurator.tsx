@@ -20046,7 +20046,7 @@ function LeadSearchTab() {
                     className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
                       selectedJobId === job.id ? "bg-primary/10 border-primary" : "hover:bg-accent/50"
                     }`}
-                    onClick={() => { setHistoryJobId(job.id); setHistoryJobName(job.name || ""); }}
+                    onClick={() => setSelectedJobId(job.id)}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">{job.name}</div>
@@ -20077,7 +20077,9 @@ function LeadSearchTab() {
         </Card>
       </div>
 
-      {selectedJobId && (
+      <Sheet open={!!selectedJobId} onOpenChange={(o) => { if (!o) setSelectedJobId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto p-0">
+          <div className="p-6">
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -20309,7 +20311,9 @@ function LeadSearchTab() {
             )}
           </CardContent>
         </Card>
-      )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={!!previewResult} onOpenChange={(open) => !open && setPreviewResult(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
