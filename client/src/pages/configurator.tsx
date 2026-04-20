@@ -20046,7 +20046,7 @@ function LeadSearchTab() {
                     className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
                       selectedJobId === job.id ? "bg-primary/10 border-primary" : "hover:bg-accent/50"
                     }`}
-                    onClick={() => setSelectedJobId(job.id)}
+                    onClick={() => { setHistoryJobId(job.id); setHistoryJobName(job.name || ""); }}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">{job.name}</div>
