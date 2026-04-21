@@ -383,8 +383,8 @@ export type ClinicReferral = typeof clinicReferrals.$inferSelect;
 export const collaboratorReferrals = pgTable("collaborator_referrals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   collaboratorId: varchar("collaborator_id").notNull(),
-  referringClinicId: varchar("referring_clinic_id").notNull(),
-  referralType: text("referral_type").notNull(),
+  referringCollaboratorId: varchar("referring_collaborator_id").notNull(),
+  referralType: text("referral_type").notNull(), // 'doctor_referral' | 'doctor_suggests' | 'conference'
   conferenceName: text("conference_name"),
   conferenceDate: timestamp("conference_date"),
   notes: text("notes"),

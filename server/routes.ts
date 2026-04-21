@@ -15018,13 +15018,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
-  // Collaborator referrals (mirrors clinic-referrals): a person was referred by a clinic/doctor or met at a conference
+  // Collaborator referrals (mirrors clinic-referrals but targets persons/collaborators)
+  // referralType: 'doctor_referral' (recommended by) | 'doctor_suggests' (suggests) | 'conference'
   app.get("/api/collaborator-referrals/:collaboratorId", requireAuth, async (req, res) => {
     try {
       const referrals = await db.select().from(collaboratorReferrals).where(eq(collaboratorReferrals.collaboratorId, req.params.collaboratorId));
       const enriched = await Promise.all(referrals.map(async (ref) => {
-        const clinic = await storage.getClinic(ref.referringClinicId);
-        return { ...ref, referringClinic: clinic };
+        const person = await storage.getCollaborator(ref.referringCollaboratorId);
+        return { ...ref, referringCollaborator: person };
       }));
       res.json(enriched);
     } catch (error) {
@@ -15033,15 +15034,33 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  // Reverse: who has THIS collaborator referred / suggested
+  app.get("/api/collaborator-referred-by-me/:collaboratorId", requireAuth, async (req, res) => {
+    try {
+      const referrals = await db.select().from(collaboratorReferrals).where(eq(collaboratorReferrals.referringCollaboratorId, req.params.collaboratorId));
+      const enriched = await Promise.all(referrals.map(async (ref) => {
+        const person = await storage.getCollaborator(ref.collaboratorId);
+        return { ...ref, collaborator: person };
+      }));
+      res.json(enriched);
+    } catch (error) {
+      console.error(`[CollabReferrals] reverse GET error:`, error);
+      res.status(500).json({ error: "Failed to get reverse referrals" });
+    }
+  });
+
   app.post("/api/collaborator-referrals", requireAuth, async (req, res) => {
     try {
-      const { collaboratorId, referringClinicId, referralType, conferenceName, conferenceDate, notes } = req.body;
-      if (!collaboratorId || !referringClinicId || !referralType) {
-        return res.status(400).json({ error: "collaboratorId, referringClinicId and referralType are required" });
+      const { collaboratorId, referringCollaboratorId, referralType, conferenceName, conferenceDate, notes } = req.body;
+      if (!collaboratorId || !referringCollaboratorId || !referralType) {
+        return res.status(400).json({ error: "collaboratorId, referringCollaboratorId and referralType are required" });
+      }
+      if (collaboratorId === referringCollaboratorId) {
+        return res.status(400).json({ error: "A collaborator cannot refer themselves" });
       }
       const [referral] = await db.insert(collaboratorReferrals).values({
         collaboratorId,
-        referringClinicId,
+        referringCollaboratorId,
         referralType,
         conferenceName: conferenceName || null,
         conferenceDate: conferenceDate ? new Date(conferenceDate) : null,

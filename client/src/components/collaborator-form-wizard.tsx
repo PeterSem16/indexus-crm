@@ -3768,61 +3768,161 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
       ? hospitals.filter((h) => h.countryCode === formData.countryCode)
       : hospitals;
 
-  // ===== Referral system (mirrors clinics) =====
-  const { data: allClinicsForReferral = [] } = useQuery<any[]>({ queryKey: ["/api/clinics/lookup"] });
-  const { data: existingCollabReferrals } = useQuery<Array<{ id: string; collaboratorId: string; referringClinicId: string; referralType: string; referringClinic: any | null }>>({
+  // ===== Referral system (mirrors clinics, but targets persons/collaborators) =====
+  type CollabRefRow = { id: string; collaboratorId: string; referringCollaboratorId: string; referralType: string; referringCollaborator: any | null };
+  type ReverseRefRow = { id: string; collaboratorId: string; referringCollaboratorId: string; referralType: string; collaborator: any | null };
+
+  const { data: existingCollabReferrals } = useQuery<CollabRefRow[]>({
     queryKey: ["/api/collaborator-referrals", initialData?.id],
     enabled: !!initialData?.id,
   });
-  const [referrals, setReferrals] = useState<Array<{ clinicId: string; clinicName: string; referralType: string }>>([]);
+  const { data: reverseCollabReferrals } = useQuery<ReverseRefRow[]>({
+    queryKey: ["/api/collaborator-referred-by-me", initialData?.id],
+    enabled: !!initialData?.id,
+  });
+
+  const formatPersonName = (p: any): string => {
+    if (!p) return "";
+    const parts = [p.titleBefore, p.firstName, p.lastName].filter(Boolean);
+    const name = parts.join(" ").trim();
+    return p.titleAfter ? `${name}, ${p.titleAfter}` : name;
+  };
+
+  // referralType: 'doctor_referral' (recommended-by) | 'conference'
+  const [referrals, setReferrals] = useState<Array<{ personId: string; personName: string; referralType: string }>>([]);
+  // suggests = reverse referrals this person has made (referralType 'doctor_suggests')
+  const [suggestsReferrals, setSuggestsReferrals] = useState<Array<{ personId: string; personName: string }>>([]);
   const [referralSearch, setReferralSearch] = useState("");
+  const [suggestsSearch, setSuggestsSearch] = useState("");
   const [confReferralSearch, setConfReferralSearch] = useState("");
+  const [showNewPersonForm, setShowNewPersonForm] = useState<"recommendedBy" | "suggests" | "conference" | null>(null);
+  const [newPersonData, setNewPersonData] = useState({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", countryCode: "SK" });
   const userEditedReferralsRef = useRef(false);
 
   useEffect(() => {
     if (userEditedReferralsRef.current) return;
     if (existingCollabReferrals) {
-      setReferrals(existingCollabReferrals.filter(r => r.referringClinic).map(r => {
-        const c = r.referringClinic as any;
-        const fullName = [c?.doctorTitle, c?.doctorFirstName, c?.doctorLastName].filter(Boolean).join(" ").trim();
-        return {
-          clinicId: String(r.referringClinicId),
-          clinicName: fullName || c?.doctorName || c?.name || "",
-          referralType: r.referralType || "doctor_referral",
-        };
-      }));
+      setReferrals(
+        existingCollabReferrals
+          .filter(r => r.referringCollaborator && (r.referralType === "doctor_referral" || r.referralType === "conference"))
+          .map(r => ({
+            personId: String(r.referringCollaboratorId),
+            personName: formatPersonName(r.referringCollaborator),
+            referralType: r.referralType,
+          }))
+      );
     }
   }, [existingCollabReferrals]);
 
-  const filterClinicsForReferral = (searchStr: string) => {
-    if (!searchStr) return [];
-    const currentCountry = formData.countryCode;
-    return (allClinicsForReferral.filter((c: any) => {
-      if (currentCountry && c.countryCode && c.countryCode !== currentCountry) return false;
-      if (referrals.some(r => String(r.clinicId) === String(c.id))) return false;
-      const s = searchStr.toLowerCase();
-      const fullName = [c.doctorTitle, c.doctorFirstName, c.doctorLastName].filter(Boolean).join(" ").toLowerCase();
-      return (c.name || "").toLowerCase().includes(s)
-        || fullName.includes(s)
-        || (c.doctorName || "").toLowerCase().includes(s)
-        || (c.city || "").toLowerCase().includes(s);
-    }));
-  };
-  const filteredClinicsRef = filterClinicsForReferral(referralSearch);
-  const filteredClinicsConfRef = filterClinicsForReferral(confReferralSearch);
+  useEffect(() => {
+    if (userEditedReferralsRef.current) return;
+    if (reverseCollabReferrals) {
+      setSuggestsReferrals(
+        reverseCollabReferrals
+          .filter(r => r.collaborator && r.referralType === "doctor_suggests")
+          .map(r => ({
+            personId: String(r.collaboratorId),
+            personName: formatPersonName(r.collaborator),
+          }))
+      );
+    }
+  }, [reverseCollabReferrals]);
 
-  const addCollabReferral = (clinic: any, type: string) => {
+  // Search collaborators on demand (server-side filter)
+  const personSearchQuery = (referralSearch || suggestsSearch || confReferralSearch).trim();
+  const { data: personSearchResults = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborators/lookup", personSearchQuery, formData.countryCode],
+    queryFn: async () => {
+      if (personSearchQuery.length < 2) return [];
+      const params = new URLSearchParams({ q: personSearchQuery, limit: "20" });
+      if (formData.countryCode) params.set("countries", formData.countryCode);
+      const res = await fetch(`/api/collaborators/lookup?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: personSearchQuery.length >= 2,
+  });
+
+  const filterPersonsExcluding = (searchStr: string, excludeIds: Set<string>) => {
+    if (!searchStr || searchStr.length < 2) return [];
+    return personSearchResults.filter((p: any) => {
+      if (initialData && String(p.id) === String(initialData.id)) return false;
+      return !excludeIds.has(String(p.id));
+    });
+  };
+
+  const recommendedExcludeIds = new Set(referrals.filter(r => r.referralType === "doctor_referral").map(r => r.personId));
+  const conferenceExcludeIds = new Set(referrals.filter(r => r.referralType === "conference").map(r => r.personId));
+  const suggestsExcludeIds = new Set(suggestsReferrals.map(r => r.personId));
+
+  const filteredPersonsRecommended = filterPersonsExcluding(referralSearch, recommendedExcludeIds);
+  const filteredPersonsConference = filterPersonsExcluding(confReferralSearch, conferenceExcludeIds);
+  const filteredPersonsSuggests = filterPersonsExcluding(suggestsSearch, suggestsExcludeIds);
+
+  const addRecommendedReferral = (person: any, type: "doctor_referral" | "conference") => {
     userEditedReferralsRef.current = true;
-    const fullName = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean).join(" ").trim();
-    const displayName = fullName || clinic.doctorName || clinic.name;
-    setReferrals(prev => [...prev, { clinicId: String(clinic.id), clinicName: displayName, referralType: type }]);
+    setReferrals(prev => [...prev, { personId: String(person.id), personName: formatPersonName(person), referralType: type }]);
     if (type === "doctor_referral") setReferralSearch("");
     else setConfReferralSearch("");
   };
-  const removeCollabReferral = (clinicId: string) => {
+  const removeRecommendedReferral = (personId: string, type: string) => {
     userEditedReferralsRef.current = true;
-    setReferrals(prev => prev.filter(r => r.clinicId !== clinicId));
+    setReferrals(prev => prev.filter(r => !(r.personId === personId && r.referralType === type)));
   };
+  const addSuggestsReferral = (person: any) => {
+    userEditedReferralsRef.current = true;
+    setSuggestsReferrals(prev => [...prev, { personId: String(person.id), personName: formatPersonName(person) }]);
+    setSuggestsSearch("");
+  };
+  const removeSuggestsReferral = (personId: string) => {
+    userEditedReferralsRef.current = true;
+    setSuggestsReferrals(prev => prev.filter(r => r.personId !== personId));
+  };
+
+  const createNewPersonAndAdd = async (direction: "recommendedBy" | "suggests" | "conference") => {
+    const { titleBefore, firstName, lastName, titleAfter, countryCode } = newPersonData;
+    if (!lastName) {
+      toast({ title: t.collaborators.fields?.lastName ? `${t.collaborators.fields.lastName} *` : "Priezvisko je povinné", variant: "destructive" });
+      return;
+    }
+    try {
+      const cc = countryCode || formData.countryCode || "SK";
+      const res = await apiRequest("POST", "/api/collaborators", {
+        firstName: firstName || "",
+        lastName,
+        titleBefore: titleBefore || "",
+        titleAfter: titleAfter || "",
+        countryCode: cc,
+        countryCodes: [cc],
+        clientContact: false,
+        isActive: true,
+        svetZdravia: false,
+        isManager: false,
+        cbcActivities: [],
+      });
+      const newPerson = await res.json();
+      if (newPerson?.id) {
+        userEditedReferralsRef.current = true;
+        const personName = formatPersonName(newPerson) || lastName;
+        if (direction === "suggests") {
+          setSuggestsReferrals(prev => [...prev, { personId: String(newPerson.id), personName }]);
+        } else if (direction === "conference") {
+          setReferrals(prev => [...prev, { personId: String(newPerson.id), personName, referralType: "conference" }]);
+        } else {
+          setReferrals(prev => [...prev, { personId: String(newPerson.id), personName, referralType: "doctor_referral" }]);
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/collaborators/lookup"] });
+        setNewPersonData({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", countryCode: formData.countryCode || "SK" });
+        setShowNewPersonForm(null);
+        setReferralSearch(""); setSuggestsSearch(""); setConfReferralSearch("");
+        toast({ title: t.success.saved });
+      }
+    } catch (e: any) {
+      toast({ title: e?.message || "Error creating person", variant: "destructive" });
+    }
+  };
+
   const doctorReferrals = referrals.filter(r => r.referralType === "doctor_referral");
   const conferenceReferrals = referrals.filter(r => r.referralType === "conference");
 
@@ -3914,20 +4014,34 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
         await apiRequest("PUT", `/api/collaborators/${collaboratorId}/mobile-credentials`, mobileData);
       }
 
-      // Sync collaborator referrals (delete old, insert current selection)
+      // Sync collaborator referrals (forward + reverse): delete old, insert current selection
       try {
         if (existingCollabReferrals && Array.isArray(existingCollabReferrals)) {
           for (const old of existingCollabReferrals) {
             await apiRequest("DELETE", `/api/collaborator-referrals/${old.id}`);
           }
         }
+        if (reverseCollabReferrals && Array.isArray(reverseCollabReferrals)) {
+          for (const old of reverseCollabReferrals) {
+            if (old.referralType === "doctor_suggests") {
+              await apiRequest("DELETE", `/api/collaborator-referrals/${old.id}`);
+            }
+          }
+        }
         for (const ref of referrals) {
           await apiRequest("POST", "/api/collaborator-referrals", {
             collaboratorId,
-            referringClinicId: ref.clinicId,
+            referringCollaboratorId: ref.personId,
             referralType: ref.referralType,
             conferenceName: ref.referralType === "conference" ? (data.conferenceName || null) : null,
             conferenceDate: ref.referralType === "conference" && data.conferenceDate ? data.conferenceDate : null,
+          });
+        }
+        for (const ref of suggestsReferrals) {
+          await apiRequest("POST", "/api/collaborator-referrals", {
+            collaboratorId: ref.personId,
+            referringCollaboratorId: collaboratorId,
+            referralType: "doctor_suggests",
           });
         }
       } catch (refErr) {
@@ -4590,205 +4704,316 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  {/* Doctor referral */}
-                  <div
-                    className={cn(
-                      "border rounded-lg px-3 py-2.5 transition-all cursor-pointer",
-                      formData.isReferredByDoctor
-                        ? "border-2 shadow-sm border-purple-500 bg-purple-50/50 dark:bg-purple-950/30"
-                        : "hover:bg-muted/50 border-border"
-                    )}
-                    onClick={() => setFormData({ ...formData, isReferredByDoctor: !formData.isReferredByDoctor })}
-                    data-testid="card-collab-doctor-referral"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
-                        <UserCheck className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm">{(t.clinics as any).leadSourceTypes?.doctor_referral || "Odporúčanie od lekára"}</div>
-                      </div>
-                      <Checkbox
-                        checked={formData.isReferredByDoctor}
-                        onCheckedChange={(checked) => setFormData({ ...formData, isReferredByDoctor: !!checked })}
-                        className="shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid="checkbox-collab-doctor-referral"
-                      />
-                    </div>
-                  </div>
-                  {formData.isReferredByDoctor && (
-                    <div className="ml-3 pl-3 border-l-2 border-purple-200 dark:border-purple-800 space-y-2">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                {(() => {
+                  const tx = (t.clinics as any) || {};
+                  const tColl = (t.collaborators?.fields as any) || {};
+                  const txtRecommendedBy = tx.recommendedByDoctors || "Túto osobu odporučili nasledujúci kolegovia:";
+                  const txtSuggests = tx.suggestsDoctors || "Táto osoba navrhla nasledujúce ďalšie osoby:";
+                  const txtPersonNotFound = tx.doctorNotFound || "Osoba nie je v databáze? Pridajte novú:";
+                  const txtAddNew = tx.addNewDoctor || "Pridať novú osobu";
+                  const txtSelectPerson = tx.selectDoctor || "Vybrať osobu z databázy";
+                  const txtNoReferrals = tx.noReferrals || "Zatiaľ žiadne odporúčania";
+                  const renderNewPersonForm = (direction: "recommendedBy" | "suggests" | "conference") => (
+                    <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
+                      <div className="grid gap-2 sm:grid-cols-4">
                         <Input
-                          value={referralSearch}
-                          onChange={(e) => setReferralSearch(e.target.value)}
-                          placeholder={(t.clinics as any).selectDoctor || "Vybrať lekára"}
-                          className="pl-9 h-9"
-                          data-testid="input-collab-referral-search"
+                          placeholder={tColl.titleBefore || "Titul pred"}
+                          value={newPersonData.titleBefore}
+                          onChange={(e) => setNewPersonData({ ...newPersonData, titleBefore: e.target.value })}
+                          className="h-9"
+                          data-testid={`input-new-person-title-before-${direction}`}
+                        />
+                        <Input
+                          placeholder={tColl.firstName || "Meno"}
+                          value={newPersonData.firstName}
+                          onChange={(e) => setNewPersonData({ ...newPersonData, firstName: e.target.value })}
+                          className="h-9"
+                          data-testid={`input-new-person-first-name-${direction}`}
+                        />
+                        <Input
+                          placeholder={`${tColl.lastName || "Priezvisko"} *`}
+                          value={newPersonData.lastName}
+                          onChange={(e) => setNewPersonData({ ...newPersonData, lastName: e.target.value })}
+                          className="h-9"
+                          data-testid={`input-new-person-last-name-${direction}`}
+                        />
+                        <Input
+                          placeholder={tColl.titleAfter || "Titul za"}
+                          value={newPersonData.titleAfter}
+                          onChange={(e) => setNewPersonData({ ...newPersonData, titleAfter: e.target.value })}
+                          className="h-9"
+                          data-testid={`input-new-person-title-after-${direction}`}
                         />
                       </div>
-                      {referralSearch && filteredClinicsRef.length > 0 && (
-                        <div className="border rounded-lg max-h-36 overflow-y-auto">
-                          {filteredClinicsRef.slice(0, 10).map((clinic: any) => {
-                            const fullName = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean).join(" ").trim();
-                            return (
-                              <div
-                                key={clinic.id}
-                                className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer"
-                                onClick={() => addCollabReferral(clinic, "doctor_referral")}
-                                data-testid={`collab-referral-option-${clinic.id}`}
-                              >
-                                <div>
-                                  <span className="font-medium text-sm">{fullName || clinic.doctorName || clinic.name}</span>
-                                  <span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span>
-                                </div>
-                                <Plus className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {doctorReferrals.length > 0 ? (
-                        <div className="space-y-1.5">
-                          {doctorReferrals.map((ref) => (
-                            <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
-                              <div className="flex items-center gap-2">
-                                <UserCheck className="h-3.5 w-3.5 text-purple-500" />
-                                <span className="text-sm font-medium">{ref.clinicName}</span>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() => removeCollabReferral(ref.clinicId)}
-                                data-testid={`remove-collab-referral-${ref.clinicId}`}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic pl-1">{(t.clinics as any).noReferrals || "Zatiaľ žiadne odporúčania"}</p>
-                      )}
+                      <div className="flex items-center gap-2 justify-end">
+                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewPersonForm(null)} data-testid={`button-cancel-new-person-${direction}`}>
+                          {t.common.cancel || "Cancel"}
+                        </Button>
+                        <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewPersonAndAdd(direction)} data-testid={`button-save-new-person-${direction}`}>
+                          <Plus className="h-3 w-3" /> {t.common.save || "Save"}
+                        </Button>
+                      </div>
                     </div>
-                  )}
+                  );
 
-                  {/* Conference */}
-                  <div
-                    className={cn(
-                      "border rounded-lg px-3 py-2.5 transition-all cursor-pointer",
-                      formData.isFromConference
-                        ? "border-2 shadow-sm border-rose-500 bg-rose-50/50 dark:bg-rose-950/30"
-                        : "hover:bg-muted/50 border-border"
-                    )}
-                    onClick={() => setFormData({ ...formData, isFromConference: !formData.isFromConference })}
-                    data-testid="card-collab-conference"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300">
-                        <GraduationCap className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm">{(t.clinics as any).leadSourceTypes?.conference || "Konferencia / Seminár"}</div>
-                      </div>
-                      <Checkbox
-                        checked={formData.isFromConference}
-                        onCheckedChange={(checked) => setFormData({ ...formData, isFromConference: !!checked })}
-                        className="shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid="checkbox-collab-conference"
-                      />
-                    </div>
-                  </div>
-                  {formData.isFromConference && (
-                    <div className="ml-3 pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-2">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs">{(t.clinics as any).conferenceName || "Názov konferencie"}</Label>
-                          <Input
-                            value={formData.conferenceName}
-                            onChange={(e) => setFormData({ ...formData, conferenceName: e.target.value })}
-                            placeholder={(t.clinics as any).conferenceName || "Názov konferencie"}
-                            className="h-9"
-                            data-testid="input-collab-conference-name"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">{(t.clinics as any).conferenceDate || "Dátum konferencie"}</Label>
-                          <DateTimePicker
-                            value={formData.conferenceDate}
-                            onChange={(v) => setFormData({ ...formData, conferenceDate: v })}
-                            countryCode={formData.countryCode || "SK"}
-                            includeTime={false}
-                            data-testid="input-collab-conference-date"
+                  return (
+                    <div className="space-y-3">
+                      {/* DOCTOR REFERRAL TILE */}
+                      <div
+                        className={cn(
+                          "border rounded-lg px-3 py-2.5 transition-all cursor-pointer",
+                          formData.isReferredByDoctor
+                            ? "border-2 shadow-sm border-purple-500 bg-purple-50/50 dark:bg-purple-950/30"
+                            : "hover:bg-muted/50 border-border"
+                        )}
+                        onClick={() => setFormData({ ...formData, isReferredByDoctor: !formData.isReferredByDoctor })}
+                        data-testid="card-collab-doctor-referral"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
+                            <UserCheck className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm">{tx.leadSourceTypes?.doctor_referral || "Odporúčanie od lekára"}</div>
+                          </div>
+                          <Checkbox
+                            checked={formData.isReferredByDoctor}
+                            onCheckedChange={(checked) => setFormData({ ...formData, isReferredByDoctor: !!checked })}
+                            className="shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                            data-testid="checkbox-collab-doctor-referral"
                           />
                         </div>
                       </div>
-                      <Separator className="my-1" />
-                      <Label className="text-xs">{(t.clinics as any).referringDoctors || "Odporúčajúci lekári"}</Label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          value={confReferralSearch}
-                          onChange={(e) => setConfReferralSearch(e.target.value)}
-                          placeholder={(t.clinics as any).selectDoctor || "Vybrať lekára"}
-                          className="pl-9 h-9"
-                          data-testid="input-collab-conf-referral-search"
-                        />
-                      </div>
-                      {confReferralSearch && filteredClinicsConfRef.length > 0 && (
-                        <div className="border rounded-lg max-h-36 overflow-y-auto">
-                          {filteredClinicsConfRef.slice(0, 10).map((clinic: any) => {
-                            const fullName = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean).join(" ").trim();
-                            return (
-                              <div
-                                key={clinic.id}
-                                className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer"
-                                onClick={() => addCollabReferral(clinic, "conference")}
-                                data-testid={`collab-conf-referral-option-${clinic.id}`}
-                              >
-                                <div>
-                                  <span className="font-medium text-sm">{fullName || clinic.doctorName || clinic.name}</span>
-                                  <span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span>
-                                </div>
-                                <Plus className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {conferenceReferrals.length > 0 ? (
-                        <div className="space-y-1.5">
-                          {conferenceReferrals.map((ref) => (
-                            <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-rose-50/50 dark:bg-rose-950/30">
-                              <div className="flex items-center gap-2">
-                                <GraduationCap className="h-3.5 w-3.5 text-rose-500" />
-                                <span className="text-sm font-medium">{ref.clinicName}</span>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() => removeCollabReferral(ref.clinicId)}
-                                data-testid={`remove-collab-conf-referral-${ref.clinicId}`}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                              </Button>
+
+                      {formData.isReferredByDoctor && (
+                        <div className="ml-3 pl-3 border-l-2 border-purple-200 dark:border-purple-800 space-y-3">
+                          {/* RECOMMENDED-BY box */}
+                          <div className="border rounded-lg p-3 bg-purple-50/30 dark:bg-purple-950/10 space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-medium text-purple-700 dark:text-purple-300">
+                              <UserCheck className="h-3.5 w-3.5" />
+                              <span>{txtRecommendedBy}</span>
                             </div>
-                          ))}
+                            {doctorReferrals.length > 0 && (
+                              <div className="space-y-1.5">
+                                {doctorReferrals.map((ref) => (
+                                  <div key={ref.personId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
+                                    <div className="flex items-center gap-2">
+                                      <UserCheck className="h-3.5 w-3.5 text-purple-500" />
+                                      <span className="text-sm font-medium">{ref.personName}</span>
+                                    </div>
+                                    <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeRecommendedReferral(ref.personId, "doctor_referral")} data-testid={`remove-collab-referral-${ref.personId}`}>
+                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                value={referralSearch}
+                                onChange={(e) => setReferralSearch(e.target.value)}
+                                placeholder={txtSelectPerson}
+                                className="pl-9 h-9 bg-white dark:bg-background"
+                                data-testid="input-collab-referral-search"
+                              />
+                            </div>
+                            {referralSearch.length >= 2 && filteredPersonsRecommended.length > 0 && (
+                              <div className="border rounded-lg max-h-40 overflow-y-auto bg-white dark:bg-background">
+                                {filteredPersonsRecommended.slice(0, 10).map((person: any) => (
+                                  <div key={person.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addRecommendedReferral(person, "doctor_referral")} data-testid={`collab-referral-option-${person.id}`}>
+                                    <div>
+                                      <span className="font-medium text-sm">{formatPersonName(person)}</span>
+                                      {person.collaboratorType && <span className="text-xs text-muted-foreground ml-2">{person.collaboratorType}</span>}
+                                    </div>
+                                    <Plus className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {referralSearch.length >= 2 && filteredPersonsRecommended.length === 0 && (
+                              <div className="space-y-2">
+                                <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
+                                {showNewPersonForm !== "recommendedBy" ? (
+                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewPersonForm("recommendedBy"); setNewPersonData({ titleBefore: "", firstName: "", lastName: referralSearch, titleAfter: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-person-recommended">
+                                    <Plus className="h-3 w-3" /> {txtAddNew}
+                                  </Button>
+                                ) : renderNewPersonForm("recommendedBy")}
+                              </div>
+                            )}
+                            {doctorReferrals.length === 0 && referralSearch.length < 2 && (
+                              <p className="text-xs text-muted-foreground italic pl-1">{txtNoReferrals}</p>
+                            )}
+                          </div>
+
+                          {/* SUGGESTS box (reverse direction) */}
+                          <div className="border rounded-lg p-3 bg-emerald-50/30 dark:bg-emerald-950/10 space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                              <ChevronRight className="h-3.5 w-3.5" />
+                              <span>{txtSuggests}</span>
+                            </div>
+                            {suggestsReferrals.length > 0 && (
+                              <div className="space-y-1.5">
+                                {suggestsReferrals.map((ref) => (
+                                  <div key={ref.personId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
+                                    <div className="flex items-center gap-2">
+                                      <ChevronRight className="h-3.5 w-3.5 text-emerald-500" />
+                                      <span className="text-sm font-medium">{ref.personName}</span>
+                                    </div>
+                                    <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeSuggestsReferral(ref.personId)} data-testid={`remove-collab-suggests-${ref.personId}`}>
+                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                value={suggestsSearch}
+                                onChange={(e) => setSuggestsSearch(e.target.value)}
+                                placeholder={txtSelectPerson}
+                                className="pl-9 h-9 bg-white dark:bg-background"
+                                data-testid="input-collab-suggests-search"
+                              />
+                            </div>
+                            {suggestsSearch.length >= 2 && filteredPersonsSuggests.length > 0 && (
+                              <div className="border rounded-lg max-h-40 overflow-y-auto bg-white dark:bg-background">
+                                {filteredPersonsSuggests.slice(0, 10).map((person: any) => (
+                                  <div key={person.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addSuggestsReferral(person)} data-testid={`collab-suggests-option-${person.id}`}>
+                                    <div>
+                                      <span className="font-medium text-sm">{formatPersonName(person)}</span>
+                                      {person.collaboratorType && <span className="text-xs text-muted-foreground ml-2">{person.collaboratorType}</span>}
+                                    </div>
+                                    <Plus className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {suggestsSearch.length >= 2 && filteredPersonsSuggests.length === 0 && (
+                              <div className="space-y-2">
+                                <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
+                                {showNewPersonForm !== "suggests" ? (
+                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewPersonForm("suggests"); setNewPersonData({ titleBefore: "", firstName: "", lastName: suggestsSearch, titleAfter: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-person-suggests">
+                                    <Plus className="h-3 w-3" /> {txtAddNew}
+                                  </Button>
+                                ) : renderNewPersonForm("suggests")}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic pl-1">{(t.clinics as any).noReferrals || "Zatiaľ žiadne odporúčania"}</p>
+                      )}
+
+                      {/* CONFERENCE TILE */}
+                      <div
+                        className={cn(
+                          "border rounded-lg px-3 py-2.5 transition-all cursor-pointer",
+                          formData.isFromConference
+                            ? "border-2 shadow-sm border-rose-500 bg-rose-50/50 dark:bg-rose-950/30"
+                            : "hover:bg-muted/50 border-border"
+                        )}
+                        onClick={() => setFormData({ ...formData, isFromConference: !formData.isFromConference })}
+                        data-testid="card-collab-conference"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300">
+                            <GraduationCap className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm">{tx.leadSourceTypes?.conference || "Konferencia / Seminár"}</div>
+                          </div>
+                          <Checkbox
+                            checked={formData.isFromConference}
+                            onCheckedChange={(checked) => setFormData({ ...formData, isFromConference: !!checked })}
+                            className="shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                            data-testid="checkbox-collab-conference"
+                          />
+                        </div>
+                      </div>
+                      {formData.isFromConference && (
+                        <div className="ml-3 pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-2">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">{tx.conferenceName || "Názov konferencie"}</Label>
+                              <Input
+                                value={formData.conferenceName}
+                                onChange={(e) => setFormData({ ...formData, conferenceName: e.target.value })}
+                                placeholder={tx.conferenceName || "Názov konferencie"}
+                                className="h-9"
+                                data-testid="input-collab-conference-name"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">{tx.conferenceDate || "Dátum konferencie"}</Label>
+                              <DateTimePicker
+                                value={formData.conferenceDate}
+                                onChange={(v) => setFormData({ ...formData, conferenceDate: v })}
+                                countryCode={formData.countryCode || "SK"}
+                                includeTime={false}
+                                data-testid="input-collab-conference-date"
+                              />
+                            </div>
+                          </div>
+                          <Separator className="my-1" />
+                          <Label className="text-xs">{tx.referringDoctors || "Stretnutia s osobami na konferencii"}</Label>
+                          {conferenceReferrals.length > 0 && (
+                            <div className="space-y-1.5">
+                              {conferenceReferrals.map((ref) => (
+                                <div key={ref.personId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-rose-50/50 dark:bg-rose-950/30">
+                                  <div className="flex items-center gap-2">
+                                    <GraduationCap className="h-3.5 w-3.5 text-rose-500" />
+                                    <span className="text-sm font-medium">{ref.personName}</span>
+                                  </div>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeRecommendedReferral(ref.personId, "conference")} data-testid={`remove-collab-conf-referral-${ref.personId}`}>
+                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              value={confReferralSearch}
+                              onChange={(e) => setConfReferralSearch(e.target.value)}
+                              placeholder={txtSelectPerson}
+                              className="pl-9 h-9"
+                              data-testid="input-collab-conf-referral-search"
+                            />
+                          </div>
+                          {confReferralSearch.length >= 2 && filteredPersonsConference.length > 0 && (
+                            <div className="border rounded-lg max-h-40 overflow-y-auto">
+                              {filteredPersonsConference.slice(0, 10).map((person: any) => (
+                                <div key={person.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addRecommendedReferral(person, "conference")} data-testid={`collab-conf-referral-option-${person.id}`}>
+                                  <div>
+                                    <span className="font-medium text-sm">{formatPersonName(person)}</span>
+                                    {person.collaboratorType && <span className="text-xs text-muted-foreground ml-2">{person.collaboratorType}</span>}
+                                  </div>
+                                  <Plus className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {confReferralSearch.length >= 2 && filteredPersonsConference.length === 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
+                              {showNewPersonForm !== "conference" ? (
+                                <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewPersonForm("conference"); setNewPersonData({ titleBefore: "", firstName: "", lastName: confReferralSearch, titleAfter: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-person-conference">
+                                  <Plus className="h-3 w-3" /> {txtAddNew}
+                                </Button>
+                              ) : renderNewPersonForm("conference")}
+                            </div>
+                          )}
+                          {conferenceReferrals.length === 0 && confReferralSearch.length < 2 && (
+                            <p className="text-xs text-muted-foreground italic pl-1">{txtNoReferrals}</p>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 {(formData.isReferredByDoctor || formData.isFromConference) && (
                   <>
