@@ -4488,115 +4488,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
               )}
             </div>
 
-            <HospitalsCardsSelect
-              hospitals={filteredHospitals}
-              selectedIds={formData.hospitalIds}
-              onChange={(ids) => setFormData({ ...formData, hospitalIds: ids })}
-              label={t.collaborators?.fields?.hospitalsAndClinics || "Hospitals & Clinics"}
-              t={t}
-              locale={locale}
-            />
-
-            <Separator className="my-4" />
-
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                {t.collaborators.tabs.companyAndAddresses}
-              </h4>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                {!isHidden("company_name") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.companyName}</Label>
-                    <Input
-                      value={formData.companyName}
-                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                      data-testid="wizard-input-collaborator-company-name"
-                      disabled={isReadonly("company_name")}
-                      className={isReadonly("company_name") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-                {!isHidden("company_ico") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.ico}</Label>
-                    <Input
-                      value={formData.ico}
-                      onChange={(e) => setFormData({ ...formData, ico: e.target.value })}
-                      data-testid="wizard-input-collaborator-ico"
-                      disabled={isReadonly("company_ico")}
-                      className={isReadonly("company_ico") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                {!isHidden("company_dic") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.dic}</Label>
-                    <Input
-                      value={formData.dic}
-                      onChange={(e) => setFormData({ ...formData, dic: e.target.value })}
-                      data-testid="wizard-input-collaborator-dic"
-                      disabled={isReadonly("company_dic")}
-                      className={isReadonly("company_dic") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-                {!isHidden("company_ic_dph") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.icDph}</Label>
-                    <Input
-                      value={formData.icDph}
-                      onChange={(e) => setFormData({ ...formData, icDph: e.target.value })}
-                      data-testid="wizard-input-collaborator-icdph"
-                      disabled={isReadonly("company_ic_dph")}
-                      className={isReadonly("company_ic_dph") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                {!isHidden("bank_account") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.companyIban}</Label>
-                    <Input
-                      value={formData.companyIban}
-                      onChange={(e) => setFormData({ ...formData, companyIban: e.target.value })}
-                      data-testid="wizard-input-collaborator-company-iban"
-                      disabled={isReadonly("bank_account")}
-                      className={isReadonly("bank_account") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-                {!isHidden("bank_account") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.companySwift}</Label>
-                    <Input
-                      value={formData.companySwift}
-                      onChange={(e) => setFormData({ ...formData, companySwift: e.target.value })}
-                      data-testid="wizard-input-collaborator-company-swift"
-                      disabled={isReadonly("bank_account")}
-                      className={isReadonly("bank_account") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {initialData && (
-                <div className="pt-2">
-                  <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    {t.collaborators.addressTabs.company}
-                  </h5>
-                  <CompanyAddressForm collaboratorId={initialData.id} parentCountryCode={initialData.countryCode} t={t} />
-                </div>
-              )}
-            </div>
-
             <Separator className="my-4" />
 
             <div>
@@ -4620,6 +4511,116 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                   t={t}
                 />
               )}
+
+              <Collapsible className="mt-3">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between rounded-lg bg-muted/40 hover:bg-muted/60 px-4 py-3 text-left transition-colors"
+                    data-testid="toggle-company-address"
+                  >
+                    <span className="flex items-center gap-2 text-sm font-medium">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      {t.collaborators.addressTabs.company}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-4 pt-3 px-1">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {!isHidden("company_name") && (
+                        <div className="space-y-2">
+                          <Label>{t.collaborators.fields.companyName}</Label>
+                          <Input
+                            value={formData.companyName}
+                            onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                            data-testid="wizard-input-collaborator-company-name"
+                            disabled={isReadonly("company_name")}
+                            className={isReadonly("company_name") ? "bg-muted" : ""}
+                          />
+                        </div>
+                      )}
+                      {!isHidden("company_ico") && (
+                        <div className="space-y-2">
+                          <Label>{t.collaborators.fields.ico}</Label>
+                          <Input
+                            value={formData.ico}
+                            onChange={(e) => setFormData({ ...formData, ico: e.target.value })}
+                            data-testid="wizard-input-collaborator-ico"
+                            disabled={isReadonly("company_ico")}
+                            className={isReadonly("company_ico") ? "bg-muted" : ""}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {!isHidden("company_dic") && (
+                        <div className="space-y-2">
+                          <Label>{t.collaborators.fields.dic}</Label>
+                          <Input
+                            value={formData.dic}
+                            onChange={(e) => setFormData({ ...formData, dic: e.target.value })}
+                            data-testid="wizard-input-collaborator-dic"
+                            disabled={isReadonly("company_dic")}
+                            className={isReadonly("company_dic") ? "bg-muted" : ""}
+                          />
+                        </div>
+                      )}
+                      {!isHidden("company_ic_dph") && (
+                        <div className="space-y-2">
+                          <Label>{t.collaborators.fields.icDph}</Label>
+                          <Input
+                            value={formData.icDph}
+                            onChange={(e) => setFormData({ ...formData, icDph: e.target.value })}
+                            data-testid="wizard-input-collaborator-icdph"
+                            disabled={isReadonly("company_ic_dph")}
+                            className={isReadonly("company_ic_dph") ? "bg-muted" : ""}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {!isHidden("bank_account") && (
+                        <div className="space-y-2">
+                          <Label>{t.collaborators.fields.companyIban}</Label>
+                          <Input
+                            value={formData.companyIban}
+                            onChange={(e) => setFormData({ ...formData, companyIban: e.target.value })}
+                            data-testid="wizard-input-collaborator-company-iban"
+                            disabled={isReadonly("bank_account")}
+                            className={isReadonly("bank_account") ? "bg-muted" : ""}
+                          />
+                        </div>
+                      )}
+                      {!isHidden("bank_account") && (
+                        <div className="space-y-2">
+                          <Label>{t.collaborators.fields.companySwift}</Label>
+                          <Input
+                            value={formData.companySwift}
+                            onChange={(e) => setFormData({ ...formData, companySwift: e.target.value })}
+                            data-testid="wizard-input-collaborator-company-swift"
+                            disabled={isReadonly("bank_account")}
+                            className={isReadonly("bank_account") ? "bg-muted" : ""}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {initialData && (
+                      <div className="pt-2">
+                        <h5 className="text-sm font-medium mb-3 flex items-center gap-2 text-muted-foreground">
+                          <MapPin className="h-4 w-4" />
+                          {t.collaborators.addressTabs.company}
+                        </h5>
+                        <CompanyAddressForm collaboratorId={initialData.id} parentCountryCode={initialData.countryCode} t={t} />
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           </div>
         );
