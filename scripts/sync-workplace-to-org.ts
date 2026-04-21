@@ -25,6 +25,7 @@ import {
   collaborators,
   collaboratorAddresses,
   collaboratorAgreements,
+  contactAssignments,
   hospitals,
   clinics,
 } from "../shared/schema";
@@ -366,6 +367,51 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
   return c.id;
 }
 
+/**
+ * Vytvorí "personnel" záznam (contact_assignments) — prepojenie osoby s clinic/hospital
+ * tak, ako keby bola priradená cez UI v paneli Personnel.
+ * Idempotentné: ak rovnaké priradenie už existuje, neurobí nič.
+ */
+async function upsertPersonnel(
+  personId: string,
+  entityType: "clinic" | "hospital",
+  entityId: string,
+) {
+  const collab = collabMap.get(personId);
+  const isActive = collab?.isActive ?? true;
+  const position = collab?.workplaceName?.trim() || null; // pôvodný názov pracoviska ako pozícia
+
+  if (DRY_RUN) {
+    console.log(`  [DRY] PERSONNEL ${entityType}=${entityId} <- person=${personId}`);
+    return;
+  }
+
+  const existing = await db
+    .select({ id: contactAssignments.id })
+    .from(contactAssignments)
+    .where(
+      and(
+        eq(contactAssignments.personId, personId),
+        eq(contactAssignments.entityType, entityType),
+        eq(contactAssignments.entityId, entityId),
+      ),
+    )
+    .limit(1);
+
+  if (existing.length > 0) return; // už existuje
+
+  await db.insert(contactAssignments).values({
+    personId,
+    entityType,
+    entityId,
+    position,
+    isPrimary: true, // pracovisko = primárne
+    isActive,
+    notes: "Auto-created from workplace-sync",
+  });
+  console.log(`  -> personnel ${entityType}/${entityId} <- person ${personId}`);
+}
+
 async function linkCollaboratorToHospital(collabId: string, hospitalId: string) {
   if (DRY_RUN) {
     console.log(`  [DRY] LINK collab ${collabId} -> hospital ${hospitalId}`);
@@ -482,15 +528,19 @@ async function run() {
         const hid = await upsertHospital(addr);
         if (hid && hid !== "dry-run-id") {
           await linkCollaboratorToHospital(addr.collaboratorId, hid);
+          await upsertPersonnel(addr.collaboratorId, "hospital", hid);
         } else if (DRY_RUN) {
           stats.hospitalsLinked++;
+          await upsertPersonnel(addr.collaboratorId, "hospital", "dry-run-id");
         }
       } else {
         const cid = await upsertClinic(addr);
         if (cid && cid !== "dry-run-id") {
           await linkCollaboratorToClinic(addr.collaboratorId, cid);
+          await upsertPersonnel(addr.collaboratorId, "clinic", cid);
         } else if (DRY_RUN) {
           stats.clinicsLinked++;
+          await upsertPersonnel(addr.collaboratorId, "clinic", "dry-run-id");
         }
       }
     } catch (err) {
