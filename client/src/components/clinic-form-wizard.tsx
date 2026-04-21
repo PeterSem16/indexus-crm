@@ -3104,14 +3104,16 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
           formData={formData}
         />
       )}
-      <ClinicFormSheet
-        open={!!nestedClinicForm}
-        onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}
-        initialData={null}
-        onSuccess={() => {}}
-        prefillData={nestedClinicForm ? { doctorLastName: nestedClinicForm.prefillName, name: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" } : undefined}
-        onCreated={async (created) => { await handleNestedClinicCreated(created); setNestedClinicForm(null); }}
-      />
+      {nestedClinicForm && (
+        <ClinicFormSheet
+          open={true}
+          onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}
+          initialData={null}
+          onSuccess={() => {}}
+          prefillData={{ doctorLastName: nestedClinicForm.prefillName, name: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" }}
+          onCreated={async (created) => { await handleNestedClinicCreated(created); setNestedClinicForm(null); }}
+        />
+      )}
     </>
   );
 }

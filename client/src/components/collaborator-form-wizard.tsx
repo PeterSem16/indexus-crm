@@ -5662,23 +5662,23 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
         </div>
       </div>
 
-      <Sheet open={!!nestedPersonForm} onOpenChange={(open) => { if (!open) setNestedPersonForm(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
-          <SheetHeader className="px-6 py-4 border-b">
-            <SheetTitle>{(t.clinics as any).addNewDoctor || "Add new"}</SheetTitle>
-          </SheetHeader>
-          <div className="h-[calc(100vh-65px)] overflow-hidden">
-            {nestedPersonForm && (
+      {nestedPersonForm && (
+        <Sheet open={true} onOpenChange={(open) => { if (!open) setNestedPersonForm(null); }}>
+          <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+            <SheetHeader className="px-6 py-4 border-b">
+              <SheetTitle>{(t.clinics as any).addNewDoctor || "Add new"}</SheetTitle>
+            </SheetHeader>
+            <div className="h-[calc(100vh-65px)] overflow-hidden">
               <CollaboratorFormWizard
                 prefillData={{ lastName: nestedPersonForm.lastName, countryCode: formData.countryCode || "SK" }}
                 onSuccess={() => setNestedPersonForm(null)}
                 onCancel={() => setNestedPersonForm(null)}
                 onCreated={async (created) => { await handleNestedPersonCreated(created as any); }}
               />
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }
