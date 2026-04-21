@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -5760,7 +5761,7 @@ export default function AgentWorkspacePage() {
     },
   });
 
-  const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null, callbackNote?: string) => {
+  const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null, callbackNote?: string, notesOverride?: string) => {
     const disp = campaignDispositions.find(d => d.code === value)
       || campaignDispositions.find(d => d.code === parentCode);
 
@@ -5793,7 +5794,7 @@ export default function AgentWorkspacePage() {
         contactId: currentCampaignContactId,
         campaignId: selectedCampaignId,
         disposition: value,
-        notes: callNotes,
+        notes: notesOverride !== undefined ? notesOverride : callNotes,
         callbackDateTime,
         parentCode,
         callbackAssignedTo,
@@ -7602,42 +7603,89 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); } }}>
-        <DialogContent className={`max-w-4xl max-h-[85vh] flex flex-col ${mandatoryDisposition ? "[&>button]:hidden" : ""}`} onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined} onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              {modalSelectedParent ? "Podkategória" : dispositionChannelFilter === "phone" ? "Výsledok hovoru" : dispositionChannelFilter === "email" ? "Výsledok emailu" : dispositionChannelFilter === "sms" ? "Výsledok SMS" : mandatoryDisposition ? "Povinný výsledok hovoru" : "Výsledok kontaktu"}
-              {currentContact && (
-                <Badge variant="secondary" className="ml-2">{currentContact.firstName} {currentContact.lastName}</Badge>
+      <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); } }}>
+        <SheetContent
+          side="right"
+          className={`w-full sm:max-w-[720px] p-0 flex flex-col gap-0 ${mandatoryDisposition ? "[&>button]:hidden" : ""}`}
+          onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined}
+          onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}
+        >
+          {/* Sticky header */}
+          <SheetHeader className="px-6 py-4 border-b bg-muted/30 space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1 min-w-0">
+                <SheetTitle className="flex items-center gap-2 text-base">
+                  <Target className="h-5 w-5 text-primary shrink-0" />
+                  {modalSelectedParent
+                    ? "Podkategória výsledku"
+                    : dispositionChannelFilter === "phone" ? "Výsledok hovoru"
+                    : dispositionChannelFilter === "email" ? "Výsledok emailu"
+                    : dispositionChannelFilter === "sms" ? "Výsledok SMS"
+                    : mandatoryDisposition ? "Povinný výsledok hovoru"
+                    : "Výsledok kontaktu"}
+                </SheetTitle>
+                {currentContact && (
+                  <SheetDescription className="flex items-center gap-1.5 text-xs">
+                    <User className="h-3 w-3" />
+                    <span className="font-medium text-foreground truncate">{currentContact.firstName} {currentContact.lastName}</span>
+                    {currentContact.phone && <span className="text-muted-foreground">· {currentContact.phone}</span>}
+                  </SheetDescription>
+                )}
+                {mandatoryDisposition && (
+                  <p className="text-xs text-destructive">Vyberte výsledok pred pokračovaním</p>
+                )}
+              </div>
+              {!modalSelectedParent && campaignDispositions.length > 0 && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <Label htmlFor="multi-toggle" className="text-xs cursor-pointer text-muted-foreground">Multi-výber</Label>
+                  <Checkbox
+                    id="multi-toggle"
+                    checked={multiSelectMode}
+                    onCheckedChange={(v) => { setMultiSelectMode(!!v); setMultiSelectedCodes([]); }}
+                    data-testid="checkbox-multi-select-mode"
+                  />
+                </div>
               )}
-            </DialogTitle>
-            {mandatoryDisposition && (
-              <p className="text-xs text-destructive mt-1">Vyberte výsledok hovoru pred pokračovaním</p>
-            )}
-          </DialogHeader>
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            <div className="py-4 space-y-3">
+            </div>
+          </SheetHeader>
+
+          {/* Body */}
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="px-6 py-4 space-y-4">
               {campaignDispositions.length === 0 ? (
-                <div className="text-center py-12">
-                  <Target className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
-                  <p className="text-sm text-muted-foreground">Žiadne výsledky kontaktu definované</p>
+                <div className="text-center py-16">
+                  <Target className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
+                  <p className="text-sm font-medium">Žiadne výsledky pre túto kampaň</p>
+                  <p className="text-xs text-muted-foreground mt-1">Priraďte statusy v Nexus Pulse v detaile kampane.</p>
                 </div>
               ) : modalSelectedParent ? (() => {
+                /* ---- Detail parent (children + callback form) ---- */
                 const parent = campaignDispositions.find(d => d.id === modalSelectedParent);
                 const children = campaignDispositions.filter(d => d.parentId === modalSelectedParent && d.isActive);
                 const cbAssignTo = modalCallbackAssign === "me" && user?.id ? user.id : null;
+                const needsCallback = parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms"
+                  || children.some(c => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms");
 
                 return (
-                  <div className="space-y-3">
-                    <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackNote(""); }} data-testid="btn-modal-disposition-back">
-                      <ChevronLeft className="h-3 w-3" />
-                      Späť
+                  <div className="space-y-4">
+                    <Button variant="ghost" size="sm" className="gap-1 text-xs -ml-2" onClick={() => { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackNote(""); }} data-testid="btn-modal-disposition-back">
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                      Späť na zoznam
                     </Button>
-                    {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms"
-                      || children.some(c => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms")
-                    ) && (
-                      <>
+
+                    {parent && (() => {
+                      const ParentIcon = DISPOSITION_ICON_MAP[parent.icon || ""] || CircleDot;
+                      return (
+                        <div className="rounded-md border bg-muted/30 px-3 py-2 flex items-center gap-2">
+                          <ParentIcon className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">{getDispName(parent)}</span>
+                        </div>
+                      );
+                    })()}
+
+                    {needsCallback && (
+                      <div className="space-y-3 rounded-md border p-3 bg-card">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Naplánovanie callbacku</div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-xs text-muted-foreground">Dátum</label>
@@ -7648,7 +7696,7 @@ export default function AgentWorkspacePage() {
                             <Input type="time" value={modalCallbackTime} onChange={(e) => setModalCallbackTime(e.target.value)} data-testid="input-modal-callback-time" />
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {[
                             { label: "Zajtra", days: 1 },
                             { label: "2 prac. dni", days: 2 },
@@ -7663,12 +7711,7 @@ export default function AgentWorkspacePage() {
                             { label: "9 mesiacov", days: 270 },
                             { label: "1 rok", days: 365 },
                           ].map((preset) => (
-                            <Button
-                              key={preset.days}
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="text-[11px] h-6 px-2"
+                            <Button key={preset.days} type="button" size="sm" variant="outline" className="text-[11px] h-6 px-2"
                               onClick={() => {
                                 const d = preset.days <= 5
                                   ? addBusinessDays(new Date(), preset.days)
@@ -7685,52 +7728,55 @@ export default function AgentWorkspacePage() {
                           <label className="text-xs text-muted-foreground">Priradiť komu</label>
                           <div className="flex gap-2 mt-1">
                             <Button size="sm" variant={modalCallbackAssign === "me" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setModalCallbackAssign("me")} disabled={!user?.id} data-testid="btn-modal-cb-assign-me">
-                              <User className="h-3 w-3" />
-                              Mne
+                              <User className="h-3 w-3" /> Mne
                             </Button>
                             <Button size="sm" variant={modalCallbackAssign === "all" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setModalCallbackAssign("all")} data-testid="btn-modal-cb-assign-all">
-                              <Users className="h-3 w-3" />
-                              Všetkým
+                              <Users className="h-3 w-3" /> Všetkým
                             </Button>
                           </div>
                         </div>
                         <div>
                           <label className="text-xs text-muted-foreground">Poznámka ku callbacku</label>
-                          <textarea
+                          <Textarea
                             value={modalCallbackNote}
                             onChange={(e) => setModalCallbackNote(e.target.value)}
                             placeholder="Napr. zavolať po 16:00, preferuje email..."
-                            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px] max-h-[100px] resize-y"
+                            className="mt-1 min-h-[60px] max-h-[120px] text-sm"
                             data-testid="input-modal-callback-note"
                           />
                         </div>
-                      </>
-                    )}
-                    {children.length > 0 && (
-                      <div className="grid grid-cols-2 gap-2">
-                        {children.map((child) => {
-                          const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
-                          const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
-                          const isScheduleType = parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms"
-                            || child.actionType === "callback" || child.actionType === "schedule_email" || child.actionType === "schedule_sms";
-                          return (
-                            <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 ${colorClass}`} onClick={() => {
-                              if (child.callbackOffsetDays) {
-                                const cbDate = addBusinessDays(new Date(), child.callbackOffsetDays);
-                                cbDate.setHours(9, 0, 0, 0);
-                                handleDisposition(child.code, parent?.code, cbDate.toISOString(), cbAssignTo, modalCallbackNote || undefined);
-                              } else {
-                                handleDisposition(child.code, parent?.code, isScheduleType && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, isScheduleType ? cbAssignTo : undefined, isScheduleType ? modalCallbackNote || undefined : undefined);
-                              }
-                            }} data-testid={`modal-disposition-${child.code}`}>
-                              <IconComp className="h-4 w-4" />
-                              <span className="text-sm font-medium">{getDispName(child)}</span>
-                              {child.callbackOffsetDays && <span className="text-[10px] text-muted-foreground ml-auto">{child.callbackOffsetDays}d</span>}
-                            </Button>
-                          );
-                        })}
                       </div>
                     )}
+
+                    {children.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vyberte konkrétny dôvod</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {children.map((child) => {
+                            const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
+                            const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                            const isScheduleType = parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms"
+                              || child.actionType === "callback" || child.actionType === "schedule_email" || child.actionType === "schedule_sms";
+                            return (
+                              <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 h-auto ${colorClass}`} onClick={() => {
+                                if (child.callbackOffsetDays) {
+                                  const cbDate = addBusinessDays(new Date(), child.callbackOffsetDays);
+                                  cbDate.setHours(9, 0, 0, 0);
+                                  handleDisposition(child.code, parent?.code, cbDate.toISOString(), cbAssignTo, modalCallbackNote || undefined);
+                                } else {
+                                  handleDisposition(child.code, parent?.code, isScheduleType && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, isScheduleType ? cbAssignTo : undefined, isScheduleType ? modalCallbackNote || undefined : undefined);
+                                }
+                              }} data-testid={`modal-disposition-${child.code}`}>
+                                <IconComp className="h-4 w-4 shrink-0" />
+                                <span className="text-sm font-medium text-left flex-1">{getDispName(child)}</span>
+                                {child.callbackOffsetDays && <span className="text-[10px] text-muted-foreground ml-auto">{child.callbackOffsetDays}d</span>}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms") && (
                       <Button className="w-full" disabled={!modalCallbackDate} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo, modalCallbackNote || undefined); }} data-testid="btn-modal-disposition-confirm-callback">
                         <CalendarPlus className="h-4 w-4 mr-1" />
@@ -7739,49 +7785,195 @@ export default function AgentWorkspacePage() {
                     )}
                   </div>
                 );
-              })() : (
-                <div className="grid grid-cols-2 gap-2">
-                  {campaignDispositions.filter(d => {
-                    if (d.parentId || !d.isActive) return false;
-                    if (!dispositionChannelFilter) return true;
-                    if (dispositionChannelFilter === "sms") {
-                      return d.actionType === "send_sms" || d.actionType === "schedule_sms";
-                    }
-                    if (dispositionChannelFilter === "email") {
-                      return d.actionType === "send_email" || d.actionType === "schedule_email";
-                    }
-                    return d.channel === dispositionChannelFilter;
-                  }).map((disp) => {
-                    const IconComp = DISPOSITION_ICON_MAP[disp.icon || ""] || CircleDot;
-                    const colorClass = DISPOSITION_COLOR_MAP[disp.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
-                    const children = campaignDispositions.filter(d => d.parentId === disp.id && d.isActive);
-                    const hasChildren = children.length > 0;
-                    const isCallback = disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms";
-                    return (
-                      <Button key={disp.id} variant="outline" className={`gap-2 justify-start py-4 ${colorClass}`} onClick={() => {
-                        if (hasChildren || isCallback) {
-                          setModalSelectedParent(disp.id);
-                          if (isCallback) {
-                            const tomorrow = new Date();
-                            tomorrow.setDate(tomorrow.getDate() + 1);
-                            setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+              })() : (() => {
+                /* ---- Hlavný zoznam: kategórie + grid ---- */
+                const channelFiltered = campaignDispositions.filter((d: any) => {
+                  if (d.parentId || !d.isActive) return false;
+                  if (!dispositionChannelFilter) return true;
+                  if (dispositionChannelFilter === "sms") return d.actionType === "send_sms" || d.actionType === "schedule_sms";
+                  if (dispositionChannelFilter === "email") return d.actionType === "send_email" || d.actionType === "schedule_email";
+                  return d.channel === dispositionChannelFilter;
+                });
+
+                const categoryCounts = new Map<string, number>();
+                channelFiltered.forEach((d: any) => {
+                  const k = d.categoryId || "__uncat__";
+                  categoryCounts.set(k, (categoryCounts.get(k) || 0) + 1);
+                });
+
+                const visible = channelFiltered.filter((d: any) => {
+                  if (activeDispCategory === "__all__") return true;
+                  return (d.categoryId || "__uncat__") === activeDispCategory;
+                });
+
+                return (
+                  <div className="space-y-3">
+                    {dispositionCategories.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 -mx-1 px-1 pb-1 border-b">
+                        <Button
+                          size="sm"
+                          variant={activeDispCategory === "__all__" ? "default" : "ghost"}
+                          className="h-7 text-xs gap-1.5"
+                          onClick={() => setActiveDispCategory("__all__")}
+                          data-testid="tab-disp-cat-all"
+                        >
+                          Všetky
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{channelFiltered.length}</Badge>
+                        </Button>
+                        {dispositionCategories.map((cat: any) => {
+                          const cnt = categoryCounts.get(cat.id) || 0;
+                          if (cnt === 0) return null;
+                          return (
+                            <Button
+                              key={cat.id}
+                              size="sm"
+                              variant={activeDispCategory === cat.id ? "default" : "ghost"}
+                              className="h-7 text-xs gap-1.5"
+                              onClick={() => setActiveDispCategory(cat.id)}
+                              data-testid={`tab-disp-cat-${cat.id}`}
+                              style={cat.color && activeDispCategory === cat.id ? { backgroundColor: cat.color, color: "white" } : undefined}
+                            >
+                              {cat.name}
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{cnt}</Badge>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {multiSelectMode && (
+                      <div className="rounded-md border border-dashed p-2 text-xs text-muted-foreground bg-muted/20">
+                        Zaškrtnite viac výsledkov. Prvý výber bude hlavná dispozícia, ostatné sa pripoja do poznámky.
+                      </div>
+                    )}
+
+                    {visible.length === 0 ? (
+                      <div className="text-center py-12 text-sm text-muted-foreground">Žiadne výsledky v tejto kategórii.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {visible.map((disp: any) => {
+                          const IconComp = DISPOSITION_ICON_MAP[disp.icon || ""] || CircleDot;
+                          const colorClass = DISPOSITION_COLOR_MAP[disp.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                          const children = campaignDispositions.filter((d: any) => d.parentId === disp.id && d.isActive);
+                          const hasChildren = children.length > 0;
+                          const isCallback = disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms";
+                          const needsConfig = hasChildren || isCallback;
+                          const isChecked = multiSelectedCodes.includes(disp.code);
+
+                          if (multiSelectMode) {
+                            // Multi-select hides items needing extra config (callbacks/sub-categories)
+                            if (needsConfig) return null;
+                            return (
+                              <button
+                                type="button"
+                                key={disp.id}
+                                onClick={() => {
+                                  setMultiSelectedCodes((prev) =>
+                                    prev.includes(disp.code) ? prev.filter((c) => c !== disp.code) : [...prev, disp.code]
+                                  );
+                                }}
+                                className={`flex items-center gap-2 rounded-md border px-3 py-3 text-left transition hover-elevate ${colorClass} ${isChecked ? "ring-2 ring-primary" : ""}`}
+                                data-testid={`multi-disp-${disp.code}`}
+                              >
+                                <Checkbox checked={isChecked} className="pointer-events-none" />
+                                <IconComp className="h-4 w-4 shrink-0" />
+                                <span className="text-sm font-medium flex-1 truncate">{getDispName(disp)}</span>
+                                {isChecked && (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    #{multiSelectedCodes.indexOf(disp.code) + 1}
+                                  </Badge>
+                                )}
+                              </button>
+                            );
                           }
-                        } else {
-                          handleDisposition(disp.code);
-                        }
-                      }} data-testid={`modal-disposition-${disp.code}`}>
-                        <IconComp className="h-5 w-5" />
-                        <span className="text-sm font-medium flex-1 text-left">{getDispName(disp)}</span>
-                        {(hasChildren || isCallback) && <ChevronRight className="h-4 w-4 opacity-50" />}
-                      </Button>
-                    );
-                  })}
+
+                          return (
+                            <Button
+                              key={disp.id}
+                              variant="outline"
+                              className={`gap-2 justify-start py-3 h-auto ${colorClass}`}
+                              onClick={() => {
+                                if (needsConfig) {
+                                  setModalSelectedParent(disp.id);
+                                  if (isCallback) {
+                                    const tomorrow = new Date();
+                                    tomorrow.setDate(tomorrow.getDate() + 1);
+                                    setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+                                  }
+                                } else {
+                                  handleDisposition(disp.code);
+                                }
+                              }}
+                              data-testid={`modal-disposition-${disp.code}`}
+                            >
+                              <IconComp className="h-5 w-5 shrink-0" />
+                              <span className="text-sm font-medium flex-1 text-left truncate">{getDispName(disp)}</span>
+                              {needsConfig && <ChevronRight className="h-4 w-4 opacity-50 shrink-0" />}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                  </div>
+                );
+              })()}
+
+              {/* Notes always visible (both main list and parent-detail) */}
+              {campaignDispositions.length > 0 && (
+                <div className="pt-2 border-t">
+                  <Label htmlFor="disp-notes" className="text-xs text-muted-foreground">Poznámka k hovoru (voliteľné)</Label>
+                  <Textarea
+                    id="disp-notes"
+                    value={callNotes}
+                    onChange={(e) => setCallNotes(e.target.value)}
+                    placeholder="Doplňte krátku poznámku..."
+                    className="mt-1 min-h-[60px] max-h-[120px] text-sm"
+                    data-testid="input-disp-notes"
+                  />
                 </div>
               )}
             </div>
           </ScrollArea>
-        </DialogContent>
-      </Dialog>
+
+          {/* Sticky footer for multi-select */}
+          {multiSelectMode && !modalSelectedParent && campaignDispositions.length > 0 && (
+            <div className="border-t bg-background px-6 py-3 flex items-center gap-2">
+              <div className="text-xs text-muted-foreground flex-1">
+                {multiSelectedCodes.length === 0
+                  ? "Žiadny výber"
+                  : `Vybraté: ${multiSelectedCodes.length} (prvý = hlavný)`}
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setMultiSelectedCodes([])} disabled={multiSelectedCodes.length === 0} data-testid="btn-multi-clear">
+                Vymazať výber
+              </Button>
+              <Button
+                size="sm"
+                disabled={multiSelectedCodes.length === 0}
+                onClick={() => {
+                  if (multiSelectedCodes.length === 0) return;
+                  const [primary, ...rest] = multiSelectedCodes;
+                  let finalNotes = callNotes;
+                  if (rest.length > 0) {
+                    const labels = rest.map((c) => {
+                      const d = campaignDispositions.find((x: any) => x.code === c);
+                      return d ? getDispName(d) : c;
+                    });
+                    const tag = `+ Ďalšie výsledky: ${labels.join(", ")}`;
+                    finalNotes = callNotes ? `${callNotes}\n${tag}` : tag;
+                    setCallNotes(finalNotes);
+                  }
+                  handleDisposition(primary, undefined, undefined, undefined, undefined, finalNotes);
+                }}
+                data-testid="btn-multi-confirm"
+              >
+                <Target className="h-4 w-4 mr-1" />
+                Potvrdiť ({multiSelectedCodes.length})
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
 
