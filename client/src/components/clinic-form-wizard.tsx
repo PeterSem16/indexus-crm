@@ -388,7 +388,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
   );
 }
 
-export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mode = "sheet" }: ClinicFormSheetProps) {
+export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mode = "sheet", prefillData, onCreated }: ClinicFormSheetProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -494,8 +494,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const [referralSearch, setReferralSearch] = useState("");
   const [suggestsSearch, setSuggestsSearch] = useState("");
   const [confReferralSearch, setConfReferralSearch] = useState("");
-  const [showNewDoctorForm, setShowNewDoctorForm] = useState<"recommendedBy" | "suggests" | null>(null);
-  const [newDoctorData, setNewDoctorData] = useState({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" });
+  const [nestedClinicForm, setNestedClinicForm] = useState<{ direction: "recommendedBy" | "suggests"; prefillName: string } | null>(null);
   const userEditedReferralsRef = useRef(false);
 
   useEffect(() => {
@@ -506,8 +505,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
       setReferralSearch("");
       setSuggestsSearch("");
       setConfReferralSearch("");
-      setShowNewDoctorForm(null);
-      setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" });
+      setNestedClinicForm(null);
       setShowMapDialog(false);
       setIsLoadingLocation(false);
       setPipelineMenuOpen(false);
@@ -582,42 +580,19 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     setReferrals(referrals.filter((r) => r.clinicId !== clinicId));
   };
 
-  const createNewDoctorAndAdd = async (direction: "recommendedBy" | "suggests") => {
-    const { title, firstName, lastName, clinicName, city, countryCode } = newDoctorData;
-    if (!lastName || !clinicName) {
-      toast({ title: "Please fill in at least last name and clinic name", variant: "destructive" });
-      return;
+  const handleNestedClinicCreated = async (newClinic: any) => {
+    if (!newClinic?.id || !nestedClinicForm) return;
+    userEditedReferralsRef.current = true;
+    const displayName = getDoctorFullName(newClinic) || newClinic.name || "";
+    if (nestedClinicForm.direction === "recommendedBy") {
+      setReferrals(prev => [...prev, { clinicId: String(newClinic.id), clinicName: displayName, referralType: "doctor_referral" }]);
+      setReferralSearch("");
+    } else {
+      setSuggestsReferrals(prev => [...prev, { clinicId: String(newClinic.id), clinicName: displayName }]);
+      setSuggestsSearch("");
     }
-    try {
-      const doctorName = [title, firstName, lastName].filter(Boolean).join(" ");
-      const res = await apiRequest("POST", "/api/clinics", {
-        name: clinicName,
-        doctorTitle: title || null,
-        doctorFirstName: firstName || null,
-        doctorLastName: lastName || null,
-        doctorName: doctorName || null,
-        city: city || null,
-        countryCode: countryCode || formData.countryCode || "SK",
-        leadSource: "new_contact",
-      });
-      const newClinic = await res.json();
-      if (newClinic?.id) {
-        userEditedReferralsRef.current = true;
-        const displayName = doctorName || clinicName;
-        if (direction === "recommendedBy") {
-          setReferrals([...referrals, { clinicId: String(newClinic.id), clinicName: displayName, referralType: "doctor_referral" }]);
-        } else {
-          setSuggestsReferrals([...suggestsReferrals, { clinicId: String(newClinic.id), clinicName: displayName }]);
-        }
-        queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/clinics/lookup"] });
-        setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" });
-        setShowNewDoctorForm(null);
-        toast({ title: t.success.saved });
-      }
-    } catch (e: any) {
-      toast({ title: "Error creating doctor", description: e.message, variant: "destructive" });
-    }
+    queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/clinics/lookup"] });
   };
 
   const doctorReferrals = referrals.filter(r => r.referralType === "doctor_referral");
@@ -1627,27 +1602,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         {referralSearch && filteredClinics.length === 0 && (
                           <div className="mt-2">
                             <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
-                            {showNewDoctorForm !== "recommendedBy" ? (
-                              <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("recommendedBy"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-recommended">
-                                <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
-                              </Button>
-                            ) : (
-                              <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
-                                <div className="grid gap-2 grid-cols-3">
-                                  <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" />
-                                  <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" />
-                                  <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" />
-                                </div>
-                                <div className="grid gap-2 grid-cols-2">
-                                  <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *"} className="h-8 text-xs" />
-                                  <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" />
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("recommendedBy")}><Plus className="h-3 w-3" /> {t.common.save || "Save"}</Button>
-                                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)}>{t.common.cancel || "Cancel"}</Button>
-                                </div>
-                              </div>
-                            )}
+                            <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => setNestedClinicForm({ direction: "recommendedBy", prefillName: referralSearch })} data-testid="button-add-new-doctor-recommended">
+                              <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -1688,27 +1645,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         {suggestsSearch && filteredClinicsSuggests.length === 0 && (
                           <div className="mt-2">
                             <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
-                            {showNewDoctorForm !== "suggests" ? (
-                              <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("suggests"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-suggests">
-                                <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
-                              </Button>
-                            ) : (
-                              <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
-                                <div className="grid gap-2 grid-cols-3">
-                                  <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" />
-                                  <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" />
-                                  <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" />
-                                </div>
-                                <div className="grid gap-2 grid-cols-2">
-                                  <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *"} className="h-8 text-xs" />
-                                  <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" />
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("suggests")}><Plus className="h-3 w-3" /> {t.common.save || "Save"}</Button>
-                                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)}>{t.common.cancel || "Cancel"}</Button>
-                                </div>
-                              </div>
-                            )}
+                            <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => setNestedClinicForm({ direction: "suggests", prefillName: suggestsSearch })} data-testid="button-add-new-doctor-suggests">
+                              <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -2394,31 +2333,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                               {referralSearch && filteredClinics.length === 0 && (
                                 <div className="mt-2">
                                   <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
-                                  {showNewDoctorForm !== "recommendedBy" ? (
-                                    <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("recommendedBy"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-recommended">
-                                      <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
-                                    </Button>
-                                  ) : (
-                                    <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
-                                      <div className="grid gap-2 grid-cols-3">
-                                        <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" data-testid="input-new-doctor-title" />
-                                        <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" data-testid="input-new-doctor-firstname" />
-                                        <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" data-testid="input-new-doctor-lastname" />
-                                      </div>
-                                      <div className="grid gap-2 grid-cols-2">
-                                        <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *" || "Clinic name *"} className="h-8 text-xs" data-testid="input-new-doctor-clinic" />
-                                        <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" data-testid="input-new-doctor-city" />
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("recommendedBy")} data-testid="button-save-new-doctor-recommended">
-                                          <Plus className="h-3 w-3" /> {t.common.save || "Save"}
-                                        </Button>
-                                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)} data-testid="button-cancel-new-doctor">
-                                          {t.common.cancel || "Cancel"}
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  )}
+                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => setNestedClinicForm({ direction: "recommendedBy", prefillName: referralSearch })} data-testid="button-add-new-doctor-recommended">
+                                    <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                                  </Button>
                                 </div>
                               )}
                             </div>
@@ -2459,31 +2376,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                               {suggestsSearch && filteredClinicsSuggests.length === 0 && (
                                 <div className="mt-2">
                                   <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
-                                  {showNewDoctorForm !== "suggests" ? (
-                                    <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("suggests"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-suggests">
-                                      <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
-                                    </Button>
-                                  ) : (
-                                    <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
-                                      <div className="grid gap-2 grid-cols-3">
-                                        <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" data-testid="input-new-doctor-title-s" />
-                                        <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" data-testid="input-new-doctor-firstname-s" />
-                                        <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" data-testid="input-new-doctor-lastname-s" />
-                                      </div>
-                                      <div className="grid gap-2 grid-cols-2">
-                                        <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *" || "Clinic name *"} className="h-8 text-xs" data-testid="input-new-doctor-clinic-s" />
-                                        <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" data-testid="input-new-doctor-city-s" />
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("suggests")} data-testid="button-save-new-doctor-suggests">
-                                          <Plus className="h-3 w-3" /> {t.common.save || "Save"}
-                                        </Button>
-                                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)} data-testid="button-cancel-new-doctor-s">
-                                          {t.common.cancel || "Cancel"}
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  )}
+                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => setNestedClinicForm({ direction: "suggests", prefillName: suggestsSearch })} data-testid="button-add-new-doctor-suggests">
+                                    <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                                  </Button>
                                 </div>
                               )}
                             </div>
@@ -2958,31 +2853,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             {referralSearch && filteredClinics.length === 0 && (
                               <div className="mt-2">
                                 <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
-                                {showNewDoctorForm !== "recommendedBy" ? (
-                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("recommendedBy"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-recommended-add">
-                                    <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
-                                  </Button>
-                                ) : (
-                                  <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
-                                    <div className="grid gap-2 grid-cols-3">
-                                      <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" data-testid="input-new-doctor-title-add" />
-                                      <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" data-testid="input-new-doctor-firstname-add" />
-                                      <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" data-testid="input-new-doctor-lastname-add" />
-                                    </div>
-                                    <div className="grid gap-2 grid-cols-2">
-                                      <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *" || "Clinic name *"} className="h-8 text-xs" data-testid="input-new-doctor-clinic-add" />
-                                      <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" data-testid="input-new-doctor-city-add" />
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("recommendedBy")} data-testid="button-save-new-doctor-recommended-add">
-                                        <Plus className="h-3 w-3" /> {t.common.save || "Save"}
-                                      </Button>
-                                      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)} data-testid="button-cancel-new-doctor-add">
-                                        {t.common.cancel || "Cancel"}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
+                                <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => setNestedClinicForm({ direction: "recommendedBy", prefillName: referralSearch })} data-testid="button-add-new-doctor-recommended-add">
+                                  <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -3022,31 +2895,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             {suggestsSearch && filteredClinicsSuggests.length === 0 && (
                               <div className="mt-2">
                                 <p className="text-xs text-muted-foreground mb-2">{(t.clinics as any).doctorNotInDatabase || "Doctor not found in database? Add new:"}</p>
-                                {showNewDoctorForm !== "suggests" ? (
-                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewDoctorForm("suggests"); setNewDoctorData({ title: "", firstName: "", lastName: "", clinicName: "", city: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-doctor-suggests-add">
-                                    <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
-                                  </Button>
-                                ) : (
-                                  <div className="border rounded-lg p-3 bg-white dark:bg-background space-y-2">
-                                    <div className="grid gap-2 grid-cols-3">
-                                      <Input value={newDoctorData.title} onChange={(e) => setNewDoctorData({ ...newDoctorData, title: e.target.value })} placeholder="MUDr." className="h-8 text-xs" data-testid="input-new-doctor-title-s-add" />
-                                      <Input value={newDoctorData.firstName} onChange={(e) => setNewDoctorData({ ...newDoctorData, firstName: e.target.value })} placeholder={t.clinics.doctorFirstName || "First name"} className="h-8 text-xs" data-testid="input-new-doctor-firstname-s-add" />
-                                      <Input value={newDoctorData.lastName} onChange={(e) => setNewDoctorData({ ...newDoctorData, lastName: e.target.value })} placeholder={t.clinics.doctorLastName || "Last name *"} className="h-8 text-xs" data-testid="input-new-doctor-lastname-s-add" />
-                                    </div>
-                                    <div className="grid gap-2 grid-cols-2">
-                                      <Input value={newDoctorData.clinicName} onChange={(e) => setNewDoctorData({ ...newDoctorData, clinicName: e.target.value })} placeholder={t.clinics.name + " *" || "Clinic name *"} className="h-8 text-xs" data-testid="input-new-doctor-clinic-s-add" />
-                                      <Input value={newDoctorData.city} onChange={(e) => setNewDoctorData({ ...newDoctorData, city: e.target.value })} placeholder={t.clinics.city || "City"} className="h-8 text-xs" data-testid="input-new-doctor-city-s-add" />
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewDoctorAndAdd("suggests")} data-testid="button-save-new-doctor-suggests-add">
-                                        <Plus className="h-3 w-3" /> {t.common.save || "Save"}
-                                      </Button>
-                                      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewDoctorForm(null)} data-testid="button-cancel-new-doctor-s-add">
-                                        {t.common.cancel || "Cancel"}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
+                                <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => setNestedClinicForm({ direction: "suggests", prefillName: suggestsSearch })} data-testid="button-add-new-doctor-suggests-add">
+                                  <UserPlus className="h-3.5 w-3.5" /> {(t.clinics as any).addNewDoctor || "Add new doctor"}
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -3253,6 +3104,14 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
           formData={formData}
         />
       )}
+      <ClinicFormSheet
+        open={!!nestedClinicForm}
+        onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}
+        initialData={null}
+        onSuccess={() => {}}
+        prefillData={nestedClinicForm ? { doctorLastName: nestedClinicForm.prefillName, name: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" } : undefined}
+        onCreated={async (created) => { await handleNestedClinicCreated(created); setNestedClinicForm(null); }}
+      />
     </>
   );
 }

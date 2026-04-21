@@ -4767,11 +4767,9 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                             {referralSearch.length >= 2 && filteredPersonsRecommended.length === 0 && (
                               <div className="space-y-2">
                                 <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
-                                {showNewPersonForm !== "recommendedBy" ? (
-                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewPersonForm("recommendedBy"); setNewPersonData({ titleBefore: "", firstName: "", lastName: referralSearch, titleAfter: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-person-recommended">
-                                    <Plus className="h-3 w-3" /> {txtAddNew}
-                                  </Button>
-                                ) : renderNewPersonForm("recommendedBy")}
+                                <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => openNestedForm("recommendedBy", referralSearch)} data-testid="button-add-new-person-recommended">
+                                  <Plus className="h-3 w-3" /> {txtAddNew}
+                                </Button>
                               </div>
                             )}
                             {doctorReferrals.length === 0 && referralSearch.length < 2 && (
@@ -4826,11 +4824,9 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                             {suggestsSearch.length >= 2 && filteredPersonsSuggests.length === 0 && (
                               <div className="space-y-2">
                                 <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
-                                {showNewPersonForm !== "suggests" ? (
-                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewPersonForm("suggests"); setNewPersonData({ titleBefore: "", firstName: "", lastName: suggestsSearch, titleAfter: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-person-suggests">
-                                    <Plus className="h-3 w-3" /> {txtAddNew}
-                                  </Button>
-                                ) : renderNewPersonForm("suggests")}
+                                <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => openNestedForm("suggests", suggestsSearch)} data-testid="button-add-new-person-suggests">
+                                  <Plus className="h-3 w-3" /> {txtAddNew}
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -4931,11 +4927,9 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                           {confReferralSearch.length >= 2 && filteredPersonsConference.length === 0 && (
                             <div className="space-y-2">
                               <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
-                              {showNewPersonForm !== "conference" ? (
-                                <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => { setShowNewPersonForm("conference"); setNewPersonData({ titleBefore: "", firstName: "", lastName: confReferralSearch, titleAfter: "", countryCode: formData.countryCode || "SK" }); }} data-testid="button-add-new-person-conference">
-                                  <Plus className="h-3 w-3" /> {txtAddNew}
-                                </Button>
-                              ) : renderNewPersonForm("conference")}
+                              <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => openNestedForm("conference", confReferralSearch)} data-testid="button-add-new-person-conference">
+                                <Plus className="h-3 w-3" /> {txtAddNew}
+                              </Button>
                             </div>
                           )}
                           {conferenceReferrals.length === 0 && confReferralSearch.length < 2 && (
@@ -5667,6 +5661,24 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           </div>
         </div>
       </div>
+
+      <Sheet open={!!nestedPersonForm} onOpenChange={(open) => { if (!open) setNestedPersonForm(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+          <SheetHeader className="px-6 py-4 border-b">
+            <SheetTitle>{(t.clinics as any).addNewDoctor || "Add new"}</SheetTitle>
+          </SheetHeader>
+          <div className="h-[calc(100vh-65px)] overflow-hidden">
+            {nestedPersonForm && (
+              <CollaboratorFormWizard
+                prefillData={{ lastName: nestedPersonForm.lastName, countryCode: formData.countryCode || "SK" }}
+                onSuccess={() => setNestedPersonForm(null)}
+                onCancel={() => setNestedPersonForm(null)}
+                onCreated={async (created) => { await handleNestedPersonCreated(created as any); }}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
