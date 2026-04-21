@@ -1218,17 +1218,29 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                     </Badge>
                   </div>
                 )}
-                {assignmentText && (
+                {(assignmentText || p.assignment_id) && (
                   <div className="flex items-center gap-1.5 text-[11px]">
                     <span className="text-muted-foreground shrink-0 w-[80px]">{entityKindLabel}:</span>
-                    <Badge
-                      variant="secondary"
-                      className="text-[10px] px-1.5 py-0 gap-1 shrink-0 bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 font-normal"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!p.assignment_id) return;
+                        setEditingId(p.assignment_id);
+                        setEditData({
+                          categoryId: p.category_id || "",
+                          isPrimary: !!p.is_primary,
+                          notes: p.notes || "",
+                        });
+                      }}
+                      title={locale === "sk" || locale === "cs" ? "Kliknite pre úpravu zaradenia" : "Click to edit assignment"}
+                      disabled={!p.assignment_id}
+                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md shrink-0 bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:border-slate-400 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                       data-testid={`badge-assignment-${p.person_id}`}
                     >
                       <Building2 className="h-2.5 w-2.5 opacity-70" />
-                      {assignmentText}
-                    </Badge>
+                      {assignmentText || (locale === "sk" || locale === "cs" ? "Bez zaradenia" : "No role set")}
+                      {p.assignment_id && <Pencil className="h-2.5 w-2.5 opacity-50 ml-0.5" />}
+                    </button>
                   </div>
                 )}
                 {Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0 && (
