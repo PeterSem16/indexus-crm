@@ -1148,69 +1148,81 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
             : null;
 
           return (
-            <div key={p.assignment_id || `legacy-${idx}`} className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
+            <div key={p.assignment_id || `legacy-${idx}`} className="flex items-start gap-3 px-3 py-2 rounded-md border border-transparent hover:border-border hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
               <button
                 type="button"
-                className={`flex-shrink-0 w-6 h-6 rounded-full ${catStyle.bg} flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all`}
+                className={`flex-shrink-0 w-8 h-8 mt-0.5 rounded-full ${catStyle.bg} flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all`}
                 onClick={() => p.person_id && openCollaboratorDrawer(p.person_id)}
                 disabled={isLoadingCollaborator}
                 data-testid={`icon-open-collab-${p.person_id}`}
               >
-                <CatIcon className={`h-3 w-3 ${catStyle.color}`} />
+                <CatIcon className={`h-4 w-4 ${catStyle.color}`} />
               </button>
-              <div className="flex-1 min-w-0 flex items-center gap-2">
-                <button
-                  type="button"
-                  className="font-medium text-sm truncate cursor-pointer hover:text-primary hover:underline transition-colors text-left"
-                  onClick={() => p.person_id && openCollaboratorDrawer(p.person_id)}
-                  disabled={isLoadingCollaborator}
-                  data-testid={`link-open-collab-${p.person_id}`}
-                >{fullName}</button>
-                {catName && <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${catStyle.color} border-current/30`}>{catName}</Badge>}
-                {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
-                {p.is_active === false && <Badge variant="destructive" className="text-[9px] px-1.5 py-0 shrink-0">{t.common?.inactive || "Inactive"}</Badge>}
-                {p.is_active !== false && <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-100">{t.common?.active || "Active"}</Badge>}
-                {p.has_agreement && p.agreement_valid && !p.agreement_expired && (
-                  <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200 hover:bg-emerald-100">✓ Agreement</Badge>
-                )}
-                {p.has_agreement && p.agreement_expired && (
-                  <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900 dark:text-amber-200 hover:bg-amber-100">⚠ Expired</Badge>
-                )}
-                {p.has_agreement && !p.agreement_valid && !p.agreement_expired && (
-                  <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-red-100 text-red-800 border border-red-300 dark:bg-red-900 dark:text-red-200 hover:bg-red-100">✗ Invalid</Badge>
-                )}
-                {!p.has_agreement && (
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 text-muted-foreground">No Agreement</Badge>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    className="font-semibold text-sm cursor-pointer hover:text-primary hover:underline transition-colors text-left truncate"
+                    onClick={() => p.person_id && openCollaboratorDrawer(p.person_id)}
+                    disabled={isLoadingCollaborator}
+                    data-testid={`link-open-collab-${p.person_id}`}
+                  >{fullName}</button>
+                  {p.is_active === false ? (
+                    <Badge variant="destructive" className="text-[9px] px-1.5 py-0 shrink-0">{t.common?.inactive || "Inactive"}</Badge>
+                  ) : (
+                    <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-100">{t.common?.active || "Active"}</Badge>
+                  )}
+                  {p.has_agreement && p.agreement_valid && !p.agreement_expired && (
+                    <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200 hover:bg-emerald-100">✓ Agreement</Badge>
+                  )}
+                  {p.has_agreement && p.agreement_expired && (
+                    <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900 dark:text-amber-200 hover:bg-amber-100">⚠ Expired</Badge>
+                  )}
+                  {p.has_agreement && !p.agreement_valid && !p.agreement_expired && (
+                    <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-red-100 text-red-800 border border-red-300 dark:bg-red-900 dark:text-red-200 hover:bg-red-100">✗ Invalid</Badge>
+                  )}
+                  {!p.has_agreement && (
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 text-muted-foreground">No Agreement</Badge>
+                  )}
+                  {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
+                </div>
+                {(catName || (Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0) || details) && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {catName && (
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${catStyle.color} border-current/30`}>
+                        <CatIcon className="h-2.5 w-2.5" />
+                        {catName}
+                      </Badge>
+                    )}
+                    {Array.isArray(p.cbc_activities) && p.cbc_activities.map((code: string) => {
+                      const meta = CBC_ACTIVITY_META[code];
+                      if (!meta) return null;
+                      const Icon = meta.icon;
+                      const label = meta.labels[locale] || meta.labels.en;
+                      return (
+                        <Badge
+                          key={code}
+                          variant="outline"
+                          title={label}
+                          className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${meta.cls}`}
+                          data-testid={`badge-cbc-${code}-${p.person_id}`}
+                        >
+                          <Icon className="h-2.5 w-2.5" />
+                          {label}
+                        </Badge>
+                      );
+                    })}
+                    {details && (
+                      <span className="text-[10px] text-muted-foreground truncate">{details}</span>
+                    )}
+                  </div>
                 )}
               </div>
-              {details && <span className="text-[11px] text-muted-foreground truncate max-w-[200px] hidden sm:inline">{details}</span>}
-              {Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0 && (
-                <div className="hidden md:flex items-center gap-1 flex-wrap shrink-0">
-                  {p.cbc_activities.map((code: string) => {
-                    const meta = CBC_ACTIVITY_META[code];
-                    if (!meta) return null;
-                    const Icon = meta.icon;
-                    const label = meta.labels[locale] || meta.labels.en;
-                    return (
-                      <Badge
-                        key={code}
-                        variant="outline"
-                        title={label}
-                        className={`text-[9px] px-1.5 py-0 gap-1 shrink-0 ${meta.cls}`}
-                        data-testid={`badge-cbc-${code}-${p.person_id}`}
-                      >
-                        <Icon className="h-2.5 w-2.5" />
-                        <span className="hidden lg:inline">{label}</span>
-                      </Badge>
-                    );
-                  })}
-                </div>
-              )}
               <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 {p.assignment_id && (
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
                     onClick={() => removeMutation.mutate(p.assignment_id)} disabled={removeMutation.isPending} data-testid={`button-remove-person-drawer-${p.person_id}`}>
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 )}
               </div>
