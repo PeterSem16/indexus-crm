@@ -231,6 +231,7 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import type { MessageTemplate } from "@shared/schema";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { NexusPulseView } from "@/components/nexus-pulse-view";
 
 const ICON_PICKER_SET: { name: string; icon: LucideIcon }[] = [
   { name: "Phone", icon: Phone }, { name: "PhoneOff", icon: PhoneOff }, { name: "PhoneMissed", icon: PhoneMissed },
@@ -2231,75 +2232,17 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
               </div>
 
               {pulseStack.length === 0 ? (
-                <>
-                  <div className="space-y-2">
-                    {pulseVisibleCategories.map((cat: any) => {
-                      const catStatuses = pulseStatusesByCat[cat.id] || [];
-                      const isExpanded = pulseExpandedCats.has(cat.id);
-                      const catColors = PULSE_CATEGORY_COLORS[cat.color] || PULSE_CATEGORY_COLORS.gray;
-                      const CatIcon = getStatusIcon(cat.icon);
-                      return (
-                        <div key={cat.id} className={`rounded-xl border ${catColors.border} overflow-hidden transition-all`} data-testid={`pulse-cat-${cat.id}`}>
-                          <button
-                            className={`w-full flex items-center gap-3 p-3.5 text-left transition-colors ${catColors.bg} ${catColors.hoverBg}`}
-                            onClick={() => setPulseExpandedCats(prev => {
-                              const next = new Set(prev);
-                              if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id);
-                              return next;
-                            })}
-                            data-testid={`pulse-cat-toggle-${cat.id}`}
-                          >
-                            {CatIcon && <CatIcon className={`h-5 w-5 ${catColors.icon}`} />}
-                            {!CatIcon && <FolderOpen className={`h-5 w-5 ${catColors.icon}`} />}
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-sm text-slate-800">{cat.name}</div>
-                              <div className="text-xs text-slate-500">{catStatuses.length} {catStatuses.length === 1 ? "status" : "statusov"}</div>
-                            </div>
-                            {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-                          </button>
-                          {isExpanded && (
-                            <div className="p-3 bg-white/60 border-t border-slate-100">
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                {catStatuses.map((status: any) => {
-                                  const colorClass = PULSE_STATUS_COLORS[status.color] || PULSE_STATUS_COLORS.gray;
-                                  const children = childMap[status.id] || [];
-                                  const StatusIcon = getStatusIcon(status.icon);
-                                  return (
-                                    <button key={status.id} className={`p-3 rounded-lg border text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => { setPulseStack([status]); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }} data-testid={`pulse-status-${status.id}`}>
-                                      <div className="flex items-center gap-1.5">
-                                        {StatusIcon && <StatusIcon className="h-3.5 w-3.5 opacity-60" />}
-                                        <div className="font-semibold text-sm truncate">{status.name}</div>
-                                      </div>
-                                      <div className="text-xs opacity-70 mt-0.5 flex items-center gap-1">
-                                        <Badge className={`${STATUS_ACTION_COLORS[status.defaultAction] || ""} text-[9px] px-1 py-0`}>
-                                          {STATUS_ACTION_LABELS[status.defaultAction] || status.defaultAction}
-                                        </Badge>
-                                        {status.isFinal && <span className="text-red-500 font-bold text-[10px]">F</span>}
-                                        {status.isConversion && <span className="text-green-500 font-bold text-[10px]">K</span>}
-                                        {children.length > 0 && <span className="text-indigo-500 font-medium text-[10px]">{children.length} pod</span>}
-                                      </div>
-                                      <div className="flex gap-1 mt-1">
-                                        {status.allowPhone && <Phone className="h-3 w-3 text-sky-400" />}
-                                        {status.allowEmail && <Mail className="h-3 w-3 text-violet-400" />}
-                                        {status.allowSms && <MessageSquare className="h-3 w-3 text-teal-400" />}
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {pulseVisibleCategories.length === 0 && (
-                    <div className="text-center py-6 text-muted-foreground">
-                      <XCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">{t.statusEngine?.noStatusesForFilter || "Žiadne statusy v tejto kategórii"}</p>
-                    </div>
-                  )}
-                </>
+                <NexusPulseView
+                  categories={categories}
+                  statuses={assignedStatuses}
+                  emptyMessage={t.statusEngine?.noStatusesForFilter || "Žiadne statusy v tejto kategórii"}
+                  onSelectStatus={(status: any) => {
+                    setPulseStack([status]);
+                    setPulseReschedule(null);
+                    setPulseNotes("");
+                    setPulseCallbackDate("");
+                  }}
+                />
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 flex-wrap">

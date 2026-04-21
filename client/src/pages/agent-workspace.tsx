@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { NexusPulseView } from "@/components/nexus-pulse-view";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -7786,135 +7787,64 @@ export default function AgentWorkspacePage() {
                   </div>
                 );
               })() : (() => {
-                /* ---- Hlavný zoznam: kategórie + grid ---- */
+                /* ---- Hlavný zoznam: rovnaký vizuál ako Nexus Pulse náhľad v kampani ---- */
                 const channelFiltered = campaignDispositions.filter((d: any) => {
-                  if (d.parentId || !d.isActive) return false;
+                  if (!d.isActive) return false;
+                  if (d.parentId) return true; // include children for sub-counts
                   if (!dispositionChannelFilter) return true;
                   if (dispositionChannelFilter === "sms") return d.actionType === "send_sms" || d.actionType === "schedule_sms";
                   if (dispositionChannelFilter === "email") return d.actionType === "send_email" || d.actionType === "schedule_email";
                   return d.channel === dispositionChannelFilter;
                 });
 
-                const categoryCounts = new Map<string, number>();
-                channelFiltered.forEach((d: any) => {
-                  const k = d.categoryId || "__uncat__";
-                  categoryCounts.set(k, (categoryCounts.get(k) || 0) + 1);
-                });
-
-                const visible = channelFiltered.filter((d: any) => {
-                  if (activeDispCategory === "__all__") return true;
-                  return (d.categoryId || "__uncat__") === activeDispCategory;
-                });
+                const selectedSet = new Set(
+                  multiSelectMode
+                    ? campaignDispositions
+                        .filter((d: any) => multiSelectedCodes.includes(d.code))
+                        .map((d: any) => d.id)
+                    : []
+                );
 
                 return (
                   <div className="space-y-3">
-                    {dispositionCategories.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 -mx-1 px-1 pb-1 border-b">
-                        <Button
-                          size="sm"
-                          variant={activeDispCategory === "__all__" ? "default" : "ghost"}
-                          className="h-7 text-xs gap-1.5"
-                          onClick={() => setActiveDispCategory("__all__")}
-                          data-testid="tab-disp-cat-all"
-                        >
-                          Všetky
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{channelFiltered.length}</Badge>
-                        </Button>
-                        {dispositionCategories.map((cat: any) => {
-                          const cnt = categoryCounts.get(cat.id) || 0;
-                          if (cnt === 0) return null;
-                          return (
-                            <Button
-                              key={cat.id}
-                              size="sm"
-                              variant={activeDispCategory === cat.id ? "default" : "ghost"}
-                              className="h-7 text-xs gap-1.5"
-                              onClick={() => setActiveDispCategory(cat.id)}
-                              data-testid={`tab-disp-cat-${cat.id}`}
-                              style={cat.color && activeDispCategory === cat.id ? { backgroundColor: cat.color, color: "white" } : undefined}
-                            >
-                              {cat.name}
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{cnt}</Badge>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    )}
-
                     {multiSelectMode && (
                       <div className="rounded-md border border-dashed p-2 text-xs text-muted-foreground bg-muted/20">
-                        Zaškrtnite viac výsledkov. Prvý výber bude hlavná dispozícia, ostatné sa pripoja do poznámky.
+                        Klikni viac statusov pre multi-výber. Prvý sa použije ako hlavný, ostatné sa pripoja do poznámky.
                       </div>
                     )}
+                    <NexusPulseView
+                      categories={dispositionCategories}
+                      statuses={channelFiltered}
+                      getStatusName={(s) => getDispName(s as any)}
+                      multiSelectMode={multiSelectMode}
+                      selectedIds={selectedSet}
+                      emptyMessage="Žiadne výsledky pre túto kampaň."
+                      onSelectStatus={(disp: any) => {
+                        const children = campaignDispositions.filter((d: any) => d.parentId === disp.id && d.isActive);
+                        const hasChildren = children.length > 0;
+                        const isCallback = disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms";
+                        const needsConfig = hasChildren || isCallback;
 
-                    {visible.length === 0 ? (
-                      <div className="text-center py-12 text-sm text-muted-foreground">Žiadne výsledky v tejto kategórii.</div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {visible.map((disp: any) => {
-                          const IconComp = DISPOSITION_ICON_MAP[disp.icon || ""] || CircleDot;
-                          const colorClass = DISPOSITION_COLOR_MAP[disp.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
-                          const children = campaignDispositions.filter((d: any) => d.parentId === disp.id && d.isActive);
-                          const hasChildren = children.length > 0;
-                          const isCallback = disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms";
-                          const needsConfig = hasChildren || isCallback;
-                          const isChecked = multiSelectedCodes.includes(disp.code);
-
-                          if (multiSelectMode) {
-                            // Multi-select hides items needing extra config (callbacks/sub-categories)
-                            if (needsConfig) return null;
-                            return (
-                              <button
-                                type="button"
-                                key={disp.id}
-                                onClick={() => {
-                                  setMultiSelectedCodes((prev) =>
-                                    prev.includes(disp.code) ? prev.filter((c) => c !== disp.code) : [...prev, disp.code]
-                                  );
-                                }}
-                                className={`flex items-center gap-2 rounded-md border px-3 py-3 text-left transition hover-elevate ${colorClass} ${isChecked ? "ring-2 ring-primary" : ""}`}
-                                data-testid={`multi-disp-${disp.code}`}
-                              >
-                                <Checkbox checked={isChecked} className="pointer-events-none" />
-                                <IconComp className="h-4 w-4 shrink-0" />
-                                <span className="text-sm font-medium flex-1 truncate">{getDispName(disp)}</span>
-                                {isChecked && (
-                                  <Badge variant="secondary" className="text-[10px]">
-                                    #{multiSelectedCodes.indexOf(disp.code) + 1}
-                                  </Badge>
-                                )}
-                              </button>
-                            );
-                          }
-
-                          return (
-                            <Button
-                              key={disp.id}
-                              variant="outline"
-                              className={`gap-2 justify-start py-3 h-auto ${colorClass}`}
-                              onClick={() => {
-                                if (needsConfig) {
-                                  setModalSelectedParent(disp.id);
-                                  if (isCallback) {
-                                    const tomorrow = new Date();
-                                    tomorrow.setDate(tomorrow.getDate() + 1);
-                                    setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
-                                  }
-                                } else {
-                                  handleDisposition(disp.code);
-                                }
-                              }}
-                              data-testid={`modal-disposition-${disp.code}`}
-                            >
-                              <IconComp className="h-5 w-5 shrink-0" />
-                              <span className="text-sm font-medium flex-1 text-left truncate">{getDispName(disp)}</span>
-                              {needsConfig && <ChevronRight className="h-4 w-4 opacity-50 shrink-0" />}
-                            </Button>
+                        if (multiSelectMode) {
+                          if (needsConfig) return; // can't bulk-select items requiring config
+                          setMultiSelectedCodes((prev) =>
+                            prev.includes(disp.code) ? prev.filter((c) => c !== disp.code) : [...prev, disp.code]
                           );
-                        })}
-                      </div>
-                    )}
+                          return;
+                        }
 
+                        if (needsConfig) {
+                          setModalSelectedParent(disp.id);
+                          if (isCallback) {
+                            const tomorrow = new Date();
+                            tomorrow.setDate(tomorrow.getDate() + 1);
+                            setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+                          }
+                        } else {
+                          handleDisposition(disp.code);
+                        }
+                      }}
+                    />
                   </div>
                 );
               })()}
