@@ -259,6 +259,8 @@ interface ClinicFormSheetProps {
   initialData?: Clinic | null;
   onSuccess: () => void;
   mode?: "sheet" | "inline";
+  prefillData?: Partial<ClinicFormData>;
+  onCreated?: (clinic: { id: string; name: string; doctorTitle?: string | null; doctorFirstName?: string | null; doctorLastName?: string | null; doctorName?: string | null }) => void | Promise<void>;
 }
 
 function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinicName: string }) {
@@ -455,7 +457,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
       flyersLocation: (data as any).flyersLocation || "",
     };
   };
-  const [formData, setFormData] = useState<ClinicFormData>(() => buildFormData(initialData));
+  const [formData, setFormData] = useState<ClinicFormData>(() => ({ ...buildFormData(initialData), ...(prefillData || {}) }));
 
   const { data: allClinics } = useQuery<any[]>({ queryKey: ["/api/clinics/lookup"] });
 
@@ -753,10 +755,14 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
           }
         }
       }
+      if (savedClinic?.id && onCreated && !initialData) {
+        try { await onCreated(savedClinic); } catch (e) { console.error("[ClinicFormSheet] onCreated callback failed:", e); }
+      }
       return savedClinic;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinics/lookup"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-referrals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-referral-counts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-referred-by-me"] });

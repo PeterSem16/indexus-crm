@@ -3795,8 +3795,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
   const [referralSearch, setReferralSearch] = useState("");
   const [suggestsSearch, setSuggestsSearch] = useState("");
   const [confReferralSearch, setConfReferralSearch] = useState("");
-  const [showNewPersonForm, setShowNewPersonForm] = useState<"recommendedBy" | "suggests" | "conference" | null>(null);
-  const [newPersonData, setNewPersonData] = useState({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", countryCode: "SK" });
+  const [nestedPersonForm, setNestedPersonForm] = useState<{ direction: "recommendedBy" | "suggests" | "conference"; lastName: string } | null>(null);
   const userEditedReferralsRef = useRef(false);
 
   useEffect(() => {
@@ -3879,48 +3878,21 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
     setSuggestsReferrals(prev => prev.filter(r => r.personId !== personId));
   };
 
-  const createNewPersonAndAdd = async (direction: "recommendedBy" | "suggests" | "conference") => {
-    const { titleBefore, firstName, lastName, titleAfter, countryCode } = newPersonData;
-    if (!lastName) {
-      toast({ title: t.collaborators.fields?.lastName ? `${t.collaborators.fields.lastName} *` : "Priezvisko je povinné", variant: "destructive" });
-      return;
+  const handleNestedPersonCreated = async (newPerson: { id: string; titleBefore?: string | null; firstName?: string | null; lastName?: string | null; titleAfter?: string | null }) => {
+    if (!newPerson?.id || !nestedPersonForm) return;
+    userEditedReferralsRef.current = true;
+    const personName = formatPersonName(newPerson) || newPerson.lastName || "";
+    const direction = nestedPersonForm.direction;
+    if (direction === "suggests") {
+      setSuggestsReferrals(prev => [...prev, { personId: String(newPerson.id), personName }]);
+    } else if (direction === "conference") {
+      setReferrals(prev => [...prev, { personId: String(newPerson.id), personName, referralType: "conference" }]);
+    } else {
+      setReferrals(prev => [...prev, { personId: String(newPerson.id), personName, referralType: "doctor_referral" }]);
     }
-    try {
-      const cc = countryCode || formData.countryCode || "SK";
-      const res = await apiRequest("POST", "/api/collaborators", {
-        firstName: firstName || "",
-        lastName,
-        titleBefore: titleBefore || "",
-        titleAfter: titleAfter || "",
-        countryCode: cc,
-        countryCodes: [cc],
-        clientContact: false,
-        isActive: true,
-        svetZdravia: false,
-        isManager: false,
-        cbcActivities: [],
-      });
-      const newPerson = await res.json();
-      if (newPerson?.id) {
-        userEditedReferralsRef.current = true;
-        const personName = formatPersonName(newPerson) || lastName;
-        if (direction === "suggests") {
-          setSuggestsReferrals(prev => [...prev, { personId: String(newPerson.id), personName }]);
-        } else if (direction === "conference") {
-          setReferrals(prev => [...prev, { personId: String(newPerson.id), personName, referralType: "conference" }]);
-        } else {
-          setReferrals(prev => [...prev, { personId: String(newPerson.id), personName, referralType: "doctor_referral" }]);
-        }
-        queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/collaborators/lookup"] });
-        setNewPersonData({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", countryCode: formData.countryCode || "SK" });
-        setShowNewPersonForm(null);
-        setReferralSearch(""); setSuggestsSearch(""); setConfReferralSearch("");
-        toast({ title: t.success.saved });
-      }
-    } catch (e: any) {
-      toast({ title: e?.message || "Error creating person", variant: "destructive" });
-    }
+    queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/collaborators/lookup"] });
+    setReferralSearch(""); setSuggestsSearch(""); setConfReferralSearch("");
   };
 
   const doctorReferrals = referrals.filter(r => r.referralType === "doctor_referral");
@@ -4706,55 +4678,15 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
               <CardContent className="space-y-3">
                 {(() => {
                   const tx = (t.clinics as any) || {};
-                  const tColl = (t.collaborators?.fields as any) || {};
-                  const txtRecommendedBy = tx.recommendedByDoctors || "Túto osobu odporučili nasledujúci kolegovia:";
-                  const txtSuggests = tx.suggestsDoctors || "Táto osoba navrhla nasledujúce ďalšie osoby:";
-                  const txtPersonNotFound = tx.doctorNotFound || "Osoba nie je v databáze? Pridajte novú:";
-                  const txtAddNew = tx.addNewDoctor || "Pridať novú osobu";
-                  const txtSelectPerson = tx.selectDoctor || "Vybrať osobu z databázy";
-                  const txtNoReferrals = tx.noReferrals || "Zatiaľ žiadne odporúčania";
-                  const renderNewPersonForm = (direction: "recommendedBy" | "suggests" | "conference") => (
-                    <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
-                      <div className="grid gap-2 sm:grid-cols-4">
-                        <Input
-                          placeholder={tColl.titleBefore || "Titul pred"}
-                          value={newPersonData.titleBefore}
-                          onChange={(e) => setNewPersonData({ ...newPersonData, titleBefore: e.target.value })}
-                          className="h-9"
-                          data-testid={`input-new-person-title-before-${direction}`}
-                        />
-                        <Input
-                          placeholder={tColl.firstName || "Meno"}
-                          value={newPersonData.firstName}
-                          onChange={(e) => setNewPersonData({ ...newPersonData, firstName: e.target.value })}
-                          className="h-9"
-                          data-testid={`input-new-person-first-name-${direction}`}
-                        />
-                        <Input
-                          placeholder={`${tColl.lastName || "Priezvisko"} *`}
-                          value={newPersonData.lastName}
-                          onChange={(e) => setNewPersonData({ ...newPersonData, lastName: e.target.value })}
-                          className="h-9"
-                          data-testid={`input-new-person-last-name-${direction}`}
-                        />
-                        <Input
-                          placeholder={tColl.titleAfter || "Titul za"}
-                          value={newPersonData.titleAfter}
-                          onChange={(e) => setNewPersonData({ ...newPersonData, titleAfter: e.target.value })}
-                          className="h-9"
-                          data-testid={`input-new-person-title-after-${direction}`}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 justify-end">
-                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowNewPersonForm(null)} data-testid={`button-cancel-new-person-${direction}`}>
-                          {t.common.cancel || "Cancel"}
-                        </Button>
-                        <Button type="button" size="sm" className="h-7 text-xs gap-1" onClick={() => createNewPersonAndAdd(direction)} data-testid={`button-save-new-person-${direction}`}>
-                          <Plus className="h-3 w-3" /> {t.common.save || "Save"}
-                        </Button>
-                      </div>
-                    </div>
-                  );
+                  const txtRecommendedBy = tx.hasBeenRecommendedBy || tx.recommendedByDoctors || "The Medical Partner has been recommended by following medical partners:";
+                  const txtSuggests = tx.hasSuggestedPartners || tx.suggestsDoctors || "The Medical Partner has suggested following potential medical partners:";
+                  const txtPersonNotFound = tx.doctorNotInDatabase || "Doctor not found in database? Add new:";
+                  const txtAddNew = tx.addNewDoctor || "Add new doctor";
+                  const txtSelectPerson = tx.selectDoctor || "Select doctor from database";
+                  const txtNoReferrals = tx.noReferrals || "No referring doctors added";
+                  const openNestedForm = (direction: "recommendedBy" | "suggests" | "conference", searchValue: string) => {
+                    setNestedPersonForm({ direction, lastName: searchValue });
+                  };
 
                   return (
                     <div className="space-y-3">
