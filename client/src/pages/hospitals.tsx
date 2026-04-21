@@ -439,36 +439,6 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital:
                 </div>
 
                 <div className="border-t pt-4">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><FileText className="h-3.5 w-3.5" /> {t.clinics.steps.web}</h3>
-                  <div className="space-y-2 mb-3">
-                    <Label>{t.hospitals.contactPerson}</Label>
-                    <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} data-testid="input-ed-hospital-contact" />
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>{t.hospitals.representative}</Label>
-                      <Select value={formData.representativeId || "_none"} onValueChange={(value) => setFormData({ ...formData, representativeId: value === "_none" ? "" : value })}>
-                        <SelectTrigger data-testid="select-ed-hospital-representative"><SelectValue placeholder={t.hospitals.representative} /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">{t.common.noData}</SelectItem>
-                          {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t.hospitals.responsiblePerson}</Label>
-                      <Select value={formData.responsiblePersonId || "_none"} onValueChange={(value) => setFormData({ ...formData, responsiblePersonId: value === "_none" ? "" : value })}>
-                        <SelectTrigger data-testid="select-ed-hospital-responsible"><SelectValue placeholder={t.hospitals.responsiblePerson} /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">{t.common.noData}</SelectItem>
-                          {users.map((user) => (<SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
                   <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><Settings className="h-3.5 w-3.5" /> {t.clinics.steps.settings}</h3>
                   <div className="flex flex-wrap gap-6">
                     <div className="flex items-center space-x-2">
@@ -752,36 +722,6 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                         <Label>{t.clinics.longitude}</Label>
                         <Input type="number" step="0.0000001" value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="21.2611" data-testid="input-hospital-longitude" />
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2"><Users className="h-3.5 w-3.5" /> {t.hospitals.contactPerson}</h3>
-                  <div className="space-y-2">
-                    <Label>{t.hospitals.contactPerson}</Label>
-                    <Input value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} data-testid="input-hospital-contact" />
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2 mt-3">
-                    <div className="space-y-2">
-                      <Label>{t.hospitals.representative}</Label>
-                      <Select value={formData.representativeId || "_none"} onValueChange={(value) => setFormData({ ...formData, representativeId: value === "_none" ? "" : value })}>
-                        <SelectTrigger data-testid="select-hospital-representative"><SelectValue placeholder={t.hospitals.representative} /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">{t.common.noData}</SelectItem>
-                          {users.map((user) => (<SelectItem key={user.id} value={String(user.id)}>{user.fullName || user.username}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t.hospitals.responsiblePerson}</Label>
-                      <Select value={formData.responsiblePersonId || "_none"} onValueChange={(value) => setFormData({ ...formData, responsiblePersonId: value === "_none" ? "" : value })}>
-                        <SelectTrigger data-testid="select-hospital-responsible"><SelectValue placeholder={t.hospitals.responsiblePerson} /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">{t.common.noData}</SelectItem>
-                          {users.map((user) => (<SelectItem key={user.id} value={String(user.id)}>{user.fullName || user.username}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
                 </div>
