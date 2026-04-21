@@ -43633,7 +43633,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
           pc.code as category_code, pc.name as category_name,
           c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
           c.email, c.phone, c.mobile, c.collaborator_type, c.is_active as person_active,
-          c.country_code
+          c.country_code, c.partner_category, c.cbc_activities
         FROM contact_assignments ca
         JOIN collaborators c ON c.id = ca.person_id
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
@@ -43656,6 +43656,8 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
           email: collaborators.email,
           isActive: collaborators.isActive,
           collaboratorType: collaborators.collaboratorType,
+          partnerCategory: collaborators.partnerCategory,
+          cbcActivities: collaborators.cbcActivities,
           hospitalId: collaborators.hospitalId,
           hospitalIds: collaborators.hospitalIds,
           countryCode: collaborators.countryCode,
@@ -43677,6 +43679,8 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
               last_name: c.lastName, title_after: c.titleAfter,
               email: c.email, phone: c.phone, mobile: c.mobile,
               collaborator_type: c.collaboratorType,
+              partner_category: c.partnerCategory,
+              cbc_activities: c.cbcActivities,
               person_active: c.isActive,
               country_code: c.countryCode,
               source: "legacy_link",

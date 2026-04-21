@@ -58,7 +58,46 @@ import {
   User,
   HandHeart,
   Milk,
+  Package,
+  FileSignature,
+  AlertTriangle,
+  Receipt,
+  ClipboardList,
+  MoreHorizontal,
 } from "lucide-react";
+
+const CBC_ACTIVITY_META: Record<string, { icon: any; cls: string; labels: Record<string, string> }> = {
+  sampling_kits: {
+    icon: Package,
+    cls: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800",
+    labels: { sk: "Odberové sady", cs: "Odběrové sady", en: "Sampling kits", hu: "Mintavételi készletek", ro: "Truse de prelevare", it: "Kit di prelievo", de: "Probenahme-Sets" },
+  },
+  employee_agreements: {
+    icon: FileSignature,
+    cls: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800",
+    labels: { sk: "Dohody so zamestnancami", cs: "Dohody se zaměstnanci", en: "Employee agreements", hu: "Munkavállalói megállapodások", ro: "Acorduri cu angajații", it: "Accordi con i dipendenti", de: "Mitarbeitervereinbarungen" },
+  },
+  nonconforming_work: {
+    icon: AlertTriangle,
+    cls: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800",
+    labels: { sk: "Nezhodné práce", cs: "Neshodné práce", en: "Nonconforming work", hu: "Nem megfelelő munka", ro: "Lucrări neconforme", it: "Lavori non conformi", de: "Nicht konforme Arbeiten" },
+  },
+  invoicing: {
+    icon: Receipt,
+    cls: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
+    labels: { sk: "Fakturácia", cs: "Fakturace", en: "Invoicing", hu: "Számlázás", ro: "Facturare", it: "Fatturazione", de: "Rechnungsstellung" },
+  },
+  sampling_device_docs: {
+    icon: ClipboardList,
+    cls: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800",
+    labels: { sk: "Dokumentácia odberového zariadenia", cs: "Dokumentace odběrového zařízení", en: "Sampling device documentation", hu: "Mintavevő eszköz dokumentációja", ro: "Documentația dispozitivului de prelevare", it: "Documentazione del dispositivo di prelievo", de: "Dokumentation des Probenahmegeräts" },
+  },
+  other: {
+    icon: MoreHorizontal,
+    cls: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700",
+    labels: { sk: "Iné", cs: "Jiné", en: "Other", hu: "Egyéb", ro: "Altele", it: "Altro", de: "Sonstiges" },
+  },
+};
 
 const CATEGORY_STYLE: Record<string, { icon: any; color: string; bg: string }> = {
   hospital_director: { icon: Building2, color: "text-blue-700 dark:text-blue-300", bg: "bg-blue-100 dark:bg-blue-900" },
@@ -1145,8 +1184,27 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                 )}
               </div>
               {details && <span className="text-[11px] text-muted-foreground truncate max-w-[200px] hidden sm:inline">{details}</span>}
-              {(p.email || p.phone) && (
-                <span className="text-[11px] text-muted-foreground truncate max-w-[150px] hidden md:inline">{p.email || p.phone}</span>
+              {Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0 && (
+                <div className="hidden md:flex items-center gap-1 flex-wrap shrink-0">
+                  {p.cbc_activities.map((code: string) => {
+                    const meta = CBC_ACTIVITY_META[code];
+                    if (!meta) return null;
+                    const Icon = meta.icon;
+                    const label = meta.labels[locale] || meta.labels.en;
+                    return (
+                      <Badge
+                        key={code}
+                        variant="outline"
+                        title={label}
+                        className={`text-[9px] px-1.5 py-0 gap-1 shrink-0 ${meta.cls}`}
+                        data-testid={`badge-cbc-${code}-${p.person_id}`}
+                      >
+                        <Icon className="h-2.5 w-2.5" />
+                        <span className="hidden lg:inline">{label}</span>
+                      </Badge>
+                    );
+                  })}
+                </div>
               )}
               <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 {p.assignment_id && (
