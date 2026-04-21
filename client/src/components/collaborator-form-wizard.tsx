@@ -5551,7 +5551,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
             <h2 className="text-base font-semibold">
               {isEditMode
                 ? `${initialData?.firstName} ${initialData?.lastName}`
-                : t.collaborators.addCollaborator}
+                : t.collaborators.addPerson}
               {isEditMode && (initialData as any)?.dataSource === 'iscbc' && (
                 <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
                   ISCBC
@@ -5578,7 +5578,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                     };
                     return d[locale] || "Edit Person";
                   })()
-                : t.collaborators.addCollaborator}
+                : t.collaborators.addPerson}
             </p>
           </div>
         </div>
