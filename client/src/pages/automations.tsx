@@ -1290,6 +1290,137 @@ function ActionEditor({
         </div>
       )}
 
+      {(action.type === "add_tag" || action.type === "remove_tag") && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+          <div>
+            <Label className="text-xs">Entity type</Label>
+            <Select value={action.config.entityType || ""} onValueChange={(v) => setCfg("entityType", v)}>
+              <SelectTrigger className="h-8 text-xs" data-testid={`select-tag-entity-type-${index}`}>
+                <SelectValue placeholder="(use event entityType)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="task">Task</SelectItem>
+                <SelectItem value="customer">Customer</SelectItem>
+                <SelectItem value="hospital">Hospital</SelectItem>
+                <SelectItem value="clinic">Clinic</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Entity ID (template ok)</Label>
+            <Input
+              className="h-8 text-xs"
+              value={action.config.entityId || ""}
+              onChange={(e) => setCfg("entityId", e.target.value)}
+              placeholder="{{entityId}}"
+              data-testid={`input-tag-entity-id-${index}`}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Tags (comma-separated)</Label>
+            <Input
+              className="h-8 text-xs"
+              value={Array.isArray(action.config.tags) ? action.config.tags.join(", ") : (action.config.tags || "")}
+              onChange={(e) => setCfg("tags", e.target.value)}
+              placeholder="vip, urgent, follow-up"
+              data-testid={`input-tag-tags-${index}`}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {action.type === "add_tag" ? "Tags are deduplicated against existing ones." : "Tags removed (case-insensitive match)."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {action.type === "assign_user" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+          <div>
+            <Label className="text-xs">Entity type</Label>
+            <Select value={action.config.entityType || ""} onValueChange={(v) => setCfg("entityType", v)}>
+              <SelectTrigger className="h-8 text-xs" data-testid={`select-assign-entity-type-${index}`}>
+                <SelectValue placeholder="(use event entityType)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="task">Task</SelectItem>
+                <SelectItem value="customer">Customer</SelectItem>
+                <SelectItem value="hospital">Hospital</SelectItem>
+                <SelectItem value="clinic">Clinic</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Strategy</Label>
+            <Select value={action.config.strategy || "round_robin"} onValueChange={(v) => setCfg("strategy", v)}>
+              <SelectTrigger className="h-8 text-xs" data-testid={`select-assign-strategy-${index}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="round_robin">Round-robin</SelectItem>
+                <SelectItem value="least_loaded">Least loaded</SelectItem>
+                <SelectItem value="random">Random</SelectItem>
+                <SelectItem value="specific">Specific user</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Entity ID (template ok)</Label>
+            <Input
+              className="h-8 text-xs"
+              value={action.config.entityId || ""}
+              onChange={(e) => setCfg("entityId", e.target.value)}
+              placeholder="{{entityId}}"
+              data-testid={`input-assign-entity-id-${index}`}
+            />
+          </div>
+          {action.config.strategy === "specific" ? (
+            <div>
+              <Label className="text-xs">User</Label>
+              <Select value={action.config.userId || ""} onValueChange={(v) => setCfg("userId", v)}>
+                <SelectTrigger className="h-8 text-xs" data-testid={`select-assign-userid-${index}`}>
+                  <SelectValue placeholder="pick user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div>
+              <Label className="text-xs">Eligible user IDs (CSV; empty = all active)</Label>
+              <Input
+                className="h-8 text-xs"
+                value={Array.isArray(action.config.userIds) ? action.config.userIds.join(", ") : (action.config.userIds || "")}
+                onChange={(e) => setCfg("userIds", e.target.value)}
+                placeholder="user-id-1, user-id-2"
+                data-testid={`input-assign-userids-${index}`}
+              />
+            </div>
+          )}
+          <div>
+            <Label className="text-xs">Role filter (optional)</Label>
+            <Input
+              className="h-8 text-xs"
+              value={action.config.roleFilter || ""}
+              onChange={(e) => setCfg("roleFilter", e.target.value)}
+              placeholder="agent, manager"
+              data-testid={`input-assign-role-${index}`}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Country filter (CSV ISO codes, optional)</Label>
+            <Input
+              className="h-8 text-xs"
+              value={Array.isArray(action.config.countryFilter) ? action.config.countryFilter.join(", ") : (action.config.countryFilter || "")}
+              onChange={(e) => setCfg("countryFilter", e.target.value)}
+              placeholder="SK, CZ"
+              data-testid={`input-assign-country-${index}`}
+            />
+          </div>
+        </div>
+      )}
+
       {action.type === "update_entity" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
           <div>

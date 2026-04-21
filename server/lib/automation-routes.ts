@@ -338,6 +338,14 @@ export function registerAutomationRoutes(app: Express) {
         { value: "changed_to", label: "changed to", arity: 1 },
         { value: "changed_from", label: "changed from", arity: 1 },
       ],
+      // Hint for the Builder UI — which operators make sense per field type
+      operatorsByType: {
+        string: ["eq", "neq", "in", "not_in", "contains", "starts_with", "is_null", "is_not_null", "changed", "changed_to", "changed_from"],
+        number: ["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "is_null", "is_not_null", "changed", "changed_to", "changed_from"],
+        enum: ["eq", "neq", "in", "not_in", "is_null", "is_not_null", "changed", "changed_to", "changed_from"],
+        boolean: ["eq", "neq", "is_null", "is_not_null", "changed", "changed_to", "changed_from"],
+        date: ["eq", "neq", "gt", "gte", "lt", "lte", "is_null", "is_not_null", "changed", "changed_to", "changed_from"],
+      },
       fields: {
         customer: [
           { value: "newValues.firstName", label: "First name", type: "string" },

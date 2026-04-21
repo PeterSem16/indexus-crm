@@ -5055,6 +5055,9 @@ export default function AgentWorkspacePage() {
   const [modalCallbackTime, setModalCallbackTime] = useState("09:00");
   const [modalCallbackAssign, setModalCallbackAssign] = useState<"me" | "all">("me");
   const [modalCallbackNote, setModalCallbackNote] = useState("");
+  const [activeDispCategory, setActiveDispCategory] = useState<string>("__all__");
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [multiSelectedCodes, setMultiSelectedCodes] = useState<string[]>([]);
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [pendingEmailTemplateId, setPendingEmailTemplateId] = useState<string | null>(null);
   const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
@@ -5332,10 +5335,38 @@ export default function AgentWorkspacePage() {
     refetchInterval: 30000,
   });
 
-  const { data: campaignDispositions = [] } = useQuery<CampaignDisposition[]>({
+  const { data: legacyCampaignDispositions = [] } = useQuery<CampaignDisposition[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],
     enabled: !!selectedCampaignId,
   });
+
+  const { data: nexusPulseData } = useQuery<{ categories: any[]; statuses: any[]; assignments: any[] }>({
+    queryKey: ["/api/campaigns", selectedCampaignId, "assigned-statuses"],
+    enabled: !!selectedCampaignId,
+  });
+
+  // Build effective dispositions: prefer Nexus Pulse assigned statuses if present, fallback to legacy table
+  const campaignDispositions = useMemo<any[]>(() => {
+    const assigned = nexusPulseData?.statuses || [];
+    if (assigned.length > 0) {
+      return assigned.map((s: any) => ({
+        ...s,
+        actionType: s.defaultAction,
+        channel: s.allowPhone ? "phone" : s.allowEmail ? "email" : s.allowSms ? "sms" : "phone",
+        isActive: s.isActive !== false,
+      }));
+    }
+    return legacyCampaignDispositions;
+  }, [nexusPulseData, legacyCampaignDispositions]);
+
+  const dispositionCategories = useMemo<any[]>(() => {
+    const cats = nexusPulseData?.categories || [];
+    if (cats.length === 0) return [];
+    const usedCatIds = new Set(campaignDispositions.map((d: any) => d.categoryId).filter(Boolean));
+    return cats
+      .filter((c: any) => usedCatIds.has(c.id))
+      .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }, [nexusPulseData, campaignDispositions]);
 
   const { data: contractCategories = [] } = useQuery<Array<{ id: number; value: string; label: string }>>({
     queryKey: ["/api/contracts/categories"],
@@ -7571,8 +7602,8 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); } }}>
-        <DialogContent className={`max-w-2xl max-h-[80vh] flex flex-col ${mandatoryDisposition ? "[&>button]:hidden" : ""}`} onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined} onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}>
+      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); } }}>
+        <DialogContent className={`max-w-4xl max-h-[85vh] flex flex-col ${mandatoryDisposition ? "[&>button]:hidden" : ""}`} onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined} onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
