@@ -2661,6 +2661,16 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
           </SheetContent>
         </Sheet>
         {mapDialog}
+        {nestedClinicForm && (
+          <ClinicFormSheet
+            open={true}
+            onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}
+            initialData={null}
+            onSuccess={() => {}}
+            prefillData={{ doctorLastName: nestedClinicForm.prefillName, name: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" }}
+            onCreated={async (created) => { await handleNestedClinicCreated(created); setNestedClinicForm(null); }}
+          />
+        )}
       </>
     );
   }
