@@ -68,6 +68,14 @@ async function buildCollabStatusMap() {
 }
 
 const DRY_RUN = process.argv.includes("--dry-run");
+const ONLY_ARG = process.argv.find((a) => a.startsWith("--only="));
+const ONLY: "hospitals" | "clinics" | "all" = ONLY_ARG
+  ? (ONLY_ARG.split("=")[1] as any)
+  : "all";
+if (!["all", "hospitals", "clinics"].includes(ONLY)) {
+  console.error(`Invalid --only value: ${ONLY}. Use 'hospitals' or 'clinics'.`);
+  process.exit(1);
+}
 
 type WorkAddr = typeof collaboratorAddresses.$inferSelect;
 
@@ -417,7 +425,12 @@ async function run() {
     console.log(`[${stats.total}/${workAddrs.length}] collab=${addr.collaboratorId}  "${name}" (${addr.city || "-"})`);
 
     try {
-      if (isHospitalName(name)) {
+      const wantsHospital = isHospitalName(name);
+      // Apply --only filter — preskoč adresy mimo zvoleného typu
+      if (ONLY === "hospitals" && !wantsHospital) continue;
+      if (ONLY === "clinics" && wantsHospital) continue;
+
+      if (wantsHospital) {
         const hid = await upsertHospital(addr);
         if (hid && hid !== "dry-run-id") {
           await linkCollaboratorToHospital(addr.collaboratorId, hid);
