@@ -626,6 +626,8 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
   const [drawerCollaborator, setDrawerCollaborator] = useState<Collaborator | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLoadingCollaborator, setIsLoadingCollaborator] = useState(false);
+  const [nestedNewPersonOpen, setNestedNewPersonOpen] = useState(false);
+  const [nestedNewPersonPrefill, setNestedNewPersonPrefill] = useState("");
 
   const openCollaboratorDrawer = async (personId: string) => {
     setIsLoadingCollaborator(true);
@@ -1006,7 +1008,12 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                 {collabLookupQuery.isLoading ? (
                   <div className="p-3 text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />{t.common?.loading || "Loading..."}</div>
                 ) : (collabLookupQuery.data || []).length === 0 ? (
-                  <div className="p-3 text-xs text-muted-foreground">{t.common?.noResults || "No results"}</div>
+                  <div className="p-3 space-y-2">
+                    <div className="text-xs text-muted-foreground">{t.common?.noResults || "No results"}</div>
+                    <Button type="button" variant="outline" size="sm" className="text-xs gap-1 h-7" onClick={() => { setNestedNewPersonPrefill(collabSearch); setNestedNewPersonOpen(true); }} data-testid="button-add-new-person-personnel">
+                      <UserPlus className="h-3 w-3" /> {(mpnT as any).addNewPerson || mpnT.addPerson || "Add new person"}
+                    </Button>
+                  </div>
                 ) : (
                   (collabLookupQuery.data || []).map((c: any) => {
                     const fullName = [c.titleBefore, c.firstName, c.lastName, c.titleAfter].filter(Boolean).join(" ");
@@ -1300,6 +1307,32 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
               initialData={drawerCollaborator}
               onSuccess={closeCollaboratorDrawer}
               onCancel={closeCollaboratorDrawer}
+            />
+          </div>
+        </>
+      )}
+
+      {nestedNewPersonOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            onClick={() => setNestedNewPersonOpen(false)}
+            data-testid="nested-add-person-backdrop"
+          />
+          <div className="fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+            <CollaboratorFormWizard
+              prefillData={{ lastName: nestedNewPersonPrefill, countryCode: (countryCode || "SK") }}
+              onSuccess={() => setNestedNewPersonOpen(false)}
+              onCancel={() => setNestedNewPersonOpen(false)}
+              onCreated={async (created: any) => {
+                if (created?.id) {
+                  const fullName = [created.titleBefore, created.firstName, created.lastName, created.titleAfter].filter(Boolean).join(" ");
+                  setSelectedCollabId(created.id);
+                  setCollabSearch(fullName);
+                  queryClient.invalidateQueries({ queryKey: ["/api/collaborators/lookup"] });
+                }
+                setNestedNewPersonOpen(false);
+              }}
             />
           </div>
         </>
