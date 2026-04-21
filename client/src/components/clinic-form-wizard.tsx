@@ -2218,7 +2218,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
               <div className="flex-1 overflow-y-auto p-5">
                 {activeTab === "source" && (
                   <div className="space-y-4 pb-4">
-                    <div className="space-y-3">
+                    {false && <div className="space-y-3">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900">
                           <CircleDot className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
@@ -2300,8 +2300,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           setPipelineMenuOpen(false); setExpandedCategory(null);
                         }} data-testid="button-clear-source"><X className="h-3 w-3 mr-1" /> {(t.clinics as any).pipeline?.clearSelection || t.common.clear || "Clear"}</Button>
                       )}
-                    </div>
-                    <Separator />
+                    </div>}
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900"><UserCheck className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" /></div>
@@ -2447,15 +2446,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                       )}
                     </div>
-                    {formData.leadSource && (
-                      <>
-                        <Separator />
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div className="space-y-1"><Label className="text-xs">{t.clinics.leadSourceDate}</Label><DateTimePicker value={formData.leadSourceDate} onChange={(v) => setFormData({ ...formData, leadSourceDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-lead-source-date" /></div>
-                        </div>
-                        <div className="space-y-1"><Label className="text-xs">{t.clinics.leadSourceNotes}</Label><Textarea value={formData.leadSourceNotes} onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })} placeholder={t.clinics.leadSourceNotes} rows={2} data-testid="input-lead-source-notes" /></div>
-                      </>
-                    )}
                   </div>
                 )}
 
@@ -2509,6 +2499,98 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         <div className="space-y-1"><Label className="text-xs">{t.clinics.sections?.nextContactDate || "Next contact date"}</Label><DateTimePicker value={formData.nextContactDate} onChange={(v) => setFormData({ ...formData, nextContactDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-next-contact-date" /></div>
                       </div>
                       <div className="space-y-1 pl-1"><Label className="text-xs">Poznámka z hovoru</Label><Textarea value={formData.lastCallNote} onChange={(e) => setFormData({ ...formData, lastCallNote: e.target.value })} placeholder="Poznámka z posledného hovoru" rows={2} className="text-sm" data-testid="input-last-call-note" /></div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900">
+                          <CircleDot className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <h3 className="text-sm font-semibold tracking-wide">{t.clinics.leadSource}</h3>
+                      </div>
+                      <div className="grid gap-1.5 pl-1">
+                        {MAIN_SOURCE_TYPES.map((type) => {
+                          const Icon = LEAD_SOURCE_ICONS[type];
+                          const selected = formData.leadSource === type;
+                          const isExpanded = selected && pipelineMenuOpen;
+                          return (
+                            <div key={type}>
+                              <button type="button" className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left", selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : formData.leadSource ? "opacity-40 border-border hover:opacity-70" : "hover:bg-muted/50 border-border", isExpanded && "rounded-b-none")}
+                                onClick={() => { if (selected) { setPipelineMenuOpen(!pipelineMenuOpen); setExpandedCategory(null); } else { setFormData(prev => ({ ...prev, leadSource: type })); setPipelineMenuOpen(true); setExpandedCategory(null); } }} data-testid={`source-card-basic-${type}`}>
+                                <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG[type])}><Icon className="h-4 w-4" /></div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-sm">{t.clinics.leadSourceTypes?.[type] || type}</div>
+                                  {selected && currentPipelineOption && !isExpanded && (
+                                    <div className={cn("text-xs mt-0.5 font-medium", currentPipelineOption.color)}>
+                                      {(t.clinics as any).pipeline?.[currentPipelineCategory?.labelKey] || currentPipelineCategory?.labelKey}: {(t.clinics as any).pipeline?.[currentPipelineOption.labelKey] || currentPipelineOption.labelKey}
+                                    </div>
+                                  )}
+                                </div>
+                                {selected && (<div className="flex items-center gap-1.5 shrink-0"><CheckCircle2 className="h-4 w-4 text-primary" /><ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} /></div>)}
+                              </button>
+                              {isExpanded && (
+                                <div className="border border-t-0 rounded-b-lg bg-muted/20 dark:bg-muted/10 overflow-hidden">
+                                  {PIPELINE_CATEGORIES.map((cat) => {
+                                    const CatIcon = cat.icon;
+                                    const isCatExpanded = expandedCategory === cat.key;
+                                    const selectedInCat = cat.options.find(o => o.value === currentPipelineValue);
+                                    return (
+                                      <div key={cat.key}>
+                                        <button type="button" className={cn("flex items-center gap-2.5 w-full px-4 py-2.5 text-left transition-all hover:bg-muted/50", isCatExpanded && "bg-muted/40", selectedInCat && "bg-primary/5")}
+                                          onClick={() => setExpandedCategory(isCatExpanded ? null : cat.key)}>
+                                          <CatIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                          <span className="text-sm font-medium flex-1">{(t.clinics as any).pipeline?.[cat.labelKey] || cat.labelKey}</span>
+                                          {selectedInCat && (
+                                            <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border",
+                                              selectedInCat.sentiment === "positive" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700"
+                                                : selectedInCat.sentiment === "negative" ? "bg-red-100 text-red-600 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700"
+                                                  : "bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600"
+                                            )}>{(t.clinics as any).pipeline?.[selectedInCat.labelKey] || selectedInCat.labelKey}</span>
+                                          )}
+                                          <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", isCatExpanded && "rotate-90")} />
+                                        </button>
+                                        {isCatExpanded && (
+                                          <div className="px-4 pb-2 pt-1 space-y-1">
+                                            {cat.options.map((opt) => {
+                                              const OptIcon = opt.icon;
+                                              const isSelected = currentPipelineValue === opt.value;
+                                              return (
+                                                <button key={opt.value} type="button" className={cn("flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-left transition-all",
+                                                  isSelected ? opt.sentiment === "positive" ? "bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/40 dark:border-green-700 dark:text-green-200"
+                                                    : opt.sentiment === "negative" ? "bg-red-100 border border-red-300 text-red-700 dark:bg-red-900/40 dark:border-red-700 dark:text-red-200"
+                                                      : "bg-primary/10 border border-primary/30 text-foreground" : "hover:bg-muted/60 border border-transparent"
+                                                )} onClick={() => selectPipelineOption(opt.value)}>
+                                                  <OptIcon className={cn("h-4 w-4 shrink-0", opt.color)} />
+                                                  <span className="text-sm font-medium flex-1">{(t.clinics as any).pipeline?.[opt.labelKey] || opt.labelKey}</span>
+                                                  {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {formData.leadSource && (
+                        <Button type="button" variant="ghost" size="sm" className="text-muted-foreground text-xs ml-1" onClick={() => {
+                          setFormData(prev => ({ ...prev, leadSource: "", initialStatus: "", interestCooperation: "", interestContract: "", contractStatus: "" }));
+                          setPipelineMenuOpen(false); setExpandedCategory(null);
+                        }} data-testid="button-clear-source-basic"><X className="h-3 w-3 mr-1" /> {(t.clinics as any).pipeline?.clearSelection || t.common.clear || "Clear"}</Button>
+                      )}
+                      {formData.leadSource && (
+                        <div className="grid gap-3 sm:grid-cols-2 pl-1">
+                          <div className="space-y-1"><Label className="text-xs">{t.clinics.leadSourceDate}</Label><DateTimePicker value={formData.leadSourceDate} onChange={(v) => setFormData({ ...formData, leadSourceDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-lead-source-date-basic" /></div>
+                        </div>
+                      )}
+                      {formData.leadSource && (
+                        <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.leadSourceNotes}</Label><Textarea value={formData.leadSourceNotes} onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })} placeholder={t.clinics.leadSourceNotes} rows={2} data-testid="input-lead-source-notes-basic" /></div>
+                      )}
                     </div>
                     <Separator />
                     <div className="space-y-3">
