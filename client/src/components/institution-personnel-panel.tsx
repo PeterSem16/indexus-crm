@@ -1148,6 +1148,11 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
           const catName = personCategory
             ? getLocalizedCategoryName(personCategory, locale)
             : (p.partner_category || null);
+          const assignmentCatName = p.category_name
+            ? (p.category_id ? getLocalizedCategoryName((categoriesQuery.data || []).find((c: any) => c.id === p.category_id) || { name: p.category_name }, locale) : p.category_name)
+            : null;
+          const assignmentParts = [p.department, p.position, p.role, assignmentCatName].filter(Boolean);
+          const assignmentText = assignmentParts.length > 0 ? assignmentParts.join(" · ") : null;
 
           return (
             <div key={p.assignment_id || `legacy-${idx}`} className="flex items-start gap-3 px-3 py-2 rounded-md border border-transparent hover:border-border hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
@@ -1188,12 +1193,29 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                   )}
                   {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
                 </div>
-                {(catName || (Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0)) && (
+                {(catName || assignmentText || (Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0)) && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {catName && (
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${catStyle.color} border-current/30`}>
+                      <Badge
+                        variant="outline"
+                        title={t.collaborators?.partnerCategory || "Profession"}
+                        className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${catStyle.color} border-current/30`}
+                        data-testid={`badge-profession-${p.person_id}`}
+                      >
                         <CatIcon className="h-2.5 w-2.5" />
                         {catName}
+                      </Badge>
+                    )}
+                    {assignmentText && (
+                      <Badge
+                        variant="secondary"
+                        title={entityType === "hospital" ? "Zaradenie v nemocnici" : entityType === "clinic" ? "Zaradenie na klinike" : "Zaradenie v sieti"}
+                        className="text-[10px] px-1.5 py-0 gap-1 shrink-0 bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 font-normal"
+                        data-testid={`badge-assignment-${p.person_id}`}
+                      >
+                        <Building2 className="h-2.5 w-2.5 opacity-70" />
+                        <span className="opacity-60 mr-0.5">{entityType === "hospital" ? "Nemocnica:" : entityType === "clinic" ? "Klinika:" : "Sieť:"}</span>
+                        {assignmentText}
                       </Badge>
                     )}
                     {Array.isArray(p.cbc_activities) && p.cbc_activities.map((code: string) => {
