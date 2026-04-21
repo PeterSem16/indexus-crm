@@ -1143,16 +1143,28 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
           }
 
           const personCategory = p.partner_category
-            ? (categoriesQuery.data || []).find((c: any) => c.code === p.partner_category)
+            ? (categoriesQuery.data || []).find((c: any) => c.code === p.partner_category || c.id === p.partner_category)
             : null;
-          const catName = personCategory
-            ? getLocalizedCategoryName(personCategory, locale)
-            : (p.partner_category || null);
+          const catName = personCategory ? getLocalizedCategoryName(personCategory, locale) : null;
           const assignmentCatName = p.category_name
             ? (p.category_id ? getLocalizedCategoryName((categoriesQuery.data || []).find((c: any) => c.id === p.category_id) || { name: p.category_name }, locale) : p.category_name)
             : null;
-          const assignmentParts = [p.department, p.position, p.role, assignmentCatName].filter(Boolean);
-          const assignmentText = assignmentParts.length > 0 ? assignmentParts.join(" · ") : null;
+          const assignmentRaw = [p.department, p.position, p.role, assignmentCatName].filter(Boolean);
+          const seenLower = new Set<string>();
+          const assignmentParts = assignmentRaw.filter((s: string) => {
+            const k = String(s).trim().toLowerCase();
+            if (!k || seenLower.has(k)) return false;
+            seenLower.add(k);
+            return true;
+          });
+          const assignmentText = assignmentParts.length > 0 ? assignmentParts.join(" — ") : null;
+          const entityKindLabel = entityType === "hospital"
+            ? (locale === "sk" || locale === "cs" ? "V nemocnici" : "At hospital")
+            : entityType === "clinic"
+            ? (locale === "sk" || locale === "cs" ? "Na klinike" : "At clinic")
+            : (locale === "sk" || locale === "cs" ? "V sieti" : "In network");
+          const professionLabel = locale === "sk" || locale === "cs" ? "Profesia" : "Profession";
+          const activitiesLabel = locale === "sk" || locale === "cs" ? "Činnosti pre CBC" : "CBC activities";
 
           return (
             <div key={p.assignment_id || `legacy-${idx}`} className="flex items-start gap-3 px-3 py-2 rounded-md border border-transparent hover:border-border hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
@@ -1193,49 +1205,55 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                   )}
                   {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
                 </div>
-                {(catName || assignmentText || (Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0)) && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {catName && (
-                      <Badge
-                        variant="outline"
-                        title={t.collaborators?.partnerCategory || "Profession"}
-                        className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${catStyle.color} border-current/30`}
-                        data-testid={`badge-profession-${p.person_id}`}
-                      >
-                        <CatIcon className="h-2.5 w-2.5" />
-                        {catName}
-                      </Badge>
-                    )}
-                    {assignmentText && (
-                      <Badge
-                        variant="secondary"
-                        title={entityType === "hospital" ? "Zaradenie v nemocnici" : entityType === "clinic" ? "Zaradenie na klinike" : "Zaradenie v sieti"}
-                        className="text-[10px] px-1.5 py-0 gap-1 shrink-0 bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 font-normal"
-                        data-testid={`badge-assignment-${p.person_id}`}
-                      >
-                        <Building2 className="h-2.5 w-2.5 opacity-70" />
-                        <span className="opacity-60 mr-0.5">{entityType === "hospital" ? "Nemocnica:" : entityType === "clinic" ? "Klinika:" : "Sieť:"}</span>
-                        {assignmentText}
-                      </Badge>
-                    )}
-                    {Array.isArray(p.cbc_activities) && p.cbc_activities.map((code: string) => {
-                      const meta = CBC_ACTIVITY_META[code];
-                      if (!meta) return null;
-                      const Icon = meta.icon;
-                      const label = meta.labels[locale] || meta.labels.en;
-                      return (
-                        <Badge
-                          key={code}
-                          variant="outline"
-                          title={label}
-                          className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${meta.cls}`}
-                          data-testid={`badge-cbc-${code}-${p.person_id}`}
-                        >
-                          <Icon className="h-2.5 w-2.5" />
-                          {label}
-                        </Badge>
-                      );
-                    })}
+                {catName && (
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <span className="text-muted-foreground shrink-0 w-[80px]">{professionLabel}:</span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${catStyle.color} border-current/30`}
+                      data-testid={`badge-profession-${p.person_id}`}
+                    >
+                      <CatIcon className="h-2.5 w-2.5" />
+                      {catName}
+                    </Badge>
+                  </div>
+                )}
+                {assignmentText && (
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <span className="text-muted-foreground shrink-0 w-[80px]">{entityKindLabel}:</span>
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] px-1.5 py-0 gap-1 shrink-0 bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 font-normal"
+                      data-testid={`badge-assignment-${p.person_id}`}
+                    >
+                      <Building2 className="h-2.5 w-2.5 opacity-70" />
+                      {assignmentText}
+                    </Badge>
+                  </div>
+                )}
+                {Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0 && (
+                  <div className="flex items-start gap-1.5 text-[11px]">
+                    <span className="text-muted-foreground shrink-0 w-[80px] pt-0.5">{activitiesLabel}:</span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {p.cbc_activities.map((code: string) => {
+                        const meta = CBC_ACTIVITY_META[code];
+                        if (!meta) return null;
+                        const Icon = meta.icon;
+                        const label = meta.labels[locale] || meta.labels.en;
+                        return (
+                          <Badge
+                            key={code}
+                            variant="outline"
+                            title={label}
+                            className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${meta.cls}`}
+                            data-testid={`badge-cbc-${code}-${p.person_id}`}
+                          >
+                            <Icon className="h-2.5 w-2.5" />
+                            {label}
+                          </Badge>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
