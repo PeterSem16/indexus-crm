@@ -1142,10 +1142,12 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
             );
           }
 
-          const details = [p.department, p.position, p.role].filter(Boolean).join(" · ");
-          const catName = p.category_name
-            ? (p.category_id ? getLocalizedCategoryName((categoriesQuery.data || []).find((c: any) => c.id === p.category_id) || { name: p.category_name }, locale) : p.category_name)
+          const personCategory = p.partner_category
+            ? (categoriesQuery.data || []).find((c: any) => c.code === p.partner_category)
             : null;
+          const catName = personCategory
+            ? getLocalizedCategoryName(personCategory, locale)
+            : (p.partner_category || null);
 
           return (
             <div key={p.assignment_id || `legacy-${idx}`} className="flex items-start gap-3 px-3 py-2 rounded-md border border-transparent hover:border-border hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
@@ -1186,7 +1188,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                   )}
                   {isLegacy && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Legacy</Badge>}
                 </div>
-                {(catName || (Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0) || details) && (
+                {(catName || (Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0)) && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {catName && (
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${catStyle.color} border-current/30`}>
@@ -1212,9 +1214,6 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                         </Badge>
                       );
                     })}
-                    {details && (
-                      <span className="text-[10px] text-muted-foreground truncate">{details}</span>
-                    )}
                   </div>
                 )}
               </div>
