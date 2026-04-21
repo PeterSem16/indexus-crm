@@ -217,6 +217,7 @@ interface CollaboratorFormData {
   collaboratorType: string;
   partnerCategory: string;
   agreementType: string;
+  cbcActivities: string[];
   phone: string;
   mobile: string;
   mobile2: string;
@@ -3614,6 +3615,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           collaboratorType: initialData.collaboratorType || "",
           partnerCategory: initialData.partnerCategory || "",
           agreementType: (initialData as any).agreementType || "",
+          cbcActivities: Array.isArray((initialData as any).cbcActivities) ? (initialData as any).cbcActivities : [],
           phone: initialData.phone || "",
           mobile: initialData.mobile || "",
           mobile2: initialData.mobile2 || "",
@@ -3665,6 +3667,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           collaboratorType: "",
           partnerCategory: "",
           agreementType: "",
+          cbcActivities: [],
           phone: "",
           mobile: "",
           mobile2: "",
@@ -4067,6 +4070,51 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                 t={t}
                 scopeFilter={positionScopeFilter}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{(() => {
+                const d: Record<string, string> = { sk: "Činnosti pre CBC", cs: "Činnosti pro CBC", en: "CBC Activities", hu: "CBC tevékenységek", ro: "Activități pentru CBC", it: "Attività per CBC", de: "CBC-Aktivitäten" };
+                return d[locale] || "CBC Activities";
+              })()}</Label>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  const labels: Record<string, Record<string, string>> = {
+                    sampling_kits: { sk: "Odberové sady", cs: "Odběrové sady", en: "Sampling kits", hu: "Mintavételi készletek", ro: "Truse de prelevare", it: "Kit di prelievo", de: "Probenahme-Sets" },
+                    employee_agreements: { sk: "Dohody so zamestnancami", cs: "Dohody se zaměstnanci", en: "Employee agreements", hu: "Munkavállalói megállapodások", ro: "Acorduri cu angajații", it: "Accordi con i dipendenti", de: "Mitarbeitervereinbarungen" },
+                    nonconforming_work: { sk: "Nezhodné práce", cs: "Neshodné práce", en: "Nonconforming work", hu: "Nem megfelelő munka", ro: "Lucrări neconforme", it: "Lavori non conformi", de: "Nicht konforme Arbeiten" },
+                    invoicing: { sk: "Fakturácia", cs: "Fakturace", en: "Invoicing", hu: "Számlázás", ro: "Facturare", it: "Fatturazione", de: "Rechnungsstellung" },
+                    sampling_device_docs: { sk: "Dokumentácia odberového zariadenia", cs: "Dokumentace odběrového zařízení", en: "Sampling device documentation", hu: "Mintavevő eszköz dokumentációja", ro: "Documentația dispozitivului de prelevare", it: "Documentazione del dispositivo di prelievo", de: "Dokumentation des Probenahmegeräts" },
+                    other: { sk: "Iné", cs: "Jiné", en: "Other", hu: "Egyéb", ro: "Altele", it: "Altro", de: "Sonstiges" },
+                  };
+                  const order = ["sampling_kits", "employee_agreements", "nonconforming_work", "invoicing", "sampling_device_docs", "other"];
+                  return order.map((code) => {
+                    const selected = formData.cbcActivities.includes(code);
+                    const label = labels[code][locale] || labels[code].en;
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => {
+                          const next = selected
+                            ? formData.cbcActivities.filter((c) => c !== code)
+                            : [...formData.cbcActivities, code];
+                          setFormData({ ...formData, cbcActivities: next });
+                        }}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full border text-xs font-medium transition-all",
+                          selected
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-muted bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        )}
+                        data-testid={`btn-cbc-activity-${code}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
             </div>
 
             {isEditMode && (

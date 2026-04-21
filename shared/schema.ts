@@ -2010,6 +2010,7 @@ export const collaborators = pgTable("collaborators", {
   collaboratorType: text("collaborator_type"),
   partnerCategory: text("partner_category"),
   agreementType: text("agreement_type"),
+  cbcActivities: text("cbc_activities").array().notNull().default(sql`ARRAY[]::text[]`),
   
   // Contact info
   phone: text("phone"),
