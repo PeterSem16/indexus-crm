@@ -304,7 +304,6 @@ const WIZARD_STEPS = [
   { id: "documents", icon: FolderOpen },
   { id: "actions", icon: Activity },
   { id: "history", icon: History },
-  { id: "connect", icon: Wifi },
   { id: "medicalNetwork", icon: Network },
   { id: "mobile", icon: Smartphone },
 ];
@@ -3947,7 +3946,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
       actions: t.collaborators.tabs.actions || "Úkony",
       history: t.collaborators.tabs.history,
       connect: t.common.indexusConnect,
-      medicalNetwork: (() => { const d: Record<string, string> = { sk: "Zdravotnícka sieť", cs: "Zdravotnická síť", en: "Medical Network", hu: "Egészségügyi hálózat", ro: "Rețea medicală", it: "Rete medica", de: "Medizinisches Netzwerk" }; return d[locale] || "Medical Network"; })(),
+      medicalNetwork: (() => { const d: Record<string, string> = { sk: "Zdravotnícke zariadenia", cs: "Zdravotnická zařízení", en: "Healthcare Facilities", hu: "Egészségügyi intézmények", ro: "Unități sanitare", it: "Strutture sanitarie", de: "Gesundheitseinrichtungen" }; return d[locale] || "Healthcare Facilities"; })(),
       mobile: steps.mobile,
     };
     return stepTitles[stepId] || stepId;
@@ -4805,19 +4804,13 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           </div>
         );
 
-      case "connect":
-        return initialData ? (
-          <ConnectActivityTab collaboratorId={initialData.id} locale={locale} t={t} />
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Wifi className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">{t.wizard.completePreviousSteps}</p>
-          </div>
-        );
-
       case "history":
         return initialData ? (
-          <HistoryTabContent collaboratorId={initialData.id} t={t} />
+          <div className="space-y-6">
+            <HistoryTabContent collaboratorId={initialData.id} t={t} />
+            <Separator className="my-2" />
+            <ConnectActivityTab collaboratorId={initialData.id} locale={locale} t={t} />
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <History className="h-12 w-12 text-muted-foreground mb-4" />
