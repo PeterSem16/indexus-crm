@@ -2047,6 +2047,8 @@ export const collaborators = pgTable("collaborators", {
   note: text("note"),
   hospitalId: varchar("hospital_id"),
   hospitalIds: text("hospital_ids").array().notNull().default(sql`ARRAY[]::text[]`),
+  clinicId: varchar("clinic_id"),
+  clinicIds: text("clinic_ids").array().notNull().default(sql`ARRAY[]::text[]`),
   
   // INDEXUS Connect mobile app access
   mobileAppEnabled: boolean("mobile_app_enabled").notNull().default(false),
