@@ -380,6 +380,24 @@ export const insertClinicReferralSchema = createInsertSchema(clinicReferrals).om
 export type InsertClinicReferral = z.infer<typeof insertClinicReferralSchema>;
 export type ClinicReferral = typeof clinicReferrals.$inferSelect;
 
+export const collaboratorReferrals = pgTable("collaborator_referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  referringClinicId: varchar("referring_clinic_id").notNull(),
+  referralType: text("referral_type").notNull(),
+  conferenceName: text("conference_name"),
+  conferenceDate: timestamp("conference_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCollaboratorReferralSchema = createInsertSchema(collaboratorReferrals).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCollaboratorReferral = z.infer<typeof insertCollaboratorReferralSchema>;
+export type CollaboratorReferral = typeof collaboratorReferrals.$inferSelect;
+
 export const hospitalNetworks = pgTable("hospital_networks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -2011,7 +2029,16 @@ export const collaborators = pgTable("collaborators", {
   partnerCategory: text("partner_category"),
   agreementType: text("agreement_type"),
   cbcActivities: text("cbc_activities").array().notNull().default(sql`ARRAY[]::text[]`),
-  
+
+  // Lead source / referral info (mirrors clinics)
+  leadSource: text("lead_source"),
+  leadSourceDate: timestamp("lead_source_date"),
+  leadSourceNotes: text("lead_source_notes"),
+  conferenceName: text("conference_name"),
+  conferenceDate: timestamp("conference_date"),
+  isReferredByDoctor: boolean("is_referred_by_doctor").notNull().default(false),
+  isFromConference: boolean("is_from_conference").notNull().default(false),
+
   // Contact info
   phone: text("phone"),
   mobile: text("mobile"),

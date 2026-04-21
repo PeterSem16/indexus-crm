@@ -37,7 +37,7 @@ import {
   sourceLearningMetrics, contactScores, leadFeedback, feedbackPatterns, leadEntities, entityRelations, entityEvidences, leadLifecycle,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
-  inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents, hospitalNetworks, hospitalNetworkMembers,
+  inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, collaboratorReferrals, clinicEvents, hospitalNetworks, hospitalNetworkMembers,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance,
@@ -15018,6 +15018,51 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  // Collaborator referrals (mirrors clinic-referrals): a person was referred by a clinic/doctor or met at a conference
+  app.get("/api/collaborator-referrals/:collaboratorId", requireAuth, async (req, res) => {
+    try {
+      const referrals = await db.select().from(collaboratorReferrals).where(eq(collaboratorReferrals.collaboratorId, req.params.collaboratorId));
+      const enriched = await Promise.all(referrals.map(async (ref) => {
+        const clinic = await storage.getClinic(ref.referringClinicId);
+        return { ...ref, referringClinic: clinic };
+      }));
+      res.json(enriched);
+    } catch (error) {
+      console.error(`[CollabReferrals] GET error:`, error);
+      res.status(500).json({ error: "Failed to get collaborator referrals" });
+    }
+  });
+
+  app.post("/api/collaborator-referrals", requireAuth, async (req, res) => {
+    try {
+      const { collaboratorId, referringClinicId, referralType, conferenceName, conferenceDate, notes } = req.body;
+      if (!collaboratorId || !referringClinicId || !referralType) {
+        return res.status(400).json({ error: "collaboratorId, referringClinicId and referralType are required" });
+      }
+      const [referral] = await db.insert(collaboratorReferrals).values({
+        collaboratorId,
+        referringClinicId,
+        referralType,
+        conferenceName: conferenceName || null,
+        conferenceDate: conferenceDate ? new Date(conferenceDate) : null,
+        notes: notes || null,
+      }).returning();
+      res.status(201).json(referral);
+    } catch (error) {
+      console.error("[CollabReferrals] POST error:", error);
+      res.status(500).json({ error: "Failed to create collaborator referral" });
+    }
+  });
+
+  app.delete("/api/collaborator-referrals/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(collaboratorReferrals).where(eq(collaboratorReferrals.id, req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete collaborator referral" });
+    }
+  });
+
   app.get("/api/clinic-events/:clinicId", requireAuth, async (req, res) => {
     try {
       const events = await db.select().from(clinicEvents)
@@ -15482,7 +15527,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         'bankAccountIban', 'swiftCode', 'companyName', 'ico', 'dic', 'icDph',
         'companyIban', 'companySwift', 'monthRewards', 'clientContact', 'svetZdravia',
         'hospitalId', 'hospitalIds', 'representativeId', 'representativeIds', 'maritalStatus', 'birthPlace',
-        'healthInsuranceId', 'note'
+        'healthInsuranceId', 'note',
+        'leadSource', 'leadSourceDate', 'leadSourceNotes', 'conferenceName', 'conferenceDate', 'isReferredByDoctor', 'isFromConference'
       ];
       
       for (const field of fieldsToTrack) {
