@@ -49,6 +49,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CallCustomerButton } from "@/components/sip-phone";
 import { InstitutionPersonnelManager } from "@/components/institution-personnel-panel";
+import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { getQueryFn } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -580,19 +581,37 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     setReferrals(referrals.filter((r) => r.clinicId !== clinicId));
   };
 
-  const handleNestedClinicCreated = async (newClinic: any) => {
-    if (!newClinic?.id || !nestedClinicForm) return;
+  const handleNestedPersonCreatedForClinic = async (newPerson: any) => {
+    if (!newPerson?.id || !nestedClinicForm) return;
     userEditedReferralsRef.current = true;
-    const displayName = getDoctorFullName(newClinic) || newClinic.name || "";
-    if (nestedClinicForm.direction === "recommendedBy") {
-      setReferrals(prev => [...prev, { clinicId: String(newClinic.id), clinicName: displayName, referralType: "doctor_referral" }]);
-      setReferralSearch("");
-    } else {
-      setSuggestsReferrals(prev => [...prev, { clinicId: String(newClinic.id), clinicName: displayName }]);
-      setSuggestsSearch("");
+    const titleBefore = (newPerson.titleBefore || "").trim();
+    const firstName = (newPerson.firstName || "").trim();
+    const lastName = (newPerson.lastName || "").trim();
+    const fullName = [titleBefore, firstName, lastName].filter(Boolean).join(" ").trim() || lastName || "";
+    try {
+      const res = await apiRequest("POST", "/api/clinics", {
+        name: fullName || lastName || "Doctor",
+        countryCode: formData.countryCode || newPerson.countryCode || "SK",
+        doctorTitle: titleBefore || null,
+        doctorFirstName: firstName || null,
+        doctorLastName: lastName || null,
+        clinicType: "doctor",
+        isActive: true,
+      });
+      const stubClinic = await res.json();
+      if (nestedClinicForm.direction === "recommendedBy") {
+        setReferrals(prev => [...prev, { clinicId: String(stubClinic.id), clinicName: fullName, referralType: "doctor_referral" }]);
+        setReferralSearch("");
+      } else {
+        setSuggestsReferrals(prev => [...prev, { clinicId: String(stubClinic.id), clinicName: fullName }]);
+        setSuggestsSearch("");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinics/lookup"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+    } catch (e: any) {
+      toast({ title: "Failed to link new doctor", description: e?.message, variant: "destructive" });
     }
-    queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/clinics/lookup"] });
   };
 
   const doctorReferrals = referrals.filter(r => r.referralType === "doctor_referral");
@@ -2662,14 +2681,21 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         </Sheet>
         {mapDialog}
         {nestedClinicForm && (
-          <ClinicFormSheet
-            open={true}
-            onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}
-            initialData={null}
-            onSuccess={() => {}}
-            prefillData={{ doctorLastName: nestedClinicForm.prefillName, name: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" }}
-            onCreated={async (created) => { await handleNestedClinicCreated(created); setNestedClinicForm(null); }}
-          />
+          <Sheet open={true} onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}>
+            <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+              <SheetHeader className="px-6 py-4 border-b">
+                <SheetTitle>{(t.clinics as any).addNewDoctor || (t.collaborators as any).addPerson || "Add new doctor"}</SheetTitle>
+              </SheetHeader>
+              <div className="h-[calc(100vh-65px)] overflow-hidden">
+                <CollaboratorFormWizard
+                  prefillData={{ lastName: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" }}
+                  onSuccess={() => setNestedClinicForm(null)}
+                  onCancel={() => setNestedClinicForm(null)}
+                  onCreated={async (created) => { await handleNestedPersonCreatedForClinic(created); setNestedClinicForm(null); }}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
         )}
       </>
     );
@@ -3115,14 +3141,21 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         />
       )}
       {nestedClinicForm && (
-        <ClinicFormSheet
-          open={true}
-          onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}
-          initialData={null}
-          onSuccess={() => {}}
-          prefillData={{ doctorLastName: nestedClinicForm.prefillName, name: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" }}
-          onCreated={async (created) => { await handleNestedClinicCreated(created); setNestedClinicForm(null); }}
-        />
+        <Sheet open={true} onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}>
+          <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+            <SheetHeader className="px-6 py-4 border-b">
+              <SheetTitle>{(t.clinics as any).addNewDoctor || (t.collaborators as any).addPerson || "Add new doctor"}</SheetTitle>
+            </SheetHeader>
+            <div className="h-[calc(100vh-65px)] overflow-hidden">
+              <CollaboratorFormWizard
+                prefillData={{ lastName: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" }}
+                onSuccess={() => setNestedClinicForm(null)}
+                onCancel={() => setNestedClinicForm(null)}
+                onCreated={async (created) => { await handleNestedPersonCreatedForClinic(created); setNestedClinicForm(null); }}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
     </>
   );
