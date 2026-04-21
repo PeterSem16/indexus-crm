@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { COUNTRIES, VISIT_SUBJECTS, VISIT_PLACE_OPTIONS, REWARD_TYPES as SERVICE_TYPES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance, Role, CollaboratorActivity } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3, Sparkles, Loader2, Network, Hospital as HospitalIcon, Star, FolderOpen, File, FileUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3, Sparkles, Loader2, Network, Hospital as HospitalIcon, Stethoscope, Star, FolderOpen, File, FileUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
@@ -299,7 +299,6 @@ interface PendingAgreement {
 const WIZARD_STEPS = [
   { id: "personal", icon: User },
   { id: "contact", icon: Phone },
-  { id: "companyAddress", icon: Building2 },
   { id: "banking", icon: CreditCard },
   { id: "agreements", icon: FileText },
   { id: "documents", icon: FolderOpen },
@@ -962,6 +961,160 @@ function HospitalsMultiSelect({
               />
             </Badge>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Hospitals/Clinics card-style selector with searchable add popover
+function HospitalsCardsSelect({
+  hospitals,
+  selectedIds,
+  onChange,
+  label,
+  t,
+  locale,
+}: {
+  hospitals: Hospital[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  label: string;
+  t: any;
+  locale: string;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const selectedHospitals = hospitals.filter(h => selectedIds.includes(h.id));
+  const availableHospitals = hospitals.filter(h => !selectedIds.includes(h.id));
+  const filteredAvailable = searchQuery
+    ? availableHospitals.filter(h => h.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : availableHospitals;
+
+  const handleAdd = (id: string) => {
+    onChange([...selectedIds, id]);
+  };
+  const handleRemove = (id: string) => {
+    onChange(selectedIds.filter(i => i !== id));
+  };
+
+  const addLabel: Record<string, string> = {
+    sk: "Pridať nemocnicu / ambulanciu",
+    cs: "Přidat nemocnici / ambulanci",
+    en: "Add hospital / clinic",
+    hu: "Kórház / rendelő hozzáadása",
+    ro: "Adaugă spital / clinică",
+    it: "Aggiungi ospedale / clinica",
+    de: "Krankenhaus / Praxis hinzufügen",
+  };
+  const emptyLabel: Record<string, string> = {
+    sk: "Žiadne pridané",
+    cs: "Žádné přidané",
+    en: "None added",
+    hu: "Nincs hozzáadva",
+    ro: "Niciuna adăugată",
+    it: "Nessuno aggiunto",
+    de: "Keine hinzugefügt",
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label>{label}</Label>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              data-testid="button-add-hospital-card"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {addLabel[locale] || addLabel.en}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-3" align="end">
+            <div className="space-y-3">
+              <Input
+                placeholder={t.common?.search || "Search..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8"
+                data-testid="input-search-hospitals-cards"
+              />
+              <div className="max-h-60 overflow-y-auto space-y-1">
+                {filteredAvailable.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    {t.common?.noData || "No hospitals found"}
+                  </p>
+                ) : (
+                  filteredAvailable.map((h) => (
+                    <button
+                      type="button"
+                      key={h.id}
+                      onClick={() => {
+                        handleAdd(h.id);
+                        setSearchQuery("");
+                      }}
+                      className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-muted truncate"
+                      data-testid={`option-add-hospital-${h.id}`}
+                    >
+                      {h.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {selectedHospitals.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+          {emptyLabel[locale] || emptyLabel.en}
+        </div>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {selectedHospitals.map((h) => {
+            const colorIdx = getColorIndexForEntity(h.id);
+            const c = INSTITUTION_COLORS[colorIdx];
+            const typeStr = String((h as any).hospitalType || (h as any).type || "").toLowerCase();
+            const isClinic = typeStr.includes("clinic") || typeStr.includes("ambul");
+            const Icon = isClinic ? Stethoscope : HospitalIcon;
+            const city = (h as any).city || "";
+            return (
+              <div
+                key={h.id}
+                className={cn("relative rounded-lg border p-3 flex items-start gap-2.5", c.bg, c.border)}
+                data-testid={`card-hospital-${h.id}`}
+              >
+                <div className={cn("h-8 w-8 rounded-md flex items-center justify-center shrink-0", c.accent)}>
+                  <Icon className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1 min-w-0 pr-6">
+                  <div className={cn("text-sm font-medium truncate", c.text)} title={h.name}>
+                    {h.name}
+                  </div>
+                  {city && (
+                    <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {city}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(h.id)}
+                  className="absolute top-1.5 right-1.5 h-5 w-5 rounded hover:bg-background/60 flex items-center justify-center text-muted-foreground hover:text-destructive"
+                  data-testid={`button-remove-hospital-${h.id}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -3847,19 +4000,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              {isEditMode && !isHidden("legacy_id") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.legacyId}</Label>
-                  <Input
-                    value={formData.legacyId}
-                    onChange={(e) => setFormData({ ...formData, legacyId: e.target.value })}
-                    placeholder={t.collaborators.legacyId}
-                    data-testid="wizard-input-collaborator-legacy-id"
-                    disabled={isReadonly("legacy_id")}
-                    className={isReadonly("legacy_id") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
               <div className="space-y-2">
                 <Label>{t.collaborators.fields.country} *</Label>
                 <Popover>
@@ -3921,35 +4061,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              {isEditMode && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label>{t.collaborators?.fields?.legacyType || "Legacy Type"}</Label>
-                    {(initialData as any)?.dataSource === 'iscbc' && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-                        ISCBC
-                      </Badge>
-                    )}
-                  </div>
-                  <Select
-                    value={formData.collaboratorType || "_none"}
-                    onValueChange={(value) => setFormData({ ...formData, collaboratorType: value === "_none" ? "" : value })}
-                    disabled={isEditMode}
-                  >
-                    <SelectTrigger data-testid="wizard-select-collaborator-type" className="bg-muted opacity-70">
-                      <SelectValue placeholder={t.collaborators?.fields?.legacyType || "Legacy Type"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">{t.common.noData}</SelectItem>
-                      {COLLABORATOR_TYPES.map((ct) => (
-                        <SelectItem key={ct.value} value={ct.value}>
-                          {(t.collaborators.types as Record<string, string>)[ct.labelKey]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
               <PartnerCategoryField
                 value={formData.partnerCategory}
                 onChange={(val) => setFormData({ ...formData, partnerCategory: val })}
@@ -3958,6 +4069,62 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                 scopeFilter={positionScopeFilter}
               />
             </div>
+
+            {isEditMode && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button type="button" variant="ghost" size="sm" className="gap-2 text-sm text-muted-foreground hover:text-foreground" data-testid="toggle-legacy-fields">
+                    <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-90" />
+                    {((): string => {
+                      const d: Record<string, string> = { sk: "Legacy údaje", cs: "Legacy údaje", en: "Legacy fields", hu: "Legacy mezők", ro: "Câmpuri legacy", it: "Campi legacy", de: "Legacy-Felder" };
+                      return d[locale] || "Legacy fields";
+                    })()}
+                    {(initialData as any)?.dataSource === 'iscbc' && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                        ISCBC
+                      </Badge>
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="grid gap-4 sm:grid-cols-2 pt-2">
+                    {!isHidden("legacy_id") && (
+                      <div className="space-y-2">
+                        <Label>{t.collaborators.legacyId}</Label>
+                        <Input
+                          value={formData.legacyId}
+                          onChange={(e) => setFormData({ ...formData, legacyId: e.target.value })}
+                          placeholder={t.collaborators.legacyId}
+                          data-testid="wizard-input-collaborator-legacy-id"
+                          disabled={isReadonly("legacy_id")}
+                          className={isReadonly("legacy_id") ? "bg-muted" : ""}
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label>{t.collaborators?.fields?.legacyType || "Legacy Type"}</Label>
+                      <Select
+                        value={formData.collaboratorType || "_none"}
+                        onValueChange={(value) => setFormData({ ...formData, collaboratorType: value === "_none" ? "" : value })}
+                        disabled={isEditMode}
+                      >
+                        <SelectTrigger data-testid="wizard-select-collaborator-type" className="bg-muted opacity-70">
+                          <SelectValue placeholder={t.collaborators?.fields?.legacyType || "Legacy Type"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">{t.common.noData}</SelectItem>
+                          {COLLABORATOR_TYPES.map((ct) => (
+                            <SelectItem key={ct.value} value={ct.value}>
+                              {(t.collaborators.types as Record<string, string>)[ct.labelKey]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
 
             <Collapsible>
               <CollapsibleTrigger asChild>
@@ -4321,21 +4488,138 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <RepresentativesMultiSelect
-                users={representativeUsers}
-                selectedIds={formData.representativeIds}
-                onChange={(ids) => setFormData({ ...formData, representativeIds: ids })}
-                label={t.collaborators.fields.representative}
-                t={t}
-              />
-              <HospitalsMultiSelect
-                hospitals={filteredHospitals}
-                selectedIds={formData.hospitalIds}
-                onChange={(ids) => setFormData({ ...formData, hospitalIds: ids })}
-                label={t.collaborators?.fields?.hospitalsAndClinics || "Hospitals & Clinics"}
-                t={t}
-              />
+            <HospitalsCardsSelect
+              hospitals={filteredHospitals}
+              selectedIds={formData.hospitalIds}
+              onChange={(ids) => setFormData({ ...formData, hospitalIds: ids })}
+              label={t.collaborators?.fields?.hospitalsAndClinics || "Hospitals & Clinics"}
+              t={t}
+              locale={locale}
+            />
+
+            <Separator className="my-4" />
+
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                {t.collaborators.tabs.companyAndAddresses}
+              </h4>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {!isHidden("company_name") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.companyName}</Label>
+                    <Input
+                      value={formData.companyName}
+                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                      data-testid="wizard-input-collaborator-company-name"
+                      disabled={isReadonly("company_name")}
+                      className={isReadonly("company_name") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+                {!isHidden("company_ico") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.ico}</Label>
+                    <Input
+                      value={formData.ico}
+                      onChange={(e) => setFormData({ ...formData, ico: e.target.value })}
+                      data-testid="wizard-input-collaborator-ico"
+                      disabled={isReadonly("company_ico")}
+                      className={isReadonly("company_ico") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {!isHidden("company_dic") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.dic}</Label>
+                    <Input
+                      value={formData.dic}
+                      onChange={(e) => setFormData({ ...formData, dic: e.target.value })}
+                      data-testid="wizard-input-collaborator-dic"
+                      disabled={isReadonly("company_dic")}
+                      className={isReadonly("company_dic") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+                {!isHidden("company_ic_dph") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.icDph}</Label>
+                    <Input
+                      value={formData.icDph}
+                      onChange={(e) => setFormData({ ...formData, icDph: e.target.value })}
+                      data-testid="wizard-input-collaborator-icdph"
+                      disabled={isReadonly("company_ic_dph")}
+                      className={isReadonly("company_ic_dph") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {!isHidden("bank_account") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.companyIban}</Label>
+                    <Input
+                      value={formData.companyIban}
+                      onChange={(e) => setFormData({ ...formData, companyIban: e.target.value })}
+                      data-testid="wizard-input-collaborator-company-iban"
+                      disabled={isReadonly("bank_account")}
+                      className={isReadonly("bank_account") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+                {!isHidden("bank_account") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.companySwift}</Label>
+                    <Input
+                      value={formData.companySwift}
+                      onChange={(e) => setFormData({ ...formData, companySwift: e.target.value })}
+                      data-testid="wizard-input-collaborator-company-swift"
+                      disabled={isReadonly("bank_account")}
+                      className={isReadonly("bank_account") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {initialData && (
+                <div className="pt-2">
+                  <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    {t.collaborators.addressTabs.company}
+                  </h5>
+                  <CompanyAddressForm collaboratorId={initialData.id} parentCountryCode={initialData.countryCode} t={t} />
+                </div>
+              )}
+            </div>
+
+            <Separator className="my-4" />
+
+            <div>
+              <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                {t.collaborators.tabs.addresses}
+              </h4>
+              {initialData ? (
+                <AddressesTabContent
+                  collaboratorId={initialData.id}
+                  countryCode={initialData.countryCode}
+                  collaboratorName={`${initialData.firstName} ${initialData.lastName}`}
+                  t={t}
+                />
+              ) : (
+                <PendingAddressesContent
+                  pendingAddresses={pendingAddresses}
+                  setPendingAddresses={setPendingAddresses}
+                  countryCode={formData.countryCode}
+                  collaboratorName={`${formData.firstName} ${formData.lastName}`}
+                  t={t}
+                />
+              )}
             </div>
           </div>
         );
@@ -4485,130 +4769,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                 )}
               </div>
             )}
-          </div>
-        );
-
-      case "companyAddress":
-        return (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                {!isHidden("company_name") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.companyName}</Label>
-                    <Input
-                      value={formData.companyName}
-                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                      data-testid="wizard-input-collaborator-company-name"
-                      disabled={isReadonly("company_name")}
-                      className={isReadonly("company_name") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-                {!isHidden("company_ico") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.ico}</Label>
-                    <Input
-                      value={formData.ico}
-                      onChange={(e) => setFormData({ ...formData, ico: e.target.value })}
-                      data-testid="wizard-input-collaborator-ico"
-                      disabled={isReadonly("company_ico")}
-                      className={isReadonly("company_ico") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                {!isHidden("company_dic") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.dic}</Label>
-                    <Input
-                      value={formData.dic}
-                      onChange={(e) => setFormData({ ...formData, dic: e.target.value })}
-                      data-testid="wizard-input-collaborator-dic"
-                      disabled={isReadonly("company_dic")}
-                      className={isReadonly("company_dic") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-                {!isHidden("company_ic_dph") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.icDph}</Label>
-                    <Input
-                      value={formData.icDph}
-                      onChange={(e) => setFormData({ ...formData, icDph: e.target.value })}
-                      data-testid="wizard-input-collaborator-icdph"
-                      disabled={isReadonly("company_ic_dph")}
-                      className={isReadonly("company_ic_dph") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                {!isHidden("bank_account") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.companyIban}</Label>
-                    <Input
-                      value={formData.companyIban}
-                      onChange={(e) => setFormData({ ...formData, companyIban: e.target.value })}
-                      data-testid="wizard-input-collaborator-company-iban"
-                      disabled={isReadonly("bank_account")}
-                      className={isReadonly("bank_account") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-                {!isHidden("bank_account") && (
-                  <div className="space-y-2">
-                    <Label>{t.collaborators.fields.companySwift}</Label>
-                    <Input
-                      value={formData.companySwift}
-                      onChange={(e) => setFormData({ ...formData, companySwift: e.target.value })}
-                      data-testid="wizard-input-collaborator-company-swift"
-                      disabled={isReadonly("bank_account")}
-                      className={isReadonly("bank_account") ? "bg-muted" : ""}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Company Address - inline display */}
-              {initialData && (
-                <div className="pt-4">
-                  <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    {t.collaborators.addressTabs.company}
-                  </h5>
-                  <CompanyAddressForm collaboratorId={initialData.id} parentCountryCode={initialData.countryCode} t={t} />
-                </div>
-              )}
-            </div>
-
-            <Separator className="my-4" />
-            
-            <div>
-              <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                {t.collaborators.tabs.addresses}
-              </h4>
-              {initialData ? (
-                <AddressesTabContent 
-                  collaboratorId={initialData.id} 
-                  countryCode={initialData.countryCode} 
-                  collaboratorName={`${initialData.firstName} ${initialData.lastName}`}
-                  t={t} 
-                />
-              ) : (
-                <PendingAddressesContent
-                  pendingAddresses={pendingAddresses}
-                  setPendingAddresses={setPendingAddresses}
-                  countryCode={formData.countryCode}
-                  collaboratorName={`${formData.firstName} ${formData.lastName}`}
-                  t={t}
-                />
-              )}
-            </div>
           </div>
         );
 
@@ -4870,7 +5030,20 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
               ))}
             </h2>
             <p className="text-xs text-muted-foreground">
-              {isEditMode ? t.collaborators.editCollaborator : t.collaborators.addCollaborator}
+              {isEditMode
+                ? ((): string => {
+                    const d: Record<string, string> = {
+                      sk: "Upraviť osobu",
+                      cs: "Upravit osobu",
+                      en: "Edit Person",
+                      hu: "Személy szerkesztése",
+                      ro: "Editează persoana",
+                      it: "Modifica persona",
+                      de: "Person bearbeiten",
+                    };
+                    return d[locale] || "Edit Person";
+                  })()
+                : t.collaborators.addCollaborator}
             </p>
           </div>
         </div>
