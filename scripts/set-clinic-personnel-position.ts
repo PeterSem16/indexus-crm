@@ -1,76 +1,118 @@
 /**
  * set-clinic-personnel-position.ts
  *
- * Pre všetky osoby (collaborators), ktoré sú v paneli "Personnel" v ktorejkoľvek
- * KLINIKE (= contact_assignments s entity_type='clinic'), nastaví:
+ * Pre všetky osoby v paneli "Personnel" v ktorejkoľvek KLINIKE nastaví Position
+ * (= partner_categories kategóriu — to čo v UI vyberáš v dropdowne) na zadaný kód.
  *
- *   1) contact_assignments.position           = "Private gynecologist"
- *      (iba riadky kde entity_type='clinic')
+ * Default: "gynecologist_private"  (zobrazí sa ako "Súkromný gynekológ" / "Private Gynecologist")
  *
- *   2) collaborators.professional_classification = "Private gynecologist"
- *      (iba pre tie osoby, ktoré sú aspoň v jednej klinike personnel)
+ * Aktualizuje:
+ *   1) contact_assignments.category_id  (kde entity_type='clinic')
+ *      → Position v paneli Personnel v karte Clinic
+ *   2) collaborators.partner_category   (pre tie isté osoby)
+ *      → Position v Edit Collaborator
  *
  * Použitie:
  *   npx tsx scripts/set-clinic-personnel-position.ts --dry-run
  *   npx tsx scripts/set-clinic-personnel-position.ts
- *
- * Voliteľne iný text pozície:
- *   npx tsx scripts/set-clinic-personnel-position.ts --position="Private gynecologist"
+ *   npx tsx scripts/set-clinic-personnel-position.ts --code=pediatrician_private
+ *   npx tsx scripts/set-clinic-personnel-position.ts --category-id=<uuid>
  */
 
 import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "../server/db";
-import { collaborators, contactAssignments } from "../shared/schema";
+import {
+  collaborators,
+  contactAssignments,
+  partnerCategories,
+} from "../shared/schema";
 
 const DRY_RUN = process.argv.includes("--dry-run");
-const POS_ARG = process.argv.find((a) => a.startsWith("--position="));
-const POSITION = POS_ARG ? POS_ARG.split("=")[1] : "Private gynecologist";
+const CODE_ARG = process.argv.find((a) => a.startsWith("--code="));
+const ID_ARG = process.argv.find((a) => a.startsWith("--category-id="));
+const CODE = CODE_ARG ? CODE_ARG.split("=")[1] : "gynecologist_private";
 
 async function run() {
   console.log("================================================================");
   console.log(" set-clinic-personnel-position" + (DRY_RUN ? "  [DRY-RUN MODE]" : ""));
-  console.log(`  position = "${POSITION}"`);
   console.log("================================================================");
 
-  // 1) všetky contact_assignments na kliniky
+  // 1) nájdi cieľovú kategóriu
+  let category;
+  if (ID_ARG) {
+    const id = ID_ARG.split("=")[1];
+    [category] = await db
+      .select()
+      .from(partnerCategories)
+      .where(eq(partnerCategories.id, id))
+      .limit(1);
+  } else {
+    [category] = await db
+      .select()
+      .from(partnerCategories)
+      .where(eq(partnerCategories.code, CODE))
+      .limit(1);
+  }
+  if (!category) {
+    console.error(
+      `\nFATAL: Kategória s ${ID_ARG ? "id" : `code="${CODE}"`} sa nenašla v partner_categories.`,
+    );
+    console.error("Vypíš dostupné kategórie:");
+    const all = await db.select().from(partnerCategories);
+    for (const c of all) console.error(`  - ${c.code}  (${c.entityScope})  id=${c.id}  "${c.name}"`);
+    process.exit(2);
+  }
+  console.log(
+    `Target category: code="${category.code}"  name="${category.name}"  id=${category.id}` +
+      `  scope=${category.entityScope}`,
+  );
+  if (category.entityScope !== "clinic") {
+    console.log(
+      `  ⚠ pozor: kategória má scope "${category.entityScope}", nie "clinic" — UI ju nemusí zobrazovať pri klinikách.`,
+    );
+  }
+
+  // 2) všetky contact_assignments na kliniky
   const clinicAssignments = await db
     .select({
       id: contactAssignments.id,
       personId: contactAssignments.personId,
-      entityId: contactAssignments.entityId,
-      currentPosition: contactAssignments.position,
+      currentCategoryId: contactAssignments.categoryId,
     })
     .from(contactAssignments)
     .where(eq(contactAssignments.entityType, "clinic"));
 
   console.log(`\nFound ${clinicAssignments.length} clinic-personnel assignment(s).`);
-
   const personIds = Array.from(new Set(clinicAssignments.map((a) => a.personId)));
   console.log(`Distinct persons in clinic personnel: ${personIds.length}`);
 
-  // 2) UPDATE contact_assignments.position
-  let assignmentsToChange = clinicAssignments.filter((a) => a.currentPosition !== POSITION);
+  const assignmentsToChange = clinicAssignments.filter(
+    (a) => a.currentCategoryId !== category.id,
+  );
   console.log(
     `Assignments needing update: ${assignmentsToChange.length}` +
       ` (skipping ${clinicAssignments.length - assignmentsToChange.length} already set)`,
   );
 
-  if (DRY_RUN) {
-    console.log(
-      `  [DRY] would UPDATE contact_assignments SET position='${POSITION}'` +
-        ` WHERE entity_type='clinic' AND position IS DISTINCT FROM '${POSITION}'`,
-    );
-  } else if (assignmentsToChange.length > 0) {
-    const res = await db
-      .update(contactAssignments)
-      .set({ position: POSITION, updatedAt: new Date() })
-      .where(
-        sql`${contactAssignments.entityType} = 'clinic' AND (${contactAssignments.position} IS DISTINCT FROM ${POSITION})`,
+  // 3) UPDATE contact_assignments.category_id
+  if (assignmentsToChange.length > 0) {
+    if (DRY_RUN) {
+      console.log(
+        `  [DRY] would UPDATE contact_assignments SET category_id='${category.id}'` +
+          ` WHERE entity_type='clinic' AND category_id IS DISTINCT FROM '${category.id}'`,
       );
-    console.log(`  ✓ updated ${(res as any)?.rowCount ?? "?"} assignment row(s).`);
+    } else {
+      const res = await db
+        .update(contactAssignments)
+        .set({ categoryId: category.id, updatedAt: new Date() })
+        .where(
+          sql`${contactAssignments.entityType} = 'clinic' AND (${contactAssignments.categoryId} IS DISTINCT FROM ${category.id})`,
+        );
+      console.log(`  ✓ updated ${(res as any)?.rowCount ?? assignmentsToChange.length} assignment row(s).`);
+    }
   }
 
-  // 3) UPDATE collaborators.professional_classification (iba pre dotknuté osoby)
+  // 4) UPDATE collaborators.partner_category (iba dotknuté osoby)
   if (personIds.length === 0) {
     console.log("\nNo persons to update on collaborators side.");
   } else {
@@ -79,35 +121,37 @@ async function run() {
         id: collaborators.id,
         firstName: collaborators.firstName,
         lastName: collaborators.lastName,
-        currentClass: collaborators.professionalClassification,
+        currentPartnerCategory: collaborators.partnerCategory,
       })
       .from(collaborators)
       .where(inArray(collaborators.id, personIds));
 
-    const collabsToChange = collabs.filter((c) => c.currentClass !== POSITION);
+    const collabsToChange = collabs.filter((c) => c.currentPartnerCategory !== category.id);
     console.log(
-      `\nCollaborators needing professionalClassification update: ${collabsToChange.length}` +
+      `\nCollaborators needing partner_category update: ${collabsToChange.length}` +
         ` (skipping ${collabs.length - collabsToChange.length} already set)`,
     );
 
-    if (DRY_RUN) {
-      for (const c of collabsToChange.slice(0, 10)) {
+    if (collabsToChange.length > 0) {
+      if (DRY_RUN) {
+        for (const c of collabsToChange.slice(0, 10)) {
+          console.log(
+            `  [DRY] ${c.firstName} ${c.lastName}` +
+              `  ${c.currentPartnerCategory || "(empty)"} -> ${category.id}`,
+          );
+        }
+        if (collabsToChange.length > 10) {
+          console.log(`  ... and ${collabsToChange.length - 10} more`);
+        }
+      } else {
+        const res = await db
+          .update(collaborators)
+          .set({ partnerCategory: category.id, updatedAt: new Date() })
+          .where(inArray(collaborators.id, collabsToChange.map((c) => c.id)));
         console.log(
-          `  [DRY] ${c.firstName} ${c.lastName}` +
-            `  ${c.currentClass || "(empty)"} -> "${POSITION}"`,
+          `  ✓ updated ${(res as any)?.rowCount ?? collabsToChange.length} collaborator row(s).`,
         );
       }
-      if (collabsToChange.length > 10) {
-        console.log(`  ... and ${collabsToChange.length - 10} more`);
-      }
-    } else if (collabsToChange.length > 0) {
-      const res = await db
-        .update(collaborators)
-        .set({ professionalClassification: POSITION, updatedAt: new Date() })
-        .where(
-          sql`${collaborators.id} IN (${sql.join(collabsToChange.map((c) => sql`${c.id}`), sql`, `)})`,
-        );
-      console.log(`  ✓ updated ${(res as any)?.rowCount ?? collabsToChange.length} collaborator row(s).`);
     }
   }
 
