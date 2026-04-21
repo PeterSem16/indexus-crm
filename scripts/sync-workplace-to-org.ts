@@ -88,6 +88,32 @@ function isHospitalName(name: string): boolean {
   );
 }
 
+interface CountryStats {
+  total: number;
+  hospitalsCreated: number;
+  hospitalsUpdated: number;
+  clinicsCreated: number;
+  clinicsUpdated: number;
+  current: number;
+  former: number;
+  noStatus: number;
+  skippedNoName: number;
+}
+
+function emptyCountryStats(): CountryStats {
+  return {
+    total: 0,
+    hospitalsCreated: 0,
+    hospitalsUpdated: 0,
+    clinicsCreated: 0,
+    clinicsUpdated: 0,
+    current: 0,
+    former: 0,
+    noStatus: 0,
+    skippedNoName: 0,
+  };
+}
+
 interface Stats {
   total: number;
   skippedNoName: number;
@@ -99,6 +125,7 @@ interface Stats {
   clinicsLinked: number;
   unchanged: number;
   errors: number;
+  byCountry: Map<string, CountryStats>;
 }
 
 const stats: Stats = {
@@ -112,7 +139,17 @@ const stats: Stats = {
   clinicsLinked: 0,
   unchanged: 0,
   errors: 0,
+  byCountry: new Map(),
 };
+
+function getCountryStats(country: string): CountryStats {
+  let cs = stats.byCountry.get(country);
+  if (!cs) {
+    cs = emptyCountryStats();
+    stats.byCountry.set(country, cs);
+  }
+  return cs;
+}
 
 async function upsertHospital(addr: WorkAddr): Promise<string | null> {
   const name = (addr.name || "").trim();
@@ -137,6 +174,7 @@ async function upsertHospital(addr: WorkAddr): Promise<string | null> {
     if (DRY_RUN) {
       console.log(`  [DRY] CREATE hospital: "${name}" / ${addr.city || "-"} / ${country}`);
       stats.hospitalsCreated++;
+      getCountryStats(country).hospitalsCreated++;
       return "dry-run-id";
     }
     const [created] = await db
@@ -153,6 +191,7 @@ async function upsertHospital(addr: WorkAddr): Promise<string | null> {
       })
       .returning({ id: hospitals.id });
     stats.hospitalsCreated++;
+    getCountryStats(country).hospitalsCreated++;
     console.log(`  + CREATE hospital ${created.id} "${name}"`);
     return created.id;
   }
@@ -172,6 +211,7 @@ async function upsertHospital(addr: WorkAddr): Promise<string | null> {
   if (DRY_RUN) {
     console.log(`  [DRY] UPDATE hospital ${h.id} "${name}" with`, patch);
     stats.hospitalsUpdated++;
+    getCountryStats(country).hospitalsUpdated++;
     return h.id;
   }
   await db
@@ -179,6 +219,7 @@ async function upsertHospital(addr: WorkAddr): Promise<string | null> {
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(hospitals.id, h.id));
   stats.hospitalsUpdated++;
+  getCountryStats(country).hospitalsUpdated++;
   console.log(`  ~ UPDATE hospital ${h.id} "${name}"`, Object.keys(patch).join(","));
   return h.id;
 }
@@ -206,6 +247,11 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
     if (DRY_RUN) {
       console.log(`  [DRY] CREATE clinic: "${name}" / ${addr.city || "-"} / ${country} / leadSource=${status || "(none)"}`);
       stats.clinicsCreated++;
+      const cs = getCountryStats(country);
+      cs.clinicsCreated++;
+      if (status === "current_collaborator") cs.current++;
+      else if (status === "former_collaborator") cs.former++;
+      else cs.noStatus++;
       return "dry-run-id";
     }
     const [created] = await db
@@ -223,6 +269,11 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
       })
       .returning({ id: clinics.id });
     stats.clinicsCreated++;
+    const cs = getCountryStats(country);
+    cs.clinicsCreated++;
+    if (status === "current_collaborator") cs.current++;
+    else if (status === "former_collaborator") cs.former++;
+    else cs.noStatus++;
     console.log(`  + CREATE clinic ${created.id} "${name}" leadSource=${status || "(none)"}`);
     return created.id;
   }
@@ -250,6 +301,7 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
   if (DRY_RUN) {
     console.log(`  [DRY] UPDATE clinic ${c.id} "${name}" with`, patch);
     stats.clinicsUpdated++;
+    getCountryStats(country).clinicsUpdated++;
     return c.id;
   }
   await db
@@ -257,6 +309,7 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(clinics.id, c.id));
   stats.clinicsUpdated++;
+  getCountryStats(country).clinicsUpdated++;
   console.log(`  ~ UPDATE clinic ${c.id} "${name}"`, Object.keys(patch).join(","));
   return c.id;
 }
@@ -352,9 +405,12 @@ async function run() {
 
   for (const addr of workAddrs) {
     stats.total++;
+    const country = addr.countryCode || "SK";
+    getCountryStats(country).total++;
     const name = (addr.name || "").trim();
     if (!name) {
       stats.skippedNoName++;
+      getCountryStats(country).skippedNoName++;
       continue;
     }
 
@@ -395,6 +451,28 @@ async function run() {
   console.log(`  Clinics linked to collab       : ${stats.clinicsLinked}`);
   console.log(`  Unchanged (already linked)     : ${stats.unchanged}`);
   console.log(`  Errors                         : ${stats.errors}`);
+
+  if (stats.byCountry.size > 0) {
+    console.log("\n----------------------------------------------------------------");
+    console.log(" BREAKDOWN BY COUNTRY");
+    console.log("----------------------------------------------------------------");
+    const header =
+      "  CC  | Total | Skip | H+ | H~ | C+ | C~ | Curr | Form | NoStat";
+    console.log(header);
+    console.log("  ----+-------+------+----+----+----+----+------+------+-------");
+    const rows = Array.from(stats.byCountry.entries()).sort(
+      (a, b) => b[1].total - a[1].total,
+    );
+    for (const [cc, cs] of rows) {
+      const pad = (n: number, w: number) => String(n).padStart(w);
+      console.log(
+        `  ${cc.padEnd(3)} | ${pad(cs.total, 5)} | ${pad(cs.skippedNoName, 4)} | ${pad(cs.hospitalsCreated, 2)} | ${pad(cs.hospitalsUpdated, 2)} | ${pad(cs.clinicsCreated, 2)} | ${pad(cs.clinicsUpdated, 2)} | ${pad(cs.current, 4)} | ${pad(cs.former, 4)} | ${pad(cs.noStatus, 5)}`,
+      );
+    }
+    console.log("  Legenda:  H+ = hospitals created   H~ = hospitals updated");
+    console.log("            C+ = clinics created     C~ = clinics updated");
+    console.log("            Curr/Form/NoStat = leadSource pri novovytvorených ambulanciách");
+  }
   console.log("================================================================\n");
 }
 
