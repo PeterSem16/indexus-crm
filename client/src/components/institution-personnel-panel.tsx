@@ -1224,26 +1224,29 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                     <span className="text-muted-foreground shrink-0 max-w-full truncate" title={entityKindLabel}>
                       {entityKindBase} <span className="font-medium text-foreground/80">{entityName}</span>:
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!p.assignment_id) return;
-                        setEditingId(p.assignment_id);
-                        setEditData({
-                          categoryId: p.category_id || "",
-                          isPrimary: !!p.is_primary,
-                          notes: p.notes || "",
-                        });
-                      }}
-                      title={locale === "sk" || locale === "cs" ? "Kliknite pre úpravu zaradenia" : "Click to edit assignment"}
-                      disabled={!p.assignment_id}
-                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md shrink-0 bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:border-slate-400 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-                      data-testid={`badge-assignment-${p.person_id}`}
-                    >
+                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md shrink-0 bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
                       <Building2 className="h-2.5 w-2.5 opacity-70" />
                       {assignmentText || (locale === "sk" || locale === "cs" ? "Bez zaradenia" : "No role set")}
-                      {p.assignment_id && <Pencil className="h-2.5 w-2.5 opacity-50 ml-0.5" />}
-                    </button>
+                    </span>
+                    {p.assignment_id && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        title={locale === "sk" || locale === "cs" ? "Upraviť zaradenie v tejto nemocnici" : "Edit assignment in this hospital"}
+                        onClick={() => {
+                          setEditingId(p.assignment_id);
+                          setEditData({
+                            categoryId: p.category_id || "",
+                            isPrimary: !!p.is_primary,
+                            notes: p.notes || "",
+                          });
+                        }}
+                        data-testid={`button-edit-assignment-${p.person_id}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 )}
                 {Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0 && (
