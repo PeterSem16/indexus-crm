@@ -1158,11 +1158,12 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
             return true;
           });
           const assignmentText = assignmentParts.length > 0 ? assignmentParts.join(" — ") : null;
-          const entityKindLabel = entityType === "hospital"
+          const entityKindBase = entityType === "hospital"
             ? (locale === "sk" || locale === "cs" ? "V nemocnici" : "At hospital")
             : entityType === "clinic"
             ? (locale === "sk" || locale === "cs" ? "Na klinike" : "At clinic")
             : (locale === "sk" || locale === "cs" ? "V sieti" : "In network");
+          const entityKindLabel = entityName ? `${entityKindBase} ${entityName}` : entityKindBase;
           const professionLabel = locale === "sk" || locale === "cs" ? "Profesia" : "Profession";
           const activitiesLabel = locale === "sk" || locale === "cs" ? "Činnosti pre CBC" : "CBC activities";
 
@@ -1219,8 +1220,10 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                   </div>
                 )}
                 {(assignmentText || p.assignment_id) && (
-                  <div className="flex items-center gap-1.5 text-[11px]">
-                    <span className="text-muted-foreground shrink-0 w-[80px]">{entityKindLabel}:</span>
+                  <div className="flex items-baseline gap-1.5 text-[11px] flex-wrap">
+                    <span className="text-muted-foreground shrink-0 max-w-full truncate" title={entityKindLabel}>
+                      {entityKindBase} <span className="font-medium text-foreground/80">{entityName}</span>:
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
