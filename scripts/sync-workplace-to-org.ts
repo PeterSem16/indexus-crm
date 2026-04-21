@@ -24,9 +24,48 @@ import { db } from "../server/db";
 import {
   collaborators,
   collaboratorAddresses,
+  collaboratorAgreements,
   hospitals,
   clinics,
 } from "../shared/schema";
+
+type CollabStatus = "current_collaborator" | "former_collaborator" | null;
+
+/**
+ * Map collaboratorId -> "current_collaborator" | "former_collaborator" | null
+ * - "current"  = aspoň jedna dohoda s validTo >= dnes (alebo bez validTo a isValid=true)
+ * - "former"   = má dohody, ale všetky vypršali pred dneškom
+ * - null       = nemá žiadne dohody (nemeníme leadSource)
+ */
+const collabStatusMap = new Map<string, CollabStatus>();
+
+async function buildCollabStatusMap() {
+  const agreements = await db.select().from(collaboratorAgreements);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const byCollab = new Map<string, typeof agreements>();
+  for (const a of agreements) {
+    const arr = byCollab.get(a.collaboratorId) || [];
+    arr.push(a);
+    byCollab.set(a.collaboratorId, arr);
+  }
+
+  for (const [collabId, list] of byCollab.entries()) {
+    let hasCurrent = false;
+    for (const a of list) {
+      const y = a.validToYear, m = a.validToMonth, d = a.validToDay;
+      // No validTo set + marked valid -> current
+      if (!y || !m || !d) {
+        if (a.isValid) { hasCurrent = true; break; }
+        continue;
+      }
+      const validTo = new Date(y, m - 1, d);
+      if (validTo >= today) { hasCurrent = true; break; }
+    }
+    collabStatusMap.set(collabId, hasCurrent ? "current_collaborator" : "former_collaborator");
+  }
+}
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
@@ -147,6 +186,7 @@ async function upsertHospital(addr: WorkAddr): Promise<string | null> {
 async function upsertClinic(addr: WorkAddr): Promise<string | null> {
   const name = (addr.name || "").trim();
   const country = addr.countryCode || "SK";
+  const status = collabStatusMap.get(addr.collaboratorId) || null;
 
   const existing = await db
     .select()
@@ -164,7 +204,7 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
 
   if (existing.length === 0) {
     if (DRY_RUN) {
-      console.log(`  [DRY] CREATE clinic: "${name}" / ${addr.city || "-"} / ${country}`);
+      console.log(`  [DRY] CREATE clinic: "${name}" / ${addr.city || "-"} / ${country} / leadSource=${status || "(none)"}`);
       stats.clinicsCreated++;
       return "dry-run-id";
     }
@@ -177,11 +217,13 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
         postalCode: addr.postalCode || null,
         region: addr.region || null,
         countryCode: country,
-        leadSource: "workplace-sync",
+        leadSource: status || null,
+        leadSourceDate: status ? new Date() : null,
+        leadSourceNotes: status ? "Auto-set from workplace-sync (collaborator agreement state)" : null,
       })
       .returning({ id: clinics.id });
     stats.clinicsCreated++;
-    console.log(`  + CREATE clinic ${created.id} "${name}"`);
+    console.log(`  + CREATE clinic ${created.id} "${name}" leadSource=${status || "(none)"}`);
     return created.id;
   }
 
@@ -191,6 +233,15 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
   if (!c.city && addr.city) patch.city = addr.city;
   if (!c.postalCode && addr.postalCode) patch.postalCode = addr.postalCode;
   if (!c.region && addr.region) patch.region = addr.region;
+
+  // leadSource: vždy preber aktuálny stav (môže sa časom meniť current <-> former)
+  if (status && c.leadSource !== status) {
+    patch.leadSource = status;
+    patch.leadSourceDate = new Date();
+    if (!c.leadSourceNotes) {
+      patch.leadSourceNotes = "Auto-set from workplace-sync (collaborator agreement state)";
+    }
+  }
 
   if (Object.keys(patch).length === 0) {
     return c.id;
@@ -282,6 +333,15 @@ async function run() {
   console.log("================================================================");
   console.log(" sync-workplace-to-org" + (DRY_RUN ? "  [DRY-RUN MODE]" : ""));
   console.log("================================================================");
+
+  console.log("Building collaborator agreement-status map...");
+  await buildCollabStatusMap();
+  let curr = 0, form = 0;
+  for (const v of collabStatusMap.values()) {
+    if (v === "current_collaborator") curr++;
+    else if (v === "former_collaborator") form++;
+  }
+  console.log(`  -> ${collabStatusMap.size} collaborators with agreements (${curr} current, ${form} former)\n`);
 
   const workAddrs = await db
     .select()
