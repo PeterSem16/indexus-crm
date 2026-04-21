@@ -31,6 +31,14 @@ import {
 
 type CollabStatus = "current_collaborator" | "former_collaborator" | null;
 
+type CollaboratorRow = typeof collaborators.$inferSelect;
+const collabMap = new Map<string, CollaboratorRow>();
+
+async function buildCollabMap() {
+  const rows = await db.select().from(collaborators);
+  for (const r of rows) collabMap.set(r.id, r);
+}
+
 /**
  * Map collaboratorId -> "current_collaborator" | "former_collaborator" | null
  * - "current"  = aspoň jedna dohoda s validTo >= dnes (alebo bez validTo a isValid=true)
@@ -236,6 +244,23 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
   const name = (addr.name || "").trim();
   const country = addr.countryCode || "SK";
   const status = collabStatusMap.get(addr.collaboratorId) || null;
+  const collab = collabMap.get(addr.collaboratorId);
+
+  // Údaje osoby ktoré chceme preniesť do clinic
+  const docFirst = collab?.firstName?.trim() || null;
+  const docLast = collab?.lastName?.trim() || null;
+  const docTitle = [collab?.titleBefore?.trim(), collab?.titleAfter?.trim()]
+    .filter(Boolean)
+    .join(" / ") || null;
+  const docFullName = [collab?.titleBefore, docFirst, collab?.middleName, docLast, collab?.titleAfter]
+    .map((p) => (p || "").trim())
+    .filter(Boolean)
+    .join(" ") || null;
+  const collabPhone = collab?.phone?.trim() || collab?.mobile?.trim() || null;
+  const collabPhone2 = collab?.mobile?.trim() && collab?.phone?.trim()
+    ? collab.mobile.trim()
+    : (collab?.mobile2?.trim() || null);
+  const collabEmail = collab?.email?.trim() || null;
 
   const existing = await db
     .select()
@@ -271,6 +296,16 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
         postalCode: addr.postalCode || null,
         region: addr.region || null,
         countryCode: country,
+        // Údaje doktora prenesené z osoby (collaborator)
+        doctorName: docFullName,
+        doctorTitle: docTitle,
+        doctorFirstName: docFirst,
+        doctorLastName: docLast,
+        // Kontaktné údaje
+        phone: collabPhone,
+        phone2: collabPhone2,
+        email: collabEmail,
+        // Status spolupráce
         leadSource: status || null,
         leadSourceDate: status ? new Date() : null,
         leadSourceNotes: status ? "Auto-set from workplace-sync (collaborator agreement state)" : null,
@@ -292,6 +327,15 @@ async function upsertClinic(addr: WorkAddr): Promise<string | null> {
   if (!c.city && addr.city) patch.city = addr.city;
   if (!c.postalCode && addr.postalCode) patch.postalCode = addr.postalCode;
   if (!c.region && addr.region) patch.region = addr.region;
+
+  // Doktor + kontakt: doplniť iba ak v clinic chýbajú (existujúce hodnoty neprepisovať)
+  if (!c.doctorFirstName && docFirst) patch.doctorFirstName = docFirst;
+  if (!c.doctorLastName && docLast) patch.doctorLastName = docLast;
+  if (!c.doctorName && docFullName) patch.doctorName = docFullName;
+  if (!c.doctorTitle && docTitle) patch.doctorTitle = docTitle;
+  if (!c.phone && collabPhone) patch.phone = collabPhone;
+  if (!c.phone2 && collabPhone2) patch.phone2 = collabPhone2;
+  if (!c.email && collabEmail) patch.email = collabEmail;
 
   // leadSource: vždy preber aktuálny stav (môže sa časom meniť current <-> former)
   if (status && c.leadSource !== status) {
@@ -394,6 +438,10 @@ async function run() {
   console.log("================================================================");
   console.log(" sync-workplace-to-org" + (DRY_RUN ? "  [DRY-RUN MODE]" : ""));
   console.log("================================================================");
+
+  console.log("Loading collaborators...");
+  await buildCollabMap();
+  console.log(`  -> ${collabMap.size} collaborators loaded\n`);
 
   console.log("Building collaborator agreement-status map...");
   await buildCollabStatusMap();
