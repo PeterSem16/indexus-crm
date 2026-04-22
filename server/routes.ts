@@ -43815,9 +43815,38 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         console.error("[Personnel] Agreement query error:", agErr.message);
       }
 
+      // Fetch referrals (who recommended each personnel person)
+      const recommendedByMap = new Map<string, Array<{ personId: string; personName: string }>>();
+      try {
+        if (allPersonIds.length > 0) {
+          const refRows = await db.execute(sql`
+            SELECT cr.collaborator_id as person_id,
+                   ref.id as ref_person_id,
+                   ref.title_before, ref.first_name, ref.last_name, ref.title_after
+            FROM collaborator_referrals cr
+            JOIN collaborators ref ON ref.id = cr.referring_collaborator_id
+            WHERE cr.referral_type = 'doctor_referral'
+              AND cr.collaborator_id IN (${sql.join(allPersonIds.map(id => sql`${id}`), sql`, `)})
+          `);
+          for (const r of (refRows.rows || []) as any[]) {
+            const list = recommendedByMap.get(r.person_id) || [];
+            const fullName = [r.title_before, r.first_name, r.last_name, r.title_after].filter(Boolean).join(" ");
+            list.push({ personId: r.ref_person_id, personName: fullName });
+            recommendedByMap.set(r.person_id, list);
+          }
+        }
+      } catch (refErr: any) {
+        console.error("[Personnel] Referral query error:", refErr.message);
+      }
+
       const addAgreementStatus = (rows: any[]) => rows.map((r: any) => {
         const ag = agreementMap.get(r.person_id);
-        return Object.assign({}, r, { has_agreement: !!ag, agreement_valid: ag?.isValid ?? false, agreement_expired: ag?.isExpired ?? false });
+        return Object.assign({}, r, {
+          has_agreement: !!ag,
+          agreement_valid: ag?.isValid ?? false,
+          agreement_expired: ag?.isExpired ?? false,
+          recommended_by: recommendedByMap.get(r.person_id) || [],
+        });
       });
 
       res.json({

@@ -64,6 +64,7 @@ import {
   Receipt,
   ClipboardList,
   MoreHorizontal,
+  UserCheck,
 } from "lucide-react";
 
 const CBC_ACTIVITY_META: Record<string, { icon: any; cls: string; labels: Record<string, string> }> = {
@@ -544,6 +545,27 @@ export function InstitutionPersonnelPanel({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm">{fullName}</span>
+                          {Array.isArray(p.recommended_by) && p.recommended_by.length > 0 && (() => {
+                            const tx = (t.clinics as any) || {};
+                            const recBy = p.recommended_by as Array<{ personName: string }>;
+                            const names = recBy.map(r => r.personName).join(", ");
+                            let label: string;
+                            if (recBy.length === 1) {
+                              const lastWord = recBy[0].personName.split(" ").pop() || "";
+                              const isFemale = /(ová|á)$/.test(lastWord);
+                              const tpl = (isFemale ? tx.recommendedByFemale : tx.recommendedByMale) || "Recommended by {name}";
+                              label = tpl.replace("{name}", recBy[0].personName);
+                            } else {
+                              const tpl = tx.recommendedByMultiple || "Recommended by: {names}";
+                              label = tpl.replace("{names}", names);
+                            }
+                            return (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 inline-flex items-center gap-1" title={names} data-testid={`badge-personnel-recommended-by-${p.person_id}`}>
+                                <UserCheck className="h-2.5 w-2.5" />
+                                {label}
+                              </Badge>
+                            );
+                          })()}
                           {p.category_name && (
                             <Badge variant="outline" className="text-[10px]">{
                               p.category_id 
