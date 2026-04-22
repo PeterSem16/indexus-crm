@@ -1,0 +1,72 @@
+seman@CORPCRM01:/var/www/indexus-crm$ # zisti, ako máš app spustenú (pm2 / systemd / iné)
+pm2 list
+# alebo
+sudo systemctl status indexus-crm
+┌────┬──────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name             │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 4  │ indexus-crm      │ default     │ 1.0.0   │ fork    │ 268558   │ 10m    │ 80   │ online    │ 0%       │ 217.9mb  │ seman    │ disabled │
+└────┴──────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Module
+┌────┬──────────────────────────────┬───────────────┬──────────┬──────────┬──────┬──────────┬──────────┬──────────┐
+│ id │ module                       │ version       │ pid      │ status   │ ↺    │ cpu      │ mem      │ user     │
+├────┼──────────────────────────────┼───────────────┼──────────┼──────────┼──────┼──────────┼──────────┼──────────┤
+│ 1  │ pm2-logrotate                │ 3.0.0         │ 27605    │ online   │ 3    │ 0%       │ 71.0mb   │ seman    │
+└────┴──────────────────────────────┴───────────────┴──────────┴──────────┴──────┴──────────┴──────────┴──────────┘
+Unit indexus-crm.service could not be found.
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 restart indexus-crm   # ak pm2
+# alebo
+sudo systemctl restart indexus-crm
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [indexus-crm](ids: [ 4 ])
+[PM2] [indexus-crm](4) ✓
+┌────┬──────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name             │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 4  │ indexus-crm      │ default     │ 1.0.0   │ fork    │ 268815   │ 0s     │ 81   │ online    │ 0%       │ 17.3mb   │ seman    │ disabled │
+└────┴──────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Module
+┌────┬──────────────────────────────┬───────────────┬──────────┬──────────┬──────┬──────────┬──────────┬──────────┐
+│ id │ module                       │ version       │ pid      │ status   │ ↺    │ cpu      │ mem      │ user     │
+├────┼──────────────────────────────┼───────────────┼──────────┼──────────┼──────┼──────────┼──────────┼──────────┤
+│ 1  │ pm2-logrotate                │ 3.0.0         │ 27605    │ online   │ 3    │ 0%       │ 71.6mb   │ seman    │
+└────┴──────────────────────────────┴───────────────┴──────────┴──────────┴──────┴──────────┴──────────┴──────────┘
+Failed to restart indexus-crm.service: Unit indexus-crm.service not found.
+seman@CORPCRM01:/var/www/indexus-crm$ # user crontaby
+sudo crontab -l
+crontab -l
+sudo -u postgres crontab -l
+sudo -u root crontab -l
+
+# systémové crony
+sudo ls -la /etc/cron.d/ /etc/cron.daily/ /etc/cron.hourly/
+sudo grep -r "postgres\|pg_ctl\|systemctl.*postgres\|chmod.*postgres\|/var/lib/postgresql" /etc/cron* /etc/systemd 2>/dev/null
+
+# časovače
+sudo systemctl list-timers --all | grep -i 'backup\|postgres\|dump'
+sudo: crontab: command not found
+-bash: crontab: command not found
+sudo: crontab: command not found
+sudo: crontab: command not found
+ls: cannot access '/etc/cron.hourly/': No such file or directory
+/etc/cron.d/:
+total 24
+drwxr-xr-x   2 root root 4096 Mar 11 09:25 .
+drwxr-xr-x 114 root root 4096 Apr 22 06:01 ..
+-rw-r--r--   1 root root  802 Apr 16  2023 certbot
+-rw-r--r--   1 root root  201 Apr  8  2024 e2scrub_all
+-rw-r--r--   1 root root  712 Jan 19  2024 php
+-rw-r--r--   1 root root  396 Jan  9  2024 sysstat
+
+/etc/cron.daily/:
+total 32
+drwxr-xr-x   2 root root 4096 Mar 11 09:25 .
+drwxr-xr-x 114 root root 4096 Apr 22 06:01 ..
+-rwxr-xr-x   1 root root  539 Mar 18  2024 apache2
+-rwxr-xr-x   1 root root  376 Jul  8  2025 apport
+-rwxr-xr-x   1 root root 1478 Mar 22  2024 apt-compat
+-rwxr-xr-x   1 root root  123 Feb  5  2024 dpkg
+-rwxr-xr-x   1 root root  377 Apr  8  2024 logrotate
+-rwxr-xr-x   1 root root  518 Jan  9  2024 sysstat
+Thu 2026-04-23 00:00:00 UTC      17h Wed 2026-04-22 00:00:07 UTC       6h ago dpkg-db-backup.timer         dpkg-db-backup.service
+seman@CORPCRM01:/var/www/in
