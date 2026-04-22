@@ -15525,7 +15525,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.put("/api/collaborators/:id", requireAuth, async (req, res) => {
     try {
       console.log("[Collaborators] PUT request for id:", req.params.id, "body:", JSON.stringify(req.body, null, 2));
-      
+
+      // Coerce empty strings to null for timestamp/date columns so Postgres doesn't reject them
+      const dateFields = ["leadSourceDate", "conferenceDate", "birthDate", "agreementValidFrom", "agreementValidTo"];
+      for (const f of dateFields) {
+        if (req.body && req.body[f] === "") req.body[f] = null;
+      }
+
       // Get old collaborator to compare changes
       const oldCollaborator = await storage.getCollaborator(req.params.id);
       if (!oldCollaborator) return res.status(404).json({ error: "Collaborator not found" });
