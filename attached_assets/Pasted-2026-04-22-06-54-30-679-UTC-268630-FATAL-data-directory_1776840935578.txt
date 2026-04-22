@@ -1,0 +1,44 @@
+2026-04-22 06:54:30.679 UTC [268630] FATAL:  data directory "/var/lib/postgresql/16/main" has invalid permissions
+2026-04-22 06:54:30.679 UTC [268630] DETAIL:  Permissions should be u=rwx (0700) or u=rwx,g=rx (0750).
+pg_ctl: could not start server
+Examine the log output.
+seman@CORPCRM01:/var/www/indexus-crm$ # 1) skontroluj aktuálny stav
+sudo ls -ld /var/lib/postgresql/16/main
+sudo stat -c '%U:%G %a' /var/lib/postgresql/16/main
+
+# 2) nastav správneho vlastníka a permissions
+sudo chown -R postgres:postgres /var/lib/postgresql/16/main
+sudo chmod 0700 /var/lib/postgresql/16/main
+
+# 3) naštartuj cluster
+sudo systemctl start postgresql@16-main
+
+# 4) over
+sudo systemctl status postgresql@16-main
+sudo ss -ltnp | grep 5432
+pg_lsclusters
+drwx---r-x 19 postgres postgres 4096 Apr 22 06:01 /var/lib/postgresql/16/main
+postgres:postgres 705
+● postgresql@16-main.service - PostgreSQL Cluster 16-main
+     Loaded: loaded (/usr/lib/systemd/system/postgresql@.service; enabled-runtime; preset: enabled)
+     Active: active (running) since Wed 2026-04-22 06:54:36 UTC; 12ms ago
+    Process: 268659 ExecStart=/usr/bin/pg_ctlcluster --skip-systemctl-redirect 16-main start (code=exited, status=0/SUCCESS)
+   Main PID: 268664 (postgres)
+      Tasks: 6 (limit: 38420)
+     Memory: 18.6M (peak: 27.8M)
+        CPU: 109ms
+     CGroup: /system.slice/system-postgresql.slice/postgresql@16-main.service
+             ├─268664 /usr/lib/postgresql/16/bin/postgres -D /var/lib/postgresql/16/main -c config_file=/etc/postgresql/16/main/postgresql.conf
+             ├─268665 "postgres: 16/main: checkpointer "
+             ├─268666 "postgres: 16/main: background writer "
+             ├─268668 "postgres: 16/main: walwriter "
+             ├─268669 "postgres: 16/main: autovacuum launcher "
+             └─268670 "postgres: 16/main: logical replication launcher "
+
+Apr 22 06:54:34 CORPCRM01 systemd[1]: Starting postgresql@16-main.service - PostgreSQL Cluster 16-main...
+Apr 22 06:54:36 CORPCRM01 systemd[1]: Started postgresql@16-main.service - PostgreSQL Cluster 16-main.
+LISTEN 0      200        127.0.0.1:5432       0.0.0.0:*    users:(("postgres",pid=268664,fd=6))
+Ver Cluster Port Status Owner    Data directory              Log file
+16  main    5432 online postgres /var/lib/postgresql/16/main /var/log/postgresql/postgresql-16-main.log
+seman@CORPCRM01:/var/www/indexus-crm$ sudo chmod -R u=rwX,go= /var/lib/postgresql/16/main
+seman@CORPCRM01:/var/www/indexus-crm$
