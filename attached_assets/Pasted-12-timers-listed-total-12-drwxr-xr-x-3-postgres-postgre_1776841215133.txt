@@ -1,0 +1,209 @@
+12 timers listed.
+total 12
+drwxr-xr-x  3 postgres postgres 4096 Jan 15 08:42 .
+drwxr-xr-x  3 postgres postgres 4096 Jan 15 12:06 ..
+drwx------ 19 postgres postgres 4096 Apr 22 06:54 main
+total 20
+drwxr-xr-x 3 postgres postgres 4096 Jan 15 12:06 .
+drwxr-xr-x 3 postgres postgres 4096 Mar 30 11:45 ..
+-rw------- 1 postgres postgres   20 Jan 15 12:06 .lesshst
+-rw------- 1 postgres postgres 1442 Mar 17 20:27 .psql_history
+drwxr-xr-x 3 postgres postgres 4096 Jan 15 08:42 16
+/usr/bin/pg_basebackup
+dpkg-db-backup.service                       static          -
+pg_basebackup@.service                       static          -
+dpkg-db-backup.timer                         enabled         enabled
+pg_basebackup@.timer                         disabled        enabled
+seman@CORPCRM01:/var/www/indexus-crm$
+seman@CORPCRM01:/var/www/indexus-crm$
+seman@CORPCRM01:/var/www/indexus-crm$
+seman@CORPCRM01:/var/www/indexus-crm$
+seman@CORPCRM01:/var/www/indexus-crm$ # kto/čo o 06:01 zastavil postgres
+sudo journalctl --since "2026-04-22 05:55" --until "2026-04-22 06:10" --no-pager
+
+# aktívne timery a anacron
+sudo systemctl list-timers --all --no-pager
+ls -la /etc/anacrontab /var/spool/anacron/ 2>/dev/null
+sudo cat /etc/anacrontab 2>/dev/null
+
+# čo prepíše permissions na data adresári — pozri kto vlastnil rodiča
+sudo ls -la /var/lib/postgresql/16/
+sudo ls -la /var/lib/postgresql/
+
+# zálohovacie nástroje?
+which pg_basebackup pgbackrest barman wal-g restic borg duplicity rsnapshot 2>/dev/null
+sudo systemctl list-unit-files | grep -iE 'backup|borg|restic|duplicity|veeam|bacula'
+Apr 22 06:00:57 CORPCRM01 systemd[1]: Starting apt-daily-upgrade.service - Daily apt upgrade and clean activities...
+Apr 22 06:01:01 CORPCRM01 apt.systemd.daily[267507]: /usr/bin/unattended-upgrade:567: DeprecationWarning: This process (pid=267507) is multi-threaded, use of fork() may lead to deadlocks in the child.
+Apr 22 06:01:01 CORPCRM01 apt.systemd.daily[267507]:   pid = os.fork()
+Apr 22 06:01:04 CORPCRM01 systemd[1]: Stopping systemd-binfmt.service - Set Up Additional Binary Formats...
+Apr 22 06:01:04 CORPCRM01 systemd[1]: systemd-binfmt.service: Deactivated successfully.
+Apr 22 06:01:04 CORPCRM01 systemd[1]: Stopped systemd-binfmt.service - Set Up Additional Binary Formats.
+Apr 22 06:01:04 CORPCRM01 systemd[1]: Starting systemd-binfmt.service - Set Up Additional Binary Formats...
+Apr 22 06:01:04 CORPCRM01 systemd[1]: Finished systemd-binfmt.service - Set Up Additional Binary Formats.
+Apr 22 06:01:04 CORPCRM01 dbus-daemon[766]: [system] Activating via systemd: service name='org.freedesktop.PackageKit' unit='packagekit.service' requested by ':1.1554' (uid=0 pid=267711 comm="/usr/bin/gdbus call --system --dest org.freedeskto" label="unconfined")
+Apr 22 06:01:04 CORPCRM01 systemd[1]: Starting packagekit.service - PackageKit Daemon...
+Apr 22 06:01:04 CORPCRM01 PackageKit[267715]: daemon start
+Apr 22 06:01:04 CORPCRM01 dbus-daemon[766]: [system] Successfully activated service 'org.freedesktop.PackageKit'
+Apr 22 06:01:04 CORPCRM01 systemd[1]: Started packagekit.service - PackageKit Daemon.
+Apr 22 06:01:05 CORPCRM01 systemd[1]: Stopping pgadmin4.service - pgAdmin4 Web Service...
+Apr 22 06:01:05 CORPCRM01 systemd[1]: pgadmin4.service: Deactivated successfully.
+Apr 22 06:01:05 CORPCRM01 systemd[1]: Stopped pgadmin4.service - pgAdmin4 Web Service.
+Apr 22 06:01:05 CORPCRM01 systemd[1]: pgadmin4.service: Consumed 1min 36.306s CPU time, 223.9M memory peak, 0B memory swap peak.
+Apr 22 06:01:05 CORPCRM01 systemd[1]: Started pgadmin4.service - pgAdmin4 Web Service.
+Apr 22 06:01:05 CORPCRM01 apt.systemd.daily[267507]: /usr/bin/unattended-upgrade:567: DeprecationWarning: This process (pid=267507) is multi-threaded, use of fork() may lead to deadlocks in the child.
+Apr 22 06:01:05 CORPCRM01 apt.systemd.daily[267507]:   pid = os.fork()
+Apr 22 06:01:06 CORPCRM01 systemd[1]: Reexecuting requested from client PID 267894 ('systemctl') (unit apt-daily-upgrade.service)...
+Apr 22 06:01:06 CORPCRM01 systemd[1]: Reexecuting.
+Apr 22 06:01:06 CORPCRM01 systemd[1]: systemd 255.4-1ubuntu8.14 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP +LIBFDISK +PCRE2 -PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD -BPF_FRAMEWORK -XKBCOMMON +UTMP +SYSVINIT default-hierarchy=unified)
+Apr 22 06:01:06 CORPCRM01 systemd[1]: Detected virtualization microsoft.
+Apr 22 06:01:06 CORPCRM01 systemd[1]: Detected architecture x86-64.
+Apr 22 06:01:07 CORPCRM01 multipathd[1116566]: multipathd: shut down
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping multipathd.service - Device-Mapper Multipath Device Controller...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping nginx.service - A high performance web server and a reverse proxy server...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping packagekit.service - PackageKit Daemon...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: packagekit.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped packagekit.service - PackageKit Daemon.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting packagekit.service - PackageKit Daemon...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping polkit.service - Authorization Manager...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping postgresql@16-main.service - PostgreSQL Cluster 16-main...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: multipathd.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped multipathd.service - Device-Mapper Multipath Device Controller.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: multipathd.service: Consumed 2min 34.207s CPU time, 18.8M memory peak, 0B memory swap peak.
+Apr 22 06:01:07 CORPCRM01 systemd-journald[26217]: Journal stopped
+Apr 22 06:01:07 CORPCRM01 systemd-journald[267967]: Journal started
+Apr 22 06:01:07 CORPCRM01 systemd-journald[267967]: System Journal (/var/log/journal/85ed7c673d604167bb0e051e95e4036b) is 66.8M, max 4.0G, 3.9G free.
+Apr 22 06:01:07 CORPCRM01 systemd-journald[26217]: Received SIGTERM from PID 1 (systemd).
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping systemd-journald.service - Journal Service...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting multipathd.service - Device-Mapper Multipath Device Controller...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: netplan-ovs-cleanup.service - OpenVSwitch configuration for cleanup was skipped because of an unmet condition check (ConditionFileIsExecutable=/usr/bin/ovs-vsctl).
+Apr 22 06:01:07 CORPCRM01 systemd[1]: systemd-networkd-wait-online.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped systemd-networkd-wait-online.service - Wait for Network to be Configured.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping systemd-networkd-wait-online.service - Wait for Network to be Configured...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping systemd-networkd.service - Network Configuration...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping systemd-resolved.service - Network Name Resolution...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping systemd-timesyncd.service - Network Time Synchronization...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: polkit.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped polkit.service - Authorization Manager.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: polkit.service: Consumed 8.049s CPU time, 2.5M memory peak, 0B memory swap peak.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting polkit.service - Authorization Manager...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: nginx.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped nginx.service - A high performance web server and a reverse proxy server.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: nginx.service: Consumed 37.741s CPU time, 348.5M memory peak, 0B memory swap peak.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: systemd-journald.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped systemd-journald.service - Journal Service.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: systemd-journald.service: Consumed 1.807s CPU time, 11.6M memory peak, 0B memory swap peak.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: systemd-timesyncd.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped systemd-timesyncd.service - Network Time Synchronization.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: systemd-timesyncd.service: Consumed 2.329s CPU time, 2.4M memory peak, 0B memory swap peak.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: systemd-resolved.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped systemd-resolved.service - Network Name Resolution.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: systemd-resolved.service: Consumed 26.131s CPU time, 4.9M memory peak, 0B memory swap peak.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting systemd-journald.service - Journal Service...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting systemd-resolved.service - Network Name Resolution...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting systemd-timesyncd.service - Network Time Synchronization...
+Apr 22 06:01:07 CORPCRM01 systemd-journald[267967]: Collecting audit messages is disabled.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Started multipathd.service - Device-Mapper Multipath Device Controller.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: systemd-networkd.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped systemd-networkd.service - Network Configuration.
+Apr 22 06:01:07 CORPCRM01 systemd-journald[267967]: /dev/kmsg buffer overrun, some messages lost.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopping systemd-udevd.service - Rule-based Manager for Device Events and Files...
+Apr 22 06:01:07 CORPCRM01 PackageKit[267946]: daemon start
+Apr 22 06:01:07 CORPCRM01 dbus-daemon[766]: [system] Activating via systemd: service name='org.freedesktop.PolicyKit1' unit='polkit.service' requested by ':1.1564' (uid=0 pid=267946 comm="/usr/libexec/packagekitd" label="unconfined")
+Apr 22 06:01:07 CORPCRM01 multipathd[267957]: multipathd v0.9.4: start up
+Apr 22 06:01:07 CORPCRM01 multipathd[267957]: reconfigure: setting up paths and maps
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Started systemd-journald.service - Journal Service.
+Apr 22 06:01:07 CORPCRM01 polkitd[267958]: Started polkitd version 124
+Apr 22 06:01:07 CORPCRM01 systemd[1]: systemd-udevd.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped systemd-udevd.service - Rule-based Manager for Device Events and Files.
+Apr 22 06:01:07 CORPCRM01 polkitd[267958]: Loading rules from directory /etc/polkit-1/rules.d
+Apr 22 06:01:07 CORPCRM01 polkitd[267958]: Loading rules from directory /usr/share/polkit-1/rules.d
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting systemd-udevd.service - Rule-based Manager for Device Events and Files...
+Apr 22 06:01:07 CORPCRM01 polkitd[267958]: Finished loading, compiling and executing 4 rules
+Apr 22 06:01:07 CORPCRM01 dbus-daemon[766]: [system] Successfully activated service 'org.freedesktop.PolicyKit1'
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Started polkit.service - Authorization Manager.
+Apr 22 06:01:07 CORPCRM01 polkitd[267958]: Acquired the name org.freedesktop.PolicyKit1 on the system bus
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Started packagekit.service - PackageKit Daemon.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Started systemd-timesyncd.service - Network Time Synchronization.
+Apr 22 06:01:07 CORPCRM01 systemd-resolved[267970]: Positive Trust Anchors:
+Apr 22 06:01:07 CORPCRM01 systemd-resolved[267970]: . IN DS 20326 8 2 e06d44b80b8f1d39a95c0b0d7c65d08458e880409bbc683457104237c7f8ec8d
+Apr 22 06:01:07 CORPCRM01 systemd-resolved[267970]: Negative trust anchors: home.arpa 10.in-addr.arpa 16.172.in-addr.arpa 17.172.in-addr.arpa 18.172.in-addr.arpa 19.172.in-addr.arpa 20.172.in-addr.arpa 21.172.in-addr.arpa 22.172.in-addr.arpa 23.172.in-addr.arpa 24.172.in-addr.arpa 25.172.in-addr.arpa 26.172.in-addr.arpa 27.172.in-addr.arpa 28.172.in-addr.arpa 29.172.in-addr.arpa 30.172.in-addr.arpa 31.172.in-addr.arpa 170.0.0.192.in-addr.arpa 171.0.0.192.in-addr.arpa 168.192.in-addr.arpa d.f.ip6.arpa ipv4only.arpa corp home internal intranet lan local private test
+Apr 22 06:01:07 CORPCRM01 systemd-udevd[267994]: Using default interface naming scheme 'v255'.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Started systemd-udevd.service - Rule-based Manager for Device Events and Files.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting systemd-networkd.service - Network Configuration...
+Apr 22 06:01:07 CORPCRM01 systemd-resolved[267970]: Using system hostname 'CORPCRM01'.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Started systemd-resolved.service - Network Name Resolution.
+Apr 22 06:01:07 CORPCRM01 systemd-networkd[268003]: lo: Link UP
+Apr 22 06:01:07 CORPCRM01 systemd-networkd[268003]: lo: Gained carrier
+Apr 22 06:01:07 CORPCRM01 systemd-networkd[268003]: eth0: Link UP
+Apr 22 06:01:07 CORPCRM01 systemd-networkd[268003]: eth0: Gained carrier
+Apr 22 06:01:07 CORPCRM01 systemd-networkd[268003]: eth0: Gained IPv6LL
+Apr 22 06:01:07 CORPCRM01 systemd-networkd[268003]: Enumeration completed
+Apr 22 06:01:07 CORPCRM01 systemd-timesyncd[267972]: Network configuration changed, trying to establish connection.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Started systemd-networkd.service - Network Configuration.
+Apr 22 06:01:07 CORPCRM01 systemd-timesyncd[267972]: Network configuration changed, trying to establish connection.
+Apr 22 06:01:07 CORPCRM01 systemd-networkd[268003]: eth0: found matching network '/run/systemd/network/10-netplan-eth0.network', based on potentially unpredictable interface name.
+Apr 22 06:01:07 CORPCRM01 systemd-networkd[268003]: eth0: Configuring with /run/systemd/network/10-netplan-eth0.network.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting systemd-networkd-wait-online.service - Wait for Network to be Configured...
+Apr 22 06:01:07 CORPCRM01 systemd-timesyncd[267972]: Network configuration changed, trying to establish connection.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: postgresql@16-main.service: Deactivated successfully.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Stopped postgresql@16-main.service - PostgreSQL Cluster 16-main.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: postgresql@16-main.service: Consumed 49min 18.850s CPU time, 398.7M memory peak, 0B memory swap peak.
+Apr 22 06:01:07 CORPCRM01 systemd-timesyncd[267972]: Network configuration changed, trying to establish connection.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Starting postgresql@16-main.service - PostgreSQL Cluster 16-main...
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Finished systemd-networkd-wait-online.service - Wait for Network to be Configured.
+Apr 22 06:01:07 CORPCRM01 postgresql@16-main[268012]: Error: /usr/lib/postgresql/16/bin/pg_ctl /usr/lib/postgresql/16/bin/pg_ctl start -D /var/lib/postgresql/16/main -l /var/log/postgresql/postgresql-16-main.log -s -o  -c config_file="/etc/postgresql/16/main/postgresql.conf"  exited with status 1:
+Apr 22 06:01:07 CORPCRM01 postgresql@16-main[268012]: 2026-04-22 06:01:07.369 UTC [268025] FATAL:  data directory "/var/lib/postgresql/16/main" has invalid permissions
+Apr 22 06:01:07 CORPCRM01 postgresql@16-main[268012]: 2026-04-22 06:01:07.369 UTC [268025] DETAIL:  Permissions should be u=rwx (0700) or u=rwx,g=rx (0750).
+Apr 22 06:01:07 CORPCRM01 postgresql@16-main[268012]: pg_ctl: could not start server
+Apr 22 06:01:07 CORPCRM01 postgresql@16-main[268012]: Examine the log output.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: postgresql@16-main.service: Can't open PID file /run/postgresql/16-main.pid (yet?) after start: No such file or directory
+Apr 22 06:01:07 CORPCRM01 systemd[1]: postgresql@16-main.service: Failed with result 'protocol'.
+Apr 22 06:01:07 CORPCRM01 systemd[1]: Failed to start postgresql@16-main.service - PostgreSQL Cluster 16-main.
+Apr 22 06:01:07 CORPCRM01 python3[267742]: Starting pgAdmin 4. Please navigate to http://127.0.0.1:5050 in your browser.
+Apr 22 06:01:07 CORPCRM01 python3[267742]: 2026-04-22 06:01:07,953: WARNING        werkzeug:        Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+Apr 22 06:01:07 CORPCRM01 python3[267742]:  * Serving Flask app 'pgadmin'
+Apr 22 06:01:07 CORPCRM01 python3[267742]:  * Debug mode: off
+Apr 22 06:01:17 CORPCRM01 systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.
+Apr 22 06:01:18 CORPCRM01 systemd[1]: apt-daily-upgrade.service: Deactivated successfully.
+Apr 22 06:01:18 CORPCRM01 systemd[1]: Finished apt-daily-upgrade.service - Daily apt upgrade and clean activities.
+Apr 22 06:01:18 CORPCRM01 systemd[1]: apt-daily-upgrade.service: Consumed 9.573s CPU time, 337.2M memory peak, 0B memory swap peak.
+Apr 22 06:01:37 CORPCRM01 systemd-timesyncd[267972]: Contacted time server 91.189.91.157:123 (ntp.ubuntu.com).
+Apr 22 06:01:37 CORPCRM01 systemd-timesyncd[267972]: Initial clock synchronization to Wed 2026-04-22 06:01:37.661023 UTC.
+Apr 22 06:06:22 CORPCRM01 PackageKit[267946]: daemon quit
+Apr 22 06:06:22 CORPCRM01 systemd[1]: packagekit.service: Deactivated successfully.
+Apr 22 06:09:06 CORPCRM01 systemd[1]: Starting phpsessionclean.service - Clean php session files...
+Apr 22 06:09:06 CORPCRM01 systemd[1]: phpsessionclean.service: Deactivated successfully.
+Apr 22 06:09:06 CORPCRM01 systemd[1]: Finished phpsessionclean.service - Clean php session files.
+NEXT                            LEFT LAST                              PASSED UNIT                         ACTIVATES
+Wed 2026-04-22 07:09:00 UTC     9min Wed 2026-04-22 06:39:08 UTC    20min ago phpsessionclean.timer        phpsessionclean.service
+Wed 2026-04-22 10:55:35 UTC 3h 55min Tue 2026-04-21 12:28:57 UTC      18h ago motd-news.timer              motd-news.service
+Wed 2026-04-22 13:20:21 UTC       6h Wed 2026-04-22 03:41:38 UTC 3h 18min ago certbot.timer                certbot.service
+Wed 2026-04-22 17:44:07 UTC      10h Tue 2026-04-21 17:44:07 UTC      13h ago systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.service
+Wed 2026-04-22 17:46:17 UTC      10h Wed 2026-04-22 03:01:57 UTC 3h 57min ago apt-daily.timer              apt-daily.service
+Thu 2026-04-23 00:00:00 UTC      17h Wed 2026-04-22 00:00:07 UTC       6h ago dpkg-db-backup.timer         dpkg-db-backup.service
+Thu 2026-04-23 00:00:00 UTC      17h Wed 2026-04-22 00:00:07 UTC       6h ago logrotate.timer              logrotate.service
+Thu 2026-04-23 06:59:02 UTC      23h Wed 2026-04-22 06:00:57 UTC    58min ago apt-daily-upgrade.timer      apt-daily-upgrade.service
+Sun 2026-04-26 03:10:25 UTC   3 days Sun 2026-04-19 03:11:04 UTC   3 days ago e2scrub_all.timer            e2scrub_all.service
+Mon 2026-04-27 01:23:22 UTC   4 days Mon 2026-04-20 00:04:44 UTC   2 days ago fstrim.timer                 fstrim.service
+-                                  - -                                      - apport-autoreport.timer      apport-autoreport.service
+-                                  - -                                      - snapd.snap-repair.timer      snapd.snap-repair.service
+
+12 timers listed.
+total 12
+drwxr-xr-x  3 postgres postgres 4096 Jan 15 08:42 .
+drwxr-xr-x  3 postgres postgres 4096 Jan 15 12:06 ..
+drwx------ 19 postgres postgres 4096 Apr 22 06:54 main
+total 20
+drwxr-xr-x 3 postgres postgres 4096 Jan 15 12:06 .
+drwxr-xr-x 3 postgres postgres 4096 Mar 30 11:45 ..
+-rw------- 1 postgres postgres   20 Jan 15 12:06 .lesshst
+-rw------- 1 postgres postgres 1442 Mar 17 20:27 .psql_history
+drwxr-xr-x 3 postgres postgres 4096 Jan 15 08:42 16
+/usr/bin/pg_basebackup
+dpkg-db-backup.service                       static          -
+pg_basebackup@.service                       static          -
+dpkg-db-backup.timer                         enabled         enabled
+pg_basebackup@.timer                         disabled        enabled
+seman@CORPCRM01:/var/www/indexus-crm$
