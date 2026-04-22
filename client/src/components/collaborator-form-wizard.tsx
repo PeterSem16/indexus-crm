@@ -4305,448 +4305,450 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
               </div>
             </div>
 
-            {isEditMode && (
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <Button type="button" variant="ghost" size="sm" className="gap-2 text-sm text-muted-foreground hover:text-foreground" data-testid="toggle-legacy-fields">
-                    <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-90" />
-                    {((): string => {
-                      const d: Record<string, string> = { sk: "Legacy údaje", cs: "Legacy údaje", en: "Legacy fields", hu: "Legacy mezők", ro: "Câmpuri legacy", it: "Campi legacy", de: "Legacy-Felder" };
-                      return d[locale] || "Legacy fields";
-                    })()}
-                    {(initialData as any)?.dataSource === 'iscbc' && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-                        ISCBC
-                      </Badge>
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="grid gap-4 sm:grid-cols-2 pt-2">
-                    {!isHidden("legacy_id") && (
-                      <div className="space-y-2">
-                        <Label>{t.collaborators.legacyId}</Label>
-                        <Input
-                          value={formData.legacyId}
-                          onChange={(e) => setFormData({ ...formData, legacyId: e.target.value })}
-                          placeholder={t.collaborators.legacyId}
-                          data-testid="wizard-input-collaborator-legacy-id"
-                          disabled={isReadonly("legacy_id")}
-                          className={isReadonly("legacy_id") ? "bg-muted" : ""}
-                        />
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label>{t.collaborators?.fields?.legacyType || "Legacy Type"}</Label>
-                      <Select
-                        value={formData.collaboratorType || "_none"}
-                        onValueChange={(value) => setFormData({ ...formData, collaboratorType: value === "_none" ? "" : value })}
-                        disabled={isEditMode}
-                      >
-                        <SelectTrigger data-testid="wizard-select-collaborator-type" className="bg-muted opacity-70">
-                          <SelectValue placeholder={t.collaborators?.fields?.legacyType || "Legacy Type"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">{t.common.noData}</SelectItem>
-                          {COLLABORATOR_TYPES.map((ct) => (
-                            <SelectItem key={ct.value} value={ct.value}>
-                              {(t.collaborators.types as Record<string, string>)[ct.labelKey]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" className="gap-2 text-sm text-muted-foreground hover:text-foreground" data-testid="toggle-agreement-type">
-                  <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-90" />
-                  {t.collaborators?.fields?.agreementType || "Typ dohody"}
-                  {formData.agreementType && (
-                    <Badge variant="outline" className={cn(
-                      "text-[10px] px-1.5 py-0",
-                      formData.agreementType === "DOVP" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-amber-50 text-amber-700 border-amber-200"
-                    )}>{formData.agreementType}</Badge>
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="pt-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "DOVP" ? "" : "DOVP" })}
-                      className={cn(
-                        "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
-                        formData.agreementType === "DOVP"
-                          ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-400 shadow-sm"
-                          : "border-muted hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-muted-foreground"
-                      )}
-                      data-testid="btn-agreement-type-dovp"
-                    >
-                      <div className={cn(
-                        "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
-                        formData.agreementType === "DOVP"
-                          ? "bg-blue-500 text-white"
-                          : "bg-muted-foreground/10 text-muted-foreground"
-                      )}>D</div>
-                      <div className="text-left">
-                        <div className="leading-tight">DOVP</div>
-                        <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "DOVP" ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")}>
-                          {t.collaborators?.fields?.agreementDOVP || "Dohoda o vykonaní práce"}
-                        </div>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "ZOD" ? "" : "ZOD" })}
-                      className={cn(
-                        "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
-                        formData.agreementType === "ZOD"
-                          ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-400 shadow-sm"
-                          : "border-muted hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-muted-foreground"
-                      )}
-                      data-testid="btn-agreement-type-zod"
-                    >
-                      <div className={cn(
-                        "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
-                        formData.agreementType === "ZOD"
-                          ? "bg-amber-500 text-white"
-                          : "bg-muted-foreground/10 text-muted-foreground"
-                      )}>Z</div>
-                      <div className="text-left">
-                        <div className="leading-tight">ZOD</div>
-                        <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "ZOD" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
-                          {t.collaborators?.fields?.agreementZOD || "Zmluva o dielo"}
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <Button type="button" variant="ghost" size="sm" className="gap-2 text-sm text-muted-foreground hover:text-foreground" data-testid="toggle-lead-source">
-                    <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-90" />
-                    <UserCheck className="h-4 w-4" />
-                    {(t.clinics as any).leadSource || "Zdroj kontaktu"}
-                    {formData.isReferredByDoctor && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
-                        {((t.clinics as any).leadSourceTypes?.doctor_referral) || "Odporúčanie od lekára"}
-                      </Badge>
-                    )}
-                    {formData.isFromConference && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
-                        {((t.clinics as any).leadSourceTypes?.conference) || "Konferencia"}
-                      </Badge>
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="pt-2 space-y-3">
-                {(() => {
-                  const tx = (t.clinics as any) || {};
-                  const txtRecommendedBy = tx.hasBeenRecommendedBy || tx.recommendedByDoctors || "The Medical Partner has been recommended by following medical partners:";
-                  const txtSuggests = tx.hasSuggestedPartners || tx.suggestsDoctors || "The Medical Partner has suggested following potential medical partners:";
-                  const txtPersonNotFound = tx.doctorNotInDatabase || "Doctor not found in database? Add new:";
-                  const txtAddNew = tx.addNewDoctor || "Add new doctor";
-                  const txtSelectPerson = tx.selectDoctor || "Select doctor from database";
-                  const txtNoReferrals = tx.noReferrals || "No referring doctors added";
-                  const openNestedForm = (direction: "recommendedBy" | "suggests" | "conference", searchValue: string) => {
-                    setNestedPersonForm({ direction, lastName: searchValue });
-                  };
-
-                  return (
-                    <div className="space-y-3">
-                      {/* DOCTOR REFERRAL TILE */}
-                      <div
-                        className={cn(
-                          "border rounded-lg px-3 py-2.5 transition-all cursor-pointer",
-                          formData.isReferredByDoctor
-                            ? "border-2 shadow-sm border-purple-500 bg-purple-50/50 dark:bg-purple-950/30"
-                            : "hover:bg-muted/50 border-border"
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {isEditMode && (
+                  <Collapsible className="contents">
+                    <CollapsibleTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="gap-2 text-sm text-muted-foreground hover:text-foreground" data-testid="toggle-legacy-fields">
+                        <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-90" />
+                        {((): string => {
+                          const d: Record<string, string> = { sk: "Legacy údaje", cs: "Legacy údaje", en: "Legacy fields", hu: "Legacy mezők", ro: "Câmpuri legacy", it: "Campi legacy", de: "Legacy-Felder" };
+                          return d[locale] || "Legacy fields";
+                        })()}
+                        {(initialData as any)?.dataSource === 'iscbc' && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                            ISCBC
+                          </Badge>
                         )}
-                        onClick={() => setFormData({ ...formData, isReferredByDoctor: !formData.isReferredByDoctor })}
-                        data-testid="card-collab-doctor-referral"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
-                            <UserCheck className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm">{tx.leadSourceTypes?.doctor_referral || "Odporúčanie od lekára"}</div>
-                          </div>
-                          <Checkbox
-                            checked={formData.isReferredByDoctor}
-                            onCheckedChange={(checked) => setFormData({ ...formData, isReferredByDoctor: !!checked })}
-                            className="shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                            data-testid="checkbox-collab-doctor-referral"
-                          />
-                        </div>
-                      </div>
-
-                      {formData.isReferredByDoctor && (
-                        <div className="ml-3 pl-3 border-l-2 border-purple-200 dark:border-purple-800 space-y-3">
-                          {/* RECOMMENDED-BY box */}
-                          <div className="border rounded-lg p-3 bg-purple-50/30 dark:bg-purple-950/10 space-y-2">
-                            <div className="flex items-center gap-2 text-xs font-medium text-purple-700 dark:text-purple-300">
-                              <UserCheck className="h-3.5 w-3.5" />
-                              <span>{txtRecommendedBy}</span>
-                            </div>
-                            {doctorReferrals.length > 0 && (
-                              <div className="space-y-1.5">
-                                {doctorReferrals.map((ref) => (
-                                  <div key={ref.personId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
-                                    <div className="flex items-center gap-2">
-                                      <UserCheck className="h-3.5 w-3.5 text-purple-500" />
-                                      <span className="text-sm font-medium">{ref.personName}</span>
-                                    </div>
-                                    <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeRecommendedReferral(ref.personId, "doctor_referral")} data-testid={`remove-collab-referral-${ref.personId}`}>
-                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input
-                                value={referralSearch}
-                                onChange={(e) => setReferralSearch(e.target.value)}
-                                placeholder={txtSelectPerson}
-                                className="pl-9 h-9 bg-white dark:bg-background"
-                                data-testid="input-collab-referral-search"
-                              />
-                            </div>
-                            {referralSearch.length >= 2 && filteredPersonsRecommended.length > 0 && (
-                              <div className="border rounded-lg max-h-40 overflow-y-auto bg-white dark:bg-background">
-                                {filteredPersonsRecommended.slice(0, 10).map((person: any) => (
-                                  <div key={person.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addRecommendedReferral(person, "doctor_referral")} data-testid={`collab-referral-option-${person.id}`}>
-                                    <div>
-                                      <span className="font-medium text-sm">{formatPersonName(person)}</span>
-                                      {person.collaboratorType && <span className="text-xs text-muted-foreground ml-2">{person.collaboratorType}</span>}
-                                    </div>
-                                    <Plus className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {referralSearch.length >= 2 && filteredPersonsRecommended.length === 0 && (
-                              <div className="space-y-2">
-                                <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
-                                <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => openNestedForm("recommendedBy", referralSearch)} data-testid="button-add-new-person-recommended">
-                                  <Plus className="h-3 w-3" /> {txtAddNew}
-                                </Button>
-                              </div>
-                            )}
-                            {doctorReferrals.length === 0 && referralSearch.length < 2 && (
-                              <p className="text-xs text-muted-foreground italic pl-1">{txtNoReferrals}</p>
-                            )}
-                          </div>
-
-                          {/* SUGGESTS box (reverse direction) */}
-                          <div className="border rounded-lg p-3 bg-emerald-50/30 dark:bg-emerald-950/10 space-y-2">
-                            <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                              <ChevronRight className="h-3.5 w-3.5" />
-                              <span>{txtSuggests}</span>
-                            </div>
-                            {suggestsReferrals.length > 0 && (
-                              <div className="space-y-1.5">
-                                {suggestsReferrals.map((ref) => (
-                                  <div key={ref.personId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
-                                    <div className="flex items-center gap-2">
-                                      <ChevronRight className="h-3.5 w-3.5 text-emerald-500" />
-                                      <span className="text-sm font-medium">{ref.personName}</span>
-                                    </div>
-                                    <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeSuggestsReferral(ref.personId)} data-testid={`remove-collab-suggests-${ref.personId}`}>
-                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input
-                                value={suggestsSearch}
-                                onChange={(e) => setSuggestsSearch(e.target.value)}
-                                placeholder={txtSelectPerson}
-                                className="pl-9 h-9 bg-white dark:bg-background"
-                                data-testid="input-collab-suggests-search"
-                              />
-                            </div>
-                            {suggestsSearch.length >= 2 && filteredPersonsSuggests.length > 0 && (
-                              <div className="border rounded-lg max-h-40 overflow-y-auto bg-white dark:bg-background">
-                                {filteredPersonsSuggests.slice(0, 10).map((person: any) => (
-                                  <div key={person.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addSuggestsReferral(person)} data-testid={`collab-suggests-option-${person.id}`}>
-                                    <div>
-                                      <span className="font-medium text-sm">{formatPersonName(person)}</span>
-                                      {person.collaboratorType && <span className="text-xs text-muted-foreground ml-2">{person.collaboratorType}</span>}
-                                    </div>
-                                    <Plus className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {suggestsSearch.length >= 2 && filteredPersonsSuggests.length === 0 && (
-                              <div className="space-y-2">
-                                <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
-                                <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => openNestedForm("suggests", suggestsSearch)} data-testid="button-add-new-person-suggests">
-                                  <Plus className="h-3 w-3" /> {txtAddNew}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* CONFERENCE TILE */}
-                      <div
-                        className={cn(
-                          "border rounded-lg px-3 py-2.5 transition-all cursor-pointer",
-                          formData.isFromConference
-                            ? "border-2 shadow-sm border-rose-500 bg-rose-50/50 dark:bg-rose-950/30"
-                            : "hover:bg-muted/50 border-border"
-                        )}
-                        onClick={() => setFormData({ ...formData, isFromConference: !formData.isFromConference })}
-                        data-testid="card-collab-conference"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300">
-                            <GraduationCap className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm">{tx.leadSourceTypes?.conference || "Konferencia / Seminár"}</div>
-                          </div>
-                          <Checkbox
-                            checked={formData.isFromConference}
-                            onCheckedChange={(checked) => setFormData({ ...formData, isFromConference: !!checked })}
-                            className="shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                            data-testid="checkbox-collab-conference"
-                          />
-                        </div>
-                      </div>
-                      {formData.isFromConference && (
-                        <div className="ml-3 pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-2">
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">{tx.conferenceName || "Názov konferencie"}</Label>
-                              <Input
-                                value={formData.conferenceName}
-                                onChange={(e) => setFormData({ ...formData, conferenceName: e.target.value })}
-                                placeholder={tx.conferenceName || "Názov konferencie"}
-                                className="h-9"
-                                data-testid="input-collab-conference-name"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">{tx.conferenceDate || "Dátum konferencie"}</Label>
-                              <DateTimePicker
-                                value={formData.conferenceDate}
-                                onChange={(v) => setFormData({ ...formData, conferenceDate: v })}
-                                countryCode={formData.countryCode || "SK"}
-                                includeTime={false}
-                                data-testid="input-collab-conference-date"
-                              />
-                            </div>
-                          </div>
-                          <Separator className="my-1" />
-                          <Label className="text-xs">{tx.referringDoctors || "Stretnutia s osobami na konferencii"}</Label>
-                          {conferenceReferrals.length > 0 && (
-                            <div className="space-y-1.5">
-                              {conferenceReferrals.map((ref) => (
-                                <div key={ref.personId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-rose-50/50 dark:bg-rose-950/30">
-                                  <div className="flex items-center gap-2">
-                                    <GraduationCap className="h-3.5 w-3.5 text-rose-500" />
-                                    <span className="text-sm font-medium">{ref.personName}</span>
-                                  </div>
-                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeRecommendedReferral(ref.personId, "conference")} data-testid={`remove-collab-conf-referral-${ref.personId}`}>
-                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              value={confReferralSearch}
-                              onChange={(e) => setConfReferralSearch(e.target.value)}
-                              placeholder={txtSelectPerson}
-                              className="pl-9 h-9"
-                              data-testid="input-collab-conf-referral-search"
-                            />
-                          </div>
-                          {confReferralSearch.length >= 2 && filteredPersonsConference.length > 0 && (
-                            <div className="border rounded-lg max-h-40 overflow-y-auto">
-                              {filteredPersonsConference.slice(0, 10).map((person: any) => (
-                                <div key={person.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addRecommendedReferral(person, "conference")} data-testid={`collab-conf-referral-option-${person.id}`}>
-                                  <div>
-                                    <span className="font-medium text-sm">{formatPersonName(person)}</span>
-                                    {person.collaboratorType && <span className="text-xs text-muted-foreground ml-2">{person.collaboratorType}</span>}
-                                  </div>
-                                  <Plus className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {confReferralSearch.length >= 2 && filteredPersonsConference.length === 0 && (
-                            <div className="space-y-2">
-                              <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
-                              <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => openNestedForm("conference", confReferralSearch)} data-testid="button-add-new-person-conference">
-                                <Plus className="h-3 w-3" /> {txtAddNew}
-                              </Button>
-                            </div>
-                          )}
-                          {conferenceReferrals.length === 0 && confReferralSearch.length < 2 && (
-                            <p className="text-xs text-muted-foreground italic pl-1">{txtNoReferrals}</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {(formData.isReferredByDoctor || formData.isFromConference) && (
-                  <>
-                    <Separator />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">{(t.clinics as any).leadSourceDate || "Dátum kontaktu"}</Label>
-                        <DateTimePicker
-                          value={formData.leadSourceDate}
-                          onChange={(v) => setFormData({ ...formData, leadSourceDate: v })}
-                          countryCode={formData.countryCode || "SK"}
-                          includeTime={false}
-                          data-testid="input-collab-lead-source-date"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">{(t.clinics as any).leadSourceNotes || "Poznámky k zdroju"}</Label>
-                      <Textarea
-                        value={formData.leadSourceNotes}
-                        onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })}
-                        placeholder={(t.clinics as any).leadSourceNotes || "Poznámky k zdroju"}
-                        rows={2}
-                        data-testid="input-collab-lead-source-notes"
-                      />
-                    </div>
-                  </>
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="basis-full order-last w-full">
+                      <div className="grid gap-4 sm:grid-cols-2 pt-2">
+                                        {!isHidden("legacy_id") && (
+                                          <div className="space-y-2">
+                                            <Label>{t.collaborators.legacyId}</Label>
+                                            <Input
+                                              value={formData.legacyId}
+                                              onChange={(e) => setFormData({ ...formData, legacyId: e.target.value })}
+                                              placeholder={t.collaborators.legacyId}
+                                              data-testid="wizard-input-collaborator-legacy-id"
+                                              disabled={isReadonly("legacy_id")}
+                                              className={isReadonly("legacy_id") ? "bg-muted" : ""}
+                                            />
+                                          </div>
+                                        )}
+                                        <div className="space-y-2">
+                                          <Label>{t.collaborators?.fields?.legacyType || "Legacy Type"}</Label>
+                                          <Select
+                                            value={formData.collaboratorType || "_none"}
+                                            onValueChange={(value) => setFormData({ ...formData, collaboratorType: value === "_none" ? "" : value })}
+                                            disabled={isEditMode}
+                                          >
+                                            <SelectTrigger data-testid="wizard-select-collaborator-type" className="bg-muted opacity-70">
+                                              <SelectValue placeholder={t.collaborators?.fields?.legacyType || "Legacy Type"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="_none">{t.common.noData}</SelectItem>
+                                              {COLLABORATOR_TYPES.map((ct) => (
+                                                <SelectItem key={ct.value} value={ct.value}>
+                                                  {(t.collaborators.types as Record<string, string>)[ct.labelKey]}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
-</div>
-                </CollapsibleContent>
-              </Collapsible>
 
-            <div className="grid gap-4 sm:grid-cols-3">
+                <Collapsible className="contents">
+                  <CollapsibleTrigger asChild>
+                    <Button type="button" variant="ghost" size="sm" className="gap-2 text-sm text-muted-foreground hover:text-foreground" data-testid="toggle-agreement-type">
+                      <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-90" />
+                      {t.collaborators?.fields?.agreementType || "Typ dohody"}
+                      {formData.agreementType && (
+                        <Badge variant="outline" className={cn(
+                          "text-[10px] px-1.5 py-0",
+                          formData.agreementType === "DOVP" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                        )}>{formData.agreementType}</Badge>
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="basis-full order-last w-full">
+                    <div className="pt-2">
+                                    <div className="flex gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "DOVP" ? "" : "DOVP" })}
+                                        className={cn(
+                                          "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
+                                          formData.agreementType === "DOVP"
+                                            ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-400 shadow-sm"
+                                            : "border-muted hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-muted-foreground"
+                                        )}
+                                        data-testid="btn-agreement-type-dovp"
+                                      >
+                                        <div className={cn(
+                                          "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                                          formData.agreementType === "DOVP"
+                                            ? "bg-blue-500 text-white"
+                                            : "bg-muted-foreground/10 text-muted-foreground"
+                                        )}>D</div>
+                                        <div className="text-left">
+                                          <div className="leading-tight">DOVP</div>
+                                          <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "DOVP" ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")}>
+                                            {t.collaborators?.fields?.agreementDOVP || "Dohoda o vykonaní práce"}
+                                          </div>
+                                        </div>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, agreementType: formData.agreementType === "ZOD" ? "" : "ZOD" })}
+                                        className={cn(
+                                          "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all",
+                                          formData.agreementType === "ZOD"
+                                            ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-400 shadow-sm"
+                                            : "border-muted hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-muted-foreground"
+                                        )}
+                                        data-testid="btn-agreement-type-zod"
+                                      >
+                                        <div className={cn(
+                                          "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                                          formData.agreementType === "ZOD"
+                                            ? "bg-amber-500 text-white"
+                                            : "bg-muted-foreground/10 text-muted-foreground"
+                                        )}>Z</div>
+                                        <div className="text-left">
+                                          <div className="leading-tight">ZOD</div>
+                                          <div className={cn("text-[10px] font-normal leading-tight", formData.agreementType === "ZOD" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
+                                            {t.collaborators?.fields?.agreementZOD || "Zmluva o dielo"}
+                                          </div>
+                                        </div>
+                                      </button>
+                                    </div>
+                                  </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <Collapsible className="contents">
+                  <CollapsibleTrigger asChild>
+                    <Button type="button" variant="ghost" size="sm" className="gap-2 text-sm text-muted-foreground hover:text-foreground" data-testid="toggle-lead-source">
+                      <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-90" />
+                      <UserCheck className="h-4 w-4" />
+                      {(t.clinics as any).leadSource || "Zdroj kontaktu"}
+                      {formData.isReferredByDoctor && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
+                          {((t.clinics as any).leadSourceTypes?.doctor_referral) || "Odporúčanie od lekára"}
+                        </Badge>
+                      )}
+                      {formData.isFromConference && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+                          {((t.clinics as any).leadSourceTypes?.conference) || "Konferencia"}
+                        </Badge>
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="basis-full order-last w-full">
+                    <div className="pt-2 space-y-3">
+                                  {(() => {
+                                    const tx = (t.clinics as any) || {};
+                                    const txtRecommendedBy = tx.hasBeenRecommendedBy || tx.recommendedByDoctors || "The Medical Partner has been recommended by following medical partners:";
+                                    const txtSuggests = tx.hasSuggestedPartners || tx.suggestsDoctors || "The Medical Partner has suggested following potential medical partners:";
+                                    const txtPersonNotFound = tx.doctorNotInDatabase || "Doctor not found in database? Add new:";
+                                    const txtAddNew = tx.addNewDoctor || "Add new doctor";
+                                    const txtSelectPerson = tx.selectDoctor || "Select doctor from database";
+                                    const txtNoReferrals = tx.noReferrals || "No referring doctors added";
+                                    const openNestedForm = (direction: "recommendedBy" | "suggests" | "conference", searchValue: string) => {
+                                      setNestedPersonForm({ direction, lastName: searchValue });
+                                    };
+
+                                    return (
+                                      <div className="space-y-3">
+                                        {/* DOCTOR REFERRAL TILE */}
+                                        <div
+                                          className={cn(
+                                            "border rounded-lg px-3 py-2.5 transition-all cursor-pointer",
+                                            formData.isReferredByDoctor
+                                              ? "border-2 shadow-sm border-purple-500 bg-purple-50/50 dark:bg-purple-950/30"
+                                              : "hover:bg-muted/50 border-border"
+                                          )}
+                                          onClick={() => setFormData({ ...formData, isReferredByDoctor: !formData.isReferredByDoctor })}
+                                          data-testid="card-collab-doctor-referral"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
+                                              <UserCheck className="h-4 w-4" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="font-medium text-sm">{tx.leadSourceTypes?.doctor_referral || "Odporúčanie od lekára"}</div>
+                                            </div>
+                                            <Checkbox
+                                              checked={formData.isReferredByDoctor}
+                                              onCheckedChange={(checked) => setFormData({ ...formData, isReferredByDoctor: !!checked })}
+                                              className="shrink-0"
+                                              onClick={(e) => e.stopPropagation()}
+                                              data-testid="checkbox-collab-doctor-referral"
+                                            />
+                                          </div>
+                                        </div>
+
+                                        {formData.isReferredByDoctor && (
+                                          <div className="ml-3 pl-3 border-l-2 border-purple-200 dark:border-purple-800 space-y-3">
+                                            {/* RECOMMENDED-BY box */}
+                                            <div className="border rounded-lg p-3 bg-purple-50/30 dark:bg-purple-950/10 space-y-2">
+                                              <div className="flex items-center gap-2 text-xs font-medium text-purple-700 dark:text-purple-300">
+                                                <UserCheck className="h-3.5 w-3.5" />
+                                                <span>{txtRecommendedBy}</span>
+                                              </div>
+                                              {doctorReferrals.length > 0 && (
+                                                <div className="space-y-1.5">
+                                                  {doctorReferrals.map((ref) => (
+                                                    <div key={ref.personId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
+                                                      <div className="flex items-center gap-2">
+                                                        <UserCheck className="h-3.5 w-3.5 text-purple-500" />
+                                                        <span className="text-sm font-medium">{ref.personName}</span>
+                                                      </div>
+                                                      <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeRecommendedReferral(ref.personId, "doctor_referral")} data-testid={`remove-collab-referral-${ref.personId}`}>
+                                                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                                      </Button>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                              <div className="relative">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                  value={referralSearch}
+                                                  onChange={(e) => setReferralSearch(e.target.value)}
+                                                  placeholder={txtSelectPerson}
+                                                  className="pl-9 h-9 bg-white dark:bg-background"
+                                                  data-testid="input-collab-referral-search"
+                                                />
+                                              </div>
+                                              {referralSearch.length >= 2 && filteredPersonsRecommended.length > 0 && (
+                                                <div className="border rounded-lg max-h-40 overflow-y-auto bg-white dark:bg-background">
+                                                  {filteredPersonsRecommended.slice(0, 10).map((person: any) => (
+                                                    <div key={person.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addRecommendedReferral(person, "doctor_referral")} data-testid={`collab-referral-option-${person.id}`}>
+                                                      <div>
+                                                        <span className="font-medium text-sm">{formatPersonName(person)}</span>
+                                                        {person.collaboratorType && <span className="text-xs text-muted-foreground ml-2">{person.collaboratorType}</span>}
+                                                      </div>
+                                                      <Plus className="h-4 w-4 text-muted-foreground" />
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                              {referralSearch.length >= 2 && filteredPersonsRecommended.length === 0 && (
+                                                <div className="space-y-2">
+                                                  <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
+                                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => openNestedForm("recommendedBy", referralSearch)} data-testid="button-add-new-person-recommended">
+                                                    <Plus className="h-3 w-3" /> {txtAddNew}
+                                                  </Button>
+                                                </div>
+                                              )}
+                                              {doctorReferrals.length === 0 && referralSearch.length < 2 && (
+                                                <p className="text-xs text-muted-foreground italic pl-1">{txtNoReferrals}</p>
+                                              )}
+                                            </div>
+
+                                            {/* SUGGESTS box (reverse direction) */}
+                                            <div className="border rounded-lg p-3 bg-emerald-50/30 dark:bg-emerald-950/10 space-y-2">
+                                              <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                                                <ChevronRight className="h-3.5 w-3.5" />
+                                                <span>{txtSuggests}</span>
+                                              </div>
+                                              {suggestsReferrals.length > 0 && (
+                                                <div className="space-y-1.5">
+                                                  {suggestsReferrals.map((ref) => (
+                                                    <div key={ref.personId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-white dark:bg-background">
+                                                      <div className="flex items-center gap-2">
+                                                        <ChevronRight className="h-3.5 w-3.5 text-emerald-500" />
+                                                        <span className="text-sm font-medium">{ref.personName}</span>
+                                                      </div>
+                                                      <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeSuggestsReferral(ref.personId)} data-testid={`remove-collab-suggests-${ref.personId}`}>
+                                                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                                      </Button>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                              <div className="relative">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                  value={suggestsSearch}
+                                                  onChange={(e) => setSuggestsSearch(e.target.value)}
+                                                  placeholder={txtSelectPerson}
+                                                  className="pl-9 h-9 bg-white dark:bg-background"
+                                                  data-testid="input-collab-suggests-search"
+                                                />
+                                              </div>
+                                              {suggestsSearch.length >= 2 && filteredPersonsSuggests.length > 0 && (
+                                                <div className="border rounded-lg max-h-40 overflow-y-auto bg-white dark:bg-background">
+                                                  {filteredPersonsSuggests.slice(0, 10).map((person: any) => (
+                                                    <div key={person.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addSuggestsReferral(person)} data-testid={`collab-suggests-option-${person.id}`}>
+                                                      <div>
+                                                        <span className="font-medium text-sm">{formatPersonName(person)}</span>
+                                                        {person.collaboratorType && <span className="text-xs text-muted-foreground ml-2">{person.collaboratorType}</span>}
+                                                      </div>
+                                                      <Plus className="h-4 w-4 text-muted-foreground" />
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                              {suggestsSearch.length >= 2 && filteredPersonsSuggests.length === 0 && (
+                                                <div className="space-y-2">
+                                                  <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
+                                                  <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => openNestedForm("suggests", suggestsSearch)} data-testid="button-add-new-person-suggests">
+                                                    <Plus className="h-3 w-3" /> {txtAddNew}
+                                                  </Button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* CONFERENCE TILE */}
+                                        <div
+                                          className={cn(
+                                            "border rounded-lg px-3 py-2.5 transition-all cursor-pointer",
+                                            formData.isFromConference
+                                              ? "border-2 shadow-sm border-rose-500 bg-rose-50/50 dark:bg-rose-950/30"
+                                              : "hover:bg-muted/50 border-border"
+                                          )}
+                                          onClick={() => setFormData({ ...formData, isFromConference: !formData.isFromConference })}
+                                          data-testid="card-collab-conference"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300">
+                                              <GraduationCap className="h-4 w-4" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="font-medium text-sm">{tx.leadSourceTypes?.conference || "Konferencia / Seminár"}</div>
+                                            </div>
+                                            <Checkbox
+                                              checked={formData.isFromConference}
+                                              onCheckedChange={(checked) => setFormData({ ...formData, isFromConference: !!checked })}
+                                              className="shrink-0"
+                                              onClick={(e) => e.stopPropagation()}
+                                              data-testid="checkbox-collab-conference"
+                                            />
+                                          </div>
+                                        </div>
+                                        {formData.isFromConference && (
+                                          <div className="ml-3 pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-2">
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">{tx.conferenceName || "Názov konferencie"}</Label>
+                                                <Input
+                                                  value={formData.conferenceName}
+                                                  onChange={(e) => setFormData({ ...formData, conferenceName: e.target.value })}
+                                                  placeholder={tx.conferenceName || "Názov konferencie"}
+                                                  className="h-9"
+                                                  data-testid="input-collab-conference-name"
+                                                />
+                                              </div>
+                                              <div className="space-y-1">
+                                                <Label className="text-xs">{tx.conferenceDate || "Dátum konferencie"}</Label>
+                                                <DateTimePicker
+                                                  value={formData.conferenceDate}
+                                                  onChange={(v) => setFormData({ ...formData, conferenceDate: v })}
+                                                  countryCode={formData.countryCode || "SK"}
+                                                  includeTime={false}
+                                                  data-testid="input-collab-conference-date"
+                                                />
+                                              </div>
+                                            </div>
+                                            <Separator className="my-1" />
+                                            <Label className="text-xs">{tx.referringDoctors || "Stretnutia s osobami na konferencii"}</Label>
+                                            {conferenceReferrals.length > 0 && (
+                                              <div className="space-y-1.5">
+                                                {conferenceReferrals.map((ref) => (
+                                                  <div key={ref.personId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-rose-50/50 dark:bg-rose-950/30">
+                                                    <div className="flex items-center gap-2">
+                                                      <GraduationCap className="h-3.5 w-3.5 text-rose-500" />
+                                                      <span className="text-sm font-medium">{ref.personName}</span>
+                                                    </div>
+                                                    <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeRecommendedReferral(ref.personId, "conference")} data-testid={`remove-collab-conf-referral-${ref.personId}`}>
+                                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                                    </Button>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                            <div className="relative">
+                                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                              <Input
+                                                value={confReferralSearch}
+                                                onChange={(e) => setConfReferralSearch(e.target.value)}
+                                                placeholder={txtSelectPerson}
+                                                className="pl-9 h-9"
+                                                data-testid="input-collab-conf-referral-search"
+                                              />
+                                            </div>
+                                            {confReferralSearch.length >= 2 && filteredPersonsConference.length > 0 && (
+                                              <div className="border rounded-lg max-h-40 overflow-y-auto">
+                                                {filteredPersonsConference.slice(0, 10).map((person: any) => (
+                                                  <div key={person.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addRecommendedReferral(person, "conference")} data-testid={`collab-conf-referral-option-${person.id}`}>
+                                                    <div>
+                                                      <span className="font-medium text-sm">{formatPersonName(person)}</span>
+                                                      {person.collaboratorType && <span className="text-xs text-muted-foreground ml-2">{person.collaboratorType}</span>}
+                                                    </div>
+                                                    <Plus className="h-4 w-4 text-muted-foreground" />
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                            {confReferralSearch.length >= 2 && filteredPersonsConference.length === 0 && (
+                                              <div className="space-y-2">
+                                                <p className="text-xs text-muted-foreground">{txtPersonNotFound}</p>
+                                                <Button type="button" variant="outline" size="sm" className="text-xs gap-1" onClick={() => openNestedForm("conference", confReferralSearch)} data-testid="button-add-new-person-conference">
+                                                  <Plus className="h-3 w-3" /> {txtAddNew}
+                                                </Button>
+                                              </div>
+                                            )}
+                                            {conferenceReferrals.length === 0 && confReferralSearch.length < 2 && (
+                                              <p className="text-xs text-muted-foreground italic pl-1">{txtNoReferrals}</p>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {(formData.isReferredByDoctor || formData.isFromConference) && (
+                                    <>
+                                      <Separator />
+                                      <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="space-y-1">
+                                          <Label className="text-xs">{(t.clinics as any).leadSourceDate || "Dátum kontaktu"}</Label>
+                                          <DateTimePicker
+                                            value={formData.leadSourceDate}
+                                            onChange={(v) => setFormData({ ...formData, leadSourceDate: v })}
+                                            countryCode={formData.countryCode || "SK"}
+                                            includeTime={false}
+                                            data-testid="input-collab-lead-source-date"
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-xs">{(t.clinics as any).leadSourceNotes || "Poznámky k zdroju"}</Label>
+                                        <Textarea
+                                          value={formData.leadSourceNotes}
+                                          onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })}
+                                          placeholder={(t.clinics as any).leadSourceNotes || "Poznámky k zdroju"}
+                                          rows={2}
+                                          data-testid="input-collab-lead-source-notes"
+                                        />
+                                      </div>
+                                    </>
+                                  )}
+                  </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
               {!isHidden("title_before") && (
                 <div className="space-y-2">
                   <Label>{t.collaborators.fields.titleBefore}</Label>
