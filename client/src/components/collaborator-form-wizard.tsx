@@ -3803,7 +3803,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
     if (existingCollabReferrals) {
       setReferrals(
         existingCollabReferrals
-          .filter(r => r.referringCollaborator && (r.referralType === "doctor_referral" || r.referralType === "conference"))
+          .filter(r => r.referringCollaborator && (r.referralType === "doctor_referral" || r.referralType === "doctor_suggests" || r.referralType === "conference"))
           .map(r => ({
             personId: String(r.referringCollaboratorId),
             personName: formatPersonName(r.referringCollaborator),
@@ -3850,7 +3850,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
     });
   };
 
-  const recommendedExcludeIds = new Set(referrals.filter(r => r.referralType === "doctor_referral").map(r => r.personId));
+  const recommendedExcludeIds = new Set(referrals.filter(r => r.referralType === "doctor_referral" || r.referralType === "doctor_suggests").map(r => r.personId));
   const conferenceExcludeIds = new Set(referrals.filter(r => r.referralType === "conference").map(r => r.personId));
   const suggestsExcludeIds = new Set(suggestsReferrals.map(r => r.personId));
 
@@ -3895,7 +3895,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
     setReferralSearch(""); setSuggestsSearch(""); setConfReferralSearch("");
   };
 
-  const doctorReferrals = referrals.filter(r => r.referralType === "doctor_referral");
+  const doctorReferrals = referrals.filter(r => r.referralType === "doctor_referral" || r.referralType === "doctor_suggests");
   const conferenceReferrals = referrals.filter(r => r.referralType === "conference");
 
   const saveMutation = useMutation({
@@ -5577,7 +5577,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                 </Badge>
               ))}
               {(() => {
-                const recBy = referrals.filter(r => r.referralType === "doctor_referral");
+                const recBy = referrals.filter(r => r.referralType === "doctor_referral" || r.referralType === "doctor_suggests");
                 if (recBy.length === 0) return null;
                 const names = recBy.map(r => r.personName).join(", ");
                 const tx = (t.clinics as any) || {};

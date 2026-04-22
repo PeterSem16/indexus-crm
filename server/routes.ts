@@ -43825,7 +43825,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
                    ref.title_before, ref.first_name, ref.last_name, ref.title_after
             FROM collaborator_referrals cr
             JOIN collaborators ref ON ref.id = cr.referring_collaborator_id
-            WHERE cr.referral_type = 'doctor_referral'
+            WHERE cr.referral_type IN ('doctor_referral', 'doctor_suggests')
               AND cr.collaborator_id IN (${sql.join(allPersonIds.map(id => sql`${id}`), sql`, `)})
           `);
           for (const r of (refRows.rows || []) as any[]) {
