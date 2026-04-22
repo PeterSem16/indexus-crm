@@ -5578,11 +5578,18 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                 const recBy = referrals.filter(r => r.referralType === "doctor_referral");
                 if (recBy.length === 0) return null;
                 const names = recBy.map(r => r.personName).join(", ");
-                const isFemale = recBy.length === 1 && /(ová|á)$/.test(recBy[0].personName.split(" ").pop() || "");
-                const verb = isFemale ? "odporučila" : "odporučil";
-                const label = recBy.length === 1
-                  ? `${recBy[0].personName} ${verb}`
-                  : `Odporúčajú: ${names}`;
+                const tx = (t.clinics as any) || {};
+                let label: string;
+                if (recBy.length === 1) {
+                  const fullName = recBy[0].personName;
+                  const lastWord = fullName.split(" ").pop() || "";
+                  const isFemale = /(ová|á)$/.test(lastWord);
+                  const tpl = (isFemale ? tx.recommendedByFemale : tx.recommendedByMale) || "Recommended by {name}";
+                  label = tpl.replace("{name}", fullName);
+                } else {
+                  const tpl = tx.recommendedByMultiple || "Recommended by: {names}";
+                  label = tpl.replace("{names}", names);
+                }
                 return (
                   <Badge
                     variant="outline"
