@@ -1,0 +1,36 @@
+seman@CORPCRM01:/var/www/indexus-crm$ # zisti, ktoré clustre máš
+pg_lsclusters
+
+# stav skutočnej inštancie (nahraď 16 svojou verziou z pg_lsclusters)
+sudo systemctl status postgresql@16-main
+
+# skús naštartovať
+sudo systemctl start postgresql@16-main
+
+# ak nenaštartuje, log
+sudo journalctl -u postgresql@16-main -n 200 --no-pager
+
+# a pozri sa do PG logu (cesta podľa verzie)
+sudo tail -n 100 /var/log/postgresql/postgresql-16-main.log
+
+# over, či počúva na 5432
+sudo ss -ltnp | grep 5432
+Ver Cluster Port Status Owner    Data directory              Log file
+16  main    5432 down   postgres /var/lib/postgresql/16/main /var/log/postgresql/postgresql-16-main.log
+× postgresql@16-main.service - PostgreSQL Cluster 16-main
+     Loaded: loaded (/usr/lib/systemd/system/postgresql@.service; enabled-runtime; preset: enabled)
+     Active: failed (Result: protocol) since Wed 2026-04-22 06:53:17 UTC; 36s ago
+   Duration: 1w 5d 23h 49min 16.325s
+    Process: 268596 ExecStart=/usr/bin/pg_ctlcluster --skip-systemctl-redirect 16-main start (code=exited, status=1/FAILURE)
+        CPU: 55ms
+
+Apr 22 06:53:17 CORPCRM01 systemd[1]: Starting postgresql@16-main.service - PostgreSQL Cluster 16-main...
+Apr 22 06:53:17 CORPCRM01 postgresql@16-main[268596]: Error: /usr/lib/postgresql/16/bin/pg_ctl /usr/lib/postgresql/16/bin/pg_ctl start -D /var/lib/postgresql/16/main -l /var/log/>
+Apr 22 06:53:17 CORPCRM01 postgresql@16-main[268596]: 2026-04-22 06:53:17.329 UTC [268601] FATAL:  data directory "/var/lib/postgresql/16/main" has invalid permissions
+Apr 22 06:53:17 CORPCRM01 postgresql@16-main[268596]: 2026-04-22 06:53:17.329 UTC [268601] DETAIL:  Permissions should be u=rwx (0700) or u=rwx,g=rx (0750).
+Apr 22 06:53:17 CORPCRM01 postgresql@16-main[268596]: pg_ctl: could not start server
+Apr 22 06:53:17 CORPCRM01 postgresql@16-main[268596]: Examine the log output.
+Apr 22 06:53:17 CORPCRM01 systemd[1]: postgresql@16-main.service: Can't open PID file /run/postgresql/16-main.pid (yet?) after start: No such file or directory
+Apr 22 06:53:17 CORPCRM01 systemd[1]: postgresql@16-main.service: Failed with result 'protocol'.
+Apr 22 06:53:17 CORPCRM01 systemd[1]: Failed to start postgresql@16-main.service - PostgreSQL Cluster 16-main.
+lines 1-16/16 (END)
