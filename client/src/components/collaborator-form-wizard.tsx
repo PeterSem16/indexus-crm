@@ -4509,7 +4509,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                                                         <UserCheck className="h-3.5 w-3.5 text-purple-500" />
                                                         <span className="text-sm font-medium">{ref.personName}</span>
                                                       </div>
-                                                      <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeRecommendedReferral(ref.personId, "doctor_referral")} data-testid={`remove-collab-referral-${ref.personId}`}>
+                                                      <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeRecommendedReferral(ref.personId, ref.referralType)} data-testid={`remove-collab-referral-${ref.personId}`}>
                                                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                                                       </Button>
                                                     </div>
