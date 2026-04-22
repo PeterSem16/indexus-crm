@@ -1,0 +1,115 @@
+sudo -u postgres psql -d indexus_crm -c "SELECT id, first_name, last_name FROM collaborators LIMIT 5;"
+ count
+-------
+ 15080
+(1 row)
+
+                  id                  | first_name | last_name
+--------------------------------------+------------+-----------
+ 305f6f80-2e95-4d18-9ecd-52ac6c871884 | Pepo       | Pero
+ 5048bd71-c4a2-4e90-bdfa-19988679a8f8 | Mariana    | Paul
+ bbb5560e-bf7b-4795-9eb2-726905e73c99 | Gábor      | Orosz
+ affca9b8-40c4-45ed-8be7-d182b4478034 | David      | Pavlicko
+ ebd30fe7-2878-424d-a124-93ab53ac4b61 | Peter      | Pepovič
+(5 rows)
+
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 80 --nostream
+[TAILING] Tailing last 80 lines for [indexus-crm] process (change the value with --lines option)
+/home/seman/.pm2/logs/indexus-crm-error.log last 80 lines:
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_relation.c',
+4|indexus- |   line: '3722',
+4|indexus- |   routine: 'errorMissingColumn'
+4|indexus- | }
+4|indexus- | [Collaborators] Error fetching: error: column "cbc_activities" does not exist
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:70:38133
+4|indexus- |     at async WA.getCollaboratorsPaginated (/var/www/indexus-crm/dist/index.cjs:165:546)
+4|indexus- |     at async Promise.all (index 0)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:950:1855 {
+4|indexus- |   length: 115,
+4|indexus- |   severity: 'ERROR',
+4|indexus- |   code: '42703',
+4|indexus- |   detail: undefined,
+4|indexus- |   hint: undefined,
+4|indexus- |   position: '405',
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_relation.c',
+4|indexus- |   line: '3722',
+4|indexus- |   routine: 'errorMissingColumn'
+4|indexus- | }
+4|indexus- | [Collaborators] Error fetching: error: column "cbc_activities" does not exist
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:70:38133
+4|indexus- |     at async WA.getCollaboratorsPaginated (/var/www/indexus-crm/dist/index.cjs:165:546)
+4|indexus- |     at async Promise.all (index 0)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:950:1855 {
+4|indexus- |   length: 115,
+4|indexus- |   severity: 'ERROR',
+4|indexus- |   code: '42703',
+4|indexus- |   detail: undefined,
+4|indexus- |   hint: undefined,
+4|indexus- |   position: '405',
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_relation.c',
+4|indexus- |   line: '3722',
+4|indexus- |   routine: 'errorMissingColumn'
+4|indexus- | }
+4|indexus- | [Collaborators] Error fetching: error: column "cbc_activities" does not exist
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:70:38133
+4|indexus- |     at async WA.getCollaboratorsPaginated (/var/www/indexus-crm/dist/index.cjs:165:546)
+4|indexus- |     at async Promise.all (index 0)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:950:1855 {
+4|indexus- |   length: 115,
+4|indexus- |   severity: 'ERROR',
+4|indexus- |   code: '42703',
+4|indexus- |   detail: undefined,
+4|indexus- |   hint: undefined,
+4|indexus- |   position: '405',
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_relation.c',
+4|indexus- |   line: '3722',
+4|indexus- |   routine: 'errorMissingColumn'
+4|indexus- | }
+
+/home/seman/.pm2/logs/indexus-crm-out.log last 80 lines:
+4|indexus- | ":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:36.660Z","updatedAt":"2026-03-29T12:14:32.737Z"},{"id":"8d38558d-704f-4953-9cfa-0f5dd11dc7b0","legacyId":"122","isActive":true,"name":"Levice","fullName":"Nemocnice Levice s.r.o","streetNumber":"SNP 19","representativeId":null,"city":"Levice","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"949 01","autoRecruiting":false,"region":"Nitriansky kraj","district":"Levice","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:36.490Z","updatedAt":"2026-03-29T12:14:32.738Z"},{"id":"39c91867-98fb-43d4-875e-80f8c3351280","legacyId":"149","isActive":false,"name":"Rimavská Sobota","fullName":"Nemocnice a polikliniky n.o.","streetNumber":"Šrobárova 1","representativeId":null,"city":"Rimavská Sobota","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"979 12","autoRecruiting":false,"region":"Banskobystrický kraj","district":"Rimavská Sobota","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":true,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:37.017Z","updatedAt":"2026-03-29T12:14:32.735Z"},{"id":"a19ed6f7-23d2-483c-93fd-bf7cc9a5ff11","legacyId":"92","isActive":false,"name":"Banská Štiavnica","fullName":"Nemocnice a polikliniky n.o.","streetNumber":"Bratská 17","representativeId":null,"city":"Banská Štiavnica","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"969 01","autoRecruiting":false,"region":"Banskobystrický kraj","district":"Banská Štiavnica","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.910Z","updatedAt":"2026-03-29T12:14:32.741Z"},{"id":"8f77cace-8c2e-473a-a42e-e8ec3934465d","legacyId":"59","isActive":false,"name":"Topoľčany","fullName":"Nemocnice s poliklinikami n.o.","streetNumber":"Pavlova 17","representativeId":null,"city":"Topoľčany","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"955 20","autoRecruiting":false,"region":"Nitriansky kraj","district":"Topoľčany","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":true,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.230Z","updatedAt":"2026-03-29T12:14:32.750Z"},{"id":"643a6f64-ad3a-4764-a35f-6cb089d0ff37","legacyId":"106","isActive":false,"name":"Humenné","fullName":"NsP Andreja Leňa Humenné a.s.","streetNumber":"Nemocničná 7","representativeId":null,"city":"Humenné","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"066 01","autoRecruiting":false,"region":"Prešovský kraj","district":"Humenné","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":true,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:36.167Z","updatedAt":"2026-03-29T12:14:32.740Z"},{"id":"63ee1c78-7a9e-43c9-a924-cf094237536b","legacyId":"71","isActive":true,"name":"Brezno","fullName":"NsP Brezno n.o.","streetNumber":"Banisko 1","representativeId":null,"city":"Brezno","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"977 42","autoRecruiting":false,"region":"Banskobystrický kraj","district":"Brezno","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.510Z","updatedAt":"2026-03-29T12:14:32.746Z"},{"id":"1e8ea86e-4fa2-449b-a8c0-56f9bf435af6","legacyId":"102","isActive":false,"name":"Dunajská Streda","fullName":"NsP Dunajská Streda a.s.","streetNumber":"Veľkoblahovská 23","representativeId":null,"city":"Dunajská Streda","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"929 01","autoRecruiting":false,"region":"Trnavský kraj","district":"Dunajská Streda","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":true,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:36.090Z","updatedAt":"2026-03-29T12:14:32.740Z"},{"id":"8b35cb9d-1678-4eb4-bca2-d61eedfb02c8","legacyId":"143","isActive":true,"name":"Považská Bystrica","fullName":"NsP Považská Bystrica","streetNumber":"Nemocničná 986","representativeId":null,"city":"Považská Bystrica","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"017 26","autoRecruiting":false,"region":"Trenčiansky kraj","district":"Považská Bystrica","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:36.903Z","updatedAt":"2026-03-29T12:14:32.736Z"},{"id":"5b9a786d-41d3-454d-8e09-f1a58d4c3e10","legacyId":"96","isActive":true,"name":"Bojnice","fullName":"NsP Prievidza so sídlom v Bojniciach","streetNumber":"Nemocničná 2","representativeId":null,"city":"Bojnice","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"972 01","autoRecruiting":false,"region":"Trenčiansky kraj","district":"Prievidza","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.980Z","updatedAt":"2026-03-29T12:14:32.741Z"},{"id":"aba25a31-27e9-4f0e-87e2-793e3309dc9f","legacyId":"153","isActive":true,"name":"Skalica","fullName":"NsP Skalica a.s.","streetNumber":"Koreszkova 7","representativeId":null,"city":"Skalica","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"909 82","autoRecruiting":false,"region":"Trnavský kraj","district":"Skalica","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:37.090Z","updatedAt":"2026-03-29T12:14:32.734Z"},{"id":"b40e4e87-9c3d-4fd3-aaa1-540182b78f1e","legacyId":"156","isActive":false,"name":"Spišská Nová Ves","fullName":"NsP Spišská Nová Ves a.s.","streetNumber":"Jánskeho 1","representativeId":null,"city":"Spišská Nová Ves","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"052 71","autoRecruiting":false,"region":"Prešovský kraj","district":"Spišská Nová Ves","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":true,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:37.150Z","updatedAt":"2026-03-29T12:14:32.733Z"},{"id":"0c753792-1287-45d9-a210-3fbefbcf8ba7","legacyId":"72","isActive":false,"name":"Galanta","fullName":"NsP Sv. Lukáša Galanta a.s.","streetNumber":"Hodská 373/38","representativeId":null,"city":"Galanta","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"924 01","autoRecruiting":false,"region":"Trnavský kraj","district":"Galanta","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":true,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.533Z","updatedAt":"2026-03-29T12:14:32.746Z"},{"id":"e1351d21-5360-4252-a7f2-f99df5da122b","legacyId":"168","isActive":false,"name":"Trebišov","fullName":"NsP Trebišov a.s.","streetNumber":"SNP 1079/76","representativeId":null,"city":"Trebišov","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"075 01","autoRecruiting":false,"region":"Košický kraj","district":"Trebišov","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":true,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:37.410Z","updatedAt":"2026-03-29T12:14:32.732Z"},{"id":"5f7ee9c6-ebbc-45df-b2b7-b0fe12463c85","legacyId":"68","isActive":true,"name":"Trstená","fullName":"NsP Trstená - Hornooravská NsP Trstená","streetNumber":"Mieru","representativeId":null,"city":"Trstená","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"028 01","autoRecruiting":false,"region":"Žilinský kraj","district":"Tvrdošín","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.447Z","updatedAt":"2026-03-29T12:14:32.747Z"},{"id":"3c674bf3-4cfd-40eb-bfdd-109d0a30a419","legacyId":"118","isActive":true,"name":"Kráľovský Chlmec","fullName":"NsP n.o. Kráľovský Chlmec","streetNumber":"Nemocničná 8","representativeId":null,"city":"Kráľovský Chlmec","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"077 01","autoRecruiting":false,"region":"Košický kraj","district":"Kráľovský Chlmec","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:36.410Z","updatedAt":"2026-03-29T12:14:32.738Z"},{"id":"6600b4a9-e29e-4884-8b1f-4ba3f73f3d81","legacyId":"150","isActive":false,"name":"Rožňava","fullName":"NsP sv.Barbory Rožňava a.s.","streetNumber":"Ul. Špitálska 1","representativeId":null,"city":"Rožňava","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"048 01","autoRecruiting":false,"region":"Košický kraj","district":"Rožňava","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":true,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:37.037Z","updatedAt":"2026-03-29T12:14:32.735Z"},{"id":"95d95a8f-c704-4b1c-af85-6213df47b617","legacyId":"76","isActive":true,"name":"Žilina","fullName":"NsP Žilina","streetNumber":"Vojtecha Spanyola 43","representativeId":null,"city":"Žilina","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"012 07","autoRecruiting":false,"region":"Žilinský kraj","district":"Žilina","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.610Z","updatedAt":"2026-03-29T12:14:32.745Z"},{"id":"097260b9-33bd-434e-b862-a8cb907df4de","legacyId":"41","isActive":false,"name":"Podunajské Biskupice","fullName":"Podunajské Biskupice","streetNumber":"???","representativeId":null,"city":"Bratislava","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"???","autoRecruiting":false,"region":"Bratislavský kraj","district":"Bratislava I","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:34.850Z","updatedAt":"2026-03-29T12:14:32.751Z"},{"id":"1aa02080-4afe-4ed1-8ca1-5787672eafcc","legacyId":"84","isActive":true,"name":"UNB Nemocnica Ružinov","fullName":"UNB Nemocnica Ružinov","streetNumber":"Ružinovská 6","representativeId":null,"city":"Bratislava","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"821 01","autoRecruiting":false,"region":"Bratislavský kraj","district":"Bratislava I","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.757Z","updatedAt":"2026-03-29T12:14:32.742Z"},{"id":"3a6e0251-be54-4b96-9c39-7ed18a8b672f","legacyId":"82","isActive":true,"name":"UNB Nemocnica Kramáre","fullName":"UNB Nemocnica akademika L.Dérera","streetNumber":"Limbová 5","representativeId":null,"city":"Bratislava","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"833 05","autoRecruiting":false,"region":"Bratislavský kraj","district":"Bratislava III","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.720Z","updatedAt":"2026-03-29T12:14:32.743Z"},{"id":"efcede35-6e60-4e44-93ac-16b95099d44c","legacyId":"83","isActive":true,"name":"UNB Nemocnica Antolská","fullName":"UNB Nemocnica sv.Cyrila a Metoda","streetNumber":"Antolská 11","representativeId":null,"city":"Bratislava","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"851 07","autoRecruiting":false,"region":"Bratislavský kraj","district":"Bratislava V","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.740Z","updatedAt":"2026-03-29T12:14:32.743Z"},{"id":"7b99f8c8-38c2-4845-942c-54e20b0eb2c9","legacyId":"69","isActive":true,"name":"KE-Rastislavova","fullName":"Univerzitná nemocnica L.Pasteura Košice","streetNumber":"Rastislavova 785/43","representativeId":null,"city":"Košice","laboratoryId":"9ce5a563-b02f-4277-b917-53ee13beca35","postalCode":"040 01","autoRecruiting":false,"region":"Košický kraj","district":"Košice","responsiblePersonId":null,"countryCode":"SK","contactPerson":null,"tags":[],"svetZdravia":false,"phone":null,"email":null,"latitude":null,"longitude":null,"createdByCollaboratorId":null,"dataSource":"iscbc","createdAt":"2012-06-03T19:58:35.470Z","updatedAt":"2026-03-29T12:14:32.747Z"}],"total":56}
+4|indexus- | 7:04:37 AM [express] GET /api/collaborators 500 in 39ms :: {"error":"Failed to fetch collaborators"}
+4|indexus- | 7:04:46 AM [express] GET /api/collaborators 500 in 133ms :: {"error":"Failed to fetch collaborators"}
+4|indexus- | 7:04:51 AM [express] GET /api/collaborators 500 in 103ms :: {"error":"Failed to fetch collaborators"}
+4|indexus- | [REQUEST] POST /api/auth/heartbeat | session: 67467ce3-7a44-4f67-a3d3-6a251e2991e5 | body-keys:
+4|indexus- | 7:05:04 AM [express] POST /api/auth/heartbeat 200 in 4ms :: {"ok":true}
+4|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+4|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+4|indexus- | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABRY1SqQAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+4|indexus- | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABRY1SqQAAAA==: sentiment=neutral, alert=none
+4|indexus- | 7:05:51 AM [express] GET /api/collaborators 500 in 107ms :: {"error":"Failed to fetch collaborators"}
+4|indexus- | [REQUEST] POST /api/auth/heartbeat | session: 67467ce3-7a44-4f67-a3d3-6a251e2991e5 | body-keys:
+4|indexus- | 7:06:04 AM [express] POST /api/auth/heartbeat 200 in 3ms :: {"ok":true}
+
+seman@CORPCRM01:/var/www/in
