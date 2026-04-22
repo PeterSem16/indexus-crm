@@ -1,0 +1,54 @@
+Apr 22 06:54:34 CORPCRM01 systemd[1]: Starting postgresql@16-main.service - PostgreSQL Cluster 16-main...
+Apr 22 06:54:36 CORPCRM01 systemd[1]: Started postgresql@16-main.service - PostgreSQL Cluster 16-main.
+LISTEN 0      200        127.0.0.1:5432       0.0.0.0:*    users:(("postgres",pid=268664,fd=6))
+2026-04-22 01:16:47.246 UTC [26299] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.502 s, sync=0.002 s, total=0.506 s; sync files=5, longest=0.001 s, average=0.001 s; distance=21 kB, estimate=45 kB; lsn=B/2FF3DFC0, redo lsn=B/2FF3DF88
+2026-04-22 01:26:46.447 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 01:26:46.952 UTC [26299] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.502 s, sync=0.002 s, total=0.506 s; sync files=5, longest=0.001 s, average=0.001 s; distance=21 kB, estimate=42 kB; lsn=B/2FF434E8, redo lsn=B/2FF434B0
+2026-04-22 02:11:47.605 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 02:11:48.110 UTC [26299] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.502 s, sync=0.002 s, total=0.506 s; sync files=5, longest=0.001 s, average=0.001 s; distance=21 kB, estimate=40 kB; lsn=B/2FF48BD8, redo lsn=B/2FF48BA0
+2026-04-22 02:26:47.410 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 02:26:47.915 UTC [26299] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.502 s, sync=0.002 s, total=0.506 s; sync files=5, longest=0.001 s, average=0.001 s; distance=15 kB, estimate=38 kB; lsn=B/2FF4CAE8, redo lsn=B/2FF4CAB0
+2026-04-22 02:51:48.279 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 02:51:48.785 UTC [26299] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.502 s, sync=0.002 s, total=0.506 s; sync files=5, longest=0.001 s, average=0.001 s; distance=16 kB, estimate=35 kB; lsn=B/2FF50AF8, redo lsn=B/2FF50AC0
+2026-04-22 03:26:49.228 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 03:26:49.733 UTC [26299] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.502 s, sync=0.002 s, total=0.506 s; sync files=5, longest=0.001 s, average=0.001 s; distance=16 kB, estimate=33 kB; lsn=B/2FF54C60, redo lsn=B/2FF54C28
+2026-04-22 03:31:49.834 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 03:31:50.439 UTC [26299] LOG:  checkpoint complete: wrote 7 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.602 s, sync=0.002 s, total=0.606 s; sync files=5, longest=0.001 s, average=0.001 s; distance=22 kB, estimate=32 kB; lsn=B/2FF5A7D0, redo lsn=B/2FF5A798
+2026-04-22 04:01:49.875 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 04:01:52.383 UTC [26299] LOG:  checkpoint complete: wrote 26 buffers (0.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=2.505 s, sync=0.002 s, total=2.509 s; sync files=7, longest=0.002 s, average=0.001 s; distance=50 kB, estimate=50 kB; lsn=B/2FF67208, redo lsn=B/2FF671D0
+2026-04-22 04:46:50.137 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 04:46:51.944 UTC [26299] LOG:  checkpoint complete: wrote 19 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=1.804 s, sync=0.002 s, total=1.808 s; sync files=8, longest=0.001 s, average=0.001 s; distance=86 kB, estimate=86 kB; lsn=B/2FF7CDA8, redo lsn=B/2FF7CD70
+2026-04-22 04:51:51.044 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 04:51:51.551 UTC [26299] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.502 s, sync=0.002 s, total=0.507 s; sync files=5, longest=0.001 s, average=0.001 s; distance=16 kB, estimate=79 kB; lsn=B/2FF80F50, redo lsn=B/2FF80F18
+2026-04-22 05:21:51.906 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 05:21:52.511 UTC [26299] LOG:  checkpoint complete: wrote 7 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.602 s, sync=0.002 s, total=0.606 s; sync files=5, longest=0.001 s, average=0.001 s; distance=22 kB, estimate=74 kB; lsn=B/2FF86888, redo lsn=B/2FF86850
+2026-04-22 05:26:51.611 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 05:26:51.715 UTC [26299] LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.101 s, sync=0.001 s, total=0.104 s; sync files=1, longest=0.001 s, average=0.001 s; distance=5 kB, estimate=67 kB; lsn=B/2FF88080, redo lsn=B/2FF88048
+2026-04-22 05:51:52.092 UTC [26299] LOG:  checkpoint starting: time
+2026-04-22 05:51:52.596 UTC [26299] LOG:  checkpoint complete: wrote 6 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.502 s, sync=0.002 s, total=0.505 s; sync files=5, longest=0.001 s, average=0.001 s; distance=16 kB, estimate=62 kB; lsn=B/2FF8C478, redo lsn=B/2FF8C440
+2026-04-22 06:01:07.196 UTC [26298] LOG:  received fast shutdown request
+2026-04-22 06:01:07.197 UTC [26298] LOG:  aborting any active transactions
+2026-04-22 06:01:07.197 UTC [267466] indexus@indexus_crm FATAL:  terminating connection due to administrator command
+2026-04-22 06:01:07.200 UTC [26298] LOG:  background worker "logical replication launcher" (PID 26304) exited with exit code 1
+2026-04-22 06:01:07.200 UTC [26299] LOG:  shutting down
+2026-04-22 06:01:07.201 UTC [26299] LOG:  checkpoint starting: shutdown immediate
+2026-04-22 06:01:07.214 UTC [26299] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.015 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=56 kB; lsn=B/2FF8C528, redo lsn=B/2FF8C528
+2026-04-22 06:01:07.242 UTC [26298] LOG:  database system is shut down
+2026-04-22 06:01:07.369 UTC [268025] FATAL:  data directory "/var/lib/postgresql/16/main" has invalid permissions
+2026-04-22 06:01:07.369 UTC [268025] DETAIL:  Permissions should be u=rwx (0700) or u=rwx,g=rx (0750).
+pg_ctl: could not start server
+Examine the log output.
+2026-04-22 06:53:17.329 UTC [268601] FATAL:  data directory "/var/lib/postgresql/16/main" has invalid permissions
+2026-04-22 06:53:17.329 UTC [268601] DETAIL:  Permissions should be u=rwx (0700) or u=rwx,g=rx (0750).
+pg_ctl: could not start server
+Examine the log output.
+2026-04-22 06:54:30.679 UTC [268630] FATAL:  data directory "/var/lib/postgresql/16/main" has invalid permissions
+2026-04-22 06:54:30.679 UTC [268630] DETAIL:  Permissions should be u=rwx (0700) or u=rwx,g=rx (0750).
+pg_ctl: could not start server
+Examine the log output.
+2026-04-22 06:54:34.437 UTC [268664] LOG:  starting PostgreSQL 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+2026-04-22 06:54:34.437 UTC [268664] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2026-04-22 06:54:34.437 UTC [268664] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-04-22 06:54:34.440 UTC [268667] LOG:  database system was shut down at 2026-04-22 06:01:07 UTC
+2026-04-22 06:54:34.445 UTC [268664] LOG:  database system is ready to accept connections
+seman@CORPCRM01:/var/www/ind
