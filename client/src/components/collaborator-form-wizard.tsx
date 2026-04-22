@@ -4430,252 +4430,26 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
               </CollapsibleContent>
             </Collapsible>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              {!isHidden("title_before") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.titleBefore}</Label>
-                  <Input
-                    value={formData.titleBefore}
-                    onChange={(e) => setFormData({ ...formData, titleBefore: e.target.value })}
-                    data-testid="wizard-input-collaborator-title-before"
-                    disabled={isReadonly("title_before")}
-                    className={isReadonly("title_before") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-              {!isHidden("first_name") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.firstName} *</Label>
-                  <Input
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    data-testid="wizard-input-collaborator-firstname"
-                    disabled={isReadonly("first_name")}
-                    className={isReadonly("first_name") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label>{t.collaborators?.fields?.middleName || "Middle Name"}</Label>
-                <Input
-                  value={formData.middleName}
-                  onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
-                  data-testid="wizard-input-collaborator-middlename"
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {!isHidden("last_name") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.lastName} *</Label>
-                  <Input
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    data-testid="wizard-input-collaborator-lastname"
-                    disabled={isReadonly("last_name")}
-                    className={isReadonly("last_name") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-              {!isHidden("maiden_name") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.maidenName}</Label>
-                  <Input
-                    value={formData.maidenName}
-                    onChange={(e) => setFormData({ ...formData, maidenName: e.target.value })}
-                    data-testid="wizard-input-collaborator-maidenname"
-                    disabled={isReadonly("maiden_name")}
-                    className={isReadonly("maiden_name") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-              {!isHidden("title_after") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.titleAfter}</Label>
-                  <Input
-                    value={formData.titleAfter}
-                    onChange={(e) => setFormData({ ...formData, titleAfter: e.target.value })}
-                    data-testid="wizard-input-collaborator-title-after"
-                    disabled={isReadonly("title_after")}
-                    className={isReadonly("title_after") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label>{t.collaborators?.fields?.birthNumber || "Birth Number"}</Label>
-                <Input
-                  value={formData.birthNumber}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^0-9/]/g, "");
-                    setFormData((prev) => {
-                      const updated = { ...prev, birthNumber: val };
-                      const digits = val.replace("/", "");
-                      if (digits.length >= 6) {
-                        let yearPart = parseInt(digits.substring(0, 2), 10);
-                        let monthPart = parseInt(digits.substring(2, 4), 10);
-                        const dayPart = parseInt(digits.substring(4, 6), 10);
-                        if (monthPart > 50) monthPart -= 50;
-                        if (monthPart > 20) monthPart -= 20;
-                        const fullYear = digits.length >= 10 ? (yearPart < 54 ? 2000 + yearPart : 1900 + yearPart) : (yearPart < 54 ? 2000 + yearPart : 1900 + yearPart);
-                        if (monthPart >= 1 && monthPart <= 12 && dayPart >= 1 && dayPart <= 31) {
-                          updated.birthYear = fullYear;
-                          updated.birthMonth = monthPart;
-                          updated.birthDay = dayPart;
-                        }
-                      }
-                      return updated;
-                    });
-                  }}
-                  placeholder="XXXXXX/XXXX"
-                  data-testid="wizard-input-collaborator-birth-number"
-                />
-              </div>
-              {!isHidden("date_of_birth") && (
-                <DateFields
-                  label={t.collaborators.fields.birthDate}
-                  dayValue={formData.birthDay}
-                  monthValue={formData.birthMonth}
-                  yearValue={formData.birthYear}
-                  onDayChange={(val) => setFormData({ ...formData, birthDay: val })}
-                  onMonthChange={(val) => setFormData({ ...formData, birthMonth: val })}
-                  onYearChange={(val) => setFormData({ ...formData, birthYear: val })}
-                  testIdPrefix="birth"
-                  t={t}
-                />
-              )}
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.birthPlace}</Label>
-                <Input
-                  value={formData.birthPlace}
-                  onChange={(e) => setFormData({ ...formData, birthPlace: e.target.value })}
-                  data-testid="wizard-input-collaborator-birth-place"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.healthInsurance}</Label>
-                <Select
-                  value={formData.healthInsuranceId || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, healthInsuranceId: value === "_none" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="wizard-select-collaborator-insurance">
-                    <SelectValue placeholder={t.collaborators.fields.healthInsurance} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {filteredHealthInsurances.map((hi) => (
-                      <SelectItem key={hi.id} value={hi.id}>{hi.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.maritalStatus}</Label>
-                <Select
-                  value={formData.maritalStatus || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, maritalStatus: value === "_none" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="wizard-select-collaborator-marital">
-                    <SelectValue placeholder={t.collaborators.fields.maritalStatus} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {MARITAL_STATUSES.map((ms) => (
-                      <SelectItem key={ms.value} value={ms.value}>
-                        {(t.collaborators.maritalStatuses as Record<string, string>)[ms.labelKey]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.professionalClassification}</Label>
-                <Select
-                  value={formData.professionalClassification || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, professionalClassification: value === "_none" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="wizard-select-professional-classification">
-                    <SelectValue placeholder={t.collaborators.fields.professionalClassification} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {PROFESSIONAL_CLASSIFICATIONS.map((pc) => (
-                      <SelectItem key={pc.value} value={pc.value}>
-                        {(t.collaborators.professionalClassifications as Record<string, string>)[pc.labelKey] || pc.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.highestEducation}</Label>
-                <Select
-                  value={formData.highestEducation || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, highestEducation: value === "_none" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="wizard-select-highest-education">
-                    <SelectValue placeholder={t.collaborators.fields.highestEducation} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {EDUCATION_LEVELS.map((el) => (
-                      <SelectItem key={el.value} value={el.value}>
-                        {(t.collaborators.educationLevels as Record<string, string>)[el.labelKey] || el.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>{t.collaborators.fields.workplaceName}</Label>
-                <Input
-                  value={formData.workplaceName}
-                  onChange={(e) => setFormData({ ...formData, workplaceName: e.target.value })}
-                  placeholder={t.collaborators.fields.workplaceName}
-                  data-testid="wizard-input-workplace-name"
-                />
-                <p className="text-xs text-muted-foreground">{t.collaborators.fields.workplaceNameDesc}</p>
-              </div>
-              <div className="flex items-center space-x-2 pt-2 sm:col-span-2">
-                <Switch
-                  checked={formData.isManager}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isManager: checked })}
-                  data-testid="wizard-switch-is-manager"
-                />
-                <Label>{t.collaborators.fields.isManager}</Label>
-              </div>
-            </div>
-
-            {!isHidden("is_active") && (
-              <div className="flex items-center space-x-2 pt-2">
-                <Switch
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                  data-testid="wizard-switch-collaborator-active"
-                  disabled={isReadonly("is_active")}
-                />
-                <Label>{t.collaborators.fields.active}</Label>
-              </div>
-            )}
-
-            <Separator />
-
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium text-sm">{(t.clinics as any).leadSource || "Zdroj kontaktu"}</span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button type="button" variant="ghost" size="sm" className="gap-2 text-sm text-muted-foreground hover:text-foreground" data-testid="toggle-lead-source">
+                    <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]_&]:rotate-90" />
+                    <UserCheck className="h-4 w-4" />
+                    {(t.clinics as any).leadSource || "Zdroj kontaktu"}
+                    {formData.isReferredByDoctor && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
+                        {((t.clinics as any).leadSourceTypes?.doctor_referral) || "Odporúčanie od lekára"}
+                      </Badge>
+                    )}
+                    {formData.isFromConference && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+                        {((t.clinics as any).leadSourceTypes?.conference) || "Konferencia"}
+                      </Badge>
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="pt-2 space-y-3">
                 {(() => {
                   const tx = (t.clinics as any) || {};
                   const txtRecommendedBy = tx.hasBeenRecommendedBy || tx.recommendedByDoctors || "The Medical Partner has been recommended by following medical partners:";
@@ -4968,8 +4742,245 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                     </div>
                   </>
                 )}
-              </CardContent>
-            </Card>
+</div>
+                </CollapsibleContent>
+              </Collapsible>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              {!isHidden("title_before") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.titleBefore}</Label>
+                  <Input
+                    value={formData.titleBefore}
+                    onChange={(e) => setFormData({ ...formData, titleBefore: e.target.value })}
+                    data-testid="wizard-input-collaborator-title-before"
+                    disabled={isReadonly("title_before")}
+                    className={isReadonly("title_before") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("first_name") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.firstName} *</Label>
+                  <Input
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    data-testid="wizard-input-collaborator-firstname"
+                    disabled={isReadonly("first_name")}
+                    className={isReadonly("first_name") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>{t.collaborators?.fields?.middleName || "Middle Name"}</Label>
+                <Input
+                  value={formData.middleName}
+                  onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
+                  data-testid="wizard-input-collaborator-middlename"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {!isHidden("last_name") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.lastName} *</Label>
+                  <Input
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    data-testid="wizard-input-collaborator-lastname"
+                    disabled={isReadonly("last_name")}
+                    className={isReadonly("last_name") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("maiden_name") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.maidenName}</Label>
+                  <Input
+                    value={formData.maidenName}
+                    onChange={(e) => setFormData({ ...formData, maidenName: e.target.value })}
+                    data-testid="wizard-input-collaborator-maidenname"
+                    disabled={isReadonly("maiden_name")}
+                    className={isReadonly("maiden_name") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("title_after") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.titleAfter}</Label>
+                  <Input
+                    value={formData.titleAfter}
+                    onChange={(e) => setFormData({ ...formData, titleAfter: e.target.value })}
+                    data-testid="wizard-input-collaborator-title-after"
+                    disabled={isReadonly("title_after")}
+                    className={isReadonly("title_after") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>{t.collaborators?.fields?.birthNumber || "Birth Number"}</Label>
+                <Input
+                  value={formData.birthNumber}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9/]/g, "");
+                    setFormData((prev) => {
+                      const updated = { ...prev, birthNumber: val };
+                      const digits = val.replace("/", "");
+                      if (digits.length >= 6) {
+                        let yearPart = parseInt(digits.substring(0, 2), 10);
+                        let monthPart = parseInt(digits.substring(2, 4), 10);
+                        const dayPart = parseInt(digits.substring(4, 6), 10);
+                        if (monthPart > 50) monthPart -= 50;
+                        if (monthPart > 20) monthPart -= 20;
+                        const fullYear = digits.length >= 10 ? (yearPart < 54 ? 2000 + yearPart : 1900 + yearPart) : (yearPart < 54 ? 2000 + yearPart : 1900 + yearPart);
+                        if (monthPart >= 1 && monthPart <= 12 && dayPart >= 1 && dayPart <= 31) {
+                          updated.birthYear = fullYear;
+                          updated.birthMonth = monthPart;
+                          updated.birthDay = dayPart;
+                        }
+                      }
+                      return updated;
+                    });
+                  }}
+                  placeholder="XXXXXX/XXXX"
+                  data-testid="wizard-input-collaborator-birth-number"
+                />
+              </div>
+              {!isHidden("date_of_birth") && (
+                <DateFields
+                  label={t.collaborators.fields.birthDate}
+                  dayValue={formData.birthDay}
+                  monthValue={formData.birthMonth}
+                  yearValue={formData.birthYear}
+                  onDayChange={(val) => setFormData({ ...formData, birthDay: val })}
+                  onMonthChange={(val) => setFormData({ ...formData, birthMonth: val })}
+                  onYearChange={(val) => setFormData({ ...formData, birthYear: val })}
+                  testIdPrefix="birth"
+                  t={t}
+                />
+              )}
+              <div className="space-y-2">
+                <Label>{t.collaborators.fields.birthPlace}</Label>
+                <Input
+                  value={formData.birthPlace}
+                  onChange={(e) => setFormData({ ...formData, birthPlace: e.target.value })}
+                  data-testid="wizard-input-collaborator-birth-place"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t.collaborators.fields.healthInsurance}</Label>
+                <Select
+                  value={formData.healthInsuranceId || "_none"}
+                  onValueChange={(value) => setFormData({ ...formData, healthInsuranceId: value === "_none" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="wizard-select-collaborator-insurance">
+                    <SelectValue placeholder={t.collaborators.fields.healthInsurance} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">{t.common.noData}</SelectItem>
+                    {filteredHealthInsurances.map((hi) => (
+                      <SelectItem key={hi.id} value={hi.id}>{hi.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.collaborators.fields.maritalStatus}</Label>
+                <Select
+                  value={formData.maritalStatus || "_none"}
+                  onValueChange={(value) => setFormData({ ...formData, maritalStatus: value === "_none" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="wizard-select-collaborator-marital">
+                    <SelectValue placeholder={t.collaborators.fields.maritalStatus} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">{t.common.noData}</SelectItem>
+                    {MARITAL_STATUSES.map((ms) => (
+                      <SelectItem key={ms.value} value={ms.value}>
+                        {(t.collaborators.maritalStatuses as Record<string, string>)[ms.labelKey]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t.collaborators.fields.professionalClassification}</Label>
+                <Select
+                  value={formData.professionalClassification || "_none"}
+                  onValueChange={(value) => setFormData({ ...formData, professionalClassification: value === "_none" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="wizard-select-professional-classification">
+                    <SelectValue placeholder={t.collaborators.fields.professionalClassification} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">{t.common.noData}</SelectItem>
+                    {PROFESSIONAL_CLASSIFICATIONS.map((pc) => (
+                      <SelectItem key={pc.value} value={pc.value}>
+                        {(t.collaborators.professionalClassifications as Record<string, string>)[pc.labelKey] || pc.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.collaborators.fields.highestEducation}</Label>
+                <Select
+                  value={formData.highestEducation || "_none"}
+                  onValueChange={(value) => setFormData({ ...formData, highestEducation: value === "_none" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="wizard-select-highest-education">
+                    <SelectValue placeholder={t.collaborators.fields.highestEducation} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">{t.common.noData}</SelectItem>
+                    {EDUCATION_LEVELS.map((el) => (
+                      <SelectItem key={el.value} value={el.value}>
+                        {(t.collaborators.educationLevels as Record<string, string>)[el.labelKey] || el.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{t.collaborators.fields.workplaceName}</Label>
+                <Input
+                  value={formData.workplaceName}
+                  onChange={(e) => setFormData({ ...formData, workplaceName: e.target.value })}
+                  placeholder={t.collaborators.fields.workplaceName}
+                  data-testid="wizard-input-workplace-name"
+                />
+                <p className="text-xs text-muted-foreground">{t.collaborators.fields.workplaceNameDesc}</p>
+              </div>
+              <div className="flex items-center space-x-2 pt-2 sm:col-span-2">
+                <Switch
+                  checked={formData.isManager}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isManager: checked })}
+                  data-testid="wizard-switch-is-manager"
+                />
+                <Label>{t.collaborators.fields.isManager}</Label>
+              </div>
+            </div>
+
+            {!isHidden("is_active") && (
+              <div className="flex items-center space-x-2 pt-2">
+                <Switch
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                  data-testid="wizard-switch-collaborator-active"
+                  disabled={isReadonly("is_active")}
+                />
+                <Label>{t.collaborators.fields.active}</Label>
+              </div>
+            )}
           </div>
         );
 
@@ -5563,6 +5574,27 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                   {netName}
                 </Badge>
               ))}
+              {(() => {
+                const recBy = referrals.filter(r => r.referralType === "doctor_referral");
+                if (recBy.length === 0) return null;
+                const names = recBy.map(r => r.personName).join(", ");
+                const isFemale = recBy.length === 1 && /(ová|á)$/.test(recBy[0].personName.split(" ").pop() || "");
+                const verb = isFemale ? "odporučila" : "odporučil";
+                const label = recBy.length === 1
+                  ? `${recBy[0].personName} ${verb}`
+                  : `Odporúčajú: ${names}`;
+                return (
+                  <Badge
+                    variant="outline"
+                    className="ml-2 text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 inline-flex items-center gap-1 align-middle"
+                    title={names}
+                    data-testid="badge-collaborator-recommended-by"
+                  >
+                    <UserCheck className="h-2.5 w-2.5" />
+                    {label}
+                  </Badge>
+                );
+              })()}
             </h2>
             <p className="text-xs text-muted-foreground">
               {isEditMode
