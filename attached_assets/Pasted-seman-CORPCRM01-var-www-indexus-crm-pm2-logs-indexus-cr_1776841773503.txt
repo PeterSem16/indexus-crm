@@ -1,0 +1,55 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 50 --nostream --err
+[TAILING] Tailing last 50 lines for [indexus-crm] process (change the value with --lines option)
+/home/seman/.pm2/logs/indexus-crm-error.log last 50 lines:
+4|indexus- | [Collaborators] Error fetching: error: column "lead_source" does not exist
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:70:38133
+4|indexus- |     at async WA.getCollaboratorsPaginated (/var/www/indexus-crm/dist/index.cjs:165:546)
+4|indexus- |     at async Promise.all (index 0)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:950:1855 {
+4|indexus- |   length: 112,
+4|indexus- |   severity: 'ERROR',
+4|indexus- |   code: '42703',
+4|indexus- |   detail: undefined,
+4|indexus- |   hint: undefined,
+4|indexus- |   position: '423',
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_relation.c',
+4|indexus- |   line: '3722',
+4|indexus- |   routine: 'errorMissingColumn'
+4|indexus- | }
+4|indexus- | [Collaborators] Error fetching: error: column "lead_source" does not exist
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:70:38133
+4|indexus- |     at async WA.getCollaboratorsPaginated (/var/www/indexus-crm/dist/index.cjs:165:546)
+4|indexus- |     at async Promise.all (index 0)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:950:1855 {
+4|indexus- |   length: 112,
+4|indexus- |   severity: 'ERROR',
+4|indexus- |   code: '42703',
+4|indexus- |   detail: undefined,
+4|indexus- |   hint: undefined,
+4|indexus- |   position: '423',
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_relation.c',
+4|indexus- |   line: '3722',
+4|indexus- |   routine: 'errorMissingColumn'
+4|indexus- | }
+
+seman@CORPCRM01:/var/w
