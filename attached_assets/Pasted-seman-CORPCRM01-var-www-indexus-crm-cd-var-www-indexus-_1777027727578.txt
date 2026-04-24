@@ -1,0 +1,172 @@
+seman@CORPCRM01:/var/www/indexus-crm$ cd /var/www/indexus-crm
+grep -n "Web Scraping" client/src/components/app-sidebar.tsx
+seman@CORPCRM01:/var/www/indexus-crm$ cd /var/www/indexus-crm
+git status
+git diff HEAD -- client/src/components/app-sidebar.tsx | head -40
+git log --oneline -5 -- client/src/components/app-sidebar.tsx
+wc -l client/src/components/app-sidebar.tsx
+On branch main
+Your branch is behind 'origin/main' by 2 commits, and can be fast-forwarded.
+  (use "git pull" to update your local branch)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   mobile-app/.easignore
+	modified:   mobile-app/package-lock.json
+	modified:   mobile-app/package.json
+	modified:   package-lock.json
+	modified:   package.json
+	modified:   uploads/udid-registrations.json
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.env
+	Accept:
+	Connection:
+	GET
+	Host:
+	Sec-WebSocket-Key:
+	Sec-WebSocket-Protocol:
+	Sec-WebSocket-Version:
+	Upgrade:
+	User-Agent:
+	app.json
+	data/
+	ecosystem.config.cjs
+	mobile-app/.expo/
+	mobile-app/android/
+	mobile-app/builds/
+	uploads/apk/
+	uploads/filled-forms/
+	uploads/generated-contracts/contract_06e97ed1-2cf8-4235-8835-6984f940649f_1771325235038.docx
+	uploads/generated-contracts/contract_06e97ed1-2cf8-4235-8835-6984f940649f_1771325235038.pdf
+	uploads/generated-contracts/contract_4ff4938a-6080-4393-823d-b3e9f875c300_1768505927866.docx
+	uploads/generated-contracts/contract_4ff4938a-6080-4393-823d-b3e9f875c300_1768505927866.pdf
+	uploads/generated-contracts/contract_4ff4938a-6080-4393-823d-b3e9f875c300_1768544064432.docx
+	uploads/generated-contracts/contract_4ff4938a-6080-4393-823d-b3e9f875c300_1768544064432.pdf
+	uploads/generated-contracts/contract_805a6a7b-e14d-4132-9997-71359614ba24_1771328885421.docx
+	uploads/generated-contracts/contract_805a6a7b-e14d-4132-9997-71359614ba24_1771328885421.pdf
+	uploads/generated-contracts/contract_9585ab9d-e689-4a83-bf7c-80796e3bc1d4_1768505673902.docx
+	uploads/generated-contracts/contract_9585ab9d-e689-4a83-bf7c-80796e3bc1d4_1768505702852.docx
+	uploads/generated-contracts/contract_9585ab9d-e689-4a83-bf7c-80796e3bc1d4_1768809574621.docx
+	uploads/generated-contracts/contract_9585ab9d-e689-4a83-bf7c-80796e3bc1d4_1768809574621.pdf
+	uploads/generated-contracts/contract_a614fe3f-76f9-46fa-a608-b21718f8268e_1771330266997.docx
+	uploads/generated-contracts/contract_a614fe3f-76f9-46fa-a608-b21718f8268e_1771330266997.pdf
+	uploads/generated-contracts/contract_a7b02582-4757-43da-8ea6-8f61ce264f3e_1771425651582.docx
+	uploads/generated-contracts/contract_a7b02582-4757-43da-8ea6-8f61ce264f3e_1771425651582.pdf
+	uploads/generated-contracts/contract_a7b02582-4757-43da-8ea6-8f61ce264f3e_1771843655704.docx
+	uploads/generated-contracts/contract_a7b02582-4757-43da-8ea6-8f61ce264f3e_1771843655704.pdf
+	uploads/generated-contracts/contract_a9e94467-46bc-415e-b76e-0822f7f3e159_1771843617962.docx
+	uploads/generated-contracts/contract_a9e94467-46bc-415e-b76e-0822f7f3e159_1771843617962.pdf
+	uploads/generated-contracts/contract_a9e94467-46bc-415e-b76e-0822f7f3e159_1773912421156.docx
+	uploads/generated-contracts/contract_a9e94467-46bc-415e-b76e-0822f7f3e159_1773912421156.pdf
+	uploads/generated-contracts/contract_a9e94467-46bc-415e-b76e-0822f7f3e159_1773912443056.docx
+	uploads/generated-contracts/contract_a9e94467-46bc-415e-b76e-0822f7f3e159_1773912443056.pdf
+	uploads/indexus-connect-1.2.16.apk
+	uploads/invoice-docx-templates/template-1770511595710-666165.docx
+	uploads/sprievodny/4b7402b1-69f6-4722-86cc-4fa9b9a1035f-1772534673942.png
+	uploads/sprievodny/940ad425-4713-4041-9a72-17c7d02bb927-1772539709614.png
+	uploads/sprievodny/9ea45512-07b2-43ca-92e9-4b73a5101d52-1773140373496.png
+	uploads/sprievodny/daf5cc46-5db2-425d-b04c-76374f59158a-1772536618463.png
+	uploads/template-attachments/1772612206241-l7xrwk-FO-NPAec-026-04_Form_lna_ziadost_o_vydanie_CBU_auto_ver04_2025.pdf
+	uploads/template-attachments/1772612662535-o3hj9i-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772612662540-ojax9t-FO-NPAec-026-04_Form_lna_ziadost_o_vydanie_CBU_auto_ver04_2025.pdf
+	uploads/template-attachments/1772612662583-s3jorb-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772612662617-ezpuiu-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772612974410-k3d0mr-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772612974416-cyx6do-FO-NPAec-026-04_Form_lna_ziadost_o_vydanie_CBU_auto_ver04_2025.pdf
+	uploads/template-attachments/1772612974450-x9j6x0-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772612974473-joqtu7-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772613135283-akhxcb-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772613135288-ykqcdy-FO-NPAec-026-04_Form_lna_ziadost_o_vydanie_CBU_auto_ver04_2025.pdf
+	uploads/template-attachments/1772613135321-i2q517-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772613135343-pbf5lm-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772613461835-8e58lz-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772613461841-lauvxe-FO-NPAec-026-04_Form_lna_ziadost_o_vydanie_CBU_auto_ver04_2025.pdf
+	uploads/template-attachments/1772613461876-psd31b-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772613461900-156bma-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772613907968-ebhnud-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772613907974-exmvsq-FO-NPAec-026-04_Form_lna_ziadost_o_vydanie_CBU_auto_ver04_2025.pdf
+	uploads/template-attachments/1772613908009-jf2by3-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772613908033-tswbq4-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772614383129-rz3o1z-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772614383134-x9cax1-FO-NPAec-026-04_Form_lna_ziadost_o_vydanie_CBU_auto_ver04_2025.pdf
+	uploads/template-attachments/1772614383170-2wi5lt-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772614383194-q54fim-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772618752631-ef4typ-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772618752637-wjauxp-FO-NPAec-026-04_Form_lna_ziadost_o_vydanie_CBU_auto_ver04_2025.pdf
+	uploads/template-attachments/1772618752670-xw82bo-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772618752693-rxad7y-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772620853841-aunn4h-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772620853852-s919md-FO-NPAec-026-04_Form_lna_ziadost_o_vydanie_CBU_auto_ver04_2025.pdf
+	uploads/template-attachments/1772620853865-layehu-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772620853876-4d1wf3-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772620853880-z97xy1-Souhlas_rodi_ky_s_vyd_n_m_CBU_-_P__loha__.1.pdf
+	uploads/template-attachments/1772620853997-mohvcl-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772620854020-rutfkj-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772620854044-qsi6ex-S_hlas_rodi_ky_s_vydan_m_CBU.pdf
+	uploads/template-attachments/1772621006653-71x4d5-VZOR_ukoncenie_ZMLUVY.pdf
+	uploads/template-attachments/1772621006685-tmsa22-plchdr.htm
+	uploads/template-attachments/1772621006700-641t0g-TEMPLATE_-_Dohoda_o_sp__vzat__v_povede_skladn_ho_2025__002__-_CBC_AG.docx
+	uploads/template-attachments/1772621006721-lbamv3-TEMPLATE_-_Dohoda_o_sp__vzat__v_povede_skladn_ho_2025__002__-_CEPTRA_AG.docx
+	uploads/template-attachments/1772621504660-37x5d4-image001.png
+	uploads/template-attachments/1772621504661-b3bgp3-image002.png
+	uploads/template-attachments/1772621504680-1kzjkc-image003.png
+	uploads/template-attachments/1772621504682-ek1j18-image006.png
+	uploads/template-attachments/1772621504684-3m1xsm-image004.png
+	uploads/template-attachments/1772621504686-dzw6s2-image008.png
+	uploads/template-attachments/1772621504687-5g2kob-image005.png
+	uploads/template-attachments/1772621504687-oj78dt-image007.png
+	uploads/template-attachments/1772621504689-vr6v46-image010.png
+	uploads/template-attachments/1772621504690-q51jw5-image011.png
+	uploads/template-attachments/1772621504690-vkdit5-image009.png
+	uploads/template-attachments/1772621504700-cxht11-image003.png
+	uploads/template-attachments/1772621504701-kquarn-image001.png
+	uploads/template-attachments/1772621504713-sx3xmg-image002.png
+	uploads/template-attachments/1772621504716-ka9jt6-image006.png
+	uploads/template-attachments/1772621504717-xg96fj-image004.png
+	uploads/template-attachments/1772621504719-3ul1ga-image008.png
+	uploads/template-attachments/1772621504720-o0z3mp-image005.png
+	uploads/template-attachments/1772621504721-jk8dn5-image007.png
+	uploads/template-attachments/1772621504722-p4e1vz-image010.png
+	uploads/template-attachments/1772621504723-z3hpfj-image009.png
+	uploads/template-attachments/1772621504724-cjdae5-image011.png
+	uploads/template-attachments/1772621504733-q3xhji-image001.png
+	uploads/template-attachments/1772621504733-z01d3o-image003.png
+	uploads/template-attachments/1772621504744-582ssp-image002.png
+	uploads/template-attachments/1772621504747-bxo4f1-image006.png
+	uploads/template-attachments/1772621504748-cvuu2c-image004.png
+	uploads/template-attachments/1772621504750-zq5rt0-image008.png
+	uploads/template-attachments/1772621504751-8fzwvq-image005.png
+	uploads/template-attachments/1772621504753-ga0oc7-image007.png
+	uploads/template-attachments/1772621504754-6kriur-image011.png
+	uploads/template-attachments/1772621504754-ga5612-image010.png
+	uploads/template-attachments/1772621504754-itysi9-image009.png
+	uploads/template-attachments/1772621504769-yautw6-image002.png
+	uploads/template-attachments/1772621504783-o2jqy8-image001.png
+	uploads/template-attachments/1772621504784-111d0i-image006.png
+	uploads/template-attachments/1772621504785-ajx9q5-image004.png
+	uploads/template-attachments/1772621504785-r2se6p-image008.png
+	uploads/template-attachments/1772621504788-7lc63e-image003.png
+	uploads/template-attachments/1772621504790-qgpj24-image005.png
+	uploads/template-attachments/1772621504792-vcz54h-image007.png
+	uploads/template-attachments/1772621504793-ezu0k9-image009.png
+	uploads/template-attachments/1772621504793-g102a9-image010.png
+	uploads/template-attachments/1772621504800-zwrm93-image001.png
+	uploads/template-attachments/1772621504801-mtz8ce-image002.png
+	uploads/template-attachments/1772621504810-5h24cd-image001.png
+	uploads/template-attachments/1772621504811-hrglwx-image002.png
+	uploads/template-attachments/1772621504819-lmj0jq-image003.png
+	uploads/template-attachments/1772621504819-y66u7w-image001.png
+	uploads/template-attachments/1772621504828-r7ydd0-image003.png
+	uploads/template-attachments/1772621504828-yvhnc8-image001.png
+
+no changes added to commit (use "git add" and/or "git commit -a")
+afd64ed2 Remove direct access to tasks from the main application sidebar
+efd9f075 Add a dedicated tasks menu item to the application sidebar
+b40d0dab Add link to automations page in the application sidebar
+aff48560 Integrate status management directly into campaign settings
+d1206d8f Add a comprehensive status management engine for tracking customer interactions
+359 client/src/components/app-sidebar.tsx
+seman@CORPCRM01:/var/www/in
