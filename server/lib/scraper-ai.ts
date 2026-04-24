@@ -19,6 +19,7 @@ const ContactSchema = z.object({
   website: z.string().max(500).optional(),
   score: z.number().min(0).max(100).optional(),
   notes: z.string().max(500).optional(),
+  matchedInputName: z.string().max(300).optional(),
 }).passthrough();
 const ResponseSchema = z.object({ contacts: z.array(ContactSchema).max(50) });
 
@@ -38,6 +39,7 @@ export type ExtractedContact = {
   website?: string;
   score: number; // 0-100 confidence
   notes?: string;
+  matchedInputName?: string;
 };
 
 const SYSTEM_PROMPT = `Si extraktor zdravotníckych kontaktov pre slovenský CRM systém. Z poskytnutého textu (HTML zbavený značiek, alebo plain text) extrahuj VŠETKY kontakty zdravotníckych zariadení / lekárov, ktoré tam reálne sú.
@@ -70,14 +72,23 @@ DÔLEŽITÉ:
 
 export async function extractContactsFromText(
   text: string,
-  context: { sourceUrl?: string; specialty?: string; city?: string }
+  context: { sourceUrl?: string; specialty?: string; city?: string; targetNames?: string[] }
 ): Promise<ExtractedContact[]> {
   if (!text || text.trim().length < 50) return [];
   const truncated = text.slice(0, 14000);
+  const targetBlock = context.targetNames && context.targetNames.length
+    ? [
+        "",
+        "ZAMERAJ SA NA TIETO NÁZVY (vráť LEN kontakty, ktoré sa zhodujú s niektorým z týchto názvov, aj približne):",
+        ...context.targetNames.slice(0, 80).map((n, i) => `${i + 1}. ${n}`),
+        "Pre každý nájdený kontakt nastav pole \"matchedInputName\" presne na ten názov zo zoznamu, s ktorým sa zhoduje.",
+      ].join("\n")
+    : "";
   const userMsg = [
     context.sourceUrl ? `Zdroj: ${context.sourceUrl}` : "",
     context.specialty ? `Hľadaný odbor: ${context.specialty}` : "",
     context.city ? `Hľadané mesto: ${context.city}` : "",
+    targetBlock,
     "",
     "TEXT NA SPRACOVANIE:",
     truncated,
@@ -119,6 +130,7 @@ export async function extractContactsFromText(
         website: c.website || undefined,
         score: typeof c.score === "number" ? Math.max(0, Math.min(100, Math.round(c.score))) : 50,
         notes: c.notes || undefined,
+        matchedInputName: c.matchedInputName || undefined,
       }));
   } catch (err) {
     console.error("[scraper-ai] extraction failed:", err);

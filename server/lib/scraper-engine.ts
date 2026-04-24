@@ -36,11 +36,31 @@ export async function runScrapeJob(jobId: string): Promise<void> {
       facilityType: job.facilityType,
     };
 
+    const inputItems = Array.isArray(job.inputItems) ? (job.inputItems as Array<{ name: string; city?: string; note?: string }>) : [];
+    const isBulk = job.mode === "bulk" && inputItems.length > 0;
+    const targetNames = isBulk ? inputItems.map(i => (i.city ? `${i.name} (${i.city})` : i.name)) : undefined;
+
     const urls = (await discoverPagesForSource(job.sourceKey, criteria)).slice(0, MAX_PAGES_PER_JOB);
-    console.log(`[scraper] job ${jobId} discovered ${urls.length} pages from ${job.sourceKey}`);
+    console.log(`[scraper] job ${jobId} (${isBulk ? "bulk" : "discover"}) discovered ${urls.length} pages from ${job.sourceKey}${isBulk ? `, hľadám ${inputItems.length} názvov` : ""}`);
 
     const seenKeys = new Set<string>();
     let totalSaved = 0;
+
+    const findInputIndex = (matched?: string): { idx: number; original?: string } => {
+      if (!matched || !isBulk) return { idx: -1 };
+      const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
+      const m = norm(matched);
+      let best = -1;
+      let bestLen = 0;
+      for (let i = 0; i < inputItems.length; i++) {
+        const candidate = norm(inputItems[i].name);
+        if (!candidate) continue;
+        if (m === candidate || m.includes(candidate) || candidate.includes(m)) {
+          if (candidate.length > bestLen) { best = i; bestLen = candidate.length; }
+        }
+      }
+      return { idx: best, original: best >= 0 ? inputItems[best].name : undefined };
+    };
 
     for (const url of urls) {
       const page = await fetchPage(url);
@@ -53,11 +73,15 @@ export async function runScrapeJob(jobId: string): Promise<void> {
         sourceUrl: url,
         specialty: criteria.specialty || undefined,
         city: criteria.city || undefined,
+        targetNames,
       });
 
       for (const c of extracted) {
         if (!c.name && !c.doctorName) continue;
         if (c.score < 20) continue;
+
+        const matchInfo = findInputIndex(c.matchedInputName || c.name);
+        if (isBulk && matchInfo.idx < 0) continue; // bulk mode: only keep matches
 
         const ico = c.ico ? normalizeIco(c.ico) : null;
         const phones = normalizePhones(c.phones || [], (criteria.countryCode || "SK") as any);
@@ -71,6 +95,8 @@ export async function runScrapeJob(jobId: string): Promise<void> {
           jobId,
           sourceKey: job.sourceKey,
           sourceUrl: url,
+          inputName: matchInfo.original || null,
+          inputIndex: matchInfo.idx >= 0 ? matchInfo.idx : null,
           countryCode: job.countryCode,
           name: c.name || null,
           ico,
@@ -88,7 +114,7 @@ export async function runScrapeJob(jobId: string): Promise<void> {
           website: c.website || null,
           score: c.score,
           status: "pending",
-          rawData: { extractorScore: c.score, extractorNotes: c.notes } as any,
+          rawData: { extractorScore: c.score, extractorNotes: c.notes, matchedInputName: c.matchedInputName } as any,
         });
         totalSaved++;
       }

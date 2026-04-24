@@ -44699,17 +44699,86 @@ Return ONLY valid JSON, no markdown.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // Create + start a job
+  // Create + start a discovery job
   app.post("/api/scraper/jobs", requireAuth, async (req: any, res) => {
     try {
-      const parsed = insertScrapeJobSchema.parse({ ...req.body, createdBy: req.session?.userId || null });
+      const parsed = insertScrapeJobSchema.parse({ ...req.body, mode: "discover", createdBy: req.session?.userId || null });
       const [job] = await db.insert(scrapeJobs).values(parsed).returning();
-      // fire-and-forget
       runScrapeJob(job.id).catch(err => console.error("[scraper] job error", err));
       res.json(job);
     } catch (e: any) {
       console.error("[scraper] job create error:", e);
       res.status(400).json({ error: e.message });
+    }
+  });
+
+  // Create + start a bulk lookup job (user uploads a list of names)
+  app.post("/api/scraper/jobs/bulk", requireAuth, async (req: any, res) => {
+    try {
+      const sourceKey = String(req.body?.sourceKey || "").trim();
+      if (!sourceKey) return res.status(400).json({ error: "sourceKey required" });
+      const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+      const items = rawItems
+        .map((it: any) => {
+          if (typeof it === "string") return { name: it.trim() };
+          if (it && typeof it.name === "string") return { name: it.name.trim(), city: typeof it.city === "string" ? it.city.trim() : undefined, note: typeof it.note === "string" ? it.note.trim() : undefined };
+          return null;
+        })
+        .filter((it: any) => it && it.name && it.name.length >= 2 && it.name.length <= 250)
+        .slice(0, 200);
+      if (items.length === 0) return res.status(400).json({ error: "items must contain at least one valid name" });
+
+      const [job] = await db.insert(scrapeJobs).values({
+        sourceKey,
+        countryCode: String(req.body?.countryCode || "SK"),
+        specialty: req.body?.specialty || null,
+        city: req.body?.city || null,
+        region: req.body?.region || null,
+        facilityType: req.body?.facilityType || null,
+        mode: "bulk",
+        inputItems: items as any,
+        createdBy: req.session?.userId || null,
+      } as any).returning();
+      runScrapeJob(job.id).catch(err => console.error("[scraper] bulk job error", err));
+      res.json(job);
+    } catch (e: any) {
+      console.error("[scraper] bulk job create error:", e);
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // Search existing targets to merge a scraped contact into (autocomplete picker)
+  app.get("/api/scraper/search-targets", requireAuth, async (req, res) => {
+    try {
+      const type = String(req.query.type || "clinic");
+      const q = String(req.query.q || "").trim();
+      if (!q || q.length < 2) return res.json([]);
+      const like = `%${q}%`;
+      if (type === "clinic") {
+        const rows = await db.select({ id: clinicsTable.id, name: clinicsTable.name, city: clinicsTable.city, address: clinicsTable.address })
+          .from(clinicsTable)
+          .where(sql`(${clinicsTable.name} ILIKE ${like} OR COALESCE(${clinicsTable.city}, '') ILIKE ${like})`)
+          .limit(20);
+        return res.json(rows);
+      }
+      if (type === "hospital") {
+        const rows = await db.select({ id: hospitalsTable.id, name: hospitalsTable.name, city: hospitalsTable.city })
+          .from(hospitalsTable)
+          .where(sql`(${hospitalsTable.name} ILIKE ${like} OR COALESCE(${hospitalsTable.city}, '') ILIKE ${like})`)
+          .limit(20);
+        return res.json(rows);
+      }
+      if (type === "person") {
+        const rows = await db.select({ id: collaboratorsTable.id, firstName: collaboratorsTable.firstName, lastName: collaboratorsTable.lastName, city: collaboratorsTable.city, professionalClassification: collaboratorsTable.professionalClassification })
+          .from(collaboratorsTable)
+          .where(sql`(${collaboratorsTable.firstName} ILIKE ${like} OR ${collaboratorsTable.lastName} ILIKE ${like} OR COALESCE(${collaboratorsTable.city}, '') ILIKE ${like})`)
+          .limit(20);
+        return res.json(rows);
+      }
+      res.status(400).json({ error: "type must be clinic | hospital | person" });
+    } catch (e: any) {
+      console.error("[scraper] search-targets error:", e);
+      res.status(500).json({ error: e.message });
     }
   });
 
@@ -44735,13 +44804,22 @@ Return ONLY valid JSON, no markdown.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // Approve and route to clinic / hospital / person
+  // Approve and route to clinic / hospital / person — either create new or update existing
   app.post("/api/scraper/contacts/:id/approve", requireAuth, async (req: any, res) => {
     try {
       const ALLOWED_TARGETS = ["clinic", "hospital", "person"] as const;
+      const ALLOWED_MODES = ["create", "update"] as const;
       const targetType = (req.body?.targetType as string) || "clinic";
+      const mode = (req.body?.mode as string) || "create";
+      const targetId: string | null = req.body?.targetId || null;
       if (!ALLOWED_TARGETS.includes(targetType as any)) {
         return res.status(400).json({ error: `targetType must be one of: ${ALLOWED_TARGETS.join(", ")}` });
+      }
+      if (!ALLOWED_MODES.includes(mode as any)) {
+        return res.status(400).json({ error: `mode must be one of: ${ALLOWED_MODES.join(", ")}` });
+      }
+      if (mode === "update" && !targetId) {
+        return res.status(400).json({ error: "targetId required for mode=update" });
       }
       const userId = req.session?.userId || null;
       const [c] = await db.select().from(scrapedContacts).where(eq(scrapedContacts.id, req.params.id));
@@ -44758,55 +44836,108 @@ Return ONLY valid JSON, no markdown.`;
 
       const importNote = `Importované zo scrapera (${c.sourceKey}) — ${c.sourceUrl || ""}`.slice(0, 500);
 
-      if (targetType === "clinic") {
-        const [created] = await db.insert(clinicsTable).values({
-          name: c.name || c.doctorName || "Unknown",
-          countryCode: c.countryCode || "SK",
-          phone: primaryPhone, phone2: secondaryPhone,
-          email: primaryEmail, email2: secondaryEmail,
-          address: c.address || null,
-          city: c.city || null,
-          postalCode: c.postalCode || null,
-          region: c.region || null,
-          district: c.district || null,
-          website: c.website || null,
-          doctorName: c.doctorName || null,
-          doctorTitle: c.doctorTitle || null,
-          notes: importNote,
-        } as any).returning();
-        mergedId = created.id;
-      } else if (targetType === "hospital") {
-        const [created] = await db.insert(hospitalsTable).values({
-          name: c.name || "Unknown",
-          countryCode: c.countryCode || "SK",
-          phone: primaryPhone,
-          email: primaryEmail,
-          streetNumber: c.address || null,
-          city: c.city || null,
-          postalCode: c.postalCode || null,
-          region: c.region || null,
-          district: c.district || null,
-          contactPerson: c.doctorName || null,
-        } as any).returning();
-        mergedId = created.id;
-      } else if (targetType === "person") {
-        const fullName = (c.doctorName || c.name || "Unknown").trim();
-        const parts = fullName.split(/\s+/);
-        const firstName = parts[0] || "Unknown";
-        const lastName = parts.slice(1).join(" ") || "-";
-        const [created] = await db.insert(collaboratorsTable).values({
-          firstName, lastName,
-          titleBefore: c.doctorTitle || null,
-          countryCode: c.countryCode || "SK",
-          phone: phonesArr.find(p => p?.type === "landline")?.value || null,
-          mobile: phonesArr.find(p => p?.type === "mobile")?.value || primaryPhone,
-          mobile2: secondaryPhone,
-          email: primaryEmail,
-          ico: c.ico || null,
-          professionalClassification: c.specialty || null,
-          note: importNote,
-        } as any).returning();
-        mergedId = created.id;
+      // Field maps for each target — used by both create and update modes.
+      const clinicFields: Record<string, any> = {
+        name: c.name || c.doctorName || "Unknown",
+        countryCode: c.countryCode || "SK",
+        phone: primaryPhone, phone2: secondaryPhone,
+        email: primaryEmail, email2: secondaryEmail,
+        address: c.address || null,
+        city: c.city || null,
+        postalCode: c.postalCode || null,
+        region: c.region || null,
+        district: c.district || null,
+        website: c.website || null,
+        doctorName: c.doctorName || null,
+        doctorTitle: c.doctorTitle || null,
+        notes: importNote,
+      };
+      const hospitalFields: Record<string, any> = {
+        name: c.name || "Unknown",
+        countryCode: c.countryCode || "SK",
+        phone: primaryPhone,
+        email: primaryEmail,
+        streetNumber: c.address || null,
+        city: c.city || null,
+        postalCode: c.postalCode || null,
+        region: c.region || null,
+        district: c.district || null,
+        contactPerson: c.doctorName || null,
+      };
+      const fullName = (c.doctorName || c.name || "Unknown").trim();
+      const parts = fullName.split(/\s+/);
+      const personFields: Record<string, any> = {
+        firstName: parts[0] || "Unknown",
+        lastName: parts.slice(1).join(" ") || "-",
+        titleBefore: c.doctorTitle || null,
+        countryCode: c.countryCode || "SK",
+        phone: phonesArr.find(p => p?.type === "landline")?.value || null,
+        mobile: phonesArr.find(p => p?.type === "mobile")?.value || primaryPhone,
+        mobile2: secondaryPhone,
+        email: primaryEmail,
+        ico: c.ico || null,
+        professionalClassification: c.specialty || null,
+        note: importNote,
+      };
+
+      // Build a patch that only fills fields that are currently empty on the existing record.
+      const buildPatch = (existing: Record<string, any>, candidate: Record<string, any>): Record<string, any> => {
+        const patch: Record<string, any> = {};
+        for (const [k, v] of Object.entries(candidate)) {
+          if (v === null || v === undefined || v === "") continue;
+          const existingVal = existing[k];
+          if (existingVal === null || existingVal === undefined || existingVal === "") {
+            patch[k] = v;
+          }
+        }
+        return patch;
+      };
+
+      if (mode === "create") {
+        if (targetType === "clinic") {
+          const [created] = await db.insert(clinicsTable).values(clinicFields as any).returning();
+          mergedId = created.id;
+        } else if (targetType === "hospital") {
+          const [created] = await db.insert(hospitalsTable).values(hospitalFields as any).returning();
+          mergedId = created.id;
+        } else if (targetType === "person") {
+          const [created] = await db.insert(collaboratorsTable).values(personFields as any).returning();
+          mergedId = created.id;
+        }
+      } else {
+        // mode === "update" — patch only empty fields on existing record
+        if (targetType === "clinic") {
+          const [existing] = await db.select().from(clinicsTable).where(eq(clinicsTable.id, targetId!));
+          if (!existing) return res.status(404).json({ error: "target clinic not found" });
+          const patch = buildPatch(existing as any, clinicFields);
+          const importTrail = existing.notes ? `${existing.notes}\n${importNote}`.slice(0, 2000) : importNote;
+          patch.notes = importTrail;
+          if (Object.keys(patch).length > 0) {
+            await db.update(clinicsTable).set(patch as any).where(eq(clinicsTable.id, targetId!));
+          }
+          mergedId = targetId;
+        } else if (targetType === "hospital") {
+          const [existing] = await db.select().from(hospitalsTable).where(eq(hospitalsTable.id, targetId!));
+          if (!existing) return res.status(404).json({ error: "target hospital not found" });
+          const patch = buildPatch(existing as any, hospitalFields);
+          if (Object.keys(patch).length > 0) {
+            await db.update(hospitalsTable).set(patch as any).where(eq(hospitalsTable.id, targetId!));
+          }
+          mergedId = targetId;
+        } else if (targetType === "person") {
+          const [existing] = await db.select().from(collaboratorsTable).where(eq(collaboratorsTable.id, targetId!));
+          if (!existing) return res.status(404).json({ error: "target person not found" });
+          // For person: don't overwrite first/last name even if empty (identity-defining)
+          const candidate = { ...personFields };
+          delete candidate.firstName; delete candidate.lastName;
+          const patch = buildPatch(existing as any, candidate);
+          const noteTrail = existing.note ? `${existing.note}\n${importNote}`.slice(0, 2000) : importNote;
+          patch.note = noteTrail;
+          if (Object.keys(patch).length > 0) {
+            await db.update(collaboratorsTable).set(patch as any).where(eq(collaboratorsTable.id, targetId!));
+          }
+          mergedId = targetId;
+        }
       }
 
       if (!mergedId) {

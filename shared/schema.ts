@@ -7405,6 +7405,8 @@ export const scrapeJobs = pgTable("scrape_jobs", {
   city: text("city"),
   region: text("region"),
   facilityType: text("facility_type"), // 'clinic' | 'hospital' | 'ambulance' | 'any'
+  mode: text("mode").notNull().default("discover"), // 'discover' | 'bulk'
+  inputItems: jsonb("input_items"), // [{ name, city?, note? }] for bulk mode
   status: text("status").notNull().default("pending"), // pending | running | completed | failed
   totalFound: integer("total_found").notNull().default(0),
   errorMessage: text("error_message"),
@@ -7422,6 +7424,8 @@ export const scrapedContacts = pgTable("scraped_contacts", {
   jobId: varchar("job_id"),
   sourceKey: text("source_key").notNull(),
   sourceUrl: text("source_url"),
+  inputName: text("input_name"), // bulk mode: original input name
+  inputIndex: integer("input_index"), // bulk mode: row index in input list
   countryCode: text("country_code").notNull().default("SK"),
   name: text("name"),
   ico: text("ico"),
