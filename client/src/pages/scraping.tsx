@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,10 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Search, RefreshCw, CheckCircle2, XCircle, Trash2, ExternalLink, Building2, Hospital, User, Upload, ListOrdered } from "lucide-react";
+import { Loader2, Search, RefreshCw, CheckCircle2, XCircle, Trash2, ExternalLink, Building2, Hospital, User, Upload, ListOrdered, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 
 type ScrapeSource = { id: string; key: string; name: string; countryCode: string; enabled: boolean };
-type ScrapeJob = { id: string; sourceKey: string; countryCode: string; specialty?: string; city?: string; region?: string; facilityType?: string; mode?: string; inputItems?: Array<{ name: string; city?: string }>; status: string; totalFound: number; errorMessage?: string; createdAt: string; finishedAt?: string };
+type ScrapeJob = { id: string; sourceKey: string; countryCode: string; specialty?: string; city?: string; region?: string; facilityType?: string; mode?: string; inputItems?: Array<{ name: string; city?: string }>; enrichForType?: string; enrichForId?: string; status: string; totalFound: number; errorMessage?: string; createdAt: string; finishedAt?: string };
 type ScrapedContact = {
   id: string; jobId?: string; sourceKey: string; sourceUrl?: string; countryCode: string;
   inputName?: string; inputIndex?: number;
@@ -26,6 +27,9 @@ type ScrapedContact = {
 type TargetType = "clinic" | "hospital" | "person";
 type ApproveMode = "create" | "update";
 type SearchTarget = { id: string; name?: string; firstName?: string; lastName?: string; city?: string; address?: string; professionalClassification?: string };
+type FieldAction = "skip" | "fill" | "overwrite";
+type PreviewField = { key: string; label: string; scrapedValue: any; existingValue: any; conflict: boolean; defaultAction: FieldAction };
+type PreviewResponse = { targetType: string; targetId: string | null; mode: "create" | "update"; fields: PreviewField[] };
 
 const SK_REGIONS = [
   "Bratislavský kraj", "Trnavský kraj", "Trenčiansky kraj", "Nitriansky kraj",
@@ -93,6 +97,106 @@ function TargetPicker({ targetType, value, onChange, contactId }: { targetType: 
   );
 }
 
+function MergeMappingEditor({
+  contactId,
+  targetType,
+  targetId,
+  mode,
+  overrides,
+  onChange,
+}: {
+  contactId: string;
+  targetType: TargetType;
+  targetId: string | null;
+  mode: ApproveMode;
+  overrides: Record<string, string>;
+  onChange: (next: Record<string, string>) => void;
+}) {
+  const queryParam = mode === "update" && targetId ? `&targetId=${encodeURIComponent(targetId)}` : "";
+  const queryUrl = `/api/scraper/contacts/${contactId}/preview-merge?targetType=${targetType}${queryParam}`;
+  const { data, isLoading, isError } = useQuery<PreviewResponse>({
+    queryKey: ["/api/scraper/contacts", contactId, "preview-merge", targetType, targetId, mode],
+    queryFn: async () => {
+      const res = await fetch(queryUrl, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+  });
+
+  if (isLoading || !data) {
+    return (
+      <div className="border-t pt-2 mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />Načítavam mapovanie polí...
+      </div>
+    );
+  }
+  if (isError) {
+    return <div className="border-t pt-2 mt-2 text-xs text-destructive">Nepodarilo sa načítať mapovanie.</div>;
+  }
+
+  const setAction = (key: string, action: string) => {
+    const next = { ...overrides, [key]: action };
+    onChange(next);
+  };
+
+  const formatVal = (v: any): string => {
+    if (v === null || v === undefined || v === "") return "—";
+    if (typeof v === "string") return v;
+    return String(v);
+  };
+
+  return (
+    <div className="border-t pt-3 mt-2 space-y-2" data-testid={`mapping-editor-${contactId}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold">
+          Detail mapovania polí ({mode === "update" ? "doplnenie existujúceho záznamu" : "vytvorenie nového záznamu"})
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          Doplniť = len ak prázdne · Prepísať = nahradiť hodnotu · Preskočiť = ignorovať
+        </p>
+      </div>
+      <div className="rounded border overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/50 text-muted-foreground">
+            <tr>
+              <th className="text-left px-2 py-1.5 font-medium w-[22%]">Pole</th>
+              <th className="text-left px-2 py-1.5 font-medium w-[30%]">Hodnota z webu</th>
+              <th className="text-left px-2 py-1.5 font-medium w-[28%]">{mode === "update" ? "V CRM" : "(nový záznam)"}</th>
+              <th className="text-left px-2 py-1.5 font-medium w-[20%]">Akcia</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.fields.map(f => {
+              const action = overrides[f.key] || f.defaultAction;
+              const scrapedEmpty = f.scrapedValue === null || f.scrapedValue === undefined || f.scrapedValue === "";
+              return (
+                <tr key={f.key} className={`border-t ${f.conflict ? "bg-amber-50/50 dark:bg-amber-950/20" : ""}`} data-testid={`mapping-row-${contactId}-${f.key}`}>
+                  <td className="px-2 py-1.5 font-medium">
+                    {f.label}
+                    {f.conflict && <AlertTriangle className="h-3 w-3 inline ml-1 text-amber-600" />}
+                  </td>
+                  <td className="px-2 py-1.5 text-foreground/80 break-words">{formatVal(f.scrapedValue)}</td>
+                  <td className="px-2 py-1.5 text-foreground/80 break-words">{mode === "update" ? formatVal(f.existingValue) : "—"}</td>
+                  <td className="px-2 py-1.5">
+                    <Select value={action} onValueChange={v => setAction(f.key, v)}>
+                      <SelectTrigger className="h-7 text-xs" data-testid={`select-action-${contactId}-${f.key}`}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="skip">Preskočiť</SelectItem>
+                        <SelectItem value="fill" disabled={scrapedEmpty}>Doplniť</SelectItem>
+                        <SelectItem value="overwrite" disabled={scrapedEmpty || mode === "create"}>Prepísať</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function ScrapingPage() {
   const { toast } = useToast();
   const [sourceKey, setSourceKey] = useState<string>("evuc");
@@ -106,6 +210,21 @@ export default function ScrapingPage() {
   const [perRowTarget, setPerRowTarget] = useState<Record<string, TargetType>>({});
   const [perRowMode, setPerRowMode] = useState<Record<string, ApproveMode>>({});
   const [perRowTargetId, setPerRowTargetId] = useState<Record<string, string | null>>({});
+  const [perRowOverrides, setPerRowOverrides] = useState<Record<string, Record<string, string>>>({});
+  const [perRowExpanded, setPerRowExpanded] = useState<Record<string, boolean>>({});
+
+  const [location] = useLocation();
+  useEffect(() => {
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    if (!search) return;
+    const params = new URLSearchParams(search);
+    const jobIdParam = params.get("jobId");
+    if (jobIdParam) {
+      setFilterJobId(jobIdParam);
+      setActiveTab("staging");
+      setFilterStatus("pending");
+    }
+  }, [location]);
 
   // Bulk lookup state
   const [bulkSourceKey, setBulkSourceKey] = useState<string>("evuc");
@@ -127,6 +246,15 @@ export default function ScrapingPage() {
 
   const { data: sources = [] } = useQuery<ScrapeSource[]>({ queryKey: ["/api/scraper/sources"] });
   const { data: jobs = [], refetch: refetchJobs } = useQuery<ScrapeJob[]>({ queryKey: ["/api/scraper/jobs"], refetchInterval: 5000 });
+  const enrichJobMap = useMemo(() => {
+    const m: Record<string, { type: TargetType; id: string }> = {};
+    for (const j of jobs) {
+      if (j.mode === "enrich" && j.enrichForType && j.enrichForId) {
+        m[j.id] = { type: j.enrichForType as TargetType, id: j.enrichForId };
+      }
+    }
+    return m;
+  }, [jobs]);
   const { data: contacts = [], refetch: refetchContacts } = useQuery<ScrapedContact[]>({
     queryKey: ["/api/scraper/contacts", filterStatus, filterJobId],
     queryFn: async () => {
@@ -175,9 +303,10 @@ export default function ScrapingPage() {
   });
 
   const approveContact = useMutation({
-    mutationFn: async ({ id, targetType, mode, targetId }: { id: string; targetType: TargetType; mode: ApproveMode; targetId?: string | null }) => {
+    mutationFn: async ({ id, targetType, mode, targetId, fieldOverrides }: { id: string; targetType: TargetType; mode: ApproveMode; targetId?: string | null; fieldOverrides?: Record<string, string> }) => {
       const body: any = { targetType, mode };
       if (mode === "update") body.targetId = targetId;
+      if (fieldOverrides && Object.keys(fieldOverrides).length > 0) body.fieldOverrides = fieldOverrides;
       return await apiRequest("POST", `/api/scraper/contacts/${id}/approve`, body);
     },
     onSuccess: (_d, vars) => {
@@ -366,6 +495,7 @@ export default function ScrapingPage() {
                       {j.status}
                     </Badge>
                     {j.mode === "bulk" && <Badge variant="outline" className="text-xs">bulk · {j.inputItems?.length || 0} položiek</Badge>}
+                    {j.mode === "enrich" && <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-950">doplnenie záznamu</Badge>}
                     <span className="text-sm font-medium">{j.sourceKey}</span>
                     <span className="text-xs text-muted-foreground">{new Date(j.createdAt).toLocaleString("sk-SK")}</span>
                   </div>
@@ -416,9 +546,17 @@ export default function ScrapingPage() {
 
           <div className="space-y-2">
             {contacts.map(c => {
-              const target: TargetType = perRowTarget[c.id] || (c.facilityType === "hospital" ? "hospital" : c.doctorName && !c.name ? "person" : "clinic");
-              const mode: ApproveMode = perRowMode[c.id] || "create";
-              const targetId = perRowTargetId[c.id] || null;
+              const enrich = c.jobId ? enrichJobMap[c.jobId] : undefined;
+              const defaultTarget: TargetType = enrich
+                ? enrich.type
+                : (c.facilityType === "hospital" ? "hospital" : c.doctorName && !c.name ? "person" : "clinic");
+              const target: TargetType = perRowTarget[c.id] || defaultTarget;
+              const defaultMode: ApproveMode = enrich ? "update" : "create";
+              const mode: ApproveMode = perRowMode[c.id] || defaultMode;
+              const defaultTargetId = enrich && perRowTarget[c.id] === undefined ? enrich.id : null;
+              const targetId = perRowTargetId[c.id] !== undefined ? perRowTargetId[c.id] : defaultTargetId;
+              const overrides = perRowOverrides[c.id] || {};
+              const expanded = !!perRowExpanded[c.id];
               return (
                 <Card key={c.id} data-testid={`card-contact-${c.id}`}>
                   <CardContent className="py-3 space-y-2">
@@ -433,6 +571,7 @@ export default function ScrapingPage() {
                           {c.facilityType && <Badge variant="secondary" className="text-xs">{c.facilityType}</Badge>}
                           {c.specialty && <Badge variant="outline" className="text-xs">{c.specialty}</Badge>}
                           {c.inputName && <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950">zo zoznamu: {c.inputName}</Badge>}
+                          {enrich && <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-950" data-testid={`badge-enrich-${c.id}`}>doplnenie pre {enrich.type === "clinic" ? "kliniku" : enrich.type === "hospital" ? "nemocnicu" : "osobu"}</Badge>}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1 grid sm:grid-cols-2 gap-x-4">
                           {c.address && <span>{c.address}{c.postalCode ? `, ${c.postalCode}` : ""} {c.city || ""}</span>}
@@ -467,7 +606,7 @@ export default function ScrapingPage() {
                     {c.status === "pending" && (
                       <div className="border-t pt-2 mt-2 flex flex-wrap items-center gap-2">
                         <Label className="text-xs text-muted-foreground">Typ:</Label>
-                        <Select value={target} onValueChange={(v: TargetType) => { setPerRowTarget(p => ({ ...p, [c.id]: v })); setPerRowTargetId(p => ({ ...p, [c.id]: null })); }}>
+                        <Select value={target} onValueChange={(v: TargetType) => { setPerRowTarget(p => ({ ...p, [c.id]: v })); setPerRowTargetId(p => ({ ...p, [c.id]: null })); setPerRowOverrides(p => ({ ...p, [c.id]: {} })); }}>
                           <SelectTrigger className="h-8 w-36 text-xs" data-testid={`select-target-${c.id}`}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="clinic"><Building2 className="h-3 w-3 inline mr-1" />Klinika</SelectItem>
@@ -480,13 +619,13 @@ export default function ScrapingPage() {
                           <button
                             type="button"
                             className={`px-2 py-1 text-xs ${mode === "create" ? "bg-primary text-primary-foreground" : "bg-background hover-elevate"}`}
-                            onClick={() => setPerRowMode(p => ({ ...p, [c.id]: "create" }))}
+                            onClick={() => { setPerRowMode(p => ({ ...p, [c.id]: "create" })); setPerRowOverrides(p => ({ ...p, [c.id]: {} })); }}
                             data-testid={`button-mode-create-${c.id}`}
                           >Vytvoriť nový</button>
                           <button
                             type="button"
                             className={`px-2 py-1 text-xs border-l ${mode === "update" ? "bg-primary text-primary-foreground" : "bg-background hover-elevate"}`}
-                            onClick={() => setPerRowMode(p => ({ ...p, [c.id]: "update" }))}
+                            onClick={() => { setPerRowMode(p => ({ ...p, [c.id]: "update" })); setPerRowOverrides(p => ({ ...p, [c.id]: {} })); }}
                             data-testid={`button-mode-update-${c.id}`}
                           >Doplniť existujúci</button>
                         </div>
@@ -495,15 +634,25 @@ export default function ScrapingPage() {
                             <TargetPicker
                               targetType={target}
                               value={targetId}
-                              onChange={(id) => setPerRowTargetId(p => ({ ...p, [c.id]: id }))}
+                              onChange={(id) => { setPerRowTargetId(p => ({ ...p, [c.id]: id })); setPerRowOverrides(p => ({ ...p, [c.id]: {} })); }}
                               contactId={c.id}
                             />
                           </div>
                         )}
                         <Button
                           size="sm"
+                          variant="ghost"
+                          onClick={() => setPerRowExpanded(p => ({ ...p, [c.id]: !expanded }))}
+                          disabled={mode === "update" && !targetId}
+                          data-testid={`button-toggle-mapping-${c.id}`}
+                        >
+                          {expanded ? <ChevronUp className="h-3.5 w-3.5 mr-1" /> : <ChevronDown className="h-3.5 w-3.5 mr-1" />}
+                          Detail mapovania
+                        </Button>
+                        <Button
+                          size="sm"
                           variant="default"
-                          onClick={() => approveContact.mutate({ id: c.id, targetType: target, mode, targetId })}
+                          onClick={() => approveContact.mutate({ id: c.id, targetType: target, mode, targetId, fieldOverrides: overrides })}
                           disabled={approveContact.isPending || (mode === "update" && !targetId)}
                           data-testid={`button-approve-${c.id}`}
                         >
@@ -511,6 +660,16 @@ export default function ScrapingPage() {
                           {mode === "update" ? "Doplniť" : "Vytvoriť"}
                         </Button>
                       </div>
+                    )}
+                    {c.status === "pending" && expanded && (mode === "create" || (mode === "update" && targetId)) && (
+                      <MergeMappingEditor
+                        contactId={c.id}
+                        targetType={target}
+                        targetId={targetId}
+                        mode={mode}
+                        overrides={overrides}
+                        onChange={(next) => setPerRowOverrides(p => ({ ...p, [c.id]: next }))}
+                      />
                     )}
                   </CardContent>
                 </Card>

@@ -7405,8 +7405,10 @@ export const scrapeJobs = pgTable("scrape_jobs", {
   city: text("city"),
   region: text("region"),
   facilityType: text("facility_type"), // 'clinic' | 'hospital' | 'ambulance' | 'any'
-  mode: text("mode").notNull().default("discover"), // 'discover' | 'bulk'
+  mode: text("mode").notNull().default("discover"), // 'discover' | 'bulk' | 'enrich'
   inputItems: jsonb("input_items"), // [{ name, city?, note? }] for bulk mode
+  enrichForType: text("enrich_for_type"), // 'clinic' | 'hospital' | 'person' — when mode=enrich
+  enrichForId: varchar("enrich_for_id"), // FK to clinics/hospitals/collaborators (logical, not enforced)
   status: text("status").notNull().default("pending"), // pending | running | completed | failed
   totalFound: integer("total_found").notNull().default(0),
   errorMessage: text("error_message"),

@@ -37,7 +37,7 @@ export async function runScrapeJob(jobId: string): Promise<void> {
     };
 
     const inputItems = Array.isArray(job.inputItems) ? (job.inputItems as Array<{ name: string; city?: string; note?: string }>) : [];
-    const isBulk = job.mode === "bulk" && inputItems.length > 0;
+    const isBulk = (job.mode === "bulk" || job.mode === "enrich") && inputItems.length > 0;
     const targetNames = isBulk ? inputItems.map(i => (i.city ? `${i.name} (${i.city})` : i.name)) : undefined;
 
     const urls = (await discoverPagesForSource(job.sourceKey, criteria)).slice(0, MAX_PAGES_PER_JOB);

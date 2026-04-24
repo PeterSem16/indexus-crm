@@ -42,6 +42,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion, getGeoLabels } from "@/lib/regions";
 import { SuggestRegionButton } from "@/components/suggest-region-button";
+import { EnrichFromWebDialog } from "@/components/enrich-from-web-dialog";
 import type { Hospital as HospitalType, Laboratory, SafeUser, Clinic } from "@shared/schema";
 import { COUNTRIES } from "@shared/schema";
 import {
@@ -1630,6 +1631,7 @@ export default function HospitalsPage() {
   const [selectedClinic, setSelectedClinic] = useState<Clinic | undefined>();
   const [hospitalToDelete, setHospitalToDelete] = useState<Hospital | null>(null);
   const [clinicToDelete, setClinicToDelete] = useState<Clinic | null>(null);
+  const [enrichTarget, setEnrichTarget] = useState<{ type: "clinic" | "hospital"; id: string; name: string; city?: string | null } | null>(null);
   const [activeTab, setActiveTab] = useState("networks");
   const [personnelEntity, setPersonnelEntity] = useState<{ type: "hospital" | "clinic"; id: string; name: string } | null>(null);
   const [clinicCountryTab, setClinicCountryTab] = useState<string>("ALL");
@@ -2267,6 +2269,17 @@ export default function HospitalsPage() {
             <Button
               size="icon"
               variant="ghost"
+              title="Doplniť z webu"
+              onClick={() => setEnrichTarget({ type: "clinic", id: clinic.id, name: clinic.name || "Klinika", city: clinic.city })}
+              data-testid={`button-enrich-clinic-${clinic.id}`}
+            >
+              <Globe className="h-4 w-4" />
+            </Button>
+          )}
+          {canEdit("hospitals") && (
+            <Button
+              size="icon"
+              variant="ghost"
               onClick={() => handleDeleteClinic(clinic)}
               data-testid={`button-delete-clinic-${clinic.id}`}
             >
@@ -2358,6 +2371,17 @@ export default function HospitalsPage() {
               data-testid={`button-edit-hospital-${hospital.id}`}
             >
               <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {canEdit("hospitals") && (
+            <Button
+              size="icon"
+              variant="ghost"
+              title="Doplniť z webu"
+              onClick={() => setEnrichTarget({ type: "hospital", id: hospital.id, name: hospital.name, city: hospital.city })}
+              data-testid={`button-enrich-hospital-${hospital.id}`}
+            >
+              <Globe className="h-4 w-4" />
             </Button>
           )}
           {canEdit("hospitals") && (
@@ -3184,6 +3208,17 @@ export default function HospitalsPage() {
           entityName={personnelEntity.name}
           open={!!personnelEntity}
           onOpenChange={(open) => { if (!open) setPersonnelEntity(null); }}
+        />
+      )}
+
+      {enrichTarget && (
+        <EnrichFromWebDialog
+          open={!!enrichTarget}
+          onOpenChange={(open) => { if (!open) setEnrichTarget(null); }}
+          targetType={enrichTarget.type}
+          targetId={enrichTarget.id}
+          targetName={enrichTarget.name}
+          targetCity={enrichTarget.city}
         />
       )}
     </div>

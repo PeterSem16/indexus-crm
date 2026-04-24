@@ -44671,6 +44671,144 @@ Return ONLY valid JSON, no markdown.`;
   const { scrapeJobs, scrapedContacts, scrapeSources, insertScrapeJobSchema, hospitals: hospitalsTable, clinics: clinicsTable, collaborators: collaboratorsTable } = await import("@shared/schema");
   const { runScrapeJob } = await import("./lib/scraper-engine");
 
+  // === Scraper field-mapping helpers (shared by approve + preview-merge) ===
+  type ScraperTarget = "clinic" | "hospital" | "person";
+  type FieldAction = "skip" | "fill" | "overwrite";
+
+  // Order matters — controls UI rendering order. Each entry: targetKey -> human label.
+  const SCRAPER_FIELD_LABELS: Record<ScraperTarget, Array<{ key: string; label: string }>> = {
+    clinic: [
+      { key: "name", label: "Názov" },
+      { key: "doctorName", label: "Meno lekára" },
+      { key: "doctorTitle", label: "Titul" },
+      { key: "address", label: "Adresa" },
+      { key: "city", label: "Mesto" },
+      { key: "postalCode", label: "PSČ" },
+      { key: "region", label: "Kraj" },
+      { key: "district", label: "Okres" },
+      { key: "phone", label: "Telefón 1" },
+      { key: "phone2", label: "Telefón 2" },
+      { key: "email", label: "Email 1" },
+      { key: "email2", label: "Email 2" },
+      { key: "website", label: "Web" },
+      { key: "notes", label: "Poznámka" },
+    ],
+    hospital: [
+      { key: "name", label: "Názov" },
+      { key: "streetNumber", label: "Adresa" },
+      { key: "city", label: "Mesto" },
+      { key: "postalCode", label: "PSČ" },
+      { key: "region", label: "Kraj" },
+      { key: "district", label: "Okres" },
+      { key: "phone", label: "Telefón" },
+      { key: "email", label: "Email" },
+      { key: "contactPerson", label: "Kontaktná osoba" },
+    ],
+    person: [
+      { key: "titleBefore", label: "Titul pred menom" },
+      { key: "firstName", label: "Meno" },
+      { key: "lastName", label: "Priezvisko" },
+      { key: "phone", label: "Pevná linka" },
+      { key: "mobile", label: "Mobil" },
+      { key: "mobile2", label: "Mobil 2" },
+      { key: "email", label: "Email" },
+      { key: "ico", label: "IČO" },
+      { key: "professionalClassification", label: "Odbor" },
+      { key: "note", label: "Poznámka" },
+    ],
+  };
+
+  function buildScraperCandidate(c: any, targetType: ScraperTarget): Record<string, any> {
+    const phonesArr: any[] = Array.isArray(c.phones) ? c.phones : [];
+    const primaryPhone = phonesArr.find((p: any) => p?.type === "mobile")?.value || phonesArr[0]?.value || null;
+    const secondaryPhone = phonesArr.length > 1 ? phonesArr[1]?.value : null;
+    const landline = phonesArr.find((p: any) => p?.type === "landline")?.value || null;
+    const emails: string[] = Array.isArray(c.emails) ? c.emails : [];
+    const primaryEmail = emails[0] || null;
+    const secondaryEmail = emails[1] || null;
+    const importNote = `Importované zo scrapera (${c.sourceKey || "?"}) — ${c.sourceUrl || ""}`.slice(0, 500);
+
+    if (targetType === "clinic") {
+      return {
+        name: c.name || c.doctorName || null,
+        countryCode: c.countryCode || "SK",
+        phone: primaryPhone,
+        phone2: secondaryPhone,
+        email: primaryEmail,
+        email2: secondaryEmail,
+        address: c.address || null,
+        city: c.city || null,
+        postalCode: c.postalCode || null,
+        region: c.region || null,
+        district: c.district || null,
+        website: c.website || null,
+        doctorName: c.doctorName || null,
+        doctorTitle: c.doctorTitle || null,
+        notes: importNote,
+      };
+    }
+    if (targetType === "hospital") {
+      return {
+        name: c.name || null,
+        countryCode: c.countryCode || "SK",
+        phone: primaryPhone,
+        email: primaryEmail,
+        streetNumber: c.address || null,
+        city: c.city || null,
+        postalCode: c.postalCode || null,
+        region: c.region || null,
+        district: c.district || null,
+        contactPerson: c.doctorName || null,
+      };
+    }
+    // person
+    const fullName = (c.doctorName || c.name || "").trim();
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    return {
+      firstName: parts[0] || null,
+      lastName: parts.slice(1).join(" ") || null,
+      titleBefore: c.doctorTitle || null,
+      countryCode: c.countryCode || "SK",
+      phone: landline,
+      mobile: phonesArr.find((p: any) => p?.type === "mobile")?.value || primaryPhone,
+      mobile2: secondaryPhone,
+      email: primaryEmail,
+      ico: c.ico || null,
+      professionalClassification: c.specialty || null,
+      note: importNote,
+    };
+  }
+
+  // Decide value to write per field based on user-supplied override or default.
+  // overrides[key] can be:
+  //   "skip" | "fill" | "overwrite" — action keywords
+  //   any other string — custom value provided by user
+  //   undefined — use default action ("fill" = only if existing empty)
+  function resolveFieldValue(
+    candidateValue: any,
+    existingValue: any,
+    override: string | undefined,
+    isCreateMode: boolean
+  ): { include: boolean; value: any } {
+    const isEmpty = (v: any) => v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
+    const action: FieldAction | "custom" = !override ? "fill"
+      : (override === "skip" || override === "fill" || override === "overwrite") ? override : "custom";
+
+    if (action === "skip") return { include: false, value: null };
+    if (action === "custom") {
+      const v = override === "" ? null : override;
+      return { include: true, value: v };
+    }
+    if (action === "overwrite") {
+      if (isEmpty(candidateValue)) return { include: false, value: null };
+      return { include: true, value: candidateValue };
+    }
+    // "fill" = include if (create mode) OR (existing empty)
+    if (isEmpty(candidateValue)) return { include: false, value: null };
+    if (isCreateMode || isEmpty(existingValue)) return { include: true, value: candidateValue };
+    return { include: false, value: null };
+  }
+
   // Available sources catalog
   app.get("/api/scraper/sources", requireAuth, async (_req, res) => {
     try {
@@ -44812,6 +44950,9 @@ Return ONLY valid JSON, no markdown.`;
       const targetType = (req.body?.targetType as string) || "clinic";
       const mode = (req.body?.mode as string) || "create";
       const targetId: string | null = req.body?.targetId || null;
+      const fieldOverrides: Record<string, string> = (req.body?.fieldOverrides && typeof req.body.fieldOverrides === "object")
+        ? req.body.fieldOverrides
+        : {};
       if (!ALLOWED_TARGETS.includes(targetType as any)) {
         return res.status(400).json({ error: `targetType must be one of: ${ALLOWED_TARGETS.join(", ")}` });
       }
@@ -44825,119 +44966,68 @@ Return ONLY valid JSON, no markdown.`;
       const [c] = await db.select().from(scrapedContacts).where(eq(scrapedContacts.id, req.params.id));
       if (!c) return res.status(404).json({ error: "not found" });
 
-      const phonesArr: any[] = Array.isArray(c.phones) ? (c.phones as any[]) : [];
-      const primaryPhone = phonesArr.find(p => p?.type === "mobile")?.value || phonesArr[0]?.value || null;
-      const secondaryPhone = phonesArr.length > 1 ? phonesArr[1]?.value : null;
-      const emails = Array.isArray(c.emails) ? c.emails : [];
-      const primaryEmail = emails[0] || null;
-      const secondaryEmail = emails[1] || null;
-
+      const candidate = buildScraperCandidate(c, targetType as ScraperTarget);
+      const labels = SCRAPER_FIELD_LABELS[targetType as ScraperTarget];
+      const importNote = `Importované zo scrapera (${c.sourceKey}) — ${c.sourceUrl || ""}`.slice(0, 500);
       let mergedId: string | null = null;
 
-      const importNote = `Importované zo scrapera (${c.sourceKey}) — ${c.sourceUrl || ""}`.slice(0, 500);
+      // Resolve the table + existing record + identity-protected fields per target.
+      const tableMap = { clinic: clinicsTable, hospital: hospitalsTable, person: collaboratorsTable } as const;
+      const noteFieldMap = { clinic: "notes", hospital: null, person: "note" } as const;
+      const protectedKeys = targetType === "person" && mode === "update" ? new Set(["firstName", "lastName"]) : new Set<string>();
 
-      // Field maps for each target — used by both create and update modes.
-      const clinicFields: Record<string, any> = {
-        name: c.name || c.doctorName || "Unknown",
-        countryCode: c.countryCode || "SK",
-        phone: primaryPhone, phone2: secondaryPhone,
-        email: primaryEmail, email2: secondaryEmail,
-        address: c.address || null,
-        city: c.city || null,
-        postalCode: c.postalCode || null,
-        region: c.region || null,
-        district: c.district || null,
-        website: c.website || null,
-        doctorName: c.doctorName || null,
-        doctorTitle: c.doctorTitle || null,
-        notes: importNote,
-      };
-      const hospitalFields: Record<string, any> = {
-        name: c.name || "Unknown",
-        countryCode: c.countryCode || "SK",
-        phone: primaryPhone,
-        email: primaryEmail,
-        streetNumber: c.address || null,
-        city: c.city || null,
-        postalCode: c.postalCode || null,
-        region: c.region || null,
-        district: c.district || null,
-        contactPerson: c.doctorName || null,
-      };
-      const fullName = (c.doctorName || c.name || "Unknown").trim();
-      const parts = fullName.split(/\s+/);
-      const personFields: Record<string, any> = {
-        firstName: parts[0] || "Unknown",
-        lastName: parts.slice(1).join(" ") || "-",
-        titleBefore: c.doctorTitle || null,
-        countryCode: c.countryCode || "SK",
-        phone: phonesArr.find(p => p?.type === "landline")?.value || null,
-        mobile: phonesArr.find(p => p?.type === "mobile")?.value || primaryPhone,
-        mobile2: secondaryPhone,
-        email: primaryEmail,
-        ico: c.ico || null,
-        professionalClassification: c.specialty || null,
-        note: importNote,
-      };
+      let existing: Record<string, any> = {};
+      if (mode === "update") {
+        const tbl = tableMap[targetType as ScraperTarget] as any;
+        const [row] = await db.select().from(tbl).where(eq(tbl.id, targetId!));
+        if (!row) return res.status(404).json({ error: `target ${targetType} not found` });
+        existing = row as any;
+      }
 
-      // Build a patch that only fills fields that are currently empty on the existing record.
-      const buildPatch = (existing: Record<string, any>, candidate: Record<string, any>): Record<string, any> => {
-        const patch: Record<string, any> = {};
-        for (const [k, v] of Object.entries(candidate)) {
-          if (v === null || v === undefined || v === "") continue;
-          const existingVal = existing[k];
-          if (existingVal === null || existingVal === undefined || existingVal === "") {
-            patch[k] = v;
-          }
+      // Build the final write payload using user overrides + defaults.
+      const isCreate = mode === "create";
+      const payload: Record<string, any> = {};
+
+      // Always seed required fields for create mode (countryCode, identity).
+      if (isCreate) {
+        payload.countryCode = candidate.countryCode || "SK";
+        if (targetType === "clinic") payload.name = candidate.name || "Bez názvu";
+        if (targetType === "hospital") payload.name = candidate.name || "Bez názvu";
+        if (targetType === "person") {
+          payload.firstName = candidate.firstName || "Bez mena";
+          payload.lastName = candidate.lastName || "-";
         }
-        return patch;
-      };
+      }
+
+      for (const { key } of labels) {
+        if (protectedKeys.has(key)) continue;
+        const override = fieldOverrides[key];
+        const result = resolveFieldValue(candidate[key], existing[key], override, isCreate);
+        if (result.include) payload[key] = result.value;
+      }
+
+      // Note/notes get appended trail in update mode by default (preserve audit history).
+      const noteField = noteFieldMap[targetType as ScraperTarget];
+      if (noteField && mode === "update") {
+        const noteOverride = fieldOverrides[noteField];
+        if (noteOverride !== "skip") {
+          const existingNote = existing[noteField];
+          const trail = existingNote ? `${existingNote}\n${importNote}`.slice(0, 2000) : importNote;
+          payload[noteField] = trail;
+        }
+      }
 
       if (mode === "create") {
-        if (targetType === "clinic") {
-          const [created] = await db.insert(clinicsTable).values(clinicFields as any).returning();
-          mergedId = created.id;
-        } else if (targetType === "hospital") {
-          const [created] = await db.insert(hospitalsTable).values(hospitalFields as any).returning();
-          mergedId = created.id;
-        } else if (targetType === "person") {
-          const [created] = await db.insert(collaboratorsTable).values(personFields as any).returning();
-          mergedId = created.id;
-        }
+        const tbl = tableMap[targetType as ScraperTarget] as any;
+        const [created] = await db.insert(tbl).values(payload as any).returning();
+        mergedId = created.id;
       } else {
-        // mode === "update" — patch only empty fields on existing record
-        if (targetType === "clinic") {
-          const [existing] = await db.select().from(clinicsTable).where(eq(clinicsTable.id, targetId!));
-          if (!existing) return res.status(404).json({ error: "target clinic not found" });
-          const patch = buildPatch(existing as any, clinicFields);
-          const importTrail = existing.notes ? `${existing.notes}\n${importNote}`.slice(0, 2000) : importNote;
-          patch.notes = importTrail;
-          if (Object.keys(patch).length > 0) {
-            await db.update(clinicsTable).set(patch as any).where(eq(clinicsTable.id, targetId!));
-          }
-          mergedId = targetId;
-        } else if (targetType === "hospital") {
-          const [existing] = await db.select().from(hospitalsTable).where(eq(hospitalsTable.id, targetId!));
-          if (!existing) return res.status(404).json({ error: "target hospital not found" });
-          const patch = buildPatch(existing as any, hospitalFields);
-          if (Object.keys(patch).length > 0) {
-            await db.update(hospitalsTable).set(patch as any).where(eq(hospitalsTable.id, targetId!));
-          }
-          mergedId = targetId;
-        } else if (targetType === "person") {
-          const [existing] = await db.select().from(collaboratorsTable).where(eq(collaboratorsTable.id, targetId!));
-          if (!existing) return res.status(404).json({ error: "target person not found" });
-          // For person: don't overwrite first/last name even if empty (identity-defining)
-          const candidate = { ...personFields };
-          delete candidate.firstName; delete candidate.lastName;
-          const patch = buildPatch(existing as any, candidate);
-          const noteTrail = existing.note ? `${existing.note}\n${importNote}`.slice(0, 2000) : importNote;
-          patch.note = noteTrail;
-          if (Object.keys(patch).length > 0) {
-            await db.update(collaboratorsTable).set(patch as any).where(eq(collaboratorsTable.id, targetId!));
-          }
-          mergedId = targetId;
+        // Skip empty patch in update mode (no actual changes).
+        if (Object.keys(payload).length > 0) {
+          const tbl = tableMap[targetType as ScraperTarget] as any;
+          await db.update(tbl).set(payload as any).where(eq(tbl.id, targetId!));
         }
+        mergedId = targetId;
       }
 
       if (!mergedId) {
@@ -44953,6 +45043,127 @@ Return ONLY valid JSON, no markdown.`;
     } catch (e: any) {
       console.error("[scraper] approve error:", e);
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Preview the merge: returns per-field rows the user can review/override before approving.
+  app.get("/api/scraper/contacts/:id/preview-merge", requireAuth, async (req, res) => {
+    try {
+      const ALLOWED_TARGETS = ["clinic", "hospital", "person"] as const;
+      const targetType = String(req.query.targetType || "clinic");
+      const targetId = req.query.targetId ? String(req.query.targetId) : null;
+      if (!ALLOWED_TARGETS.includes(targetType as any)) {
+        return res.status(400).json({ error: `targetType must be one of: ${ALLOWED_TARGETS.join(", ")}` });
+      }
+      const [c] = await db.select().from(scrapedContacts).where(eq(scrapedContacts.id, req.params.id));
+      if (!c) return res.status(404).json({ error: "scraped contact not found" });
+
+      const candidate = buildScraperCandidate(c, targetType as ScraperTarget);
+      const labels = SCRAPER_FIELD_LABELS[targetType as ScraperTarget];
+
+      let existing: Record<string, any> = {};
+      if (targetId) {
+        const tableMap = { clinic: clinicsTable, hospital: hospitalsTable, person: collaboratorsTable } as const;
+        const tbl = tableMap[targetType as ScraperTarget] as any;
+        const [row] = await db.select().from(tbl).where(eq(tbl.id, targetId));
+        if (!row) return res.status(404).json({ error: `target ${targetType} not found` });
+        existing = row as any;
+      }
+
+      const isCreate = !targetId;
+      const rows = labels.map(({ key, label }) => {
+        const scrapedValue = candidate[key] ?? null;
+        const existingValue = targetId ? (existing[key] ?? null) : null;
+        const scrapedEmpty = scrapedValue === null || scrapedValue === undefined || scrapedValue === "";
+        const existingEmpty = existingValue === null || existingValue === undefined || existingValue === "";
+        let defaultAction: FieldAction = "fill";
+        let conflict = false;
+        if (scrapedEmpty) {
+          defaultAction = "skip";
+        } else if (!isCreate && !existingEmpty) {
+          if (String(scrapedValue) === String(existingValue)) {
+            defaultAction = "skip"; // identical, no need to write
+          } else {
+            defaultAction = "skip"; // user must explicitly opt-in to overwrite
+            conflict = true;
+          }
+        } else {
+          defaultAction = "fill";
+        }
+        return {
+          key,
+          label,
+          scrapedValue: scrapedEmpty ? null : scrapedValue,
+          existingValue: existingEmpty ? null : existingValue,
+          conflict,
+          defaultAction,
+        };
+      });
+
+      res.json({
+        targetType,
+        targetId,
+        mode: isCreate ? "create" : "update",
+        fields: rows,
+      });
+    } catch (e: any) {
+      console.error("[scraper] preview-merge error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Enrich an existing record by spawning a single-item bulk job that targets it.
+  // After the job completes, the staging UI auto-pre-selects mode=update + targetId for matched contacts.
+  app.post("/api/scraper/jobs/enrich", requireAuth, async (req: any, res) => {
+    try {
+      const ALLOWED_TARGETS = ["clinic", "hospital", "person"] as const;
+      const sourceKey = String(req.body?.sourceKey || "").trim();
+      const targetType = String(req.body?.targetType || "");
+      const targetId = String(req.body?.targetId || "");
+      if (!sourceKey) return res.status(400).json({ error: "sourceKey required" });
+      if (!ALLOWED_TARGETS.includes(targetType as any)) {
+        return res.status(400).json({ error: `targetType must be one of: ${ALLOWED_TARGETS.join(", ")}` });
+      }
+      if (!targetId) return res.status(400).json({ error: "targetId required" });
+
+      // Look up the target to derive search name + city.
+      let name = "";
+      let city: string | undefined;
+      let region: string | undefined;
+      if (targetType === "clinic") {
+        const [row] = await db.select().from(clinicsTable).where(eq(clinicsTable.id, targetId));
+        if (!row) return res.status(404).json({ error: "clinic not found" });
+        name = row.name || row.doctorName || "";
+        city = row.city || undefined;
+        region = row.region || undefined;
+      } else if (targetType === "hospital") {
+        const [row] = await db.select().from(hospitalsTable).where(eq(hospitalsTable.id, targetId));
+        if (!row) return res.status(404).json({ error: "hospital not found" });
+        name = row.name || "";
+        city = row.city || undefined;
+        region = row.region || undefined;
+      } else if (targetType === "person") {
+        const [row] = await db.select().from(collaboratorsTable).where(eq(collaboratorsTable.id, targetId));
+        if (!row) return res.status(404).json({ error: "person not found" });
+        name = `${row.firstName || ""} ${row.lastName || ""}`.trim();
+      }
+      if (!name) return res.status(400).json({ error: "target has no name to search by" });
+
+      const [job] = await db.insert(scrapeJobs).values({
+        sourceKey,
+        countryCode: "SK",
+        region: region || null,
+        mode: "enrich",
+        inputItems: [{ name, city }] as any,
+        enrichForType: targetType,
+        enrichForId: targetId,
+        createdBy: req.session?.userId || null,
+      } as any).returning();
+      runScrapeJob(job.id).catch(err => console.error("[scraper] enrich job error", err));
+      res.json(job);
+    } catch (e: any) {
+      console.error("[scraper] enrich create error:", e);
+      res.status(400).json({ error: e.message });
     }
   });
 
