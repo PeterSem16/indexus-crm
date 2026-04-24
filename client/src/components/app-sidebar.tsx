@@ -29,6 +29,7 @@ import {
   Target,
   HeartPulse,
   ListChecks,
+  Search,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -109,6 +110,7 @@ export function AppSidebar() {
     { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings", moduleKey: "settings" },
     { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
     { title: "Automations", url: "/automations", icon: Zap, testId: "automations", moduleKey: "configurator" },
+    { title: "Web Scraping", url: "/scraping", icon: Search, testId: "scraping", moduleKey: "configurator" },
   ];
 
   const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;

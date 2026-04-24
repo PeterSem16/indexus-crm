@@ -7381,3 +7381,73 @@ export const taskSubscriptions = pgTable("task_subscriptions", {
 });
 export type TaskSubscription = typeof taskSubscriptions.$inferSelect;
 export type InsertTaskSubscription = typeof taskSubscriptions.$inferInsert;
+
+// === Scraping engine ===
+export const scrapeSources = pgTable("scrape_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(), // 'evuc' | 'udzs'
+  name: text("name").notNull(),
+  countryCode: text("country_code").notNull().default("SK"),
+  baseUrl: text("base_url").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  config: jsonb("config").default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+export const insertScrapeSourceSchema = createInsertSchema(scrapeSources).omit({ id: true, createdAt: true });
+export type ScrapeSource = typeof scrapeSources.$inferSelect;
+export type InsertScrapeSource = z.infer<typeof insertScrapeSourceSchema>;
+
+export const scrapeJobs = pgTable("scrape_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceKey: text("source_key").notNull(),
+  countryCode: text("country_code").notNull().default("SK"),
+  specialty: text("specialty"),
+  city: text("city"),
+  region: text("region"),
+  facilityType: text("facility_type"), // 'clinic' | 'hospital' | 'ambulance' | 'any'
+  status: text("status").notNull().default("pending"), // pending | running | completed | failed
+  totalFound: integer("total_found").notNull().default(0),
+  errorMessage: text("error_message"),
+  createdBy: varchar("created_by"),
+  startedAt: timestamp("started_at"),
+  finishedAt: timestamp("finished_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+export const insertScrapeJobSchema = createInsertSchema(scrapeJobs).omit({ id: true, createdAt: true, startedAt: true, finishedAt: true, status: true, totalFound: true, errorMessage: true });
+export type ScrapeJob = typeof scrapeJobs.$inferSelect;
+export type InsertScrapeJob = z.infer<typeof insertScrapeJobSchema>;
+
+export const scrapedContacts = pgTable("scraped_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id"),
+  sourceKey: text("source_key").notNull(),
+  sourceUrl: text("source_url"),
+  countryCode: text("country_code").notNull().default("SK"),
+  name: text("name"),
+  ico: text("ico"),
+  pzsId: text("pzs_id"),
+  facilityType: text("facility_type"), // 'clinic' | 'hospital' | 'ambulance' | 'doctor'
+  specialty: text("specialty"),
+  doctorName: text("doctor_name"),
+  doctorTitle: text("doctor_title"),
+  address: text("address"),
+  city: text("city"),
+  postalCode: text("postal_code"),
+  region: text("region"),
+  district: text("district"),
+  phones: jsonb("phones").default(sql`'[]'::jsonb`), // [{ value, type: mobile|landline|fax }]
+  emails: text("emails").array().default(sql`ARRAY[]::text[]`),
+  website: text("website"),
+  score: integer("score").notNull().default(0),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected | duplicate
+  targetType: text("target_type"), // clinic | hospital | person
+  mergedIntoId: varchar("merged_into_id"),
+  rawData: jsonb("raw_data").default(sql`'{}'::jsonb`),
+  notes: text("notes"),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+export const insertScrapedContactSchema = createInsertSchema(scrapedContacts).omit({ id: true, createdAt: true, reviewedAt: true });
+export type ScrapedContact = typeof scrapedContacts.$inferSelect;
+export type InsertScrapedContact = z.infer<typeof insertScrapedContactSchema>;

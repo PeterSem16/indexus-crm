@@ -44665,6 +44665,182 @@ Return ONLY valid JSON, no markdown.`;
     }
   });
 
+  // ============================================================
+  // === Scraping engine routes ===
+  // ============================================================
+  const { scrapeJobs, scrapedContacts, scrapeSources, insertScrapeJobSchema, hospitals: hospitalsTable, clinics: clinicsTable, collaborators: collaboratorsTable } = await import("@shared/schema");
+  const { runScrapeJob } = await import("./lib/scraper-engine");
+
+  // Available sources catalog
+  app.get("/api/scraper/sources", requireAuth, async (_req, res) => {
+    try {
+      const rows = await db.select().from(scrapeSources).orderBy(asc(scrapeSources.name));
+      if (rows.length === 0) {
+        const defaults = [
+          { key: "evuc", name: "e-VÚC (registre VÚC)", countryCode: "SK", baseUrl: "https://www.region-bsk.sk", enabled: true, config: {} as any },
+          { key: "udzs", name: "ÚDZS (Úrad pre dohľad)", countryCode: "SK", baseUrl: "https://www.udzs-sk.sk", enabled: true, config: {} as any },
+        ];
+        for (const s of defaults) await db.insert(scrapeSources).values(s).onConflictDoNothing();
+        const seeded = await db.select().from(scrapeSources).orderBy(asc(scrapeSources.name));
+        return res.json(seeded);
+      }
+      res.json(rows);
+    } catch (e: any) {
+      console.error("[scraper] sources GET error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // List jobs
+  app.get("/api/scraper/jobs", requireAuth, async (_req, res) => {
+    try {
+      const rows = await db.select().from(scrapeJobs).orderBy(desc(scrapeJobs.createdAt)).limit(50);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Create + start a job
+  app.post("/api/scraper/jobs", requireAuth, async (req: any, res) => {
+    try {
+      const parsed = insertScrapeJobSchema.parse({ ...req.body, createdBy: req.session?.userId || null });
+      const [job] = await db.insert(scrapeJobs).values(parsed).returning();
+      // fire-and-forget
+      runScrapeJob(job.id).catch(err => console.error("[scraper] job error", err));
+      res.json(job);
+    } catch (e: any) {
+      console.error("[scraper] job create error:", e);
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // Job detail with status + count
+  app.get("/api/scraper/jobs/:id", requireAuth, async (req, res) => {
+    try {
+      const [job] = await db.select().from(scrapeJobs).where(eq(scrapeJobs.id, req.params.id));
+      if (!job) return res.status(404).json({ error: "not found" });
+      const [{ cnt }] = await db.select({ cnt: count() }).from(scrapedContacts).where(eq(scrapedContacts.jobId, req.params.id));
+      res.json({ ...job, contactCount: cnt });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // List scraped contacts (staging)
+  app.get("/api/scraper/contacts", requireAuth, async (req, res) => {
+    try {
+      const status = (req.query.status as string) || "pending";
+      const jobId = req.query.jobId as string | undefined;
+      const conds: any[] = [eq(scrapedContacts.status, status)];
+      if (jobId) conds.push(eq(scrapedContacts.jobId, jobId));
+      const rows = await db.select().from(scrapedContacts).where(and(...conds)).orderBy(desc(scrapedContacts.score), desc(scrapedContacts.createdAt)).limit(500);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Approve and route to clinic / hospital / person
+  app.post("/api/scraper/contacts/:id/approve", requireAuth, async (req: any, res) => {
+    try {
+      const ALLOWED_TARGETS = ["clinic", "hospital", "person"] as const;
+      const targetType = (req.body?.targetType as string) || "clinic";
+      if (!ALLOWED_TARGETS.includes(targetType as any)) {
+        return res.status(400).json({ error: `targetType must be one of: ${ALLOWED_TARGETS.join(", ")}` });
+      }
+      const userId = req.session?.userId || null;
+      const [c] = await db.select().from(scrapedContacts).where(eq(scrapedContacts.id, req.params.id));
+      if (!c) return res.status(404).json({ error: "not found" });
+
+      const phonesArr: any[] = Array.isArray(c.phones) ? (c.phones as any[]) : [];
+      const primaryPhone = phonesArr.find(p => p?.type === "mobile")?.value || phonesArr[0]?.value || null;
+      const secondaryPhone = phonesArr.length > 1 ? phonesArr[1]?.value : null;
+      const emails = Array.isArray(c.emails) ? c.emails : [];
+      const primaryEmail = emails[0] || null;
+      const secondaryEmail = emails[1] || null;
+
+      let mergedId: string | null = null;
+
+      const importNote = `Importované zo scrapera (${c.sourceKey}) — ${c.sourceUrl || ""}`.slice(0, 500);
+
+      if (targetType === "clinic") {
+        const [created] = await db.insert(clinicsTable).values({
+          name: c.name || c.doctorName || "Unknown",
+          countryCode: c.countryCode || "SK",
+          phone: primaryPhone, phone2: secondaryPhone,
+          email: primaryEmail, email2: secondaryEmail,
+          address: c.address || null,
+          city: c.city || null,
+          postalCode: c.postalCode || null,
+          region: c.region || null,
+          district: c.district || null,
+          website: c.website || null,
+          doctorName: c.doctorName || null,
+          doctorTitle: c.doctorTitle || null,
+          notes: importNote,
+        } as any).returning();
+        mergedId = created.id;
+      } else if (targetType === "hospital") {
+        const [created] = await db.insert(hospitalsTable).values({
+          name: c.name || "Unknown",
+          countryCode: c.countryCode || "SK",
+          phone: primaryPhone,
+          email: primaryEmail,
+          streetNumber: c.address || null,
+          city: c.city || null,
+          postalCode: c.postalCode || null,
+          region: c.region || null,
+          district: c.district || null,
+          contactPerson: c.doctorName || null,
+        } as any).returning();
+        mergedId = created.id;
+      } else if (targetType === "person") {
+        const fullName = (c.doctorName || c.name || "Unknown").trim();
+        const parts = fullName.split(/\s+/);
+        const firstName = parts[0] || "Unknown";
+        const lastName = parts.slice(1).join(" ") || "-";
+        const [created] = await db.insert(collaboratorsTable).values({
+          firstName, lastName,
+          titleBefore: c.doctorTitle || null,
+          countryCode: c.countryCode || "SK",
+          phone: phonesArr.find(p => p?.type === "landline")?.value || null,
+          mobile: phonesArr.find(p => p?.type === "mobile")?.value || primaryPhone,
+          mobile2: secondaryPhone,
+          email: primaryEmail,
+          ico: c.ico || null,
+          professionalClassification: c.specialty || null,
+          note: importNote,
+        } as any).returning();
+        mergedId = created.id;
+      }
+
+      if (!mergedId) {
+        return res.status(500).json({ error: "Failed to insert into target table" });
+      }
+
+      await db.update(scrapedContacts).set({
+        status: "approved", targetType, mergedIntoId: mergedId,
+        reviewedBy: userId, reviewedAt: new Date(),
+      }).where(eq(scrapedContacts.id, req.params.id));
+
+      res.json({ success: true, mergedIntoId: mergedId, targetType });
+    } catch (e: any) {
+      console.error("[scraper] approve error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/scraper/contacts/:id/reject", requireAuth, async (req: any, res) => {
+    try {
+      await db.update(scrapedContacts).set({
+        status: "rejected", reviewedBy: req.session?.userId || null, reviewedAt: new Date(),
+      }).where(eq(scrapedContacts.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/scraper/contacts/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(scrapedContacts).where(eq(scrapedContacts.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   return httpServer;
 }
 
