@@ -118,46 +118,12 @@ const actionColors: Record<string, string> = {
   contact_requeued: "text-orange-500",
 };
 
-function getActionLabel(action: string): string {
-  const labels: Record<string, string> = {
-    call_made: "Hovor uskutočnený",
-    call_answered: "Hovor zodvihnutý",
-    call_missed: "Hovor nezastihnutý",
-    call_failed: "Hovor zlyhal",
-    email_sent: "Email odoslaný",
-    email_opened: "Email otvorený",
-    email_clicked: "Email kliknutý",
-    email_bounced: "Email vrátený",
-    sms_sent: "SMS odoslaná",
-    sms_delivered: "SMS doručená",
-    sms_failed: "SMS zlyhala",
-    mailchimp_sent: "Mailchimp kampaň odoslaná",
-    mailchimp_opened: "Mailchimp otvorený",
-    mailchimp_clicked: "Mailchimp kliknutý",
-    mailchimp_bounced: "Mailchimp vrátený",
-    mailchimp_unsubscribed: "Mailchimp odhlásený",
-    status_change: "Zmena stavu",
-    callback_scheduled: "Naplánovaný callback",
-    note_added: "Poznámka pridaná",
-    disposition_set: "Dispozícia nastavená",
-    phase_entered: "Vstup do fázy",
-    phase_completed: "Fáza dokončená",
-    phase_skipped: "Fáza preskočená",
-    contact_added: "Kontakt pridaný do kampane",
-    contact_completed: "Kontakt dokončený",
-    contact_requeued: "Kontakt zaradený späť",
-  };
-  return labels[action] || action;
+function getActionLabel(action: string, t: any): string {
+  return t?.campaignTimeline?.actions?.[action] || action;
 }
 
-function getChannelLabel(channel: string): string {
-  const labels: Record<string, string> = {
-    phone: "Telefón",
-    email: "Email",
-    sms: "SMS",
-    mailchimp: "Mailchimp",
-  };
-  return labels[channel] || channel;
+function getChannelLabel(channel: string, t: any): string {
+  return t?.campaignTimeline?.channels?.[channel] || channel;
 }
 
 function getStatusBadgeVariant(status: string | null): "default" | "secondary" | "destructive" | "outline" {
@@ -242,7 +208,7 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            Kampaňová história
+            {(t as any)?.campaignTimeline?.title || "Campaign History"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -267,10 +233,10 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
       <CardHeader>
         <CardTitle className="flex items-center gap-2" data-testid="campaign-timeline-title">
           <Target className="h-5 w-5" />
-          Kampaňová história
+          {(t as any)?.campaignTimeline?.title || "Campaign History"}
         </CardTitle>
         <CardDescription>
-          Všetky výsledky kampaní (hovory, emaily, SMS, Mailchimp) a sledovanie fázovania
+          {(t as any)?.campaignTimeline?.description || "All campaign results (calls, emails, SMS, Mailchimp) and phase tracking"}
         </CardDescription>
         {campaignStats.size > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
@@ -292,7 +258,7 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Hľadať v timeline..."
+              placeholder={(t as any)?.campaignTimeline?.searchPlaceholder || "Search timeline..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -305,9 +271,9 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Všetky kanály</SelectItem>
+              <SelectItem value="all">{(t as any)?.campaignTimeline?.allChannels || "All channels"}</SelectItem>
               {uniqueChannels.map(ch => (
-                <SelectItem key={ch} value={ch}>{getChannelLabel(ch)}</SelectItem>
+                <SelectItem key={ch} value={ch}>{getChannelLabel(ch, t)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -316,9 +282,9 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Všetky akcie</SelectItem>
+              <SelectItem value="all">{(t as any)?.campaignTimeline?.allActions || "All actions"}</SelectItem>
               {uniqueActions.map(a => (
-                <SelectItem key={a} value={a}>{getActionLabel(a)}</SelectItem>
+                <SelectItem key={a} value={a}>{getActionLabel(a, t)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -327,8 +293,8 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
         {filteredTimeline.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground" data-testid="text-campaign-timeline-empty">
             {timeline.length === 0
-              ? "Žiadna kampaňová história pre tento kontakt"
-              : "Žiadne výsledky pre zvolené filtre"}
+              ? ((t as any)?.campaignTimeline?.noHistory || "No campaign history for this contact")
+              : ((t as any)?.campaignTimeline?.noFiltered || "No results for selected filters")}
           </div>
         ) : (
           <div className="relative">
@@ -352,9 +318,9 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <ActionIcon className={`h-4 w-4 ${color} flex-shrink-0`} />
-                          <span className="font-medium text-sm">{getActionLabel(entry.action)}</span>
+                          <span className="font-medium text-sm">{getActionLabel(entry.action, t)}</span>
                           <Badge className={`text-xs ${channelColors[entry.channel] || ""}`}>
-                            {getChannelLabel(entry.channel)}
+                            {getChannelLabel(entry.channel, t)}
                           </Badge>
                           {entry.status && (
                             <Badge variant={getStatusBadgeVariant(entry.status)} className="text-xs">
@@ -363,7 +329,7 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
                           )}
                           {entry.phaseName && (
                             <Badge variant="outline" className="text-xs">
-                              Fáza {entry.phaseNumber || ""}: {entry.phaseName}
+                              {((t as any)?.campaignTimeline?.phase || "Phase")} {entry.phaseNumber || ""}: {entry.phaseName}
                             </Badge>
                           )}
                         </div>
@@ -377,7 +343,7 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
 
                       <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                         <Megaphone className="h-3 w-3" />
-                        <span>{entry.campaignName || "Kampaň"}</span>
+                        <span>{entry.campaignName || ((t as any)?.campaignTimeline?.defaultCampaign || "Campaign")}</span>
                         {entry.userName && (
                           <>
                             <span>•</span>
@@ -399,7 +365,7 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
                         <div className="mt-3 pt-3 border-t border-border/50 space-y-2 text-sm">
                           {entry.previousStatus && entry.status && (
                             <div className="flex items-center gap-2">
-                              <span className="text-muted-foreground">Zmena stavu:</span>
+                              <span className="text-muted-foreground">{(t as any)?.campaignTimeline?.statusChange || "Status change:"}</span>
                               <Badge variant="outline" className="text-xs">{entry.previousStatus}</Badge>
                               <ArrowRight className="h-3 w-3" />
                               <Badge variant={getStatusBadgeVariant(entry.status)} className="text-xs">{entry.status}</Badge>
@@ -407,13 +373,13 @@ export default function EntityCampaignTimeline({ entityType, entityId, entityNam
                           )}
                           {entry.notes && (
                             <div>
-                              <span className="text-muted-foreground">Poznámka: </span>
+                              <span className="text-muted-foreground">{(t as any)?.campaignTimeline?.note || "Note: "}</span>
                               <span>{entry.notes}</span>
                             </div>
                           )}
                           {entry.metadata && typeof entry.metadata === "object" && Object.keys(entry.metadata).length > 0 && (
                             <div className="bg-muted/50 rounded p-2">
-                              <span className="text-muted-foreground text-xs font-medium">Metadata:</span>
+                              <span className="text-muted-foreground text-xs font-medium">{(t as any)?.campaignTimeline?.metadata || "Metadata:"}</span>
                               <div className="grid grid-cols-2 gap-1 mt-1">
                                 {Object.entries(entry.metadata).map(([key, value]) => (
                                   <div key={key} className="text-xs">

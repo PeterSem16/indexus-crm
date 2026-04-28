@@ -911,11 +911,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
 
   const clinicEditTabs = [
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
-    { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Adresa" },
+    { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
-    { key: "history", icon: History, label: t.clinics.steps?.history || "História" },
-    { key: "personnel", icon: Users, label: (t as any).medicalPartnerNetwork?.personnel || "Personál" },
-    { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Kampane" },
+    { key: "history", icon: History, label: t.clinics.steps?.history || "History" },
+    { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
+    { key: "campaigns", icon: Megaphone, label: (t as any).campaigns || "Campaigns" },
   ];
 
   const HeaderWrapper = mode === "inline" ? "div" : SheetHeader;
@@ -2382,11 +2382,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
 
   const clinicAddTabs = [
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
-    { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Adresa" },
+    { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
-    { key: "history", icon: History, label: t.clinics.steps?.history || "História" },
-    { key: "personnel", icon: Users, label: (t as any).medicalPartnerNetwork?.personnel || "Personál" },
-    { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Kampane" },
+    { key: "history", icon: History, label: t.clinics.steps?.history || "History" },
+    { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
+    { key: "campaigns", icon: Megaphone, label: (t as any).campaigns || "Campaigns" },
   ];
 
   return (
