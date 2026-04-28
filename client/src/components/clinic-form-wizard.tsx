@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +32,9 @@ import {
   Clock, ArrowRight, ArrowRightLeft, History, FileText, MessageSquare, Megaphone, PhoneCall,
   CalendarDays, FileSignature, Newspaper, CheckCircle2, CircleDot, Circle,
   Building2, ScrollText, Target, ShieldCheck, Ban, HelpCircle, ChevronRight,
-  ChevronDown,
+  ChevronDown, ChevronUp, Send, Upload,
 } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Dialog,
   DialogContent,
@@ -436,12 +439,21 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
 export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mode = "sheet", prefillData, onCreated }: ClinicFormSheetProps) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("basic");
   const [postalLookupLoading, setPostalLookupLoading] = useState(false);
   const [identifiersOpen, setIdentifiersOpen] = useState(false);
   const [showMapDialog, setShowMapDialog] = useState(false);
-  const [emailDialogUrl, setEmailDialogUrl] = useState<string | null>(null);
+  const [emailComposeOpen, setEmailComposeOpen] = useState(false);
+  const [selectedFromAccount, setSelectedFromAccount] = useState<string>("");
+  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailCc, setEmailCc] = useState("");
+  const [showCcField, setShowCcField] = useState(false);
+  const [emailAttachment, setEmailAttachment] = useState<File | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [pipelineMenuOpen, setPipelineMenuOpen] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -543,6 +555,59 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   };
 
   const { data: allClinics } = useQuery<any[]>({ queryKey: ["/api/clinics/lookup"] });
+
+  const { data: sharedMailboxes = [] } = useQuery<{ id: string; email: string; displayName: string; isDefault: boolean }[]>({
+    queryKey: ["/api/users", user?.id, "ms365-shared-mailboxes"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/users/${user.id}/ms365-shared-mailboxes`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: personalMs365 } = useQuery<{ email: string; displayName: string; hasTokens: boolean } | null>({
+    queryKey: ["/api/users", user?.id, "ms365-connection"],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const res = await fetch(`/api/users/${user.id}/ms365-connection`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const allEmailAccounts = useMemo(() => {
+    const accounts: { id: string; email: string; displayName: string; type: "personal" | "shared"; isDefault: boolean }[] = [];
+    if (personalMs365?.hasTokens && personalMs365?.email) {
+      accounts.push({
+        id: "personal",
+        email: personalMs365.email,
+        displayName: personalMs365.displayName || personalMs365.email,
+        type: "personal",
+        isDefault: false,
+      });
+    }
+    sharedMailboxes.forEach((mb) => {
+      accounts.push({
+        id: mb.id,
+        email: mb.email,
+        displayName: mb.displayName || mb.email,
+        type: "shared",
+        isDefault: mb.isDefault,
+      });
+    });
+    return accounts;
+  }, [personalMs365, sharedMailboxes]);
+
+  useEffect(() => {
+    if (emailComposeOpen && allEmailAccounts.length > 0 && !selectedFromAccount) {
+      const def = allEmailAccounts.find((m) => m.isDefault);
+      if (def) setSelectedFromAccount(def.id);
+      else if (allEmailAccounts[0]) setSelectedFromAccount(allEmailAccounts[0].id);
+    }
+  }, [emailComposeOpen, allEmailAccounts, selectedFromAccount]);
 
   const { data: networkMembershipsSheet = [] } = useQuery<any[]>({
     queryKey: ["/api/hospital-network-memberships"],
@@ -953,7 +1018,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             const params = new URLSearchParams();
                             if (initialData.email) params.set("compose", initialData.email);
                             params.set("contactSearch", initialData.email || initialData.phone || "");
-                            setEmailDialogUrl(`/email?${params.toString()}`);
+                            const emails = [initialData.email].filter(Boolean) as string[]; setSelectedEmails(emails); setEmailComposeOpen(true);
                           }}
                         >
                           <Mail className="h-3.5 w-3.5" />
@@ -1577,15 +1642,264 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog open={!!emailDialogUrl} onOpenChange={(o) => { if (!o) setEmailDialogUrl(null); }}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[85vh] p-0 gap-0 flex flex-col">
-          <DialogHeader className="px-4 py-2 border-b shrink-0">
-            <DialogTitle className="text-sm">Email</DialogTitle>
+      <Dialog open={emailComposeOpen} onOpenChange={(o) => {
+        if (!o) {
+          setEmailComposeOpen(false);
+          setSelectedEmails([]);
+          setEmailSubject("");
+          setEmailMessage("");
+          setEmailCc("");
+          setShowCcField(false);
+          setEmailAttachment(null);
+        }
+      }}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{(t.customers as any)?.details?.sendEmail || "Send email"}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 min-h-0">
-            {emailDialogUrl && (
-              <iframe src={emailDialogUrl} className="w-full h-full border-0" title="Email" />
-            )}
+          <div className="flex gap-6">
+            <div className="w-2/5 space-y-4 border-r pr-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {(t.customers as any)?.details?.fromAccount || "From account"}
+                </Label>
+                <Select value={selectedFromAccount} onValueChange={setSelectedFromAccount}>
+                  <SelectTrigger data-testid="select-from-account-clinic" className="text-sm">
+                    <SelectValue placeholder={(t.customers as any)?.details?.selectAccount || "Select account"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allEmailAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{account.displayName}</span>
+                          {account.type === "personal" && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">
+                              {(t.customers as any)?.details?.personalAccount || "Personal"}
+                            </Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {(t.customers as any)?.details?.to || "To"}
+                </Label>
+                <div className="space-y-2">
+                  {initialData?.email && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="clinic-email1"
+                        checked={selectedEmails.includes(initialData.email)}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedEmails([...selectedEmails, initialData.email!]);
+                          else setSelectedEmails(selectedEmails.filter((e) => e !== initialData.email));
+                        }}
+                        data-testid="checkbox-clinic-email-primary"
+                      />
+                      <Label htmlFor="clinic-email1" className="font-normal cursor-pointer text-sm truncate">
+                        {initialData.email}
+                      </Label>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {(t.customers as any)?.details?.cc || "CC"}
+                  </Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCcField(!showCcField)}
+                    className="h-5 px-1 text-xs"
+                    data-testid="button-toggle-cc-clinic"
+                  >
+                    {showCcField ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  </Button>
+                </div>
+                {showCcField && (
+                  <Input
+                    value={emailCc}
+                    onChange={(e) => setEmailCc(e.target.value)}
+                    placeholder={(t.customers as any)?.details?.ccPlaceholder || "email@example.com"}
+                    className="text-sm"
+                    data-testid="input-email-cc-clinic"
+                  />
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {(t.customers as any)?.details?.attachment || "Attachment"}
+                </Label>
+                {!emailAttachment ? (
+                  <label
+                    htmlFor="clinic-email-attachment-input"
+                    className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors"
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) setEmailAttachment(file);
+                    }}
+                    data-testid="dropzone-clinic-email-attachment"
+                  >
+                    <div className="flex flex-col items-center justify-center pt-2 pb-2">
+                      <Upload className="w-6 h-6 mb-1 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground text-center">
+                        <span className="font-medium text-primary">{(t.common as any)?.clickToUpload || "Click to upload"}</span>
+                        {" "}{(t.common as any)?.orDragDrop || "or drag and drop"}
+                      </p>
+                    </div>
+                    <input
+                      id="clinic-email-attachment-input"
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => setEmailAttachment(e.target.files?.[0] || null)}
+                      data-testid="input-clinic-email-attachment"
+                    />
+                  </label>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/30">
+                    <FileText className="w-5 h-5 text-primary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{emailAttachment.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(emailAttachment.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 flex-shrink-0"
+                      onClick={() => setEmailAttachment(null)}
+                      data-testid="button-remove-clinic-attachment"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="w-3/5 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="clinic-email-subject">{(t.customers as any)?.details?.subject || "Subject"}</Label>
+                <Input
+                  id="clinic-email-subject"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder={(t.customers as any)?.details?.emailSubjectPlaceholder || "Subject"}
+                  data-testid="input-clinic-email-subject"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{(t.customers as any)?.details?.message || "Message"}</Label>
+                <div className="border rounded-md" data-testid="wysiwyg-clinic-email-message">
+                  <ReactQuill
+                    theme="snow"
+                    value={emailMessage}
+                    onChange={setEmailMessage}
+                    placeholder={(t.customers as any)?.details?.writeEmailPlaceholder || "Write your email..."}
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                        ['link'],
+                        ['clean'],
+                      ],
+                    }}
+                    style={{ minHeight: '350px' }}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEmailComposeOpen(false);
+                    setSelectedEmails([]);
+                    setEmailSubject("");
+                    setEmailMessage("");
+                    setEmailCc("");
+                    setShowCcField(false);
+                    setEmailAttachment(null);
+                  }}
+                  data-testid="button-cancel-clinic-email"
+                >
+                  {t.common.cancel}
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (selectedEmails.length === 0 || !emailSubject || !emailMessage) {
+                      toast({
+                        title: t.common.error,
+                        description: (t.customers as any)?.details?.fillAllFields || "Please fill in all fields",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    setIsSendingEmail(true);
+                    try {
+                      let pcAttachments: Array<{ name: string; contentType: string; contentBase64: string }> = [];
+                      if (emailAttachment) {
+                        const fileBuffer = await emailAttachment.arrayBuffer();
+                        const base64 = btoa(
+                          new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+                        );
+                        pcAttachments.push({
+                          name: emailAttachment.name,
+                          contentType: emailAttachment.type || 'application/octet-stream',
+                          contentBase64: base64,
+                        });
+                      }
+                      await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
+                        to: selectedEmails,
+                        subject: emailSubject,
+                        body: emailMessage,
+                        isHtml: true,
+                        mailboxId: selectedFromAccount === "personal" ? null : selectedFromAccount || null,
+                        cc: emailCc.trim() || undefined,
+                        attachments: pcAttachments.length > 0 ? pcAttachments : undefined,
+                      });
+                      toast({
+                        title: (t.customers as any)?.details?.emailSentSuccess || "Email sent",
+                        description: (t.customers as any)?.details?.emailSentSuccessDesc || "Email was sent successfully",
+                      });
+                      setEmailComposeOpen(false);
+                      setSelectedEmails([]);
+                      setEmailSubject("");
+                      setEmailMessage("");
+                      setEmailCc("");
+                      setShowCcField(false);
+                      setEmailAttachment(null);
+                    } catch (error) {
+                      toast({
+                        title: t.common.error,
+                        description: (t.customers as any)?.details?.emailSendFailed || "Failed to send email",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setIsSendingEmail(false);
+                    }
+                  }}
+                  disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail}
+                  data-testid="button-send-clinic-email"
+                >
+                  {isSendingEmail ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  {(t.customers as any)?.details?.sendEmail || "Send email"}
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1635,7 +1949,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                               const params = new URLSearchParams();
                               if (initialData.email) params.set("compose", initialData.email);
                               params.set("contactSearch", initialData.email || initialData.phone || "");
-                              setEmailDialogUrl(`/email?${params.toString()}`);
+                              const emails = [initialData.email].filter(Boolean) as string[]; setSelectedEmails(emails); setEmailComposeOpen(true);
                             }}
                           >
                             <Mail className="h-3.5 w-3.5" />
