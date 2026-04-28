@@ -3,7 +3,7 @@
 > Read-only analýza CSV → cieľové DB polia. Žiadny zápis sa neudial.
 
 **CSV súbor:** `attached_assets/indexus_gyn_data_import_1777373378251.csv`
-**Vygenerované:** 2026-04-28T11:24:20.657Z
+**Vygenerované:** 2026-04-28T11:36:25.293Z
 
 ## 1. Zhrnutie
 
@@ -17,10 +17,11 @@
 | Osôb na extrakciu (kontaktné osoby spolu) | 947 |
 | **Existujúcich kliník v DB** | 8825 |
 | Match podľa `id_zz` | 0 |
-| Match podľa názvu + mesta (1 zhoda) | 11 |
-| ⚠ Nejednoznačný match podľa názvu + mesta (>1 zhody) | 1 |
-| **Nové kliniky (INSERT)** | 742 |
-| **UPDATE kliník (jednoznačný match)** | 11 |
+| Match podľa názvu + mesta (presný, ≥99,9 %) | 12 |
+| Match podľa názvu + mesta (fuzzy, 85–99 %) | 1 |
+| ⚠ Nejednoznačný match (>1 kandidát s podobným skóre) | 1 |
+| **Nové kliniky (INSERT)** | 740 |
+| **UPDATE kliník (jednoznačný match)** | 13 |
 | Existujúcich osôb (collaborators) v DB | 575 |
 | Existujúcich väzieb klinika↔osoba | 656 |
 
@@ -64,7 +65,7 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
 | 10 | `kod_pzs_primary` | `clinics.pzs_code` | trim |  |
 | 11 | `kod_pzs_all` | `clinics.notes (append)` | split('|') → 'Všetky kódy PZS: a, b, c' |  |
 | 12 | `kod_pzs_count` | `ignored` | — | derivovateľné |
-| 13 | `kod_pzs_description` | `clinics.pzs_name` | trim, max ~ TEXT |  |
+| 13 | `kod_pzs_description` | `clinics.pzs_name` | trim | = Healthcare provider name (názov poskytovateľa zdravotnej starostlivosti) |
 | 14 | `weekly_office_hours` | `ignored` | — | neprenášať |
 | 15 | `insurance_vszp` | `ignored` | — | neprenášať |
 | 16 | `insurance_dovera` | `ignored` | — | neprenášať |
@@ -130,8 +131,8 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "phone": "421915725079",
   "phone2": null,
   "email": "ambulancia@agyn.sk",
-  "website": "https://www.e-vuc.sk/buxus/generate_page.php?page_id=60364",
-  "website_source": "website_primary",
+  "website": "https://agyn.sk",
+  "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P65281009201",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Dagmar",
@@ -186,8 +187,8 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "phone": "421918838148",
   "phone2": "421905344542",
   "email": null,
-  "website": "https://www.e-vuc.sk/nsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/komarno/primarna-gynekologicko-porodnicka-ambulancia-mudr.goghova-angelika-kolarovo-a.n.g..html?page_id=87173",
-  "website_source": "website_primary",
+  "website": "https://cytologia.sk",
+  "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P65983009201",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Gőghová",
@@ -249,8 +250,8 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "phone": "421915404922",
   "phone2": "421357603467",
   "email": null,
-  "website": "https://www.e-vuc.sk/nsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/komarno/primarna-gynekologicko-porodnicka-ambulancia-hurbanovo-ab-gyn.html?page_id=87177",
-  "website_source": "website_primary",
+  "website": "https://komlife.eu",
+  "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P39081009201",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Anna",
@@ -291,8 +292,8 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "phone": "421254792509",
   "phone2": null,
   "email": null,
-  "website": "https://www.e-vuc.sk/buxus/generate_page.php?page_id=60317",
-  "website_source": "website_primary",
+  "website": "https://poskytovatelia.dovera.sk",
+  "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P23054009201",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Anton",
@@ -354,8 +355,8 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "phone": "421434924267",
   "phone2": "421434923473",
   "email": null,
-  "website": "https://www.e-vuc.sk/zsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/turcianske-teplice/primarna-gynekologicko-porodnicka-ambulancia-mudr.-kristina-biskupska-bodova-phd.-turcianske-teplice-aetas.html?page_id=54399",
-  "website_source": "website_primary",
+  "website": "https://www.objednatvysetrenie.sk",
+  "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P67180009201",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Kristína",
@@ -434,11 +435,23 @@ Tieto IČO sa v CSV vyskytujú viackrát (jedna firma = viac ambulancií). **Vš
 - `31392946` × 2
 - … a ďalších 11
 
+### Fuzzy matche podľa názvu + mesta (Levenshtein, prahy: názov ≥ 85 %, mesto ≥ 90 %)
+
+Tieto CSV riadky sa **napárovali na existujúcu kliniku** napriek tomu, že názov nebol presne identický (napr. iné poradie slov, drobné preklepy, rozdiel v právnej forme). Pri zápise pôjde **UPDATE** na zhodu nižšie. Ukážka prvých 2:
+
+| # CSV | CSV názov | CSV mesto | DB názov | DB mesto | Skóre |
+|---|---|---|---|---|---|
+| 249 | Gynekologická ambulancia, s. r. o. | Žilina | Gynekologická ambulancia | Žilina | 1 |
+| 581 | NZZ – Gynekologická ambulancia s. r. o. | Kráľovský Chlmec | Gynekologická ambulancia | Kráľovský Chlmec | 0.857 |
+
 ### ⚠ Nejednoznačný match podľa názvu + mesta (1 riadkov)
 
-Pre tieto CSV riadky existuje v DB **viac ako jedna klinika** s rovnakým normalizovaným názvom a mestom – import ich **NEZAPÍŠE**, kým sa nerozhodne ručne ktorú aktualizovať. Ukážka prvých 1:
+Pre tieto CSV riadky existuje v DB **viac ako jedna klinika** s veľmi podobným skóre (rozdiel < 5 %). Import ich **NEZAPÍŠE** ako UPDATE – pridá ich ako nové (alebo sa rozhodne ručne). Ukážka prvých 1:
 
-- riadok 128: **GA Lučenec, s.r.o.** (Lučenec) → 3 kandidátov v DB
+- **riadok 128: GA Lučenec, s.r.o.** (Lučenec)
+    - kandidát: GA Lučenec, s.r.o. (Lučenec) – skóre 1
+    - kandidát: GA Lučenec, s.r.o. (Lučenec) – skóre 1
+    - kandidát: GA Lučenec, s.r.o. (Lučenec) – skóre 1
 
 Všetky mená sa rozparsovali bez varovania. ✓
 
@@ -459,9 +472,10 @@ Tieto polia v CSV nie sú prítomné a pri UPDATE existujúcich kliník zostanú
 
 ## 7. Otvorené otázky pre teba (potvrď / oprav)
 
-1. **`primary_contact_person` → `clinics.doctor_*`** – navrhujem prepísať len ak sú DB polia prázdne (UPSERT NIKDY nemaže). OK, alebo vždy prepísať?
-2. **Fuzzy match podľa názvu + mesta** – aktuálne porovnávam normalizovaný (lowercase, bez diakritiky) názov a mesto presne. Ak chceš tolerantnejší match (napr. Levenshtein vzdialenosť), daj vedieť.
-3. **Website fallback** – ak `website_primary` je prázdny, vyberiem prvú URL z `websites_all`/`source_urls` ktorá obsahuje `www.` a nie `e-vuc.sk`. Ak chceš inú filtračnú logiku, daj vedieť.
+1. ✅ **`primary_contact_person` → `clinics.doctor_*`** – potvrdené: prepísať **iba ak je DB pole prázdne** (UPSERT NIKDY nemaže existujúce hodnoty).
+2. ✅ **Fuzzy match podľa názvu + mesta** – tolerantný **Levenshtein** match nasadený: názov ≥ 85 %, mesto ≥ 90 %, blocking podľa mesta (rýchlosť). Pri >1 kandidátoch sa vyberie ten s dominantným skóre (odstup ≥ 5 %); inak označený ako *nejednoznačný*.
+3. ✅ **Website fallback** – web kliniky sa vyberá z kombinácie `website_primary | websites_all | source_urls`: odfiltrujú sa portálové domény (e-vuc, zoznam, azet, …), zvyšné URL sa znormalizujú na **root** (`https://host`), a vyberie sa najfrekventovanejšia doména. Príklad: `https://www.e-vuc.sk/... | https://www.e-vuc.sk/... | https://agyn.sk/ | https://agyn.sk/kontakt/` → **`https://agyn.sk`**.
+4. ✅ **`kod_pzs_description` → `clinics.pzs_name`** (Healthcare provider name) – potvrdené.
 
 ## 8. Ďalšie kroky
 

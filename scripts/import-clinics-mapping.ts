@@ -267,7 +267,7 @@ const FIELD_MAP: FieldMapping[] = [
   { csv: "kod_pzs_primary", target: "clinics.pzs_code", transform: "trim" },
   { csv: "kod_pzs_all", target: "clinics.notes (append)", transform: "split('|') → 'Všetky kódy PZS: a, b, c'" },
   { csv: "kod_pzs_count", target: "ignored", transform: "—", note: "derivovateľné" },
-  { csv: "kod_pzs_description", target: "clinics.pzs_name", transform: "trim, max ~ TEXT" },
+  { csv: "kod_pzs_description", target: "clinics.pzs_name", transform: "trim", note: "= Healthcare provider name (názov poskytovateľa zdravotnej starostlivosti)" },
   { csv: "weekly_office_hours", target: "ignored", transform: "—", note: "neprenášať" },
   { csv: "insurance_vszp", target: "ignored", transform: "—", note: "neprenášať" },
   { csv: "insurance_dovera", target: "ignored", transform: "—", note: "neprenášať" },
@@ -313,18 +313,69 @@ const FIELD_MAP: FieldMapping[] = [
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
-// Pomocná funkcia – výber webovej stránky kliniky z piped zoznamu URL
-// (preferuje URL obsahujúce "www.", vylučuje portálové stránky e-vuc.sk)
+// Pomocné funkcie pre web URL
 // ────────────────────────────────────────────────────────────────────────────
+
+// Zoznam portálových domén ktoré NIE sú reálne weby kliniky
+const PORTAL_DOMAINS = [
+  /e-vuc\.sk/i,
+  /zoznam\.sk/i,
+  /azet\.sk/i,
+  /mojaambulancia\.sk/i,
+  /najlekar\.sk/i,
+];
+
+function isPortalUrl(u: string): boolean {
+  return PORTAL_DOMAINS.some((rx) => rx.test(u));
+}
+
+function rootUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/i.test(u.protocol)) return null;
+    return `${u.protocol}//${u.hostname}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Z piped zoznamu URL vyberie reálny web kliniky:
+ *   1. odfiltruje portálové domény (e-vuc, zoznam, azet, …)
+ *   2. každú URL znormalizuje na "schéma + host" (root) – \`https://agyn.sk\`
+ *   3. zoradí podľa frekvencie domény (čím častejšie sa doména opakuje, tým
+ *      pravdepodobnejšie je to skutočný web kliniky)
+ *   4. vráti poslednú URL z najčastejšej domény (= najpresnejší výsledok pre
+ *      typický CSV vzor "portál | portál | https://klinika.sk/ | https://klinika.sk/kontakt/")
+ */
 function pickClinicWebsite(piped: string | null | undefined): string | null {
   if (!piped) return null;
   const candidates = splitPipe(piped)
     .filter((u) => /^https?:\/\//i.test(u))
-    .filter((u) => u.toLowerCase().includes("www."))
-    .filter((u) => !/e-vuc\.sk/i.test(u));
-  return candidates[0] ?? null;
+    .filter((u) => !isPortalUrl(u));
+  if (!candidates.length) return null;
+
+  const freq = new Map<string, number>();
+  for (const u of candidates) {
+    const root = rootUrl(u);
+    if (root) freq.set(root, (freq.get(root) ?? 0) + 1);
+  }
+  if (!freq.size) return rootUrl(candidates[candidates.length - 1]);
+  // vyber root s najvyššou frekvenciou (tie-break = posledný v poradí)
+  let best = "";
+  let bestN = -1;
+  for (const [root, n] of freq) {
+    if (n >= bestN) {
+      bestN = n;
+      best = root;
+    }
+  }
+  return best || null;
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Fuzzy match (Levenshtein) – pre tolerantný párovací algoritmus
+// ────────────────────────────────────────────────────────────────────────────
 function normalizeName(s: string | null | undefined): string {
   if (!s) return "";
   return s
@@ -332,8 +383,40 @@ function normalizeName(s: string | null | undefined): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(s\s*r\s*o|spol\s*s\s*r\s*o|akciova\s*spolocnost|a\s*s|n\s*o)\b/g, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const al = a.length;
+  const bl = b.length;
+  let prev = new Array(bl + 1);
+  let curr = new Array(bl + 1);
+  for (let j = 0; j <= bl; j++) prev[j] = j;
+  for (let i = 1; i <= al; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= bl; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[bl];
+}
+
+function similarity(a: string, b: string): number {
+  if (!a && !b) return 1;
+  if (!a || !b) return 0;
+  const maxLen = Math.max(a.length, b.length);
+  return 1 - levenshtein(a, b) / maxLen;
+}
+
+const NAME_SIM_THRESHOLD = 0.85; // názov: ≥ 85 % zhoda
+const CITY_SIM_THRESHOLD = 0.9; // mesto: ≥ 90 % zhoda
 
 // ────────────────────────────────────────────────────────────────────────────
 // MAIN
@@ -407,11 +490,17 @@ async function main() {
     }
 
     if (samples.length < SAMPLE_COUNT) {
-      const websitePrimary = get(r, "website_primary");
-      const websiteFallback =
-        websitePrimary ??
-        pickClinicWebsite(get(r, "websites_all")) ??
-        pickClinicWebsite(get(r, "source_urls"));
+      // Web kliniky: spojí website_primary + websites_all + source_urls,
+      // odfiltruje portálové stránky a vyberie najfrekventovanejšiu doménu (root)
+      const combinedWebSources = [
+        get(r, "website_primary"),
+        get(r, "websites_all"),
+        get(r, "source_urls"),
+      ]
+        .filter(Boolean)
+        .join(" | ");
+      const websiteFallback = pickClinicWebsite(combinedWebSources);
+      const websitePrimaryRaw = get(r, "website_primary");
       const primary = parsedPersons[0] ?? null;
       samples.push({
         rowNumber: i + 2,
@@ -432,10 +521,11 @@ async function main() {
           email: get(r, "primary_email"),
           website: websiteFallback,
           website_source:
-            websitePrimary ? "website_primary"
-              : pickClinicWebsite(get(r, "websites_all")) ? "websites_all (www-only, bez e-vuc)"
-              : pickClinicWebsite(get(r, "source_urls")) ? "source_urls (www-only, bez e-vuc)"
-              : "—",
+            websiteFallback === null
+              ? "— (žiadny non-portál URL nenájdený)"
+              : websitePrimaryRaw && rootUrl(websitePrimaryRaw) === websiteFallback
+                ? "website_primary (root)"
+                : "fallback z websites_all/source_urls (root, bez portálov)",
           pzs_code: get(r, "kod_pzs_primary"),
           doctor_title: primary?.titleBefore ?? null,
           doctor_first_name: primary?.firstName ?? null,
@@ -467,31 +557,70 @@ async function main() {
     .from(clinics);
 
   const byIdZz = new Map<string, (typeof existingClinics)[0]>();
-  // index podľa normalizovaný názov + mesto (fuzzy match)
-  const byNameCity = new Map<string, (typeof existingClinics)[0][]>();
-  // index iba podľa názvu (pre prípad keď CSV nemá city)
-  const byName = new Map<string, (typeof existingClinics)[0][]>();
+  // BLOCKING index pre fuzzy match: kliniky zoskupené podľa normalizovaného mesta
+  const byCity = new Map<string, (typeof existingClinics)[0][]>();
   for (const c of existingClinics) {
     if (c.idZz) byIdZz.set(c.idZz, c);
-    const nName = normalizeName(c.name);
-    if (nName) {
-      const nCity = normalizeName(c.city);
-      const key = `${nName}|${nCity}`;
-      const arr = byNameCity.get(key) ?? [];
-      arr.push(c);
-      byNameCity.set(key, arr);
-      const arrN = byName.get(nName) ?? [];
-      arrN.push(c);
-      byName.set(nName, arrN);
+    const nCity = normalizeName(c.city);
+    const arr = byCity.get(nCity) ?? [];
+    arr.push(c);
+    byCity.set(nCity, arr);
+  }
+
+  // Pomocný fuzzy match: vyhľadá v DB kandidátov v rovnakom (alebo veľmi
+  // podobnom) meste, a v rámci nich vyberie tie čo majú podobnosť názvu
+  // ≥ NAME_SIM_THRESHOLD. Vracia zoznam zhôd zoradených podľa skóre.
+  function findFuzzyCandidates(name: string, city: string | null) {
+    const nName = normalizeName(name);
+    const nCity = normalizeName(city);
+    if (!nName) return [];
+
+    // Blocking: vezmi kliniky z presne tej istej normalizovanej mestskej skupiny
+    // + zo skupín s podobným menom mesta (≥ CITY_SIM_THRESHOLD)
+    const cityKeys = [nCity];
+    if (nCity) {
+      for (const k of byCity.keys()) {
+        if (k === nCity || !k) continue;
+        if (similarity(k, nCity) >= CITY_SIM_THRESHOLD) cityKeys.push(k);
+      }
     }
+    const pool: (typeof existingClinics)[0][] = [];
+    for (const ck of cityKeys) {
+      const arr = byCity.get(ck);
+      if (arr) pool.push(...arr);
+    }
+    if (!pool.length) return [];
+
+    const scored: { c: (typeof existingClinics)[0]; score: number }[] = [];
+    for (const c of pool) {
+      const sc = similarity(normalizeName(c.name), nName);
+      if (sc >= NAME_SIM_THRESHOLD) scored.push({ c, score: sc });
+    }
+    scored.sort((a, b) => b.score - a.score);
+    return scored;
   }
 
   let matchByIdZz = 0;
-  let matchByNameCity = 0;
-  let nameAmbiguous = 0; // viac DB kliník zhoduje s názvom+mestom – treba manuál
+  let matchByNameCityExact = 0;
+  let matchByNameCityFuzzy = 0;
+  let nameAmbiguous = 0; // viac DB kliník zhoduje s vysokým skóre – treba manuál
   let willInsert = 0;
   const csvIcoCount = new Map<string, number>();
-  const ambiguousNameSamples: { row: number; name: string; city: string | null; matches: number }[] = [];
+  const ambiguousNameSamples: {
+    row: number;
+    name: string;
+    city: string | null;
+    matches: { dbName: string; dbCity: string | null; score: number }[];
+  }[] = [];
+  const fuzzyMatchSamples: {
+    row: number;
+    csvName: string;
+    csvCity: string | null;
+    dbName: string;
+    dbCity: string | null;
+    score: number;
+  }[] = [];
+
   for (let i = 0; i < dataRows.length; i++) {
     const r = dataRows[i];
     if (get(r, "record_type") !== "medical_provider_practice") continue;
@@ -505,26 +634,63 @@ async function main() {
       matchByIdZz++;
       matched = true;
     } else if (name) {
-      const key = `${normalizeName(name)}|${normalizeName(city)}`;
-      const candidates = byNameCity.get(key) ?? [];
-      if (candidates.length === 1) {
-        matchByNameCity++;
+      const cands = findFuzzyCandidates(name, city);
+      if (cands.length === 1) {
+        const top = cands[0];
+        if (top.score >= 0.999) matchByNameCityExact++;
+        else {
+          matchByNameCityFuzzy++;
+          if (fuzzyMatchSamples.length < 30) {
+            fuzzyMatchSamples.push({
+              row: i + 2,
+              csvName: name,
+              csvCity: city,
+              dbName: top.c.name,
+              dbCity: top.c.city,
+              score: Math.round(top.score * 1000) / 1000,
+            });
+          }
+        }
         matched = true;
-      } else if (candidates.length > 1) {
-        nameAmbiguous++;
-        matched = true; // zarátame ako "match" ale nezapíše sa, kým sa nerozhodne
-        if (ambiguousNameSamples.length < 30) {
-          ambiguousNameSamples.push({
-            row: i + 2,
-            name,
-            city,
-            matches: candidates.length,
-          });
+      } else if (cands.length > 1) {
+        // Ak top skóre dominuje (≥ 0.05 odstup) → akceptuj, inak označ ako ambiguous
+        const top = cands[0];
+        const second = cands[1];
+        if (top.score - second.score >= 0.05) {
+          if (top.score >= 0.999) matchByNameCityExact++;
+          else matchByNameCityFuzzy++;
+          if (fuzzyMatchSamples.length < 30) {
+            fuzzyMatchSamples.push({
+              row: i + 2,
+              csvName: name,
+              csvCity: city,
+              dbName: top.c.name,
+              dbCity: top.c.city,
+              score: Math.round(top.score * 1000) / 1000,
+            });
+          }
+          matched = true;
+        } else {
+          nameAmbiguous++;
+          matched = true;
+          if (ambiguousNameSamples.length < 30) {
+            ambiguousNameSamples.push({
+              row: i + 2,
+              name,
+              city,
+              matches: cands.slice(0, 5).map((m) => ({
+                dbName: m.c.name,
+                dbCity: m.c.city,
+                score: Math.round(m.score * 1000) / 1000,
+              })),
+            });
+          }
         }
       }
     }
     if (!matched) willInsert++;
   }
+  const matchByNameCity = matchByNameCityExact + matchByNameCityFuzzy;
 
   const csvDuplicateIcos = [...csvIcoCount.entries()].filter(([, n]) => n > 1);
 
@@ -557,8 +723,9 @@ async function main() {
   md.push(`| Osôb na extrakciu (kontaktné osoby spolu) | ${personsTotal} |`);
   md.push(`| **Existujúcich kliník v DB** | ${existingClinics.length} |`);
   md.push(`| Match podľa \`id_zz\` | ${matchByIdZz} |`);
-  md.push(`| Match podľa názvu + mesta (1 zhoda) | ${matchByNameCity} |`);
-  md.push(`| ⚠ Nejednoznačný match podľa názvu + mesta (>1 zhody) | ${nameAmbiguous} |`);
+  md.push(`| Match podľa názvu + mesta (presný, ≥99,9 %) | ${matchByNameCityExact} |`);
+  md.push(`| Match podľa názvu + mesta (fuzzy, ${Math.round(NAME_SIM_THRESHOLD * 100)}–99 %) | ${matchByNameCityFuzzy} |`);
+  md.push(`| ⚠ Nejednoznačný match (>1 kandidát s podobným skóre) | ${nameAmbiguous} |`);
   md.push(`| **Nové kliniky (INSERT)** | ${willInsert} |`);
   md.push(`| **UPDATE kliník (jednoznačný match)** | ${matchByIdZz + matchByNameCity} |`);
   md.push(`| Existujúcich osôb (collaborators) v DB | ${collabCount} |`);
@@ -652,19 +819,36 @@ async function main() {
     md.push(`Všetky ICO v CSV sú unikátne. ✓`);
     md.push(``);
   }
+  if (fuzzyMatchSamples.length) {
+    md.push(`### Fuzzy matche podľa názvu + mesta (Levenshtein, prahy: názov ≥ ${Math.round(NAME_SIM_THRESHOLD * 100)} %, mesto ≥ ${Math.round(CITY_SIM_THRESHOLD * 100)} %)`);
+    md.push(``);
+    md.push(`Tieto CSV riadky sa **napárovali na existujúcu kliniku** napriek tomu, že názov nebol presne identický (napr. iné poradie slov, drobné preklepy, rozdiel v právnej forme). Pri zápise pôjde **UPDATE** na zhodu nižšie. Ukážka prvých ${fuzzyMatchSamples.length}:`);
+    md.push(``);
+    md.push(`| # CSV | CSV názov | CSV mesto | DB názov | DB mesto | Skóre |`);
+    md.push(`|---|---|---|---|---|---|`);
+    fuzzyMatchSamples.forEach((m) =>
+      md.push(`| ${m.row} | ${m.csvName} | ${m.csvCity ?? "—"} | ${m.dbName} | ${m.dbCity ?? "—"} | ${m.score} |`),
+    );
+    if (matchByNameCityFuzzy > fuzzyMatchSamples.length)
+      md.push(`\n*… a ďalších ${matchByNameCityFuzzy - fuzzyMatchSamples.length} fuzzy matchov.*`);
+    md.push(``);
+  }
   if (ambiguousNameSamples.length) {
     md.push(`### ⚠ Nejednoznačný match podľa názvu + mesta (${nameAmbiguous} riadkov)`);
     md.push(``);
-    md.push(`Pre tieto CSV riadky existuje v DB **viac ako jedna klinika** s rovnakým normalizovaným názvom a mestom – import ich **NEZAPÍŠE**, kým sa nerozhodne ručne ktorú aktualizovať. Ukážka prvých ${ambiguousNameSamples.length}:`);
+    md.push(`Pre tieto CSV riadky existuje v DB **viac ako jedna klinika** s veľmi podobným skóre (rozdiel < 5 %). Import ich **NEZAPÍŠE** ako UPDATE – pridá ich ako nové (alebo sa rozhodne ručne). Ukážka prvých ${ambiguousNameSamples.length}:`);
     md.push(``);
-    ambiguousNameSamples.forEach((a) =>
-      md.push(`- riadok ${a.row}: **${a.name}** (${a.city ?? "—"}) → ${a.matches} kandidátov v DB`),
-    );
+    ambiguousNameSamples.forEach((a) => {
+      md.push(`- **riadok ${a.row}: ${a.name}** (${a.city ?? "—"})`);
+      a.matches.forEach((m) =>
+        md.push(`    - kandidát: ${m.dbName} (${m.dbCity ?? "—"}) – skóre ${m.score}`),
+      );
+    });
     if (nameAmbiguous > ambiguousNameSamples.length)
       md.push(`- … a ďalších ${nameAmbiguous - ambiguousNameSamples.length}`);
     md.push(``);
   } else if (matchByNameCity > 0) {
-    md.push(`Všetky fuzzy matche podľa názvu + mesta sú jednoznačné. ✓`);
+    md.push(`Všetky fuzzy matche podľa názvu + mesta sú jednoznačné (žiadne kolízie kandidátov). ✓`);
     md.push(``);
   }
   if (personWarnings.length) {
@@ -697,9 +881,10 @@ async function main() {
   md.push(``);
   md.push(`## 7. Otvorené otázky pre teba (potvrď / oprav)`);
   md.push(``);
-  md.push(`1. **\`primary_contact_person\` → \`clinics.doctor_*\`** – navrhujem prepísať len ak sú DB polia prázdne (UPSERT NIKDY nemaže). OK, alebo vždy prepísať?`);
-  md.push(`2. **Fuzzy match podľa názvu + mesta** – aktuálne porovnávam normalizovaný (lowercase, bez diakritiky) názov a mesto presne. Ak chceš tolerantnejší match (napr. Levenshtein vzdialenosť), daj vedieť.`);
-  md.push(`3. **Website fallback** – ak \`website_primary\` je prázdny, vyberiem prvú URL z \`websites_all\`/\`source_urls\` ktorá obsahuje \`www.\` a nie \`e-vuc.sk\`. Ak chceš inú filtračnú logiku, daj vedieť.`);
+  md.push(`1. ✅ **\`primary_contact_person\` → \`clinics.doctor_*\`** – potvrdené: prepísať **iba ak je DB pole prázdne** (UPSERT NIKDY nemaže existujúce hodnoty).`);
+  md.push(`2. ✅ **Fuzzy match podľa názvu + mesta** – tolerantný **Levenshtein** match nasadený: názov ≥ ${Math.round(NAME_SIM_THRESHOLD * 100)} %, mesto ≥ ${Math.round(CITY_SIM_THRESHOLD * 100)} %, blocking podľa mesta (rýchlosť). Pri >1 kandidátoch sa vyberie ten s dominantným skóre (odstup ≥ 5 %); inak označený ako *nejednoznačný*.`);
+  md.push(`3. ✅ **Website fallback** – web kliniky sa vyberá z kombinácie \`website_primary | websites_all | source_urls\`: odfiltrujú sa portálové domény (e-vuc, zoznam, azet, …), zvyšné URL sa znormalizujú na **root** (\`https://host\`), a vyberie sa najfrekventovanejšia doména. Príklad: \`https://www.e-vuc.sk/... | https://www.e-vuc.sk/... | https://agyn.sk/ | https://agyn.sk/kontakt/\` → **\`https://agyn.sk\`**.`);
+  md.push(`4. ✅ **\`kod_pzs_description\` → \`clinics.pzs_name\`** (Healthcare provider name) – potvrdené.`);
   md.push(``);
 
   md.push(`## 8. Ďalšie kroky`);
