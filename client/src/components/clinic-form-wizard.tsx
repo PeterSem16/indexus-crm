@@ -1512,7 +1512,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     <CardHeader className="pb-2">
                       <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
                         <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900"><PhoneCall className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /></div>
-                        Hovory & Zmluva
+                        {(t.clinics as any).callsAndContract || "Calls & Contract"}
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2 pt-1">
@@ -1527,17 +1527,17 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[11px]">Poznámka</Label>
-                        <Textarea value={formData.lastCallNote} onChange={(e) => setFormData({ ...formData, lastCallNote: e.target.value })} placeholder="Poznámka z hovoru" rows={2} className="text-sm" data-testid="input-last-call-note" />
+                        <Label className="text-[11px]">{(t.clinics as any).note || (t as any).note || "Note"}</Label>
+                        <Textarea value={formData.lastCallNote} onChange={(e) => setFormData({ ...formData, lastCallNote: e.target.value })} placeholder={(t.clinics as any).lastCallResult || "Call note"} rows={2} className="text-sm" data-testid="input-last-call-note" />
                       </div>
                       <Separator className="my-1" />
                       <div className="grid gap-x-3 gap-y-2 grid-cols-2">
                         <div className="space-y-1">
-                          <Label className="text-[11px]">Zmluva odoslaná</Label>
+                          <Label className="text-[11px]">{(t.clinics as any).contractSent || "Contract sent"}</Label>
                           <DateTimePicker value={formData.contractSentDate} onChange={(v) => setFormData({ ...formData, contractSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-sent-date" />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px]">Zmluva vrátená</Label>
+                          <Label className="text-[11px]">{(t.clinics as any).contractReturned || "Contract returned"}</Label>
                           <DateTimePicker value={formData.contractReturnedDate} onChange={(v) => setFormData({ ...formData, contractReturnedDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-returned-date" />
                         </div>
                       </div>
@@ -2172,25 +2172,25 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     </div>
                     <Separator />
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900"><FileSignature className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /></div><h3 className="text-sm font-semibold tracking-wide">Zmluva</h3></div>
+                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900"><FileSignature className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /></div><h3 className="text-sm font-semibold tracking-wide">{(t.clinics as any).contractTitle || "Contract"}</h3></div>
                       <div className="grid gap-3 sm:grid-cols-2 pl-1">
-                        <div className="space-y-1"><Label className="text-xs">Dátum odoslania zmluvy</Label><DateTimePicker value={formData.contractSentDate} onChange={(v) => setFormData({ ...formData, contractSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-sent-date" /></div>
-                        <div className="space-y-1"><Label className="text-xs">Dátum vrátenia zmluvy</Label><DateTimePicker value={formData.contractReturnedDate} onChange={(v) => setFormData({ ...formData, contractReturnedDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-returned-date" /></div>
+                        <div className="space-y-1"><Label className="text-xs">{(t.clinics as any).contractSentDate || "Contract sent date"}</Label><DateTimePicker value={formData.contractSentDate} onChange={(v) => setFormData({ ...formData, contractSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-sent-date" /></div>
+                        <div className="space-y-1"><Label className="text-xs">{(t.clinics as any).contractReturnedDate || "Contract returned date"}</Label><DateTimePicker value={formData.contractReturnedDate} onChange={(v) => setFormData({ ...formData, contractReturnedDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-returned-date" /></div>
                       </div>
                     </div>
                     <Separator />
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900"><Newspaper className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" /></div><h3 className="text-sm font-semibold tracking-wide">Letáky & Postery</h3></div>
+                      <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900"><Newspaper className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" /></div><h3 className="text-sm font-semibold tracking-wide">{(t.clinics as any).flyersTitle || "Flyers & Posters"}</h3></div>
                       <div className="pl-1 space-y-2">
                         <div className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all", formData.hasFlyers ? "border-2 shadow-sm bg-rose-50 border-rose-200 dark:bg-rose-950 dark:border-rose-800" : "hover:bg-muted/50 border-border")} onClick={() => setFormData({ ...formData, hasFlyers: !formData.hasFlyers })}>
                           <Checkbox checked={formData.hasFlyers} onCheckedChange={(checked) => setFormData({ ...formData, hasFlyers: !!checked })} data-testid="checkbox-flyers" onClick={(e) => e.stopPropagation()} />
-                          <span className="text-sm font-medium">Umiestnenie letákov / posterov</span>
+                          <span className="text-sm font-medium">{(t.clinics as any).flyersPlacement || "Placement of flyers / posters"}</span>
                         </div>
                         {formData.hasFlyers && (
                           <div className="ml-3 pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-2">
                             <div className="grid gap-3 sm:grid-cols-2">
-                              <div className="space-y-1"><Label className="text-xs">Dátum odoslania</Label><DateTimePicker value={formData.flyersSentDate} onChange={(v) => setFormData({ ...formData, flyersSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-flyers-sent-date" /></div>
-                              <div className="space-y-1"><Label className="text-xs">Umiestnenie</Label><Input value={formData.flyersLocation} onChange={(e) => setFormData({ ...formData, flyersLocation: e.target.value })} placeholder="Kde boli umiestnené" className="h-9" data-testid="input-flyers-location" /></div>
+                              <div className="space-y-1"><Label className="text-xs">{(t.clinics as any).flyersSentDate || "Sent date"}</Label><DateTimePicker value={formData.flyersSentDate} onChange={(v) => setFormData({ ...formData, flyersSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-flyers-sent-date" /></div>
+                              <div className="space-y-1"><Label className="text-xs">{(t.clinics as any).flyersLocation || "Location"}</Label><Input value={formData.flyersLocation} onChange={(e) => setFormData({ ...formData, flyersLocation: e.target.value })} placeholder={(t.clinics as any).flyersLocationPlaceholder || "Where they were placed"} className="h-9" data-testid="input-flyers-location" /></div>
                             </div>
                           </div>
                         )}
