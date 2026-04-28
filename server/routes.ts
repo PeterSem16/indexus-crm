@@ -28071,6 +28071,38 @@ Respond in JSON format:
     }
   });
 
+  // AI postal-code lookup — returns best-guess PSČ for given country/city/street
+  app.post("/api/ai/lookup-postal-code", requireAuth, async (req, res) => {
+    try {
+      const { countryCode, city, street } = req.body || {};
+      if (!city) {
+        return res.status(400).json({ error: "city is required" });
+      }
+      const country = countryCode || "SK";
+      const userPrompt = `Krajina: ${country}\nMesto: ${city}${street ? `\nUlica: ${street}` : ""}\n\nVráť najpravdepodobnejšie PSČ (poštové smerovacie číslo) ako JSON v tvare {"postalCode": "<kód>"}. Ak je viac možností, vyber najznámejšiu pre dané mesto. PSČ má pre Slovensko a Česko 5 číslic, môže obsahovať medzeru (napr. "040 01"). Ak presné PSČ nepoznáš, vráť {"postalCode": null}.`;
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "Si databáza poštových smerovacích čísel pre európske krajiny. Odpovedaj iba platným JSON-om bez vysvetlení a markdown formátovania." },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0,
+        response_format: { type: "json_object" },
+        max_tokens: 60,
+      });
+      let content = response.choices[0]?.message?.content || "{}";
+      content = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+      let parsed: any = {};
+      try { parsed = JSON.parse(content); } catch { parsed = {}; }
+      const raw = (parsed.postalCode ?? parsed.postal_code ?? parsed.psc ?? "").toString().trim();
+      const postalCode = raw && raw.toLowerCase() !== "null" ? raw : null;
+      res.json({ postalCode });
+    } catch (error: any) {
+      console.error("AI postal-code lookup error:", error);
+      res.status(500).json({ error: "Lookup failed: " + (error?.message || "Unknown error") });
+    }
+  });
+
   // AI contract recommendation - provides legal and business recommendations for contract creation
   app.post("/api/ai/contract-recommendation", requireAuth, async (req, res) => {
     try {
