@@ -54,6 +54,7 @@ import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimelin
 import { getQueryFn } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { PhoneNumberField } from "@/components/phone-number-field";
 import { Wand2 } from "lucide-react";
@@ -66,6 +67,7 @@ interface ClinicFormData {
   idZz: string;
   pzsCode: string;
   pzsName: string;
+  ico: string;
   address: string;
   street: string;
   streetNumber: string;
@@ -425,6 +427,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("basic");
   const [postalLookupLoading, setPostalLookupLoading] = useState(false);
+  const [identifiersOpen, setIdentifiersOpen] = useState(false);
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [pipelineMenuOpen, setPipelineMenuOpen] = useState(false);
@@ -435,7 +438,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const buildFormData = (data: Clinic | null | undefined): ClinicFormData => {
     if (!data) return {
       name: "", doctorTitle: "", doctorFirstName: "", doctorLastName: "",
-      idZz: "", pzsCode: "", pzsName: "",
+      idZz: "", pzsCode: "", pzsName: "", ico: "",
       address: "", street: "", streetNumber: "", orientationNumber: "",
       city: "", postalCode: "", countryCode: "", region: "", district: "",
       phone: "", phone2: "", phone3: "", email: "", email2: "", email3: "", website: "", latitude: "", longitude: "", isActive: true,
@@ -468,7 +471,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     }
     return {
       name: data.name, doctorTitle: dTitle, doctorFirstName: dFirst, doctorLastName: dLast,
-      idZz: (data as any).idZz || "", pzsCode: (data as any).pzsCode || "", pzsName: (data as any).pzsName || "",
+      idZz: (data as any).idZz || "", pzsCode: (data as any).pzsCode || "", pzsName: (data as any).pzsName || "", ico: (data as any).ico || "",
       address: data.address || "",
       street: (data as any).street || "",
       streetNumber: (data as any).streetNumber || "",
@@ -749,6 +752,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
         idZz: data.idZz || null,
         pzsCode: data.pzsCode || null,
         pzsName: data.pzsName || null,
+        ico: data.ico || null,
         address: composedAddress || data.address || null,
         street: data.street || null,
         streetNumber: data.streetNumber || null,
@@ -896,7 +900,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const clinicEditTabs = [
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Adresa" },
-    { key: "referral", icon: CircleDot, label: (t.clinics as any).steps?.referral || "Referral" },
+    { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
     { key: "history", icon: History, label: t.clinics.steps?.history || "História" },
     { key: "personnel", icon: Users, label: (t as any).medicalPartnerNetwork?.personnel || "Personál" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Kampane" },
@@ -1306,29 +1310,39 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </div>
                       )}
                       <Separator className="my-1" />
-                      <div className="grid gap-x-3 gap-y-2 grid-cols-3">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <Label className="text-[11px]">{(t.clinics as any).idZz || "ID ZZ"}</Label>
-                            <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{(t.clinics as any).idZzTip || "Identifikátor zdravotníckeho zariadenia (ID ZZ)."}</p></TooltipContent></Tooltip></TooltipProvider>
+                      <Collapsible open={identifiersOpen} onOpenChange={setIdentifiersOpen}>
+                        <CollapsibleTrigger asChild>
+                          <button type="button" className="flex w-full items-center justify-between rounded-md px-2 py-1.5 hover-elevate active-elevate-2 text-xs font-medium text-muted-foreground" data-testid="toggle-inline-clinic-identifiers">
+                            <span className="flex items-center gap-1.5"><HelpCircle className="h-3 w-3" />{t.clinics.additionalIdentifiers}</span>
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", identifiersOpen && "rotate-180")} />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="grid gap-x-3 gap-y-2 grid-cols-3 pt-2">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Label className="text-[11px]">{t.clinics.idZz}</Label>
+                                <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.idZzTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                              </div>
+                              <Input value={formData.idZz} onChange={(e) => setFormData({ ...formData, idZz: e.target.value })} placeholder={t.clinics.idZz} className="h-8 text-sm" data-testid="input-inline-clinic-idzz" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Label className="text-[11px]">{t.clinics.pzsCode}</Label>
+                                <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.pzsCodeTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                              </div>
+                              <Input value={formData.pzsCode} onChange={(e) => setFormData({ ...formData, pzsCode: e.target.value })} placeholder={t.clinics.pzsCode} className="h-8 text-sm" data-testid="input-inline-clinic-pzscode" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Label className="text-[11px]">{t.clinics.pzsName}</Label>
+                                <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.pzsNameTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                              </div>
+                              <Input value={formData.pzsName} onChange={(e) => setFormData({ ...formData, pzsName: e.target.value })} placeholder={t.clinics.pzsName} className="h-8 text-sm" data-testid="input-inline-clinic-pzsname" />
+                            </div>
                           </div>
-                          <Input value={formData.idZz} onChange={(e) => setFormData({ ...formData, idZz: e.target.value })} placeholder="ID ZZ" className="h-8 text-sm" data-testid="input-inline-clinic-idzz" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <Label className="text-[11px]">{(t.clinics as any).pzsCode || "Kód PZS"}</Label>
-                            <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{(t.clinics as any).pzsCodeTip || "Kód poskytovateľa zdravotnej starostlivosti (PZS)."}</p></TooltipContent></Tooltip></TooltipProvider>
-                          </div>
-                          <Input value={formData.pzsCode} onChange={(e) => setFormData({ ...formData, pzsCode: e.target.value })} placeholder="Kód PZS" className="h-8 text-sm" data-testid="input-inline-clinic-pzscode" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <Label className="text-[11px]">{(t.clinics as any).pzsName || "Kód PZS - názov"}</Label>
-                            <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{(t.clinics as any).pzsNameTip || "Názov priradený ku kódu PZS."}</p></TooltipContent></Tooltip></TooltipProvider>
-                          </div>
-                          <Input value={formData.pzsName} onChange={(e) => setFormData({ ...formData, pzsName: e.target.value })} placeholder="Názov PZS" className="h-8 text-sm" data-testid="input-inline-clinic-pzsname" />
-                        </div>
-                      </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                       <div className="flex items-center justify-between border rounded-md px-3 py-2 mt-1">
                         <div>
                           <Label className="text-xs">{t.clinics.isActive || "Aktívna ambulancia"}</Label>
@@ -1410,15 +1424,15 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     <CardContent className="space-y-2 pt-1">
                       <div className="grid gap-x-3 gap-y-2 grid-cols-1 sm:grid-cols-3">
                         <div className="space-y-1 sm:col-span-3">
-                          <Label className="text-[11px]">{(t.clinics as any).street || "Ulica"}</Label>
-                          <Input value={formData.street} onChange={(e) => setFormData({ ...formData, street: e.target.value })} placeholder={(t.clinics as any).street || "Ulica"} className="h-8 text-sm" data-testid="input-inline-clinic-street" />
+                          <Label className="text-[11px]">{t.clinics.street}</Label>
+                          <Input value={formData.street} onChange={(e) => setFormData({ ...formData, street: e.target.value })} placeholder={t.clinics.street} className="h-8 text-sm" data-testid="input-inline-clinic-street" />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px]">{(t.clinics as any).streetNumber || "Súpisné číslo"}</Label>
+                          <Label className="text-[11px]">{t.clinics.streetNumber}</Label>
                           <Input value={formData.streetNumber} onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })} placeholder="123" className="h-8 text-sm" data-testid="input-inline-clinic-street-number" />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px]">{(t.clinics as any).orientationNumber || "Orientačné číslo"}</Label>
+                          <Label className="text-[11px]">{t.clinics.orientationNumber}</Label>
                           <Input value={formData.orientationNumber} onChange={(e) => setFormData({ ...formData, orientationNumber: e.target.value })} placeholder="4A" className="h-8 text-sm" data-testid="input-inline-clinic-orientation-number" />
                         </div>
                       </div>
@@ -1431,11 +1445,18 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           <Label className="text-[11px]">{t.clinics.postalCode}</Label>
                           <div className="flex items-center gap-1">
                             <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} placeholder={t.clinics.postalCode} className="h-8 text-sm flex-1" data-testid="input-clinic-postal" />
-                            <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={lookupPostalCode} disabled={postalLookupLoading || !formData.city} title={(t.clinics as any).lookupPsc || "Doplniť PSČ pomocou AI"} data-testid="button-inline-lookup-psc">
+                            <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={lookupPostalCode} disabled={postalLookupLoading || !formData.city} title={t.clinics.lookupPsc} data-testid="button-inline-lookup-psc">
                               {postalLookupLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
                             </Button>
                           </div>
                         </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[11px]">{t.clinics.ico}</Label>
+                          <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.icoTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                        </div>
+                        <Input value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} placeholder={t.clinics.ico} className="h-8 text-sm" data-testid="input-inline-clinic-ico" />
                       </div>
                       <div className="grid gap-x-3 gap-y-2 grid-cols-2">
                         <div className="space-y-1">
@@ -1929,29 +1950,39 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           </Select>
                         </div>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-3 pl-1">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <Label className="text-xs">{(t.clinics as any).idZz || "ID ZZ"}</Label>
-                            <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{(t.clinics as any).idZzTip || "Identifikátor zdravotníckeho zariadenia (ID ZZ)."}</p></TooltipContent></Tooltip></TooltipProvider>
+                      <Collapsible open={identifiersOpen} onOpenChange={setIdentifiersOpen} className="pl-1">
+                        <CollapsibleTrigger asChild>
+                          <button type="button" className="flex w-full items-center justify-between rounded-md px-2 py-2 hover-elevate active-elevate-2 text-xs font-medium text-muted-foreground" data-testid="toggle-edit-clinic-identifiers">
+                            <span className="flex items-center gap-2"><HelpCircle className="h-3.5 w-3.5" />{t.clinics.additionalIdentifiers}</span>
+                            <ChevronDown className={cn("h-4 w-4 transition-transform", identifiersOpen && "rotate-180")} />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="grid gap-3 sm:grid-cols-3 pt-2">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Label className="text-xs">{t.clinics.idZz}</Label>
+                                <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.idZzTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                              </div>
+                              <Input value={formData.idZz} onChange={(e) => setFormData({ ...formData, idZz: e.target.value })} placeholder={t.clinics.idZz} className="h-9" data-testid="input-clinic-idzz" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Label className="text-xs">{t.clinics.pzsCode}</Label>
+                                <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.pzsCodeTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                              </div>
+                              <Input value={formData.pzsCode} onChange={(e) => setFormData({ ...formData, pzsCode: e.target.value })} placeholder={t.clinics.pzsCode} className="h-9" data-testid="input-clinic-pzscode" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Label className="text-xs">{t.clinics.pzsName}</Label>
+                                <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.pzsNameTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                              </div>
+                              <Input value={formData.pzsName} onChange={(e) => setFormData({ ...formData, pzsName: e.target.value })} placeholder={t.clinics.pzsName} className="h-9" data-testid="input-clinic-pzsname" />
+                            </div>
                           </div>
-                          <Input value={formData.idZz} onChange={(e) => setFormData({ ...formData, idZz: e.target.value })} placeholder="ID ZZ" className="h-9" data-testid="input-clinic-idzz" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <Label className="text-xs">{(t.clinics as any).pzsCode || "Kód PZS"}</Label>
-                            <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{(t.clinics as any).pzsCodeTip || "Kód poskytovateľa zdravotnej starostlivosti (PZS)."}</p></TooltipContent></Tooltip></TooltipProvider>
-                          </div>
-                          <Input value={formData.pzsCode} onChange={(e) => setFormData({ ...formData, pzsCode: e.target.value })} placeholder="Kód PZS" className="h-9" data-testid="input-clinic-pzscode" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <Label className="text-xs">{(t.clinics as any).pzsName || "Kód PZS - názov"}</Label>
-                            <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{(t.clinics as any).pzsNameTip || "Názov priradený ku kódu PZS."}</p></TooltipContent></Tooltip></TooltipProvider>
-                          </div>
-                          <Input value={formData.pzsName} onChange={(e) => setFormData({ ...formData, pzsName: e.target.value })} placeholder="Názov PZS" className="h-9" data-testid="input-clinic-pzsname" />
-                        </div>
-                      </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                       <div className="flex items-center justify-between p-3 border rounded-lg ml-1">
                         <div>
                           <Label className="text-xs">{t.clinics.isActive || "Aktívna ambulancia"}</Label>
@@ -2134,15 +2165,15 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   <div className="space-y-4 pb-4">
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="space-y-1 sm:col-span-3 md:col-span-1">
-                        <Label className="text-xs">{(t.clinics as any).street || "Ulica"}</Label>
-                        <Input value={formData.street} onChange={(e) => setFormData({ ...formData, street: e.target.value })} placeholder={(t.clinics as any).street || "Ulica"} className="h-9" data-testid="input-clinic-street" />
+                        <Label className="text-xs">{t.clinics.street}</Label>
+                        <Input value={formData.street} onChange={(e) => setFormData({ ...formData, street: e.target.value })} placeholder={t.clinics.street} className="h-9" data-testid="input-clinic-street" />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">{(t.clinics as any).streetNumber || "Súpisné číslo"}</Label>
+                        <Label className="text-xs">{t.clinics.streetNumber}</Label>
                         <Input value={formData.streetNumber} onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })} placeholder="123" className="h-9" data-testid="input-clinic-street-number" />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">{(t.clinics as any).orientationNumber || "Orientačné číslo"}</Label>
+                        <Label className="text-xs">{t.clinics.orientationNumber}</Label>
                         <Input value={formData.orientationNumber} onChange={(e) => setFormData({ ...formData, orientationNumber: e.target.value })} placeholder="4A" className="h-9" data-testid="input-clinic-orientation-number" />
                       </div>
                     </div>
@@ -2152,11 +2183,18 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         <Label className="text-xs">{t.clinics.postalCode}</Label>
                         <div className="flex items-center gap-1">
                           <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} placeholder={t.clinics.postalCode} className="h-9 flex-1" data-testid="input-clinic-postal" />
-                          <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupPostalCode} disabled={postalLookupLoading || !formData.city} title={(t.clinics as any).lookupPsc || "Doplniť PSČ pomocou AI"} data-testid="button-lookup-psc">
+                          <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupPostalCode} disabled={postalLookupLoading || !formData.city} title={t.clinics.lookupPsc} data-testid="button-lookup-psc">
                             {postalLookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                           </Button>
                         </div>
                       </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <Label className="text-xs">{t.clinics.ico}</Label>
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.icoTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                      </div>
+                      <Input value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} placeholder={t.clinics.ico} className="h-9" data-testid="input-clinic-ico" />
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
@@ -2307,7 +2345,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const clinicAddTabs = [
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Adresa" },
-    { key: "referral", icon: CircleDot, label: (t.clinics as any).steps?.referral || "Referral" },
+    { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
     { key: "history", icon: History, label: t.clinics.steps?.history || "História" },
     { key: "personnel", icon: Users, label: (t as any).medicalPartnerNetwork?.personnel || "Personál" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Kampane" },
@@ -2584,29 +2622,39 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         </Select>
                       </div>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-3 pl-1">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1">
-                          <Label className="text-xs">{(t.clinics as any).idZz || "ID ZZ"}</Label>
-                          <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{(t.clinics as any).idZzTip || "Identifikátor zdravotníckeho zariadenia (ID ZZ)."}</p></TooltipContent></Tooltip></TooltipProvider>
+                    <Collapsible open={identifiersOpen} onOpenChange={setIdentifiersOpen} className="pl-1">
+                      <CollapsibleTrigger asChild>
+                        <button type="button" className="flex w-full items-center justify-between rounded-md px-2 py-2 hover-elevate active-elevate-2 text-xs font-medium text-muted-foreground" data-testid="toggle-add-clinic-identifiers">
+                          <span className="flex items-center gap-2"><HelpCircle className="h-3.5 w-3.5" />{t.clinics.additionalIdentifiers}</span>
+                          <ChevronDown className={cn("h-4 w-4 transition-transform", identifiersOpen && "rotate-180")} />
+                        </button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="grid gap-3 sm:grid-cols-3 pt-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <Label className="text-xs">{t.clinics.idZz}</Label>
+                              <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.idZzTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                            </div>
+                            <Input value={formData.idZz} onChange={(e) => setFormData({ ...formData, idZz: e.target.value })} placeholder={t.clinics.idZz} className="h-9" data-testid="input-add-clinic-idzz" />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <Label className="text-xs">{t.clinics.pzsCode}</Label>
+                              <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.pzsCodeTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                            </div>
+                            <Input value={formData.pzsCode} onChange={(e) => setFormData({ ...formData, pzsCode: e.target.value })} placeholder={t.clinics.pzsCode} className="h-9" data-testid="input-add-clinic-pzscode" />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <Label className="text-xs">{t.clinics.pzsName}</Label>
+                              <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.pzsNameTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                            </div>
+                            <Input value={formData.pzsName} onChange={(e) => setFormData({ ...formData, pzsName: e.target.value })} placeholder={t.clinics.pzsName} className="h-9" data-testid="input-add-clinic-pzsname" />
+                          </div>
                         </div>
-                        <Input value={formData.idZz} onChange={(e) => setFormData({ ...formData, idZz: e.target.value })} placeholder="ID ZZ" className="h-9" data-testid="input-add-clinic-idzz" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1">
-                          <Label className="text-xs">{(t.clinics as any).pzsCode || "Kód PZS"}</Label>
-                          <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{(t.clinics as any).pzsCodeTip || "Kód poskytovateľa zdravotnej starostlivosti (PZS)."}</p></TooltipContent></Tooltip></TooltipProvider>
-                        </div>
-                        <Input value={formData.pzsCode} onChange={(e) => setFormData({ ...formData, pzsCode: e.target.value })} placeholder="Kód PZS" className="h-9" data-testid="input-add-clinic-pzscode" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1">
-                          <Label className="text-xs">{(t.clinics as any).pzsName || "Kód PZS - názov"}</Label>
-                          <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{(t.clinics as any).pzsNameTip || "Názov priradený ku kódu PZS."}</p></TooltipContent></Tooltip></TooltipProvider>
-                        </div>
-                        <Input value={formData.pzsName} onChange={(e) => setFormData({ ...formData, pzsName: e.target.value })} placeholder="Názov PZS" className="h-9" data-testid="input-add-clinic-pzsname" />
-                      </div>
-                    </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                     <div className="flex items-center justify-between p-3 border rounded-lg ml-1">
                       <div>
                         <Label className="text-xs">{t.clinics.isActive || "Aktívna ambulancia"}</Label>
@@ -2670,15 +2718,15 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                 <div className="space-y-4 pb-4">
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1 sm:col-span-3 md:col-span-1">
-                      <Label className="text-xs">{(t.clinics as any).street || "Ulica"}</Label>
-                      <Input value={formData.street} onChange={(e) => setFormData({ ...formData, street: e.target.value })} placeholder={(t.clinics as any).street || "Ulica"} className="h-9" data-testid="input-add-clinic-street" />
+                      <Label className="text-xs">{t.clinics.street}</Label>
+                      <Input value={formData.street} onChange={(e) => setFormData({ ...formData, street: e.target.value })} placeholder={t.clinics.street} className="h-9" data-testid="input-add-clinic-street" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">{(t.clinics as any).streetNumber || "Súpisné číslo"}</Label>
+                      <Label className="text-xs">{t.clinics.streetNumber}</Label>
                       <Input value={formData.streetNumber} onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })} placeholder="123" className="h-9" data-testid="input-add-clinic-street-number" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">{(t.clinics as any).orientationNumber || "Orientačné číslo"}</Label>
+                      <Label className="text-xs">{t.clinics.orientationNumber}</Label>
                       <Input value={formData.orientationNumber} onChange={(e) => setFormData({ ...formData, orientationNumber: e.target.value })} placeholder="4A" className="h-9" data-testid="input-add-clinic-orientation-number" />
                     </div>
                   </div>
@@ -2688,11 +2736,18 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                       <Label className="text-xs">{t.clinics.postalCode}</Label>
                       <div className="flex items-center gap-1">
                         <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} placeholder={t.clinics.postalCode} className="h-9 flex-1" data-testid="input-add-clinic-postalcode" />
-                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupPostalCode} disabled={postalLookupLoading || !formData.city} title={(t.clinics as any).lookupPsc || "Doplniť PSČ pomocou AI"} data-testid="button-add-lookup-psc">
+                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupPostalCode} disabled={postalLookupLoading || !formData.city} title={t.clinics.lookupPsc} data-testid="button-add-lookup-psc">
                           {postalLookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                         </Button>
                       </div>
                     </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1">
+                      <Label className="text-xs">{t.clinics.ico}</Label>
+                      <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger><TooltipContent className="max-w-xs"><p>{t.clinics.icoTip}</p></TooltipContent></Tooltip></TooltipProvider>
+                    </div>
+                    <Input value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} placeholder={t.clinics.ico} className="h-9" data-testid="input-add-clinic-ico" />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1">

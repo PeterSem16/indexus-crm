@@ -315,6 +315,7 @@ export const clinics = pgTable("clinics", {
   idZz: text("id_zz"),
   pzsCode: text("pzs_code"),
   pzsName: text("pzs_name"),
+  ico: text("ico"),
   address: text("address"),
   street: text("street"),
   streetNumber: text("street_number"),

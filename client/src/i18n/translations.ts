@@ -1127,6 +1127,19 @@ export interface Translations {
     phone: string;
     email: string;
     address: string;
+    street: string;
+    streetNumber: string;
+    orientationNumber: string;
+    ico: string;
+    icoTip: string;
+    idZz: string;
+    idZzTip: string;
+    pzsCode: string;
+    pzsCodeTip: string;
+    pzsName: string;
+    pzsNameTip: string;
+    additionalIdentifiers: string;
+    lookupPsc: string;
     city: string;
     postalCode: string;
     region: string;
@@ -1188,6 +1201,7 @@ export interface Translations {
     steps: {
       basic: string;
       source: string;
+      referral: string;
       address: string;
       web: string;
       settings: string;
@@ -6569,6 +6583,19 @@ export const translations: Record<Locale, Translations> = {
       status: 'Status',
       serviceType: 'Service Type',
       address: 'Address',
+      street: "Street",
+      streetNumber: "House number",
+      orientationNumber: "Orientation number",
+      ico: "Company ID (IČO)",
+      icoTip: "Company identification number",
+      idZz: "ID ZZ",
+      idZzTip: "Healthcare facility identifier",
+      pzsCode: "PZS code",
+      pzsCodeTip: "Healthcare provider code",
+      pzsName: "PZS name",
+      pzsNameTip: "Healthcare provider name",
+      additionalIdentifiers: "Additional identifiers",
+      lookupPsc: "Auto-fill postal code",
       city: 'City',
       postalCode: 'Postal Code',
       notes: 'Notes',
@@ -7552,6 +7579,7 @@ export const translations: Record<Locale, Translations> = {
       steps: {
         basic: 'Basic Info',
         source: 'Source',
+        referral: "Contact Type",
         address: 'Address',
         web: 'Web & Contact',
         settings: 'Settings',
@@ -9652,6 +9680,19 @@ export const translations: Record<Locale, Translations> = {
       userDescription: 'Basic access to view and edit customers in assigned countries',
       companyName: 'Company Name',
       address: 'Address',
+      street: "Ulica",
+      streetNumber: "Súpisné číslo",
+      orientationNumber: "Orientačné číslo",
+      ico: "IČO",
+      icoTip: "Identifikačné číslo organizácie",
+      idZz: "ID ZZ",
+      idZzTip: "Identifikátor zdravotníckeho zariadenia",
+      pzsCode: "Kód PZS",
+      pzsCodeTip: "Kód poskytovateľa zdravotnej starostlivosti",
+      pzsName: "Kód PZS - názov",
+      pzsNameTip: "Názov poskytovateľa zdravotnej starostlivosti",
+      additionalIdentifiers: "Doplňujúce identifikátory",
+      lookupPsc: "Doplniť PSČ",
       city: 'City',
       postalCode: 'Postal Code',
       taxId: 'Tax ID',
@@ -13409,6 +13450,7 @@ export const translations: Record<Locale, Translations> = {
       steps: {
         basic: 'Základné údaje',
         source: 'Zdroj kontaktu',
+        referral: "Typ kontaktu",
         address: 'Adresa',
         web: 'Web a kontakt',
         settings: 'Nastavenia',
@@ -15468,6 +15510,19 @@ export const translations: Record<Locale, Translations> = {
       userDescription: 'Základný prístup na zobrazenie a úpravu zákazníkov v priradených krajinách',
       companyName: 'Názov spoločnosti',
       address: 'Adresa',
+      street: "Ulice",
+      streetNumber: "Číslo popisné",
+      orientationNumber: "Orientační číslo",
+      ico: "IČO",
+      icoTip: "Identifikační číslo organizace",
+      idZz: "ID ZZ",
+      idZzTip: "Identifikátor zdravotnického zařízení",
+      pzsCode: "Kód PZS",
+      pzsCodeTip: "Kód poskytovatele zdravotní péče",
+      pzsName: "Kód PZS - název",
+      pzsNameTip: "Název poskytovatele zdravotní péče",
+      additionalIdentifiers: "Doplňující identifikátory",
+      lookupPsc: "Doplnit PSČ",
       city: 'Mesto',
       postalCode: 'PSČ',
       taxId: 'IČ DPH',
@@ -19204,6 +19259,7 @@ export const translations: Record<Locale, Translations> = {
       steps: {
         basic: 'Základní údaje',
         source: 'Zdroj kontaktu',
+        referral: "Typ kontaktu",
         address: 'Adresa',
         web: 'Web a kontakt',
         settings: 'Nastavení',
@@ -21263,6 +21319,19 @@ export const translations: Record<Locale, Translations> = {
       userDescription: 'Základní přístup k zobrazení a úpravě zákazníků v přidělených zemích',
       companyName: 'Název společnosti',
       address: 'Adresa',
+      street: "Utca",
+      streetNumber: "Házszám",
+      orientationNumber: "Tájékozódási szám",
+      ico: "Cégszám",
+      icoTip: "Cég azonosító száma",
+      idZz: "ID ZZ",
+      idZzTip: "Egészségügyi intézmény azonosító",
+      pzsCode: "PZS-kód",
+      pzsCodeTip: "Egészségügyi szolgáltató kód",
+      pzsName: "PZS név",
+      pzsNameTip: "Egészségügyi szolgáltató neve",
+      additionalIdentifiers: "További azonosítók",
+      lookupPsc: "PSČ kitöltése",
       city: 'Město',
       postalCode: 'PSČ',
       taxId: 'DIČ',
@@ -24956,6 +25025,7 @@ export const translations: Record<Locale, Translations> = {
       steps: {
         basic: 'Alapadatok',
         source: 'Kapcsolat forrása',
+        referral: "Kapcsolat típusa",
         address: 'Cím',
         web: 'Web és kapcsolat',
         settings: 'Beállítások',
@@ -27015,6 +27085,19 @@ export const translations: Record<Locale, Translations> = {
       userDescription: 'Alapszintű hozzáférés az ügyfelek megtekintéséhez és szerkesztéséhez a hozzárendelt országokban',
       companyName: 'Cégnév',
       address: 'Cím',
+      street: "Stradă",
+      streetNumber: "Număr stradă",
+      orientationNumber: "Număr orientativ",
+      ico: "CUI",
+      icoTip: "Cod unic de înregistrare",
+      idZz: "ID ZZ",
+      idZzTip: "Identificator unitate sanitară",
+      pzsCode: "Cod PZS",
+      pzsCodeTip: "Cod furnizor servicii medicale",
+      pzsName: "Nume PZS",
+      pzsNameTip: "Numele furnizorului de servicii medicale",
+      additionalIdentifiers: "Identificatori suplimentari",
+      lookupPsc: "Completează codul poștal",
       city: 'Város',
       postalCode: 'Irányítószám',
       taxId: 'Adószám',
@@ -30604,6 +30687,7 @@ export const translations: Record<Locale, Translations> = {
       steps: {
         basic: 'Date de bază',
         source: 'Sursa contactului',
+        referral: "Tip de contact",
         address: 'Adresă',
         web: 'Web și contact',
         settings: 'Setări',
@@ -32662,6 +32746,19 @@ export const translations: Record<Locale, Translations> = {
       userDescription: 'Acces de bază pentru vizualizarea și editarea clienților în țările alocate',
       companyName: 'Numele companiei',
       address: 'Adresa',
+      street: "Via",
+      streetNumber: "Numero civico",
+      orientationNumber: "Numero d'orientamento",
+      ico: "Codice fiscale",
+      icoTip: "Codice fiscale dell'azienda",
+      idZz: "ID ZZ",
+      idZzTip: "Identificativo struttura sanitaria",
+      pzsCode: "Codice PZS",
+      pzsCodeTip: "Codice del fornitore di assistenza sanitaria",
+      pzsName: "Nome PZS",
+      pzsNameTip: "Nome del fornitore di assistenza sanitaria",
+      additionalIdentifiers: "Identificatori aggiuntivi",
+      lookupPsc: "Completa CAP",
       city: 'Oraș',
       postalCode: 'Cod poștal',
       taxId: 'Cod fiscal',
@@ -36253,6 +36350,7 @@ export const translations: Record<Locale, Translations> = {
       steps: {
         basic: 'Dati di base',
         source: 'Fonte del contatto',
+        referral: "Tipo di contatto",
         address: 'Indirizzo',
         web: 'Web e contatto',
         settings: 'Impostazioni',
@@ -38312,6 +38410,19 @@ export const translations: Record<Locale, Translations> = {
       userDescription: 'Accesso base per visualizzare e modificare i clienti nei paesi assegnati',
       companyName: 'Nome azienda',
       address: 'Indirizzo',
+      street: "Straße",
+      streetNumber: "Hausnummer",
+      orientationNumber: "Orientierungsnummer",
+      ico: "Firmen-ID",
+      icoTip: "Identifikationsnummer des Unternehmens",
+      idZz: "ID ZZ",
+      idZzTip: "Identifikator der Gesundheitseinrichtung",
+      pzsCode: "PZS-Code",
+      pzsCodeTip: "Code des Gesundheitsdienstleisters",
+      pzsName: "PZS-Name",
+      pzsNameTip: "Name des Gesundheitsdienstleisters",
+      additionalIdentifiers: "Zusätzliche Kennungen",
+      lookupPsc: "PLZ ergänzen",
       city: 'Città',
       postalCode: 'CAP',
       taxId: 'Partita IVA',
@@ -41903,6 +42014,7 @@ export const translations: Record<Locale, Translations> = {
       steps: {
         basic: 'Grunddaten',
         source: 'Kontaktquelle',
+        referral: "Kontakttyp",
         address: 'Adresse',
         web: 'Web und Kontakt',
         settings: 'Einstellungen',
