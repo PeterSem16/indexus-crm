@@ -940,8 +940,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             const params = new URLSearchParams();
                             if (initialData.email) params.set("compose", initialData.email);
                             params.set("contactSearch", initialData.email || initialData.phone || "");
-                            onOpenChange(false);
-                            setLocation(`/email?${params.toString()}`);
+                            window.open(`/email?${params.toString()}`, "_blank", "noopener,noreferrer");
                           }}
                         >
                           <Mail className="h-3.5 w-3.5" />
@@ -1362,39 +1361,53 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     </CardHeader>
                     <CardContent className="space-y-2 pt-1">
                       <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                        <div className="space-y-1">
-                          <Label className="text-[11px]">{t.clinics.phone}</Label>
-                          <PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" />
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">{t.clinics.phone}</Label>
+                            <div className="flex items-center gap-1">
+                              <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" /></div>
+                              <CallCustomerButton phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                            </div>
+                          </div>
+                          {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
+                            <>
+                              <div className="space-y-1">
+                                <Label className="text-[11px]">{t.clinics.phone} 2</Label>
+                                <div className="flex items-center gap-1">
+                                  <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone2" /></div>
+                                  <CallCustomerButton phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[11px]">{t.clinics.phone} 3</Label>
+                                <div className="flex items-center gap-1">
+                                  <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone3" /></div>
+                                  <CallCustomerButton phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px]">{t.clinics.email}</Label>
-                          <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-8 text-sm" data-testid="input-clinic-email" />
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">{t.clinics.email}</Label>
+                            <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-8 text-sm" data-testid="input-clinic-email" />
+                          </div>
+                          {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
+                            <>
+                              <div className="space-y-1">
+                                <Label className="text-[11px]">{t.clinics.email} 2</Label>
+                                <Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-8 text-sm" data-testid="input-clinic-email2" />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[11px]">{t.clinics.email} 3</Label>
+                                <Input type="email" value={formData.email3} onChange={(e) => setFormData({ ...formData, email3: e.target.value })} placeholder={`${t.clinics.email} 3`} className="h-8 text-sm" data-testid="input-clinic-email3" />
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
-                      {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) ? (
-                        <>
-                          <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                            <div className="space-y-1">
-                              <Label className="text-[11px]">{t.clinics.phone} 2</Label>
-                              <PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone2" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[11px]">{t.clinics.email} 2</Label>
-                              <Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-8 text-sm" data-testid="input-clinic-email2" />
-                            </div>
-                          </div>
-                          <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                            <div className="space-y-1">
-                              <Label className="text-[11px]">{t.clinics.phone} 3</Label>
-                              <PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone3" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[11px]">{t.clinics.email} 3</Label>
-                              <Input type="email" value={formData.email3} onChange={(e) => setFormData({ ...formData, email3: e.target.value })} placeholder={`${t.clinics.email} 3`} className="h-8 text-sm" data-testid="input-clinic-email3" />
-                            </div>
-                          </div>
-                        </>
-                      ) : (
+                      {!(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
                         <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowExtraContacts(true)} data-testid="button-show-extra-contacts">
                           <Plus className="h-3 w-3 mr-1" />
                           {(t.clinics.sections as any)?.addMoreContacts || "Pridať ďalší telefón / email"}
@@ -1643,8 +1656,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                               const params = new URLSearchParams();
                               if (initialData.email) params.set("compose", initialData.email);
                               params.set("contactSearch", initialData.email || initialData.phone || "");
-                              onOpenChange(false);
-                              setLocation(`/email?${params.toString()}`);
+                              window.open(`/email?${params.toString()}`, "_blank", "noopener,noreferrer");
                             }}
                           >
                             <Mail className="h-3.5 w-3.5" />
@@ -1995,27 +2007,41 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     <div className="space-y-3">
                       <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-sky-100 dark:bg-sky-900"><Phone className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.contact || 'Kontakt'}</h3></div>
                       <div className="grid gap-3 sm:grid-cols-2 pl-1">
-                        <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label>
-                          <PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" />
+                        <div className="space-y-3">
+                          <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label>
+                            <div className="flex items-center gap-1">
+                              <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" /></div>
+                              <CallCustomerButton phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                            </div>
+                          </div>
+                          {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
+                            <>
+                              <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 2</Label>
+                                <div className="flex items-center gap-1">
+                                  <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone2" /></div>
+                                  <CallCustomerButton phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                </div>
+                              </div>
+                              <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 3</Label>
+                                <div className="flex items-center gap-1">
+                                  <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone3" /></div>
+                                  <CallCustomerButton phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
-                        <div className="space-y-1"><Label className="text-xs">{t.clinics.email}</Label><Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-9" data-testid="input-clinic-email" /></div>
+                        <div className="space-y-3">
+                          <div className="space-y-1"><Label className="text-xs">{t.clinics.email}</Label><Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-9" data-testid="input-clinic-email" /></div>
+                          {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
+                            <>
+                              <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 2</Label><Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-9" data-testid="input-clinic-email2" /></div>
+                              <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 3</Label><Input type="email" value={formData.email3} onChange={(e) => setFormData({ ...formData, email3: e.target.value })} placeholder={`${t.clinics.email} 3`} className="h-9" data-testid="input-clinic-email3" /></div>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) ? (
-                        <>
-                          <div className="grid gap-3 sm:grid-cols-2 pl-1">
-                            <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 2</Label>
-                              <PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone2" />
-                            </div>
-                            <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 2</Label><Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-9" data-testid="input-clinic-email2" /></div>
-                          </div>
-                          <div className="grid gap-3 sm:grid-cols-2 pl-1">
-                            <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 3</Label>
-                              <PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone3" />
-                            </div>
-                            <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 3</Label><Input type="email" value={formData.email3} onChange={(e) => setFormData({ ...formData, email3: e.target.value })} placeholder={`${t.clinics.email} 3`} className="h-9" data-testid="input-clinic-email3" /></div>
-                          </div>
-                        </>
-                      ) : (
+                      {!(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
                         <div className="pl-1">
                           <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowExtraContacts(true)} data-testid="button-show-extra-contacts-drawer">
                             <Plus className="h-3 w-3 mr-1" />
@@ -2676,27 +2702,41 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   <div className="space-y-3">
                     <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-sky-100 dark:bg-sky-900"><Phone className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.contact || 'Contact'}</h3></div>
                     <div className="grid gap-3 sm:grid-cols-2 pl-1">
-                      <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label>
-                        <PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-add-clinic-phone" />
+                      <div className="space-y-3">
+                        <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label>
+                          <div className="flex items-center gap-1">
+                            <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-add-clinic-phone" /></div>
+                            <CallCustomerButton phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                          </div>
+                        </div>
+                        {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
+                          <>
+                            <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 2</Label>
+                              <div className="flex items-center gap-1">
+                                <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-add-clinic-phone2" /></div>
+                                <CallCustomerButton phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                              </div>
+                            </div>
+                            <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 3</Label>
+                              <div className="flex items-center gap-1">
+                                <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-add-clinic-phone3" /></div>
+                                <CallCustomerButton phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
-                      <div className="space-y-1"><Label className="text-xs">{t.clinics.email}</Label><Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-9" data-testid="input-add-clinic-email" /></div>
+                      <div className="space-y-3">
+                        <div className="space-y-1"><Label className="text-xs">{t.clinics.email}</Label><Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-9" data-testid="input-add-clinic-email" /></div>
+                        {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
+                          <>
+                            <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 2</Label><Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-9" data-testid="input-add-clinic-email2" /></div>
+                            <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 3</Label><Input type="email" value={formData.email3} onChange={(e) => setFormData({ ...formData, email3: e.target.value })} placeholder={`${t.clinics.email} 3`} className="h-9" data-testid="input-add-clinic-email3" /></div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) ? (
-                      <>
-                        <div className="grid gap-3 sm:grid-cols-2 pl-1">
-                          <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 2</Label>
-                            <PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-add-clinic-phone2" />
-                          </div>
-                          <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 2</Label><Input type="email" value={formData.email2} onChange={(e) => setFormData({ ...formData, email2: e.target.value })} placeholder={`${t.clinics.email} 2`} className="h-9" data-testid="input-add-clinic-email2" /></div>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2 pl-1">
-                          <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 3</Label>
-                            <PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-add-clinic-phone3" />
-                          </div>
-                          <div className="space-y-1"><Label className="text-xs">{t.clinics.email} 3</Label><Input type="email" value={formData.email3} onChange={(e) => setFormData({ ...formData, email3: e.target.value })} placeholder={`${t.clinics.email} 3`} className="h-9" data-testid="input-add-clinic-email3" /></div>
-                        </div>
-                      </>
-                    ) : (
+                    {!(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
                       <div className="pl-1">
                         <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowExtraContacts(true)} data-testid="button-show-extra-contacts-add">
                           <Plus className="h-3 w-3 mr-1" />
