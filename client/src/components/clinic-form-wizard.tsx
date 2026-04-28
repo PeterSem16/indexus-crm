@@ -915,7 +915,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
     { key: "history", icon: History, label: t.clinics.steps?.history || "History" },
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
-    { key: "campaigns", icon: Megaphone, label: (t as any).campaigns || "Campaigns" },
+    { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
   ];
 
   const HeaderWrapper = mode === "inline" ? "div" : SheetHeader;
