@@ -410,6 +410,18 @@ function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinic
   );
 }
 
+function CallSlot({ phoneNumber, customerId, customerName }: { phoneNumber?: string; customerId?: string | number; customerName?: string }) {
+  const trimmed = (phoneNumber || "").trim();
+  if (trimmed) {
+    return <CallCustomerButton phoneNumber={trimmed} customerId={customerId} customerName={customerName} variant="icon" />;
+  }
+  return (
+    <Button type="button" size="icon" variant="ghost" disabled className="opacity-40" title="Najprv zadajte telefónne číslo" data-testid="button-call-customer-disabled">
+      <PhoneCall className="h-4 w-4 text-muted-foreground" />
+    </Button>
+  );
+}
+
 export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initialData?: Clinic | null; onSuccess: () => void; onCancel?: () => void }) {
   return (
     <ClinicFormSheet
@@ -1366,7 +1378,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             <Label className="text-[11px]">{t.clinics.phone}</Label>
                             <div className="flex items-center gap-1">
                               <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" /></div>
-                              <CallCustomerButton phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                              <CallSlot phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                             </div>
                           </div>
                           {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
@@ -1375,14 +1387,14 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                                 <Label className="text-[11px]">{t.clinics.phone} 2</Label>
                                 <div className="flex items-center gap-1">
                                   <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone2" /></div>
-                                  <CallCustomerButton phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                  <CallSlot phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                                 </div>
                               </div>
                               <div className="space-y-1">
                                 <Label className="text-[11px]">{t.clinics.phone} 3</Label>
                                 <div className="flex items-center gap-1">
                                   <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone3" /></div>
-                                  <CallCustomerButton phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                  <CallSlot phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                                 </div>
                               </div>
                             </>
@@ -2011,7 +2023,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label>
                             <div className="flex items-center gap-1">
                               <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" /></div>
-                              <CallCustomerButton phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                              <CallSlot phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                             </div>
                           </div>
                           {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
@@ -2019,13 +2031,13 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                               <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 2</Label>
                                 <div className="flex items-center gap-1">
                                   <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone2" /></div>
-                                  <CallCustomerButton phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                  <CallSlot phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                                 </div>
                               </div>
                               <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 3</Label>
                                 <div className="flex items-center gap-1">
                                   <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone3" /></div>
-                                  <CallCustomerButton phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                  <CallSlot phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                                 </div>
                               </div>
                             </>
@@ -2706,7 +2718,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                         <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label>
                           <div className="flex items-center gap-1">
                             <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-add-clinic-phone" /></div>
-                            <CallCustomerButton phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                            <CallSlot phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                           </div>
                         </div>
                         {(formData.phone2 || formData.email2 || formData.phone3 || formData.email3 || showExtraContacts) && (
@@ -2714,13 +2726,13 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 2</Label>
                               <div className="flex items-center gap-1">
                                 <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-add-clinic-phone2" /></div>
-                                <CallCustomerButton phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                <CallSlot phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                               </div>
                             </div>
                             <div className="space-y-1"><Label className="text-xs">{t.clinics.phone} 3</Label>
                               <div className="flex items-center gap-1">
                                 <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-add-clinic-phone3" /></div>
-                                <CallCustomerButton phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} variant="icon" />
+                                <CallSlot phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                               </div>
                             </div>
                           </>
