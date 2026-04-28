@@ -30,3 +30,9 @@ id = "Ebttcabq0UTz5vkDUQX0f"
 uri = "file://exports/INDEXUS_AI_naklady_odhad.md"
 type = "text"
 title = "INDEXUS – Odhad nákladov na AI tokeny"
+
+[[outputs]]
+id = "GBItsP8nWjCOEpn7nibtg"
+uri = "file://attached_assets/import_mapping_report.md"
+type = "text"
+title = "INDEXUS Import – Mapping Report"
