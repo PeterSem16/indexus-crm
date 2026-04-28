@@ -35,6 +35,7 @@ import {
   ChevronDown, ChevronUp, Send, Upload,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { COUNTRY_TO_LOCALE } from "@/i18n/translations";
 import {
   Dialog,
   DialogContent,
@@ -608,6 +609,21 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
       else if (allEmailAccounts[0]) setSelectedFromAccount(allEmailAccounts[0].id);
     }
   }, [emailComposeOpen, allEmailAccounts, selectedFromAccount]);
+
+  const clinicLocale = useMemo(() => {
+    const c = (initialData?.country || formData.country || "SK").toUpperCase();
+    return (COUNTRY_TO_LOCALE as any)[c] || "sk";
+  }, [initialData?.country, formData.country]);
+
+  const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null; language: string | null }[]>({
+    queryKey: ["/api/message-templates", "email", clinicLocale],
+    queryFn: async () => {
+      const res = await fetch(`/api/message-templates?type=email&isActive=true&language=${clinicLocale}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: emailComposeOpen,
+  });
 
   const { data: networkMembershipsSheet = [] } = useQuery<any[]>({
     queryKey: ["/api/hospital-network-memberships"],
@@ -1678,6 +1694,36 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             </Badge>
                           )}
                         </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {(t.configuration as any)?.messageTemplates || "Template"}
+                </Label>
+                <Select
+                  onValueChange={(templateId) => {
+                    const template = emailTemplates.find((tpl) => tpl.id === templateId);
+                    if (template) {
+                      setEmailSubject(template.subject || "");
+                      setEmailMessage(template.contentHtml || template.content || "");
+                      fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
+                    }
+                  }}
+                  disabled={emailTemplates.length === 0}
+                >
+                  <SelectTrigger data-testid="select-email-template-clinic" className="text-sm">
+                    <SelectValue placeholder={emailTemplates.length === 0
+                      ? ((t.konfigurator as any)?.noMessageTemplates || "No templates")
+                      : ((t.configuration as any)?.selectTemplate || "Select template")}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {emailTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
