@@ -441,6 +441,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const [postalLookupLoading, setPostalLookupLoading] = useState(false);
   const [identifiersOpen, setIdentifiersOpen] = useState(false);
   const [showMapDialog, setShowMapDialog] = useState(false);
+  const [emailDialogUrl, setEmailDialogUrl] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [pipelineMenuOpen, setPipelineMenuOpen] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -952,7 +953,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             const params = new URLSearchParams();
                             if (initialData.email) params.set("compose", initialData.email);
                             params.set("contactSearch", initialData.email || initialData.phone || "");
-                            window.open(`/email?${params.toString()}`, "_blank");
+                            setEmailDialogUrl(`/email?${params.toString()}`);
                           }}
                         >
                           <Mail className="h-3.5 w-3.5" />
@@ -1555,6 +1556,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   );
 
   const mapDialog = (
+    <>
       <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -1575,6 +1577,19 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={!!emailDialogUrl} onOpenChange={(o) => { if (!o) setEmailDialogUrl(null); }}>
+        <DialogContent className="max-w-6xl w-[95vw] h-[85vh] p-0 gap-0 flex flex-col">
+          <DialogHeader className="px-4 py-2 border-b shrink-0">
+            <DialogTitle className="text-sm">Email</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {emailDialogUrl && (
+              <iframe src={emailDialogUrl} className="w-full h-full border-0" title="Email" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 
   if (mode === "inline") {
@@ -1620,7 +1635,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                               const params = new URLSearchParams();
                               if (initialData.email) params.set("compose", initialData.email);
                               params.set("contactSearch", initialData.email || initialData.phone || "");
-                              window.open(`/email?${params.toString()}`, "_blank");
+                              setEmailDialogUrl(`/email?${params.toString()}`);
                             }}
                           >
                             <Mail className="h-3.5 w-3.5" />
