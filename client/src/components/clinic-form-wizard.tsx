@@ -952,7 +952,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             const params = new URLSearchParams();
                             if (initialData.email) params.set("compose", initialData.email);
                             params.set("contactSearch", initialData.email || initialData.phone || "");
-                            window.open(`/email?${params.toString()}`, "_blank", "noopener,noreferrer");
+                            onOpenChange(false); setLocation(`/email?${params.toString()}`);
                           }}
                         >
                           <Mail className="h-3.5 w-3.5" />
@@ -1238,57 +1238,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2 pt-1">
-                      <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                        <div className="space-y-1">
-                          <Label className="text-[11px]">{t.clinics.name} *</Label>
-                          <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.clinics.name} className="h-8 text-sm" data-testid="input-clinic-name" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px]">{t.common.country} *</Label>
-                          <Select value={formData.countryCode} onValueChange={(value) => { const newRegion = getAutoRegion(value, formData.city); const newDistrict = getAutoDistrict(value, formData.city); setFormData({ ...formData, countryCode: value, region: newRegion || "", district: newDistrict || "" }); }}>
-                            <SelectTrigger data-testid="select-clinic-country" className="h-8 text-sm"><SelectValue placeholder={t.common.country} /></SelectTrigger>
-                            <SelectContent>
-                              {COUNTRIES.map((country) => (
-                                <SelectItem key={country.code} value={country.code}>{getCountryFlag(country.code)} {country.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px]">{getGeoLabels(formData.countryCode).region}</Label>
-                          <div className="flex items-center gap-1">
-                            <Select value={formData.region || ""} onValueChange={(value) => setFormData({ ...formData, region: value, district: "" })}>
-                              <SelectTrigger data-testid="select-clinic-region" className="h-8 text-sm"><SelectValue placeholder={getGeoLabels(formData.countryCode).region} /></SelectTrigger>
-                              <SelectContent>
-                                {(REGIONS_BY_COUNTRY[formData.countryCode] || []).map((r: string) => (
-                                  <SelectItem key={r} value={r}>{r}</SelectItem>
-                                ))}
-                                {formData.region && !(REGIONS_BY_COUNTRY[formData.countryCode] || []).includes(formData.region) && (
-                                  <SelectItem value={formData.region}>{formData.region}</SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
-                            <SuggestRegionButton
-                              countryCode={formData.countryCode}
-                              city={formData.city}
-                              streetNumber={[formData.street, [formData.streetNumber, formData.orientationNumber].filter(Boolean).join("/")].filter(Boolean).join(" ") || formData.address}
-                              postalCode={formData.postalCode}
-                              size="icon"
-                              onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px]">{getGeoLabels(formData.countryCode).district}</Label>
-                          <Select value={formData.district || ""} onValueChange={(value) => setFormData({ ...formData, district: value })}>
-                            <SelectTrigger data-testid="select-clinic-district" className="h-8 text-sm"><SelectValue placeholder={getGeoLabels(formData.countryCode).district} /></SelectTrigger>
-                            <SelectContent>
-                              {getDistrictsForRegion(formData.countryCode, formData.region, formData.district).map((d: string) => (
-                                <SelectItem key={d} value={d}>{d}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">{t.clinics.name} *</Label>
+                        <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.clinics.name} className="h-8 text-sm" data-testid="input-clinic-name" />
                       </div>
                       <Separator className="my-1" />
                       <div className="grid gap-x-3 gap-y-2 grid-cols-3">
@@ -1668,7 +1620,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                               const params = new URLSearchParams();
                               if (initialData.email) params.set("compose", initialData.email);
                               params.set("contactSearch", initialData.email || initialData.phone || "");
-                              window.open(`/email?${params.toString()}`, "_blank", "noopener,noreferrer");
+                              onOpenChange(false); setLocation(`/email?${params.toString()}`);
                             }}
                           >
                             <Mail className="h-3.5 w-3.5" />
@@ -2201,6 +2153,17 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
 
                 {activeTab === "address" && (
                   <div className="space-y-4 pb-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t.common.country} *</Label>
+                      <Select value={formData.countryCode} onValueChange={(value) => { const newRegion = getAutoRegion(value, formData.city); const newDistrict = getAutoDistrict(value, formData.city); setFormData({ ...formData, countryCode: value, region: newRegion || "", district: newDistrict || "" }); }}>
+                        <SelectTrigger data-testid="select-clinic-country" className="h-9"><SelectValue placeholder={t.common.country} /></SelectTrigger>
+                        <SelectContent>
+                          {COUNTRIES.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>{getCountryFlag(country.code)} {country.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="space-y-1 sm:col-span-3 md:col-span-1">
                         <Label className="text-xs">{t.clinics.street}</Label>
