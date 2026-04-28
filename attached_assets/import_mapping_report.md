@@ -3,7 +3,7 @@
 > Read-only analýza CSV → cieľové DB polia. Žiadny zápis sa neudial.
 
 **CSV súbor:** `attached_assets/indexus_gyn_data_import_1777373378251.csv`
-**Vygenerované:** 2026-04-28T11:36:25.293Z
+**Vygenerované:** 2026-04-28T11:43:34.218Z
 
 ## 1. Zhrnutie
 
@@ -134,6 +134,7 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "website": "https://agyn.sk",
   "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P65281009201",
+  "pzs_name": "P65281009201 – gynekológia a pôrodníctvo; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01 | P65281130201 – nezistené v lokálnom číselníku; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01 | P65281247201 – ultrazvuk v gynekológii a pôrodníctve; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01 | P65281247502 – ultrazvuk v gynekológii a pôrodníctve; pracovisko / doplnkový útvar; poradové číslo 02",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Dagmar",
   "doctor_last_name": "Psalmanová",
@@ -190,6 +191,7 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "website": "https://cytologia.sk",
   "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P65983009201",
+  "pzs_name": "P65983009201 – gynekológia a pôrodníctvo; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Gőghová",
   "doctor_last_name": "Angelika",
@@ -253,6 +255,7 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "website": "https://komlife.eu",
   "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P39081009201",
+  "pzs_name": "P39081009201 – gynekológia a pôrodníctvo; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Anna",
   "doctor_last_name": "Bašternáková",
@@ -295,6 +298,7 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "website": "https://poskytovatelia.dovera.sk",
   "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P23054009201",
+  "pzs_name": "P23054009201 – gynekológia a pôrodníctvo; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01 | P23054247201 – ultrazvuk v gynekológii a pôrodníctve; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01 | P23054247501 – ultrazvuk v gynekológii a pôrodníctve; pracovisko / doplnkový útvar; poradové číslo 01",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Anton",
   "doctor_last_name": "Čunderlík",
@@ -358,6 +362,7 @@ Lekár-vedúci kliniky (`primary_contact_person`) sa **navyše** zapíše aj do 
   "website": "https://www.objednatvysetrenie.sk",
   "website_source": "fallback z websites_all/source_urls (root, bez portálov)",
   "pzs_code": "P67180009201",
+  "pzs_name": "P67180009201 – gynekológia a pôrodníctvo; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01",
   "doctor_title": "MUDr.",
   "doctor_first_name": "Kristína",
   "doctor_last_name": "Biskupská Boďová",

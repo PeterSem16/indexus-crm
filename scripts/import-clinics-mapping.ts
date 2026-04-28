@@ -527,6 +527,7 @@ async function main() {
                 ? "website_primary (root)"
                 : "fallback z websites_all/source_urls (root, bez portálov)",
           pzs_code: get(r, "kod_pzs_primary"),
+          pzs_name: get(r, "kod_pzs_description"),
           doctor_title: primary?.titleBefore ?? null,
           doctor_first_name: primary?.firstName ?? null,
           doctor_last_name: primary?.lastName ?? null,
