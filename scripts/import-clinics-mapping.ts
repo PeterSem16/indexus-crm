@@ -255,23 +255,23 @@ type FieldMapping = {
 };
 
 const FIELD_MAP: FieldMapping[] = [
-  { csv: "external_id", target: "clinics.legacy_id", transform: "trim", note: "UPSERT key (primary)" },
+  { csv: "external_id", target: "ignored", transform: "—", note: "do legacy_id NEZAPISOVAŤ; hodnota je rovnaká ako id_zz" },
   { csv: "source_system", target: "ignored", transform: "—", note: "len pre log" },
   { csv: "record_type", target: "ignored", transform: "filter == medical_provider_practice", note: "filter, neukladá sa" },
   { csv: "country_code", target: "clinics.country_code", transform: "trim, default SK" },
-  { csv: "provider_name", target: "clinics.name", transform: "trim", note: "povinné" },
+  { csv: "provider_name", target: "clinics.name", transform: "trim", note: "povinné + UPSERT key (sekundárny – fuzzy match s city)" },
   { csv: "legal_name", target: "clinics.notes (append)", transform: "ak ≠ provider_name → 'Právny názov: …'" },
-  { csv: "ico", target: "clinics.ico", transform: "trim, len číslice", note: "UPSERT key (sekundárny)" },
-  { csv: "id_zz", target: "clinics.id_zz", transform: "trim", note: "UPSERT key (terciárny – stabilný kľúč ZZ)" },
+  { csv: "ico", target: "clinics.ico", transform: "trim, len číslice", note: "iba uloženie; NEPOUŽÍVA SA ako match key (jedno IČO môže mať viac ambulancií)" },
+  { csv: "id_zz", target: "clinics.id_zz", transform: "trim", note: "UPSERT key (PRIMÁRNY – stabilný kľúč ambulancie)" },
   { csv: "primary_specialty", target: "clinics.notes (append)", transform: "'Špecializácia: …' (en kľúč → SK label v notes)" },
   { csv: "kod_pzs_primary", target: "clinics.pzs_code", transform: "trim" },
   { csv: "kod_pzs_all", target: "clinics.notes (append)", transform: "split('|') → 'Všetky kódy PZS: a, b, c'" },
   { csv: "kod_pzs_count", target: "ignored", transform: "—", note: "derivovateľné" },
   { csv: "kod_pzs_description", target: "clinics.pzs_name", transform: "trim, max ~ TEXT" },
-  { csv: "weekly_office_hours", target: "clinics.notes (append)", transform: "'Týž. ord. hodiny: X h'", note: "žiadne dedikované pole" },
-  { csv: "insurance_vszp", target: "clinics.notes (append)", transform: "1/0 → 'Poisťovňa VšZP: áno/nie'" },
-  { csv: "insurance_dovera", target: "clinics.notes (append)", transform: "1/0 → 'Poisťovňa Dôvera: áno/nie'" },
-  { csv: "insurance_union", target: "clinics.notes (append)", transform: "1/0 → 'Poisťovňa Union: áno/nie'" },
+  { csv: "weekly_office_hours", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "insurance_vszp", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "insurance_dovera", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "insurance_union", target: "ignored", transform: "—", note: "neprenášať" },
   { csv: "street", target: "clinics.street", transform: "trim" },
   { csv: "building_number", target: "clinics.street_number", transform: "trim" },
   { csv: "orientation_number", target: "clinics.orientation_number", transform: "trim" },
@@ -283,34 +283,57 @@ const FIELD_MAP: FieldMapping[] = [
   { csv: "primary_phone", target: "clinics.phone", transform: "normalizePhone (+421…)" },
   { csv: "phone_2", target: "clinics.phone2", transform: "normalizePhone" },
   { csv: "phone_3", target: "clinics.phone3", transform: "normalizePhone" },
-  { csv: "phone_4", target: "clinics.notes (append)", transform: "'Tel. 4: …'", note: "žiadne pole phone4" },
-  { csv: "phone_5", target: "clinics.notes (append)", transform: "'Tel. 5: …'" },
-  { csv: "phone_6", target: "clinics.notes (append)", transform: "'Tel. 6: …'" },
+  { csv: "phone_4", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "phone_5", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "phone_6", target: "ignored", transform: "—", note: "neprenášať" },
   { csv: "phones_all", target: "ignored", transform: "—", note: "už rozparsované" },
   { csv: "primary_email", target: "clinics.email", transform: "trim, lower" },
   { csv: "email_2", target: "clinics.email2", transform: "trim, lower" },
   { csv: "email_3", target: "clinics.email3", transform: "trim, lower" },
-  { csv: "email_4", target: "clinics.notes (append)", transform: "'Email 4: …'" },
-  { csv: "email_5", target: "clinics.notes (append)", transform: "'Email 5: …'" },
+  { csv: "email_4", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "email_5", target: "ignored", transform: "—", note: "neprenášať" },
   { csv: "emails_all", target: "ignored", transform: "—" },
-  { csv: "primary_contact_person", target: "clinics.doctor_* + collaborators[0]", transform: "parsePersonName → doctor_title/first/last + vytvorí osobu (is_primary=true)" },
+  { csv: "primary_contact_person", target: "clinics.doctor_* + collaborators[0]", transform: "parsePersonName → doctor_title/first/last/title_after + doctor_name + vytvorí osobu (is_primary=true)" },
   { csv: "contact_person_2", target: "collaborators[1]", transform: "parsePersonName → ďalšia osoba (is_primary=false)" },
   { csv: "contact_person_3", target: "collaborators[2]", transform: "parsePersonName" },
   { csv: "contact_person_4", target: "collaborators[3]", transform: "parsePersonName" },
   { csv: "contact_person_5", target: "collaborators[4]", transform: "parsePersonName" },
   { csv: "contact_person_6", target: "collaborators[5]", transform: "parsePersonName" },
   { csv: "contact_persons_all", target: "ignored", transform: "—" },
-  { csv: "website_primary", target: "clinics.website", transform: "trim" },
-  { csv: "websites_all", target: "clinics.notes (append)", transform: "split('|') → 'Ďalšie weby: …' (bez primary)" },
-  { csv: "source_urls", target: "clinics.notes (append)", transform: "'Zdroj URL: …'" },
-  { csv: "source_files", target: "clinics.notes (append)", transform: "'Zdroj súbory: …'" },
+  { csv: "website_primary", target: "clinics.website", transform: "trim, normalizeUrl" },
+  { csv: "websites_all", target: "clinics.website (fallback)", transform: "ak website_primary prázdny → vyber prvú ktorá obsahuje 'www.' a NIE 'e-vuc'" },
+  { csv: "source_urls", target: "clinics.website (fallback)", transform: "ak website stále prázdny → vyber prvú ktorá obsahuje 'www.' a NIE 'e-vuc'" },
+  { csv: "source_files", target: "ignored", transform: "—", note: "neprenášať" },
   { csv: "notes", target: "clinics.notes (append)", transform: "raw" },
-  { csv: "contact_enriched_from_web", target: "clinics.notes (append)", transform: "ak ='1' → 'Kontakt obohatený z webu: áno'" },
-  { csv: "contact_enriched_source_url", target: "clinics.notes (append)", transform: "'Zdroj obohatenia: …'" },
-  { csv: "contact_enriched_note", target: "clinics.notes (append)", transform: "raw" },
-  { csv: "import_tags", target: "clinics.tags", transform: "split(';') → text[]" },
-  { csv: "data_quality_flags", target: "clinics.notes (append)", transform: "'Quality flags: …'" },
+  { csv: "contact_enriched_from_web", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "contact_enriched_source_url", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "contact_enriched_note", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "import_tags", target: "ignored", transform: "—", note: "neprenášať" },
+  { csv: "data_quality_flags", target: "ignored", transform: "—", note: "neprenášať" },
 ];
+
+// ────────────────────────────────────────────────────────────────────────────
+// Pomocná funkcia – výber webovej stránky kliniky z piped zoznamu URL
+// (preferuje URL obsahujúce "www.", vylučuje portálové stránky e-vuc.sk)
+// ────────────────────────────────────────────────────────────────────────────
+function pickClinicWebsite(piped: string | null | undefined): string | null {
+  if (!piped) return null;
+  const candidates = splitPipe(piped)
+    .filter((u) => /^https?:\/\//i.test(u))
+    .filter((u) => u.toLowerCase().includes("www."))
+    .filter((u) => !/e-vuc\.sk/i.test(u));
+  return candidates[0] ?? null;
+}
+
+function normalizeName(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // MAIN
@@ -384,10 +407,16 @@ async function main() {
     }
 
     if (samples.length < SAMPLE_COUNT) {
+      const websitePrimary = get(r, "website_primary");
+      const websiteFallback =
+        websitePrimary ??
+        pickClinicWebsite(get(r, "websites_all")) ??
+        pickClinicWebsite(get(r, "source_urls"));
+      const primary = parsedPersons[0] ?? null;
       samples.push({
         rowNumber: i + 2,
         clinic: {
-          legacy_id: ext,
+          legacy_id: null,
           name: get(r, "provider_name"),
           ico,
           id_zz: idZz,
@@ -401,11 +430,24 @@ async function main() {
           phone: get(r, "primary_phone"),
           phone2: get(r, "phone_2"),
           email: get(r, "primary_email"),
-          website: get(r, "website_primary"),
+          website: websiteFallback,
+          website_source:
+            websitePrimary ? "website_primary"
+              : pickClinicWebsite(get(r, "websites_all")) ? "websites_all (www-only, bez e-vuc)"
+              : pickClinicWebsite(get(r, "source_urls")) ? "source_urls (www-only, bez e-vuc)"
+              : "—",
           pzs_code: get(r, "kod_pzs_primary"),
-          tags: splitTags(get(r, "import_tags") ?? ""),
+          doctor_title: primary?.titleBefore ?? null,
+          doctor_first_name: primary?.firstName ?? null,
+          doctor_last_name: primary?.lastName ?? null,
+          doctor_name: primary
+            ? [primary.titleBefore, primary.firstName, primary.lastName, primary.titleAfter ? `, ${primary.titleAfter}` : null]
+                .filter(Boolean)
+                .join(" ")
+                .replace(/\s+,/g, ",")
+            : null,
         },
-        primaryPerson: parsedPersons[0] ?? null,
+        primaryPerson: primary,
         otherPersons: parsedPersons.slice(1),
       });
     }
@@ -420,43 +462,66 @@ async function main() {
       ico: clinics.ico,
       idZz: clinics.idZz,
       name: clinics.name,
+      city: clinics.city,
     })
     .from(clinics);
 
-  const byLegacy = new Map<string, (typeof existingClinics)[0]>();
-  const byIco = new Map<string, (typeof existingClinics)[0][]>();
   const byIdZz = new Map<string, (typeof existingClinics)[0]>();
+  // index podľa normalizovaný názov + mesto (fuzzy match)
+  const byNameCity = new Map<string, (typeof existingClinics)[0][]>();
+  // index iba podľa názvu (pre prípad keď CSV nemá city)
+  const byName = new Map<string, (typeof existingClinics)[0][]>();
   for (const c of existingClinics) {
-    if (c.legacyId) byLegacy.set(c.legacyId, c);
     if (c.idZz) byIdZz.set(c.idZz, c);
-    if (c.ico) {
-      const arr = byIco.get(c.ico) ?? [];
+    const nName = normalizeName(c.name);
+    if (nName) {
+      const nCity = normalizeName(c.city);
+      const key = `${nName}|${nCity}`;
+      const arr = byNameCity.get(key) ?? [];
       arr.push(c);
-      byIco.set(c.ico, arr);
+      byNameCity.set(key, arr);
+      const arrN = byName.get(nName) ?? [];
+      arrN.push(c);
+      byName.set(nName, arrN);
     }
   }
 
-  let matchByLegacy = 0;
   let matchByIdZz = 0;
-  let matchByIco = 0;
+  let matchByNameCity = 0;
+  let nameAmbiguous = 0; // viac DB kliník zhoduje s názvom+mestom – treba manuál
   let willInsert = 0;
   const csvIcoCount = new Map<string, number>();
-  for (const r of dataRows) {
+  const ambiguousNameSamples: { row: number; name: string; city: string | null; matches: number }[] = [];
+  for (let i = 0; i < dataRows.length; i++) {
+    const r = dataRows[i];
     if (get(r, "record_type") !== "medical_provider_practice") continue;
-    const ext = get(r, "external_id");
     const idZz = get(r, "id_zz");
     const ico = get(r, "ico");
+    const name = get(r, "provider_name");
+    const city = get(r, "city");
     if (ico) csvIcoCount.set(ico, (csvIcoCount.get(ico) ?? 0) + 1);
     let matched = false;
-    if (ext && byLegacy.has(ext)) {
-      matchByLegacy++;
-      matched = true;
-    } else if (idZz && byIdZz.has(idZz)) {
+    if (idZz && byIdZz.has(idZz)) {
       matchByIdZz++;
       matched = true;
-    } else if (ico && byIco.has(ico)) {
-      matchByIco++;
-      matched = true;
+    } else if (name) {
+      const key = `${normalizeName(name)}|${normalizeName(city)}`;
+      const candidates = byNameCity.get(key) ?? [];
+      if (candidates.length === 1) {
+        matchByNameCity++;
+        matched = true;
+      } else if (candidates.length > 1) {
+        nameAmbiguous++;
+        matched = true; // zarátame ako "match" ale nezapíše sa, kým sa nerozhodne
+        if (ambiguousNameSamples.length < 30) {
+          ambiguousNameSamples.push({
+            row: i + 2,
+            name,
+            city,
+            matches: candidates.length,
+          });
+        }
+      }
     }
     if (!matched) willInsert++;
   }
@@ -491,11 +556,11 @@ async function main() {
   md.push(`| Unikátnych \`id_zz\` | ${idZzSet.size} |`);
   md.push(`| Osôb na extrakciu (kontaktné osoby spolu) | ${personsTotal} |`);
   md.push(`| **Existujúcich kliník v DB** | ${existingClinics.length} |`);
-  md.push(`| Match podľa \`legacy_id\` (= external_id) | ${matchByLegacy} |`);
   md.push(`| Match podľa \`id_zz\` | ${matchByIdZz} |`);
-  md.push(`| Match podľa \`ICO\` | ${matchByIco} |`);
+  md.push(`| Match podľa názvu + mesta (1 zhoda) | ${matchByNameCity} |`);
+  md.push(`| ⚠ Nejednoznačný match podľa názvu + mesta (>1 zhody) | ${nameAmbiguous} |`);
   md.push(`| **Nové kliniky (INSERT)** | ${willInsert} |`);
-  md.push(`| **UPDATE kliník** | ${matchByLegacy + matchByIdZz + matchByIco} |`);
+  md.push(`| **UPDATE kliník (jednoznačný match)** | ${matchByIdZz + matchByNameCity} |`);
   md.push(`| Existujúcich osôb (collaborators) v DB | ${collabCount} |`);
   md.push(`| Existujúcich väzieb klinika↔osoba | ${assignmentCount} |`);
   md.push(``);
@@ -503,18 +568,25 @@ async function main() {
   md.push(``);
   md.push(`Klinika sa hľadá v tomto poradí (prvý nájdený match vyhráva):`);
   md.push(``);
-  md.push(`1. \`clinics.legacy_id\` = CSV \`external_id\` *(najpresnejšie – stabilný kľúč zo zdrojového systému)*`);
-  md.push(`2. \`clinics.id_zz\` = CSV \`id_zz\``);
-  md.push(`3. \`clinics.ico\` = CSV \`ico\` *(POZOR: ICO nie je unikátne – jedno IČO môže mať viac ambulancií. Ak match vráti viac kliník, riadok sa OZNAČÍ a NEZAPÍŠE bez manuálneho rozhodnutia.)*`);
+  md.push(`1. \`clinics.id_zz\` = CSV \`id_zz\` *(PRIMÁRNY – stabilný kľúč ambulancie zo SK ZZ číselníka)*`);
+  md.push(`2. **Fuzzy match podľa názvu + mesta** – \`normalize(clinics.name) = normalize(provider_name)\` AND \`normalize(clinics.city) = normalize(city)\``);
+  md.push(`   - normalizácia: lowercase, odstrániť diakritiku, ne-alfanumerické znaky → medzera, trim`);
+  md.push(`   - **ak sa nájde 1 zhoda → UPDATE**`);
+  md.push(`   - **ak sa nájde >1 zhoda → riadok sa NEZAPÍŠE**, vypíše sa do reportu (sekcia 5) na manuálne rozhodnutie`);
+  md.push(`   - ak sa nenájde žiadna → INSERT (nová klinika)`);
+  md.push(``);
+  md.push(`**\`ICO\` sa NEPOUŽÍVA ako match key** – jedno IČO môže patriť viacerým ambulanciám tej istej firmy. Hodnota IČO sa však zapíše do \`clinics.ico\` (pri INSERT) ale pri UPDATE existujúce IČO nemažeme.`);
+  md.push(``);
+  md.push(`**\`legacy_id\` sa NEZAPISUJE** – pri INSERT zostane \`NULL\`, pri UPDATE existujúca hodnota zostane nedotknutá.`);
   md.push(``);
   md.push(`Osoby (kontaktné):`);
   md.push(``);
   md.push(`- pre každý riadok CSV sa spracuje 1–6 kontaktných osôb (\`primary_contact_person\` + \`contact_person_2..6\`)`);
-  md.push(`- match osoby v DB: \`collaborators.last_name\` + \`collaborators.first_name\` (case-insensitive) v rámci tej istej kliniky`);
+  md.push(`- match osoby v DB: \`collaborators.last_name\` + \`collaborators.first_name\` (case-insensitive, normalized) v rámci tej istej kliniky`);
   md.push(`- ak osoba v DB neexistuje → INSERT do \`collaborators\` + INSERT do \`contact_assignments(entity_type='clinic', entity_id=clinic.id, is_primary=…)\``);
   md.push(`- ak existuje → UPDATE základných polí (titly, telefón, email iba ak sú v CSV vyplnené a v DB prázdne; UPSERT NIKDY nemaže existujúce hodnoty)`);
   md.push(``);
-  md.push(`Lekár-vedúci kliniky (\`primary_contact_person\`) sa **navyše** zapíše aj do polí klinky \`doctor_title\`, \`doctor_first_name\`, \`doctor_last_name\`, \`doctor_name\` (kvôli kompatibilite s formulárom), ak sú prázdne.`);
+  md.push(`Lekár-vedúci kliniky (\`primary_contact_person\`) sa **navyše** zapíše aj do polí kliniky \`doctor_title\`, \`doctor_first_name\`, \`doctor_last_name\`, \`doctor_name\` (kvôli kompatibilite s formulárom), ak sú prázdne.`);
   md.push(``);
   md.push(`## 3. Mapovanie CSV → DB (návrh)`);
   md.push(``);
@@ -566,18 +638,33 @@ async function main() {
     md.push(``);
   });
 
-  md.push(`## 5. Duplicity / problémy v CSV`);
+  md.push(`## 5. Duplicity / problémy v CSV a v DB`);
   md.push(``);
   if (csvDuplicateIcos.length) {
-    md.push(`### Viacnásobné riadky s rovnakým ICO (${csvDuplicateIcos.length})`);
+    md.push(`### Viacnásobné riadky s rovnakým ICO v CSV (${csvDuplicateIcos.length})`);
     md.push(``);
-    md.push(`Tieto IČO sa v CSV vyskytujú viackrát – pre nich sa UPSERT bude opierať o \`external_id\` alebo \`id_zz\`, nie o \`ico\`:`);
+    md.push(`Tieto IČO sa v CSV vyskytujú viackrát (jedna firma = viac ambulancií). **Všetky riadky sa pridajú** – match prebehne podľa \`id_zz\` resp. názvu+mesta, nie podľa IČO:`);
     md.push(``);
     csvDuplicateIcos.slice(0, 50).forEach(([ico, n]) => md.push(`- \`${ico}\` × ${n}`));
     if (csvDuplicateIcos.length > 50) md.push(`- … a ďalších ${csvDuplicateIcos.length - 50}`);
     md.push(``);
   } else {
     md.push(`Všetky ICO v CSV sú unikátne. ✓`);
+    md.push(``);
+  }
+  if (ambiguousNameSamples.length) {
+    md.push(`### ⚠ Nejednoznačný match podľa názvu + mesta (${nameAmbiguous} riadkov)`);
+    md.push(``);
+    md.push(`Pre tieto CSV riadky existuje v DB **viac ako jedna klinika** s rovnakým normalizovaným názvom a mestom – import ich **NEZAPÍŠE**, kým sa nerozhodne ručne ktorú aktualizovať. Ukážka prvých ${ambiguousNameSamples.length}:`);
+    md.push(``);
+    ambiguousNameSamples.forEach((a) =>
+      md.push(`- riadok ${a.row}: **${a.name}** (${a.city ?? "—"}) → ${a.matches} kandidátov v DB`),
+    );
+    if (nameAmbiguous > ambiguousNameSamples.length)
+      md.push(`- … a ďalších ${nameAmbiguous - ambiguousNameSamples.length}`);
+    md.push(``);
+  } else if (matchByNameCity > 0) {
+    md.push(`Všetky fuzzy matche podľa názvu + mesta sú jednoznačné. ✓`);
     md.push(``);
   }
   if (personWarnings.length) {
@@ -610,16 +697,12 @@ async function main() {
   md.push(``);
   md.push(`## 7. Otvorené otázky pre teba (potvrď / oprav)`);
   md.push(``);
-  md.push(`1. **\`primary_specialty\`** (\`gynecology_obstetrics\`) – mám ho zapísať len do \`notes\`, alebo chceš ho mapovať na nejakú iné pole (napr. nový \`primary_specialty\` stĺpec)?`);
-  md.push(`2. **Poisťovne** (\`insurance_vszp/dovera/union\`) – stačí v \`notes\`, alebo chceš preto vytvoriť relácie cez \`health_insurance_companies\` (vyžaduje schema change)?`);
-  md.push(`3. **Telefóny 4–6, e-maily 4–5** – aktuálne idú do \`notes\`. OK, alebo majú ísť do \`contact_channels\` (per-osoba)?`);
-  md.push(`4. **\`primary_contact_person\`** – má sa skopírovať do \`clinics.doctor_*\` polí len ak sú prázdne, alebo vždy prepísať?`);
-  md.push(`5. **Tagy** (\`import_tags\`) – navrhujem doplniť každej importovanej klinike navyše tag \`indexus_import_2026_04\` na ľahkú identifikáciu. OK?`);
-  md.push(`6. **Match podľa ICO** – ak existuje viac kliník s rovnakým ICO, navrhujem riadok preskočiť a zalogovať. Alebo radšej priradiť k tej s najpresnejším id_zz?`);
-  md.push(`7. **Polia, ktoré v CSV chýbajú** (napr. \`postal_code\`, \`latitude/longitude\`) – nechať existujúce hodnoty v DB nedotknuté pri UPDATE? *(odporúčané)*`);
+  md.push(`1. **\`primary_contact_person\` → \`clinics.doctor_*\`** – navrhujem prepísať len ak sú DB polia prázdne (UPSERT NIKDY nemaže). OK, alebo vždy prepísať?`);
+  md.push(`2. **Fuzzy match podľa názvu + mesta** – aktuálne porovnávam normalizovaný (lowercase, bez diakritiky) názov a mesto presne. Ak chceš tolerantnejší match (napr. Levenshtein vzdialenosť), daj vedieť.`);
+  md.push(`3. **Website fallback** – ak \`website_primary\` je prázdny, vyberiem prvú URL z \`websites_all\`/\`source_urls\` ktorá obsahuje \`www.\` a nie \`e-vuc.sk\`. Ak chceš inú filtračnú logiku, daj vedieť.`);
   md.push(``);
 
-  md.push(`## 7. Ďalšie kroky`);
+  md.push(`## 8. Ďalšie kroky`);
   md.push(``);
   md.push(`Po tom, čo schváliš (alebo upravíš) toto mapovanie, pripravím zápisový script \`scripts/import-clinics-write.ts\` s týmito vlastnosťami:`);
   md.push(``);
@@ -647,11 +730,11 @@ async function main() {
   console.log(`  • Unikátnych ICO:            ${icoSet.size}`);
   console.log(`  • Osôb na extrakciu:         ${personsTotal}`);
   console.log(`  • Existujúce kliniky v DB:   ${existingClinics.length}`);
-  console.log(`  • Match by legacy_id:        ${matchByLegacy}`);
   console.log(`  • Match by id_zz:            ${matchByIdZz}`);
-  console.log(`  • Match by ICO:              ${matchByIco}`);
+  console.log(`  • Match by name+city (1×):   ${matchByNameCity}`);
+  console.log(`  • ⚠ Nejednoznačné by name:   ${nameAmbiguous}  (NEZAPÍŠU sa, treba manuál)`);
   console.log(`  • → INSERT (nové kliniky):   ${willInsert}`);
-  console.log(`  • → UPDATE (existujúce):     ${matchByLegacy + matchByIdZz + matchByIco}`);
+  console.log(`  • → UPDATE (jednoznačné):    ${matchByIdZz + matchByNameCity}`);
   if (unmapped.length) {
     console.log(``);
     console.log(`  ⚠ ${unmapped.length} CSV stĺpcov bez mapovania:`);
