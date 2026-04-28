@@ -952,7 +952,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                             const params = new URLSearchParams();
                             if (initialData.email) params.set("compose", initialData.email);
                             params.set("contactSearch", initialData.email || initialData.phone || "");
-                            onOpenChange(false); setLocation(`/email?${params.toString()}`);
+                            window.open(`/email?${params.toString()}`, "email-compose", "width=1100,height=750,left=200,top=100,resizable=yes,scrollbars=yes,noopener,noreferrer");
                           }}
                         >
                           <Mail className="h-3.5 w-3.5" />
@@ -1620,7 +1620,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                               const params = new URLSearchParams();
                               if (initialData.email) params.set("compose", initialData.email);
                               params.set("contactSearch", initialData.email || initialData.phone || "");
-                              onOpenChange(false); setLocation(`/email?${params.toString()}`);
+                              window.open(`/email?${params.toString()}`, "email-compose", "width=1100,height=750,left=200,top=100,resizable=yes,scrollbars=yes,noopener,noreferrer");
                             }}
                           >
                             <Mail className="h-3.5 w-3.5" />
