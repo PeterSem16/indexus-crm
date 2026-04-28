@@ -455,6 +455,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   const [showCcField, setShowCcField] = useState(false);
   const [emailAttachment, setEmailAttachment] = useState<File | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [selectedTemplateCategory, setSelectedTemplateCategory] = useState<string>("");
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [pipelineMenuOpen, setPipelineMenuOpen] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -624,6 +625,38 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     },
     enabled: emailComposeOpen,
   });
+
+  const { data: templateCategories = [] } = useQuery<{ id: string; name: string; color?: string | null }[]>({
+    queryKey: ["/api/template-categories"],
+    queryFn: async () => {
+      const res = await fetch(`/api/template-categories`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: emailComposeOpen,
+  });
+
+  const visibleEmailTemplates = useMemo(() => {
+    if (!selectedTemplateCategory || selectedTemplateCategory === "__all__") return emailTemplates;
+    if (selectedTemplateCategory === "__uncategorized__") return emailTemplates.filter((tpl) => !tpl.categoryId);
+    return emailTemplates.filter((tpl) => tpl.categoryId === selectedTemplateCategory);
+  }, [emailTemplates, selectedTemplateCategory]);
+
+  const usedCategoryIds = useMemo(() => {
+    const set = new Set<string>();
+    emailTemplates.forEach((tpl) => { if (tpl.categoryId) set.add(tpl.categoryId); });
+    return set;
+  }, [emailTemplates]);
+
+  const visibleCategories = useMemo(
+    () => templateCategories.filter((c) => usedCategoryIds.has(c.id)),
+    [templateCategories, usedCategoryIds],
+  );
+
+  const hasUncategorized = useMemo(
+    () => emailTemplates.some((tpl) => !tpl.categoryId),
+    [emailTemplates],
+  );
 
   const { data: networkMembershipsSheet = [] } = useQuery<any[]>({
     queryKey: ["/api/hospital-network-memberships"],
@@ -1701,27 +1734,56 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {(t.configuration as any)?.templateCategory || "Template category"}
+                </Label>
+                <Select
+                  value={selectedTemplateCategory}
+                  onValueChange={(v) => setSelectedTemplateCategory(v)}
+                  disabled={emailTemplates.length === 0}
+                >
+                  <SelectTrigger data-testid="select-template-category-clinic" className="text-sm">
+                    <SelectValue placeholder={(t.configuration as any)?.selectCategory || "Select category"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">
+                      {(t.common as any)?.all || "All"}
+                    </SelectItem>
+                    {visibleCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                    {hasUncategorized && (
+                      <SelectItem value="__uncategorized__">
+                        {(t.configuration as any)?.uncategorized || "Uncategorized"}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   {(t.configuration as any)?.messageTemplates || "Template"}
                 </Label>
                 <Select
                   onValueChange={(templateId) => {
-                    const template = emailTemplates.find((tpl) => tpl.id === templateId);
+                    const template = visibleEmailTemplates.find((tpl) => tpl.id === templateId);
                     if (template) {
                       setEmailSubject(template.subject || "");
                       setEmailMessage(template.contentHtml || template.content || "");
                       fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
                     }
                   }}
-                  disabled={emailTemplates.length === 0}
+                  disabled={visibleEmailTemplates.length === 0}
                 >
                   <SelectTrigger data-testid="select-email-template-clinic" className="text-sm">
-                    <SelectValue placeholder={emailTemplates.length === 0
+                    <SelectValue placeholder={visibleEmailTemplates.length === 0
                       ? ((t.konfigurator as any)?.noMessageTemplates || "No templates")
                       : ((t.configuration as any)?.selectTemplate || "Select template")}
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {emailTemplates.map((template) => (
+                    {visibleEmailTemplates.map((template) => (
                       <SelectItem key={template.id} value={template.id}>
                         {template.name}
                       </SelectItem>
