@@ -1758,6 +1758,14 @@ export default function HospitalsPage() {
 
   const sk = locale === "sk";
 
+  const { data: users = [] } = useQuery<SafeUser[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const { data: laboratories = [] } = useQuery<Laboratory[]>({
+    queryKey: ["/api/config/laboratories"],
+  });
+
   const COUNTRY_OPTIONS = useMemo(() => ([
     { value: "SK", label: sk ? "Slovensko" : "Slovakia" },
     { value: "CZ", label: sk ? "Česko" : "Czechia" },
@@ -1934,14 +1942,6 @@ export default function HospitalsPage() {
   });
   const hospitals = hospitalsPaginatedResult?.data || [];
   const serverHospitalsTotal = hospitalsPaginatedResult?.total || 0;
-
-  const { data: users = [] } = useQuery<SafeUser[]>({
-    queryKey: ["/api/users"],
-  });
-
-  const { data: laboratories = [] } = useQuery<Laboratory[]>({
-    queryKey: ["/api/config/laboratories"],
-  });
 
   const clinicQueryParams: Record<string, any> = { page: clinicPage, limit: clinicPageSize };
   if (debouncedClinicSearch) clinicQueryParams.search = debouncedClinicSearch;
