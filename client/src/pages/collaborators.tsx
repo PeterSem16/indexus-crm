@@ -3056,6 +3056,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             storageKey="entity-filter:collaborators"
             testId="filter-collaborators"
             locale={locale}
+            hideSavedViews
             labels={{
               search: t.collaborators.searchPlaceholder,
               filter: t.common.filter,
