@@ -34,7 +34,7 @@ import "dotenv/config";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { db } from "../server/db";
-import { clinics, collaborators, contactAssignments } from "@shared/schema";
+import { clinics, collaborators, contactAssignments, collaboratorAddresses } from "@shared/schema";
 import { and, eq, sql } from "drizzle-orm";
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -420,7 +420,17 @@ async function main() {
   // ── 3. Sprav plán pre každý CSV riadok ──
   console.log(`→ Pripravujem UPSERT plán …`);
   const plans: ClinicWritePlan[] = [];
-  const personPlans: { clinicLookup: { csvRow: number }; persons: PersonPlan[] }[] = [];
+  const personPlans: {
+    clinicLookup: { csvRow: number };
+    persons: PersonPlan[];
+    clinicAddress: {
+      name: string;
+      streetNumber: string | null;
+      city: string | null;
+      region: string | null;
+      countryCode: string;
+    };
+  }[] = [];
 
   let processed = 0;
   for (let i = 0; i < dataRows.length; i++) {
@@ -541,6 +551,7 @@ async function main() {
       const insertData: typeof clinics.$inferInsert = {
         name,
         countryCode: csvFields.countryCode ?? "SK",
+        initialStatus: "not_contacted",
         idZz: csvFields.idZz,
         ico: csvFields.ico,
         pzsCode: csvFields.pzsCode,
@@ -632,10 +643,22 @@ async function main() {
         csvIndex: idx,
         parsed,
         isPrimary: idx === 0,
-        position: idx === 0 ? "Lekár" : null,
+        position: idx === 0 ? "Súkromný gynekológ" : null,
       });
     });
-    if (persons.length) personPlans.push({ clinicLookup: { csvRow: rowNum }, persons });
+    if (persons.length) {
+      personPlans.push({
+        clinicLookup: { csvRow: rowNum },
+        persons,
+        clinicAddress: {
+          name,
+          streetNumber: [csvFields.street, csvFields.streetNumber].filter(Boolean).join(" ") || null,
+          city: csvFields.city ?? null,
+          region: csvFields.region ?? null,
+          countryCode: csvFields.countryCode ?? "SK",
+        },
+      });
+    }
   }
 
   // ── 4. Sumár plánu ──
@@ -753,6 +776,18 @@ async function main() {
               isActive: true,
             });
             actuallyAssignments++;
+
+            // Company adresa = adresa ambulancie
+            await tx.insert(collaboratorAddresses).values({
+              collaboratorId: pers.id,
+              addressType: "company",
+              name: grp.clinicAddress.name,
+              streetNumber: grp.clinicAddress.streetNumber,
+              city: grp.clinicAddress.city,
+              region: grp.clinicAddress.region,
+              countryCode: grp.clinicAddress.countryCode,
+            });
+
             existingKey.add(key);
           }
         });
