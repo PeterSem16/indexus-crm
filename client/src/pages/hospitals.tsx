@@ -3152,7 +3152,7 @@ export default function HospitalsPage() {
             <CardHeader className="pb-4 space-y-3">
               {serverClinicStats && (() => {
                 const fmt = (n: number) => (n || 0).toLocaleString(sk ? "sk-SK" : "en-US");
-                const filteredCount = serverClinicsTotal ?? serverClinicStats.total;
+                const filteredCount = filteredClinicsTotal ?? serverClinicsTotal ?? serverClinicStats.total;
                 const isFiltered = hasActiveClinicFilters && filteredCount !== serverClinicStats.total;
                 const COLOR: Record<string, { active: string; idle: string; icon: string; text: string }> = {
                   emerald: { active: "bg-emerald-500/15 dark:bg-emerald-500/25 ring-1 ring-emerald-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 hover:ring-1 hover:ring-emerald-500/30", icon: "text-emerald-600 dark:text-emerald-400", text: "text-emerald-700 dark:text-emerald-300" },
