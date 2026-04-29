@@ -2479,6 +2479,17 @@ export default function HospitalsPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <Button
+                    variant={showHospitalFilters ? "default" : "outline"}
+                    size="sm"
+                    className={`h-9 gap-1.5 ${showHospitalFilters ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
+                    onClick={() => setShowHospitalFilters(!showHospitalFilters)}
+                    data-testid="button-toggle-hospital-filters"
+                    title={sk ? "Filter" : "Filter"}
+                  >
+                    <Filter className="h-4 w-4" />
+                    <span>{sk ? "Filter" : "Filter"}</span>
+                  </Button>
                   <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] }); queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] }); }} data-testid="button-refresh-hospitals" title={t.common.refresh} aria-label={t.common.refresh}>
                     <RefreshCw className="h-4 w-4" />
                   </Button>
@@ -2766,6 +2777,17 @@ export default function HospitalsPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <Button
+                    variant={showClinicFilters ? "default" : "outline"}
+                    size="sm"
+                    className={`h-9 gap-1.5 ${showClinicFilters ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
+                    onClick={() => setShowClinicFilters(!showClinicFilters)}
+                    data-testid="button-toggle-clinic-filters"
+                    title={sk ? "Filter" : "Filter"}
+                  >
+                    <Filter className="h-4 w-4" />
+                    <span>{sk ? "Filter" : "Filter"}</span>
+                  </Button>
                   <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => { refetchClinics(); queryClient.invalidateQueries({ queryKey: ["/api/clinics/stats"] }); }} data-testid="button-refresh-clinics" title={t.common.refresh} aria-label={t.common.refresh}>
                     <RefreshCw className="h-4 w-4" />
                   </Button>
@@ -3148,11 +3170,11 @@ export default function HospitalsPage() {
         </TabsContent>
 
         <TabsContent value="midwifes" className="mt-6">
-          <CollaboratorsContent embedded={true} positionScope="independent" addButtonLabel={t.hospitals.tabs.addMidwife || "Add Midwife"} />
+          <CollaboratorsContent embedded={true} positionScope="independent" addButtonLabel={t.hospitals.tabs.addMidwife || "Add Midwife"} showHeader headerTitle={t.hospitals.tabs.midwifes || "Midwifes"} headerCountWord={{ sk: "pôrodných asistentiek", en: "midwifes" }} />
         </TabsContent>
 
         <TabsContent value="collaborators" className="mt-6">
-          <CollaboratorsContent embedded={true} excludeScope="independent" addButtonLabel={t.hospitals.tabs.addPerson || "Add Person"} />
+          <CollaboratorsContent embedded={true} excludeScope="independent" addButtonLabel={t.hospitals.tabs.addPerson || "Add Person"} showHeader headerTitle={t.hospitals.tabs.persons || "Persons"} headerCountWord={{ sk: "osôb", en: "persons" }} />
         </TabsContent>
 
         <TabsContent value="networks" className="mt-6">

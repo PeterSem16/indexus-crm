@@ -2014,7 +2014,7 @@ function CollaboratorForm({
   );
 }
 
-export function CollaboratorsContent({ embedded = false, positionScope, excludeScope, addButtonLabel }: { embedded?: boolean; positionScope?: string; excludeScope?: string; addButtonLabel?: string }) {
+export function CollaboratorsContent({ embedded = false, positionScope, excludeScope, addButtonLabel, showHeader = false, headerTitle, headerCountWord }: { embedded?: boolean; positionScope?: string; excludeScope?: string; addButtonLabel?: string; showHeader?: boolean; headerTitle?: string; headerCountWord?: { sk: string; en: string } }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2864,23 +2864,25 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
 
   return (
     <div className={embedded ? "space-y-4" : "space-y-6"}>
-      {!embedded && (() => {
+      {(!embedded || showHeader) && (() => {
         const sk = locale === "sk";
         const total = collabStats?.total ?? 0;
         const visible = filteredAndSortedCollaborators?.length ?? (serverCollaboratorsTotal ?? total);
         const showCount = !!collabStats;
+        const titleText = headerTitle || t.collaborators.title;
+        const countWord = headerCountWord ? (sk ? headerCountWord.sk : headerCountWord.en) : (sk ? "osôb" : "persons");
         return (
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between rounded-lg border bg-card px-4 py-3 shadow-sm">
             <div className="min-w-0 flex-1">
               <h1 className="text-2xl font-semibold tracking-tight" data-testid="page-title">
-                {t.collaborators.title}
+                {titleText}
               </h1>
               {showCount ? (
                 <p className="text-sm text-muted-foreground mt-0.5" data-testid="text-header-count">
                   <span className="font-semibold text-foreground">{visible.toLocaleString(sk ? "sk-SK" : "en-US")}</span>
                   <span className="mx-1">{sk ? "z" : "of"}</span>
                   <span className="font-medium text-foreground">{total.toLocaleString(sk ? "sk-SK" : "en-US")}</span>
-                  <span className="ml-1">{sk ? "osôb" : "persons"}</span>
+                  <span className="ml-1">{countWord}</span>
                   {activeView && (
                     <>
                       <span className="mx-2 text-muted-foreground/60">·</span>
