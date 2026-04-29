@@ -108,10 +108,68 @@ export type EntityFilterLabels = {
   records?: string;
   selectField?: string;
   selectValue?: string;
+  selectValues?: string;
+  noOptions?: string;
+  clearSelection?: string;
+  noValue?: string;
+  viewName?: string;
+  save?: string;
+  removeFilter?: string;
+  removeRule?: string;
+  deleteView?: string;
+  allFieldsUsed?: string;
+  saveViewCtaTitle?: string;
+  saveViewCtaDesc?: string;
   ops?: Partial<Record<FilterOp, string>>;
 };
 
-const DEFAULT_LABELS: Required<EntityFilterLabels> = {
+const LABELS_EN: Required<EntityFilterLabels> = {
+  search: "Search…",
+  filter: "Filter",
+  sort: "Sort",
+  fields: "Fields",
+  views: "Views",
+  saveView: "Save view",
+  savedViews: "Saved views",
+  quickFilters: "Quick filters",
+  addRule: "Add condition",
+  clearAll: "Clear all",
+  reset: "Reset",
+  where: "Where",
+  and: "AND",
+  or: "OR",
+  applyToAll: "Showing records where",
+  noActiveFilters: "No active filters. Add your first condition below.",
+  rulesTitle: "Filter rules",
+  rulesDescription: "Combine conditions using AND / OR operators.",
+  showing: "Showing",
+  of: "of",
+  records: "records",
+  selectField: "Select field…",
+  selectValue: "Value…",
+  selectValues: "Select values…",
+  noOptions: "No options",
+  clearSelection: "Clear selection",
+  noValue: "(no value)",
+  viewName: "View name",
+  save: "Save",
+  removeFilter: "Remove filter",
+  removeRule: "Remove",
+  deleteView: "Delete view",
+  allFieldsUsed: "All fields are in use",
+  saveViewCtaTitle: "Use these filters often?",
+  saveViewCtaDesc: "Save the current combination and access it with one click.",
+  ops: {
+    is: "is",
+    isAny: "is any of",
+    isNot: "is not",
+    contains: "contains",
+    isEmpty: "is empty",
+    isNotEmpty: "is not empty",
+  },
+};
+
+const LABELS_SK: Required<EntityFilterLabels> = {
   search: "Vyhľadávanie…",
   filter: "Filter",
   sort: "Zoradenie",
@@ -135,6 +193,18 @@ const DEFAULT_LABELS: Required<EntityFilterLabels> = {
   records: "záznamov",
   selectField: "Vyber pole…",
   selectValue: "Hodnota…",
+  selectValues: "Vyber hodnoty…",
+  noOptions: "Žiadne možnosti",
+  clearSelection: "Vyčistiť výber",
+  noValue: "(bez hodnoty)",
+  viewName: "Názov pohľadu",
+  save: "Uložiť",
+  removeFilter: "Odstrániť filter",
+  removeRule: "Odstrániť",
+  deleteView: "Vymazať pohľad",
+  allFieldsUsed: "Všetky polia použité",
+  saveViewCtaTitle: "Použiť tieto filtre často?",
+  saveViewCtaDesc: "Ulož aktuálnu kombináciu a pristupuj k nej jedným klikom.",
   ops: {
     is: "je",
     isAny: "je niektorá z",
@@ -145,12 +215,26 @@ const DEFAULT_LABELS: Required<EntityFilterLabels> = {
   },
 };
 
-function mergeLabels(custom?: EntityFilterLabels): Required<EntityFilterLabels> {
-  if (!custom) return DEFAULT_LABELS;
+const LABELS_BY_LOCALE: Record<string, Required<EntityFilterLabels>> = {
+  en: LABELS_EN,
+  sk: LABELS_SK,
+};
+
+function getLocaleLabels(locale?: string): Required<EntityFilterLabels> {
+  if (!locale) return LABELS_EN;
+  return LABELS_BY_LOCALE[locale] || LABELS_EN;
+}
+
+function mergeLabels(
+  locale?: string,
+  custom?: EntityFilterLabels,
+): Required<EntityFilterLabels> {
+  const base = getLocaleLabels(locale);
+  if (!custom) return base;
   return {
-    ...DEFAULT_LABELS,
+    ...base,
     ...custom,
-    ops: { ...DEFAULT_LABELS.ops, ...(custom.ops || {}) },
+    ops: { ...base.ops, ...(custom.ops || {}) },
   };
 }
 
@@ -233,9 +317,14 @@ type EntityFilterProps = {
   visibleCount?: number;
 
   storageKey?: string;
+  /** Slot rendered to the right of the filter controls (typically host actions like Export / Add). */
+  actionsSlot?: React.ReactNode;
+  /** @deprecated use actionsSlot instead. Still rendered for backward compatibility. */
   rightSlot?: React.ReactNode;
   className?: string;
 
+  /** Active app locale (e.g. "en", "sk"). Selects the built-in label set. */
+  locale?: string;
   labels?: EntityFilterLabels;
   testId?: string;
 
@@ -257,14 +346,17 @@ export function EntityFilter({
   totalCount,
   visibleCount,
   storageKey,
+  actionsSlot,
   rightSlot,
   className,
+  locale,
   labels: labelsProp,
   testId = "entity-filter",
   hideSavedViews = false,
   restrictOps,
 }: EntityFilterProps) {
-  const labels = useMemo(() => mergeLabels(labelsProp), [labelsProp]);
+  const labels = useMemo(() => mergeLabels(locale, labelsProp), [locale, labelsProp]);
+  const numberLocale = locale === "sk" ? "sk-SK" : "en-US";
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [savedViews, setSavedViews] = useState<SavedView[]>(() =>
     loadSavedViews(storageKey),
@@ -391,6 +483,24 @@ export function EntityFilter({
           )}
         </Button>
 
+        {/* Prominent Clear-all button (visible only when filters are active) */}
+        {hasActive && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              clearAllRules();
+              if (searchQuery) onSearchChange("");
+            }}
+            className="h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            data-testid={`${testId}-clear-all`}
+            title={labels.clearAll}
+          >
+            <X className="h-4 w-4" />
+            {labels.clearAll}
+          </Button>
+        )}
+
         {/* Saved views */}
         {!hideSavedViews && (
           <div className="flex items-center gap-1">
@@ -461,7 +571,7 @@ export function EntityFilter({
                   <Input
                     value={newViewName}
                     onChange={(e) => setNewViewName(e.target.value)}
-                    placeholder="Názov pohľadu"
+                    placeholder={labels.viewName}
                     className="h-8 text-sm"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") saveCurrentView();
@@ -474,7 +584,7 @@ export function EntityFilter({
                     onClick={saveCurrentView}
                     disabled={!newViewName.trim()}
                   >
-                    <Save className="h-3.5 w-3.5 mr-1.5" /> Uložiť
+                    <Save className="h-3.5 w-3.5 mr-1.5" /> {labels.save}
                   </Button>
                 </div>
               </PopoverContent>
@@ -482,8 +592,13 @@ export function EntityFilter({
           </div>
         )}
 
-        {/* Right slot for host-specific buttons */}
-        {rightSlot && <div className="flex items-center gap-1.5">{rightSlot}</div>}
+        {/* Actions slot for host-specific buttons (Export / Refresh / Add) */}
+        {(actionsSlot || rightSlot) && (
+          <div className="flex items-center gap-1.5 ml-auto">
+            {actionsSlot}
+            {rightSlot}
+          </div>
+        )}
       </div>
 
       {/* Active rules chips */}
@@ -521,7 +636,7 @@ export function EntityFilter({
                   onClick={() => removeRule(rule.id)}
                   className="ml-0.5 flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
                   data-testid={`${testId}-chip-remove-${rule.field}`}
-                  aria-label="Odstrániť filter"
+                  aria-label={labels.removeFilter}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -557,7 +672,7 @@ export function EntityFilter({
                 })}
               {fields.every((f) => rules.some((r) => r.field === f.key)) && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Všetky polia použité
+                  {labels.allFieldsUsed}
                 </div>
               )}
             </PopoverContent>
@@ -579,14 +694,14 @@ export function EntityFilter({
           <span className="text-primary">
             {labels.showing}{" "}
             <span className="font-semibold">
-              {(visibleCount ?? 0).toLocaleString("sk-SK")}
+              {(visibleCount ?? 0).toLocaleString(numberLocale)}
             </span>
             {totalCount !== undefined && (
               <>
                 {" "}
                 {labels.of}{" "}
                 <span className="font-medium">
-                  {totalCount.toLocaleString("sk-SK")}
+                  {totalCount.toLocaleString(numberLocale)}
                 </span>
               </>
             )}{" "}
@@ -664,7 +779,7 @@ export function EntityFilter({
                         <button
                           onClick={() => removeRule(rule.id)}
                           className="ml-auto flex h-5 w-5 items-center justify-center rounded text-muted-foreground/50 opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                          aria-label="Odstrániť"
+                          aria-label={labels.removeRule}
                           data-testid={`${testId}-rule-remove-${rule.field}`}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -735,6 +850,7 @@ export function EntityFilter({
                           isMulti ? (
                             <MultiSelectValue
                               field={field}
+                              labels={labels}
                               selected={
                                 Array.isArray(rule.value)
                                   ? rule.value
@@ -784,7 +900,7 @@ export function EntityFilter({
                           />
                         ) : (
                           <span className="flex-1 px-2 text-xs text-muted-foreground italic">
-                            (bez hodnoty)
+                            {labels.noValue}
                           </span>
                         )}
                       </div>
@@ -870,7 +986,7 @@ export function EntityFilter({
                       <button
                         onClick={() => deleteView(v.id)}
                         className="ml-2 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/50 opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                        aria-label="Vymazať pohľad"
+                        aria-label={labels.deleteView}
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -887,16 +1003,16 @@ export function EntityFilter({
                   <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                   <div className="flex-1">
                     <div className="text-xs font-medium">
-                      Použiť tieto filtre často?
+                      {labels.saveViewCtaTitle}
                     </div>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      Ulož aktuálnu kombináciu a pristupuj k nej jedným klikom.
+                      {labels.saveViewCtaDesc}
                     </p>
                     <div className="mt-2 flex items-center gap-1">
                       <Input
                         value={newViewName}
                         onChange={(e) => setNewViewName(e.target.value)}
-                        placeholder="Názov pohľadu"
+                        placeholder={labels.viewName}
                         className="h-7 text-xs"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") saveCurrentView();
@@ -908,7 +1024,7 @@ export function EntityFilter({
                         onClick={saveCurrentView}
                         disabled={!newViewName.trim()}
                       >
-                        <Save className="h-3 w-3" /> Uložiť
+                        <Save className="h-3 w-3" /> {labels.save}
                       </Button>
                     </div>
                   </div>
@@ -926,10 +1042,12 @@ function MultiSelectValue({
   field,
   selected,
   onChange,
+  labels,
 }: {
   field: FilterField;
   selected: string[];
   onChange: (vals: string[]) => void;
+  labels: Required<EntityFilterLabels>;
 }) {
   const [open, setOpen] = useState(false);
   const toggle = (v: string) => {
@@ -944,7 +1062,7 @@ function MultiSelectValue({
           className="h-8 flex-1 justify-between text-xs font-normal"
         >
           <span className="truncate">
-            {selected.length === 0 ? "Vyber hodnoty…" : formatValueLabel(field, selected)}
+            {selected.length === 0 ? labels.selectValues : formatValueLabel(field, selected)}
           </span>
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
@@ -978,7 +1096,7 @@ function MultiSelectValue({
             );
           })}
           {(!field.options || field.options.length === 0) && (
-            <div className="px-2 py-2 text-xs text-muted-foreground">Žiadne možnosti</div>
+            <div className="px-2 py-2 text-xs text-muted-foreground">{labels.noOptions}</div>
           )}
         </div>
         {selected.length > 0 && (
@@ -988,7 +1106,7 @@ function MultiSelectValue({
               onClick={() => onChange([])}
               className="w-full p-2 text-center text-xs text-muted-foreground hover:bg-muted"
             >
-              Vyčistiť výber
+              {labels.clearSelection}
             </button>
           </>
         )}

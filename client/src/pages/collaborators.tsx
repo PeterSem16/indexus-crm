@@ -2020,13 +2020,55 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
   const { selectedCountries } = useCountryFilter();
   const { canAdd, canEdit } = usePermissions();
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterCountry, setFilterCountry] = useState("");
+
+  // ── Unified filter rules state (primary source of truth) ──────────────
+  // All filter fields (country / type / status / agreement / partnerCategory /
+  // isManager / mobileApp / svetZdravia / email / mobile / phone …) live in
+  // a single FilterRule[] array. Single-value variables below are derived for
+  // backwards-compat with API params and stat-card highlighting.
+  const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
+  // Clear country rule when global country filter changes
   useEffect(() => {
-    setFilterCountry("");
+    setFilterRules((prev) => prev.filter((r) => r.field !== "country"));
   }, [selectedCountries]);
-  const [filterType, setFilterType] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterAgreement, setFilterAgreement] = useState("");
+
+  const getRuleValue = useCallback(
+    (field: string): string => {
+      const r = filterRules.find(
+        (x) => x.field === field && (x.op === "is" || x.op === "isAny"),
+      );
+      if (!r) return "";
+      const v = Array.isArray(r.value) ? r.value[0] || "" : r.value;
+      return v;
+    },
+    [filterRules],
+  );
+
+  const filterCountry = getRuleValue("country");
+  const filterType = getRuleValue("type");
+  const filterStatus = getRuleValue("status");
+  const filterAgreement = getRuleValue("agreement");
+
+  /** Replace (or remove) a single-value rule for the given field, then reset page. */
+  const setSingleRuleValue = useCallback(
+    (field: string, value: string) => {
+      setFilterRules((prev) => {
+        const next = prev.filter((r) => r.field !== field);
+        if (value) {
+          next.push({
+            id: `r-${field}-${Date.now().toString(36)}`,
+            conjunction: "and",
+            field,
+            op: "is",
+            value,
+          });
+        }
+        return next;
+      });
+      setPage(1);
+    },
+    [],
+  );
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [useWizardForm, setUseWizardForm] = useState(true);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -2110,7 +2152,86 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
 
   const filteredAndSortedCollaborators = (() => {
     let result = [...collaborators];
-    
+
+    // ── Client-side filter ──────────────────────────────────────────────
+    // Server only handles a SINGLE equality (op="is"/"isAny" with a single
+    // string value) per server field via collabQueryParams. Anything else
+    // (multi-value isAny, isNot, isEmpty/isNotEmpty, plus any rule on a
+    // non-server field) must be applied here so the UI never shows a chip
+    // that has no effect.
+    const isHandledByServer = (r: FilterRule): boolean => {
+      if (!["country", "type", "status", "agreement"].includes(r.field)) return false;
+      if (r.op !== "is" && r.op !== "isAny") return false;
+      if (Array.isArray(r.value)) return r.value.length === 1 && !!r.value[0];
+      return !!r.value;
+    };
+    const clientRules = filterRules.filter((r) => !isHandledByServer(r));
+    if (clientRules.length > 0) {
+      const matchRule = (c: any, r: FilterRule): boolean => {
+        const isEq = r.op === "is" || r.op === "isAny";
+        const isNeq = r.op === "isNot";
+        const contains = r.op === "contains";
+        const isEmpty = r.op === "isEmpty";
+        const isNotEmpty = r.op === "isNotEmpty";
+
+        const get = (): string => {
+          switch (r.field) {
+            // server fields (also evaluated client-side for unsupported ops)
+            case "country": return c.countryCode || c.country || "";
+            case "type": return c.collaboratorType || "";
+            case "status": return c.isActive ? "active" : "inactive";
+            case "agreement":
+              if (c.hasValidAgreement) return "valid";
+              if (c.hasExpiredAgreement) return "expired";
+              if (c.hasNoAgreement) return "none";
+              return "";
+            // pure client fields
+            case "partnerCategory": return c.partnerCategory || "";
+            case "isManager": return c.isManager ? "true" : "false";
+            case "mobileApp": return c.mobileAppEnabled ? "true" : "false";
+            case "svetZdravia": return c.svetZdravia ? "true" : "false";
+            case "email": return c.email || "";
+            case "mobile": return c.mobile || "";
+            case "phone": return c.phone || "";
+            default: return "";
+          }
+        };
+        const fieldVal = String(get());
+
+        // Boolean fields use literal "true"/"false" — treat them as never-empty
+        const isBoolField = ["isManager", "mobileApp", "svetZdravia"].includes(r.field);
+        if (isEmpty) {
+          if (isBoolField) return fieldVal === "false";
+          return !fieldVal;
+        }
+        if (isNotEmpty) {
+          if (isBoolField) return fieldVal === "true";
+          return !!fieldVal;
+        }
+        if (contains) {
+          if (Array.isArray(r.value)) {
+            return r.value.some((v) => v && fieldVal.toLowerCase().includes(String(v).toLowerCase()));
+          }
+          return r.value ? fieldVal.toLowerCase().includes(String(r.value).toLowerCase()) : true;
+        }
+        if (isEq) {
+          if (Array.isArray(r.value)) {
+            return r.value.some((v) => v && fieldVal === v);
+          }
+          return r.value ? fieldVal === r.value : true;
+        }
+        if (isNeq) {
+          if (Array.isArray(r.value)) {
+            return r.value.every((v) => !v || fieldVal !== v);
+          }
+          return r.value ? fieldVal !== r.value : true;
+        }
+        return true;
+      };
+      // AND across all rules
+      result = result.filter((c) => clientRules.every((r) => matchRule(c, r)));
+    }
+
     result.sort((a, b) => {
       let aVal: any;
       let bVal: any;
@@ -2173,122 +2294,181 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
   
   const clearAllFilters = () => {
     setSearchQuery("");
-    setFilterCountry("");
-    setFilterType("");
-    setFilterStatus("");
-    setFilterAgreement("");
+    setFilterRules([]);
     setPage(1);
   };
-  
-  const hasActiveFilters = searchQuery || filterCountry || filterType || filterStatus || filterAgreement;
 
-  // ── EntityFilter (Variant C: Toolbar & Drawer) — bridge to existing single-value state ──
-  const filterRules: FilterRule[] = useMemo(() => {
-    const r: FilterRule[] = [];
-    if (filterCountry) r.push({ id: "r-country", conjunction: "and", field: "country", op: "is", value: filterCountry });
-    if (filterType) r.push({ id: "r-type", conjunction: "and", field: "type", op: "is", value: filterType });
-    if (filterStatus) r.push({ id: "r-status", conjunction: "and", field: "status", op: "is", value: filterStatus });
-    if (filterAgreement) r.push({ id: "r-agreement", conjunction: "and", field: "agreement", op: "is", value: filterAgreement });
-    return r;
-  }, [filterCountry, filterType, filterStatus, filterAgreement]);
+  const hasActiveFilters = !!searchQuery || filterRules.length > 0;
 
+  // ── EntityFilter (Variant C) — rules are the primary filter state ──
   const handleRulesChange = useCallback((newRules: FilterRule[]) => {
-    let country = "", type = "", status = "", agreement = "";
-    for (const r of newRules) {
-      if (r.op !== "is" && r.op !== "isAny") continue; // backend supports equality only
-      const val = Array.isArray(r.value) ? (r.value[0] || "") : r.value;
-      if (!val) continue;
-      if (r.field === "country") country = val;
-      else if (r.field === "type") type = val;
-      else if (r.field === "status") status = val;
-      else if (r.field === "agreement") agreement = val;
-    }
-    setFilterCountry(country);
-    setFilterType(type);
-    setFilterStatus(status);
-    setFilterAgreement(agreement);
+    setFilterRules(newRules);
     setPage(1);
   }, []);
 
-  const filterFields: FilterField[] = useMemo(() => [
-    {
-      key: "country",
-      label: t.common.country,
-      icon: MapPin,
-      type: "select",
-      options: COUNTRIES.map((c) => ({
-        label: `${getCountryFlag(c.code)} ${c.name}`,
-        value: c.code,
-      })),
-    },
-    {
-      key: "type",
-      label: t.collaborators.fields.collaboratorType,
-      icon: Stethoscope,
-      type: "select",
-      options: COLLABORATOR_TYPES.map((ct) => ({
-        label: t.collaborators.types[ct.labelKey as keyof typeof t.collaborators.types] || ct.value,
-        value: ct.value,
-      })),
-    },
-    {
-      key: "status",
-      label: t.common.status,
-      icon: Activity,
-      type: "select",
-      options: [
-        { label: t.common.active, value: "active" },
-        { label: t.common.inactive, value: "inactive" },
-      ],
-    },
-    {
-      key: "agreement",
-      label: (t.collaborators as any).agreement || "Agreement",
-      icon: FileText,
-      type: "select",
-      options: [
-        { label: (t.collaborators as any).validAgreement || "Valid agreement", value: "valid" },
-        { label: t.collaborators.expiredAgreement, value: "expired" },
-        { label: (t.collaborators as any).noAgreement || "No agreement", value: "none" },
-      ],
-    },
-  ], [t]);
+  // Fields the backend can filter (server-side via /api/collaborators query params)
+  const SERVER_FIELDS = useMemo(
+    () => new Set(["country", "type", "status", "agreement"]),
+    [],
+  );
 
-  const filterPresets: FilterPreset[] = useMemo(() => [
-    {
-      id: "active-doctors",
-      label: "Aktívni lekári",
-      icon: UserCheck,
-      rules: [
-        { id: "p1a", conjunction: "and", field: "status", op: "is", value: "active" },
-        { id: "p1b", conjunction: "and", field: "type", op: "is", value: "doctor" },
-      ],
-    },
-    {
-      id: "expired-agreement",
-      label: "Vypršané zmluvy",
-      icon: ShieldAlert,
-      rules: [
-        { id: "p2", conjunction: "and", field: "agreement", op: "is", value: "expired" },
-      ],
-    },
-    {
-      id: "no-agreement",
-      label: "Bez zmluvy",
-      icon: ShieldOff,
-      rules: [
-        { id: "p3", conjunction: "and", field: "agreement", op: "is", value: "none" },
-      ],
-    },
-    {
-      id: "inactive",
-      label: "Neaktívni",
-      icon: UserX,
-      rules: [
-        { id: "p4", conjunction: "and", field: "status", op: "is", value: "inactive" },
-      ],
-    },
-  ], []);
+  // Translation helper for boolean field labels
+  const _yes = (t.common as any).yes || "Yes";
+  const _no = (t.common as any).no || "No";
+
+  const filterFields: FilterField[] = useMemo(() => {
+    const partnerCategoryOptions = (partnerCategoriesList || [])
+      .filter((c: any) => !positionScope || c.entityScope === positionScope)
+      .map((c: any) => ({ label: c.name, value: c.id }));
+
+    return [
+      {
+        key: "country",
+        label: t.common.country,
+        icon: MapPin,
+        type: "select",
+        options: COUNTRIES.map((c) => ({
+          label: `${getCountryFlag(c.code)} ${c.name}`,
+          value: c.code,
+        })),
+      },
+      {
+        key: "type",
+        label: t.collaborators.fields.collaboratorType,
+        icon: Stethoscope,
+        type: "select",
+        options: COLLABORATOR_TYPES.map((ct) => ({
+          label:
+            t.collaborators.types[ct.labelKey as keyof typeof t.collaborators.types] ||
+            ct.value,
+          value: ct.value,
+        })),
+      },
+      {
+        key: "status",
+        label: t.common.status,
+        icon: Activity,
+        type: "select",
+        options: [
+          { label: t.common.active, value: "active" },
+          { label: t.common.inactive, value: "inactive" },
+        ],
+      },
+      {
+        key: "agreement",
+        label: (t.collaborators as any).agreement || "Agreement",
+        icon: FileText,
+        type: "select",
+        options: [
+          { label: (t.collaborators as any).validAgreement || "Valid agreement", value: "valid" },
+          { label: t.collaborators.expiredAgreement, value: "expired" },
+          { label: (t.collaborators as any).noAgreement || "No agreement", value: "none" },
+        ],
+      },
+      {
+        key: "partnerCategory",
+        label: (t.collaborators as any).partnerCategory || "Partner category",
+        icon: Award,
+        type: "select",
+        options: partnerCategoryOptions,
+      },
+      {
+        key: "isManager",
+        label: (t.collaborators as any).manager || "Manager",
+        icon: UserCheck,
+        type: "select",
+        options: [
+          { label: _yes, value: "true" },
+          { label: _no, value: "false" },
+        ],
+      },
+      {
+        key: "mobileApp",
+        label: t.common.indexusConnect || "INDEXUS Connect",
+        icon: Smartphone,
+        type: "select",
+        options: [
+          { label: _yes, value: "true" },
+          { label: _no, value: "false" },
+        ],
+      },
+      {
+        key: "svetZdravia",
+        label: "Svet zdravia",
+        icon: ShieldCheck,
+        type: "select",
+        options: [
+          { label: _yes, value: "true" },
+          { label: _no, value: "false" },
+        ],
+      },
+      {
+        key: "email",
+        label: t.common.email,
+        icon: FileEdit,
+        type: "text",
+      },
+      {
+        key: "mobile",
+        label: (t.collaborators.fields as any).mobile || "Mobile",
+        icon: Smartphone,
+        type: "text",
+      },
+      {
+        key: "phone",
+        label: t.common.phone,
+        icon: Phone,
+        type: "text",
+      },
+    ];
+  }, [t, partnerCategoriesList, positionScope, _yes, _no]);
+
+  const filterPresets: FilterPreset[] = useMemo(() => {
+    const sk = locale === "sk";
+    return [
+      {
+        id: "active-doctors",
+        label: sk ? "Aktívni lekári" : "Active doctors",
+        icon: UserCheck,
+        rules: [
+          { id: "p1a", conjunction: "and", field: "status", op: "is", value: "active" },
+          { id: "p1b", conjunction: "and", field: "type", op: "is", value: "doctor" },
+        ],
+      },
+      {
+        id: "expired-agreement",
+        label: sk ? "Vypršané zmluvy" : "Expired agreements",
+        icon: ShieldAlert,
+        rules: [
+          { id: "p2", conjunction: "and", field: "agreement", op: "is", value: "expired" },
+        ],
+      },
+      {
+        id: "no-agreement",
+        label: sk ? "Bez zmluvy" : "No agreement",
+        icon: ShieldOff,
+        rules: [
+          { id: "p3", conjunction: "and", field: "agreement", op: "is", value: "none" },
+        ],
+      },
+      {
+        id: "inactive",
+        label: sk ? "Neaktívni" : "Inactive",
+        icon: UserX,
+        rules: [
+          { id: "p4", conjunction: "and", field: "status", op: "is", value: "inactive" },
+        ],
+      },
+      {
+        id: "mobile-enabled",
+        label: sk ? "S mobilnou aplikáciou" : "With mobile app",
+        icon: Smartphone,
+        rules: [
+          { id: "p5", conjunction: "and", field: "mobileApp", op: "is", value: "true" },
+        ],
+      },
+    ];
+  }, [locale]);
 
   // Export functions
   const exportToCsv = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
@@ -2576,7 +2756,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             !hasActiveFilters
               ? 'bg-gradient-to-br from-indigo-50 to-indigo-100/80 dark:from-indigo-950/40 dark:to-indigo-900/30 border-indigo-300 dark:border-indigo-700 ring-2 ring-indigo-400/30'
               : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600'
-          }`} onClick={() => { setFilterStatus(""); setFilterAgreement(""); handleFilterChange(); }} data-testid="stat-total">
+          }`} onClick={() => { setFilterRules(prev => prev.filter(r => r.field !== "status" && r.field !== "agreement")); setPage(1); }} data-testid="stat-total">
             <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-500/15 dark:bg-indigo-500/20">
               <Users className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400" />
             </div>
@@ -2589,7 +2769,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             filterStatus === 'active'
               ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/30 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30'
               : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
-          }`} onClick={() => { setFilterStatus(filterStatus === 'active' ? '' : 'active'); setFilterAgreement(""); handleFilterChange(); }} data-testid="stat-active">
+          }`} onClick={() => { setSingleRuleValue("agreement",""); setSingleRuleValue("status", filterStatus === "active" ? "" : "active"); }} data-testid="stat-active">
             <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
               <UserCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
             </div>
@@ -2602,7 +2782,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             filterStatus === 'inactive'
               ? 'bg-gradient-to-br from-rose-50 to-rose-100/80 dark:from-rose-950/40 dark:to-rose-900/30 border-rose-300 dark:border-rose-700 ring-2 ring-rose-400/30'
               : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-600'
-          }`} onClick={() => { setFilterStatus(filterStatus === 'inactive' ? '' : 'inactive'); setFilterAgreement(""); handleFilterChange(); }} data-testid="stat-inactive">
+          }`} onClick={() => { setSingleRuleValue("agreement",""); setSingleRuleValue("status", filterStatus === "inactive" ? "" : "inactive"); }} data-testid="stat-inactive">
             <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-rose-500/15 dark:bg-rose-500/20">
               <UserX className="h-4.5 w-4.5 text-rose-600 dark:text-rose-400" />
             </div>
@@ -2616,7 +2796,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             filterAgreement === 'valid'
               ? 'bg-gradient-to-br from-green-50 to-green-100/80 dark:from-green-950/40 dark:to-green-900/30 border-green-300 dark:border-green-700 ring-2 ring-green-400/30'
               : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-600'
-          }`} onClick={() => { setFilterAgreement(filterAgreement === 'valid' ? '' : 'valid'); setFilterStatus(""); handleFilterChange(); }} data-testid="stat-valid-agreement">
+          }`} onClick={() => { setSingleRuleValue("status",""); setSingleRuleValue("agreement", filterAgreement === "valid" ? "" : "valid"); }} data-testid="stat-valid-agreement">
             <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-green-500/15 dark:bg-green-500/20">
               <ShieldCheck className="h-4.5 w-4.5 text-green-600 dark:text-green-400" />
             </div>
@@ -2629,7 +2809,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             filterAgreement === 'expired'
               ? 'bg-gradient-to-br from-amber-50 to-amber-100/80 dark:from-amber-950/40 dark:to-amber-900/30 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/30'
               : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600'
-          }`} onClick={() => { setFilterAgreement(filterAgreement === 'expired' ? '' : 'expired'); setFilterStatus(""); handleFilterChange(); }} data-testid="stat-expired-agreement">
+          }`} onClick={() => { setSingleRuleValue("status",""); setSingleRuleValue("agreement", filterAgreement === "expired" ? "" : "expired"); }} data-testid="stat-expired-agreement">
             <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-500/15 dark:bg-amber-500/20">
               <ShieldAlert className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
             </div>
@@ -2642,7 +2822,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             filterAgreement === 'none'
               ? 'bg-gradient-to-br from-slate-100 to-slate-200/80 dark:from-slate-800/60 dark:to-slate-700/40 border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/30'
               : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
-          }`} onClick={() => { setFilterAgreement(filterAgreement === 'none' ? '' : 'none'); setFilterStatus(""); handleFilterChange(); }} data-testid="stat-no-agreement">
+          }`} onClick={() => { setSingleRuleValue("status",""); setSingleRuleValue("agreement", filterAgreement === "none" ? "" : "none"); }} data-testid="stat-no-agreement">
             <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-500/15 dark:bg-slate-500/20">
               <ShieldOff className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
             </div>
@@ -2656,63 +2836,73 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
 
       <Card>
         <CardHeader className="pb-4">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+          <EntityFilter
+            searchQuery={searchQuery}
+            onSearchChange={(q) => { setSearchQuery(q); setPage(1); }}
+            searchPlaceholder={t.collaborators.searchPlaceholder}
+            rules={filterRules}
+            onRulesChange={handleRulesChange}
+            fields={filterFields}
+            presets={filterPresets}
+            totalCount={serverCollaboratorsTotal}
+            visibleCount={paginatedCollaborators.length}
+            storageKey="entity-filter:collaborators"
+            testId="filter-collaborators"
+            locale={locale}
+            labels={{
+              search: t.collaborators.searchPlaceholder,
+              filter: t.common.filter,
+              clearAll: t.common.clearAll,
+            }}
+            actionsSlot={
+              <>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-9"
                   onClick={() => exportToCsv(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
                   data-testid="button-export-collaborators-csv"
+                  title={t.common.exportCsv}
                 >
-                  <Download className="h-4 w-4 mr-1.5" />
-                  {t.common.exportCsv}
+                  <Download className="h-4 w-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">{t.common.exportCsv}</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-9"
                   onClick={() => exportToExcel(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
                   data-testid="button-export-collaborators-excel"
+                  title={t.common.exportExcel}
                 >
-                  <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-                  {t.common.exportExcel}
+                  <FileSpreadsheet className="h-4 w-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">{t.common.exportExcel}</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-9"
                   onClick={() => { refetchCollaborators(); queryClient.invalidateQueries({ queryKey: ["/api/collaborators/stats"] }); }}
                   data-testid="button-refresh-collaborators"
+                  title={t.common.refresh}
                 >
-                  <RefreshCw className="h-4 w-4 mr-1.5" />
-                  {t.common.refresh}
+                  <RefreshCw className="h-4 w-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">{t.common.refresh}</span>
                 </Button>
                 {canAdd("collaborators") && (
-                  <Button onClick={handleAddNew} className="bg-red-700 hover:bg-red-800 text-white" size="sm" data-testid="button-add-collaborator-inline">
+                  <Button
+                    onClick={handleAddNew}
+                    className="h-9 bg-red-700 hover:bg-red-800 text-white"
+                    size="sm"
+                    data-testid="button-add-collaborator-inline"
+                  >
                     <Plus className="h-4 w-4 mr-1.5" />
                     {addButtonLabel || t.collaborators.addCollaborator}
                   </Button>
                 )}
-              </div>
-            </div>
-            <EntityFilter
-              searchQuery={searchQuery}
-              onSearchChange={(q) => { setSearchQuery(q); setPage(1); }}
-              searchPlaceholder={t.collaborators.searchPlaceholder}
-              rules={filterRules}
-              onRulesChange={handleRulesChange}
-              fields={filterFields}
-              presets={filterPresets}
-              totalCount={serverCollaboratorsTotal}
-              visibleCount={paginatedCollaborators.length}
-              storageKey="entity-filter:collaborators"
-              testId="filter-collaborators"
-              labels={{
-                search: t.collaborators.searchPlaceholder,
-                filter: t.common.filter,
-                clearAll: t.common.clearAll,
-              }}
-            />
-          </div>
+              </>
+            }
+          />
         </CardHeader>
         <CardContent>
           {isLoading ? (
