@@ -1943,7 +1943,20 @@ export default function HospitalsPage() {
   const hospitals = hospitalsPaginatedResult?.data || [];
   const serverHospitalsTotal = hospitalsPaginatedResult?.total || 0;
 
-  const clinicQueryParams: Record<string, any> = { page: clinicPage, limit: clinicPageSize };
+  // Detect whether any non-server-handled rule is active (forces full-dataset fetch
+  // so client-side filtering can compute the correct count and full export).
+  const clinicNeedsFullDataset = useMemo(() => {
+    return clinicFilterRules.some((r) => {
+      if (r.field !== "country") return true;
+      if (r.op !== "is" && r.op !== "isAny") return true;
+      if (Array.isArray(r.value)) return !(r.value.length === 1 && !!r.value[0]);
+      return !r.value;
+    });
+  }, [clinicFilterRules]);
+
+  const clinicQueryParams: Record<string, any> = clinicNeedsFullDataset
+    ? {}
+    : { page: clinicPage, limit: clinicPageSize };
   if (debouncedClinicSearch) clinicQueryParams.search = debouncedClinicSearch;
   {
     const countryRule = clinicFilterRules.find((r) => r.field === "country" && (r.op === "is" || r.op === "isAny"));
@@ -1956,11 +1969,15 @@ export default function HospitalsPage() {
       clinicQueryParams.countries = selectedCountries.join(",");
     }
   }
-  const { data: clinicsPaginatedResult, isLoading: isLoadingClinics, refetch: refetchClinics } = useQuery<{ data: Clinic[], total: number }>({
+  const { data: clinicsPaginatedResult, isLoading: isLoadingClinics, refetch: refetchClinics } = useQuery<{ data: Clinic[], total: number } | Clinic[]>({
     queryKey: ["/api/clinics", clinicQueryParams],
   });
-  const clinics = clinicsPaginatedResult?.data || [];
-  const serverClinicsTotal = clinicsPaginatedResult?.total || 0;
+  const clinics: Clinic[] = Array.isArray(clinicsPaginatedResult)
+    ? clinicsPaginatedResult
+    : (clinicsPaginatedResult?.data || []);
+  const serverClinicsTotal = Array.isArray(clinicsPaginatedResult)
+    ? clinicsPaginatedResult.length
+    : (clinicsPaginatedResult?.total || 0);
 
   const { data: referralCounts } = useQuery<{ recommendedBy: Record<string, number>; recommends: Record<string, number> }>({
     queryKey: ["/api/clinic-referral-counts"],
@@ -2210,8 +2227,21 @@ export default function HospitalsPage() {
     return result;
   })();
   
-  const totalClinicPages = Math.ceil(serverClinicsTotal / clinicPageSize);
-  const paginatedClinics = filteredAndSortedClinics;
+  // When the full dataset is fetched (any client-side filter active), counts and
+  // pagination must come from the client-filtered list, not the server total.
+  const filteredClinicsTotal = clinicNeedsFullDataset
+    ? filteredAndSortedClinics.length
+    : serverClinicsTotal;
+  const totalClinicPages = Math.max(
+    1,
+    Math.ceil(filteredClinicsTotal / clinicPageSize)
+  );
+  const paginatedClinics = clinicNeedsFullDataset
+    ? filteredAndSortedClinics.slice(
+        (clinicPage - 1) * clinicPageSize,
+        clinicPage * clinicPageSize
+      )
+    : filteredAndSortedClinics;
 
   const pipelineStats = useMemo(() => {
     if (serverClinicStats) {
@@ -3218,7 +3248,7 @@ export default function HospitalsPage() {
                 onRulesChange={handleClinicRulesChange}
                 fields={clinicFilterFields}
                 presets={clinicFilterPresets}
-                totalCount={serverClinicsTotal}
+                totalCount={filteredClinicsTotal}
                 visibleCount={paginatedClinics.length}
                 storageKey="entity-filter:clinics"
                 testId="filter-clinics"
@@ -3322,7 +3352,7 @@ export default function HospitalsPage() {
                   {totalClinicPages > 1 && (
                     <div className="flex items-center justify-between mt-4 pt-4 border-t">
                       <div className="text-sm text-muted-foreground">
-                        {t.common.showing || "Zobrazujem"} {((clinicPage - 1) * clinicPageSize) + 1} - {Math.min(clinicPage * clinicPageSize, serverClinicsTotal)} {t.common.of || "z"} {serverClinicsTotal}
+                        {t.common.showing || "Zobrazujem"} {((clinicPage - 1) * clinicPageSize) + 1} - {Math.min(clinicPage * clinicPageSize, filteredClinicsTotal)} {t.common.of || "z"} {filteredClinicsTotal}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button

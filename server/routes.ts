@@ -14808,14 +14808,16 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const search = req.query.search as string;
       const country = req.query.country as string;
       const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
-      if (req.query.page || req.query.search) {
+      // Paginated branch: only when explicit `page` is requested.
+      if (req.query.page) {
         const result = await storage.getClinicsPaginated(page || 1, limit, search, country, countries);
         return res.json(result);
       }
-      const clinicsList = countries && countries.length > 0
-        ? await storage.getClinicsByCountry(countries)
-        : await storage.getAllClinics();
-      res.json(clinicsList);
+      // Full-list branch (used when client needs to apply non-server-side filters
+      // and compute correct counts / export the entire filtered set). Apply the
+      // same search + country filtering as paginated, just without limit/offset.
+      const result = await storage.getClinicsPaginated(1, 100000, search, country, countries);
+      res.json(result.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch clinics" });
     }
