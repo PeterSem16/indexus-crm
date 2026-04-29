@@ -143,8 +143,10 @@ Preferred communication style: Simple, everyday language.
 - Primary collaborator kontakty získajú `partnerCategory = PRIVATE_GYNECOLOGIST_CATEGORY_ID` (053995ca-…) pri INSERT; existujúci sa updatuje len ak `partnerCategory` je null.
 - `collaborator_addresses` (Personnel → Company Address) pri INSERT/UPDATE doplňujeme `postal_code`, `district` a `region` (plný názov kraja) z CSV + AI + materskej kliniky.
 - Klinicky dôležité hodnoty `clinics.initial_status` sa nastavujú na `"initial:not_contacted"` (zladenie s `PIPELINE_CATEGORIES` v `clinic-form-wizard.tsx`, aby UI tile "New contact" zvýraznil); legacy "not_contacted" sa migruje bulk-updatom.
+- Bilingválne mená (slash-format): parser handluje "Ján / János Perhács" aj "Klaudia/Claudia Čuboňová" (s/bez medzier). Ak `between` má tokeny → alias firstName; ak je prázdny → alternatívne lastName sa zahodí. Globálny `aliasClusters` map zabezpečí, že "MUDr. János Perhács" v jednom riadku sa namatchne na "Ján Perhács" už zapísaného z iného (slash) riadku.
 - Post-write maintenance v `--commit` móde (idempotentné):
   - bulk dedup duplikátnych osôb kde `first_name = last_name` per `(clinic_id, lower(first_name), lower(last_name))` — zachová najstaršiu kópiu, ostatné aj s `contact_assignments` a `collaborator_addresses` vymaže.
+  - cleanup zlých "/" mien (legacy záznamy s lomkou v fn/ln) + globálny merge alias-mien (zlúči varianty pod kanonickú osobu zo všetkých klinik, presunie assignments).
   - migrácia `clinics.initial_status` "not_contacted" → "initial:not_contacted".
   - normalizácia 2-písmenkových regiónov v `collaborator_addresses` na plný názov.
   - deaktivácia kliník bez `id_zz`: `UPDATE clinics SET is_active=false WHERE id_zz IS NULL OR id_zz=''`.

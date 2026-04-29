@@ -37,7 +37,7 @@ import path from "node:path";
 import OpenAI from "openai";
 import { db } from "../server/db";
 import { clinics, collaborators, contactAssignments, collaboratorAddresses } from "@shared/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 // ────────────────────────────────────────────────────────────────────────────
 // SK kraj-mapping: 2-písmenková skratka → plný úradný názov
@@ -358,6 +358,9 @@ interface ParsedPerson {
   lastName: string | null;
   titleAfter: string | null;
   warning?: string;
+  // Alternatívne firstName variant(y) v prípade bilingválneho zápisu
+  // "Ján / János Perhács" → firstName="Ján", aliasFirstNames=["János"]
+  aliasFirstNames?: string[];
 }
 
 function parsePersonName(raw: string): ParsedPerson {
@@ -367,7 +370,9 @@ function parsePersonName(raw: string): ParsedPerson {
   }
   const [namePart, ...afterParts] = original.split(",");
   const afterTitles = afterParts.map((s) => s.trim()).filter(Boolean);
-  const tokens = namePart.trim().split(/\s+/);
+  // "Klaudia/Claudia" → "Klaudia / Claudia" (ošetrenie bez medzier okolo "/")
+  const normalizedNamePart = namePart.replace(/(\S)\/(\S)/g, "$1 / $2");
+  const tokens = normalizedNamePart.trim().split(/\s+/);
   const titlesBefore: string[] = [];
   const nameTokens: string[] = [];
   for (const tok of tokens) {
@@ -385,6 +390,26 @@ function parsePersonName(raw: string): ParsedPerson {
       afterTitles.unshift(nameTokens.pop()!);
     } else break;
   }
+  // Slash je oddeľovač alternatívnych variantov toho istého mena (bilingual
+  // alebo rodné/manželské priezvisko).
+  //   "Ján / János Perhács"      → firstName="Ján",   lastName="Perhács", alias="János"
+  //   "Zoltán Hegedűs / Hegedus" → firstName="Zoltán", lastName="Hegedűs"  (Hegedus zahodené)
+  //   "Marčela Levska / Tichová" → firstName="Marčela", lastName="Levska" (Tichová zahodené)
+  const aliasFirstNames: string[] = [];
+  const slashIdx = nameTokens.indexOf("/");
+  if (slashIdx > 0 && slashIdx < nameTokens.length - 1) {
+    const before = nameTokens.slice(0, slashIdx);
+    const between = nameTokens.slice(slashIdx + 1, nameTokens.length - 1);
+    const last = nameTokens[nameTokens.length - 1];
+    if (between.length > 0) {
+      // Alternatíva firstName: ponechaj prvý variant + priezvisko
+      aliasFirstNames.push(between.join(" "));
+      nameTokens.splice(0, nameTokens.length, ...before, last);
+    } else {
+      // Alternatíva lastName: ponechaj len `before` (firstName + lastName1)
+      nameTokens.splice(0, nameTokens.length, ...before);
+    }
+  }
   let firstName: string | null = null;
   let lastName: string | null = null;
   if (nameTokens.length === 1) {
@@ -399,6 +424,7 @@ function parsePersonName(raw: string): ParsedPerson {
     firstName,
     lastName,
     titleAfter: afterTitles.length ? afterTitles.join(", ") : null,
+    aliasFirstNames: aliasFirstNames.length ? aliasFirstNames : undefined,
     warning: !lastName ? "no last name parsed" : undefined,
   };
 }
@@ -1034,6 +1060,43 @@ async function main() {
       }
     }
 
+    // ── Načítaj všetky "orphan" osoby (clinic_id IS NULL) pre globálnu adopciu ──
+    // Takéto záznamy pochádzajú zo starších importov a tu im pridelíme kliniku
+    // namiesto vytvorenia novej duplicitnej osoby.
+    const orphanRows = await db
+      .select({
+        id: collaborators.id,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+      })
+      .from(collaborators)
+      .where(isNull(collaborators.clinicId));
+    const orphanByKey = new Map<string, string>(); // key → personId
+    for (const o of orphanRows) {
+      const k = `${(o.firstName ?? "").toLowerCase().trim()}|${(o.lastName ?? "").toLowerCase().trim()}`;
+      if (!orphanByKey.has(k)) orphanByKey.set(k, o.id);
+    }
+    let adoptedOrphans = 0;
+
+    // Globálny alias-cluster: pre každé `lower(fn|ln)` zoznam ekvivalentných
+    // (fn|ln) zo všetkých CSV slash-mien. Použité v per-clinic existing-match
+    // lookup, aby `MUDr. János Perhács` (CSV) matchol `Ján Perhács` (DB).
+    const aliasClusters = new Map<string, Set<string>>();
+    for (const grp of personPlans) {
+      for (const pp of grp.persons) {
+        const fn = (pp.parsed.firstName ?? "").toLowerCase().trim();
+        const ln = (pp.parsed.lastName ?? "").toLowerCase().trim();
+        const aliases = (pp.parsed.aliasFirstNames ?? []).map((a) => a.toLowerCase().trim()).filter(Boolean);
+        if (!fn || !ln || aliases.length === 0) continue;
+        const cluster = new Set<string>([`${fn}|${ln}`, ...aliases.map((a) => `${a}|${ln}`)]);
+        for (const k of cluster) {
+          const ex = aliasClusters.get(k) ?? new Set<string>();
+          for (const c of cluster) ex.add(c);
+          aliasClusters.set(k, ex);
+        }
+      }
+    }
+
     // Osoby — po klinikách
     for (const grp of personPlans) {
       const clinicId = csvRowToClinicId.get(grp.clinicLookup.csvRow);
@@ -1081,7 +1144,25 @@ async function main() {
             // pri opakovaných behoch vznikajú duplikáty (napr. "Böhmer Böhmer").
             const insertedFn = fn || ln;
             const key = `${insertedFn.toLowerCase()}|${ln.toLowerCase()}`;
-            const existingMatch = existingByKey.get(key);
+            // Bilingual aliases — "Ján / János Perhács" má alias "János" pre tú
+            // istú osobu. Ak existuje per-clinic záznam pre alias, použi ho.
+            // Doplnené o globálny aliasClusters (reverz: "jános" → "ján" aj keď
+            // tento konkrétny CSV riadok aliasy neuvádza).
+            const aliasKeysSet = new Set<string>(
+              (pp.parsed.aliasFirstNames ?? []).map(
+                (af) => `${af.toLowerCase().trim()}|${ln.toLowerCase()}`,
+              ),
+            );
+            const cluster = aliasClusters.get(key);
+            if (cluster) for (const c of cluster) if (c !== key) aliasKeysSet.add(c);
+            const aliasKeys = [...aliasKeysSet];
+            let existingMatch = existingByKey.get(key);
+            if (!existingMatch) {
+              for (const ak of aliasKeys) {
+                const m = existingByKey.get(ak);
+                if (m) { existingMatch = m; break; }
+              }
+            }
 
             if (existingMatch) {
               // Idempotentný fix: doplniť chýbajúce polia
@@ -1200,6 +1281,124 @@ async function main() {
                     .where(eq(collaboratorAddresses.id, ex.id));
                 }
               }
+              // collaborator_type='doctor' pre primary, ak chýba
+              if (pp.isPrimary && !(existingMatch as any).collaboratorType) {
+                await tx
+                  .update(collaborators)
+                  .set({ collaboratorType: "doctor", updatedAt: sql`now()` })
+                  .where(eq(collaborators.id, existingMatch.personId));
+              }
+              // Alias-orphan absorpcia: ak existuje orphan pod alias menom
+              // (napr. Klaudia má kliniku, Claudia je orphan), zlúč ho do
+              // existingMatch a vymaž duplikát.
+              for (const ak of aliasKeys) {
+                const aliasOrphanId = orphanByKey.get(ak);
+                if (!aliasOrphanId) continue;
+                const orphanAss = await tx
+                  .select({ id: contactAssignments.id, entityType: contactAssignments.entityType, entityId: contactAssignments.entityId })
+                  .from(contactAssignments)
+                  .where(eq(contactAssignments.personId, aliasOrphanId));
+                const primaryAss = await tx
+                  .select({ entityType: contactAssignments.entityType, entityId: contactAssignments.entityId })
+                  .from(contactAssignments)
+                  .where(eq(contactAssignments.personId, existingMatch.personId));
+                const taken = new Set(primaryAss.map((a) => `${a.entityType}|${a.entityId}`));
+                for (const a of orphanAss) {
+                  const k2 = `${a.entityType}|${a.entityId}`;
+                  if (taken.has(k2)) {
+                    await tx.delete(contactAssignments).where(eq(contactAssignments.id, a.id));
+                  } else {
+                    await tx.update(contactAssignments).set({ personId: existingMatch.personId, updatedAt: sql`now()` }).where(eq(contactAssignments.id, a.id));
+                    taken.add(k2);
+                  }
+                }
+                await tx.delete(collaboratorAddresses).where(eq(collaboratorAddresses.collaboratorId, aliasOrphanId));
+                await tx.delete(collaborators).where(eq(collaborators.id, aliasOrphanId));
+                orphanByKey.delete(ak);
+                adoptedOrphans++;
+              }
+              continue;
+            }
+
+            // ── Orphan adopcia ──
+            // Existuje osoba s rovnakým menom ale bez clinic_id (zo staršieho
+            // importu)? Adoptuj ju namiesto vytvorenia novej duplicity.
+            // Pre bilingválne mená skús aj alias variant.
+            let orphanId = orphanByKey.get(key);
+            let orphanKeyUsed = key;
+            if (!orphanId) {
+              for (const ak of aliasKeys) {
+                const oid = orphanByKey.get(ak);
+                if (oid) { orphanId = oid; orphanKeyUsed = ak; break; }
+              }
+            }
+            if (orphanId) {
+              const adopt: Record<string, any> = {
+                clinicId,
+                clinicIds: [clinicId],
+                countryCode: "SK",
+                countryCodes: ["SK"],
+                companyName: grp.clinicCompany.name,
+                ico: grp.clinicCompany.ico,
+                phone: grp.clinicCompany.phone,
+                email: grp.clinicCompany.email,
+                isActive: true,
+                updatedAt: sql`now()`,
+              };
+              if (pp.isPrimary) {
+                adopt.professionalClassification = "gynecology_specialists";
+                adopt.partnerCategory = PRIVATE_GYNECOLOGIST_CATEGORY_ID;
+                adopt.collaboratorType = "doctor";
+              }
+              if (pp.parsed.titleBefore) adopt.titleBefore = pp.parsed.titleBefore;
+              if (pp.parsed.titleAfter) adopt.titleAfter = pp.parsed.titleAfter;
+              await tx
+                .update(collaborators)
+                .set(adopt)
+                .where(eq(collaborators.id, orphanId));
+              await tx.insert(contactAssignments).values({
+                personId: orphanId,
+                entityType: "clinic",
+                entityId: clinicId,
+                isPrimary: pp.isPrimary,
+                position: pp.position,
+                categoryId: pp.categoryId,
+                isActive: true,
+              });
+              // Adresa: rovnaká logika ako pri novom INSERT
+              const adoptAddrLookup = csvRowToAddr.get(grp.clinicLookup.csvRow) ?? null;
+              const adoptClinicAddr = clinicById.get(clinicId) ?? null;
+              await tx.insert(collaboratorAddresses).values({
+                collaboratorId: orphanId,
+                addressType: "company",
+                name: grp.clinicAddress.name,
+                streetNumber: grp.clinicAddress.streetNumber,
+                city: grp.clinicAddress.city,
+                postalCode: adoptAddrLookup?.psc ?? adoptClinicAddr?.postalCode ?? null,
+                region:
+                  normalizeRegion(grp.clinicAddress.region) ||
+                  normalizeRegion(adoptClinicAddr?.region ?? null),
+                district:
+                  grp.clinicAddress.district ??
+                  adoptAddrLookup?.district ??
+                  adoptClinicAddr?.district ??
+                  null,
+                countryCode: grp.clinicAddress.countryCode,
+              });
+              orphanByKey.delete(orphanKeyUsed);
+              adoptedOrphans++;
+              const cacheEntry = {
+                assignmentId: "",
+                personId: orphanId,
+                isPrimary: pp.isPrimary,
+                position: pp.position,
+                categoryId: pp.categoryId,
+                firstName: fn || ln,
+                lastName: ln,
+                countryCode: "SK",
+              } as any;
+              existingByKey.set(key, cacheEntry);
+              for (const ak of aliasKeys) existingByKey.set(ak, cacheEntry);
               continue;
             }
 
@@ -1220,6 +1419,7 @@ async function main() {
                 email: grp.clinicCompany.email,
                 professionalClassification: pp.isPrimary ? "gynecology_specialists" : null,
                 partnerCategory: pp.isPrimary ? PRIVATE_GYNECOLOGIST_CATEGORY_ID : null,
+                collaboratorType: pp.isPrimary ? "doctor" : null,
                 isActive: true,
               })
               .returning({ id: collaborators.id });
@@ -1257,7 +1457,7 @@ async function main() {
               countryCode: grp.clinicAddress.countryCode,
             });
 
-            existingByKey.set(key, {
+            const newCacheEntry = {
               assignmentId: "",
               personId: pers.id,
               isPrimary: pp.isPrimary,
@@ -1266,7 +1466,9 @@ async function main() {
               firstName: fn || ln,
               lastName: ln,
               countryCode: "SK",
-            });
+            } as any;
+            existingByKey.set(key, newCacheEntry);
+            for (const ak of aliasKeys) existingByKey.set(ak, newCacheEntry);
           }
         });
       } catch (e: any) {
@@ -1300,6 +1502,220 @@ async function main() {
       }
     } catch (e: any) {
       console.warn(`  ⚠ Dedup duplikátnych osôb zlyhal: ${e?.message ?? e}`);
+    }
+
+    // ── 5-pre-b. Vyčisti zlé záznamy s "/" v priezvisku (starý parser) ──
+    // "Ján / János Perhács" sa starým parserom uložil ako lastName="/ János Perhács".
+    // Po oprave parsera tieto záznamy zmažeme — orphan adopcia / nový INSERT v
+    // ďalšom behu vytvorí korektný záznam.
+    let cleanedSlashNames = 0;
+    try {
+      const badRows = await db
+        .select({ id: collaborators.id })
+        .from(collaborators)
+        .where(sql`${collaborators.lastName} LIKE '%/%' OR ${collaborators.firstName} LIKE '%/%'`);
+      const badIds = badRows.map((r) => r.id);
+      if (badIds.length > 0) {
+        await db.delete(collaboratorAddresses).where(inArray(collaboratorAddresses.collaboratorId, badIds));
+        await db.delete(contactAssignments).where(inArray(contactAssignments.personId, badIds));
+        await db.delete(collaborators).where(inArray(collaborators.id, badIds));
+        cleanedSlashNames = badIds.length;
+      }
+    } catch (e: any) {
+      console.warn(`  ⚠ Čistenie zlých "/" mien zlyhalo: ${e?.message ?? e}`);
+    }
+
+    // ── 5-pre-c. Zlúč zostávajúcich orphan duplikátov do "claimed" záznamov ──
+    // Ak existuje orphan (clinic_id IS NULL) a zároveň "claimed" osoba
+    // (clinic_id IS NOT NULL) s rovnakým menom, ktorú orphan-adopcia
+    // nezachytila (napr. CSV mal len danú kliniku, nie všetky), presunieme
+    // contact_assignments + collaborator_addresses na claimed a orphan zmažeme.
+    let mergedOrphans = 0;
+    try {
+      const mergeRows: { primary_id: string; orphan_ids: string[] }[] = await db.execute(sql`
+        WITH grouped AS (
+          SELECT
+            lower(first_name) AS fn_l,
+            lower(last_name)  AS ln_l,
+            array_agg(id) FILTER (WHERE clinic_id IS NULL)     AS orphans,
+            (array_agg(id ORDER BY created_at DESC)
+              FILTER (WHERE clinic_id IS NOT NULL))[1]         AS primary_id
+          FROM collaborators
+          WHERE first_name IS NOT NULL AND last_name IS NOT NULL
+          GROUP BY lower(first_name), lower(last_name)
+        )
+        SELECT primary_id, orphans AS orphan_ids
+        FROM grouped
+        WHERE primary_id IS NOT NULL
+          AND orphans IS NOT NULL
+          AND array_length(orphans, 1) > 0
+      `).then((r: any) => r.rows ?? r);
+      for (const row of mergeRows) {
+        const primaryId: string = (row as any).primary_id;
+        const orphanIds: string[] = (row as any).orphan_ids ?? [];
+        if (!primaryId || orphanIds.length === 0) continue;
+        // Načítaj orphan assignments + assignments primary-osoby a rozhodni
+        // čo presunúť (kde nie je duplicita) a čo zmazať.
+        const orphanAss = await db
+          .select({
+            id: contactAssignments.id,
+            entityType: contactAssignments.entityType,
+            entityId: contactAssignments.entityId,
+          })
+          .from(contactAssignments)
+          .where(inArray(contactAssignments.personId, orphanIds));
+        const primaryAss = await db
+          .select({
+            entityType: contactAssignments.entityType,
+            entityId: contactAssignments.entityId,
+          })
+          .from(contactAssignments)
+          .where(eq(contactAssignments.personId, primaryId));
+        const primaryEntKeys = new Set(
+          primaryAss.map((a) => `${a.entityType}|${a.entityId}`),
+        );
+        const moveIds: string[] = [];
+        const dropIds: string[] = [];
+        for (const a of orphanAss) {
+          if (primaryEntKeys.has(`${a.entityType}|${a.entityId}`)) {
+            dropIds.push(a.id);
+          } else {
+            moveIds.push(a.id);
+            primaryEntKeys.add(`${a.entityType}|${a.entityId}`);
+          }
+        }
+        if (moveIds.length > 0) {
+          await db
+            .update(contactAssignments)
+            .set({ personId: primaryId, updatedAt: sql`now()` })
+            .where(inArray(contactAssignments.id, moveIds));
+        }
+        if (dropIds.length > 0) {
+          await db.delete(contactAssignments).where(inArray(contactAssignments.id, dropIds));
+        }
+        // Adresy: presuň ak primary nemá company-adresu
+        const primaryAddrCnt = await db
+          .select({ id: collaboratorAddresses.id })
+          .from(collaboratorAddresses)
+          .where(
+            and(
+              eq(collaboratorAddresses.collaboratorId, primaryId),
+              eq(collaboratorAddresses.addressType, "company"),
+            ),
+          );
+        if (primaryAddrCnt.length === 0) {
+          // Vyber 1 orphan adresu a presuň ju
+          const [oneAddr] = await db
+            .select({ id: collaboratorAddresses.id })
+            .from(collaboratorAddresses)
+            .where(
+              and(
+                inArray(collaboratorAddresses.collaboratorId, orphanIds),
+                eq(collaboratorAddresses.addressType, "company"),
+              ),
+            )
+            .limit(1);
+          if (oneAddr) {
+            await db
+              .update(collaboratorAddresses)
+              .set({ collaboratorId: primaryId })
+              .where(eq(collaboratorAddresses.id, oneAddr.id));
+          }
+        }
+        await db.delete(collaboratorAddresses).where(inArray(collaboratorAddresses.collaboratorId, orphanIds));
+        await db.delete(collaborators).where(inArray(collaborators.id, orphanIds));
+        mergedOrphans += orphanIds.length;
+      }
+    } catch (e: any) {
+      console.warn(`  ⚠ Zlúčenie orphan duplikátov zlyhalo: ${e?.message ?? e}`);
+    }
+
+    // ── 5-pre-d. Globálny merge alias-mien ──
+    // CSV bilingválne mená (napr. "Ján / János Perhács") generujú aliasFirstNames.
+    // Z legacy stavu môžu existovať záznamy pod oboma variantmi, niektoré s rôznymi
+    // priradeniami. Zlúčime ich do kanonického záznamu (firstName z parser-výstupu).
+    let mergedAliasPersons = 0;
+    try {
+      const aliasPairs = new Map<string, { canonical: { fn: string; ln: string }; aliases: string[] }>();
+      for (const grp of personPlans) {
+        for (const pp of grp.persons) {
+          const fn = (pp.parsed.firstName ?? "").trim();
+          const ln = (pp.parsed.lastName ?? "").trim();
+          const aliases = (pp.parsed.aliasFirstNames ?? []).map((s) => s.trim()).filter(Boolean);
+          if (!fn || !ln || aliases.length === 0) continue;
+          const k = `${fn.toLowerCase()}|${ln.toLowerCase()}`;
+          if (!aliasPairs.has(k)) {
+            aliasPairs.set(k, { canonical: { fn, ln }, aliases: [] });
+          }
+          const entry = aliasPairs.get(k)!;
+          for (const a of aliases) {
+            if (!entry.aliases.some((x) => x.toLowerCase() === a.toLowerCase())) {
+              entry.aliases.push(a);
+            }
+          }
+        }
+      }
+      for (const { canonical, aliases } of aliasPairs.values()) {
+        // Kanonický záznam = záznam s firstName=canonical.fn, lastName=canonical.ln
+        // ktorý má najviac assignments. Ak chýba, vyberieme prvý z aliasov.
+        const allByLastName = await db
+          .select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName })
+          .from(collaborators)
+          .where(sql`lower(${collaborators.lastName}) = ${canonical.ln.toLowerCase()}`);
+        const allowedFn = new Set(
+          [canonical.fn.toLowerCase(), ...aliases.map((a) => a.toLowerCase())],
+        );
+        const allCandidates = allByLastName.filter((c) =>
+          allowedFn.has((c.firstName ?? "").toLowerCase()),
+        );
+        if (allCandidates.length < 2) continue;
+        // Spočítaj assignments per kandidát
+        const counts = new Map<string, number>();
+        for (const c of allCandidates) {
+          const r = await db
+            .select({ n: sql<number>`count(*)::int` })
+            .from(contactAssignments)
+            .where(eq(contactAssignments.personId, c.id));
+          counts.set(c.id, Number(r[0]?.n ?? 0));
+        }
+        // Preferuj kandidáta s firstName === canonical.fn (case-insensitive),
+        // pri rovnosti vyberi toho s najviac assignments.
+        const sorted = [...allCandidates].sort((a, b) => {
+          const aIsCanon = a.firstName?.toLowerCase() === canonical.fn.toLowerCase() ? 1 : 0;
+          const bIsCanon = b.firstName?.toLowerCase() === canonical.fn.toLowerCase() ? 1 : 0;
+          if (aIsCanon !== bIsCanon) return bIsCanon - aIsCanon;
+          return (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0);
+        });
+        const primary = sorted[0];
+        const dupes = sorted.slice(1);
+        if (dupes.length === 0) continue;
+        // Presuň assignments dupes → primary, dedup podľa (entity_type, entity_id)
+        const primaryAss = await db
+          .select({ entityType: contactAssignments.entityType, entityId: contactAssignments.entityId })
+          .from(contactAssignments)
+          .where(eq(contactAssignments.personId, primary.id));
+        const taken = new Set(primaryAss.map((a) => `${a.entityType}|${a.entityId}`));
+        for (const d of dupes) {
+          const dass = await db
+            .select({ id: contactAssignments.id, entityType: contactAssignments.entityType, entityId: contactAssignments.entityId })
+            .from(contactAssignments)
+            .where(eq(contactAssignments.personId, d.id));
+          for (const a of dass) {
+            const k2 = `${a.entityType}|${a.entityId}`;
+            if (taken.has(k2)) {
+              await db.delete(contactAssignments).where(eq(contactAssignments.id, a.id));
+            } else {
+              await db.update(contactAssignments).set({ personId: primary.id, updatedAt: sql`now()` }).where(eq(contactAssignments.id, a.id));
+              taken.add(k2);
+            }
+          }
+          await db.delete(collaboratorAddresses).where(eq(collaboratorAddresses.collaboratorId, d.id));
+          await db.delete(collaborators).where(eq(collaborators.id, d.id));
+          mergedAliasPersons++;
+        }
+      }
+    } catch (e: any) {
+      console.warn(`  ⚠ Merge alias-mien zlyhal: ${e?.message ?? e}`);
     }
 
     // ── 5a. Migrácia legacy initial_status ──
@@ -1373,6 +1789,10 @@ async function main() {
     console.log(`    Vytvorené priradenia:        ${actuallyAssignments}`);
     console.log(`    Deaktivované (bez id_zz):    ${deactivated}`);
     console.log(`    Dedup duplikátnych osôb:     ${dedupedCollabs}`);
+    console.log(`    Adoptované orphan-osoby:     ${adoptedOrphans}`);
+    console.log(`    Vyčistené "/" mená:          ${cleanedSlashNames}`);
+    console.log(`    Zlúčené orphan duplikáty:    ${mergedOrphans}`);
+    console.log(`    Zlúčené alias-mená:          ${mergedAliasPersons}`);
     console.log(`    Migrované initial_status:    ${migratedInitialStatus}`);
     console.log(`    Normalizované regióny adries:${normalizedRegions}`);
     if (errors.length) {
