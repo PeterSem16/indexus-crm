@@ -133,3 +133,12 @@ Preferred communication style: Simple, everyday language.
 - Migration from MSSQL CBC database.
 - Migrated data includes customers, contracts, invoices, collections, collaborators, hospitals, notes, calls, debt collection, potential clients.
 - Supports full and incremental migration procedures.
+
+### INDEXUS Gyn CSV Import (`scripts/import-clinics-write.ts`)
+- Idempotent UPSERT loader for `attached_assets/indexus_gyn_data_import_*.csv` (754 SK gynecology clinics).
+- Match key on `clinics.id_zz`; default `--dry-run`, `--commit` enables writes; `--limit=N` and `--no-ai` flags supported.
+- Region normalization: 2-letter codes (BA, NR, KE, …) auto-converted to full names ("Bratislavský kraj", …) via `REGION_MAP`.
+- AI postal-code (PSČ) lookup using OpenAI `gpt-5` (`reasoning_effort: minimal`, `max_completion_tokens: 256`), persistent cache at `attached_assets/postal_code_cache.json`, concurrency=8.
+- Plan phase fills PSČ for INSERTs always, for UPDATEs only when `existing.postalCode` is empty (FILL_IF_EMPTY semantics).
+- Primary collaborator contacts get `partnerCategory = PRIVATE_GYNECOLOGIST_CATEGORY_ID` (053995ca-…) on INSERT; existing collaborators only updated when `partnerCategory` is null (preserves manual values).
+- Audit log written to `attached_assets/import_write_log_<timestamp>.md` after every run.

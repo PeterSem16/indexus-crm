@@ -32,10 +32,171 @@
 
 import "dotenv/config";
 import { promises as fs } from "node:fs";
+import * as fsSync from "node:fs";
 import path from "node:path";
+import OpenAI from "openai";
 import { db } from "../server/db";
 import { clinics, collaborators, contactAssignments, collaboratorAddresses } from "@shared/schema";
 import { and, eq, sql } from "drizzle-orm";
+
+// ────────────────────────────────────────────────────────────────────────────
+// SK kraj-mapping: 2-písmenková skratka → plný úradný názov
+// ────────────────────────────────────────────────────────────────────────────
+const REGION_MAP: Record<string, string> = {
+  BA: "Bratislavský kraj",
+  TT: "Trnavský kraj",
+  TN: "Trenčiansky kraj",
+  NR: "Nitriansky kraj",
+  ZA: "Žilinský kraj",
+  BB: "Banskobystrický kraj",
+  PO: "Prešovský kraj",
+  KE: "Košický kraj",
+};
+const REGION_FULL_NAMES = new Set(Object.values(REGION_MAP));
+
+function normalizeRegion(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  const upper = trimmed.toUpperCase();
+  if (REGION_MAP[upper]) return REGION_MAP[upper];
+  return trimmed;
+}
+
+function isRegionInvalid(value: string | null | undefined): boolean {
+  if (!value) return true;
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  return !REGION_FULL_NAMES.has(trimmed);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// PSČ lookup cez OpenAI (s perzistentnou cache)
+// ────────────────────────────────────────────────────────────────────────────
+const PSC_CACHE_PATH = path.resolve(
+  process.cwd(),
+  "attached_assets/postal_code_cache.json",
+);
+let pscCache: Record<string, string> = {};
+let pscCacheDirty = false;
+let openaiClient: OpenAI | null = null;
+
+function loadPscCache(): void {
+  try {
+    if (fsSync.existsSync(PSC_CACHE_PATH)) {
+      pscCache = JSON.parse(fsSync.readFileSync(PSC_CACHE_PATH, "utf-8"));
+    }
+  } catch (err) {
+    console.warn(`  ⚠ PSČ cache sa nedala načítať: ${(err as Error).message}`);
+    pscCache = {};
+  }
+}
+
+function flushPscCache(): void {
+  if (!pscCacheDirty) return;
+  try {
+    fsSync.writeFileSync(PSC_CACHE_PATH, JSON.stringify(pscCache, null, 2), "utf-8");
+    pscCacheDirty = false;
+  } catch (err) {
+    console.warn(`  ⚠ PSČ cache sa nedala uložiť: ${(err as Error).message}`);
+  }
+}
+
+function getOpenAI(): OpenAI {
+  if (!openaiClient) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY chýba – AI doplnenie PSČ nie je možné.");
+    }
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiClient;
+}
+
+function pscCacheKey(
+  street: string | null | undefined,
+  city: string | null | undefined,
+  countryCode: string | null | undefined,
+): string {
+  return [
+    String(street ?? "").trim().toLowerCase(),
+    String(city ?? "").trim().toLowerCase(),
+    String(countryCode ?? "SK").trim().toUpperCase(),
+  ].join("|");
+}
+
+async function lookupPostalCode(
+  street: string | null | undefined,
+  city: string | null | undefined,
+  countryCode: string | null | undefined = "SK",
+): Promise<string | null> {
+  const cleanStreet = String(street ?? "").trim();
+  const cleanCity = String(city ?? "").trim();
+  if (!cleanStreet && !cleanCity) return null;
+
+  const key = pscCacheKey(cleanStreet, cleanCity, countryCode);
+  if (key in pscCache) {
+    return pscCache[key] || null;
+  }
+
+  const country = (countryCode ?? "SK").toUpperCase();
+  const countryName = country === "SK" ? "Slovensko" : country;
+  const prompt = `Aké je PSČ (poštové smerovacie číslo) pre adresu: "${cleanStreet}, ${cleanCity}, ${countryName}"? Odpovedz IBA jedným reťazcom vo formáte "XXX XX" (5 číslic so medzerou medzi 3. a 4. číslicou). Ak adresa nie je jednoznačná alebo nepoznáš PSČ, odpovedz presne: NEZNAME`;
+
+  try {
+    // gpt-5 je najnovší a najsilnejší model. Použitý zámerne s minimálnym
+    // reasoningom — úloha je faktografická, nie analytická.
+    const resp = await getOpenAI().chat.completions.create({
+      model: "gpt-5",
+      messages: [{ role: "user", content: prompt }],
+      max_completion_tokens: 256,
+      reasoning_effort: "minimal",
+    } as any);
+    const raw = resp.choices[0]?.message?.content?.trim() ?? "";
+    const m = raw.match(/(\d{3})\s?(\d{2})/);
+    const psc = m ? `${m[1]} ${m[2]}` : null;
+    pscCache[key] = psc ?? "";
+    pscCacheDirty = true;
+    return psc;
+  } catch (err) {
+    console.warn(`  ⚠ AI PSČ lookup zlyhal pre "${cleanStreet}, ${cleanCity}": ${(err as Error).message}`);
+    pscCache[key] = "";
+    pscCacheDirty = true;
+    return null;
+  }
+}
+
+async function lookupPostalCodesBatch(
+  inputs: { street: string | null; city: string | null; countryCode: string | null }[],
+  concurrency = 8,
+): Promise<(string | null)[]> {
+  const results: (string | null)[] = new Array(inputs.length).fill(null);
+  let cursor = 0;
+  let resolvedFromCache = 0;
+  let resolvedFromAI = 0;
+
+  async function worker() {
+    while (cursor < inputs.length) {
+      const myIdx = cursor++;
+      const it = inputs[myIdx];
+      const k = pscCacheKey(it.street, it.city, it.countryCode);
+      const had = k in pscCache;
+      const psc = await lookupPostalCode(it.street, it.city, it.countryCode);
+      results[myIdx] = psc;
+      if (had) resolvedFromCache++;
+      else resolvedFromAI++;
+      if ((resolvedFromAI + resolvedFromCache) % 50 === 0) {
+        console.log(`    … PSČ progress: ${resolvedFromAI + resolvedFromCache}/${inputs.length} (cache=${resolvedFromCache}, AI=${resolvedFromAI})`);
+      }
+      if (resolvedFromAI > 0 && resolvedFromAI % 25 === 0) {
+        flushPscCache();
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+  flushPscCache();
+  console.log(`    ✓ PSČ doplnené: ${resolvedFromCache} z cache, ${resolvedFromAI} cez AI`);
+  return results;
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // CLI argumenty
@@ -49,6 +210,7 @@ const args = Object.fromEntries(
 
 const COMMIT = args.commit === "true";
 const LIMIT = args.limit ? Number(args.limit) : null;
+const SKIP_AI = args["no-ai"] === "true";
 const CSV_PATH = path.resolve(
   process.cwd(),
   String(args.csv ?? "attached_assets/indexus_gyn_data_import_1777373378251.csv"),
@@ -320,8 +482,9 @@ type ExistingClinic = {
   city: string | null;
 };
 
+type PscLookupHint = { street: string | null; city: string | null; countryCode: string };
 type ClinicWritePlan =
-  | { kind: "INSERT"; csvRow: number; data: typeof clinics.$inferInsert }
+  | { kind: "INSERT"; csvRow: number; data: typeof clinics.$inferInsert; pscLookup: PscLookupHint | null }
   | {
       kind: "UPDATE";
       csvRow: number;
@@ -329,6 +492,7 @@ type ClinicWritePlan =
       matchType: "id_zz" | "name_city_exact" | "name_city_fuzzy";
       score: number;
       diff: Record<string, { from: any; to: any }>;
+      pscLookup: PscLookupHint | null;
     }
   | {
       kind: "SKIP_AMBIGUOUS";
@@ -503,7 +667,7 @@ async function main() {
       orientationNumber: get(r, "orientation_number"),
       city: city ?? undefined,
       district: get(r, "district"),
-      region: get(r, "region"),
+      region: normalizeRegion(get(r, "region")) ?? undefined,
       address: normalizeAddress(get(r, "address_full")),
       phone: normalizePhone(get(r, "primary_phone")),
       phone2: normalizePhone(get(r, "phone_2")),
@@ -586,7 +750,16 @@ async function main() {
         doctorLastName: csvFields.doctorLastName,
         doctorName: csvFields.doctorName,
       };
-      plans.push({ kind: "INSERT", csvRow: rowNum, data: insertData });
+      plans.push({
+        kind: "INSERT",
+        csvRow: rowNum,
+        data: insertData,
+        pscLookup: {
+          street: [csvFields.street, csvFields.streetNumber].filter(Boolean).join(" ") || null,
+          city: csvFields.city ?? null,
+          countryCode: (csvFields.countryCode as string | undefined) ?? "SK",
+        },
+      });
     } else {
       // UPDATE — pripravíme diff (iba prázdne polia naplníme)
       const dbRow = await db
@@ -615,6 +788,11 @@ async function main() {
           diff[k as string] = { from: oldVal ?? null, to: newVal };
         }
       }
+      // Špeciálny FIX pre `region`: ak v DB je 2-písmenková skratka alebo iný neplatný
+      // tvar (napr. "BA"), prepíš na úradný názov ("Bratislavský kraj").
+      if (csvFields.region && isRegionInvalid(existing.region) && existing.region !== csvFields.region) {
+        diff["region"] = { from: existing.region ?? null, to: csvFields.region };
+      }
       // notes: append iba tie časti, ktoré v existujúcich poznámkach ešte nie sú
       // (idempotentné – opakované spustenie už nepridá nič)
       if (newNotes && newNotes.trim()) {
@@ -626,6 +804,7 @@ async function main() {
           diff["notes"] = { from: oldNotes || null, to: merged };
         }
       }
+      const needsPsc = !existing.postalCode || existing.postalCode.trim() === "";
       plans.push({
         kind: "UPDATE",
         csvRow: rowNum,
@@ -633,6 +812,13 @@ async function main() {
         matchType: matched.type,
         score: Math.round(matched.score * 1000) / 1000,
         diff,
+        pscLookup: needsPsc
+          ? {
+              street: [csvFields.street, csvFields.streetNumber].filter(Boolean).join(" ") || null,
+              city: csvFields.city ?? null,
+              countryCode: (csvFields.countryCode as string | undefined) ?? "SK",
+            }
+          : null,
       });
     }
 
@@ -707,6 +893,26 @@ async function main() {
   let actuallyAssignments = 0;
   const errors: { csvRow: number; error: string }[] = [];
 
+  // ── 5a. AI-doplnenie PSČ (pre INSERTy a pre UPDATEy bez existujúceho PSČ) ──
+  const csvRowToPsc = new Map<number, string | null>();
+  if (!SKIP_AI) {
+    loadPscCache();
+    const lookupTargets: { csvRow: number; hint: PscLookupHint }[] = [];
+    for (const p of plans) {
+      if (p.kind === "SKIP_AMBIGUOUS") continue;
+      if (!p.pscLookup) continue;
+      if (!p.pscLookup.street && !p.pscLookup.city) continue;
+      lookupTargets.push({ csvRow: p.csvRow, hint: p.pscLookup });
+    }
+    if (lookupTargets.length) {
+      console.log(`\n→ AI doplnenie PSČ pre ${lookupTargets.length} ambulancií (cache + OpenAI) …`);
+      const pscs = await lookupPostalCodesBatch(lookupTargets.map((t) => t.hint));
+      lookupTargets.forEach((t, i) => csvRowToPsc.set(t.csvRow, pscs[i]));
+    }
+  } else {
+    console.log(`\n→ AI doplnenie PSČ vynechané (--no-ai)`);
+  }
+
   if (!COMMIT) {
     console.log(`\n⚠ DRY-RUN: žiadne zmeny v DB. Pre reálny zápis pridaj flag --commit.`);
   } else {
@@ -719,14 +925,20 @@ async function main() {
       try {
         await db.transaction(async (tx) => {
           if (p.kind === "INSERT") {
-            const [row] = await tx.insert(clinics).values(p.data).returning({ id: clinics.id });
+            const psc = csvRowToPsc.get(p.csvRow);
+            const insertData = psc ? { ...p.data, postalCode: psc } : p.data;
+            const [row] = await tx.insert(clinics).values(insertData).returning({ id: clinics.id });
             csvRowToClinicId.set(p.csvRow, row.id);
             actuallyInserted++;
           } else if (p.kind === "UPDATE") {
             csvRowToClinicId.set(p.csvRow, p.clinicId);
-            const fieldsToUpdate = Object.fromEntries(
+            const fieldsToUpdate: Record<string, any> = Object.fromEntries(
               Object.entries(p.diff).map(([k, v]) => [k, v.to]),
             );
+            const psc = csvRowToPsc.get(p.csvRow);
+            if (psc && !("postalCode" in fieldsToUpdate)) {
+              fieldsToUpdate.postalCode = psc;
+            }
             if (Object.keys(fieldsToUpdate).length === 0) return; // no-op
             await tx
               .update(clinics)
@@ -763,6 +975,7 @@ async function main() {
               phone: collaborators.phone,
               email: collaborators.email,
               professionalClassification: collaborators.professionalClassification,
+              partnerCategory: collaborators.partnerCategory,
             })
             .from(contactAssignments)
             .leftJoin(collaborators, eq(collaborators.id, contactAssignments.personId))
@@ -809,6 +1022,9 @@ async function main() {
               }
               if (pp.isPrimary && !existingMatch.professionalClassification) {
                 collabUpdates.professionalClassification = "gynecology_specialists";
+              }
+              if (pp.isPrimary && !(existingMatch as any).partnerCategory) {
+                collabUpdates.partnerCategory = PRIVATE_GYNECOLOGIST_CATEGORY_ID;
               }
               if (Object.keys(collabUpdates).length > 0) {
                 collabUpdates.updatedAt = sql`now()`;
@@ -873,6 +1089,7 @@ async function main() {
                 phone: grp.clinicCompany.phone,
                 email: grp.clinicCompany.email,
                 professionalClassification: pp.isPrimary ? "gynecology_specialists" : null,
+                partnerCategory: pp.isPrimary ? PRIVATE_GYNECOLOGIST_CATEGORY_ID : null,
                 isActive: true,
               })
               .returning({ id: collaborators.id });
