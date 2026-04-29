@@ -434,6 +434,12 @@ async function main() {
       region: string | null;
       countryCode: string;
     };
+    clinicCompany: {
+      name: string;
+      ico: string | null;
+      phone: string | null;
+      email: string | null;
+    };
   }[] = [];
 
   let processed = 0;
@@ -665,6 +671,12 @@ async function main() {
           region: csvFields.region ?? null,
           countryCode: csvFields.countryCode ?? "SK",
         },
+        clinicCompany: {
+          name,
+          ico: csvFields.ico ?? null,
+          phone: csvFields.phone ?? null,
+          email: csvFields.email ?? null,
+        },
       });
     }
   }
@@ -745,6 +757,12 @@ async function main() {
               firstName: collaborators.firstName,
               lastName: collaborators.lastName,
               countryCode: collaborators.countryCode,
+              countryCodes: collaborators.countryCodes,
+              companyName: collaborators.companyName,
+              ico: collaborators.ico,
+              phone: collaborators.phone,
+              email: collaborators.email,
+              professionalClassification: collaborators.professionalClassification,
             })
             .from(contactAssignments)
             .leftJoin(collaborators, eq(collaborators.id, contactAssignments.personId))
@@ -769,11 +787,34 @@ async function main() {
 
             if (existingMatch) {
               // Idempotentný fix: doplniť chýbajúce polia
-              // 1) collaborators.countryCode → "SK" ak NULL/prázdne
+              // 1) collaborators – fill-if-empty
+              const collabUpdates: Record<string, any> = {};
               if (!existingMatch.countryCode || existingMatch.countryCode === "") {
+                collabUpdates.countryCode = "SK";
+              }
+              if (!existingMatch.countryCodes || existingMatch.countryCodes.length === 0) {
+                collabUpdates.countryCodes = ["SK"];
+              }
+              if (!existingMatch.companyName) {
+                collabUpdates.companyName = grp.clinicCompany.name;
+              }
+              if (!existingMatch.ico && grp.clinicCompany.ico) {
+                collabUpdates.ico = grp.clinicCompany.ico;
+              }
+              if (!existingMatch.phone && grp.clinicCompany.phone) {
+                collabUpdates.phone = grp.clinicCompany.phone;
+              }
+              if (!existingMatch.email && grp.clinicCompany.email) {
+                collabUpdates.email = grp.clinicCompany.email;
+              }
+              if (pp.isPrimary && !existingMatch.professionalClassification) {
+                collabUpdates.professionalClassification = "gynecology_specialists";
+              }
+              if (Object.keys(collabUpdates).length > 0) {
+                collabUpdates.updatedAt = sql`now()`;
                 await tx
                   .update(collaborators)
-                  .set({ countryCode: "SK" })
+                  .set(collabUpdates)
                   .where(eq(collaborators.id, existingMatch.personId));
               }
               // 2) contact_assignments.position + categoryId pre primary, ak chýbajú
@@ -820,12 +861,18 @@ async function main() {
               .insert(collaborators)
               .values({
                 countryCode: "SK",
+                countryCodes: ["SK"],
                 titleBefore: pp.parsed.titleBefore,
                 firstName: fn || ln, // schema vyžaduje notnull firstName
                 lastName: ln,
                 titleAfter: pp.parsed.titleAfter,
                 clinicId,
                 clinicIds: [clinicId],
+                companyName: grp.clinicCompany.name,
+                ico: grp.clinicCompany.ico,
+                phone: grp.clinicCompany.phone,
+                email: grp.clinicCompany.email,
+                professionalClassification: pp.isPrimary ? "gynecology_specialists" : null,
                 isActive: true,
               })
               .returning({ id: collaborators.id });
