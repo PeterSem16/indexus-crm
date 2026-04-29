@@ -15337,6 +15337,38 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
 
+      // Helper: load addresses for a list of collab IDs and pick a "primary" one
+      // (priority: permanent -> work -> correspondence -> company -> first)
+      const loadPrimaryAddresses = async (collabIds: string[]) => {
+        if (collabIds.length === 0) return new Map<string, any>();
+        const { collaboratorAddresses: addrTable } = await import("@shared/schema");
+        const allAddrs = await db.select().from(addrTable).where(inArray(addrTable.collaboratorId, collabIds));
+        const byCollab = new Map<string, any[]>();
+        for (const a of allAddrs as any[]) {
+          const list = byCollab.get(a.collaboratorId) || [];
+          list.push(a);
+          byCollab.set(a.collaboratorId, list);
+        }
+        const priority = ["permanent", "work", "correspondence", "company"];
+        const primary = new Map<string, any>();
+        for (const [cid, list] of Array.from(byCollab.entries())) {
+          let best = list[0];
+          for (const t of priority) {
+            const found = list.find((x) => x.addressType === t);
+            if (found) { best = found; break; }
+          }
+          primary.set(cid, {
+            addressCity: best.city || null,
+            addressDistrict: best.district || null,
+            addressRegion: best.region || null,
+            addressPostalCode: best.postalCode || null,
+            addressStreet: best.streetNumber || null,
+            addressCountry: best.countryCode || null,
+          });
+        }
+        return primary;
+      };
+
       if (req.query.page || req.query.search) {
         const needsAgreementFilter = agreement === "valid" || agreement === "expired" || agreement === "none";
         const needsScopeFilter = !!(scopeCategoryIds || excludeCategoryIds);
@@ -15350,6 +15382,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             }).from(contactAssignments).where(eq(contactAssignments.isActive, true)),
             storage.getAllCollaboratorAgreements(),
           ]);
+          const primaryAddrAll = await loadPrimaryAddresses(allResult.data.map((c: any) => c.id));
           const today = new Date();
           const assignmentMap: Record<string, { hospitalCount: number; clinicCount: number }> = {};
           for (const a of allAssignments) {
@@ -15375,7 +15408,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               } else if (ag.isValid) { hasValidAgreement = true; }
             }
             const counts = assignmentMap[collab.id] || { hospitalCount: 0, clinicCount: 0 };
-            return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
+            const addr = primaryAddrAll.get(collab.id) || {};
+            return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts, ...addr };
           });
           let filtered = enrichedAll.filter((c: any) => {
             if (agreement === "valid") return c.hasValidAgreement === true;
@@ -15413,6 +15447,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           list.push(ag);
           agreementsByCollabPage.set(ag.collaboratorId, list);
         }
+        const primaryAddrPage = await loadPrimaryAddresses(pageIds);
         const enrichedData = result.data.map((collab) => {
           const agreements = agreementsByCollabPage.get(collab.id) || [];
           let hasExpiredAgreement = false;
@@ -15425,7 +15460,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             } else if (ag.isValid) { hasValidAgreement = true; }
           }
           const counts = assignmentMap[collab.id] || { hospitalCount: 0, clinicCount: 0 };
-          return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
+          const addr = primaryAddrPage.get(collab.id) || {};
+          return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts, ...addr };
         });
         let finalData = enrichedData;
         if (scopeCategoryIds) {

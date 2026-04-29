@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff, Phone, PhoneIncoming, PhoneOutgoing, Network } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff, Phone, PhoneIncoming, PhoneOutgoing, Network, Mail, Briefcase, GraduationCap, Languages, Hash, Calendar, SlidersHorizontal, TrendingUp } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { Button } from "@/components/ui/button";
@@ -2190,9 +2190,28 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             case "isManager": return c.isManager ? "true" : "false";
             case "mobileApp": return c.mobileAppEnabled ? "true" : "false";
             case "svetZdravia": return c.svetZdravia ? "true" : "false";
+            // contact
             case "email": return c.email || "";
             case "mobile": return c.mobile || "";
             case "phone": return c.phone || "";
+            // personal info
+            case "firstName": return c.firstName || "";
+            case "lastName": return c.lastName || "";
+            case "birthYear": return c.birthYear ? String(c.birthYear) : "";
+            case "birthPlace": return c.birthPlace || "";
+            case "workplaceName": return c.workplaceName || "";
+            case "highestEducation": return c.highestEducation || "";
+            case "preferredLanguage": return c.preferredLanguage || "";
+            // company
+            case "companyName": return c.companyName || "";
+            case "ico": return c.ico || "";
+            case "dic": return c.dic || "";
+            // address (derived from primary address on backend)
+            case "addressCity": return c.addressCity || "";
+            case "addressDistrict": return c.addressDistrict || "";
+            case "addressRegion": return c.addressRegion || "";
+            case "addressPostalCode": return c.addressPostalCode || "";
+            case "addressStreet": return c.addressStreet || "";
             default: return "";
           }
         };
@@ -2402,10 +2421,82 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
           { label: _no, value: "false" },
         ],
       },
+      // ── Personal info ────────────────────────────────────────────────
+      {
+        key: "firstName",
+        label: (t.collaborators.fields as any).firstName || (locale === "sk" ? "Krstné meno" : "First name"),
+        icon: User,
+        type: "text",
+      },
+      {
+        key: "lastName",
+        label: (t.collaborators.fields as any).lastName || (locale === "sk" ? "Priezvisko" : "Last name"),
+        icon: User,
+        type: "text",
+      },
+      {
+        key: "birthYear",
+        label: locale === "sk" ? "Rok narodenia" : "Birth year",
+        icon: Calendar,
+        type: "text",
+      },
+      {
+        key: "birthPlace",
+        label: locale === "sk" ? "Miesto narodenia" : "Birth place",
+        icon: MapPin,
+        type: "text",
+      },
+      {
+        key: "workplaceName",
+        label: locale === "sk" ? "Pracovisko" : "Workplace",
+        icon: Briefcase,
+        type: "text",
+      },
+      {
+        key: "highestEducation",
+        label: locale === "sk" ? "Vzdelanie" : "Education",
+        icon: GraduationCap,
+        type: "text",
+      },
+      {
+        key: "preferredLanguage",
+        label: locale === "sk" ? "Preferovaný jazyk" : "Preferred language",
+        icon: Languages,
+        type: "select",
+        options: [
+          { label: "Slovenčina", value: "sk" },
+          { label: "English", value: "en" },
+          { label: "Čeština", value: "cs" },
+          { label: "Deutsch", value: "de" },
+          { label: "Italiano", value: "it" },
+          { label: "Română", value: "ro" },
+          { label: "Magyar", value: "hu" },
+        ],
+      },
+      // ── Company info ─────────────────────────────────────────────────
+      {
+        key: "companyName",
+        label: locale === "sk" ? "Názov firmy" : "Company name",
+        icon: Building2,
+        type: "text",
+      },
+      {
+        key: "ico",
+        label: "IČO",
+        icon: Hash,
+        type: "text",
+      },
+      {
+        key: "dic",
+        label: "DIČ",
+        icon: Hash,
+        type: "text",
+      },
+      // ── Contact ──────────────────────────────────────────────────────
       {
         key: "email",
         label: t.common.email,
-        icon: FileEdit,
+        icon: Mail,
         type: "text",
       },
       {
@@ -2420,8 +2511,39 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
         icon: Phone,
         type: "text",
       },
+      // ── Address ──────────────────────────────────────────────────────
+      {
+        key: "addressCity",
+        label: locale === "sk" ? "Mesto" : "City",
+        icon: MapPin,
+        type: "text",
+      },
+      {
+        key: "addressDistrict",
+        label: locale === "sk" ? "Okres" : "District",
+        icon: MapPin,
+        type: "text",
+      },
+      {
+        key: "addressRegion",
+        label: locale === "sk" ? "Kraj" : "Region",
+        icon: MapPin,
+        type: "text",
+      },
+      {
+        key: "addressPostalCode",
+        label: locale === "sk" ? "PSČ" : "Postal code",
+        icon: Hash,
+        type: "text",
+      },
+      {
+        key: "addressStreet",
+        label: locale === "sk" ? "Ulica" : "Street",
+        icon: MapPin,
+        type: "text",
+      },
     ];
-  }, [t, partnerCategoriesList, positionScope, _yes, _no]);
+  }, [t, locale, partnerCategoriesList, positionScope, _yes, _no]);
 
   const filterPresets: FilterPreset[] = useMemo(() => {
     const sk = locale === "sk";
@@ -2750,89 +2872,164 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
         </PageHeader>
       )}
 
-      {!isLoading && collabStats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3" data-testid="collaborators-summary-bar">
-          <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-            !hasActiveFilters
-              ? 'bg-gradient-to-br from-indigo-50 to-indigo-100/80 dark:from-indigo-950/40 dark:to-indigo-900/30 border-indigo-300 dark:border-indigo-700 ring-2 ring-indigo-400/30'
-              : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600'
-          }`} onClick={() => { setFilterRules(prev => prev.filter(r => r.field !== "status" && r.field !== "agreement")); setPage(1); }} data-testid="stat-total">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-500/15 dark:bg-indigo-500/20">
-              <Users className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-indigo-700 dark:text-indigo-300 leading-tight">{collabStats.total}</span>
-              <span className="text-[11px] text-muted-foreground leading-tight">{(t.common as any).total || "Total"}</span>
+      {!isLoading && collabStats && (() => {
+        const sk = locale === "sk";
+        const filteredCount = serverCollaboratorsTotal ?? collabStats.total;
+        const isFiltered = filteredCount !== collabStats.total;
+        const fmt = (n: number) => n.toLocaleString(sk ? "sk-SK" : "en-US");
+        // Static color tokens — Tailwind JIT must see literal class names
+        const COLOR: Record<string, { active: string; idle: string; icon: string; text: string }> = {
+          emerald: {
+            active: "bg-emerald-500/15 dark:bg-emerald-500/25 ring-1 ring-emerald-500/50 shadow-sm",
+            idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 hover:ring-1 hover:ring-emerald-500/30",
+            icon: "text-emerald-600 dark:text-emerald-400",
+            text: "text-emerald-700 dark:text-emerald-300",
+          },
+          rose: {
+            active: "bg-rose-500/15 dark:bg-rose-500/25 ring-1 ring-rose-500/50 shadow-sm",
+            idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-rose-500/10 dark:hover:bg-rose-500/15 hover:ring-1 hover:ring-rose-500/30",
+            icon: "text-rose-600 dark:text-rose-400",
+            text: "text-rose-700 dark:text-rose-300",
+          },
+          green: {
+            active: "bg-green-500/15 dark:bg-green-500/25 ring-1 ring-green-500/50 shadow-sm",
+            idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-green-500/10 dark:hover:bg-green-500/15 hover:ring-1 hover:ring-green-500/30",
+            icon: "text-green-600 dark:text-green-400",
+            text: "text-green-700 dark:text-green-300",
+          },
+          amber: {
+            active: "bg-amber-500/15 dark:bg-amber-500/25 ring-1 ring-amber-500/50 shadow-sm",
+            idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-amber-500/10 dark:hover:bg-amber-500/15 hover:ring-1 hover:ring-amber-500/30",
+            icon: "text-amber-600 dark:text-amber-400",
+            text: "text-amber-700 dark:text-amber-300",
+          },
+          slate: {
+            active: "bg-slate-500/15 dark:bg-slate-500/25 ring-1 ring-slate-500/50 shadow-sm",
+            idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-slate-500/10 dark:hover:bg-slate-500/15 hover:ring-1 hover:ring-slate-500/30",
+            icon: "text-slate-600 dark:text-slate-400",
+            text: "text-slate-700 dark:text-slate-300",
+          },
+        };
+        const Toggle = ({ id, label, count, active, onClick, color, Icon }: any) => {
+          const c = COLOR[color];
+          return (
+            <button
+              type="button"
+              onClick={onClick}
+              data-testid={id}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 ${active ? c.active : c.idle}`}
+            >
+              <Icon className={`h-4 w-4 ${c.icon}`} />
+              <div className="flex flex-col items-start leading-tight text-left">
+                <span className={`text-sm font-bold ${c.text}`}>{fmt(count)}</span>
+                <span className="text-[10.5px] text-muted-foreground font-medium">{label}</span>
+              </div>
+            </button>
+          );
+        };
+        return (
+          <div
+            className="relative overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-gradient-to-br from-white via-slate-50/80 to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/20 shadow-sm"
+            data-testid="collaborators-summary-bar"
+          >
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-300/40 to-transparent" />
+            <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-4 p-3.5">
+              {/* Hero — total + filtered delta */}
+              <button
+                type="button"
+                onClick={() => { setFilterRules(prev => prev.filter(r => r.field !== "status" && r.field !== "agreement")); setPage(1); }}
+                data-testid="stat-total"
+                className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${
+                  !hasActiveFilters
+                    ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25"
+                    : "bg-white dark:bg-slate-800 hover:shadow-md border border-slate-200 dark:border-slate-700"
+                }`}
+              >
+                <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${!hasActiveFilters ? "bg-white/20" : "bg-indigo-500/15 dark:bg-indigo-500/20"}`}>
+                  <Users className={`h-5 w-5 ${!hasActiveFilters ? "text-white" : "text-indigo-600 dark:text-indigo-400"}`} />
+                </div>
+                <div className="flex flex-col items-start leading-tight">
+                  <span className={`text-2xl font-bold ${!hasActiveFilters ? "text-white" : "text-slate-900 dark:text-white"}`}>
+                    {collabStats.total.toLocaleString(locale === "sk" ? "sk-SK" : "en-US")}
+                  </span>
+                  <span className={`text-[11px] font-medium ${!hasActiveFilters ? "text-indigo-100" : "text-muted-foreground"}`}>
+                    {sk ? "Celkom osôb" : "Total persons"}
+                  </span>
+                </div>
+                {isFiltered && (
+                  <div className="ml-1 flex flex-col items-start border-l border-white/30 pl-3">
+                    <span className={`text-base font-bold ${!hasActiveFilters ? "text-white" : "text-primary"}`}>
+                      {filteredCount.toLocaleString(locale === "sk" ? "sk-SK" : "en-US")}
+                    </span>
+                    <span className={`text-[10px] font-medium ${!hasActiveFilters ? "text-indigo-100" : "text-muted-foreground"}`}>
+                      {sk ? "filtrovaných" : "filtered"}
+                    </span>
+                  </div>
+                )}
+              </button>
+
+              {/* Status group */}
+              <div className="flex items-center gap-1.5 lg:border-l lg:border-slate-200/70 dark:lg:border-slate-700/70 lg:pl-4">
+                <span className="hidden xl:inline-block text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 mr-1">
+                  {sk ? "Stav" : "Status"}
+                </span>
+                <Toggle
+                  id="stat-active"
+                  label={(t.collaborators as any).active || "Active"}
+                  count={collabStats.active}
+                  active={filterStatus === "active"}
+                  onClick={() => { setSingleRuleValue("agreement",""); setSingleRuleValue("status", filterStatus === "active" ? "" : "active"); }}
+                  color="emerald"
+                  Icon={UserCheck}
+                />
+                <Toggle
+                  id="stat-inactive"
+                  label={(t.collaborators as any).inactive || "Inactive"}
+                  count={collabStats.inactive}
+                  active={filterStatus === "inactive"}
+                  onClick={() => { setSingleRuleValue("agreement",""); setSingleRuleValue("status", filterStatus === "inactive" ? "" : "inactive"); }}
+                  color="rose"
+                  Icon={UserX}
+                />
+              </div>
+
+              {/* Agreement group */}
+              <div className="flex flex-wrap items-center gap-1.5 lg:border-l lg:border-slate-200/70 dark:lg:border-slate-700/70 lg:pl-4 lg:ml-auto">
+                <span className="hidden xl:inline-block text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 mr-1">
+                  {sk ? "Zmluva" : "Agreement"}
+                </span>
+                <Toggle
+                  id="stat-valid-agreement"
+                  label={(t.collaborators as any).validAgreement || "Valid"}
+                  count={collabStats.validAgreement}
+                  active={filterAgreement === "valid"}
+                  onClick={() => { setSingleRuleValue("status",""); setSingleRuleValue("agreement", filterAgreement === "valid" ? "" : "valid"); }}
+                  color="green"
+                  Icon={ShieldCheck}
+                />
+                <Toggle
+                  id="stat-expired-agreement"
+                  label={(t.collaborators as any).expired || "Expired"}
+                  count={collabStats.expiredAgreement}
+                  active={filterAgreement === "expired"}
+                  onClick={() => { setSingleRuleValue("status",""); setSingleRuleValue("agreement", filterAgreement === "expired" ? "" : "expired"); }}
+                  color="amber"
+                  Icon={ShieldAlert}
+                />
+                <Toggle
+                  id="stat-no-agreement"
+                  label={(t.collaborators as any).noAgreement || "No agreement"}
+                  count={collabStats.noAgreement}
+                  active={filterAgreement === "none"}
+                  onClick={() => { setSingleRuleValue("status",""); setSingleRuleValue("agreement", filterAgreement === "none" ? "" : "none"); }}
+                  color="slate"
+                  Icon={ShieldOff}
+                />
+              </div>
             </div>
           </div>
-          <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-            filterStatus === 'active'
-              ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/30 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30'
-              : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
-          }`} onClick={() => { setSingleRuleValue("agreement",""); setSingleRuleValue("status", filterStatus === "active" ? "" : "active"); }} data-testid="stat-active">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
-              <UserCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{collabStats.active}</span>
-              <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).active || "Active"}</span>
-            </div>
-          </div>
-          <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-            filterStatus === 'inactive'
-              ? 'bg-gradient-to-br from-rose-50 to-rose-100/80 dark:from-rose-950/40 dark:to-rose-900/30 border-rose-300 dark:border-rose-700 ring-2 ring-rose-400/30'
-              : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-600'
-          }`} onClick={() => { setSingleRuleValue("agreement",""); setSingleRuleValue("status", filterStatus === "inactive" ? "" : "inactive"); }} data-testid="stat-inactive">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-rose-500/15 dark:bg-rose-500/20">
-              <UserX className="h-4.5 w-4.5 text-rose-600 dark:text-rose-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-rose-700 dark:text-rose-300 leading-tight">{collabStats.inactive}</span>
-              <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).inactive || "Inactive"}</span>
-            </div>
-          </div>
-          <div className="hidden lg:block w-px bg-slate-200 dark:bg-slate-700 self-stretch" />
-          <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-            filterAgreement === 'valid'
-              ? 'bg-gradient-to-br from-green-50 to-green-100/80 dark:from-green-950/40 dark:to-green-900/30 border-green-300 dark:border-green-700 ring-2 ring-green-400/30'
-              : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-600'
-          }`} onClick={() => { setSingleRuleValue("status",""); setSingleRuleValue("agreement", filterAgreement === "valid" ? "" : "valid"); }} data-testid="stat-valid-agreement">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-green-500/15 dark:bg-green-500/20">
-              <ShieldCheck className="h-4.5 w-4.5 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-green-700 dark:text-green-300 leading-tight">{collabStats.validAgreement}</span>
-              <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).validAgreement || "Valid"}</span>
-            </div>
-          </div>
-          <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-            filterAgreement === 'expired'
-              ? 'bg-gradient-to-br from-amber-50 to-amber-100/80 dark:from-amber-950/40 dark:to-amber-900/30 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/30'
-              : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600'
-          }`} onClick={() => { setSingleRuleValue("status",""); setSingleRuleValue("agreement", filterAgreement === "expired" ? "" : "expired"); }} data-testid="stat-expired-agreement">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-500/15 dark:bg-amber-500/20">
-              <ShieldAlert className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-amber-700 dark:text-amber-300 leading-tight">{collabStats.expiredAgreement}</span>
-              <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).expired || "Expired"}</span>
-            </div>
-          </div>
-          <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-            filterAgreement === 'none'
-              ? 'bg-gradient-to-br from-slate-100 to-slate-200/80 dark:from-slate-800/60 dark:to-slate-700/40 border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/30'
-              : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
-          }`} onClick={() => { setSingleRuleValue("status",""); setSingleRuleValue("agreement", filterAgreement === "none" ? "" : "none"); }} data-testid="stat-no-agreement">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-500/15 dark:bg-slate-500/20">
-              <ShieldOff className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-slate-600 dark:text-slate-300 leading-tight">{collabStats.noAgreement}</span>
-              <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any).noAgreement || "No agreement"}</span>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       <Card>
         <CardHeader className="pb-4">
