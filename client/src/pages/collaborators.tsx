@@ -29,6 +29,12 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
 import { useCountryFilter } from "@/contexts/country-filter-context";
+import {
+  EntityFilter,
+  type FilterField,
+  type FilterRule,
+  type FilterPreset,
+} from "@/components/shared/EntityFilter";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -2021,7 +2027,6 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterAgreement, setFilterAgreement] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [useWizardForm, setUseWizardForm] = useState(true);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -2176,6 +2181,114 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
   };
   
   const hasActiveFilters = searchQuery || filterCountry || filterType || filterStatus || filterAgreement;
+
+  // ── EntityFilter (Variant C: Toolbar & Drawer) — bridge to existing single-value state ──
+  const filterRules: FilterRule[] = useMemo(() => {
+    const r: FilterRule[] = [];
+    if (filterCountry) r.push({ id: "r-country", conjunction: "and", field: "country", op: "is", value: filterCountry });
+    if (filterType) r.push({ id: "r-type", conjunction: "and", field: "type", op: "is", value: filterType });
+    if (filterStatus) r.push({ id: "r-status", conjunction: "and", field: "status", op: "is", value: filterStatus });
+    if (filterAgreement) r.push({ id: "r-agreement", conjunction: "and", field: "agreement", op: "is", value: filterAgreement });
+    return r;
+  }, [filterCountry, filterType, filterStatus, filterAgreement]);
+
+  const handleRulesChange = useCallback((newRules: FilterRule[]) => {
+    let country = "", type = "", status = "", agreement = "";
+    for (const r of newRules) {
+      if (r.op !== "is" && r.op !== "isAny") continue; // backend supports equality only
+      const val = Array.isArray(r.value) ? (r.value[0] || "") : r.value;
+      if (!val) continue;
+      if (r.field === "country") country = val;
+      else if (r.field === "type") type = val;
+      else if (r.field === "status") status = val;
+      else if (r.field === "agreement") agreement = val;
+    }
+    setFilterCountry(country);
+    setFilterType(type);
+    setFilterStatus(status);
+    setFilterAgreement(agreement);
+    setPage(1);
+  }, []);
+
+  const filterFields: FilterField[] = useMemo(() => [
+    {
+      key: "country",
+      label: t.common.country,
+      icon: MapPin,
+      type: "select",
+      options: COUNTRIES.map((c) => ({
+        label: `${getCountryFlag(c.code)} ${c.name}`,
+        value: c.code,
+      })),
+    },
+    {
+      key: "type",
+      label: t.collaborators.fields.collaboratorType,
+      icon: Stethoscope,
+      type: "select",
+      options: COLLABORATOR_TYPES.map((ct) => ({
+        label: t.collaborators.types[ct.labelKey as keyof typeof t.collaborators.types] || ct.value,
+        value: ct.value,
+      })),
+    },
+    {
+      key: "status",
+      label: t.common.status,
+      icon: Activity,
+      type: "select",
+      options: [
+        { label: t.common.active, value: "active" },
+        { label: t.common.inactive, value: "inactive" },
+      ],
+    },
+    {
+      key: "agreement",
+      label: (t.collaborators as any).agreement || "Agreement",
+      icon: FileText,
+      type: "select",
+      options: [
+        { label: (t.collaborators as any).validAgreement || "Valid agreement", value: "valid" },
+        { label: t.collaborators.expiredAgreement, value: "expired" },
+        { label: (t.collaborators as any).noAgreement || "No agreement", value: "none" },
+      ],
+    },
+  ], [t]);
+
+  const filterPresets: FilterPreset[] = useMemo(() => [
+    {
+      id: "active-doctors",
+      label: "Aktívni lekári",
+      icon: UserCheck,
+      rules: [
+        { id: "p1a", conjunction: "and", field: "status", op: "is", value: "active" },
+        { id: "p1b", conjunction: "and", field: "type", op: "is", value: "doctor" },
+      ],
+    },
+    {
+      id: "expired-agreement",
+      label: "Vypršané zmluvy",
+      icon: ShieldAlert,
+      rules: [
+        { id: "p2", conjunction: "and", field: "agreement", op: "is", value: "expired" },
+      ],
+    },
+    {
+      id: "no-agreement",
+      label: "Bez zmluvy",
+      icon: ShieldOff,
+      rules: [
+        { id: "p3", conjunction: "and", field: "agreement", op: "is", value: "none" },
+      ],
+    },
+    {
+      id: "inactive",
+      label: "Neaktívni",
+      icon: UserX,
+      rules: [
+        { id: "p4", conjunction: "and", field: "status", op: "is", value: "inactive" },
+      ],
+    },
+  ], []);
 
   // Export functions
   const exportToCsv = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
@@ -2581,139 +2694,25 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t.collaborators.searchPlaceholder}
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); handleFilterChange(); }}
-                  className="pl-10"
-                  data-testid="input-search-collaborators"
-                />
-              </div>
-              <Button
-                variant={showFilters ? "default" : "outline"}
-                onClick={() => setShowFilters(!showFilters)}
-                data-testid="button-toggle-filters"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                {t.common.filter}
-                {hasActiveFilters && (
-                  <Badge variant="secondary" className="ml-2">!</Badge>
-                )}
-              </Button>
-            </div>
-            {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label>{t.common.country}</Label>
-                  <Select value={filterCountry || "_all"} onValueChange={(val) => { setFilterCountry(val === "_all" ? "" : val); handleFilterChange(); }}>
-                    <SelectTrigger data-testid="select-filter-country">
-                      <SelectValue placeholder={t.common.all} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_all">{t.common.all}</SelectItem>
-                      {COUNTRIES.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
-                          {getCountryFlag(c.code)} {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.collaboratorType}</Label>
-                  <Select value={filterType || "_all"} onValueChange={(val) => { setFilterType(val === "_all" ? "" : val); handleFilterChange(); }}>
-                    <SelectTrigger data-testid="select-filter-type">
-                      <SelectValue placeholder={t.common.all} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_all">{t.common.all}</SelectItem>
-                      {COLLABORATOR_TYPES.map((ct) => (
-                        <SelectItem key={ct.value} value={ct.value}>
-                          {t.collaborators.types[ct.labelKey] || ct.value}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t.common.status}</Label>
-                  <Select value={filterStatus || "_all"} onValueChange={(val) => { setFilterStatus(val === "_all" ? "" : val); handleFilterChange(); }}>
-                    <SelectTrigger data-testid="select-filter-status">
-                      <SelectValue placeholder={t.common.all} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_all">{t.common.all}</SelectItem>
-                      <SelectItem value="active">{t.common.active}</SelectItem>
-                      <SelectItem value="inactive">{t.common.inactive}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{(t.collaborators as any).agreement || "Agreement"}</Label>
-                  <Select value={filterAgreement || "_all"} onValueChange={(val) => { setFilterAgreement(val === "_all" ? "" : val); handleFilterChange(); }}>
-                    <SelectTrigger data-testid="select-filter-agreement">
-                      <SelectValue placeholder={t.common.all} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_all">{t.common.all}</SelectItem>
-                      <SelectItem value="valid">{(t.collaborators as any).validAgreement || "Valid agreement"}</SelectItem>
-                      <SelectItem value="expired">{t.collaborators.expiredAgreement}</SelectItem>
-                      <SelectItem value="none">{(t.collaborators as any).noAgreement || "No agreement"}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-            {hasActiveFilters && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-muted-foreground">{t.common.activeFilters}:</span>
-                {filterCountry && (
-                  <Badge variant="secondary" className="gap-1">
-                    {getCountryFlag(filterCountry)} {getCountryName(filterCountry)}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterCountry(""); handleFilterChange(); }} />
-                  </Badge>
-                )}
-                {filterType && (
-                  <Badge variant="secondary" className="gap-1">
-                    {(() => {
-                      const ct = COLLABORATOR_TYPES.find(c => c.value === filterType);
-                      return ct ? (t.collaborators.types[ct.labelKey as keyof typeof t.collaborators.types] || filterType) : filterType;
-                    })()}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterType(""); handleFilterChange(); }} />
-                  </Badge>
-                )}
-                {filterStatus && (
-                  <Badge variant="secondary" className="gap-1">
-                    {filterStatus === "active" ? t.common.active : t.common.inactive}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterStatus(""); handleFilterChange(); }} />
-                  </Badge>
-                )}
-                {filterAgreement && (
-                  <Badge variant="secondary" className="gap-1">
-                    {filterAgreement === "valid" ? ((t.collaborators as any).validAgreement || "Valid agreement") : filterAgreement === "expired" ? t.collaborators.expiredAgreement : ((t.collaborators as any).noAgreement || "No agreement")}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterAgreement(""); handleFilterChange(); }} />
-                  </Badge>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearAllFilters}
-                  data-testid="button-clear-filters"
-                >
-                  {t.common.clearAll}
-                </Button>
-              </div>
-            )}
+            <EntityFilter
+              searchQuery={searchQuery}
+              onSearchChange={(q) => { setSearchQuery(q); setPage(1); }}
+              searchPlaceholder={t.collaborators.searchPlaceholder}
+              rules={filterRules}
+              onRulesChange={handleRulesChange}
+              fields={filterFields}
+              presets={filterPresets}
+              totalCount={serverCollaboratorsTotal}
+              visibleCount={paginatedCollaborators.length}
+              storageKey="entity-filter:collaborators"
+              testId="filter-collaborators"
+              labels={{
+                search: t.collaborators.searchPlaceholder,
+                filter: t.common.filter,
+                clearAll: t.common.clearAll,
+              }}
+            />
           </div>
-          {hasActiveFilters && !isLoading && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
-              <ListFilter className="h-3.5 w-3.5 text-primary" />
-              <span className="text-sm font-medium text-primary">{serverCollaboratorsTotal} {(t.common as any).found || "found"}</span>
-            </div>
-          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
