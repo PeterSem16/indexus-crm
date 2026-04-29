@@ -37,7 +37,7 @@ import path from "node:path";
 import OpenAI from "openai";
 import { db } from "../server/db";
 import { clinics, collaborators, contactAssignments, collaboratorAddresses } from "@shared/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 // ────────────────────────────────────────────────────────────────────────────
 // SK kraj-mapping: 2-písmenková skratka → plný úradný názov
@@ -124,52 +124,84 @@ function pscCacheKey(
   ].join("|");
 }
 
-async function lookupPostalCode(
+type AddrLookup = { psc: string | null; district: string | null };
+
+function readCacheEntry(key: string): { psc: string | null; district: string | null; isLegacy: boolean } | null {
+  const v = pscCache[key];
+  if (v === undefined) return null;
+  if (typeof v === "string") return { psc: v || null, district: null, isLegacy: true };
+  return { psc: v.psc || null, district: v.district || null, isLegacy: false };
+}
+
+async function lookupAddress(
   street: string | null | undefined,
   city: string | null | undefined,
   countryCode: string | null | undefined = "SK",
-): Promise<string | null> {
+): Promise<AddrLookup> {
   const cleanStreet = String(street ?? "").trim();
   const cleanCity = String(city ?? "").trim();
-  if (!cleanStreet && !cleanCity) return null;
+  if (!cleanStreet && !cleanCity) return { psc: null, district: null };
 
   const key = pscCacheKey(cleanStreet, cleanCity, countryCode);
-  if (key in pscCache) {
-    return pscCache[key] || null;
+  const cached = readCacheEntry(key);
+  // Hit iba ak nový formát (poznáme oboje) a aspoň jedno z nich je vyplnené.
+  // Starý formát (len PSČ) → AI volanie aby sme dohrali okres.
+  if (cached && !cached.isLegacy && (cached.psc || cached.district)) {
+    return { psc: cached.psc, district: cached.district };
   }
 
   const country = (countryCode ?? "SK").toUpperCase();
   const countryName = country === "SK" ? "Slovensko" : country;
-  const prompt = `Aké je PSČ (poštové smerovacie číslo) pre adresu: "${cleanStreet}, ${cleanCity}, ${countryName}"? Odpovedz IBA jedným reťazcom vo formáte "XXX XX" (5 číslic so medzerou medzi 3. a 4. číslicou). Ak adresa nie je jednoznačná alebo nepoznáš PSČ, odpovedz presne: NEZNAME`;
+  const prompt = `Pre adresu "${cleanStreet}, ${cleanCity}, ${countryName}" mi vráť dva údaje:
+1) PSČ vo formáte "XXX XX" (5 číslic s medzerou medzi 3. a 4.)
+2) Okres (administratívna jednotka), napríklad "Bratislava IV", "Banská Bystrica", "Trnava".
+Odpovedaj IBA v presnom formáte JSON na jednom riadku, žiadne komentáre:
+{"psc":"841 03","okres":"Bratislava IV"}
+Ak niektorý údaj nepoznáš, daj prázdny string. Ak adresa nie je jednoznačná, daj NEZNAME ako hodnotu.`;
 
   try {
-    // gpt-5 je najnovší a najsilnejší model. Použitý zámerne s minimálnym
+    // gpt-5 je najnovší a najsilnejší model. Použitý s minimálnym
     // reasoningom — úloha je faktografická, nie analytická.
     const resp = await getOpenAI().chat.completions.create({
       model: "gpt-5",
       messages: [{ role: "user", content: prompt }],
-      max_completion_tokens: 256,
+      max_completion_tokens: 384,
       reasoning_effort: "minimal",
     } as any);
     const raw = resp.choices[0]?.message?.content?.trim() ?? "";
-    const m = raw.match(/(\d{3})\s?(\d{2})/);
-    const psc = m ? `${m[1]} ${m[2]}` : null;
-    pscCache[key] = psc ?? "";
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    let psc: string | null = null;
+    let district: string | null = null;
+    if (jsonMatch) {
+      try {
+        const obj = JSON.parse(jsonMatch[0]);
+        const m = String(obj.psc ?? "").match(/(\d{3})\s?(\d{2})/);
+        psc = m ? `${m[1]} ${m[2]}` : null;
+        const dRaw = String(obj.okres ?? "").trim();
+        district = dRaw && dRaw.toUpperCase() !== "NEZNAME" ? dRaw : null;
+      } catch {
+        const m = raw.match(/(\d{3})\s?(\d{2})/);
+        psc = m ? `${m[1]} ${m[2]}` : null;
+      }
+    } else {
+      const m = raw.match(/(\d{3})\s?(\d{2})/);
+      psc = m ? `${m[1]} ${m[2]}` : null;
+    }
+    pscCache[key] = { psc: psc ?? "", district: district ?? "" };
     pscCacheDirty = true;
-    return psc;
+    return { psc, district };
   } catch (err) {
-    console.warn(`  ⚠ AI PSČ lookup zlyhal pre "${cleanStreet}, ${cleanCity}": ${(err as Error).message}`);
-    pscCache[key] = "";
-    pscCacheDirty = true;
-    return null;
+    console.warn(`  ⚠ AI lookup zlyhal pre "${cleanStreet}, ${cleanCity}": ${(err as Error).message}`);
+    // Transientné chyby NECACHEujeme – ďalší beh môže skúsiť znova.
+    return { psc: null, district: null };
   }
 }
 
-async function lookupPostalCodesBatch(
+async function lookupAddressesBatch(
   inputs: { street: string | null; city: string | null; countryCode: string | null }[],
   concurrency = 8,
-): Promise<(string | null)[]> {
-  const results: (string | null)[] = new Array(inputs.length).fill(null);
+): Promise<AddrLookup[]> {
+  const results: AddrLookup[] = new Array(inputs.length).fill(null).map(() => ({ psc: null, district: null }));
   let cursor = 0;
   let resolvedFromCache = 0;
   let resolvedFromAI = 0;
@@ -179,13 +211,14 @@ async function lookupPostalCodesBatch(
       const myIdx = cursor++;
       const it = inputs[myIdx];
       const k = pscCacheKey(it.street, it.city, it.countryCode);
-      const had = k in pscCache;
-      const psc = await lookupPostalCode(it.street, it.city, it.countryCode);
-      results[myIdx] = psc;
-      if (had) resolvedFromCache++;
+      const cached = readCacheEntry(k);
+      const hadValid = cached && (cached.psc || cached.district);
+      const out = await lookupAddress(it.street, it.city, it.countryCode);
+      results[myIdx] = out;
+      if (hadValid) resolvedFromCache++;
       else resolvedFromAI++;
       if ((resolvedFromAI + resolvedFromCache) % 50 === 0) {
-        console.log(`    … PSČ progress: ${resolvedFromAI + resolvedFromCache}/${inputs.length} (cache=${resolvedFromCache}, AI=${resolvedFromAI})`);
+        console.log(`    … Adresy progress: ${resolvedFromAI + resolvedFromCache}/${inputs.length} (cache=${resolvedFromCache}, AI=${resolvedFromAI})`);
       }
       if (resolvedFromAI > 0 && resolvedFromAI % 25 === 0) {
         flushPscCache();
@@ -194,7 +227,7 @@ async function lookupPostalCodesBatch(
   }
   await Promise.all(Array.from({ length: concurrency }, () => worker()));
   flushPscCache();
-  console.log(`    ✓ PSČ doplnené: ${resolvedFromCache} z cache, ${resolvedFromAI} cez AI`);
+  console.log(`    ✓ Adresy doplnené: ${resolvedFromCache} z cache, ${resolvedFromAI} cez AI`);
   return results;
 }
 
@@ -596,6 +629,7 @@ async function main() {
       streetNumber: string | null;
       city: string | null;
       region: string | null;
+      district: string | null;
       countryCode: string;
     };
     clinicCompany: {
@@ -725,7 +759,7 @@ async function main() {
       const insertData: typeof clinics.$inferInsert = {
         name,
         countryCode: csvFields.countryCode ?? "SK",
-        initialStatus: "not_contacted",
+        initialStatus: "initial:not_contacted",
         idZz: csvFields.idZz,
         ico: csvFields.ico,
         pzsCode: csvFields.pzsCode,
@@ -779,8 +813,10 @@ async function main() {
         "doctorTitle", "doctorFirstName", "doctorLastName", "doctorName",
         "initialStatus",
       ];
-      // initialStatus pre nový import → "not_contacted" (iba ak prázdny v DB)
-      (csvFields as any).initialStatus = "not_contacted";
+      // initialStatus pre nový import → "initial:not_contacted" (iba ak prázdny v DB)
+      // Hodnota musí matchovať PIPELINE_CATEGORIES options vo wizarde
+      // (initial:not_contacted, initial:former, initial:active_contract).
+      (csvFields as any).initialStatus = "initial:not_contacted";
       for (const k of FILL_IF_EMPTY) {
         const newVal = (csvFields as any)[k];
         const oldVal = (existing as any)[k];
@@ -855,6 +891,7 @@ async function main() {
           streetNumber: [csvFields.street, csvFields.streetNumber].filter(Boolean).join(" ") || null,
           city: csvFields.city ?? null,
           region: csvFields.region ?? null,
+          district: csvFields.district ?? null,
           countryCode: csvFields.countryCode ?? "SK",
         },
         clinicCompany: {
@@ -893,10 +930,12 @@ async function main() {
   let actuallyAssignments = 0;
   const errors: { csvRow: number; error: string }[] = [];
 
-  // ── 5a. AI-doplnenie PSČ (pre INSERTy a pre UPDATEy bez existujúceho PSČ) ──
-  const csvRowToPsc = new Map<number, string | null>();
+  // ── 5a. AI-doplnenie PSČ + okresu (pre INSERTy a pre UPDATEy bez údajov) ──
+  const csvRowToAddr = new Map<number, AddrLookup>();
   if (!SKIP_AI) {
     loadPscCache();
+    // Lookup robíme pre KAŽDÚ neprázdnu adresu – využijeme ho aj pri vypĺňaní
+    // collaborator_addresses (PSČ/okres pre Company Address osôb).
     const lookupTargets: { csvRow: number; hint: PscLookupHint }[] = [];
     for (const p of plans) {
       if (p.kind === "SKIP_AMBIGUOUS") continue;
@@ -905,12 +944,12 @@ async function main() {
       lookupTargets.push({ csvRow: p.csvRow, hint: p.pscLookup });
     }
     if (lookupTargets.length) {
-      console.log(`\n→ AI doplnenie PSČ pre ${lookupTargets.length} ambulancií (cache + OpenAI) …`);
-      const pscs = await lookupPostalCodesBatch(lookupTargets.map((t) => t.hint));
-      lookupTargets.forEach((t, i) => csvRowToPsc.set(t.csvRow, pscs[i]));
+      console.log(`\n→ AI doplnenie PSČ + okresu pre ${lookupTargets.length} ambulancií (cache + OpenAI) …`);
+      const addrs = await lookupAddressesBatch(lookupTargets.map((t) => t.hint));
+      lookupTargets.forEach((t, i) => csvRowToAddr.set(t.csvRow, addrs[i]));
     }
   } else {
-    console.log(`\n→ AI doplnenie PSČ vynechané (--no-ai)`);
+    console.log(`\n→ AI doplnenie PSČ + okresu vynechané (--no-ai)`);
   }
 
   if (!COMMIT) {
@@ -925,8 +964,10 @@ async function main() {
       try {
         await db.transaction(async (tx) => {
           if (p.kind === "INSERT") {
-            const psc = csvRowToPsc.get(p.csvRow);
-            const insertData = psc ? { ...p.data, postalCode: psc } : p.data;
+            const addr = csvRowToAddr.get(p.csvRow);
+            const insertData: any = { ...p.data };
+            if (addr?.psc) insertData.postalCode = addr.psc;
+            if (addr?.district && !insertData.district) insertData.district = addr.district;
             const [row] = await tx.insert(clinics).values(insertData).returning({ id: clinics.id });
             csvRowToClinicId.set(p.csvRow, row.id);
             actuallyInserted++;
@@ -935,9 +976,22 @@ async function main() {
             const fieldsToUpdate: Record<string, any> = Object.fromEntries(
               Object.entries(p.diff).map(([k, v]) => [k, v.to]),
             );
-            const psc = csvRowToPsc.get(p.csvRow);
-            if (psc && !("postalCode" in fieldsToUpdate)) {
-              fieldsToUpdate.postalCode = psc;
+            const addr = csvRowToAddr.get(p.csvRow);
+            if (addr?.psc && !("postalCode" in fieldsToUpdate)) {
+              fieldsToUpdate.postalCode = addr.psc;
+            }
+            // okres iba ak diff ho ešte nepriniesol z CSV (FILL_IF_EMPTY už v plánovaní)
+            // a v AI lookupe niečo prišlo
+            if (addr?.district && !("district" in fieldsToUpdate)) {
+              // dobeh pre kliniky kde CSV district bol prázdny ale AI ho našiel
+              const [curr] = await tx
+                .select({ district: clinics.district })
+                .from(clinics)
+                .where(eq(clinics.id, p.clinicId))
+                .limit(1);
+              if (!curr?.district || curr.district.trim() === "") {
+                fieldsToUpdate.district = addr.district;
+              }
             }
             if (Object.keys(fieldsToUpdate).length === 0) return; // no-op
             await tx
@@ -949,6 +1003,34 @@ async function main() {
         });
       } catch (e: any) {
         errors.push({ csvRow: p.csvRow, error: String(e?.message ?? e) });
+      }
+    }
+
+    // Predčítame psc/region/district pre všetky cieľové kliniky (na vyplnenie Company adries osôb)
+    const allClinicIds = Array.from(
+      new Set(
+        personPlans
+          .map((g) => csvRowToClinicId.get(g.clinicLookup.csvRow))
+          .filter((x): x is string => Boolean(x)),
+      ),
+    );
+    const clinicById = new Map<string, { postalCode: string | null; region: string | null; district: string | null }>();
+    if (allClinicIds.length > 0) {
+      const rows = await db
+        .select({
+          id: clinics.id,
+          postalCode: clinics.postalCode,
+          region: clinics.region,
+          district: clinics.district,
+        })
+        .from(clinics)
+        .where(inArray(clinics.id, allClinicIds));
+      for (const r of rows) {
+        clinicById.set(r.id, {
+          postalCode: r.postalCode ?? null,
+          region: r.region ?? null,
+          district: r.district ?? null,
+        });
       }
     }
 
@@ -995,7 +1077,10 @@ async function main() {
           for (const pp of grp.persons) {
             const fn = (pp.parsed.firstName ?? "").trim();
             const ln = (pp.parsed.lastName ?? "").trim();
-            const key = `${fn.toLowerCase()}|${ln.toLowerCase()}`;
+            // INSERT používa `firstName: fn || ln`, lookup musí byť rovnaký inak
+            // pri opakovaných behoch vznikajú duplikáty (napr. "Böhmer Böhmer").
+            const insertedFn = fn || ln;
+            const key = `${insertedFn.toLowerCase()}|${ln.toLowerCase()}`;
             const existingMatch = existingByKey.get(key);
 
             if (existingMatch) {
@@ -1048,9 +1133,27 @@ async function main() {
                   .set(updates)
                   .where(eq(contactAssignments.id, existingMatch.assignmentId));
               }
-              // 3) collaborator_addresses (company) – vytvoriť ak ešte nie je
+              // 3) collaborator_addresses (company) – vytvoriť alebo doplniť
+              const addrLookup = csvRowToAddr.get(grp.clinicLookup.csvRow) ?? null;
+              const clinicAddr = clinicById.get(clinicId) ?? null;
+              const fullRegion =
+                normalizeRegion(grp.clinicAddress.region) ||
+                normalizeRegion(clinicAddr?.region ?? null);
+              const districtForAddr =
+                grp.clinicAddress.district ??
+                addrLookup?.district ??
+                clinicAddr?.district ??
+                null;
+              const pscForAddr = addrLookup?.psc ?? clinicAddr?.postalCode ?? null;
               const existingAddr = await tx
-                .select({ id: collaboratorAddresses.id })
+                .select({
+                  id: collaboratorAddresses.id,
+                  postalCode: collaboratorAddresses.postalCode,
+                  region: collaboratorAddresses.region,
+                  district: collaboratorAddresses.district,
+                  city: collaboratorAddresses.city,
+                  streetNumber: collaboratorAddresses.streetNumber,
+                })
                 .from(collaboratorAddresses)
                 .where(
                   and(
@@ -1066,9 +1169,36 @@ async function main() {
                   name: grp.clinicAddress.name,
                   streetNumber: grp.clinicAddress.streetNumber,
                   city: grp.clinicAddress.city,
-                  region: grp.clinicAddress.region,
+                  postalCode: pscForAddr,
+                  region: fullRegion,
+                  district: districtForAddr,
                   countryCode: grp.clinicAddress.countryCode,
                 });
+              } else {
+                const ex = existingAddr[0];
+                const addrUpd: Record<string, any> = {};
+                if ((!ex.postalCode || ex.postalCode.trim() === "") && pscForAddr) {
+                  addrUpd.postalCode = pscForAddr;
+                }
+                if ((!ex.district || ex.district.trim() === "") && districtForAddr) {
+                  addrUpd.district = districtForAddr;
+                }
+                // region: ak existujúci je prázdny ALEBO neplatná skratka → prepíš
+                if (fullRegion && (isRegionInvalid(ex.region) || !ex.region || ex.region.trim() === "")) {
+                  if (ex.region !== fullRegion) addrUpd.region = fullRegion;
+                }
+                if ((!ex.streetNumber || ex.streetNumber.trim() === "") && grp.clinicAddress.streetNumber) {
+                  addrUpd.streetNumber = grp.clinicAddress.streetNumber;
+                }
+                if ((!ex.city || ex.city.trim() === "") && grp.clinicAddress.city) {
+                  addrUpd.city = grp.clinicAddress.city;
+                }
+                if (Object.keys(addrUpd).length > 0) {
+                  await tx
+                    .update(collaboratorAddresses)
+                    .set(addrUpd)
+                    .where(eq(collaboratorAddresses.id, ex.id));
+                }
               }
               continue;
             }
@@ -1106,14 +1236,24 @@ async function main() {
             });
             actuallyAssignments++;
 
-            // Company adresa = adresa ambulancie
+            // Company adresa = adresa ambulancie (PSČ/okres/kraj z CSV → AI → materskej kliniky)
+            const newAddrLookup = csvRowToAddr.get(grp.clinicLookup.csvRow) ?? null;
+            const newClinicAddr = clinicById.get(clinicId) ?? null;
             await tx.insert(collaboratorAddresses).values({
               collaboratorId: pers.id,
               addressType: "company",
               name: grp.clinicAddress.name,
               streetNumber: grp.clinicAddress.streetNumber,
               city: grp.clinicAddress.city,
-              region: grp.clinicAddress.region,
+              postalCode: newAddrLookup?.psc ?? newClinicAddr?.postalCode ?? null,
+              region:
+                normalizeRegion(grp.clinicAddress.region) ||
+                normalizeRegion(newClinicAddr?.region ?? null),
+              district:
+                grp.clinicAddress.district ??
+                newAddrLookup?.district ??
+                newClinicAddr?.district ??
+                null,
               countryCode: grp.clinicAddress.countryCode,
             });
 
@@ -1134,15 +1274,109 @@ async function main() {
       }
     }
 
+    // ── 5-pre. Dedup duplikátnych collaborators (následok skoršieho bugu) ──
+    // V minulosti sa pri opakovaných behoch vytvárali duplikáty osôb, kde
+    // first_name = last_name (CSV nemal krstné meno). Zachováme najstaršiu
+    // kópiu (clinic_id, first_name, last_name) a ostatné aj s ich
+    // contact_assignments + collaborator_addresses vymažeme.
+    let dedupedCollabs = 0;
+    try {
+      const dupRows: { ids: string[] }[] = await db.execute(sql`
+        SELECT array_agg(id ORDER BY created_at) AS ids
+        FROM collaborators
+        WHERE first_name = last_name
+          AND clinic_id IS NOT NULL
+        GROUP BY clinic_id, lower(first_name), lower(last_name)
+        HAVING COUNT(*) > 1
+      `).then((r: any) => r.rows ?? r);
+      for (const row of dupRows) {
+        const ids: string[] = (row as any).ids;
+        if (!Array.isArray(ids) || ids.length < 2) continue;
+        const toDelete = ids.slice(1); // ponechaj najstaršiu
+        await db.delete(collaboratorAddresses).where(inArray(collaboratorAddresses.collaboratorId, toDelete));
+        await db.delete(contactAssignments).where(inArray(contactAssignments.personId, toDelete));
+        await db.delete(collaborators).where(inArray(collaborators.id, toDelete));
+        dedupedCollabs += toDelete.length;
+      }
+    } catch (e: any) {
+      console.warn(`  ⚠ Dedup duplikátnych osôb zlyhal: ${e?.message ?? e}`);
+    }
+
+    // ── 5a. Migrácia legacy initial_status ──
+    // Stará hodnota "not_contacted" → nová "initial:not_contacted"
+    // (musí súhlasiť s PIPELINE_CATEGORIES vo wizarde, aby UI zvýraznil "New contact")
+    let migratedInitialStatus = 0;
+    try {
+      const res = await db
+        .update(clinics)
+        .set({ initialStatus: "initial:not_contacted", updatedAt: sql`now()` })
+        .where(eq(clinics.initialStatus, "not_contacted"))
+        .returning({ id: clinics.id });
+      migratedInitialStatus = res.length;
+    } catch (e: any) {
+      console.warn(`  ⚠ Migrácia initial_status zlyhala: ${e?.message ?? e}`);
+    }
+
+    // ── 5a-bis. Normalizácia región skratiek v collaborator_addresses ──
+    // Niektoré staré záznamy majú 2-písmenovú skratku (BA, KE, …). Prepíšeme
+    // na plný úradný názov, aby UI vedelo regióny správne zobraziť.
+    let normalizedRegions = 0;
+    try {
+      const shortRows = await db
+        .select({ id: collaboratorAddresses.id, region: collaboratorAddresses.region })
+        .from(collaboratorAddresses)
+        .where(
+          inArray(collaboratorAddresses.region, [
+            "BA", "BB", "BL", "KE", "NR", "PO", "TT", "TN", "ZA",
+          ]),
+        );
+      for (const row of shortRows) {
+        const full = normalizeRegion(row.region);
+        if (full && full !== row.region) {
+          await db
+            .update(collaboratorAddresses)
+            .set({ region: full })
+            .where(eq(collaboratorAddresses.id, row.id));
+          normalizedRegions++;
+        }
+      }
+    } catch (e: any) {
+      console.warn(`  ⚠ Normalizácia regiónov adries zlyhala: ${e?.message ?? e}`);
+    }
+
+    // ── 5b. Deaktivácia ambulancií bez Healthcare facility ID (id_zz) ──
+    // Užívateľská požiadavka: ak existujúca klinika nemá vyplnené id_zz,
+    // znamená to, že nebola overená v štátnom registri a má sa zneaktívniť.
+    let deactivated = 0;
+    try {
+      const res = await db
+        .update(clinics)
+        .set({ isActive: false, updatedAt: sql`now()` })
+        .where(
+          and(
+            eq(clinics.isActive, true),
+            sql`(${clinics.idZz} IS NULL OR ${clinics.idZz} = '')`,
+          ),
+        )
+        .returning({ id: clinics.id });
+      deactivated = res.length;
+    } catch (e: any) {
+      console.warn(`  ⚠ Deaktivácia kliník bez id_zz zlyhala: ${e?.message ?? e}`);
+    }
+
     console.log(``);
     console.log(`════════════════════════════════════════════════════════════`);
     console.log(`  ZÁPIS DOKONČENÝ`);
-    console.log(`    Vložené nové kliniky:    ${actuallyInserted}`);
-    console.log(`    Aktualizované kliniky:   ${actuallyUpdated}`);
-    console.log(`    Vytvorené osoby:         ${actuallyPersons}`);
-    console.log(`    Vytvorené priradenia:    ${actuallyAssignments}`);
+    console.log(`    Vložené nové kliniky:        ${actuallyInserted}`);
+    console.log(`    Aktualizované kliniky:       ${actuallyUpdated}`);
+    console.log(`    Vytvorené osoby:             ${actuallyPersons}`);
+    console.log(`    Vytvorené priradenia:        ${actuallyAssignments}`);
+    console.log(`    Deaktivované (bez id_zz):    ${deactivated}`);
+    console.log(`    Dedup duplikátnych osôb:     ${dedupedCollabs}`);
+    console.log(`    Migrované initial_status:    ${migratedInitialStatus}`);
+    console.log(`    Normalizované regióny adries:${normalizedRegions}`);
     if (errors.length) {
-      console.log(`    ⚠ Chyby:                ${errors.length}`);
+      console.log(`    ⚠ Chyby:                    ${errors.length}`);
     }
     console.log(`════════════════════════════════════════════════════════════`);
   }

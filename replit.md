@@ -137,8 +137,16 @@ Preferred communication style: Simple, everyday language.
 ### INDEXUS Gyn CSV Import (`scripts/import-clinics-write.ts`)
 - Idempotent UPSERT loader for `attached_assets/indexus_gyn_data_import_*.csv` (754 SK gynecology clinics).
 - Match key on `clinics.id_zz`; default `--dry-run`, `--commit` enables writes; `--limit=N` and `--no-ai` flags supported.
-- Region normalization: 2-letter codes (BA, NR, KE, …) auto-converted to full names ("Bratislavský kraj", …) via `REGION_MAP`.
-- AI postal-code (PSČ) lookup using OpenAI `gpt-5` (`reasoning_effort: minimal`, `max_completion_tokens: 256`), persistent cache at `attached_assets/postal_code_cache.json`, concurrency=8.
-- Plan phase fills PSČ for INSERTs always, for UPDATEs only when `existing.postalCode` is empty (FILL_IF_EMPTY semantics).
-- Primary collaborator contacts get `partnerCategory = PRIVATE_GYNECOLOGIST_CATEGORY_ID` (053995ca-…) on INSERT; existing collaborators only updated when `partnerCategory` is null (preserves manual values).
-- Audit log written to `attached_assets/import_write_log_<timestamp>.md` after every run.
+- Region normalization: 2-letter codes (BA, NR, KE, …) auto-converted to full names ("Bratislavský kraj", …) via `REGION_MAP`. Aplikuje sa aj na `collaborator_addresses`.
+- AI lookup PSČ + okresu cez OpenAI `gpt-5` (`reasoning_effort: minimal`, `max_completion_tokens: 384`, JSON output), persistent cache at `attached_assets/postal_code_cache.json` (backward-compatible legacy string format), concurrency=8.
+- Plan phase fills PSČ pre INSERTy vždy, pre UPDATE len ak `existing.postalCode` je prázdne (FILL_IF_EMPTY).
+- Primary collaborator kontakty získajú `partnerCategory = PRIVATE_GYNECOLOGIST_CATEGORY_ID` (053995ca-…) pri INSERT; existujúci sa updatuje len ak `partnerCategory` je null.
+- `collaborator_addresses` (Personnel → Company Address) pri INSERT/UPDATE doplňujeme `postal_code`, `district` a `region` (plný názov kraja) z CSV + AI + materskej kliniky.
+- Klinicky dôležité hodnoty `clinics.initial_status` sa nastavujú na `"initial:not_contacted"` (zladenie s `PIPELINE_CATEGORIES` v `clinic-form-wizard.tsx`, aby UI tile "New contact" zvýraznil); legacy "not_contacted" sa migruje bulk-updatom.
+- Post-write maintenance v `--commit` móde (idempotentné):
+  - bulk dedup duplikátnych osôb kde `first_name = last_name` per `(clinic_id, lower(first_name), lower(last_name))` — zachová najstaršiu kópiu, ostatné aj s `contact_assignments` a `collaborator_addresses` vymaže.
+  - migrácia `clinics.initial_status` "not_contacted" → "initial:not_contacted".
+  - normalizácia 2-písmenkových regiónov v `collaborator_addresses` na plný názov.
+  - deaktivácia kliník bez `id_zz`: `UPDATE clinics SET is_active=false WHERE id_zz IS NULL OR id_zz=''`.
+- Spustenie: pre dlhotrvajúce behy použiť dočasný workflow (cez `configureWorkflow`) — Replit shell zabíja background processy po ~60s.
+- Audit log: `attached_assets/import_write_log_<timestamp>.md`.

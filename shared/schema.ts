@@ -2117,6 +2117,7 @@ export const collaboratorAddresses = pgTable("collaborator_addresses", {
   city: text("city"),
   postalCode: text("postal_code"),
   region: text("region"),
+  district: text("district"),
   countryCode: text("country_code"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });

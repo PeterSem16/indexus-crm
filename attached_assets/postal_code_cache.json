@@ -630,31 +630,76 @@
   "balkánska 280|bratislava - mestská časť rusovce|SK": "851 10",
   "j. kráľa 1053|šaľa|SK": "927 01",
   "jesenského 105|štúrovo|SK": "943 01",
-  "trnavská cesta 18746|bratislava - mestská časť ružinov|SK": "",
-  "bernolákova 7896|bratislava - mestská časť staré mesto|SK": "",
+  "trnavská cesta 18746|bratislava - mestská časť ružinov|SK": {
+    "psc": "821 08",
+    "district": "Bratislava II"
+  },
+  "bernolákova 7896|bratislava - mestská časť staré mesto|SK": {
+    "psc": "",
+    "district": "Bratislava I"
+  },
   "slovenská 5587|nové zámky|SK": "940 02",
-  "tatranská 1232|košice - mestská časť staré mesto|SK": "",
-  "priehradka|martin|SK": "",
-  "cesta na štadión 14987|banská bystrica|SK": "",
+  "tatranská 1232|košice - mestská časť staré mesto|SK": {
+    "psc": "040 01",
+    "district": "Košice I"
+  },
+  "priehradka|martin|SK": {
+    "psc": "036 08",
+    "district": "Martin"
+  },
+  "cesta na štadión 14987|banská bystrica|SK": {
+    "psc": "",
+    "district": ""
+  },
   "bjőrnsonova|martin|SK": "036 01",
-  "a. prídavku|prešov|SK": "",
+  "a. prídavku|prešov|SK": {
+    "psc": "080 01",
+    "district": "Prešov"
+  },
   "m. rázusa|šaľa|SK": "924 01",
   "námestie svätého floriá|varín|SK": "013 03",
   "g. czuczora 114|nové zámky|SK": "940 02",
   "j. d. matejovie|liptovský hrádok|SK": "033 01",
-  "daniela michaelliho|martin|SK": "",
-  "m. schneidra trnavskéh|bratislava - mestská časť dúbravka|SK": "",
-  "lipová 15599|prešov|SK": "",
-  "530|lúčky|SK": "",
-  "k rieke 912|nitra|SK": "",
+  "daniela michaelliho|martin|SK": {
+    "psc": "036 01",
+    "district": "Martin"
+  },
+  "m. schneidra trnavskéh|bratislava - mestská časť dúbravka|SK": {
+    "psc": "841 01",
+    "district": "Bratislava IV"
+  },
+  "lipová 15599|prešov|SK": {
+    "psc": "080 01",
+    "district": "Prešov"
+  },
+  "530|lúčky|SK": {
+    "psc": "034 82",
+    "district": "Ružomberok"
+  },
+  "k rieke 912|nitra|SK": {
+    "psc": "",
+    "district": "Nitra"
+  },
   "snp|šurany|SK": "942 01",
-  "g. czuczora|nové zámky|SK": "",
+  "g. czuczora|nové zámky|SK": {
+    "psc": "940 02",
+    "district": "Nové Zámky"
+  },
   "hlavná 760|jelka|SK": "925 23",
   "161|farná|SK": "935 66",
-  "lúčky|lúčky|SK": "",
-  "hlavná 5599|dunajská streda|SK": "",
+  "lúčky|lúčky|SK": {
+    "psc": "",
+    "district": ""
+  },
+  "hlavná 5599|dunajská streda|SK": {
+    "psc": "929 01",
+    "district": "Dunajská Streda"
+  },
   "kpt. nálepku|prešov|SK": "080 01",
-  "škultétyho 10999|martin|SK": "",
+  "škultétyho 10999|martin|SK": {
+    "psc": "",
+    "district": "Martin"
+  },
   "zvolenská cesta 17051|banská bystrica|SK": "974 05",
   "satinského 7770|bratislava - mestská časť staré mesto|SK": "811 02"
 }
