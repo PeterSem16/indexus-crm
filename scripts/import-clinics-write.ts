@@ -343,8 +343,12 @@ type PersonPlan = {
   csvIndex: number; // 0 = primary_contact_person, 1..5 = contact_person_2..6
   parsed: ParsedPerson;
   isPrimary: boolean;
-  position: string | null; // "Lekár" pre primary
+  position: string | null; // "Súkromný gynekológ" pre primary
+  categoryId: string | null; // partner_categories.id pre primary (Súkromný gynekológ)
 };
+
+// MPN kategória "Súkromný gynekológ" – partner_categories.code='gynecologist_private'
+const PRIVATE_GYNECOLOGIST_CATEGORY_ID = "053995ca-0e6f-4b7f-bb8d-0fe45b512ded";
 
 async function main() {
   console.log(`\n══════════════════════════════════════════════════════════`);
@@ -594,7 +598,10 @@ async function main() {
         "email", "email2", "email3",
         "website",
         "doctorTitle", "doctorFirstName", "doctorLastName", "doctorName",
+        "initialStatus",
       ];
+      // initialStatus pre nový import → "not_contacted" (iba ak prázdny v DB)
+      (csvFields as any).initialStatus = "not_contacted";
       for (const k of FILL_IF_EMPTY) {
         const newVal = (csvFields as any)[k];
         const oldVal = (existing as any)[k];
@@ -644,6 +651,7 @@ async function main() {
         parsed,
         isPrimary: idx === 0,
         position: idx === 0 ? "Súkromný gynekológ" : null,
+        categoryId: idx === 0 ? PRIVATE_GYNECOLOGIST_CATEGORY_ID : null,
       });
     });
     if (persons.length) {
@@ -731,8 +739,12 @@ async function main() {
             .select({
               assignmentId: contactAssignments.id,
               personId: contactAssignments.personId,
+              isPrimary: contactAssignments.isPrimary,
+              position: contactAssignments.position,
+              categoryId: contactAssignments.categoryId,
               firstName: collaborators.firstName,
               lastName: collaborators.lastName,
+              countryCode: collaborators.countryCode,
             })
             .from(contactAssignments)
             .leftJoin(collaborators, eq(collaborators.id, contactAssignments.personId))
@@ -742,15 +754,67 @@ async function main() {
                 eq(contactAssignments.entityId, clinicId),
               ),
             );
-          const existingKey = new Set(
-            existingAss.map((a) => `${(a.firstName ?? "").toLowerCase()}|${(a.lastName ?? "").toLowerCase()}`),
+          const existingByKey = new Map(
+            existingAss.map((a) => [
+              `${(a.firstName ?? "").toLowerCase()}|${(a.lastName ?? "").toLowerCase()}`,
+              a,
+            ]),
           );
 
           for (const pp of grp.persons) {
             const fn = (pp.parsed.firstName ?? "").trim();
             const ln = (pp.parsed.lastName ?? "").trim();
             const key = `${fn.toLowerCase()}|${ln.toLowerCase()}`;
-            if (existingKey.has(key)) continue; // dup, preskoč
+            const existingMatch = existingByKey.get(key);
+
+            if (existingMatch) {
+              // Idempotentný fix: doplniť chýbajúce polia
+              // 1) collaborators.countryCode → "SK" ak NULL/prázdne
+              if (!existingMatch.countryCode || existingMatch.countryCode === "") {
+                await tx
+                  .update(collaborators)
+                  .set({ countryCode: "SK" })
+                  .where(eq(collaborators.id, existingMatch.personId));
+              }
+              // 2) contact_assignments.position + categoryId pre primary, ak chýbajú
+              const updates: Record<string, any> = {};
+              if (pp.isPrimary && pp.position && !existingMatch.position) {
+                updates.position = pp.position;
+              }
+              if (pp.isPrimary && pp.categoryId && !existingMatch.categoryId) {
+                updates.categoryId = pp.categoryId;
+              }
+              if (Object.keys(updates).length > 0) {
+                updates.updatedAt = sql`now()`;
+                await tx
+                  .update(contactAssignments)
+                  .set(updates)
+                  .where(eq(contactAssignments.id, existingMatch.assignmentId));
+              }
+              // 3) collaborator_addresses (company) – vytvoriť ak ešte nie je
+              const existingAddr = await tx
+                .select({ id: collaboratorAddresses.id })
+                .from(collaboratorAddresses)
+                .where(
+                  and(
+                    eq(collaboratorAddresses.collaboratorId, existingMatch.personId),
+                    eq(collaboratorAddresses.addressType, "company"),
+                  ),
+                )
+                .limit(1);
+              if (existingAddr.length === 0) {
+                await tx.insert(collaboratorAddresses).values({
+                  collaboratorId: existingMatch.personId,
+                  addressType: "company",
+                  name: grp.clinicAddress.name,
+                  streetNumber: grp.clinicAddress.streetNumber,
+                  city: grp.clinicAddress.city,
+                  region: grp.clinicAddress.region,
+                  countryCode: grp.clinicAddress.countryCode,
+                });
+              }
+              continue;
+            }
 
             const [pers] = await tx
               .insert(collaborators)
@@ -773,6 +837,7 @@ async function main() {
               entityId: clinicId,
               isPrimary: pp.isPrimary,
               position: pp.position,
+              categoryId: pp.categoryId,
               isActive: true,
             });
             actuallyAssignments++;
@@ -788,7 +853,16 @@ async function main() {
               countryCode: grp.clinicAddress.countryCode,
             });
 
-            existingKey.add(key);
+            existingByKey.set(key, {
+              assignmentId: "",
+              personId: pers.id,
+              isPrimary: pp.isPrimary,
+              position: pp.position,
+              categoryId: pp.categoryId,
+              firstName: fn || ln,
+              lastName: ln,
+              countryCode: "SK",
+            });
           }
         });
       } catch (e: any) {
