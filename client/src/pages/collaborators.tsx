@@ -2023,7 +2023,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
   const [searchQuery, setSearchQuery] = useState("");
 
   // ── Unified filter rules state (primary source of truth) ──────────────
-  // All filter fields (country / type / status / agreement / partnerCategory /
+  // All filter fields (country / type=position / status / agreement /
   // isManager / mobileApp / svetZdravia / email / mobile / phone …) live in
   // a single FilterRule[] array. Single-value variables below are derived for
   // backwards-compat with API params and stat-card highlighting.
@@ -2338,10 +2338,6 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
   const _no = (t.common as any).no || "No";
 
   const filterFields: FilterField[] = useMemo(() => {
-    const partnerCategoryOptions = (partnerCategoriesList || [])
-      .filter((c: any) => !positionScope || c.entityScope === positionScope)
-      .map((c: any) => ({ label: c.name, value: c.id }));
-
     return [
       {
         key: "country",
@@ -2354,9 +2350,11 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
         })),
       },
       {
+        // NOTE: key="type" is preserved (backend API param), but the visible
+        // label is "Pozícia / Position" per UX request.
         key: "type",
-        label: t.collaborators.fields.collaboratorType,
-        icon: Stethoscope,
+        label: locale === "sk" ? "Pozícia" : "Position",
+        icon: Briefcase,
         type: "select",
         options: COLLABORATOR_TYPES.map((ct) => ({
           label:
@@ -2385,13 +2383,6 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
           { label: t.collaborators.expiredAgreement, value: "expired" },
           { label: (t.collaborators as any).noAgreement || "No agreement", value: "none" },
         ],
-      },
-      {
-        key: "partnerCategory",
-        label: (t.collaborators as any).partnerCategory || "Partner category",
-        icon: Award,
-        type: "select",
-        options: partnerCategoryOptions,
       },
       {
         key: "isManager",
