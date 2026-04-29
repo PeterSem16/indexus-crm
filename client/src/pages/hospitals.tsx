@@ -2876,71 +2876,91 @@ export default function HospitalsPage() {
           })()}
           <Card>
             <CardHeader className="pb-4 space-y-3">
-              {serverHospitalStats && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" data-testid="hospitals-summary-bar">
-                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-                    !hasActiveHospitalFilters
-                      ? 'bg-gradient-to-br from-blue-50 to-blue-100/80 dark:from-blue-950/40 dark:to-blue-900/30 border-blue-300 dark:border-blue-700 ring-2 ring-blue-400/30'
-                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600'
-                  }`} onClick={() => { setHospitalFilterRules((prev) => prev.filter((r) => r.field !== "status" && r.field !== "personnel")); setHospitalPage(1); }} data-testid="stat-hospitals-total">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/15 dark:bg-blue-500/20">
-                      <Hospital className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-blue-700 dark:text-blue-300 leading-tight">{serverHospitalStats.total}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.common as any).total || "Total"}</span>
-                    </div>
-                  </div>
+              {serverHospitalStats && (() => {
+                const fmt = (n: number) => (n || 0).toLocaleString(sk ? "sk-SK" : "en-US");
+                const filteredCount = serverHospitalsTotal ?? serverHospitalStats.total;
+                const isFiltered = hasActiveHospitalFilters && filteredCount !== serverHospitalStats.total;
+                const COLOR: Record<string, { active: string; idle: string; icon: string; text: string }> = {
+                  emerald: { active: "bg-emerald-500/15 dark:bg-emerald-500/25 ring-1 ring-emerald-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 hover:ring-1 hover:ring-emerald-500/30", icon: "text-emerald-600 dark:text-emerald-400", text: "text-emerald-700 dark:text-emerald-300" },
+                  rose: { active: "bg-rose-500/15 dark:bg-rose-500/25 ring-1 ring-rose-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-rose-500/10 dark:hover:bg-rose-500/15 hover:ring-1 hover:ring-rose-500/30", icon: "text-rose-600 dark:text-rose-400", text: "text-rose-700 dark:text-rose-300" },
+                  violet: { active: "bg-violet-500/15 dark:bg-violet-500/25 ring-1 ring-violet-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-violet-500/10 dark:hover:bg-violet-500/15 hover:ring-1 hover:ring-violet-500/30", icon: "text-violet-600 dark:text-violet-400", text: "text-violet-700 dark:text-violet-300" },
+                  amber: { active: "bg-amber-500/15 dark:bg-amber-500/25 ring-1 ring-amber-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-amber-500/10 dark:hover:bg-amber-500/15 hover:ring-1 hover:ring-amber-500/30", icon: "text-amber-600 dark:text-amber-400", text: "text-amber-700 dark:text-amber-300" },
+                };
+                const Toggle = ({ id, label, count, active, onClick, color, Icon }: any) => {
+                  const c = COLOR[color];
+                  return (
+                    <button
+                      type="button"
+                      onClick={onClick}
+                      data-testid={id}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 ${active ? c.active : c.idle}`}
+                    >
+                      <Icon className={`h-4 w-4 ${c.icon}`} />
+                      <div className="flex flex-col items-start leading-tight text-left">
+                        <span className={`text-sm font-bold ${c.text}`}>{fmt(count)}</span>
+                        <span className="text-[10.5px] text-muted-foreground font-medium">{label}</span>
+                      </div>
+                    </button>
+                  );
+                };
+                return (
+                  <div
+                    className="relative overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-gradient-to-br from-white via-slate-50/80 to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/20 shadow-sm"
+                    data-testid="hospitals-summary-bar"
+                  >
+                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-300/40 to-transparent" />
+                    <div className="flex flex-wrap items-center gap-2 p-2.5">
+                      <button
+                        type="button"
+                        onClick={() => { setHospitalFilterRules((prev) => prev.filter((r) => r.field !== "status" && r.field !== "personnel")); setHospitalPage(1); }}
+                        data-testid="stat-hospitals-total"
+                        className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 ${
+                          !hasActiveHospitalFilters
+                            ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/20"
+                            : isFiltered
+                              ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/20 ring-2 ring-amber-300 dark:ring-amber-400"
+                              : "bg-white dark:bg-slate-800 hover:shadow-sm border border-slate-200 dark:border-slate-700"
+                        }`}
+                        title={isFiltered ? (sk ? "Kliknutím vyčistíte stav/personál" : "Click to clear status/personnel") : undefined}
+                      >
+                        <div className={`flex items-center justify-center w-7 h-7 rounded-md ${(!hasActiveHospitalFilters || isFiltered) ? "bg-white/20" : "bg-indigo-500/15 dark:bg-indigo-500/20"}`}>
+                          <Hospital className={`h-4 w-4 ${(!hasActiveHospitalFilters || isFiltered) ? "text-white" : "text-indigo-600 dark:text-indigo-400"}`} />
+                        </div>
+                        {isFiltered ? (
+                          <div className="flex flex-col items-start leading-tight">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-base font-bold text-white" data-testid="text-filtered-hospitals-count">{fmt(filteredCount)}</span>
+                              <span className="text-[10px] font-medium text-indigo-100">
+                                {sk ? `z ${fmt(serverHospitalStats.total)}` : `of ${fmt(serverHospitalStats.total)}`}
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-medium text-amber-100 uppercase tracking-wide">
+                              {sk ? "Filtrované" : "Filtered"}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-start leading-tight">
+                            <span className={`text-base font-bold ${!hasActiveHospitalFilters ? "text-white" : "text-slate-900 dark:text-white"}`}>{fmt(serverHospitalStats.total)}</span>
+                            <span className={`text-[9px] font-medium uppercase tracking-wide ${!hasActiveHospitalFilters ? "text-indigo-100" : "text-muted-foreground"}`}>
+                              {sk ? "Celkom" : "Total"}
+                            </span>
+                          </div>
+                        )}
+                      </button>
 
-                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-                    hospitalStatusFilter === 'active'
-                      ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/30 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30'
-                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
-                  }`} onClick={() => { setHospitalSingleRule("status", hFilterStatus === "active" ? "" : "active"); }} data-testid="stat-hospitals-active">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
-                      <UserCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{serverHospitalStats.active}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any)?.active || "Active"}</span>
-                    </div>
-                  </div>
+                      <div className="flex items-center gap-1 pl-2 border-l border-slate-200/70 dark:border-slate-700/70">
+                        <Toggle id="stat-hospitals-active" label={(t.collaborators as any)?.active || (sk ? "Aktívne" : "Active")} count={serverHospitalStats.active} active={hFilterStatus === "active"} onClick={() => { setHospitalSingleRule("personnel", ""); setHospitalSingleRule("status", hFilterStatus === "active" ? "" : "active"); }} color="emerald" Icon={UserCheck} />
+                        <Toggle id="stat-hospitals-inactive" label={(t.collaborators as any)?.inactive || (sk ? "Neaktívne" : "Inactive")} count={serverHospitalStats.inactive} active={hFilterStatus === "inactive"} onClick={() => { setHospitalSingleRule("personnel", ""); setHospitalSingleRule("status", hFilterStatus === "inactive" ? "" : "inactive"); }} color="rose" Icon={UserX} />
+                      </div>
 
-                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-                    hospitalStatusFilter === 'inactive'
-                      ? 'bg-gradient-to-br from-rose-50 to-rose-100/80 dark:from-rose-950/40 dark:to-rose-900/30 border-rose-300 dark:border-rose-700 ring-2 ring-rose-400/30'
-                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-600'
-                  }`} onClick={() => { setHospitalSingleRule("status", hFilterStatus === "inactive" ? "" : "inactive"); }} data-testid="stat-hospitals-inactive">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-rose-500/15 dark:bg-rose-500/20">
-                      <UserX className="h-4.5 w-4.5 text-rose-600 dark:text-rose-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-rose-700 dark:text-rose-300 leading-tight">{serverHospitalStats.inactive}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.collaborators as any)?.inactive || "Inactive"}</span>
+                      <div className="flex flex-wrap items-center gap-1 pl-2 border-l border-slate-200/70 dark:border-slate-700/70">
+                        <Toggle id="stat-hospitals-with-personnel" label={(t.hospitals as any)?.withPersonnel || (sk ? "S personálom" : "With personnel")} count={serverHospitalStats.withPersonnel} active={getHospitalRuleValue("personnel") === "with"} onClick={() => { setHospitalSingleRule("status", ""); setHospitalSingleRule("personnel", getHospitalRuleValue("personnel") === "with" ? "" : "with"); }} color="violet" Icon={Users} />
+                        <Toggle id="stat-hospitals-without-personnel" label={(t.hospitals as any)?.withoutPersonnel || (sk ? "Bez personálu" : "No personnel")} count={serverHospitalStats.withoutPersonnel} active={getHospitalRuleValue("personnel") === "without"} onClick={() => { setHospitalSingleRule("status", ""); setHospitalSingleRule("personnel", getHospitalRuleValue("personnel") === "without" ? "" : "without"); }} color="amber" Icon={ShieldOff} />
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-hospitals-with-personnel">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-500/15 dark:bg-violet-500/20">
-                      <Users className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-violet-700 dark:text-violet-300 leading-tight">{serverHospitalStats.withPersonnel}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.hospitals as any)?.withPersonnel || "With Personnel"}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-hospitals-without-personnel">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-500/15 dark:bg-amber-500/20">
-                      <ShieldOff className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-amber-700 dark:text-amber-300 leading-tight">{serverHospitalStats.withoutPersonnel}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.hospitals as any)?.withoutPersonnel || "No Personnel"}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <EntityFilter
                 searchQuery={searchQuery}
@@ -3100,95 +3120,95 @@ export default function HospitalsPage() {
           })()}
           <Card>
             <CardHeader className="pb-4 space-y-3">
-              {serverClinicStats && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="clinics-summary-bar">
-                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-                    !hasActiveClinicFilters
-                      ? 'bg-gradient-to-br from-teal-50 to-teal-100/80 dark:from-teal-950/40 dark:to-teal-900/30 border-teal-300 dark:border-teal-700 ring-2 ring-teal-400/30'
-                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-600'
-                  }`} onClick={() => { setClinicFilterRules((prev) => prev.filter((r) => r.field !== "pipeline" && r.field !== "status")); setClinicPage(1); }} data-testid="stat-clinics-total">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-teal-500/15 dark:bg-teal-500/20">
-                      <Stethoscope className="h-4.5 w-4.5 text-teal-600 dark:text-teal-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-teal-700 dark:text-teal-300 leading-tight">{serverClinicStats.total}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.common as any).total || "Total"}</span>
-                    </div>
-                  </div>
+              {serverClinicStats && (() => {
+                const fmt = (n: number) => (n || 0).toLocaleString(sk ? "sk-SK" : "en-US");
+                const filteredCount = serverClinicsTotal ?? serverClinicStats.total;
+                const isFiltered = hasActiveClinicFilters && filteredCount !== serverClinicStats.total;
+                const COLOR: Record<string, { active: string; idle: string; icon: string; text: string }> = {
+                  emerald: { active: "bg-emerald-500/15 dark:bg-emerald-500/25 ring-1 ring-emerald-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 hover:ring-1 hover:ring-emerald-500/30", icon: "text-emerald-600 dark:text-emerald-400", text: "text-emerald-700 dark:text-emerald-300" },
+                  blue: { active: "bg-blue-500/15 dark:bg-blue-500/25 ring-1 ring-blue-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-blue-500/10 dark:hover:bg-blue-500/15 hover:ring-1 hover:ring-blue-500/30", icon: "text-blue-600 dark:text-blue-400", text: "text-blue-700 dark:text-blue-300" },
+                  slate: { active: "bg-slate-500/15 dark:bg-slate-500/25 ring-1 ring-slate-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-slate-500/10 dark:hover:bg-slate-500/15 hover:ring-1 hover:ring-slate-500/30", icon: "text-slate-600 dark:text-slate-400", text: "text-slate-700 dark:text-slate-300" },
+                  purple: { active: "bg-purple-500/15 dark:bg-purple-500/25 ring-1 ring-purple-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-purple-500/10 dark:hover:bg-purple-500/15 hover:ring-1 hover:ring-purple-500/30", icon: "text-purple-600 dark:text-purple-400", text: "text-purple-700 dark:text-purple-300" },
+                  green: { active: "bg-green-500/15 dark:bg-green-500/25 ring-1 ring-green-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-green-500/10 dark:hover:bg-green-500/15 hover:ring-1 hover:ring-green-500/30", icon: "text-green-600 dark:text-green-400", text: "text-green-700 dark:text-green-300" },
+                  amber: { active: "bg-amber-500/15 dark:bg-amber-500/25 ring-1 ring-amber-500/50 shadow-sm", idle: "bg-white/70 dark:bg-slate-800/50 hover:bg-amber-500/10 dark:hover:bg-amber-500/15 hover:ring-1 hover:ring-amber-500/30", icon: "text-amber-600 dark:text-amber-400", text: "text-amber-700 dark:text-amber-300" },
+                };
+                const Toggle = ({ id, label, count, active, onClick, color, Icon }: any) => {
+                  const c = COLOR[color];
+                  return (
+                    <button
+                      type="button"
+                      onClick={onClick}
+                      data-testid={id}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 ${active ? c.active : c.idle}`}
+                    >
+                      <Icon className={`h-4 w-4 ${c.icon}`} />
+                      <div className="flex flex-col items-start leading-tight text-left">
+                        <span className={`text-sm font-bold ${c.text}`}>{fmt(count)}</span>
+                        <span className="text-[10.5px] text-muted-foreground font-medium">{label}</span>
+                      </div>
+                    </button>
+                  );
+                };
+                return (
+                  <div
+                    className="relative overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-gradient-to-br from-white via-slate-50/80 to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/20 shadow-sm"
+                    data-testid="clinics-summary-bar"
+                  >
+                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-300/40 to-transparent" />
+                    <div className="flex flex-wrap items-center gap-2 p-2.5">
+                      <button
+                        type="button"
+                        onClick={() => { setClinicFilterRules((prev) => prev.filter((r) => r.field !== "pipeline" && r.field !== "status")); setClinicPage(1); }}
+                        data-testid="stat-clinics-total"
+                        className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 ${
+                          !hasActiveClinicFilters
+                            ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/20"
+                            : isFiltered
+                              ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/20 ring-2 ring-amber-300 dark:ring-amber-400"
+                              : "bg-white dark:bg-slate-800 hover:shadow-sm border border-slate-200 dark:border-slate-700"
+                        }`}
+                        title={isFiltered ? (sk ? "Kliknutím vyčistíte pipeline/stav" : "Click to clear pipeline/status") : undefined}
+                      >
+                        <div className={`flex items-center justify-center w-7 h-7 rounded-md ${(!hasActiveClinicFilters || isFiltered) ? "bg-white/20" : "bg-indigo-500/15 dark:bg-indigo-500/20"}`}>
+                          <Stethoscope className={`h-4 w-4 ${(!hasActiveClinicFilters || isFiltered) ? "text-white" : "text-indigo-600 dark:text-indigo-400"}`} />
+                        </div>
+                        {isFiltered ? (
+                          <div className="flex flex-col items-start leading-tight">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-base font-bold text-white" data-testid="text-filtered-clinics-count">{fmt(filteredCount)}</span>
+                              <span className="text-[10px] font-medium text-indigo-100">
+                                {sk ? `z ${fmt(serverClinicStats.total)}` : `of ${fmt(serverClinicStats.total)}`}
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-medium text-amber-100 uppercase tracking-wide">
+                              {sk ? "Filtrované" : "Filtered"}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-start leading-tight">
+                            <span className={`text-base font-bold ${!hasActiveClinicFilters ? "text-white" : "text-slate-900 dark:text-white"}`}>{fmt(serverClinicStats.total)}</span>
+                            <span className={`text-[9px] font-medium uppercase tracking-wide ${!hasActiveClinicFilters ? "text-indigo-100" : "text-muted-foreground"}`}>
+                              {sk ? "Celkom" : "Total"}
+                            </span>
+                          </div>
+                        )}
+                      </button>
 
-                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-                    clinicPipelineFilter === 'contract:active'
-                      ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/30 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30'
-                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
-                  }`} onClick={() => { setClinicSingleRule("pipeline", cFilterPipeline === "contract:active" ? "" : "contract:active"); }} data-testid="stat-clinics-contracted">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
-                      <ShieldCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{serverClinicStats.pipeline?.['contract:active'] || 0}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).pipeline?.activeContract || "Active Contract"}</span>
-                    </div>
-                  </div>
+                      <div className="flex flex-wrap items-center gap-1 pl-2 border-l border-slate-200/70 dark:border-slate-700/70">
+                        <Toggle id="stat-clinics-contracted" label={(t.clinics as any).pipeline?.activeContract || (sk ? "Aktívna zmluva" : "Active contract")} count={serverClinicStats.pipeline?.['contract:active'] || 0} active={cFilterPipeline === "contract:active"} onClick={() => { setClinicSingleRule("status", ""); setClinicSingleRule("pipeline", cFilterPipeline === "contract:active" ? "" : "contract:active"); }} color="emerald" Icon={ShieldCheck} />
+                        <Toggle id="stat-clinics-interested" label={(t.clinics as any).pipeline?.interested || (sk ? "Záujem" : "Interested")} count={serverClinicStats.pipeline?.['coop:interested'] || 0} active={cFilterPipeline === "coop:interested"} onClick={() => { setClinicSingleRule("status", ""); setClinicSingleRule("pipeline", cFilterPipeline === "coop:interested" ? "" : "coop:interested"); }} color="blue" Icon={Activity} />
+                        <Toggle id="stat-clinics-not-contacted" label={(t.clinics as any).pipeline?.notContacted || (sk ? "Nekontaktované" : "Not contacted")} count={serverClinicStats.pipeline?.['initial:not_contacted'] || 0} active={cFilterPipeline === "initial:not_contacted"} onClick={() => { setClinicSingleRule("status", ""); setClinicSingleRule("pipeline", cFilterPipeline === "initial:not_contacted" ? "" : "initial:not_contacted"); }} color="slate" Icon={ShieldOff} />
+                      </div>
 
-                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-                    clinicPipelineFilter === 'coop:interested'
-                      ? 'bg-gradient-to-br from-blue-50 to-blue-100/80 dark:from-blue-950/40 dark:to-blue-900/30 border-blue-300 dark:border-blue-700 ring-2 ring-blue-400/30'
-                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600'
-                  }`} onClick={() => { setClinicSingleRule("pipeline", cFilterPipeline === "coop:interested" ? "" : "coop:interested"); }} data-testid="stat-clinics-interested">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/15 dark:bg-blue-500/20">
-                      <Activity className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-blue-700 dark:text-blue-300 leading-tight">{serverClinicStats.pipeline?.['coop:interested'] || 0}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).pipeline?.interested || "Interested"}</span>
+                      <div className="flex flex-wrap items-center gap-1 pl-2 border-l border-slate-200/70 dark:border-slate-700/70">
+                        <Toggle id="stat-clinics-recommended-by" label={(t.clinics as any).recommendedBy || (sk ? "Odporúčané" : "Recommended")} count={Object.keys(referralCounts?.recommendedBy || {}).length} active={false} onClick={() => {}} color="purple" Icon={UserCheck} />
+                        <Toggle id="stat-clinics-recommends" label={(t.clinics as any).recommendsOthers || (sk ? "Odporúča" : "Recommends")} count={Object.keys(referralCounts?.recommends || {}).length} active={false} onClick={() => {}} color="green" Icon={ArrowRight} />
+                        <Toggle id="stat-clinics-conferences" label={sk ? "Konferencie" : "Conferences"} count={serverClinicStats.conferenceCount} active={false} onClick={() => {}} color="amber" Icon={GraduationCap} />
+                      </div>
                     </div>
                   </div>
-
-                  <div className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm cursor-pointer transition-all duration-200 ${
-                    clinicPipelineFilter === 'initial:not_contacted'
-                      ? 'bg-gradient-to-br from-slate-100 to-slate-200/80 dark:from-slate-800/60 dark:to-slate-700/40 border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/30'
-                      : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
-                  }`} onClick={() => { setClinicSingleRule("pipeline", cFilterPipeline === "initial:not_contacted" ? "" : "initial:not_contacted"); }} data-testid="stat-clinics-not-contacted">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-500/15 dark:bg-slate-500/20">
-                      <ShieldOff className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-slate-600 dark:text-slate-300 leading-tight">{serverClinicStats.pipeline?.['initial:not_contacted'] || 0}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).pipeline?.notContacted || "Not Contacted"}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-clinics-recommended-by">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-500/15 dark:bg-purple-500/20">
-                      <UserCheck className="h-4.5 w-4.5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-purple-700 dark:text-purple-300 leading-tight">{Object.keys(referralCounts?.recommendedBy || {}).length}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).recommendedBy || "Recommended"}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-clinics-recommends">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
-                      <ArrowRight className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{Object.keys(referralCounts?.recommends || {}).length}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">{(t.clinics as any).recommendsOthers || "Recommends"}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 rounded-xl border shadow-sm bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700" data-testid="stat-clinics-conferences">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-500/15 dark:bg-amber-500/20">
-                      <GraduationCap className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold text-amber-700 dark:text-amber-300 leading-tight">{serverClinicStats.conferenceCount}</span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">Conferences</span>
-                    </div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <EntityFilter
                 searchQuery={clinicSearchQuery}
