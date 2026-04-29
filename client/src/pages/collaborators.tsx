@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff, Phone, PhoneIncoming, PhoneOutgoing, Network, Mail, Briefcase, GraduationCap, Languages, Hash, Calendar, SlidersHorizontal, TrendingUp } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter, Users, UserCheck, UserX, ShieldCheck, ShieldAlert, ShieldOff, Phone, PhoneIncoming, PhoneOutgoing, Network, Mail, Briefcase, GraduationCap, Languages, Hash, Calendar, SlidersHorizontal, TrendingUp, Sparkles } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { Button } from "@/components/ui/button";
@@ -2028,6 +2028,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
   // a single FilterRule[] array. Single-value variables below are derived for
   // backwards-compat with API params and stat-card highlighting.
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
+  const [activeView, setActiveView] = useState<{ id: string; name: string } | null>(null);
   // Clear country rule when global country filter changes
   useEffect(() => {
     setFilterRules((prev) => prev.filter((r) => r.field !== "country"));
@@ -2862,16 +2863,98 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
 
   return (
     <div className={embedded ? "space-y-4" : "space-y-6"}>
-      {!embedded && (
-        <PageHeader title={t.collaborators.title} description={t.collaborators.description}>
-          {canAdd("collaborators") && (
-            <Button onClick={handleAddNew} data-testid="button-add-collaborator">
-              <Plus className="h-4 w-4 mr-2" />
-              {addButtonLabel || t.collaborators.addCollaborator}
-            </Button>
-          )}
-        </PageHeader>
-      )}
+      {!embedded && (() => {
+        const sk = locale === "sk";
+        const total = collabStats?.total ?? 0;
+        const visible = filteredAndSortedCollaborators?.length ?? (serverCollaboratorsTotal ?? total);
+        const showCount = !!collabStats;
+        return (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold tracking-tight" data-testid="page-title">
+                {t.collaborators.title}
+              </h1>
+              {showCount ? (
+                <p className="text-sm text-muted-foreground mt-0.5" data-testid="text-header-count">
+                  <span className="font-semibold text-foreground">{visible.toLocaleString(sk ? "sk-SK" : "en-US")}</span>
+                  <span className="mx-1">{sk ? "z" : "of"}</span>
+                  <span className="font-medium text-foreground">{total.toLocaleString(sk ? "sk-SK" : "en-US")}</span>
+                  <span className="ml-1">{sk ? "osôb" : "persons"}</span>
+                  {activeView && (
+                    <>
+                      <span className="mx-2 text-muted-foreground/60">·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-amber-500" />
+                        <span className="text-muted-foreground">{sk ? "pohľad:" : "view:"}</span>
+                        <span className="font-medium text-foreground">{activeView.name}</span>
+                      </span>
+                    </>
+                  )}
+                </p>
+              ) : (
+                <p className="text-muted-foreground mt-1 text-sm">{t.collaborators.description}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5"
+                    data-testid="button-export-collaborators"
+                    title={sk ? "Exportovať" : "Export"}
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>{sk ? "Export" : "Export"}</span>
+                    <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem
+                    onClick={() => exportToCsv(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
+                    data-testid="button-export-collaborators-csv"
+                    className="gap-2"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span>{t.common.exportCsv}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => exportToExcel(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
+                    data-testid="button-export-collaborators-excel"
+                    className="gap-2"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    <span>{t.common.exportExcel}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => { refetchCollaborators(); queryClient.invalidateQueries({ queryKey: ["/api/collaborators/stats"] }); }}
+                data-testid="button-refresh-collaborators"
+                title={t.common.refresh}
+                aria-label={t.common.refresh}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              {canAdd("collaborators") && (
+                <Button
+                  onClick={handleAddNew}
+                  className="h-9 bg-red-700 hover:bg-red-800 text-white"
+                  size="sm"
+                  data-testid="button-add-collaborator"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  {addButtonLabel || t.collaborators.addCollaborator}
+                </Button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {!isLoading && collabStats && (() => {
         const sk = locale === "sk";
@@ -2934,55 +3017,52 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             data-testid="collaborators-summary-bar"
           >
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-300/40 to-transparent" />
-            <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-4 p-3.5">
+            <div className="flex flex-wrap items-center gap-2 p-2.5">
               {/* Hero — total + filtered delta */}
               <button
                 type="button"
                 onClick={() => { setFilterRules(prev => prev.filter(r => r.field !== "status" && r.field !== "agreement")); setPage(1); }}
                 data-testid="stat-total"
-                className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${
+                className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 ${
                   !hasActiveFilters
-                    ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25"
+                    ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/20"
                     : isFiltered
-                      ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-amber-300 dark:ring-amber-400"
-                      : "bg-white dark:bg-slate-800 hover:shadow-md border border-slate-200 dark:border-slate-700"
+                      ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/20 ring-2 ring-amber-300 dark:ring-amber-400"
+                      : "bg-white dark:bg-slate-800 hover:shadow-sm border border-slate-200 dark:border-slate-700"
                 }`}
                 title={isFiltered ? (sk ? "Kliknutím vyčistíte stav/zmluvu" : "Click to clear status/agreement") : undefined}
               >
-                <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${(!hasActiveFilters || isFiltered) ? "bg-white/20" : "bg-indigo-500/15 dark:bg-indigo-500/20"}`}>
-                  <Users className={`h-5 w-5 ${(!hasActiveFilters || isFiltered) ? "text-white" : "text-indigo-600 dark:text-indigo-400"}`} />
+                <div className={`flex items-center justify-center w-7 h-7 rounded-md ${(!hasActiveFilters || isFiltered) ? "bg-white/20" : "bg-indigo-500/15 dark:bg-indigo-500/20"}`}>
+                  <Users className={`h-4 w-4 ${(!hasActiveFilters || isFiltered) ? "text-white" : "text-indigo-600 dark:text-indigo-400"}`} />
                 </div>
                 {isFiltered ? (
                   <div className="flex flex-col items-start leading-tight">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-2xl font-bold text-white" data-testid="text-filtered-count">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-base font-bold text-white" data-testid="text-filtered-count">
                         {filteredCount.toLocaleString(locale === "sk" ? "sk-SK" : "en-US")}
                       </span>
-                      <span className="text-xs font-medium text-indigo-100">
+                      <span className="text-[10px] font-medium text-indigo-100">
                         {sk ? `z ${collabStats.total.toLocaleString("sk-SK")}` : `of ${collabStats.total.toLocaleString("en-US")}`}
                       </span>
                     </div>
-                    <span className="text-[11px] font-medium text-amber-100">
-                      {sk ? "Filtrované záznamy" : "Filtered records"}
+                    <span className="text-[9px] font-medium text-amber-100 uppercase tracking-wide">
+                      {sk ? "Filtrované" : "Filtered"}
                     </span>
                   </div>
                 ) : (
                   <div className="flex flex-col items-start leading-tight">
-                    <span className={`text-2xl font-bold ${!hasActiveFilters ? "text-white" : "text-slate-900 dark:text-white"}`}>
+                    <span className={`text-base font-bold ${!hasActiveFilters ? "text-white" : "text-slate-900 dark:text-white"}`}>
                       {collabStats.total.toLocaleString(locale === "sk" ? "sk-SK" : "en-US")}
                     </span>
-                    <span className={`text-[11px] font-medium ${!hasActiveFilters ? "text-indigo-100" : "text-muted-foreground"}`}>
-                      {sk ? "Celkom osôb" : "Total persons"}
+                    <span className={`text-[9px] font-medium uppercase tracking-wide ${!hasActiveFilters ? "text-indigo-100" : "text-muted-foreground"}`}>
+                      {sk ? "Celkom" : "Total"}
                     </span>
                   </div>
                 )}
               </button>
 
               {/* Status group */}
-              <div className="flex items-center gap-1.5 lg:border-l lg:border-slate-200/70 dark:lg:border-slate-700/70 lg:pl-4">
-                <span className="hidden xl:inline-block text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 mr-1">
-                  {sk ? "Stav" : "Status"}
-                </span>
+              <div className="flex items-center gap-1 pl-2 border-l border-slate-200/70 dark:border-slate-700/70">
                 <Toggle
                   id="stat-active"
                   label={(t.collaborators as any).active || "Active"}
@@ -3004,10 +3084,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
               </div>
 
               {/* Agreement group */}
-              <div className="flex flex-wrap items-center gap-1.5 lg:border-l lg:border-slate-200/70 dark:lg:border-slate-700/70 lg:pl-4 lg:ml-auto">
-                <span className="hidden xl:inline-block text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 mr-1">
-                  {sk ? "Zmluva" : "Agreement"}
-                </span>
+              <div className="flex flex-wrap items-center gap-1 pl-2 border-l border-slate-200/70 dark:border-slate-700/70">
                 <Toggle
                   id="stat-valid-agreement"
                   label={(t.collaborators as any).validAgreement || "Valid"}
@@ -3056,71 +3133,13 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             storageKey="entity-filter:collaborators"
             testId="filter-collaborators"
             locale={locale}
-            hideSavedViewsToolbar
             showCountAlways
+            onActiveViewChange={(v) => setActiveView(v ? { id: v.id, name: v.name } : null)}
             labels={{
               search: t.collaborators.searchPlaceholder,
               filter: t.common.filter,
               clearAll: t.common.clearAll,
             }}
-            actionsSlot={
-              <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9"
-                      data-testid="button-export-collaborators"
-                      title={locale === "sk" ? "Exportovať" : "Export"}
-                      aria-label={locale === "sk" ? "Exportovať" : "Export"}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem
-                      onClick={() => exportToCsv(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
-                      data-testid="button-export-collaborators-csv"
-                      className="gap-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      <span>{t.common.exportCsv}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => exportToExcel(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
-                      data-testid="button-export-collaborators-excel"
-                      className="gap-2"
-                    >
-                      <FileSpreadsheet className="h-4 w-4" />
-                      <span>{t.common.exportExcel}</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => { refetchCollaborators(); queryClient.invalidateQueries({ queryKey: ["/api/collaborators/stats"] }); }}
-                  data-testid="button-refresh-collaborators"
-                  title={t.common.refresh}
-                  aria-label={t.common.refresh}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-                {canAdd("collaborators") && (
-                  <Button
-                    onClick={handleAddNew}
-                    className="h-9 bg-red-700 hover:bg-red-800 text-white"
-                    size="sm"
-                    data-testid="button-add-collaborator-inline"
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    {addButtonLabel || t.collaborators.addCollaborator}
-                  </Button>
-                )}
-              </>
-            }
           />
         </CardHeader>
         <CardContent>

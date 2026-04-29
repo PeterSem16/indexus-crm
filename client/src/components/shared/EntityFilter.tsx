@@ -337,6 +337,9 @@ type EntityFilterProps = {
   /** Always show the visible/total count summary, not only when filters are active */
   showCountAlways?: boolean;
 
+  /** Notify the parent whenever the active saved view changes (incl. clear/delete). */
+  onActiveViewChange?: (view: SavedView | null) => void;
+
   /** Restrict the available operators (useful when backend supports equality only) */
   restrictOps?: FilterOp[];
 };
@@ -361,6 +364,7 @@ export function EntityFilter({
   hideSavedViews = false,
   hideSavedViewsToolbar = false,
   showCountAlways = false,
+  onActiveViewChange,
   restrictOps,
 }: EntityFilterProps) {
   const labels = useMemo(() => mergeLabels(locale, labelsProp), [locale, labelsProp]);
@@ -414,17 +418,20 @@ export function EntityFilter({
   const clearAllRules = () => {
     onRulesChange([]);
     setActiveViewId(null);
+    onActiveViewChange?.(null);
   };
 
   const applyPreset = (preset: FilterPreset) => {
     onRulesChange(preset.rules.map((r) => ({ ...r, id: newRuleId() })));
     setActiveViewId(null);
+    onActiveViewChange?.(null);
   };
 
   const applyView = (view: SavedView) => {
     onRulesChange(view.rules.map((r) => ({ ...r, id: newRuleId() })));
     if (view.search !== undefined) onSearchChange(view.search);
     setActiveViewId(view.id);
+    onActiveViewChange?.(view);
   };
 
   const saveCurrentView = () => {
@@ -441,6 +448,7 @@ export function EntityFilter({
     setSavedViews(next);
     persistSavedViews(storageKey, next);
     setActiveViewId(view.id);
+    onActiveViewChange?.(view);
     setNewViewName("");
     setSavePopoverOpen(false);
   };
@@ -449,7 +457,10 @@ export function EntityFilter({
     const next = savedViews.filter((v) => v.id !== viewId);
     setSavedViews(next);
     persistSavedViews(storageKey, next);
-    if (activeViewId === viewId) setActiveViewId(null);
+    if (activeViewId === viewId) {
+      setActiveViewId(null);
+      onActiveViewChange?.(null);
+    }
   };
 
   const activeView = savedViews.find((v) => v.id === activeViewId) || null;
@@ -517,6 +528,7 @@ export function EntityFilter({
               onValueChange={(val) => {
                 if (val === "__none__") {
                   setActiveViewId(null);
+                  onActiveViewChange?.(null);
                   return;
                 }
                 if (val === "__clear__") {
