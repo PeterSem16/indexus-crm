@@ -15320,6 +15320,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
       const status = req.query.status as string;
       const collabType = req.query.type as string;
+      const partnerCategoryParam = req.query.partnerCategory as string;
       const agreement = req.query.agreement as string;
       const positionScope = req.query.positionScope as string;
       const excludeScope = req.query.excludeScope as string;
@@ -15375,7 +15376,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
         if (needsAgreementFilter || needsScopeFilter) {
           const [allResult, allAssignments, allAgreementsBulk] = await Promise.all([
-            storage.getCollaboratorsPaginated(1, 10000, search, country, countries, status, collabType),
+            storage.getCollaboratorsPaginated(1, 10000, search, country, countries, status, collabType, partnerCategoryParam),
             db.select({
               personId: contactAssignments.personId,
               entityType: contactAssignments.entityType,
@@ -15423,7 +15424,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           return res.json({ data: filtered.slice(offset, offset + limit), total: filtered.length });
         }
 
-        const result = await storage.getCollaboratorsPaginated(page || 1, limit, search, country, countries, status, collabType);
+        const result = await storage.getCollaboratorsPaginated(page || 1, limit, search, country, countries, status, collabType, partnerCategoryParam);
         const pageIds = result.data.map((c) => c.id);
         const today = new Date();
         const [allAssignments, pageAgreements] = await Promise.all([
@@ -15477,7 +15478,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
       const countryCodes = req.query.countries ? String(req.query.countries).split(",") : undefined;
 
-      const result = await storage.getCollaboratorsPaginated(1, 200, undefined, undefined, countryCodes, status, collabType);
+      const result = await storage.getCollaboratorsPaginated(1, 200, undefined, undefined, countryCodes, status, collabType, partnerCategoryParam);
       
       const today = new Date();
       const allAssignments2 = await db.select({

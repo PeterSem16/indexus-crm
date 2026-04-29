@@ -3124,7 +3124,7 @@ export class DatabaseStorage implements IStorage {
     return db.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName, countryCode: collaborators.countryCode }).from(collaborators).orderBy(collaborators.lastName, collaborators.firstName);
   }
 
-  async getCollaboratorsPaginated(page: number, limit: number, search?: string, countryCode?: string, countries?: string[], status?: string, collabType?: string): Promise<{ data: Collaborator[], total: number }> {
+  async getCollaboratorsPaginated(page: number, limit: number, search?: string, countryCode?: string, countries?: string[], status?: string, collabType?: string, partnerCategory?: string): Promise<{ data: Collaborator[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -3151,6 +3151,9 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(collaborators.mobileAppEnabled, true));
     } else if (collabType && collabType.trim()) {
       conditions.push(eq(collaborators.collaboratorType, collabType.trim()));
+    }
+    if (partnerCategory && partnerCategory.trim()) {
+      conditions.push(eq(collaborators.partnerCategory, partnerCategory.trim()));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(collaborators).where(where);

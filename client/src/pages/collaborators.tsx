@@ -2048,6 +2048,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
 
   const filterCountry = getRuleValue("country");
   const filterType = getRuleValue("type");
+  const filterPartnerCategory = getRuleValue("partnerCategory");
   const filterStatus = getRuleValue("status");
   const filterAgreement = getRuleValue("agreement");
 
@@ -2100,6 +2101,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
   if (selectedCountries.length > 0) collabQueryParams.countries = selectedCountries.join(",");
   if (filterStatus) collabQueryParams.status = filterStatus;
   if (filterType) collabQueryParams.type = filterType;
+  if (filterPartnerCategory) collabQueryParams.partnerCategory = filterPartnerCategory;
   if (filterAgreement) collabQueryParams.agreement = filterAgreement;
   if (positionScope) collabQueryParams.positionScope = positionScope;
   if (excludeScope) collabQueryParams.excludeScope = excludeScope;
@@ -2162,7 +2164,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
     // non-server field) must be applied here so the UI never shows a chip
     // that has no effect.
     const isHandledByServer = (r: FilterRule): boolean => {
-      if (!["country", "type", "status", "agreement"].includes(r.field)) return false;
+      if (!["country", "type", "partnerCategory", "status", "agreement"].includes(r.field)) return false;
       if (r.op !== "is" && r.op !== "isAny") return false;
       if (Array.isArray(r.value)) return r.value.length === 1 && !!r.value[0];
       return !!r.value;
@@ -2329,7 +2331,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
 
   // Fields the backend can filter (server-side via /api/collaborators query params)
   const SERVER_FIELDS = useMemo(
-    () => new Set(["country", "type", "status", "agreement"]),
+    () => new Set(["country", "type", "partnerCategory", "status", "agreement"]),
     [],
   );
 
@@ -2338,6 +2340,20 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
   const _no = (t.common as any).no || "No";
 
   const filterFields: FilterField[] = useMemo(() => {
+    // "Pozícia" / "Position" — uses partner_categories from DB (localized labels).
+    const localizedName = (cat: any): string => {
+      const m: Record<string, string | null | undefined> = {
+        sk: cat.nameSk || cat.name_sk, cs: cat.nameCs || cat.name_cs, en: cat.nameEn || cat.name_en,
+        hu: cat.nameHu || cat.name_hu, ro: cat.nameRo || cat.name_ro, it: cat.nameIt || cat.name_it, de: cat.nameDe || cat.name_de,
+      };
+      return m[locale] || cat.name || "";
+    };
+    const positionOptions = (partnerCategoriesList || [])
+      .filter((c: any) => (c.isActive !== false && c.is_active !== false))
+      .filter((c: any) => !positionScope || (c.entityScope || c.entity_scope) === positionScope)
+      .map((c: any) => ({ label: localizedName(c), value: c.id }))
+      .sort((a, b) => a.label.localeCompare(b.label, locale));
+
     return [
       {
         key: "country",
@@ -2350,18 +2366,12 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
         })),
       },
       {
-        // NOTE: key="type" is preserved (backend API param), but the visible
-        // label is "Pozícia / Position" per UX request.
-        key: "type",
+        // "Pozícia" filter — values are partner_category IDs (localized labels).
+        key: "partnerCategory",
         label: locale === "sk" ? "Pozícia" : "Position",
         icon: Briefcase,
         type: "select",
-        options: COLLABORATOR_TYPES.map((ct) => ({
-          label:
-            t.collaborators.types[ct.labelKey as keyof typeof t.collaborators.types] ||
-            ct.value,
-          value: ct.value,
-        })),
+        options: positionOptions,
       },
       {
         key: "status",
