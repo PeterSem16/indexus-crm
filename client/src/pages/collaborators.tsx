@@ -76,6 +76,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Collapsible,
   CollapsibleContent,
@@ -2942,27 +2943,36 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
                 className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${
                   !hasActiveFilters
                     ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25"
-                    : "bg-white dark:bg-slate-800 hover:shadow-md border border-slate-200 dark:border-slate-700"
+                    : isFiltered
+                      ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-amber-300 dark:ring-amber-400"
+                      : "bg-white dark:bg-slate-800 hover:shadow-md border border-slate-200 dark:border-slate-700"
                 }`}
+                title={isFiltered ? (sk ? "Kliknutím vyčistíte stav/zmluvu" : "Click to clear status/agreement") : undefined}
               >
-                <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${!hasActiveFilters ? "bg-white/20" : "bg-indigo-500/15 dark:bg-indigo-500/20"}`}>
-                  <Users className={`h-5 w-5 ${!hasActiveFilters ? "text-white" : "text-indigo-600 dark:text-indigo-400"}`} />
+                <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${(!hasActiveFilters || isFiltered) ? "bg-white/20" : "bg-indigo-500/15 dark:bg-indigo-500/20"}`}>
+                  <Users className={`h-5 w-5 ${(!hasActiveFilters || isFiltered) ? "text-white" : "text-indigo-600 dark:text-indigo-400"}`} />
                 </div>
-                <div className="flex flex-col items-start leading-tight">
-                  <span className={`text-2xl font-bold ${!hasActiveFilters ? "text-white" : "text-slate-900 dark:text-white"}`}>
-                    {collabStats.total.toLocaleString(locale === "sk" ? "sk-SK" : "en-US")}
-                  </span>
-                  <span className={`text-[11px] font-medium ${!hasActiveFilters ? "text-indigo-100" : "text-muted-foreground"}`}>
-                    {sk ? "Celkom osôb" : "Total persons"}
-                  </span>
-                </div>
-                {isFiltered && (
-                  <div className="ml-1 flex flex-col items-start border-l border-white/30 pl-3">
-                    <span className={`text-base font-bold ${!hasActiveFilters ? "text-white" : "text-primary"}`}>
-                      {filteredCount.toLocaleString(locale === "sk" ? "sk-SK" : "en-US")}
+                {isFiltered ? (
+                  <div className="flex flex-col items-start leading-tight">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl font-bold text-white" data-testid="text-filtered-count">
+                        {filteredCount.toLocaleString(locale === "sk" ? "sk-SK" : "en-US")}
+                      </span>
+                      <span className="text-xs font-medium text-indigo-100">
+                        {sk ? `z ${collabStats.total.toLocaleString("sk-SK")}` : `of ${collabStats.total.toLocaleString("en-US")}`}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-medium text-amber-100">
+                      {sk ? "Filtrované záznamy" : "Filtered records"}
                     </span>
-                    <span className={`text-[10px] font-medium ${!hasActiveFilters ? "text-indigo-100" : "text-muted-foreground"}`}>
-                      {sk ? "filtrovaných" : "filtered"}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className={`text-2xl font-bold ${!hasActiveFilters ? "text-white" : "text-slate-900 dark:text-white"}`}>
+                      {collabStats.total.toLocaleString(locale === "sk" ? "sk-SK" : "en-US")}
+                    </span>
+                    <span className={`text-[11px] font-medium ${!hasActiveFilters ? "text-indigo-100" : "text-muted-foreground"}`}>
+                      {sk ? "Celkom osôb" : "Total persons"}
                     </span>
                   </div>
                 )}
@@ -3053,38 +3063,48 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             }}
             actionsSlot={
               <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9"
+                      data-testid="button-export-collaborators"
+                      title={locale === "sk" ? "Exportovať" : "Export"}
+                      aria-label={locale === "sk" ? "Exportovať" : "Export"}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      onClick={() => exportToCsv(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
+                      data-testid="button-export-collaborators-csv"
+                      className="gap-2"
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>{t.common.exportCsv}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => exportToExcel(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
+                      data-testid="button-export-collaborators-excel"
+                      className="gap-2"
+                    >
+                      <FileSpreadsheet className="h-4 w-4" />
+                      <span>{t.common.exportExcel}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="h-9"
-                  onClick={() => exportToCsv(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
-                  data-testid="button-export-collaborators-csv"
-                  title={t.common.exportCsv}
-                >
-                  <Download className="h-4 w-4 sm:mr-1.5" />
-                  <span className="hidden sm:inline">{t.common.exportCsv}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9"
-                  onClick={() => exportToExcel(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
-                  data-testid="button-export-collaborators-excel"
-                  title={t.common.exportExcel}
-                >
-                  <FileSpreadsheet className="h-4 w-4 sm:mr-1.5" />
-                  <span className="hidden sm:inline">{t.common.exportExcel}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9"
+                  size="icon"
+                  className="h-9 w-9"
                   onClick={() => { refetchCollaborators(); queryClient.invalidateQueries({ queryKey: ["/api/collaborators/stats"] }); }}
                   data-testid="button-refresh-collaborators"
                   title={t.common.refresh}
+                  aria-label={t.common.refresh}
                 >
-                  <RefreshCw className="h-4 w-4 sm:mr-1.5" />
-                  <span className="hidden sm:inline">{t.common.refresh}</span>
+                  <RefreshCw className="h-4 w-4" />
                 </Button>
                 {canAdd("collaborators") && (
                   <Button
