@@ -2870,8 +2870,8 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
         const visible = filteredAndSortedCollaborators?.length ?? (serverCollaboratorsTotal ?? total);
         const showCount = !!collabStats;
         return (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between rounded-lg border bg-card px-4 py-3 shadow-sm">
+            <div className="min-w-0 flex-1">
               <h1 className="text-2xl font-semibold tracking-tight" data-testid="page-title">
                 {t.collaborators.title}
               </h1>
