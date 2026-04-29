@@ -786,6 +786,10 @@ async function main() {
         name,
         countryCode: csvFields.countryCode ?? "SK",
         initialStatus: "initial:not_contacted",
+        // "Typ kontaktu" v UI = leadSource. CSV nemá explicitné pole, importované
+        // nové kliniky sú vždy nové leady → "new_contact" + dnešný dátum.
+        leadSource: "new_contact",
+        leadSourceDate: new Date(),
         idZz: csvFields.idZz,
         ico: csvFields.ico,
         pzsCode: csvFields.pzsCode,
@@ -838,11 +842,21 @@ async function main() {
         "website",
         "doctorTitle", "doctorFirstName", "doctorLastName", "doctorName",
         "initialStatus",
+        "leadSource", "leadSourceDate",
       ];
       // initialStatus pre nový import → "initial:not_contacted" (iba ak prázdny v DB)
       // Hodnota musí matchovať PIPELINE_CATEGORIES options vo wizarde
       // (initial:not_contacted, initial:former, initial:active_contract).
       (csvFields as any).initialStatus = "initial:not_contacted";
+      // "Typ kontaktu" v UI = leadSource. CSV nemá explicitný stĺpec, takže pre
+      // doplnenie chýbajúcich hodnôt používame default "new_contact" + dnešný dátum.
+      // Dopĺňame nezávisle: leadSource ↔ leadSourceDate nemusia chýbať obe naraz.
+      if (!existing.leadSource || (typeof existing.leadSource === "string" && existing.leadSource.trim() === "")) {
+        (csvFields as any).leadSource = "new_contact";
+      }
+      if (!existing.leadSourceDate) {
+        (csvFields as any).leadSourceDate = new Date();
+      }
       for (const k of FILL_IF_EMPTY) {
         const newVal = (csvFields as any)[k];
         const oldVal = (existing as any)[k];
