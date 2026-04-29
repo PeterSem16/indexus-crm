@@ -11,6 +11,7 @@ import { InstitutionPersonnelPanel, InstitutionPersonnelManager } from "@/compon
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
@@ -1616,7 +1617,7 @@ function NetworkCard({ network, allHospitals, allClinics, allCollaborators, onEd
 }
 
 export default function HospitalsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
   const { canAdd, canEdit } = usePermissions();
@@ -2499,49 +2500,87 @@ export default function HospitalsPage() {
                   </div>
                 </div>
               )}
-              {hasActiveHospitalFilters && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
-                  <ListFilter className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-sm font-medium text-primary">{serverHospitalsTotal} {(t.common as any).found || "found"}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToCsv(filteredAndSortedHospitals, 'hospitals', hospitalExportColumns)}
-                    data-testid="button-export-hospitals-csv"
-                  >
-                    <Download className="h-4 w-4 mr-1.5" />
-                    Export CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToExcel(filteredAndSortedHospitals, 'hospitals', hospitalExportColumns)}
-                    data-testid="button-export-hospitals-excel"
-                  >
-                    <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-                    Export Excel
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] }); queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] }); }}
-                    data-testid="button-refresh-hospitals"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-1.5" />
-                    {t.common.refresh}
-                  </Button>
-                  {canAdd("hospitals") && (
-                    <Button onClick={handleAddNew} className="bg-red-700 hover:bg-red-800 text-white" data-testid="button-add-hospital">
-                      <Plus className="h-4 w-4 mr-1.5" />
-                      {t.hospitals.addHospital}
-                    </Button>
-                  )}
-                </div>
-              </div>
+              {(() => {
+                const sk = locale === "sk";
+                const total = serverHospitalStats?.total ?? 0;
+                const visible = filteredAndSortedHospitals?.length ?? (serverHospitalsTotal ?? total);
+                return (
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between rounded-lg border bg-card px-4 py-3 shadow-sm">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-2xl font-semibold tracking-tight" data-testid="page-title-hospitals">
+                        {t.hospitals.title}
+                      </h2>
+                      <p className="text-sm text-muted-foreground mt-0.5" data-testid="text-hospitals-count">
+                        <span className="font-semibold text-foreground">{visible.toLocaleString(sk ? "sk-SK" : "en-US")}</span>
+                        <span className="mx-1">{sk ? "z" : "of"}</span>
+                        <span className="font-medium text-foreground">{total.toLocaleString(sk ? "sk-SK" : "en-US")}</span>
+                        <span className="ml-1">{sk ? "nemocníc" : "hospitals"}</span>
+                        {hasActiveHospitalFilters && (
+                          <>
+                            <span className="mx-2 text-muted-foreground/60">·</span>
+                            <span className="inline-flex items-center gap-1 text-primary">
+                              <ListFilter className="h-3 w-3" />
+                              <span className="font-medium">{sk ? "filter aktívny" : "filter active"}</span>
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 gap-1.5"
+                            data-testid="button-export-hospitals"
+                            title={sk ? "Exportovať" : "Export"}
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>Export</span>
+                            <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem
+                            onClick={() => exportToCsv(filteredAndSortedHospitals, 'hospitals', hospitalExportColumns)}
+                            data-testid="button-export-hospitals-csv"
+                            className="gap-2"
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span>{(t.common as any).exportCsv || "Export CSV"}</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => exportToExcel(filteredAndSortedHospitals, 'hospitals', hospitalExportColumns)}
+                            data-testid="button-export-hospitals-excel"
+                            className="gap-2"
+                          >
+                            <FileSpreadsheet className="h-4 w-4" />
+                            <span>{(t.common as any).exportExcel || "Export Excel"}</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] }); queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] }); }}
+                        data-testid="button-refresh-hospitals"
+                        title={t.common.refresh}
+                        aria-label={t.common.refresh}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      {canAdd("hospitals") && (
+                        <Button onClick={handleAddNew} className="h-9 bg-red-700 hover:bg-red-800 text-white" size="sm" data-testid="button-add-hospital">
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          {t.hospitals.addHospital}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex items-center gap-3">
                 <div className="relative flex-1">
@@ -2794,49 +2833,87 @@ export default function HospitalsPage() {
                   </div>
                 </div>
               )}
-              {hasActiveClinicFilters && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
-                  <ListFilter className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-sm font-medium text-primary">{serverClinicsTotal} {(t.common as any).found || "found"}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToCsv(filteredAndSortedClinics, 'clinics', clinicExportColumns)}
-                    data-testid="button-export-clinics-csv"
-                  >
-                    <Download className="h-4 w-4 mr-1.5" />
-                    Export CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToExcel(filteredAndSortedClinics, 'clinics', clinicExportColumns)}
-                    data-testid="button-export-clinics-excel"
-                  >
-                    <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-                    Export Excel
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { refetchClinics(); queryClient.invalidateQueries({ queryKey: ["/api/clinics/stats"] }); }}
-                    data-testid="button-refresh-clinics"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-1.5" />
-                    {t.common.refresh}
-                  </Button>
-                  {canAdd("hospitals") && (
-                    <Button onClick={handleAddNewClinic} className="bg-red-700 hover:bg-red-800 text-white" data-testid="button-add-clinic">
-                      <Plus className="h-4 w-4 mr-1.5" />
-                      {t.clinics.addClinic}
-                    </Button>
-                  )}
-                </div>
-              </div>
+              {(() => {
+                const sk = locale === "sk";
+                const total = serverClinicStats?.total ?? 0;
+                const visible = filteredAndSortedClinics?.length ?? (serverClinicsTotal ?? total);
+                return (
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between rounded-lg border bg-card px-4 py-3 shadow-sm">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-2xl font-semibold tracking-tight" data-testid="page-title-clinics">
+                        {t.clinics.title}
+                      </h2>
+                      <p className="text-sm text-muted-foreground mt-0.5" data-testid="text-clinics-count">
+                        <span className="font-semibold text-foreground">{visible.toLocaleString(sk ? "sk-SK" : "en-US")}</span>
+                        <span className="mx-1">{sk ? "z" : "of"}</span>
+                        <span className="font-medium text-foreground">{total.toLocaleString(sk ? "sk-SK" : "en-US")}</span>
+                        <span className="ml-1">{sk ? "kliník" : "clinics"}</span>
+                        {hasActiveClinicFilters && (
+                          <>
+                            <span className="mx-2 text-muted-foreground/60">·</span>
+                            <span className="inline-flex items-center gap-1 text-primary">
+                              <ListFilter className="h-3 w-3" />
+                              <span className="font-medium">{sk ? "filter aktívny" : "filter active"}</span>
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 gap-1.5"
+                            data-testid="button-export-clinics"
+                            title={sk ? "Exportovať" : "Export"}
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>Export</span>
+                            <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem
+                            onClick={() => exportToCsv(filteredAndSortedClinics, 'clinics', clinicExportColumns)}
+                            data-testid="button-export-clinics-csv"
+                            className="gap-2"
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span>{(t.common as any).exportCsv || "Export CSV"}</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => exportToExcel(filteredAndSortedClinics, 'clinics', clinicExportColumns)}
+                            data-testid="button-export-clinics-excel"
+                            className="gap-2"
+                          >
+                            <FileSpreadsheet className="h-4 w-4" />
+                            <span>{(t.common as any).exportExcel || "Export Excel"}</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => { refetchClinics(); queryClient.invalidateQueries({ queryKey: ["/api/clinics/stats"] }); }}
+                        data-testid="button-refresh-clinics"
+                        title={t.common.refresh}
+                        aria-label={t.common.refresh}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      {canAdd("hospitals") && (
+                        <Button onClick={handleAddNewClinic} className="h-9 bg-red-700 hover:bg-red-800 text-white" size="sm" data-testid="button-add-clinic">
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          {t.clinics.addClinic}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex items-center gap-3">
                 <div className="relative flex-1">
