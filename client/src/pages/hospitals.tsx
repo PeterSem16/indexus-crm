@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, ArrowRight, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save, Network, User, Baby } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, ArrowRight, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save, Network, User, Baby, Calendar } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { CollaboratorsContent } from "@/pages/collaborators";
+import { EntityFilter, type FilterRule, type FilterField, type FilterPreset } from "@/components/shared/EntityFilter";
 import { InstitutionPersonnelPanel, InstitutionPersonnelManager } from "@/components/institution-personnel-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -1687,12 +1688,247 @@ export default function HospitalsPage() {
   const [hospitalSortField, setHospitalSortField] = useState<string>("name");
   const [hospitalSortDirection, setHospitalSortDirection] = useState<"asc" | "desc">("asc");
 
+  // ── Unified filter rules state (mirrors Persons / EntityFilter) ──────
+  const [hospitalFilterRules, setHospitalFilterRules] = useState<FilterRule[]>([]);
+  const [clinicFilterRules, setClinicFilterRules] = useState<FilterRule[]>([]);
+  const [hospitalActiveView, setHospitalActiveView] = useState<{ id: string; name: string } | null>(null);
+  const [clinicActiveView, setClinicActiveView] = useState<{ id: string; name: string } | null>(null);
+
+  // Reset country rules when global country filter changes
+  useEffect(() => {
+    setHospitalFilterRules((prev) => prev.filter((r) => r.field !== "country"));
+    setClinicFilterRules((prev) => prev.filter((r) => r.field !== "country"));
+  }, [selectedCountries]);
+
+  const getHospitalRuleValue = useCallback((field: string): string => {
+    const r = hospitalFilterRules.find((x) => x.field === field && (x.op === "is" || x.op === "isAny"));
+    if (!r) return "";
+    return Array.isArray(r.value) ? r.value[0] || "" : r.value;
+  }, [hospitalFilterRules]);
+
+  const getClinicRuleValue = useCallback((field: string): string => {
+    const r = clinicFilterRules.find((x) => x.field === field && (x.op === "is" || x.op === "isAny"));
+    if (!r) return "";
+    return Array.isArray(r.value) ? r.value[0] || "" : r.value;
+  }, [clinicFilterRules]);
+
+  const setHospitalSingleRule = useCallback((field: string, value: string) => {
+    setHospitalFilterRules((prev) => {
+      const next = prev.filter((r) => r.field !== field);
+      if (value) next.push({ id: `r-${field}-${Date.now().toString(36)}`, conjunction: "and", field, op: "is", value });
+      return next;
+    });
+    setHospitalPage(1);
+  }, []);
+
+  const setClinicSingleRule = useCallback((field: string, value: string) => {
+    setClinicFilterRules((prev) => {
+      const next = prev.filter((r) => r.field !== field);
+      if (value) next.push({ id: `r-${field}-${Date.now().toString(36)}`, conjunction: "and", field, op: "is", value });
+      return next;
+    });
+    setClinicPage(1);
+  }, []);
+
+  // Derived single-value getters (for stat-card highlighting + server params)
+  const hFilterCountry = getHospitalRuleValue("country");
+  const hFilterStatus = getHospitalRuleValue("status");
+  const cFilterCountry = getClinicRuleValue("country");
+  const cFilterStatus = getClinicRuleValue("status");
+  const cFilterPipeline = getClinicRuleValue("pipeline");
+
+  // Sync new rule state with legacy state used elsewhere (countryTab, status, etc.)
+  useEffect(() => { setCountryTab(hFilterCountry || "ALL"); }, [hFilterCountry]);
+  useEffect(() => { setHospitalStatusFilter(hFilterStatus || "all"); }, [hFilterStatus]);
+  useEffect(() => { setClinicCountryTab(cFilterCountry || "ALL"); }, [cFilterCountry]);
+  useEffect(() => { setClinicStatusFilter(cFilterStatus || "all"); }, [cFilterStatus]);
+  useEffect(() => { setClinicPipelineFilter(cFilterPipeline || "all"); }, [cFilterPipeline]);
+
+  const handleHospitalRulesChange = useCallback((newRules: FilterRule[]) => {
+    setHospitalFilterRules(newRules);
+    setHospitalPage(1);
+  }, []);
+
+  const handleClinicRulesChange = useCallback((newRules: FilterRule[]) => {
+    setClinicFilterRules(newRules);
+    setClinicPage(1);
+  }, []);
+
   const isAdmin = user?.role === "admin";
+
+  const sk = locale === "sk";
+
+  const COUNTRY_OPTIONS = useMemo(() => ([
+    { value: "SK", label: sk ? "Slovensko" : "Slovakia" },
+    { value: "CZ", label: sk ? "Česko" : "Czechia" },
+    { value: "AT", label: sk ? "Rakúsko" : "Austria" },
+    { value: "HU", label: sk ? "Maďarsko" : "Hungary" },
+    { value: "RO", label: sk ? "Rumunsko" : "Romania" },
+    { value: "IT", label: sk ? "Taliansko" : "Italy" },
+    { value: "DE", label: sk ? "Nemecko" : "Germany" },
+    { value: "US", label: "USA" },
+  ]), [sk]);
+
+  const STATUS_OPTIONS = useMemo(() => ([
+    { value: "active", label: sk ? "Aktívna" : "Active" },
+    { value: "inactive", label: sk ? "Neaktívna" : "Inactive" },
+  ]), [sk]);
+
+  const BOOL_OPTIONS = useMemo(() => ([
+    { value: "true", label: sk ? "Áno" : "Yes" },
+    { value: "false", label: sk ? "Nie" : "No" },
+  ]), [sk]);
+
+  // ── Filter field definitions (full schema coverage) ────────────────
+  const hospitalFilterFields: FilterField[] = useMemo(() => ([
+    { key: "country", label: sk ? "Krajina" : "Country", type: "multiselect", icon: Globe, options: COUNTRY_OPTIONS },
+    { key: "status", label: sk ? "Status" : "Status", type: "select", icon: Activity, options: STATUS_OPTIONS },
+    { key: "personnel", label: sk ? "Personál" : "Personnel", type: "select", icon: Users, options: [
+      { value: "with", label: sk ? "S personálom" : "With personnel" },
+      { value: "without", label: sk ? "Bez personálu" : "Without personnel" },
+    ]},
+    { key: "name", label: sk ? "Názov" : "Name", type: "text", icon: Hospital },
+    { key: "fullName", label: sk ? "Plný názov" : "Full Name", type: "text", icon: Hospital },
+    { key: "city", label: sk ? "Mesto" : "City", type: "text", icon: MapPin },
+    { key: "region", label: sk ? "Kraj" : "Region", type: "text", icon: MapPin },
+    { key: "district", label: sk ? "Okres" : "District", type: "text", icon: MapPin },
+    { key: "postalCode", label: sk ? "PSČ" : "Postal Code", type: "text", icon: MapPin },
+    { key: "streetNumber", label: sk ? "Ulica" : "Street", type: "text", icon: MapPin },
+    { key: "contactPerson", label: sk ? "Kontaktná osoba" : "Contact Person", type: "text", icon: User },
+    { key: "phone", label: sk ? "Telefón" : "Phone", type: "text", icon: Phone },
+    { key: "email", label: "Email", type: "text", icon: Mail },
+    { key: "svetZdravia", label: "Svet Zdravia", type: "select", icon: Network, options: BOOL_OPTIONS },
+    { key: "autoRecruiting", label: sk ? "Auto recruiting" : "Auto Recruiting", type: "select", icon: UserPlus, options: BOOL_OPTIONS },
+    { key: "representativeId", label: sk ? "Reprezentant" : "Representative", type: "select", icon: User,
+      options: users.map((u) => ({ value: u.id, label: u.fullName || u.username || u.email || u.id })) },
+    { key: "responsiblePersonId", label: sk ? "Zodpovedná osoba" : "Responsible Person", type: "select", icon: ShieldCheck,
+      options: users.map((u) => ({ value: u.id, label: u.fullName || u.username || u.email || u.id })) },
+    { key: "laboratoryId", label: sk ? "Laboratórium" : "Laboratory", type: "select", icon: Database,
+      options: laboratories.map((l: any) => ({ value: l.id, label: l.name })) },
+    { key: "tags", label: sk ? "Tagy" : "Tags", type: "text", icon: ListFilter },
+    { key: "dataSource", label: sk ? "Pôvod" : "Data Source", type: "text", icon: Database },
+    { key: "createdByCollaboratorId", label: sk ? "Pridal (collaborator)" : "Created by (collaborator)", type: "text", icon: UserPlus },
+    { key: "legacyId", label: sk ? "Legacy ID" : "Legacy ID", type: "text", icon: FileText },
+    { key: "hasPhone", label: sk ? "Má telefón" : "Has Phone", type: "select", icon: Phone, options: BOOL_OPTIONS },
+    { key: "hasEmail", label: sk ? "Má email" : "Has Email", type: "select", icon: Mail, options: BOOL_OPTIONS },
+    { key: "hasGps", label: sk ? "Má GPS" : "Has GPS", type: "select", icon: Navigation, options: BOOL_OPTIONS },
+  ]), [sk, COUNTRY_OPTIONS, STATUS_OPTIONS, BOOL_OPTIONS, users, laboratories]);
+
+  const PIPELINE_OPTIONS = useMemo(() => ([
+    { value: "no_status", label: sk ? "Bez statusu" : "No Status" },
+    { value: "initial:not_contacted", label: sk ? "Nekontaktovaná" : "Not Contacted" },
+    { value: "initial:former", label: sk ? "Bývalá" : "Former" },
+    { value: "initial:active_contract", label: sk ? "Aktívna zmluva (init)" : "Active Contract (init)" },
+    { value: "coop:unknown", label: sk ? "Spolupráca: neznáma" : "Coop: Unknown" },
+    { value: "coop:interested", label: sk ? "Spolupráca: záujem" : "Coop: Interested" },
+    { value: "coop:not_interested", label: sk ? "Spolupráca: bez záujmu" : "Coop: Not Interested" },
+    { value: "contract_int:unknown", label: sk ? "Zmluva-záujem: neznámy" : "Contract Int: Unknown" },
+    { value: "contract_int:interested", label: sk ? "Zmluva-záujem: áno" : "Contract Int: Interested" },
+    { value: "contract_int:not_interested", label: sk ? "Zmluva-záujem: nie" : "Contract Int: Not Interested" },
+    { value: "contract:none", label: sk ? "Bez zmluvy" : "No Contract" },
+    { value: "contract:active", label: sk ? "Aktívna zmluva" : "Active Contract" },
+  ]), [sk]);
+
+  const clinicFilterFields: FilterField[] = useMemo(() => ([
+    { key: "country", label: sk ? "Krajina" : "Country", type: "multiselect", icon: Globe, options: COUNTRY_OPTIONS },
+    { key: "status", label: sk ? "Status" : "Status", type: "select", icon: Activity, options: STATUS_OPTIONS },
+    { key: "pipeline", label: sk ? "Pipeline status" : "Pipeline Status", type: "select", icon: ListChecks, options: PIPELINE_OPTIONS },
+    { key: "name", label: sk ? "Názov" : "Name", type: "text", icon: Stethoscope },
+    { key: "doctorName", label: sk ? "Doktor" : "Doctor Name", type: "text", icon: User },
+    { key: "doctorTitle", label: sk ? "Titul doktora" : "Doctor Title", type: "text", icon: GraduationCap },
+    { key: "doctorFirstName", label: sk ? "Krstné meno doktora" : "Doctor First Name", type: "text", icon: User },
+    { key: "doctorLastName", label: sk ? "Priezvisko doktora" : "Doctor Last Name", type: "text", icon: User },
+    { key: "ico", label: "IČO", type: "text", icon: FileText },
+    { key: "pzsCode", label: sk ? "Kód PZS" : "PZS Code", type: "text", icon: FileText },
+    { key: "pzsName", label: sk ? "Názov PZS" : "PZS Name", type: "text", icon: FileText },
+    { key: "idZz", label: "ID ZZ", type: "text", icon: FileText },
+    { key: "city", label: sk ? "Mesto" : "City", type: "text", icon: MapPin },
+    { key: "region", label: sk ? "Kraj" : "Region", type: "text", icon: MapPin },
+    { key: "district", label: sk ? "Okres" : "District", type: "text", icon: MapPin },
+    { key: "street", label: sk ? "Ulica" : "Street", type: "text", icon: MapPin },
+    { key: "streetNumber", label: sk ? "Číslo ulice" : "Street Number", type: "text", icon: MapPin },
+    { key: "postalCode", label: sk ? "PSČ" : "Postal Code", type: "text", icon: MapPin },
+    { key: "address", label: sk ? "Adresa" : "Address", type: "text", icon: MapPin },
+    { key: "phone", label: sk ? "Telefón" : "Phone", type: "text", icon: Phone },
+    { key: "phone2", label: sk ? "Telefón 2" : "Phone 2", type: "text", icon: Phone },
+    { key: "phone3", label: sk ? "Telefón 3" : "Phone 3", type: "text", icon: Phone },
+    { key: "email", label: "Email", type: "text", icon: Mail },
+    { key: "email2", label: "Email 2", type: "text", icon: Mail },
+    { key: "email3", label: "Email 3", type: "text", icon: Mail },
+    { key: "website", label: sk ? "Webstránka" : "Website", type: "text", icon: Globe },
+    { key: "hasWebsite", label: sk ? "Má webstránku" : "Has Website", type: "select", icon: Globe, options: BOOL_OPTIONS },
+    { key: "hasPhone", label: sk ? "Má telefón" : "Has Phone", type: "select", icon: Phone, options: BOOL_OPTIONS },
+    { key: "hasEmail", label: sk ? "Má email" : "Has Email", type: "select", icon: Mail, options: BOOL_OPTIONS },
+    { key: "hasGps", label: sk ? "Má GPS" : "Has GPS", type: "select", icon: Navigation, options: BOOL_OPTIONS },
+    { key: "isReferredByDoctor", label: sk ? "Doporučená lekárom" : "Referred by Doctor", type: "select", icon: UserCheck, options: BOOL_OPTIONS },
+    { key: "isFromConference", label: sk ? "Z konferencie" : "From Conference", type: "select", icon: Award, options: BOOL_OPTIONS },
+    { key: "conferenceName", label: sk ? "Názov konferencie" : "Conference Name", type: "text", icon: Award },
+    { key: "initialStatus", label: sk ? "Initial Status" : "Initial Status", type: "select", icon: ListChecks, options: [
+      { value: "not_contacted", label: sk ? "Nekontaktovaná" : "Not Contacted" },
+      { value: "former", label: sk ? "Bývalá" : "Former" },
+      { value: "active_contract", label: sk ? "Aktívna zmluva" : "Active Contract" },
+    ]},
+    { key: "interestCooperation", label: sk ? "Záujem o spoluprácu" : "Cooperation Interest", type: "select", icon: ListChecks, options: [
+      { value: "unknown", label: sk ? "Neznámy" : "Unknown" },
+      { value: "interested", label: sk ? "Záujem" : "Interested" },
+      { value: "not_interested", label: sk ? "Bez záujmu" : "Not Interested" },
+    ]},
+    { key: "interestContract", label: sk ? "Záujem o zmluvu" : "Contract Interest", type: "select", icon: ListChecks, options: [
+      { value: "unknown", label: sk ? "Neznámy" : "Unknown" },
+      { value: "interested", label: sk ? "Záujem" : "Interested" },
+      { value: "not_interested", label: sk ? "Bez záujmu" : "Not Interested" },
+    ]},
+    { key: "contractStatus", label: sk ? "Status zmluvy" : "Contract Status", type: "select", icon: FileText, options: [
+      { value: "none", label: sk ? "Žiadna" : "None" },
+      { value: "active", label: sk ? "Aktívna" : "Active" },
+    ]},
+    { key: "lastCallResult", label: sk ? "Posledný hovor" : "Last Call Result", type: "text", icon: Phone },
+    { key: "lastCallNote", label: sk ? "Poznámka k hovoru" : "Last Call Note", type: "text", icon: StickyNote },
+    { key: "leadSource", label: sk ? "Zdroj leadu" : "Lead Source", type: "text", icon: Target },
+    { key: "leadSourceNotes", label: sk ? "Poznámky k zdroju" : "Lead Source Notes", type: "text", icon: StickyNote },
+    { key: "leadSourceDate", label: sk ? "Dátum zdroja" : "Lead Source Date", type: "text", icon: Calendar },
+    { key: "conferenceDate", label: sk ? "Dátum konferencie" : "Conference Date", type: "text", icon: Calendar },
+    { key: "nextContactDate", label: sk ? "Najbližší kontakt" : "Next Contact Date", type: "text", icon: Calendar },
+    { key: "contractSentDate", label: sk ? "Zmluva odoslaná" : "Contract Sent Date", type: "text", icon: Calendar },
+    { key: "contractReturnedDate", label: sk ? "Zmluva vrátená" : "Contract Returned Date", type: "text", icon: Calendar },
+    { key: "hasFlyers", label: sk ? "Letáky" : "Has Flyers", type: "select", icon: FileText, options: BOOL_OPTIONS },
+    { key: "flyersSentDate", label: sk ? "Letáky odoslané" : "Flyers Sent Date", type: "text", icon: Calendar },
+    { key: "flyersLocation", label: sk ? "Umiestnenie letákov" : "Flyers Location", type: "text", icon: MapPin },
+    { key: "doctorPositionCategoryId", label: sk ? "Kategória pozície" : "Doctor Position Category", type: "text", icon: GraduationCap },
+    { key: "orientationNumber", label: sk ? "Orientačné číslo" : "Orientation Number", type: "text", icon: MapPin },
+    { key: "tags", label: sk ? "Tagy" : "Tags", type: "text", icon: ListFilter },
+    { key: "notes", label: sk ? "Poznámky" : "Notes", type: "text", icon: StickyNote },
+    { key: "legacyId", label: "Legacy ID", type: "text", icon: FileText },
+  ]), [sk, COUNTRY_OPTIONS, STATUS_OPTIONS, BOOL_OPTIONS, PIPELINE_OPTIONS]);
+
+  const hospitalFilterPresets: FilterPreset[] = useMemo(() => ([
+    { id: "active", label: sk ? "Iba aktívne" : "Active only", rules: [{ id: "p-active", conjunction: "and", field: "status", op: "is", value: "active" }] },
+    { id: "with-personnel", label: sk ? "S personálom" : "With personnel", rules: [{ id: "p-pers", conjunction: "and", field: "personnel", op: "is", value: "with" }] },
+    { id: "svet-zdravia", label: "Svet Zdravia", rules: [{ id: "p-sz", conjunction: "and", field: "svetZdravia", op: "is", value: "true" }] },
+    { id: "no-email", label: sk ? "Bez emailu" : "Missing email", rules: [{ id: "p-noem", conjunction: "and", field: "hasEmail", op: "is", value: "false" }] },
+  ]), [sk]);
+
+  const clinicFilterPresets: FilterPreset[] = useMemo(() => ([
+    { id: "active", label: sk ? "Iba aktívne" : "Active only", rules: [{ id: "p-active", conjunction: "and", field: "status", op: "is", value: "active" }] },
+    { id: "active-contract", label: sk ? "Aktívna zmluva" : "Active contract", rules: [{ id: "p-ac", conjunction: "and", field: "pipeline", op: "is", value: "contract:active" }] },
+    { id: "interested", label: sk ? "Záujem o spoluprácu" : "Interested in coop", rules: [{ id: "p-int", conjunction: "and", field: "interestCooperation", op: "is", value: "interested" }] },
+    { id: "no-status", label: sk ? "Bez statusu" : "No status", rules: [{ id: "p-ns", conjunction: "and", field: "pipeline", op: "is", value: "no_status" }] },
+    { id: "from-conference", label: sk ? "Z konferencie" : "From conference", rules: [{ id: "p-conf", conjunction: "and", field: "isFromConference", op: "is", value: "true" }] },
+  ]), [sk]);
 
   const hospitalQueryParams: Record<string, any> = { page: hospitalPage, limit: hospitalPageSize };
   if (debouncedHospitalSearch) hospitalQueryParams.search = debouncedHospitalSearch;
-  if (countryTab !== "ALL") hospitalQueryParams.country = countryTab;
-  if (selectedCountries.length > 0) hospitalQueryParams.countries = selectedCountries.join(",");
+  {
+    const countryRule = hospitalFilterRules.find((r) => r.field === "country" && (r.op === "is" || r.op === "isAny"));
+    const ruleVals = countryRule ? (Array.isArray(countryRule.value) ? countryRule.value.filter(Boolean) : (countryRule.value ? [countryRule.value] : [])) : [];
+    if (ruleVals.length === 1) {
+      hospitalQueryParams.country = ruleVals[0];
+    } else if (ruleVals.length > 1) {
+      hospitalQueryParams.countries = ruleVals.join(",");
+    } else if (selectedCountries.length > 0) {
+      hospitalQueryParams.countries = selectedCountries.join(",");
+    }
+  }
   const { data: hospitalsPaginatedResult, isLoading } = useQuery<{ data: HospitalType[], total: number }>({
     queryKey: ["/api/hospitals", hospitalQueryParams],
   });
@@ -1709,8 +1945,17 @@ export default function HospitalsPage() {
 
   const clinicQueryParams: Record<string, any> = { page: clinicPage, limit: clinicPageSize };
   if (debouncedClinicSearch) clinicQueryParams.search = debouncedClinicSearch;
-  if (clinicCountryTab !== "ALL") clinicQueryParams.country = clinicCountryTab;
-  if (selectedCountries.length > 0) clinicQueryParams.countries = selectedCountries.join(",");
+  {
+    const countryRule = clinicFilterRules.find((r) => r.field === "country" && (r.op === "is" || r.op === "isAny"));
+    const ruleVals = countryRule ? (Array.isArray(countryRule.value) ? countryRule.value.filter(Boolean) : (countryRule.value ? [countryRule.value] : [])) : [];
+    if (ruleVals.length === 1) {
+      clinicQueryParams.country = ruleVals[0];
+    } else if (ruleVals.length > 1) {
+      clinicQueryParams.countries = ruleVals.join(",");
+    } else if (selectedCountries.length > 0) {
+      clinicQueryParams.countries = selectedCountries.join(",");
+    }
+  }
   const { data: clinicsPaginatedResult, isLoading: isLoadingClinics, refetch: refetchClinics } = useQuery<{ data: Clinic[], total: number }>({
     queryKey: ["/api/clinics", clinicQueryParams],
   });
@@ -1825,30 +2070,106 @@ export default function HospitalsPage() {
   }, {} as Record<string, number>);
 
   const filteredAndSortedClinics = (() => {
-    let result = clinics.filter((clinic) => {
-      const matchesCity = !clinicCityFilter || clinic.city?.toLowerCase().includes(clinicCityFilter.toLowerCase());
-      const matchesStatus = clinicStatusFilter === "all" || 
-        (clinicStatusFilter === "active" && clinic.isActive) ||
-        (clinicStatusFilter === "inactive" && !clinic.isActive);
-      const matchesWebsite = clinicHasWebsite === "all" ||
-        (clinicHasWebsite === "yes" && clinic.website) ||
-        (clinicHasWebsite === "no" && !clinic.website);
-      let matchesPipeline = true;
-      if (clinicPipelineFilter !== "all") {
-        const c = clinic as any;
-        let pVal = "";
-        if (c.contractStatus) pVal = `contract:${c.contractStatus}`;
-        else if (c.interestContract) pVal = `contract_int:${c.interestContract}`;
-        else if (c.interestCooperation) pVal = `coop:${c.interestCooperation}`;
-        else if (c.initialStatus) pVal = `initial:${c.initialStatus}`;
-        if (clinicPipelineFilter === "no_status") {
-          matchesPipeline = !pVal;
-        } else {
-          matchesPipeline = pVal === clinicPipelineFilter;
+    const isClinicHandledByServer = (r: FilterRule): boolean => {
+      if (r.field !== "country") return false;
+      if (r.op !== "is" && r.op !== "isAny") return false;
+      if (Array.isArray(r.value)) return r.value.length === 1 && !!r.value[0];
+      return !!r.value;
+    };
+    const cClientRules = clinicFilterRules.filter((r) => !isClinicHandledByServer(r));
+
+    const matchClinicRule = (c: any, r: FilterRule): boolean => {
+      const isEq = r.op === "is" || r.op === "isAny";
+      const isNeq = r.op === "isNot";
+      const contains = r.op === "contains";
+      const isEmpty = r.op === "isEmpty";
+      const isNotEmpty = r.op === "isNotEmpty";
+
+      const get = (): string => {
+        switch (r.field) {
+          case "country": return c.countryCode || "";
+          case "status": return c.isActive ? "active" : "inactive";
+          case "pipeline": {
+            if (c.contractStatus) return `contract:${c.contractStatus}`;
+            if (c.interestContract) return `contract_int:${c.interestContract}`;
+            if (c.interestCooperation) return `coop:${c.interestCooperation}`;
+            if (c.initialStatus) return `initial:${c.initialStatus}`;
+            return "no_status";
+          }
+          case "name": return c.name || "";
+          case "doctorName": return c.doctorName || "";
+          case "doctorTitle": return c.doctorTitle || "";
+          case "doctorFirstName": return c.doctorFirstName || "";
+          case "doctorLastName": return c.doctorLastName || "";
+          case "ico": return c.ico || "";
+          case "pzsCode": return c.pzsCode || "";
+          case "pzsName": return c.pzsName || "";
+          case "idZz": return c.idZz || "";
+          case "city": return c.city || "";
+          case "region": return c.region || "";
+          case "district": return c.district || "";
+          case "street": return c.street || "";
+          case "streetNumber": return c.streetNumber || "";
+          case "postalCode": return c.postalCode || "";
+          case "address": return [c.street, c.streetNumber, c.city].filter(Boolean).join(" ");
+          case "phone": return c.phone || "";
+          case "phone2": return c.phone2 || "";
+          case "phone3": return c.phone3 || "";
+          case "email": return c.email || "";
+          case "email2": return c.email2 || "";
+          case "email3": return c.email3 || "";
+          case "website": return c.website || "";
+          case "hasWebsite": return c.website ? "true" : "false";
+          case "hasPhone": return (c.phone || c.phone2 || c.phone3) ? "true" : "false";
+          case "hasEmail": return (c.email || c.email2 || c.email3) ? "true" : "false";
+          case "hasGps": return (c.gpsLat && c.gpsLng) ? "true" : "false";
+          case "isReferredByDoctor": return c.isReferredByDoctor ? "true" : "false";
+          case "isFromConference": return c.isFromConference ? "true" : "false";
+          case "conferenceName": return c.conferenceName || "";
+          case "initialStatus": return c.initialStatus || "";
+          case "interestCooperation": return c.interestCooperation || "";
+          case "interestContract": return c.interestContract || "";
+          case "contractStatus": return c.contractStatus || "";
+          case "lastCallResult": return c.lastCallResult || "";
+          case "lastCallNote": return c.lastCallNote || "";
+          case "leadSource": return c.leadSource || "";
+          case "leadSourceNotes": return c.leadSourceNotes || "";
+          case "leadSourceDate": return c.leadSourceDate ? String(c.leadSourceDate).slice(0, 10) : "";
+          case "conferenceDate": return c.conferenceDate ? String(c.conferenceDate).slice(0, 10) : "";
+          case "nextContactDate": return c.nextContactDate ? String(c.nextContactDate).slice(0, 10) : "";
+          case "contractSentDate": return c.contractSentDate ? String(c.contractSentDate).slice(0, 10) : "";
+          case "contractReturnedDate": return c.contractReturnedDate ? String(c.contractReturnedDate).slice(0, 10) : "";
+          case "hasFlyers": return c.hasFlyers ? "true" : "false";
+          case "flyersSentDate": return c.flyersSentDate ? String(c.flyersSentDate).slice(0, 10) : "";
+          case "flyersLocation": return c.flyersLocation || "";
+          case "doctorPositionCategoryId": return c.doctorPositionCategoryId || "";
+          case "orientationNumber": return c.orientationNumber || "";
+          case "tags": return Array.isArray(c.tags) ? c.tags.join(",") : (c.tags || "");
+          case "notes": return c.notes || "";
+          case "legacyId": return c.legacyId || "";
+          default: return "";
         }
+      };
+      const fieldVal = String(get());
+      const isBoolField = ["hasWebsite","hasPhone","hasEmail","hasGps","isReferredByDoctor","isFromConference","hasFlyers"].includes(r.field);
+      if (isEmpty) return isBoolField ? fieldVal === "false" : !fieldVal;
+      if (isNotEmpty) return isBoolField ? fieldVal === "true" : !!fieldVal;
+      if (contains) {
+        if (Array.isArray(r.value)) return r.value.some((v) => v && fieldVal.toLowerCase().includes(String(v).toLowerCase()));
+        return r.value ? fieldVal.toLowerCase().includes(String(r.value).toLowerCase()) : true;
       }
-      return matchesCity && matchesStatus && matchesWebsite && matchesPipeline;
-    });
+      if (isEq) {
+        if (Array.isArray(r.value)) return r.value.some((v) => v && fieldVal === v);
+        return r.value ? fieldVal === r.value : true;
+      }
+      if (isNeq) {
+        if (Array.isArray(r.value)) return r.value.every((v) => !v || fieldVal !== v);
+        return r.value ? fieldVal !== r.value : true;
+      }
+      return true;
+    };
+
+    let result = clinics.filter((clinic) => cClientRules.every((r) => matchClinicRule(clinic as any, r)));
     
     // Then sort
     result.sort((a, b) => {
@@ -1930,17 +2251,78 @@ export default function HospitalsPage() {
     setClinicPage(1);
   };
   
-  const hasActiveClinicFilters = clinicSearchQuery || clinicCityFilter || clinicStatusFilter !== "all" || clinicHasWebsite !== "all" || clinicPipelineFilter !== "all" || clinicCountryTab !== "ALL";
+  const hasActiveClinicFilters = !!clinicSearchQuery || clinicFilterRules.length > 0 || clinicCountryTab !== "ALL";
 
   // Filtered and sorted hospitals (search + country done server-side)
   const filteredAndSortedHospitals = (() => {
-    let result = hospitals.filter((hospital) => {
-      const matchesCity = !hospitalCityFilter || hospital.city?.toLowerCase().includes(hospitalCityFilter.toLowerCase());
-      const matchesStatus = hospitalStatusFilter === "all" || 
-        (hospitalStatusFilter === "active" && hospital.isActive) ||
-        (hospitalStatusFilter === "inactive" && !hospital.isActive);
-      return matchesCity && matchesStatus;
-    });
+    const isHospHandledByServer = (r: FilterRule): boolean => {
+      if (r.field !== "country") return false;
+      if (r.op !== "is" && r.op !== "isAny") return false;
+      if (Array.isArray(r.value)) return r.value.length === 1 && !!r.value[0];
+      return !!r.value;
+    };
+    const hClientRules = hospitalFilterRules.filter((r) => !isHospHandledByServer(r));
+
+    const matchHospitalRule = (h: any, r: FilterRule): boolean => {
+      const isEq = r.op === "is" || r.op === "isAny";
+      const isNeq = r.op === "isNot";
+      const contains = r.op === "contains";
+      const isEmpty = r.op === "isEmpty";
+      const isNotEmpty = r.op === "isNotEmpty";
+
+      const get = (): string => {
+        switch (r.field) {
+          case "country": return h.countryCode || "";
+          case "status": return h.isActive ? "active" : "inactive";
+          case "personnel": {
+            const cnt = personnelCounts?.[h.id] || 0;
+            return cnt > 0 ? "with" : "without";
+          }
+          case "name": return h.name || "";
+          case "fullName": return h.fullName || h.name || "";
+          case "city": return h.city || "";
+          case "region": return h.region || "";
+          case "district": return h.district || "";
+          case "postalCode": return h.postalCode || "";
+          case "streetNumber": return h.streetNumber || h.street || "";
+          case "contactPerson": return h.contactPerson || "";
+          case "phone": return h.phone || "";
+          case "email": return h.email || "";
+          case "svetZdravia": return h.svetZdravia ? "true" : "false";
+          case "autoRecruiting": return h.autoRecruiting ? "true" : "false";
+          case "representativeId": return h.representativeId || "";
+          case "responsiblePersonId": return h.responsiblePersonId || "";
+          case "laboratoryId": return h.laboratoryId || "";
+          case "tags": return Array.isArray(h.tags) ? h.tags.join(",") : (h.tags || "");
+          case "dataSource": return h.dataSource || "";
+          case "createdByCollaboratorId": return h.createdByCollaboratorId || "";
+          case "legacyId": return h.legacyId || "";
+          case "hasPhone": return h.phone ? "true" : "false";
+          case "hasEmail": return h.email ? "true" : "false";
+          case "hasGps": return (h.gpsLat && h.gpsLng) ? "true" : "false";
+          default: return "";
+        }
+      };
+      const fieldVal = String(get());
+      const isBoolField = ["svetZdravia","autoRecruiting","hasPhone","hasEmail","hasGps"].includes(r.field);
+      if (isEmpty) return isBoolField ? fieldVal === "false" : !fieldVal;
+      if (isNotEmpty) return isBoolField ? fieldVal === "true" : !!fieldVal;
+      if (contains) {
+        if (Array.isArray(r.value)) return r.value.some((v) => v && fieldVal.toLowerCase().includes(String(v).toLowerCase()));
+        return r.value ? fieldVal.toLowerCase().includes(String(r.value).toLowerCase()) : true;
+      }
+      if (isEq) {
+        if (Array.isArray(r.value)) return r.value.some((v) => v && fieldVal === v);
+        return r.value ? fieldVal === r.value : true;
+      }
+      if (isNeq) {
+        if (Array.isArray(r.value)) return r.value.every((v) => !v || fieldVal !== v);
+        return r.value ? fieldVal !== r.value : true;
+      }
+      return true;
+    };
+
+    let result = hospitals.filter((hospital) => hClientRules.every((r) => matchHospitalRule(hospital as any, r)));
     
     // Then sort
     result.sort((a, b) => {
@@ -2007,7 +2389,7 @@ export default function HospitalsPage() {
     setHospitalPage(1);
   };
   
-  const hasActiveHospitalFilters = searchQuery || hospitalCityFilter || hospitalStatusFilter !== "all" || countryTab !== "ALL";
+  const hasActiveHospitalFilters = !!searchQuery || hospitalFilterRules.length > 0 || countryTab !== "ALL";
 
   // Export functions
   const exportToCsv = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
@@ -2479,17 +2861,6 @@ export default function HospitalsPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button
-                    variant={showHospitalFilters ? "default" : "outline"}
-                    size="sm"
-                    className={`h-9 gap-1.5 ${showHospitalFilters ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
-                    onClick={() => setShowHospitalFilters(!showHospitalFilters)}
-                    data-testid="button-toggle-hospital-filters"
-                    title={sk ? "Filter" : "Filter"}
-                  >
-                    <Filter className="h-4 w-4" />
-                    <span>{sk ? "Filter" : "Filter"}</span>
-                  </Button>
                   <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => { queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] }); queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] }); }} data-testid="button-refresh-hospitals" title={t.common.refresh} aria-label={t.common.refresh}>
                     <RefreshCw className="h-4 w-4" />
                   </Button>
@@ -2511,7 +2882,7 @@ export default function HospitalsPage() {
                     !hasActiveHospitalFilters
                       ? 'bg-gradient-to-br from-blue-50 to-blue-100/80 dark:from-blue-950/40 dark:to-blue-900/30 border-blue-300 dark:border-blue-700 ring-2 ring-blue-400/30'
                       : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600'
-                  }`} onClick={() => { setHospitalStatusFilter("all"); handleHospitalFilterChange(); }} data-testid="stat-hospitals-total">
+                  }`} onClick={() => { setHospitalFilterRules((prev) => prev.filter((r) => r.field !== "status" && r.field !== "personnel")); setHospitalPage(1); }} data-testid="stat-hospitals-total">
                     <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/15 dark:bg-blue-500/20">
                       <Hospital className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
                     </div>
@@ -2525,7 +2896,7 @@ export default function HospitalsPage() {
                     hospitalStatusFilter === 'active'
                       ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/30 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30'
                       : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
-                  }`} onClick={() => { setHospitalStatusFilter(hospitalStatusFilter === 'active' ? 'all' : 'active'); handleHospitalFilterChange(); }} data-testid="stat-hospitals-active">
+                  }`} onClick={() => { setHospitalSingleRule("status", hFilterStatus === "active" ? "" : "active"); }} data-testid="stat-hospitals-active">
                     <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
                       <UserCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
@@ -2539,7 +2910,7 @@ export default function HospitalsPage() {
                     hospitalStatusFilter === 'inactive'
                       ? 'bg-gradient-to-br from-rose-50 to-rose-100/80 dark:from-rose-950/40 dark:to-rose-900/30 border-rose-300 dark:border-rose-700 ring-2 ring-rose-400/30'
                       : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-600'
-                  }`} onClick={() => { setHospitalStatusFilter(hospitalStatusFilter === 'inactive' ? 'all' : 'inactive'); handleHospitalFilterChange(); }} data-testid="stat-hospitals-inactive">
+                  }`} onClick={() => { setHospitalSingleRule("status", hFilterStatus === "inactive" ? "" : "inactive"); }} data-testid="stat-hospitals-inactive">
                     <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-rose-500/15 dark:bg-rose-500/20">
                       <UserX className="h-4.5 w-4.5 text-rose-600 dark:text-rose-400" />
                     </div>
@@ -2571,90 +2942,27 @@ export default function HospitalsPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t.hospitals.searchPlaceholder}
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); handleHospitalFilterChange(); }}
-                    className="pl-10"
-                    data-testid="input-search-hospitals"
-                  />
-                </div>
-                <Button
-                  variant={showHospitalFilters ? "default" : "outline"}
-                  size="default"
-                  onClick={() => setShowHospitalFilters(!showHospitalFilters)}
-                  className={showHospitalFilters ? "bg-red-700 hover:bg-red-800 text-white" : ""}
-                  data-testid="button-toggle-hospital-filters"
-                >
-                  <Filter className="h-4 w-4 mr-1.5" />
-                  {t.common.filter}
-                </Button>
-              </div>
-
-              {showHospitalFilters && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.country}</label>
-                      <Select value={countryTab} onValueChange={(val) => { setCountryTab(val); handleHospitalFilterChange(); }}>
-                        <SelectTrigger data-testid="select-filter-hospital-country" className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ALL">{t.common.all}</SelectItem>
-                          {COUNTRIES.map((country) => {
-                            const count = countryCounts[country.code] || 0;
-                            if (count === 0) return null;
-                            return (
-                              <SelectItem key={country.code} value={country.code}>
-                                {country.flag} {country.code} ({count})
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.status}</label>
-                      <Select value={hospitalStatusFilter} onValueChange={(val) => { setHospitalStatusFilter(val); handleHospitalFilterChange(); }}>
-                        <SelectTrigger data-testid="select-filter-hospital-status" className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">{t.common.all}</SelectItem>
-                          <SelectItem value="active">{t.common.active}</SelectItem>
-                          <SelectItem value="inactive">{t.common.inactive}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.hospitals.city}</label>
-                      <Input
-                        placeholder={t.clinics.filterByCity}
-                        value={hospitalCityFilter}
-                        onChange={(e) => { setHospitalCityFilter(e.target.value); handleHospitalFilterChange(); }}
-                        className="h-9"
-                        data-testid="input-filter-hospital-city"
-                      />
-                    </div>
-                  </div>
-                  {hasActiveHospitalFilters && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearHospitalFilters}
-                      className="text-xs"
-                      data-testid="button-clear-hospital-filters"
-                    >
-                      <X className="h-3.5 w-3.5 mr-1" />
-                      {t.common.clearFilters}
-                    </Button>
-                  )}
-                </div>
-              )}
+              <EntityFilter
+                searchQuery={searchQuery}
+                onSearchChange={(q) => { setSearchQuery(q); setHospitalPage(1); }}
+                searchPlaceholder={t.hospitals.searchPlaceholder}
+                rules={hospitalFilterRules}
+                onRulesChange={handleHospitalRulesChange}
+                fields={hospitalFilterFields}
+                presets={hospitalFilterPresets}
+                totalCount={serverHospitalsTotal}
+                visibleCount={paginatedHospitals.length}
+                storageKey="entity-filter:hospitals"
+                testId="filter-hospitals"
+                locale={locale}
+                showCountAlways
+                onActiveViewChange={(v) => setHospitalActiveView(v ? { id: v.id, name: v.name } : null)}
+                labels={{
+                  search: t.hospitals.searchPlaceholder,
+                  filter: t.common.filter,
+                  clearAll: t.common.clearAll,
+                }}
+              />
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -2777,17 +3085,6 @@ export default function HospitalsPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button
-                    variant={showClinicFilters ? "default" : "outline"}
-                    size="sm"
-                    className={`h-9 gap-1.5 ${showClinicFilters ? "bg-red-700 hover:bg-red-800 text-white" : ""}`}
-                    onClick={() => setShowClinicFilters(!showClinicFilters)}
-                    data-testid="button-toggle-clinic-filters"
-                    title={sk ? "Filter" : "Filter"}
-                  >
-                    <Filter className="h-4 w-4" />
-                    <span>{sk ? "Filter" : "Filter"}</span>
-                  </Button>
                   <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => { refetchClinics(); queryClient.invalidateQueries({ queryKey: ["/api/clinics/stats"] }); }} data-testid="button-refresh-clinics" title={t.common.refresh} aria-label={t.common.refresh}>
                     <RefreshCw className="h-4 w-4" />
                   </Button>
@@ -2809,7 +3106,7 @@ export default function HospitalsPage() {
                     !hasActiveClinicFilters
                       ? 'bg-gradient-to-br from-teal-50 to-teal-100/80 dark:from-teal-950/40 dark:to-teal-900/30 border-teal-300 dark:border-teal-700 ring-2 ring-teal-400/30'
                       : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-600'
-                  }`} onClick={() => { setClinicPipelineFilter("all"); handleClinicFilterChange(); }} data-testid="stat-clinics-total">
+                  }`} onClick={() => { setClinicFilterRules((prev) => prev.filter((r) => r.field !== "pipeline" && r.field !== "status")); setClinicPage(1); }} data-testid="stat-clinics-total">
                     <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-teal-500/15 dark:bg-teal-500/20">
                       <Stethoscope className="h-4.5 w-4.5 text-teal-600 dark:text-teal-400" />
                     </div>
@@ -2823,7 +3120,7 @@ export default function HospitalsPage() {
                     clinicPipelineFilter === 'contract:active'
                       ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/30 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30'
                       : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
-                  }`} onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === 'contract:active' ? 'all' : 'contract:active'); handleClinicFilterChange(); }} data-testid="stat-clinics-contracted">
+                  }`} onClick={() => { setClinicSingleRule("pipeline", cFilterPipeline === "contract:active" ? "" : "contract:active"); }} data-testid="stat-clinics-contracted">
                     <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20">
                       <ShieldCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
@@ -2837,7 +3134,7 @@ export default function HospitalsPage() {
                     clinicPipelineFilter === 'coop:interested'
                       ? 'bg-gradient-to-br from-blue-50 to-blue-100/80 dark:from-blue-950/40 dark:to-blue-900/30 border-blue-300 dark:border-blue-700 ring-2 ring-blue-400/30'
                       : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600'
-                  }`} onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === 'coop:interested' ? 'all' : 'coop:interested'); handleClinicFilterChange(); }} data-testid="stat-clinics-interested">
+                  }`} onClick={() => { setClinicSingleRule("pipeline", cFilterPipeline === "coop:interested" ? "" : "coop:interested"); }} data-testid="stat-clinics-interested">
                     <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/15 dark:bg-blue-500/20">
                       <Activity className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
                     </div>
@@ -2851,7 +3148,7 @@ export default function HospitalsPage() {
                     clinicPipelineFilter === 'initial:not_contacted'
                       ? 'bg-gradient-to-br from-slate-100 to-slate-200/80 dark:from-slate-800/60 dark:to-slate-700/40 border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/30'
                       : 'bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
-                  }`} onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === 'initial:not_contacted' ? 'all' : 'initial:not_contacted'); handleClinicFilterChange(); }} data-testid="stat-clinics-not-contacted">
+                  }`} onClick={() => { setClinicSingleRule("pipeline", cFilterPipeline === "initial:not_contacted" ? "" : "initial:not_contacted"); }} data-testid="stat-clinics-not-contacted">
                     <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-500/15 dark:bg-slate-500/20">
                       <ShieldOff className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
                     </div>
@@ -2893,140 +3190,27 @@ export default function HospitalsPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t.clinics.searchPlaceholder}
-                    value={clinicSearchQuery}
-                    onChange={(e) => { setClinicSearchQuery(e.target.value); handleClinicFilterChange(); }}
-                    className="pl-10"
-                    data-testid="input-search-clinics"
-                  />
-                </div>
-                <Button
-                  variant={showClinicFilters ? "default" : "outline"}
-                  size="default"
-                  onClick={() => setShowClinicFilters(!showClinicFilters)}
-                  className={showClinicFilters ? "bg-red-700 hover:bg-red-800 text-white" : ""}
-                  data-testid="button-toggle-clinic-filters"
-                >
-                  <Filter className="h-4 w-4 mr-1.5" />
-                  {t.common.filter}
-                </Button>
-              </div>
-
-              {showClinicFilters && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.country}</label>
-                      <Select value={clinicCountryTab} onValueChange={(val) => { setClinicCountryTab(val); handleClinicFilterChange(); }}>
-                        <SelectTrigger data-testid="select-filter-clinic-country" className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ALL">{t.common.all}</SelectItem>
-                          {COUNTRIES.map((country) => {
-                            const count = clinicCountryCounts[country.code] || 0;
-                            if (count === 0) return null;
-                            return (
-                              <SelectItem key={country.code} value={country.code}>
-                                {country.flag} {country.code} ({count})
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.status}</label>
-                      <Select value={clinicStatusFilter} onValueChange={(val) => { setClinicStatusFilter(val); handleClinicFilterChange(); }}>
-                        <SelectTrigger data-testid="select-filter-clinic-status" className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">{t.common.all}</SelectItem>
-                          <SelectItem value="active">{t.common.active}</SelectItem>
-                          <SelectItem value="inactive">{t.common.inactive}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{(t.clinics as any).pipeline?.title || "Pipeline"}</label>
-                      <Select value={clinicPipelineFilter} onValueChange={(val) => { setClinicPipelineFilter(val); handleClinicFilterChange(); }}>
-                        <SelectTrigger data-testid="select-filter-clinic-pipeline" className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">{t.common.all}</SelectItem>
-                          <SelectItem value="no_status">{(t.clinics as any).pipelineSummary?.noStatus || "No status"}</SelectItem>
-                          <SelectItem value="initial:not_contacted">{(t.clinics as any).pipeline?.notContacted || "Not contacted"}</SelectItem>
-                          <SelectItem value="initial:former">{(t.clinics as any).pipeline?.formerCollaborator || "Former collaborator"}</SelectItem>
-                          <SelectItem value="initial:active_contract">{(t.clinics as any).pipeline?.activeContract || "Active contract"}</SelectItem>
-                          <SelectItem value="coop:unknown">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.unknown || "Unknown"}</SelectItem>
-                          <SelectItem value="coop:interested">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.interested || "Interested"}</SelectItem>
-                          <SelectItem value="coop:not_interested">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.notInterested || "Not interested"}</SelectItem>
-                          <SelectItem value="contract_int:unknown">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.unknown || "Unknown"}</SelectItem>
-                          <SelectItem value="contract_int:interested">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.interested || "Interested"}</SelectItem>
-                          <SelectItem value="contract_int:not_interested">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.notInterested || "Not interested"}</SelectItem>
-                          <SelectItem value="contract:none">{(t.clinics as any).pipeline?.noContract || "No contract"}</SelectItem>
-                          <SelectItem value="contract:active">{(t.clinics as any).pipeline?.activeContract || "Active contract"}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.clinics.website}</label>
-                      <Select value={clinicHasWebsite} onValueChange={(val) => { setClinicHasWebsite(val); handleClinicFilterChange(); }}>
-                        <SelectTrigger data-testid="select-filter-clinic-website" className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">{t.common.all}</SelectItem>
-                          <SelectItem value="yes">{t.clinics.hasWebsite || "S webom"}</SelectItem>
-                          <SelectItem value="no">{t.clinics.noWebsite || "Bez webu"}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => {}}
-                    data-testid="button-advanced-clinic-filters"
-                  >
-                    <Filter className="h-3 w-3" />
-                    <span>{t.clinics.filterByCity}</span>
-                  </button>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.clinics.city}</label>
-                      <Input
-                        placeholder={t.clinics.filterByCity}
-                        value={clinicCityFilter}
-                        onChange={(e) => { setClinicCityFilter(e.target.value); handleClinicFilterChange(); }}
-                        className="h-9"
-                        data-testid="input-filter-clinic-city"
-                      />
-                    </div>
-                  </div>
-
-                  {hasActiveClinicFilters && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearClinicFilters}
-                      className="text-xs"
-                      data-testid="button-clear-clinic-filters"
-                    >
-                      <X className="h-3.5 w-3.5 mr-1" />
-                      {t.common.clearFilters || "Clear filters"}
-                    </Button>
-                  )}
-                </div>
-              )}
+              <EntityFilter
+                searchQuery={clinicSearchQuery}
+                onSearchChange={(q) => { setClinicSearchQuery(q); setClinicPage(1); }}
+                searchPlaceholder={t.clinics.searchPlaceholder}
+                rules={clinicFilterRules}
+                onRulesChange={handleClinicRulesChange}
+                fields={clinicFilterFields}
+                presets={clinicFilterPresets}
+                totalCount={serverClinicsTotal}
+                visibleCount={paginatedClinics.length}
+                storageKey="entity-filter:clinics"
+                testId="filter-clinics"
+                locale={locale}
+                showCountAlways
+                onActiveViewChange={(v) => setClinicActiveView(v ? { id: v.id, name: v.name } : null)}
+                labels={{
+                  search: t.clinics.searchPlaceholder,
+                  filter: t.common.filter,
+                  clearAll: t.common.clearAll,
+                }}
+              />
 
               {/* Pipeline Summary Stats */}
               {filteredAndSortedClinics.length > 0 && (
@@ -3053,7 +3237,7 @@ export default function HospitalsPage() {
                     { val: "contract:active", color: "bg-green-300/80 text-green-900 border-green-600 dark:bg-green-700 dark:text-green-100 dark:border-green-400", labelKey: "activeContract" },
                   ].filter(s => pipelineStats.stats[s.val]).map(s => (
                     <Badge key={s.val} variant="outline" className={`text-[10px] px-2.5 py-1 font-bold border shadow-sm cursor-pointer hover:opacity-80 transition-opacity ${s.color}`} data-testid={`stat-${s.val}`}
-                      onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === s.val ? "all" : s.val); handleClinicFilterChange(); }}>
+                      onClick={() => { setClinicSingleRule("pipeline", cFilterPipeline === s.val ? "" : s.val); }}>
                       {(t.clinics as any).pipeline?.[s.labelKey] || s.labelKey} <span className="ml-1 font-black">{pipelineStats.stats[s.val]}</span>
                     </Badge>
                   ))}
@@ -3064,7 +3248,7 @@ export default function HospitalsPage() {
                   )}
                   {pipelineStats.noStatus > 0 && (
                     <Badge variant="outline" className="text-[10px] px-2.5 py-1 font-bold border shadow-sm bg-gray-200/60 text-gray-600 border-gray-400 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 cursor-pointer hover:opacity-80 transition-opacity" data-testid="stat-no-status"
-                      onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === "no_status" ? "all" : "no_status"); handleClinicFilterChange(); }}>
+                      onClick={() => { setClinicSingleRule("pipeline", cFilterPipeline === "no_status" ? "" : "no_status"); }}>
                       {(t.clinics as any).pipelineSummary?.noStatus || "No status"} <span className="ml-1 font-black">{pipelineStats.noStatus}</span>
                     </Badge>
                   )}
