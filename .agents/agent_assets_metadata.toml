@@ -36,3 +36,9 @@ id = "GBItsP8nWjCOEpn7nibtg"
 uri = "file://attached_assets/import_mapping_report.md"
 type = "text"
 title = "INDEXUS Import – Mapping Report"
+
+[[outputs]]
+id = "9SV16N8rbA-pRZlk3RmvO"
+uri = "file://docs/UBUNTU_DEPLOY.md"
+type = "text"
+title = "INDEXUS CRM — nasadenie na Ubuntu server"
