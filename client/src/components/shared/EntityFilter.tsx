@@ -328,8 +328,14 @@ type EntityFilterProps = {
   labels?: EntityFilterLabels;
   testId?: string;
 
-  /** Hide the saved-views selector in the toolbar (e.g. when host page already handles it) */
+  /** Hide the saved-views entirely (toolbar selector + drawer section + Save CTA) */
   hideSavedViews?: boolean;
+
+  /** Hide ONLY the toolbar saved-views selector, but keep create/manage UI inside the filter drawer */
+  hideSavedViewsToolbar?: boolean;
+
+  /** Always show the visible/total count summary, not only when filters are active */
+  showCountAlways?: boolean;
 
   /** Restrict the available operators (useful when backend supports equality only) */
   restrictOps?: FilterOp[];
@@ -353,6 +359,8 @@ export function EntityFilter({
   labels: labelsProp,
   testId = "entity-filter",
   hideSavedViews = false,
+  hideSavedViewsToolbar = false,
+  showCountAlways = false,
   restrictOps,
 }: EntityFilterProps) {
   const labels = useMemo(() => mergeLabels(locale, labelsProp), [locale, labelsProp]);
@@ -501,8 +509,8 @@ export function EntityFilter({
           </Button>
         )}
 
-        {/* Saved views */}
-        {!hideSavedViews && (
+        {/* Saved views (toolbar selector) */}
+        {!hideSavedViews && !hideSavedViewsToolbar && (
           <div className="flex items-center gap-1">
             <Select
               value={activeViewId || "__none__"}
@@ -688,7 +696,7 @@ export function EntityFilter({
       )}
 
       {/* Count summary */}
-      {(visibleCount !== undefined || totalCount !== undefined) && hasActive && (
+      {(visibleCount !== undefined || totalCount !== undefined) && (hasActive || showCountAlways) && (
         <div className="mt-2 flex items-center gap-2 px-3 py-1.5 bg-primary/5 rounded-md border border-primary/20 text-xs">
           <Sparkles className="h-3 w-3 text-primary" />
           <span className="text-primary">
