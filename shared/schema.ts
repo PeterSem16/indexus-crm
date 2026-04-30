@@ -7215,7 +7215,7 @@ export const contactAssignments = pgTable("contact_assignments", {
 });
 
 export const insertContactAssignmentSchema = createInsertSchema(contactAssignments).omit({ id: true, createdAt: true, updatedAt: true }).extend({
-  entityType: z.enum(["hospital", "clinic"]).default("hospital"),
+  entityType: z.enum(["hospital", "clinic", "network"]).default("hospital"),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
 });

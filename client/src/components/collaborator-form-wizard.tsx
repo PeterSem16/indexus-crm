@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { HospitalEditDrawer } from "@/pages/hospitals";
+import { CollaboratorPositionsBlock } from "@/components/collaborator-positions-block";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CollaboratorAddress, CollaboratorAgreement, BillingDetails } from "@shared/schema";
@@ -4189,6 +4190,12 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
       case "personal":
         return (
           <div className="space-y-4">
+            <CollaboratorPositionsBlock
+              personId={initialData?.id}
+              personCountryCodes={formData.countryCodes}
+              t={t}
+              locale={locale}
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>{t.collaborators.fields.country} *</Label>

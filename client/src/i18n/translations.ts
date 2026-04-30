@@ -1273,6 +1273,29 @@ export interface Translations {
     searchPlaceholder: string;
     noCollaborators: string;
     legacyId: string;
+    positions: {
+      sectionTitle: string;
+      sectionDescription: string;
+      empty: string;
+      addPosition: string;
+      editPosition: string;
+      institutionType: string;
+      institution: string;
+      position: string;
+      isPrimary: string;
+      department: string;
+      notes: string;
+      saveAfterCreate: string;
+      typeHospital: string;
+      typeClinic: string;
+      typeNetwork: string;
+      noInstitutionsForCountry: string;
+      selectInstitution: string;
+      selectPosition: string;
+      cannotEditWithoutId: string;
+      confirmDelete: string;
+      alreadyAssigned: string;
+    };
     tabs: {
       collaborator: string;
       addresses: string;
@@ -7740,6 +7763,29 @@ export const translations: Record<Locale, Translations> = {
       searchPlaceholder: 'Search collaborators...',
       noCollaborators: 'No collaborators found',
       legacyId: 'Legacy ID',
+      positions: {
+        sectionTitle: 'Positions & workplaces',
+        sectionDescription: 'Positions held by this person across hospitals, clinics and networks. Changes are reflected in the personnel list of each institution.',
+        empty: 'No positions yet. Add the first one.',
+        addPosition: 'Add position',
+        editPosition: 'Edit position',
+        institutionType: 'Institution type',
+        institution: 'Institution',
+        position: 'Position',
+        isPrimary: 'Primary contact',
+        department: 'Department',
+        notes: 'Notes',
+        saveAfterCreate: 'Save the person first, then add positions.',
+        typeHospital: 'Hospital',
+        typeClinic: 'Clinic',
+        typeNetwork: 'Network',
+        noInstitutionsForCountry: 'No institutions of this type for the selected country.',
+        selectInstitution: 'Select institution',
+        selectPosition: 'Select position',
+        cannotEditWithoutId: 'Cannot edit positions without saving the person.',
+        confirmDelete: 'Remove this position?',
+        alreadyAssigned: 'This person is already assigned to that institution.',
+      },
       tabs: {
         collaborator: 'Collaborator',
         addresses: 'Addresses',
@@ -13696,6 +13742,29 @@ export const translations: Record<Locale, Translations> = {
       searchPlaceholder: 'Hľadať spolupracovníkov...',
       noCollaborators: 'Nenašli sa žiadni spolupracovníci',
       legacyId: 'Legacy ID',
+      positions: {
+        sectionTitle: 'Pozície a pracoviská',
+        sectionDescription: 'Pozície, ktoré osoba zastáva v nemocniciach, ambulanciách a sieťach. Zmeny sa automaticky prejavia v zozname personálu danej inštitúcie.',
+        empty: 'Zatiaľ žiadne pozície. Pridajte prvú.',
+        addPosition: 'Pridať pozíciu',
+        editPosition: 'Upraviť pozíciu',
+        institutionType: 'Typ inštitúcie',
+        institution: 'Inštitúcia',
+        position: 'Pozícia',
+        isPrimary: 'Primárny kontakt',
+        department: 'Oddelenie',
+        notes: 'Poznámky',
+        saveAfterCreate: 'Najprv uložte osobu, potom môžete pridať pozície.',
+        typeHospital: 'Nemocnica',
+        typeClinic: 'Ambulancia',
+        typeNetwork: 'Sieť',
+        noInstitutionsForCountry: 'Pre zvolenú krajinu nie sú dostupné inštitúcie tohto typu.',
+        selectInstitution: 'Vyberte inštitúciu',
+        selectPosition: 'Vyberte pozíciu',
+        cannotEditWithoutId: 'Pozície nemožno upraviť bez uloženia osoby.',
+        confirmDelete: 'Odstrániť túto pozíciu?',
+        alreadyAssigned: 'Táto osoba je už priradená k tejto inštitúcii.',
+      },
       tabs: {
         collaborator: 'Spolupracovník',
         addresses: 'Adresy',
@@ -19590,6 +19659,29 @@ export const translations: Record<Locale, Translations> = {
       searchPlaceholder: 'Hledat spolupracovníky...',
       noCollaborators: 'Nebyli nalezeni žádní spolupracovníci',
       legacyId: 'Legacy ID',
+      positions: {
+        sectionTitle: 'Pozice a pracoviště',
+        sectionDescription: 'Pozice, které osoba zastává v nemocnicích, ambulancích a sítích. Změny se automaticky projeví v seznamu personálu dané instituce.',
+        empty: 'Zatím žádné pozice. Přidejte první.',
+        addPosition: 'Přidat pozici',
+        editPosition: 'Upravit pozici',
+        institutionType: 'Typ instituce',
+        institution: 'Instituce',
+        position: 'Pozice',
+        isPrimary: 'Primární kontakt',
+        department: 'Oddělení',
+        notes: 'Poznámky',
+        saveAfterCreate: 'Nejprve uložte osobu, poté můžete přidat pozice.',
+        typeHospital: 'Nemocnice',
+        typeClinic: 'Ambulance',
+        typeNetwork: 'Síť',
+        noInstitutionsForCountry: 'Pro zvolenou zemi nejsou dostupné instituce tohoto typu.',
+        selectInstitution: 'Vyberte instituci',
+        selectPosition: 'Vyberte pozici',
+        cannotEditWithoutId: 'Pozice nelze upravit bez uložení osoby.',
+        confirmDelete: 'Odebrat tuto pozici?',
+        alreadyAssigned: 'Tato osoba je již přiřazena k této instituci.',
+      },
       tabs: {
         collaborator: 'Spolupracovník',
         addresses: 'Adresy',
@@ -25442,6 +25534,29 @@ export const translations: Record<Locale, Translations> = {
       searchPlaceholder: 'Munkatársak keresése...',
       noCollaborators: 'Nem található munkatárs',
       legacyId: 'Legacy ID',
+      positions: {
+        sectionTitle: 'Pozíciók és munkahelyek',
+        sectionDescription: 'A személy által betöltött pozíciók kórházakban, klinikákon és hálózatokban. A változtatások automatikusan megjelennek az adott intézmény személyzeti listájában.',
+        empty: 'Még nincsenek pozíciók. Adja hozzá az elsőt.',
+        addPosition: 'Pozíció hozzáadása',
+        editPosition: 'Pozíció szerkesztése',
+        institutionType: 'Intézmény típusa',
+        institution: 'Intézmény',
+        position: 'Pozíció',
+        isPrimary: 'Elsődleges kapcsolattartó',
+        department: 'Osztály',
+        notes: 'Megjegyzések',
+        saveAfterCreate: 'Először mentse el a személyt, majd adhat hozzá pozíciókat.',
+        typeHospital: 'Kórház',
+        typeClinic: 'Klinika',
+        typeNetwork: 'Hálózat',
+        noInstitutionsForCountry: 'A kiválasztott országhoz nincsenek elérhető intézmények ebben a típusban.',
+        selectInstitution: 'Válasszon intézményt',
+        selectPosition: 'Válasszon pozíciót',
+        cannotEditWithoutId: 'A pozíciók nem szerkeszthetők a személy mentése nélkül.',
+        confirmDelete: 'Eltávolítja ezt a pozíciót?',
+        alreadyAssigned: 'Ez a személy már hozzá van rendelve ehhez az intézményhez.',
+      },
       tabs: {
         collaborator: 'Munkatárs',
         addresses: 'Címek',
@@ -31190,6 +31305,29 @@ export const translations: Record<Locale, Translations> = {
       searchPlaceholder: 'Caută colaboratori...',
       noCollaborators: 'Nu s-au găsit colaboratori',
       legacyId: 'Legacy ID',
+      positions: {
+        sectionTitle: 'Poziții și locuri de muncă',
+        sectionDescription: 'Pozițiile deținute de această persoană în spitale, clinici și rețele. Modificările se reflectă automat în lista de personal a fiecărei instituții.',
+        empty: 'Încă nu există poziții. Adăugați prima.',
+        addPosition: 'Adaugă poziție',
+        editPosition: 'Editează poziția',
+        institutionType: 'Tip instituție',
+        institution: 'Instituție',
+        position: 'Poziție',
+        isPrimary: 'Contact principal',
+        department: 'Departament',
+        notes: 'Note',
+        saveAfterCreate: 'Mai întâi salvați persoana, apoi puteți adăuga poziții.',
+        typeHospital: 'Spital',
+        typeClinic: 'Clinică',
+        typeNetwork: 'Rețea',
+        noInstitutionsForCountry: 'Nu există instituții de acest tip pentru țara selectată.',
+        selectInstitution: 'Selectați instituția',
+        selectPosition: 'Selectați poziția',
+        cannotEditWithoutId: 'Pozițiile nu pot fi editate fără salvarea persoanei.',
+        confirmDelete: 'Eliminați această poziție?',
+        alreadyAssigned: 'Această persoană este deja atribuită acestei instituții.',
+      },
       tabs: {
         collaborator: 'Colaborator',
         addresses: 'Adrese',
@@ -36938,6 +37076,29 @@ export const translations: Record<Locale, Translations> = {
       searchPlaceholder: 'Cerca collaboratori...',
       noCollaborators: 'Nessun collaboratore trovato',
       legacyId: 'Legacy ID',
+      positions: {
+        sectionTitle: 'Posizioni e luoghi di lavoro',
+        sectionDescription: 'Le posizioni ricoperte da questa persona in ospedali, cliniche e reti. Le modifiche si riflettono automaticamente nell\'elenco del personale di ciascuna istituzione.',
+        empty: 'Ancora nessuna posizione. Aggiungi la prima.',
+        addPosition: 'Aggiungi posizione',
+        editPosition: 'Modifica posizione',
+        institutionType: 'Tipo istituzione',
+        institution: 'Istituzione',
+        position: 'Posizione',
+        isPrimary: 'Contatto principale',
+        department: 'Reparto',
+        notes: 'Note',
+        saveAfterCreate: 'Prima salva la persona, poi potrai aggiungere posizioni.',
+        typeHospital: 'Ospedale',
+        typeClinic: 'Clinica',
+        typeNetwork: 'Rete',
+        noInstitutionsForCountry: 'Nessuna istituzione di questo tipo per il paese selezionato.',
+        selectInstitution: 'Seleziona istituzione',
+        selectPosition: 'Seleziona posizione',
+        cannotEditWithoutId: 'Impossibile modificare le posizioni senza salvare la persona.',
+        confirmDelete: 'Rimuovere questa posizione?',
+        alreadyAssigned: 'Questa persona è già assegnata a questa istituzione.',
+      },
       tabs: {
         collaborator: 'Collaboratore',
         addresses: 'Indirizzi',
@@ -42687,6 +42848,29 @@ export const translations: Record<Locale, Translations> = {
       searchPlaceholder: 'Mitarbeiter suchen...',
       noCollaborators: 'Keine Mitarbeiter gefunden',
       legacyId: 'Legacy ID',
+      positions: {
+        sectionTitle: 'Positionen und Arbeitsplätze',
+        sectionDescription: 'Positionen, die diese Person in Krankenhäusern, Kliniken und Netzwerken innehat. Änderungen werden automatisch in der Personalliste der jeweiligen Einrichtung übernommen.',
+        empty: 'Noch keine Positionen. Fügen Sie die erste hinzu.',
+        addPosition: 'Position hinzufügen',
+        editPosition: 'Position bearbeiten',
+        institutionType: 'Einrichtungstyp',
+        institution: 'Einrichtung',
+        position: 'Position',
+        isPrimary: 'Hauptkontakt',
+        department: 'Abteilung',
+        notes: 'Notizen',
+        saveAfterCreate: 'Speichern Sie zuerst die Person, dann können Sie Positionen hinzufügen.',
+        typeHospital: 'Krankenhaus',
+        typeClinic: 'Klinik',
+        typeNetwork: 'Netzwerk',
+        noInstitutionsForCountry: 'Keine Einrichtungen dieses Typs für das gewählte Land verfügbar.',
+        selectInstitution: 'Einrichtung auswählen',
+        selectPosition: 'Position auswählen',
+        cannotEditWithoutId: 'Positionen können nicht ohne Speichern der Person bearbeitet werden.',
+        confirmDelete: 'Diese Position entfernen?',
+        alreadyAssigned: 'Diese Person ist bereits dieser Einrichtung zugeordnet.',
+      },
       tabs: {
         collaborator: 'Mitarbeiter',
         addresses: 'Adressen',
