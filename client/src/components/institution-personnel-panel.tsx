@@ -129,7 +129,7 @@ const SCOPE_BADGE: Record<string, { label: string; className: string }> = {
   independent: { label: "Independent", className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800" },
 };
 
-function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, onPositionSaved, countryCode }: {
+function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, onPositionSaved, countryCode, inlineMode }: {
   clinicDoctor: any;
   entityId: string;
   categories: any[];
@@ -137,6 +137,7 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
   mpnT: any;
   onPositionSaved: () => void;
   countryCode?: string;
+  inlineMode?: boolean;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -276,11 +277,18 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
       {savePersonOpen && (
         <>
           <div
-            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            className={inlineMode
+              ? "absolute inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+              : "fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"}
             onClick={() => setSavePersonOpen(false)}
             data-testid="save-person-drawer-backdrop"
           />
-          <div className="fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col" data-testid="save-person-drawer">
+          <div
+            className={inlineMode
+              ? "absolute inset-0 z-[51] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"
+              : "fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}
+            data-testid="save-person-drawer"
+          >
             <CollaboratorFormWizard
               prefillData={collabPrefill as any}
               onCreated={async (collab) => { await assignToClinic(collab.id); }}
@@ -632,7 +640,7 @@ export function InstitutionPersonnelPanel({
   );
 }
 
-export function InstitutionPersonnelManager({ entityType, entityId, entityName, countryCode }: { entityType: string; entityId: string; entityName: string; countryCode?: string }) {
+export function InstitutionPersonnelManager({ entityType, entityId, entityName, countryCode, inlineMode }: { entityType: string; entityId: string; entityName: string; countryCode?: string; inlineMode?: boolean }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const mpnT = (t as any).medicalPartnerNetwork || {};
@@ -831,7 +839,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
   }
 
   return (
-    <div className="space-y-4" data-testid="institution-personnel-manager">
+    <div className={inlineMode ? "space-y-4 relative" : "space-y-4"} data-testid="institution-personnel-manager">
       {clinicDoctor && !allPersonnel.some((p: any) => p.is_primary) && (
         <PrimaryContactCard
           clinicDoctor={clinicDoctor}
@@ -841,6 +849,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
           mpnT={mpnT}
           onPositionSaved={() => personnelQuery.refetch()}
           countryCode={countryCode}
+          inlineMode={inlineMode}
         />
       )}
 
@@ -1320,11 +1329,15 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
       {isDrawerOpen && drawerCollaborator && (
         <>
           <div
-            className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            className={inlineMode
+              ? "absolute inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+              : "fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"}
             onClick={closeCollaboratorDrawer}
             data-testid="collaborator-drawer-backdrop"
           />
-          <div className="fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div className={inlineMode
+            ? "absolute inset-0 z-[61] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"
+            : "fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}>
             <CollaboratorFormWizard
               initialData={drawerCollaborator}
               onSuccess={closeCollaboratorDrawer}
@@ -1337,11 +1350,15 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
       {nestedNewPersonOpen && (
         <>
           <div
-            className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            className={inlineMode
+              ? "absolute inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+              : "fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"}
             onClick={() => setNestedNewPersonOpen(false)}
             data-testid="nested-add-person-backdrop"
           />
-          <div className="fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div className={inlineMode
+            ? "absolute inset-0 z-[61] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"
+            : "fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}>
             <CollaboratorFormWizard
               prefillData={{ lastName: nestedNewPersonPrefill, countryCode: (countryCode || "SK") }}
               onSuccess={() => setNestedNewPersonOpen(false)}
