@@ -365,6 +365,8 @@ function TopBar({
   scheduledQueueCounts,
   abandonedCallsCount,
   onOpenAbandonedCalls,
+  inboundRingtoneEnabled,
+  onToggleInboundRingtone,
 }: {
   status: AgentStatus;
   onStatusChange: (status: AgentStatus) => void;
@@ -387,6 +389,8 @@ function TopBar({
   scheduledQueueCounts?: { total: number; overdue: number };
   abandonedCallsCount?: number;
   onOpenAbandonedCalls?: () => void;
+  inboundRingtoneEnabled?: boolean;
+  onToggleInboundRingtone?: () => void;
 }) {
   const STATUS_CONFIG = getStatusConfig(t);
   const config = STATUS_CONFIG[status];
@@ -455,6 +459,20 @@ function TopBar({
             <Button variant="outline" size="sm" onClick={onEndSession} data-testid="button-end-session" className="text-destructive border-destructive/30 gap-1">
               <LogOut className="h-3.5 w-3.5" />
               <span className="text-xs hidden xl:inline">{t.agentSession.endShift}</span>
+            </Button>
+          )}
+
+          {isSessionActive && onToggleInboundRingtone && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleInboundRingtone}
+              data-testid="button-toggle-inbound-ringtone"
+              aria-pressed={!!inboundRingtoneEnabled}
+              title={inboundRingtoneEnabled ? t.agentWorkspace.inboundRingtoneOn : t.agentWorkspace.inboundRingtoneOff}
+              className={`gap-1 ${inboundRingtoneEnabled ? "text-green-600 border-green-500/40 dark:text-green-400" : "text-muted-foreground"}`}
+            >
+              {inboundRingtoneEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
             </Button>
           )}
 
@@ -5092,6 +5110,89 @@ export default function AgentWorkspacePage() {
   const acceptingCallRef = useRef(false);
   const dialingRef = useRef(false);
 
+  const [inboundRingtoneEnabled, setInboundRingtoneEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem("indexus.pulse.inboundRingtone") === "1"; } catch { return false; }
+  });
+  const inboundRingtoneEnabledRef = useRef(inboundRingtoneEnabled);
+  inboundRingtoneEnabledRef.current = inboundRingtoneEnabled;
+  const inboundAudioCtxRef = useRef<AudioContext | null>(null);
+  const inboundRingtoneIntervalRef = useRef<number | null>(null);
+  const inboundRingtoneActiveRef = useRef(false);
+
+  const stopInboundRingtone = useCallback(() => {
+    inboundRingtoneActiveRef.current = false;
+    if (inboundRingtoneIntervalRef.current !== null) {
+      window.clearInterval(inboundRingtoneIntervalRef.current);
+      inboundRingtoneIntervalRef.current = null;
+    }
+  }, []);
+
+  const playInboundRingtoneBurst = useCallback(() => {
+    try {
+      let ctx = inboundAudioCtxRef.current;
+      if (!ctx || ctx.state === "closed") {
+        const Ctor = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!Ctor) return;
+        ctx = new Ctor() as AudioContext;
+        inboundAudioCtxRef.current = ctx;
+      }
+      if (ctx.state === "suspended") { ctx.resume().catch(() => {}); }
+      const playTone = (start: number, duration: number) => {
+        const osc = ctx!.createOscillator();
+        const gain = ctx!.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(425, ctx!.currentTime + start);
+        gain.gain.setValueAtTime(0.0001, ctx!.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(0.25, ctx!.currentTime + start + 0.02);
+        gain.gain.setValueAtTime(0.25, ctx!.currentTime + start + duration - 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx!.currentTime + start + duration);
+        osc.connect(gain);
+        gain.connect(ctx!.destination);
+        osc.start(ctx!.currentTime + start);
+        osc.stop(ctx!.currentTime + start + duration + 0.02);
+      };
+      playTone(0, 0.4);
+      playTone(0.55, 0.4);
+    } catch (err) {
+      console.warn("[Pulse] Inbound ringtone playback failed:", err);
+    }
+  }, []);
+
+  const startInboundRingtone = useCallback(() => {
+    if (inboundRingtoneActiveRef.current) return;
+    inboundRingtoneActiveRef.current = true;
+    playInboundRingtoneBurst();
+    if (inboundRingtoneIntervalRef.current !== null) {
+      window.clearInterval(inboundRingtoneIntervalRef.current);
+    }
+    inboundRingtoneIntervalRef.current = window.setInterval(() => {
+      if (!inboundRingtoneActiveRef.current) return;
+      playInboundRingtoneBurst();
+    }, 3000);
+  }, [playInboundRingtoneBurst]);
+
+  const toggleInboundRingtone = useCallback(() => {
+    setInboundRingtoneEnabled(prev => {
+      const next = !prev;
+      try { window.localStorage.setItem("indexus.pulse.inboundRingtone", next ? "1" : "0"); } catch {}
+      if (!next) {
+        stopInboundRingtone();
+      } else {
+        try {
+          const Ctor = (window as any).AudioContext || (window as any).webkitAudioContext;
+          if (Ctor && !inboundAudioCtxRef.current) {
+            inboundAudioCtxRef.current = new Ctor();
+          }
+          if (inboundAudioCtxRef.current && inboundAudioCtxRef.current.state === "suspended") {
+            inboundAudioCtxRef.current.resume().catch(() => {});
+          }
+        } catch {}
+      }
+      return next;
+    });
+  }, [stopInboundRingtone]);
+
   const { canAccessModule } = usePermissions();
   const hasModuleAccess = user && canAccessModule("nexusPulse");
 
@@ -6689,6 +6790,54 @@ export default function AgentWorkspacePage() {
   }, [agentSession.isSessionActive]);
 
   useEffect(() => {
+    const hasActiveInbound = inboundCalls.length > 0;
+    if (hasActiveInbound && inboundRingtoneEnabled && agentSession.isSessionActive) {
+      startInboundRingtone();
+    } else {
+      stopInboundRingtone();
+    }
+  }, [inboundCalls.length, inboundRingtoneEnabled, agentSession.isSessionActive, startInboundRingtone, stopInboundRingtone]);
+
+  useEffect(() => {
+    if (!inboundRingtoneEnabled) return;
+    const ctx = inboundAudioCtxRef.current;
+    if (ctx && ctx.state === "running") return;
+    const prime = () => {
+      try {
+        const Ctor = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!Ctor) return;
+        let c = inboundAudioCtxRef.current;
+        if (!c || c.state === "closed") {
+          c = new Ctor() as AudioContext;
+          inboundAudioCtxRef.current = c;
+        }
+        if (c.state === "suspended") { c.resume().catch(() => {}); }
+      } catch {}
+    };
+    const onGesture = () => { prime(); cleanup(); };
+    const cleanup = () => {
+      window.removeEventListener("pointerdown", onGesture);
+      window.removeEventListener("keydown", onGesture);
+      window.removeEventListener("touchstart", onGesture);
+    };
+    window.addEventListener("pointerdown", onGesture, { once: true });
+    window.addEventListener("keydown", onGesture, { once: true });
+    window.addEventListener("touchstart", onGesture, { once: true });
+    return cleanup;
+  }, [inboundRingtoneEnabled]);
+
+  useEffect(() => {
+    return () => {
+      stopInboundRingtone();
+      const ctx = inboundAudioCtxRef.current;
+      if (ctx && ctx.state !== "closed") {
+        try { ctx.close(); } catch {}
+      }
+      inboundAudioCtxRef.current = null;
+    };
+  }, [stopInboundRingtone]);
+
+  useEffect(() => {
     if (sipIncomingCall && agentSession.isSessionActive) {
       const callerNum = sipIncomingCall.callerNumber?.replace(/[\s\-\(\)]/g, "");
       const invitation = sipIncomingCall.invitation;
@@ -7182,6 +7331,8 @@ export default function AgentWorkspacePage() {
         scheduledQueueCounts={scheduledQueueCounts}
         abandonedCallsCount={abandonedCalls.filter((c: any) => !c.calledBack).length}
         onOpenAbandonedCalls={() => setAbandonedCallsOpen(true)}
+        inboundRingtoneEnabled={inboundRingtoneEnabled}
+        onToggleInboundRingtone={toggleInboundRingtone}
       />
 
       <div className="flex flex-1 overflow-hidden">

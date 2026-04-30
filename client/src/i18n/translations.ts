@@ -3013,6 +3013,8 @@ export interface Translations {
     redirectedNoAgents: string;
     missedCallToast: string;
     redirectedCallToast: string;
+    inboundRingtoneOn: string;
+    inboundRingtoneOff: string;
     readyToWork: string;
     readyToWorkDesc: string;
     noContact: string;
@@ -9471,6 +9473,8 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'was redirected - no agents available',
       missedCallToast: 'Missed call',
       redirectedCallToast: 'Call redirected',
+      inboundRingtoneOn: 'Acoustic notification: on (click to mute)',
+      inboundRingtoneOff: 'Acoustic notification: off (click to enable ringtone)',
       readyToWork: 'Ready to work',
       readyToWorkDesc: 'Select a mission and load a contact to start communication',
       noContact: 'No contact',
@@ -15370,6 +15374,8 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'bol presmerovaný - žiadni agenti nie sú prihlásení',
       missedCallToast: 'Zmeškaný hovor',
       redirectedCallToast: 'Hovor presmerovaný',
+      inboundRingtoneOn: 'Akustická notifikácia: zapnutá (kliknutím vypnete)',
+      inboundRingtoneOff: 'Akustická notifikácia: vypnutá (kliknutím zapnete zvonenie)',
       readyToWork: 'Pripravený na prácu',
       readyToWorkDesc: 'Vyberte misiu a načítajte kontakt pre začatie komunikácie',
       noContact: 'Žiadny kontakt',
@@ -21248,6 +21254,8 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'byl přesměrován - žádní agenti nejsou přihlášeni',
       missedCallToast: 'Zmeškaný hovor',
       redirectedCallToast: 'Hovor přesměrován',
+      inboundRingtoneOn: 'Akustické upozornění: zapnuto (klikněte pro vypnutí)',
+      inboundRingtoneOff: 'Akustické upozornění: vypnuto (klikněte pro zapnutí vyzvánění)',
       readyToWork: 'Připraven k práci',
       readyToWorkDesc: 'Vyberte misi a načtěte kontakt pro zahájení komunikace',
       noContact: 'Žádný kontakt',
@@ -27084,6 +27092,8 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'átirányítva - nincsenek elérhető ügynökök',
       missedCallToast: 'Nem fogadott hívás',
       redirectedCallToast: 'Hívás átirányítva',
+      inboundRingtoneOn: 'Hangos értesítés: bekapcsolva (kattintson a némításhoz)',
+      inboundRingtoneOff: 'Hangos értesítés: kikapcsolva (kattintson a csengőhang bekapcsolásához)',
       readyToWork: 'Készen állok a munkára',
       readyToWorkDesc: 'Válasszon egy missziót és töltsön be egy kontaktot a kommunikáció megkezdéséhez',
       noContact: 'Nincs kontakt',
@@ -32815,6 +32825,8 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'a fost redirecționat - niciun agent disponibil',
       missedCallToast: 'Apel pierdut',
       redirectedCallToast: 'Apel redirecționat',
+      inboundRingtoneOn: 'Notificare acustică: activată (faceți clic pentru a dezactiva)',
+      inboundRingtoneOff: 'Notificare acustică: dezactivată (faceți clic pentru a activa soneria)',
       readyToWork: 'Pregătit de lucru',
       readyToWorkDesc: 'Selectați o misiune și încărcați un contact pentru a începe comunicarea',
       noContact: 'Niciun contact',
@@ -38548,6 +38560,8 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'è stato reindirizzato - nessun agente disponibile',
       missedCallToast: 'Chiamata persa',
       redirectedCallToast: 'Chiamata reindirizzata',
+      inboundRingtoneOn: 'Notifica acustica: attiva (clicca per disattivare)',
+      inboundRingtoneOff: 'Notifica acustica: disattivata (clicca per attivare la suoneria)',
       readyToWork: 'Pronto a lavorare',
       readyToWorkDesc: 'Seleziona una missione e carica un contatto per iniziare la comunicazione',
       noContact: 'Nessun contatto',
@@ -44281,6 +44295,8 @@ export const translations: Record<Locale, Translations> = {
       redirectedNoAgents: 'wurde weitergeleitet - keine Agenten verfügbar',
       missedCallToast: 'Verpasster Anruf',
       redirectedCallToast: 'Anruf weitergeleitet',
+      inboundRingtoneOn: 'Akustische Benachrichtigung: ein (zum Stummschalten klicken)',
+      inboundRingtoneOff: 'Akustische Benachrichtigung: aus (zum Einschalten des Klingeltons klicken)',
       readyToWork: 'Arbeitsbereit',
       readyToWorkDesc: 'Wählen Sie eine Mission und laden Sie einen Kontakt, um die Kommunikation zu starten',
       noContact: 'Kein Kontakt',
