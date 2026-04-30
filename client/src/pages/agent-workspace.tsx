@@ -138,6 +138,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getInboundRingtonePreset } from "@/lib/inbound-ringtones";
 import { useToast } from "@/hooks/use-toast";
 import { useSip } from "@/contexts/sip-context";
 import { useCall } from "@/contexts/call-context";
@@ -5101,6 +5102,7 @@ export default function AgentWorkspacePage() {
     hasSipInvitation?: boolean;
     sipInvitation?: any;
     recordCalls?: boolean;
+    ringtoneId?: string;
   }>>([]);
   const inboundCallsRef = useRef(inboundCalls);
   inboundCallsRef.current = inboundCalls;
@@ -5128,7 +5130,7 @@ export default function AgentWorkspacePage() {
     }
   }, []);
 
-  const playInboundRingtoneBurst = useCallback(() => {
+  const playInboundRingtoneBurst = useCallback((presetId?: string) => {
     try {
       let ctx = inboundAudioCtxRef.current;
       if (!ctx || ctx.state === "closed") {
@@ -5138,38 +5140,25 @@ export default function AgentWorkspacePage() {
         inboundAudioCtxRef.current = ctx;
       }
       if (ctx.state === "suspended") { ctx.resume().catch(() => {}); }
-      const playTone = (start: number, duration: number) => {
-        const osc = ctx!.createOscillator();
-        const gain = ctx!.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(425, ctx!.currentTime + start);
-        gain.gain.setValueAtTime(0.0001, ctx!.currentTime + start);
-        gain.gain.exponentialRampToValueAtTime(0.25, ctx!.currentTime + start + 0.02);
-        gain.gain.setValueAtTime(0.25, ctx!.currentTime + start + duration - 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx!.currentTime + start + duration);
-        osc.connect(gain);
-        gain.connect(ctx!.destination);
-        osc.start(ctx!.currentTime + start);
-        osc.stop(ctx!.currentTime + start + duration + 0.02);
-      };
-      playTone(0, 0.4);
-      playTone(0.55, 0.4);
+      const preset = getInboundRingtonePreset(presetId);
+      preset.play(ctx, ctx.currentTime);
     } catch (err) {
       console.warn("[Pulse] Inbound ringtone playback failed:", err);
     }
   }, []);
 
-  const startInboundRingtone = useCallback(() => {
+  const startInboundRingtone = useCallback((presetId?: string) => {
     if (inboundRingtoneActiveRef.current) return;
     inboundRingtoneActiveRef.current = true;
-    playInboundRingtoneBurst();
+    const preset = getInboundRingtonePreset(presetId);
+    playInboundRingtoneBurst(preset.id);
     if (inboundRingtoneIntervalRef.current !== null) {
       window.clearInterval(inboundRingtoneIntervalRef.current);
     }
     inboundRingtoneIntervalRef.current = window.setInterval(() => {
       if (!inboundRingtoneActiveRef.current) return;
-      playInboundRingtoneBurst();
-    }, 3000);
+      playInboundRingtoneBurst(preset.id);
+    }, preset.intervalMs);
   }, [playInboundRingtoneBurst]);
 
   const toggleInboundRingtone = useCallback(() => {
@@ -6715,6 +6704,7 @@ export default function AgentWorkspacePage() {
                 channelId: data.channelId,
                 timestamp: Date.now(),
                 recordCalls: data.recordCalls ?? false,
+                ringtoneId: data.ringtoneId ?? undefined,
               }];
             });
           } else if (data.type === "call-cancelled") {
@@ -6789,14 +6779,16 @@ export default function AgentWorkspacePage() {
     return () => clearInterval(staleTimer);
   }, [agentSession.isSessionActive]);
 
+  const oldestInboundRingtoneId = inboundCalls[0]?.ringtoneId;
   useEffect(() => {
     const hasActiveInbound = inboundCalls.length > 0;
     if (hasActiveInbound && inboundRingtoneEnabled && agentSession.isSessionActive) {
-      startInboundRingtone();
+      stopInboundRingtone();
+      startInboundRingtone(oldestInboundRingtoneId);
     } else {
       stopInboundRingtone();
     }
-  }, [inboundCalls.length, inboundRingtoneEnabled, agentSession.isSessionActive, startInboundRingtone, stopInboundRingtone]);
+  }, [inboundCalls.length, oldestInboundRingtoneId, inboundRingtoneEnabled, agentSession.isSessionActive, startInboundRingtone, stopInboundRingtone]);
 
   useEffect(() => {
     if (!inboundRingtoneEnabled) return;

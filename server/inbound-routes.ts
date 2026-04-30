@@ -442,6 +442,8 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (data.overflowMessageId === "") data.overflowMessageId = null;
       if (data.emailAccountId === "") data.emailAccountId = null;
       if (data.smsPhoneNumber === "") data.smsPhoneNumber = null;
+      const ALLOWED_RINGTONES = ["classic", "soft-chime", "gentle-pulse", "smart-arpeggio", "urgent"];
+      if (!ALLOWED_RINGTONES.includes(data.ringtoneId)) data.ringtoneId = "classic";
       const created = await db.insert(inboundQueues).values(data).returning();
       res.status(201).json(created[0]);
     } catch (error) {
@@ -477,6 +479,8 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (data.overflowMessageId === "") data.overflowMessageId = null;
       if (data.emailAccountId === "") data.emailAccountId = null;
       if (data.smsPhoneNumber === "") data.smsPhoneNumber = null;
+      const ALLOWED_RINGTONES_UPD = ["classic", "soft-chime", "gentle-pulse", "smart-arpeggio", "urgent"];
+      if (data.ringtoneId !== undefined && !ALLOWED_RINGTONES_UPD.includes(data.ringtoneId)) data.ringtoneId = "classic";
       const updated = await db.update(inboundQueues)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(inboundQueues.id, req.params.id))
@@ -2668,6 +2672,7 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       waitTime: data.waitDuration || 0,
       channelId: data.channelId || "",
       recordCalls: data.recordCalls ?? false,
+      ringtoneId: data.ringtoneId ?? "classic",
     });
     emitEvent({
       source: "inbound-call",

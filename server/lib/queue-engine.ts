@@ -1759,6 +1759,7 @@ export class QueueEngine extends EventEmitter {
         customerId: call.customerId,
         waitDuration,
         recordCalls: queue.recordCalls ?? false,
+        ringtoneId: (queue as any).ringtoneId ?? "classic",
         ringAll: true,
       });
     }
@@ -1903,6 +1904,7 @@ export class QueueEngine extends EventEmitter {
       customerId: call.customerId,
       waitDuration,
       recordCalls: queue.recordCalls ?? false,
+      ringtoneId: (queue as any).ringtoneId ?? "classic",
     });
 
     const [agentUser] = await db.select({

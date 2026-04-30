@@ -90,6 +90,7 @@ class InboundCallWebSocketService {
     waitTime: number;
     channelId: string;
     recordCalls?: boolean;
+    ringtoneId?: string | null;
   }) {
     const isConnected = this.isAgentConnected(agentUserId);
     const connectedAgents = this.getConnectedAgentIds();

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { INBOUND_RINGTONE_PRESETS, getInboundRingtonePreset } from "@/lib/inbound-ringtones";
 
 interface InboundQueue {
   id: string;
@@ -101,6 +102,7 @@ interface InboundQueue {
   smsEnabled: boolean;
   smsPhoneNumber: string | null;
   recordCalls: boolean;
+  ringtoneId: string;
   isActive: boolean;
   stats?: { waiting: number; active: number; agents: number };
   dids?: { didNumber: string; name: string | null; isActive: boolean }[];
@@ -190,6 +192,7 @@ interface FormData {
   smsEnabled: boolean;
   smsPhoneNumber: string | null;
   recordCalls: boolean;
+  ringtoneId: string;
   isActive: boolean;
 }
 
@@ -206,7 +209,7 @@ const defaultFormData: FormData = {
   afterHoursTarget: "", afterHoursMessageId: null, afterHoursVoicemailBoxId: null,
   noAgentsAction: "wait", noAgentsTarget: "", noAgentsMessageId: null, noAgentsVoicemailBoxId: null, noAgentsUserId: null, noAgentsIvrMenuId: null, noAgentsVirtualAgentId: null, overflowVirtualAgentId: null,
   emailEnabled: false, emailAccountId: null, smsEnabled: false, smsPhoneNumber: null,
-  recordCalls: false, isActive: true,
+  recordCalls: false, ringtoneId: "classic", isActive: true,
 };
 
 
@@ -408,6 +411,7 @@ export function InboundQueuesTab() {
       smsEnabled: queue.smsEnabled ?? false,
       smsPhoneNumber: queue.smsPhoneNumber || null,
       recordCalls: queue.recordCalls ?? false,
+      ringtoneId: queue.ringtoneId ?? "classic",
       isActive: queue.isActive,
     });
     setFormTab("general");
@@ -429,6 +433,51 @@ export function InboundQueuesTab() {
 
   const sipUsers = allUsers.filter((u: any) => u.sipEnabled || ["agent", "operator"].includes(u.role));
   const pjsipUsers = allUsers.filter((u: any) => u.sipEnabled && u.sipExtension);
+
+  const previewAudioCtxRef = useRef<AudioContext | null>(null);
+  const previewIntervalRef = useRef<number | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+
+  const stopRingtonePreview = () => {
+    if (previewIntervalRef.current !== null) {
+      window.clearInterval(previewIntervalRef.current);
+      previewIntervalRef.current = null;
+    }
+    setPreviewingId(null);
+  };
+
+  const startRingtonePreview = (presetId: string) => {
+    stopRingtonePreview();
+    const preset = getInboundRingtonePreset(presetId);
+    try {
+      let ctx = previewAudioCtxRef.current;
+      if (!ctx || ctx.state === "closed") {
+        const Ctor = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!Ctor) return;
+        ctx = new Ctor() as AudioContext;
+        previewAudioCtxRef.current = ctx;
+      }
+      if (ctx.state === "suspended") { ctx.resume().catch(() => {}); }
+      preset.play(ctx, ctx.currentTime);
+      setPreviewingId(presetId);
+      previewIntervalRef.current = window.setInterval(() => {
+        const c = previewAudioCtxRef.current;
+        if (!c || c.state === "closed") return;
+        preset.play(c, c.currentTime);
+      }, preset.intervalMs);
+    } catch {
+      setPreviewingId(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewIntervalRef.current !== null) window.clearInterval(previewIntervalRef.current);
+      const ctx = previewAudioCtxRef.current;
+      if (ctx && ctx.state !== "closed") { try { ctx.close(); } catch {} }
+      previewAudioCtxRef.current = null;
+    };
+  }, []);
 
   const AudioSelector = ({ label, helpText, value, onChange, messages }: {
     label: string;
@@ -685,6 +734,45 @@ export function InboundQueuesTab() {
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpIsActive}</p>
                     </div>
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2 space-y-1.5">
+                    <Label className="text-sm flex items-center gap-2">
+                      <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      {tx.ringtone}
+                    </Label>
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                      <Select
+                        value={formData.ringtoneId || "classic"}
+                        onValueChange={(v) => { stopRingtonePreview(); setFormData(f => ({ ...f, ringtoneId: v })); }}
+                      >
+                        <SelectTrigger className="flex-1" data-testid="select-queue-ringtone">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {INBOUND_RINGTONE_PRESETS.map(p => (
+                            <SelectItem key={p.id} value={p.id} data-testid={`option-ringtone-${p.id}`}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{(tx as any)[p.labelKey]}</span>
+                                <span className="text-xs text-muted-foreground">{(tx as any)[p.descriptionKey]}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant={previewingId === formData.ringtoneId ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => previewingId === formData.ringtoneId ? stopRingtonePreview() : startRingtonePreview(formData.ringtoneId || "classic")}
+                        data-testid="button-preview-ringtone"
+                        className="gap-2 shrink-0"
+                      >
+                        {previewingId === formData.ringtoneId ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                        <span>{previewingId === formData.ringtoneId ? tx.ringtonePreviewStop : tx.ringtonePreview}</span>
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpRingtone}</p>
                   </div>
                 </div>
 

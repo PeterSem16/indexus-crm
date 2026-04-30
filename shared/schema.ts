@@ -6035,6 +6035,7 @@ export const inboundQueues = pgTable("inbound_queues", {
   smsEnabled: boolean("sms_enabled").notNull().default(false),
   smsPhoneNumber: text("sms_phone_number"),
   recordCalls: boolean("record_calls").notNull().default(false), // enable recording & analysis for inbound calls in this queue
+  ringtoneId: text("ringtone_id").notNull().default("classic"), // preset ringtone played in agent UI on inbound call
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
