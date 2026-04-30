@@ -7790,7 +7790,7 @@ export const translations: Record<Locale, Translations> = {
         confirmDelete: 'Remove this position?',
         alreadyAssigned: 'This person is already assigned to that institution.',
         noPositionsForType: 'No positions defined for this institution type. Add them in Settings → Configurator.',
-          activitiesLabel: 'CBC activities',
+          activitiesLabel: 'Activities for CBC',
           noActivitiesForType: 'No activities defined for this type. Add them in Settings → CBC Activities.',
       },
       tabs: {
@@ -13806,7 +13806,7 @@ export const translations: Record<Locale, Translations> = {
         confirmDelete: 'Odstrániť túto pozíciu?',
         alreadyAssigned: 'Táto osoba je už priradená k tejto inštitúcii.',
         noPositionsForType: 'Pre tento typ inštitúcie nie sú definované žiadne pozície. Pridajte ich v Nastavenia → Konfigurátor.',
-          activitiesLabel: 'CBC aktivity',
+          activitiesLabel: 'Činnosti pre CBC',
           noActivitiesForType: 'Pre tento typ nie sú definované žiadne aktivity. Pridajte ich v Nastavenia → CBC aktivity.',
       },
       tabs: {
@@ -19760,7 +19760,7 @@ export const translations: Record<Locale, Translations> = {
         confirmDelete: 'Odebrat tuto pozici?',
         alreadyAssigned: 'Tato osoba je již přiřazena k této instituci.',
         noPositionsForType: 'Pro tento typ instituce nejsou definovány žádné pozice. Přidejte je v Nastavení → Konfigurátor.',
-          activitiesLabel: 'CBC aktivity',
+          activitiesLabel: 'Činnosti pro CBC',
           noActivitiesForType: 'Pro tento typ nejsou definovány žádné aktivity. Přidejte je v Nastavení → CBC aktivity.',
       },
       tabs: {
@@ -25672,7 +25672,7 @@ export const translations: Record<Locale, Translations> = {
         confirmDelete: 'Eltávolítja ezt a pozíciót?',
         alreadyAssigned: 'Ez a személy már hozzá van rendelve ehhez az intézményhez.',
         noPositionsForType: 'Ehhez az intézménytípushoz nincsenek pozíciók meghatározva. Adja hozzá őket a Beállítások → Konfigurátor menüben.',
-          activitiesLabel: 'CBC tevékenységek',
+          activitiesLabel: 'Tevékenységek a CBC-hez',
           noActivitiesForType: 'Ehhez a típushoz nincsenek tevékenységek meghatározva. Adja hozzá őket a Beállítások → CBC tevékenységek menüben.',
       },
       tabs: {
@@ -31480,7 +31480,7 @@ export const translations: Record<Locale, Translations> = {
         confirmDelete: 'Eliminați această poziție?',
         alreadyAssigned: 'Această persoană este deja atribuită acestei instituții.',
         noPositionsForType: 'Nu sunt definite poziții pentru acest tip de instituție. Adăugați-le în Setări → Configurator.',
-          activitiesLabel: 'Activități CBC',
+          activitiesLabel: 'Activități pentru CBC',
           noActivitiesForType: 'Nu sunt definite activități pentru acest tip. Adăugați-le în Setări → Activități CBC.',
       },
       tabs: {
@@ -37288,7 +37288,7 @@ export const translations: Record<Locale, Translations> = {
         confirmDelete: 'Rimuovere questa posizione?',
         alreadyAssigned: 'Questa persona è già assegnata a questa istituzione.',
         noPositionsForType: 'Nessuna posizione definita per questo tipo di istituzione. Aggiungile in Impostazioni → Configuratore.',
-          activitiesLabel: 'Attività CBC',
+          activitiesLabel: 'Attività per CBC',
           noActivitiesForType: 'Nessuna attività definita per questo tipo. Aggiungile in Impostazioni → Attività CBC.',
       },
       tabs: {
@@ -43097,7 +43097,7 @@ export const translations: Record<Locale, Translations> = {
         confirmDelete: 'Diese Position entfernen?',
         alreadyAssigned: 'Diese Person ist bereits dieser Einrichtung zugeordnet.',
         noPositionsForType: 'Für diesen Einrichtungstyp sind keine Positionen definiert. Fügen Sie sie unter Einstellungen → Konfigurator hinzu.',
-          activitiesLabel: 'CBC-Aktivitäten',
+          activitiesLabel: 'Aktivitäten für CBC',
           noActivitiesForType: 'Für diesen Typ sind keine Aktivitäten definiert. Fügen Sie sie unter Einstellungen → CBC-Aktivitäten hinzu.',
       },
       tabs: {

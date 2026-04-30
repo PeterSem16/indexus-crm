@@ -4257,20 +4257,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                 </Popover>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <PartnerCategoryField
-                value={formData.partnerCategory}
-                onChange={(val) => setFormData({ ...formData, partnerCategory: val })}
-                collaboratorId={initialData?.id}
-                t={t}
-                scopeFilter={positionScopeFilter}
-              />
-            </div>
-
             <div className="space-y-2">
               <Label>{(() => {
-                const d: Record<string, string> = { sk: "Činnosti pre CBC", cs: "Činnosti pro CBC", en: "CBC Activities", hu: "CBC tevékenységek", ro: "Activități pentru CBC", it: "Attività per CBC", de: "CBC-Aktivitäten" };
-                return d[locale] || "CBC Activities";
+                const d: Record<string, string> = { sk: "Činnosti pre CBC", cs: "Činnosti pro CBC", en: "Activities for CBC", hu: "Tevékenységek a CBC-hez", ro: "Activități pentru CBC", it: "Attività per CBC", de: "Aktivitäten für CBC" };
+                return d[locale] || "Activities for CBC";
               })()}</Label>
               <div className="flex flex-wrap gap-2">
                 {(() => {

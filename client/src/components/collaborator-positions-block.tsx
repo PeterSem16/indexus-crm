@@ -477,7 +477,7 @@ export function CollaboratorPositionsBlock({ personId, personCountryCodes, t, lo
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">{pT.activitiesLabel || "CBC activities"}</Label>
+            <Label className="text-xs">{pT.activitiesLabel || "Activities for CBC"}</Label>
             {filteredActivities.length === 0 ? (
               <div className="text-xs text-muted-foreground py-2 px-2 border border-dashed border-muted-foreground/30 rounded">
                 {pT.noActivitiesForType || "No activities defined for this type. Add them in Settings → CBC Activities."}

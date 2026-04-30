@@ -1210,7 +1210,19 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
             : (locale === "sk" || locale === "cs" ? "V sieti" : "In network");
           const entityKindLabel = entityName ? `${entityKindBase} ${entityName}` : entityKindBase;
           const professionLabel = locale === "sk" || locale === "cs" ? "Profesia" : "Profession";
-          const activitiesLabel = locale === "sk" || locale === "cs" ? "Činnosti pre CBC" : "CBC activities";
+          const activitiesLabel = locale === "sk"
+            ? "Činnosti pre CBC"
+            : locale === "cs"
+            ? "Činnosti pro CBC"
+            : locale === "hu"
+            ? "Tevékenységek a CBC-hez"
+            : locale === "ro"
+            ? "Activități pentru CBC"
+            : locale === "it"
+            ? "Attività per CBC"
+            : locale === "de"
+            ? "Aktivitäten für CBC"
+            : "Activities for CBC";
 
           return (
             <div key={p.assignment_id || `legacy-${idx}`} className="flex items-start gap-3 px-3 py-2 rounded-md border border-transparent hover:border-border hover:bg-muted/40 transition-colors group" data-testid={`card-person-drawer-${p.person_id}`}>
