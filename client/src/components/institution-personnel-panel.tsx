@@ -66,7 +66,43 @@ import {
   ClipboardList,
   MoreHorizontal,
   UserCheck,
+  Activity,
 } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+
+const COLOR_BADGE_CLASS: Record<string, string> = {
+  sky: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800",
+  blue: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
+  violet: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800",
+  purple: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800",
+  orange: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800",
+  amber: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
+  emerald: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
+  green: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
+  teal: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800",
+  indigo: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800",
+  rose: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800",
+  pink: "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950 dark:text-pink-300 dark:border-pink-800",
+  fuchsia: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950 dark:text-fuchsia-300 dark:border-fuchsia-800",
+  lime: "bg-lime-50 text-lime-700 border-lime-200 dark:bg-lime-950 dark:text-lime-300 dark:border-lime-800",
+  slate: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700",
+};
+
+function getCbcActivityColorClass(color: string | undefined | null): string {
+  return COLOR_BADGE_CLASS[color || "slate"] || COLOR_BADGE_CLASS.slate;
+}
+
+function getCbcActivityIcon(name: string | undefined | null) {
+  return (LucideIcons as any)[name || "Activity"] || Activity;
+}
+
+function getCbcActivityLocalizedName(def: any, locale: string): string {
+  const map: Record<string, string | null | undefined> = {
+    sk: def.nameSk, cs: def.nameCs, en: def.nameEn,
+    hu: def.nameHu, ro: def.nameRo, it: def.nameIt, de: def.nameDe,
+  };
+  return map[locale] || def.name || def.code || "";
+}
 
 const CBC_ACTIVITY_META: Record<string, { icon: any; cls: string; labels: Record<string, string> }> = {
   sampling_kits: {
@@ -697,6 +733,16 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
     queryKey: ["/api/mpn/categories"],
   });
 
+  const cbcActivitiesQuery = useQuery<any[]>({
+    queryKey: ["/api/cbc-activities"],
+  });
+
+  const cbcActivityByCode = (() => {
+    const map = new Map<string, any>();
+    (cbcActivitiesQuery.data || []).forEach((a: any) => { if (a?.code) map.set(a.code, a); });
+    return map;
+  })();
+
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(collabSearch), 300);
@@ -1316,16 +1362,21 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                     <span className="text-muted-foreground shrink-0 w-[80px] pt-0.5">{activitiesLabel}:</span>
                     <div className="flex items-center gap-1 flex-wrap">
                       {activityCodes.map((code: string) => {
+                        const def = cbcActivityByCode.get(code);
                         const meta = CBC_ACTIVITY_META[code];
-                        if (!meta) return null;
-                        const Icon = meta.icon;
-                        const label = meta.labels[locale] || meta.labels.en;
+                        const Icon = def ? getCbcActivityIcon(def.icon) : (meta?.icon || Activity);
+                        const label = def
+                          ? getCbcActivityLocalizedName(def, locale)
+                          : (meta?.labels[locale] || meta?.labels.en || code);
+                        const cls = def
+                          ? getCbcActivityColorClass(def.color)
+                          : (meta?.cls || COLOR_BADGE_CLASS.slate);
                         return (
                           <Badge
                             key={code}
                             variant="outline"
                             title={label}
-                            className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${meta.cls}`}
+                            className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${cls}`}
                             data-testid={`badge-cbc-${code}-${p.person_id}`}
                           >
                             <Icon className="h-2.5 w-2.5" />
