@@ -1306,11 +1306,16 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                     )}
                   </div>
                 )}
-                {Array.isArray(p.cbc_activities) && p.cbc_activities.length > 0 && (
+                {(() => {
+                  const activityCodes: string[] = p.assignment_id
+                    ? (Array.isArray(p.assignment_cbc_activity_codes) ? p.assignment_cbc_activity_codes : [])
+                    : (Array.isArray(p.cbc_activities) ? p.cbc_activities : []);
+                  if (activityCodes.length === 0) return null;
+                  return (
                   <div className="flex items-start gap-1.5 text-[11px]">
                     <span className="text-muted-foreground shrink-0 w-[80px] pt-0.5">{activitiesLabel}:</span>
                     <div className="flex items-center gap-1 flex-wrap">
-                      {p.cbc_activities.map((code: string) => {
+                      {activityCodes.map((code: string) => {
                         const meta = CBC_ACTIVITY_META[code];
                         if (!meta) return null;
                         const Icon = meta.icon;
@@ -1330,7 +1335,8 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                       })}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </div>
               <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 {p.assignment_id && (
