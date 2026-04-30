@@ -52,7 +52,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CallCustomerButton } from "@/components/sip-phone";
-import { InstitutionPersonnelManager } from "@/components/institution-personnel-panel";
+import { InstitutionPersonnelManager, CbcActivityBadgesForRow } from "@/components/institution-personnel-panel";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { getQueryFn } from "@/lib/queryClient";
@@ -280,7 +280,7 @@ interface ClinicFormSheetProps {
 }
 
 function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinicName: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { data: personnelData, isLoading } = useQuery<any>({
     queryKey: ["/api/institutions", "clinic", clinicId, "personnel"],
     queryFn: () => fetch(`/api/institutions/clinic/${clinicId}/personnel`, { credentials: "include" }).then(r => r.json()),
@@ -391,6 +391,7 @@ function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinic
                       {row.source === "legacy_link" && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700">Link</Badge>
                       )}
+                      <CbcActivityBadgesForRow row={row} locale={locale} testIdPrefix="badge-clinic-personnel-cbc" />
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       {row.department && <span>{(t as any).medicalPartnerNetwork?.department || "Dept"}: {row.department}</span>}

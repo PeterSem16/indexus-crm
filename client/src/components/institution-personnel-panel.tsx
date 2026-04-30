@@ -104,6 +104,51 @@ function getCbcActivityLocalizedName(def: any, locale: string): string {
   return map[locale] || def.name || def.code || "";
 }
 
+export function CbcActivityBadgesForRow({ row, locale, testIdPrefix }: { row: any; locale: string; testIdPrefix?: string }) {
+  const cbcActivitiesQuery = useQuery<any[]>({ queryKey: ["/api/cbc-activities"] });
+  const codes: string[] = (() => {
+    if (row?.assignment_id && Array.isArray(row?.assignment_cbc_activity_codes)) {
+      return row.assignment_cbc_activity_codes as string[];
+    }
+    if (Array.isArray(row?.cbc_activities)) {
+      return row.cbc_activities as string[];
+    }
+    return [];
+  })();
+  if (codes.length === 0) return null;
+  const map = new Map<string, any>();
+  (cbcActivitiesQuery.data || []).forEach((a: any) => { if (a?.code) map.set(a.code, a); });
+  const personId = row?.assignment_id || row?.person_id || "row";
+  const prefix = testIdPrefix || "badge-cbc";
+  return (
+    <>
+      {codes.map((code: string) => {
+        const def = map.get(code);
+        const meta = CBC_ACTIVITY_META[code];
+        const Icon = def ? getCbcActivityIcon(def.icon) : (meta?.icon || Activity);
+        const label = def
+          ? getCbcActivityLocalizedName(def, locale)
+          : (meta?.labels[locale] || meta?.labels.en || code);
+        const cls = def
+          ? getCbcActivityColorClass(def.color)
+          : (meta?.cls || COLOR_BADGE_CLASS.slate);
+        return (
+          <Badge
+            key={code}
+            variant="outline"
+            title={label}
+            className={`text-[10px] px-1.5 py-0 gap-1 shrink-0 ${cls}`}
+            data-testid={`${prefix}-${code}-${personId}`}
+          >
+            <Icon className="h-2.5 w-2.5" />
+            {label}
+          </Badge>
+        );
+      })}
+    </>
+  );
+}
+
 const CBC_ACTIVITY_META: Record<string, { icon: any; cls: string; labels: Record<string, string> }> = {
   sampling_kits: {
     icon: Package,

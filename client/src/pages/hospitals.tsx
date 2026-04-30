@@ -8,7 +8,7 @@ import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimelin
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { CollaboratorsContent } from "@/pages/collaborators";
 import { EntityFilter, type FilterRule, type FilterField, type FilterPreset } from "@/components/shared/EntityFilter";
-import { InstitutionPersonnelPanel, InstitutionPersonnelManager } from "@/components/institution-personnel-panel";
+import { InstitutionPersonnelPanel, InstitutionPersonnelManager, CbcActivityBadgesForRow } from "@/components/institution-personnel-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -187,6 +187,7 @@ function PersonnelTabContent({ entityType, entityId, entityName }: { entityType:
                 {row.source === "legacy_link" && (
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700">Link</Badge>
                 )}
+                <CbcActivityBadgesForRow row={row} locale={locale} testIdPrefix={`badge-${entityType}-personnel-cbc`} />
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 {row.department && <span>{(t as any).medicalPartnerNetwork?.department || "Dept"}: {row.department}</span>}
