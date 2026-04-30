@@ -2702,7 +2702,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     if (initialData) {
       return (
         <>
-          <div className="flex flex-col h-full overflow-hidden" data-testid="clinic-card-tabbed-inline">
+          <div className="flex flex-col h-full overflow-hidden relative" data-testid="clinic-card-tabbed-inline">
             {editorBody}
           </div>
           {mapDialog}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
@@ -274,30 +275,36 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
         )}
       </div>
 
-      {savePersonOpen && (
-        <>
-          <div
-            className={inlineMode
-              ? "absolute inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
-              : "fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"}
-            onClick={() => setSavePersonOpen(false)}
-            data-testid="save-person-drawer-backdrop"
-          />
-          <div
-            className={inlineMode
-              ? "absolute inset-0 z-[51] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"
-              : "fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}
-            data-testid="save-person-drawer"
-          >
-            <CollaboratorFormWizard
-              prefillData={collabPrefill as any}
-              onCreated={async (collab) => { await assignToClinic(collab.id); }}
-              onSuccess={() => setSavePersonOpen(false)}
-              onCancel={() => setSavePersonOpen(false)}
+      {savePersonOpen && (() => {
+        const inlinePortalTarget = inlineMode && typeof document !== "undefined"
+          ? document.querySelector('[data-testid="clinic-card-tabbed-inline"]')
+          : null;
+        const drawerNode = (
+          <>
+            <div
+              className={inlinePortalTarget
+                ? "absolute inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+                : "fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"}
+              onClick={() => setSavePersonOpen(false)}
+              data-testid="save-person-drawer-backdrop"
             />
-          </div>
-        </>
-      )}
+            <div
+              className={inlinePortalTarget
+                ? "absolute inset-0 z-[51] bg-background shadow-2xl animate-in fade-in duration-200 flex flex-col"
+                : "fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}
+              data-testid="save-person-drawer"
+            >
+              <CollaboratorFormWizard
+                prefillData={collabPrefill as any}
+                onCreated={async (collab) => { await assignToClinic(collab.id); }}
+                onSuccess={() => setSavePersonOpen(false)}
+                onCancel={() => setSavePersonOpen(false)}
+              />
+            </div>
+          </>
+        );
+        return inlinePortalTarget ? createPortal(drawerNode, inlinePortalTarget) : drawerNode;
+      })()}
     </div>
   );
 }
@@ -1326,56 +1333,68 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
         })}
       </div>
 
-      {isDrawerOpen && drawerCollaborator && (
-        <>
-          <div
-            className={inlineMode
-              ? "absolute inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
-              : "fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"}
-            onClick={closeCollaboratorDrawer}
-            data-testid="collaborator-drawer-backdrop"
-          />
-          <div className={inlineMode
-            ? "absolute inset-0 z-[61] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"
-            : "fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}>
-            <CollaboratorFormWizard
-              initialData={drawerCollaborator}
-              onSuccess={closeCollaboratorDrawer}
-              onCancel={closeCollaboratorDrawer}
+      {isDrawerOpen && drawerCollaborator && (() => {
+        const inlinePortalTarget = inlineMode && typeof document !== "undefined"
+          ? document.querySelector('[data-testid="clinic-card-tabbed-inline"]')
+          : null;
+        const drawerNode = (
+          <>
+            <div
+              className={inlinePortalTarget
+                ? "absolute inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+                : "fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"}
+              onClick={closeCollaboratorDrawer}
+              data-testid="collaborator-drawer-backdrop"
             />
-          </div>
-        </>
-      )}
+            <div className={inlinePortalTarget
+              ? "absolute inset-0 z-[61] bg-background shadow-2xl animate-in fade-in duration-200 flex flex-col"
+              : "fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}>
+              <CollaboratorFormWizard
+                initialData={drawerCollaborator}
+                onSuccess={closeCollaboratorDrawer}
+                onCancel={closeCollaboratorDrawer}
+              />
+            </div>
+          </>
+        );
+        return inlinePortalTarget ? createPortal(drawerNode, inlinePortalTarget) : drawerNode;
+      })()}
 
-      {nestedNewPersonOpen && (
-        <>
-          <div
-            className={inlineMode
-              ? "absolute inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
-              : "fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"}
-            onClick={() => setNestedNewPersonOpen(false)}
-            data-testid="nested-add-person-backdrop"
-          />
-          <div className={inlineMode
-            ? "absolute inset-0 z-[61] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"
-            : "fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}>
-            <CollaboratorFormWizard
-              prefillData={{ lastName: nestedNewPersonPrefill, countryCode: (countryCode || "SK") }}
-              onSuccess={() => setNestedNewPersonOpen(false)}
-              onCancel={() => setNestedNewPersonOpen(false)}
-              onCreated={async (created: any) => {
-                if (created?.id) {
-                  const fullName = [created.titleBefore, created.firstName, created.lastName, created.titleAfter].filter(Boolean).join(" ");
-                  setSelectedCollabId(created.id);
-                  setCollabSearch(fullName);
-                  queryClient.invalidateQueries({ queryKey: ["/api/collaborators/lookup"] });
-                }
-                setNestedNewPersonOpen(false);
-              }}
+      {nestedNewPersonOpen && (() => {
+        const inlinePortalTarget = inlineMode && typeof document !== "undefined"
+          ? document.querySelector('[data-testid="clinic-card-tabbed-inline"]')
+          : null;
+        const drawerNode = (
+          <>
+            <div
+              className={inlinePortalTarget
+                ? "absolute inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+                : "fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"}
+              onClick={() => setNestedNewPersonOpen(false)}
+              data-testid="nested-add-person-backdrop"
             />
-          </div>
-        </>
-      )}
+            <div className={inlinePortalTarget
+              ? "absolute inset-0 z-[61] bg-background shadow-2xl animate-in fade-in duration-200 flex flex-col"
+              : "fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}>
+              <CollaboratorFormWizard
+                prefillData={{ lastName: nestedNewPersonPrefill, countryCode: (countryCode || "SK") }}
+                onSuccess={() => setNestedNewPersonOpen(false)}
+                onCancel={() => setNestedNewPersonOpen(false)}
+                onCreated={async (created: any) => {
+                  if (created?.id) {
+                    const fullName = [created.titleBefore, created.firstName, created.lastName, created.titleAfter].filter(Boolean).join(" ");
+                    setSelectedCollabId(created.id);
+                    setCollabSearch(fullName);
+                    queryClient.invalidateQueries({ queryKey: ["/api/collaborators/lookup"] });
+                  }
+                  setNestedNewPersonOpen(false);
+                }}
+              />
+            </div>
+          </>
+        );
+        return inlinePortalTarget ? createPortal(drawerNode, inlinePortalTarget) : drawerNode;
+      })()}
     </div>
   );
 }
