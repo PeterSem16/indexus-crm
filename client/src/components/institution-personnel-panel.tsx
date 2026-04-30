@@ -1004,10 +1004,11 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
 
           return (
             <div key={p.assignment_id || p.person_id} className="rounded-xl border-2 border-border bg-gradient-to-br from-muted/30 to-background p-4 shadow-sm" data-testid={`personnel-primary-person-${p.person_id}`}>
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
                 {catName && (
                   <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${catStyle.color} border-current/30`}>{catName}</Badge>
                 )}
+                <CbcActivityBadgesForRow row={p} locale={locale} testIdPrefix={`badge-${entityType}-personnel-primary-cbc`} />
               </div>
               <div className="flex items-center gap-4">
                 <button
