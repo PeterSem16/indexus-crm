@@ -7210,6 +7210,7 @@ export const contactAssignments = pgTable("contact_assignments", {
   isActive: boolean("is_active").notNull().default(true),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
+  cbcActivityCodes: text("cbc_activity_codes").array().notNull().default(sql`ARRAY[]::text[]`),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7218,9 +7219,45 @@ export const insertContactAssignmentSchema = createInsertSchema(contactAssignmen
   entityType: z.enum(["hospital", "clinic", "network"]).default("hospital"),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  cbcActivityCodes: z.array(z.string()).optional().default([]),
 });
 export type InsertContactAssignment = z.infer<typeof insertContactAssignmentSchema>;
 export type ContactAssignment = typeof contactAssignments.$inferSelect;
+
+export const cbcActivityDefinitions = pgTable("cbc_activity_definitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  nameEn: text("name_en"),
+  nameSk: text("name_sk"),
+  nameCs: text("name_cs"),
+  nameHu: text("name_hu"),
+  nameRo: text("name_ro"),
+  nameIt: text("name_it"),
+  nameDe: text("name_de"),
+  description: text("description"),
+  descriptionEn: text("description_en"),
+  descriptionSk: text("description_sk"),
+  descriptionCs: text("description_cs"),
+  descriptionHu: text("description_hu"),
+  descriptionRo: text("description_ro"),
+  descriptionIt: text("description_it"),
+  descriptionDe: text("description_de"),
+  entityScope: text("entity_scope").notNull().default("hospital"),
+  icon: text("icon").notNull().default("Activity"),
+  color: text("color").notNull().default("slate"),
+  shortcut: text("shortcut"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCbcActivityDefinitionSchema = createInsertSchema(cbcActivityDefinitions).omit({ id: true, createdAt: true }).extend({
+  entityScope: z.enum(["hospital", "clinic", "network", "midwife", "nurse"]).default("hospital"),
+});
+export type InsertCbcActivityDefinition = z.infer<typeof insertCbcActivityDefinitionSchema>;
+export type CbcActivityDefinition = typeof cbcActivityDefinitions.$inferSelect;
 
 export const contactChannels = pgTable("contact_channels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -7,7 +7,8 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check, Server, Eye, EyeOff, Link2, Smartphone, Copy, XCircle, Clock, CheckCircle2 } from "lucide-react";
+import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check, Server, Eye, EyeOff, Link2, Smartphone, Copy, XCircle, Clock, CheckCircle2, Activity } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import { AriSettingsTab } from "@/components/configurator/AriSettingsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -1416,6 +1417,401 @@ function SipPhoneSection() {
   );
 }
 
+// =================== CBC Activities Manager ===================
+const CBC_ICON_OPTIONS = [
+  "Activity", "Package", "FileSignature", "AlertTriangle", "Receipt", "ClipboardList",
+  "MoreHorizontal", "Heart", "HeartPulse", "Stethoscope", "Building2", "Hospital",
+  "Network", "User", "Users", "Briefcase", "FileText", "Mail", "Phone", "Star",
+  "CheckCircle", "Award", "Microscope", "Pill", "Syringe", "TestTube",
+  "FlaskConical", "Calendar", "Clipboard", "Database", "Folder", "Globe",
+  "Layers", "Settings", "Shield", "TrendingUp", "Truck", "Zap", "Baby", "Milk",
+];
+const CBC_COLOR_OPTIONS = [
+  "sky", "blue", "violet", "purple", "orange", "amber", "emerald", "green",
+  "teal", "indigo", "rose", "pink", "fuchsia", "lime", "slate",
+];
+const CBC_SCOPE_OPTIONS: Array<{ value: string; labelKey: string }> = [
+  { value: "hospital", labelKey: "hospital" },
+  { value: "clinic", labelKey: "clinic" },
+  { value: "network", labelKey: "network" },
+  { value: "midwife", labelKey: "midwife" },
+  { value: "nurse", labelKey: "nurse" },
+];
+const CBC_COLOR_DOT_CLASS: Record<string, string> = {
+  sky: "bg-sky-500", blue: "bg-blue-500", violet: "bg-violet-500", purple: "bg-purple-500",
+  orange: "bg-orange-500", amber: "bg-amber-500", emerald: "bg-emerald-500", green: "bg-green-500",
+  teal: "bg-teal-500", indigo: "bg-indigo-500", rose: "bg-rose-500", pink: "bg-pink-500",
+  fuchsia: "bg-fuchsia-500", lime: "bg-lime-500", slate: "bg-slate-500",
+};
+const CBC_COLOR_TILE_CLASS: Record<string, string> = {
+  sky: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800",
+  blue: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
+  violet: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800",
+  purple: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800",
+  orange: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800",
+  amber: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
+  emerald: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
+  green: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
+  teal: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800",
+  indigo: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800",
+  rose: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800",
+  pink: "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950 dark:text-pink-300 dark:border-pink-800",
+  fuchsia: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950 dark:text-fuchsia-300 dark:border-fuchsia-800",
+  lime: "bg-lime-50 text-lime-700 border-lime-200 dark:bg-lime-950 dark:text-lime-300 dark:border-lime-800",
+  slate: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700",
+};
+
+interface CbcActivityItem {
+  id: string; code: string; name: string;
+  nameEn?: string | null; nameSk?: string | null; nameCs?: string | null;
+  nameHu?: string | null; nameRo?: string | null; nameIt?: string | null; nameDe?: string | null;
+  description?: string | null; descriptionSk?: string | null; descriptionEn?: string | null;
+  entityScope: string; icon: string; color: string;
+  shortcut?: string | null; sortOrder: number; isActive: boolean; isDefault: boolean;
+}
+
+function CbcActivityIcon({ name, className }: { name: string; className?: string }) {
+  const Icon = ((LucideIcons as any)[name] || LucideIcons.Activity) as any;
+  return <Icon className={className || "h-4 w-4"} />;
+}
+
+function CbcActivitiesManager() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const _raw = (t.settings as any).cbcActivities || {};
+  const aT: Record<string, string> = {
+    ..._raw,
+    addActivity: _raw.addButton || _raw.addActivity || "Add activity",
+    editActivity: _raw.editTitle || _raw.editActivity || "Edit activity",
+    loadDefaults: _raw.seedDefaults || _raw.loadDefaults || "Load defaults",
+    empty: _raw.emptyState || _raw.empty || "No activities yet.",
+    activeLabel: _raw.isActiveLabel || _raw.activeLabel || "Active",
+    translations: _raw.translationsLabel || _raw.translations || "Translations",
+    preview: _raw.previewLabel || _raw.preview || "Preview",
+    filterByScope: _raw.scopeLabel || _raw.filterByScope || "Type",
+    allScopes: _raw.scopeFilterAll || _raw.allScopes || "All",
+    confirmDeleteTitle: _raw.confirmDelete || _raw.confirmDeleteTitle || "Delete activity?",
+    shortcutLabel: _raw.shortcutLabel || _raw.codeLabel || "Shortcut",
+  };
+  const scopeLabels: Record<string, string> = {
+    hospital: aT.scopeHospital || "Hospital",
+    clinic: aT.scopeClinic || "Clinic",
+    network: aT.scopeNetwork || "Network",
+    midwife: aT.scopeMidwife || "Midwife",
+    nurse: aT.scopeNurse || "Nurse",
+  };
+
+  const [editing, setEditing] = useState<CbcActivityItem | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [scopeFilter, setScopeFilter] = useState<string>("__all__");
+
+  const [form, setForm] = useState({
+    code: "", name: "", description: "",
+    nameEn: "", nameSk: "", nameCs: "", nameHu: "", nameRo: "", nameIt: "", nameDe: "",
+    entityScope: "hospital", icon: "Activity", color: "slate", shortcut: "", sortOrder: 0, isActive: true,
+  });
+
+  const { data: items = [], isLoading } = useQuery<CbcActivityItem[]>({
+    queryKey: ["/api/cbc-activities"],
+  });
+
+  const filteredItems = useMemo(() => {
+    if (scopeFilter === "__all__") return items;
+    return items.filter((i) => i.entityScope === scopeFilter);
+  }, [items, scopeFilter]);
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/cbc-activities", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cbc-activities"] });
+      toast({ title: aT.added || "Activity added" });
+      resetForm();
+    },
+    onError: (e: any) => toast({ title: e?.message || "Error", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("PATCH", `/api/cbc-activities/${editing?.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cbc-activities"] });
+      toast({ title: aT.updated || "Activity updated" });
+      resetForm();
+    },
+    onError: (e: any) => toast({ title: e?.message || "Error", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/cbc-activities/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cbc-activities"] });
+      setDeleteId(null);
+      toast({ title: aT.deleted || "Activity deleted" });
+    },
+    onError: (e: any) => toast({ title: e?.message || "Error", variant: "destructive" }),
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/cbc-activities/seed-defaults", {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cbc-activities"] });
+      toast({ title: aT.seeded || "Default activities loaded" });
+    },
+    onError: (e: any) => toast({ title: e?.message || "Error", variant: "destructive" }),
+  });
+
+  function resetForm() {
+    setShowForm(false);
+    setEditing(null);
+    setForm({
+      code: "", name: "", description: "",
+      nameEn: "", nameSk: "", nameCs: "", nameHu: "", nameRo: "", nameIt: "", nameDe: "",
+      entityScope: "hospital", icon: "Activity", color: "slate", shortcut: "", sortOrder: 0, isActive: true,
+    });
+  }
+
+  function openAdd() {
+    resetForm();
+    setShowForm(true);
+  }
+
+  function openEdit(item: CbcActivityItem) {
+    setEditing(item);
+    setForm({
+      code: item.code,
+      name: item.name,
+      description: item.description || "",
+      nameEn: item.nameEn || "", nameSk: item.nameSk || "", nameCs: item.nameCs || "",
+      nameHu: item.nameHu || "", nameRo: item.nameRo || "", nameIt: item.nameIt || "", nameDe: item.nameDe || "",
+      entityScope: item.entityScope, icon: item.icon, color: item.color,
+      shortcut: item.shortcut || "", sortOrder: item.sortOrder, isActive: item.isActive,
+    });
+    setShowForm(true);
+  }
+
+  function submit() {
+    if (!form.name.trim() || !form.code.trim()) {
+      toast({ title: aT.nameAndCodeRequired || "Name and code are required", variant: "destructive" });
+      return;
+    }
+    const payload = {
+      ...form,
+      code: form.code.trim(),
+      name: form.name.trim(),
+      sortOrder: Number(form.sortOrder) || 0,
+    };
+    if (editing) updateMutation.mutate(payload);
+    else createMutation.mutate(payload);
+  }
+
+  return (
+    <div className="space-y-4" data-testid="cbc-activities-manager">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">{aT.filterByScope || "Type"}</Label>
+          <Select value={scopeFilter} onValueChange={setScopeFilter}>
+            <SelectTrigger className="h-9 w-44 text-sm" data-testid="select-cbc-scope-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{aT.allScopes || "All"}</SelectItem>
+              {CBC_SCOPE_OPTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{scopeLabels[s.value]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          {items.length === 0 && (
+            <Button type="button" size="sm" variant="outline" onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending} data-testid="button-cbc-seed">
+              {aT.loadDefaults || "Load defaults"}
+            </Button>
+          )}
+          <Button type="button" size="sm" onClick={openAdd} data-testid="button-cbc-add">
+            <Plus className="h-3.5 w-3.5 mr-1" /> {aT.addActivity || "Add activity"}
+          </Button>
+        </div>
+      </div>
+
+      {isLoading && <div className="text-sm text-muted-foreground py-6 text-center">…</div>}
+
+      {!isLoading && filteredItems.length === 0 && (
+        <div className="text-sm text-muted-foreground py-8 text-center border border-dashed border-muted-foreground/30 rounded">
+          {aT.empty || "No activities yet."}
+        </div>
+      )}
+
+      <div className="grid gap-2">
+        {filteredItems.map((item) => (
+          <div key={item.id} className="flex items-center gap-3 p-3 rounded-md border border-border bg-card hover-elevate" data-testid={`row-cbc-${item.id}`}>
+            <span className={`inline-flex items-center justify-center w-9 h-9 rounded-md border ${CBC_COLOR_TILE_CLASS[item.color] || CBC_COLOR_TILE_CLASS.slate}`}>
+              <CbcActivityIcon name={item.icon} className="h-4 w-4" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="text-sm font-medium text-foreground" data-testid={`text-cbc-name-${item.id}`}>{item.name}</div>
+                <Badge variant="outline" className="text-[10px]">{scopeLabels[item.entityScope] || item.entityScope}</Badge>
+                {item.shortcut && <Badge variant="secondary" className="text-[10px] font-mono">{item.shortcut}</Badge>}
+                {!item.isActive && <Badge variant="outline" className="text-[10px] text-muted-foreground">{aT.inactive || "Inactive"}</Badge>}
+              </div>
+              {item.description && <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.description}</div>}
+              <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{item.code}</div>
+            </div>
+            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(item)} data-testid={`button-cbc-edit-${item.id}`}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(item.id)} data-testid={`button-cbc-delete-${item.id}`}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <Dialog open={showForm} onOpenChange={(o) => !o && resetForm()}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing ? (aT.editActivity || "Edit activity") : (aT.addActivity || "Add activity")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">{aT.nameLabel || "Name"} *</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="input-cbc-name" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{aT.codeLabel || "Code"} *</Label>
+                <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="sampling_kits" className="font-mono text-sm" data-testid="input-cbc-code" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">{aT.descriptionLabel || "Long description"}</Label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                rows={3}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                data-testid="textarea-cbc-description"
+              />
+            </div>
+
+            <details className="rounded-md border border-border p-3 space-y-2">
+              <summary className="cursor-pointer text-xs font-medium text-foreground">{aT.translations || "Translations"}</summary>
+              <div className="grid sm:grid-cols-2 gap-2 mt-2">
+                {[
+                  { key: "nameSk", label: "SK" }, { key: "nameCs", label: "CS" }, { key: "nameEn", label: "EN" },
+                  { key: "nameHu", label: "HU" }, { key: "nameRo", label: "RO" }, { key: "nameIt", label: "IT" }, { key: "nameDe", label: "DE" },
+                ].map((f) => (
+                  <div key={f.key} className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">{f.label}</Label>
+                    <Input
+                      value={(form as any)[f.key]}
+                      onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                      className="h-8 text-xs"
+                      data-testid={`input-cbc-${f.key}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </details>
+
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">{aT.scopeLabel || "Type by institution"}</Label>
+                <Select value={form.entityScope} onValueChange={(v) => setForm({ ...form, entityScope: v })}>
+                  <SelectTrigger className="h-9 text-sm" data-testid="select-cbc-scope"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CBC_SCOPE_OPTIONS.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{scopeLabels[s.value]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{aT.shortcutLabel || "Shortcut"}</Label>
+                <Input value={form.shortcut} onChange={(e) => setForm({ ...form, shortcut: e.target.value })} placeholder="SK" className="h-9 text-sm" data-testid="input-cbc-shortcut" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{aT.sortOrderLabel || "Sort order"}</Label>
+                <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} className="h-9 text-sm" data-testid="input-cbc-sort" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">{aT.iconLabel || "Icon"}</Label>
+              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto border border-border rounded p-2" data-testid="picker-cbc-icon">
+                {CBC_ICON_OPTIONS.map((iconName) => (
+                  <button
+                    key={iconName}
+                    type="button"
+                    onClick={() => setForm({ ...form, icon: iconName })}
+                    title={iconName}
+                    className={`inline-flex items-center justify-center w-9 h-9 rounded border transition-colors ${form.icon === iconName ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:bg-muted"}`}
+                    data-testid={`icon-option-${iconName}`}
+                  >
+                    <CbcActivityIcon name={iconName} className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">{aT.colorLabel || "Color"}</Label>
+              <div className="flex flex-wrap gap-1.5" data-testid="picker-cbc-color">
+                {CBC_COLOR_OPTIONS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setForm({ ...form, color })}
+                    title={color}
+                    className={`inline-flex items-center justify-center w-7 h-7 rounded-full border-2 transition-all ${form.color === color ? "border-foreground scale-110" : "border-transparent"}`}
+                    data-testid={`color-option-${color}`}
+                  >
+                    <span className={`w-5 h-5 rounded-full ${CBC_COLOR_DOT_CLASS[color]}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-md border border-border p-3 bg-muted/30">
+              <Label className="text-xs text-muted-foreground">{aT.preview || "Preview"}</Label>
+              <div className="mt-2">
+                <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border text-xs ${CBC_COLOR_TILE_CLASS[form.color] || CBC_COLOR_TILE_CLASS.slate}`}>
+                  <CbcActivityIcon name={form.icon} className="h-3.5 w-3.5" />
+                  <span>{form.name || aT.nameLabel || "Name"}</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} data-testid="switch-cbc-active" />
+              <Label className="text-xs cursor-pointer">{aT.activeLabel || "Active"}</Label>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={resetForm} data-testid="button-cbc-cancel">{t.common.cancel}</Button>
+              <Button type="button" onClick={submit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-cbc-save">{t.common.save}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{aT.confirmDeleteTitle || "Delete activity?"}</AlertDialogTitle>
+            <AlertDialogDescription>{aT.confirmDeleteMessage || "This activity will be removed from all positions that use it."}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)} data-testid="button-cbc-confirm-delete">{t.common.delete}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -1456,6 +1852,10 @@ export default function SettingsPage() {
           <TabsTrigger value="leadscoring" data-testid="tab-leadscoring">
             <Target className="h-4 w-4 mr-2" />
             {t.leadScoring.criteria}
+          </TabsTrigger>
+          <TabsTrigger value="cbc-activities" data-testid="tab-cbc-activities">
+            <Activity className="h-4 w-4 mr-2" />
+            {(t.settings as any).cbcActivities?.tabTitle || "CBC Activities"}
           </TabsTrigger>
           <TabsTrigger value="system" data-testid="tab-system">
             <Shield className="h-4 w-4 mr-2" />
@@ -1566,6 +1966,20 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <LeadScoringCriteriaManager countries={userCountries} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cbc-activities" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{(t.settings as any).cbcActivities?.title || "CBC Activities"}</CardTitle>
+              <CardDescription>
+                {(t.settings as any).cbcActivities?.description || "Manage activities that can be assigned per position. Each activity is scoped to an institution type and shown as an icon tile."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CbcActivitiesManager />
             </CardContent>
           </Card>
         </TabsContent>

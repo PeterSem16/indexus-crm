@@ -43,6 +43,7 @@ import {
   type Campaign, type CampaignContact, type ContractInstance,
   partnerCategories, contactAssignments, contactChannels, communicationSchedules, firstContactProtocols,
   insertPartnerCategorySchema, insertContactAssignmentSchema, insertContactChannelSchema, insertCommunicationScheduleSchema, insertFirstContactProtocolSchema,
+  cbcActivityDefinitions, insertCbcActivityDefinitionSchema,
   campaignOperatorSettings,
   trainingRoomArchives,
   scriptTemplates,
@@ -42675,6 +42676,87 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ============ CBC ACTIVITIES (Settings module) ============
+  app.get("/api/cbc-activities", requireAuth, async (req, res) => {
+    try {
+      const { entityScope } = req.query;
+      const conds: any[] = [];
+      if (entityScope) conds.push(eq(cbcActivityDefinitions.entityScope, entityScope as string));
+      const rows = await db.select().from(cbcActivityDefinitions)
+        .where(conds.length > 0 ? and(...conds) : undefined)
+        .orderBy(asc(cbcActivityDefinitions.sortOrder), asc(cbcActivityDefinitions.name));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/cbc-activities", requireAuth, async (req, res) => {
+    try {
+      const data = insertCbcActivityDefinitionSchema.parse(req.body);
+      const [row] = await db.insert(cbcActivityDefinitions).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/cbc-activities/:id", requireAuth, async (req, res) => {
+    try {
+      const data = insertCbcActivityDefinitionSchema.partial().parse(req.body);
+      const [row] = await db.update(cbcActivityDefinitions).set(data).where(eq(cbcActivityDefinitions.id, req.params.id)).returning();
+      if (!row) return res.status(404).json({ error: "Not found" });
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/cbc-activities/:id", requireAuth, async (req, res) => {
+    try {
+      const [existing] = await db.select().from(cbcActivityDefinitions).where(eq(cbcActivityDefinitions.id, req.params.id));
+      if (!existing) return res.status(404).json({ error: "Not found" });
+      await db.delete(cbcActivityDefinitions).where(eq(cbcActivityDefinitions.id, req.params.id));
+      // Strip the deleted code from any contact assignments still referencing it.
+      try {
+        await db.execute(sql`UPDATE contact_assignments SET cbc_activity_codes = array_remove(cbc_activity_codes, ${existing.code}) WHERE ${existing.code} = ANY(cbc_activity_codes)`);
+      } catch (cleanupErr: any) {
+        console.warn("[CBC] Cleanup of dangling assignment codes failed:", cleanupErr?.message);
+      }
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/cbc-activities/seed-defaults", requireAuth, async (req, res) => {
+    try {
+      const defaults = [
+        { code: "sampling_kits", entityScope: "hospital", icon: "Package", color: "sky", sortOrder: 1, isDefault: true, isActive: true,
+          name: "Odberové sady", nameSk: "Odberové sady", nameCs: "Odběrové sady", nameEn: "Sampling kits",
+          nameHu: "Mintavételi készletek", nameRo: "Truse de prelevare", nameIt: "Kit di prelievo", nameDe: "Probenahme-Sets" },
+        { code: "employee_agreements", entityScope: "hospital", icon: "FileSignature", color: "violet", sortOrder: 2, isDefault: true, isActive: true,
+          name: "Dohody so zamestnancami", nameSk: "Dohody so zamestnancami", nameCs: "Dohody se zaměstnanci", nameEn: "Employee agreements",
+          nameHu: "Munkavállalói megállapodások", nameRo: "Acorduri cu angajații", nameIt: "Accordi con i dipendenti", nameDe: "Mitarbeitervereinbarungen" },
+        { code: "nonconforming_work", entityScope: "hospital", icon: "AlertTriangle", color: "orange", sortOrder: 3, isDefault: true, isActive: true,
+          name: "Nezhodné práce", nameSk: "Nezhodné práce", nameCs: "Neshodné práce", nameEn: "Nonconforming work",
+          nameHu: "Nem megfelelő munka", nameRo: "Lucrări neconforme", nameIt: "Lavori non conformi", nameDe: "Nicht konforme Arbeiten" },
+        { code: "invoicing", entityScope: "hospital", icon: "Receipt", color: "emerald", sortOrder: 4, isDefault: true, isActive: true,
+          name: "Fakturácia", nameSk: "Fakturácia", nameCs: "Fakturace", nameEn: "Invoicing",
+          nameHu: "Számlázás", nameRo: "Facturare", nameIt: "Fatturazione", nameDe: "Rechnungsstellung" },
+        { code: "sampling_device_docs", entityScope: "hospital", icon: "ClipboardList", color: "indigo", sortOrder: 5, isDefault: true, isActive: true,
+          name: "Dokumentácia odberového zariadenia", nameSk: "Dokumentácia odberového zariadenia", nameCs: "Dokumentace odběrového zařízení",
+          nameEn: "Sampling device documentation", nameHu: "Mintavevő eszköz dokumentációja", nameRo: "Documentația dispozitivului de prelevare",
+          nameIt: "Documentazione del dispositivo di prelievo", nameDe: "Dokumentation des Probenahmegeräts" },
+        { code: "other", entityScope: "hospital", icon: "MoreHorizontal", color: "slate", sortOrder: 99, isDefault: true, isActive: true,
+          name: "Iné", nameSk: "Iné", nameCs: "Jiné", nameEn: "Other",
+          nameHu: "Egyéb", nameRo: "Altele", nameIt: "Altro", nameDe: "Sonstiges" },
+      ];
+
+      let seeded = 0;
+      for (const a of defaults) {
+        const existing = await db.select().from(cbcActivityDefinitions).where(eq(cbcActivityDefinitions.code, a.code));
+        if (existing.length === 0) {
+          await db.insert(cbcActivityDefinitions).values(a as any);
+          seeded++;
+        }
+      }
+      res.json({ success: true, seeded });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // --- AI Translate Category Name ---
   app.post("/api/mpn/categories/ai-translate", requireAuth, async (req, res) => {
     try {
@@ -43771,7 +43853,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         SELECT
           ca.id as assignment_id, ca.department, ca.position, ca.role, ca.subcategory,
           ca.is_primary, ca.is_active, ca.notes, ca.start_date, ca.end_date,
-          ca.category_id,
+          ca.category_id, ca.cbc_activity_codes as assignment_cbc_activity_codes,
           pc.code as category_code, pc.name as category_name,
           c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
           c.email, c.phone, c.mobile, c.collaborator_type, c.is_active as person_active,
@@ -43935,7 +44017,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       if (!["hospital", "clinic", "network"].includes(entityType)) {
         return res.status(400).json({ error: "Invalid entity type" });
       }
-      const { personId, department, position, role, categoryId, isPrimary, notes } = req.body;
+      const { personId, department, position, role, categoryId, isPrimary, notes, cbcActivityCodes } = req.body;
       if (!personId) return res.status(400).json({ error: "personId is required" });
 
       // Check if assignment already exists
@@ -43958,6 +44040,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         isPrimary: isPrimary || false,
         notes: notes || null,
         isActive: true,
+        cbcActivityCodes: Array.isArray(cbcActivityCodes) ? cbcActivityCodes : [],
       }).returning();
 
       if (categoryId && personId) {
@@ -43977,7 +44060,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
   app.put("/api/institutions/:entityType/:entityId/personnel/:assignmentId", requireAuth, async (req, res) => {
     try {
       const { assignmentId } = req.params;
-      const { department, position, role, categoryId, isPrimary, notes, isActive } = req.body;
+      const { department, position, role, categoryId, isPrimary, notes, isActive, cbcActivityCodes } = req.body;
       const [row] = await db.update(contactAssignments)
         .set({
           ...(department !== undefined && { department }),
@@ -43987,6 +44070,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
           ...(isPrimary !== undefined && { isPrimary }),
           ...(notes !== undefined && { notes }),
           ...(isActive !== undefined && { isActive }),
+          ...(cbcActivityCodes !== undefined && { cbcActivityCodes: Array.isArray(cbcActivityCodes) ? cbcActivityCodes : [] }),
           updatedAt: new Date(),
         })
         .where(eq(contactAssignments.id, assignmentId))
