@@ -1194,6 +1194,77 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   // ============ INBOUND CALL LOGS ============
 
+  // Today's inbound call history for a phone number — used by the live inbound call popup
+  // to warn agents about repeated/missed calls from the same caller.
+  app.get("/api/inbound-call-logs/today-by-number", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const phone = (req.query.phone as string) || "";
+      if (!phone) return res.status(400).json({ error: "Phone parameter required" });
+
+      const normalized = phone.replace(/[\s\-\(\)]/g, "");
+      const shortNum = normalized.replace(/^(\+|00)/, "").replace(/^(421|420|36|40|39|49|1)/, "");
+      const suffix = shortNum.slice(-9);
+      if (!suffix) return res.json({ total: 0, answered: 0, missed: 0, lastWasMissed: false, recent: [] });
+
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const rows = await db
+        .select({
+          id: inboundCallLogs.id,
+          callerNumber: inboundCallLogs.callerNumber,
+          status: inboundCallLogs.status,
+          enteredQueueAt: inboundCallLogs.enteredQueueAt,
+          answeredAt: inboundCallLogs.answeredAt,
+          completedAt: inboundCallLogs.completedAt,
+          waitDurationSeconds: inboundCallLogs.waitDurationSeconds,
+          queueId: inboundCallLogs.queueId,
+          queueName: inboundQueues.name,
+          abandonReason: inboundCallLogs.abandonReason,
+        })
+        .from(inboundCallLogs)
+        .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+        .where(and(
+          gte(inboundCallLogs.enteredQueueAt, startOfDay),
+          sql`regexp_replace(coalesce(${inboundCallLogs.callerNumber}, ''), '[^0-9]', '', 'g') LIKE ${'%' + suffix}`,
+        ))
+        .orderBy(desc(inboundCallLogs.enteredQueueAt))
+        .limit(25);
+
+      let total = 0;
+      let answered = 0;
+      let missed = 0;
+      const recent = rows.map((r: any) => {
+        total++;
+        const isAnswered = !!r.answeredAt;
+        const isCompletedNoAnswer = !isAnswered && !!r.completedAt;
+        const isMissedStatus = ["abandoned", "missed", "no_answer", "timeout"].includes(String(r.status || "").toLowerCase());
+        if (isAnswered) answered++;
+        if (isMissedStatus || isCompletedNoAnswer) missed++;
+        return {
+          id: r.id,
+          status: r.status,
+          enteredQueueAt: r.enteredQueueAt,
+          answeredAt: r.answeredAt,
+          completedAt: r.completedAt,
+          waitDurationSeconds: r.waitDurationSeconds,
+          queueName: r.queueName,
+          missed: isMissedStatus || isCompletedNoAnswer,
+        };
+      });
+
+      // Determine whether the most recent COMPLETED prior call (excluding still-ringing/queued)
+      // ended without being answered.
+      const priorCompleted = recent.find((r: any) => r.completedAt);
+      const lastWasMissed = !!(priorCompleted && priorCompleted.missed);
+
+      res.json({ total, answered, missed, lastWasMissed, recent });
+    } catch (error) {
+      console.error("Error fetching today's inbound call history:", error);
+      res.status(500).json({ error: "Failed to fetch call history" });
+    }
+  });
+
   app.get("/api/inbound-call-logs", requireAuth, async (req: Request, res: Response) => {
     try {
       const { queueId, status, from, to, limit: limitStr } = req.query;
