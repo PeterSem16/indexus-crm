@@ -42721,6 +42721,75 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/cbc-activities/ai-translate", requireAuth, async (req, res) => {
+    try {
+      const { text, sourceLang } = req.body;
+      if (!text || typeof text !== "string" || !text.trim()) {
+        return res.status(400).json({ error: "text is required" });
+      }
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(400).json({ error: "OpenAI API key not configured" });
+      }
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a medical terminology translator for INDEXUS, a cord blood banking CRM. Translate the given short activity name (e.g. 'Sampling kits', 'Invoicing') into all requested languages. Keep translations short, professional and contextually appropriate for healthcare/obstetrics. Return ONLY valid JSON with language codes as keys.",
+          },
+          {
+            role: "user",
+            content: `Translate this CBC activity name from ${sourceLang || "Slovak"} to all of these languages: Slovak, Czech, English, Hungarian, Romanian, Italian, German.\n\nOriginal text: "${text}"\n\nReturn JSON object with keys: sk, cs, en, hu, ro, it, de`,
+          },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+      });
+      const content = response.choices[0]?.message?.content || "{}";
+      res.json(JSON.parse(content));
+    } catch (e: any) {
+      console.error("[CBC AI Translate] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/cbc-activities/ai-sample", requireAuth, async (req, res) => {
+    try {
+      const { name, entityScope, lang } = req.body;
+      if (!name || typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({ error: "name is required" });
+      }
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(400).json({ error: "OpenAI API key not configured" });
+      }
+      const langMap: Record<string, string> = {
+        sk: "Slovak", cs: "Czech", en: "English", hu: "Hungarian",
+        ro: "Romanian", it: "Italian", de: "German",
+      };
+      const targetLang = langMap[(lang || "sk") as string] || "Slovak";
+      const scopeLabel = String(entityScope || "hospital");
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a medical CRM copywriter for INDEXUS, a cord blood banking system. Generate a concise, professional long description (2-4 sentences) for a CBC (cord blood collection) activity that a salesperson handles with a healthcare partner. Be specific to the institution type. Output plain text only — no markdown, no quotes.",
+          },
+          {
+            role: "user",
+            content: `Activity name: "${name}"\nInstitution type: ${scopeLabel}\nLanguage: ${targetLang}\n\nWrite the description in ${targetLang} only.`,
+          },
+        ],
+        temperature: 0.5,
+      });
+      const text = (response.choices[0]?.message?.content || "").trim();
+      res.json({ description: text });
+    } catch (e: any) {
+      console.error("[CBC AI Sample] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post("/api/cbc-activities/seed-defaults", requireAuth, async (req, res) => {
     try {
       const defaults = [

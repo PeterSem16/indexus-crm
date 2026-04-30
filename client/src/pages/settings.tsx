@@ -7,7 +7,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check, Server, Eye, EyeOff, Link2, Smartphone, Copy, XCircle, Clock, CheckCircle2, Activity } from "lucide-react";
+import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check, Server, Eye, EyeOff, Link2, Smartphone, Copy, XCircle, Clock, CheckCircle2, Activity, Sparkles, Wand2 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { AriSettingsTab } from "@/components/configurator/AriSettingsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1476,7 +1476,7 @@ function CbcActivityIcon({ name, className }: { name: string; className?: string
 }
 
 function CbcActivitiesManager() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const _raw = (t.settings as any).cbcActivities || {};
   const aT: Record<string, string> = {
@@ -1559,6 +1559,63 @@ function CbcActivitiesManager() {
     },
     onError: (e: any) => toast({ title: e?.message || "Error", variant: "destructive" }),
   });
+
+  const aiTranslateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/cbc-activities/ai-translate", {
+        text: form.name.trim(),
+        sourceLang: locale,
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      setForm((prev) => ({
+        ...prev,
+        nameSk: data.sk || prev.nameSk,
+        nameCs: data.cs || prev.nameCs,
+        nameEn: data.en || prev.nameEn,
+        nameHu: data.hu || prev.nameHu,
+        nameRo: data.ro || prev.nameRo,
+        nameIt: data.it || prev.nameIt,
+        nameDe: data.de || prev.nameDe,
+      }));
+      toast({ title: aT.aiTranslated || "Translations generated" });
+    },
+    onError: (e: any) => toast({ title: e?.message || "Error", variant: "destructive" }),
+  });
+
+  const aiSampleMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/cbc-activities/ai-sample", {
+        name: form.name.trim(),
+        entityScope: form.entityScope,
+        lang: locale,
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data?.description) {
+        setForm((prev) => ({ ...prev, description: data.description }));
+        toast({ title: aT.aiGenerated || "Description generated" });
+      }
+    },
+    onError: (e: any) => toast({ title: e?.message || "Error", variant: "destructive" }),
+  });
+
+  function runAiTranslate() {
+    if (!form.name.trim()) {
+      toast({ title: aT.enterNameFirst || "Enter the name first", variant: "destructive" });
+      return;
+    }
+    aiTranslateMutation.mutate();
+  }
+  function runAiSample() {
+    if (!form.name.trim()) {
+      toast({ title: aT.enterNameFirst || "Enter the name first", variant: "destructive" });
+      return;
+    }
+    aiSampleMutation.mutate();
+  }
 
   function resetForm() {
     setShowForm(false);
@@ -1685,7 +1742,26 @@ function CbcActivitiesManager() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">{aT.descriptionLabel || "Long description"}</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">{aT.descriptionLabel || "Long description"}</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                  onClick={runAiSample}
+                  disabled={aiSampleMutation.isPending}
+                  data-testid="button-cbc-ai-sample"
+                  title={aT.aiGenerate || "Generate sample with AI"}
+                >
+                  {aiSampleMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  <span>{aT.aiGenerate || "Generate with AI"}</span>
+                </Button>
+              </div>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -1697,6 +1773,25 @@ function CbcActivitiesManager() {
 
             <details className="rounded-md border border-border p-3 space-y-2">
               <summary className="cursor-pointer text-xs font-medium text-foreground">{aT.translations || "Translations"}</summary>
+              <div className="flex items-center justify-end mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                  onClick={runAiTranslate}
+                  disabled={aiTranslateMutation.isPending}
+                  data-testid="button-cbc-ai-translate"
+                  title={aT.aiTranslate || "Translate with AI"}
+                >
+                  {aiTranslateMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-3.5 w-3.5" />
+                  )}
+                  <span>{aT.aiTranslate || "Translate with AI"}</span>
+                </Button>
+              </div>
               <div className="grid sm:grid-cols-2 gap-2 mt-2">
                 {[
                   { key: "nameSk", label: "SK" }, { key: "nameCs", label: "CS" }, { key: "nameEn", label: "EN" },
