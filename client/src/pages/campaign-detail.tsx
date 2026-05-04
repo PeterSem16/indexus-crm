@@ -1882,7 +1882,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
     queryKey: ["/api/campaigns", campaignId, "assigned-statuses"],
     queryFn: () => fetch(`/api/campaigns/${campaignId}/assigned-statuses`, { credentials: "include" }).then(r => r.json()),
   });
-  const previewUseNexus = !!(assignedStatusesData?.statuses?.length);
+  const previewUseNexus = !!(assignedStatusesData?.statuses?.length) && activeParents.length === 0;
   const previewNexusStatuses = previewUseNexus
     ? (assignedStatusesData!.statuses.map((s: any) => ({ ...s, actionType: s.defaultAction, isActive: s.isActive !== false })))
     : [];
