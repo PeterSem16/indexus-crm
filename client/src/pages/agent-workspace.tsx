@@ -7553,11 +7553,11 @@ export default function AgentWorkspacePage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Všetky kontakty</SelectItem>
-                <SelectItem value="my_callbacks">Moje preplánované</SelectItem>
-                <SelectItem value="team_callbacks">Tímové preplánované</SelectItem>
-                <SelectItem value="due">Splatné teraz</SelectItem>
-                <SelectItem value="pending">Čakajúce (nové)</SelectItem>
+                <SelectItem value="all">{t.agentWorkspace.filterAll}</SelectItem>
+                <SelectItem value="my_callbacks">{t.agentWorkspace.filterMyCB}</SelectItem>
+                <SelectItem value="team_callbacks">{t.agentWorkspace.filterTeamCB}</SelectItem>
+                <SelectItem value="due">{t.agentWorkspace.filterDue}</SelectItem>
+                <SelectItem value="pending">{t.agentWorkspace.filterPending}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={modalSort} onValueChange={(v) => setModalSort(v as typeof modalSort)}>
@@ -7790,12 +7790,12 @@ export default function AgentWorkspacePage() {
                   {checklistParentId
                     ? t.agentWorkspace.checklistStep2
                     : modalSelectedParent
-                    ? "Podkategória výsledku"
-                    : dispositionChannelFilter === "phone" ? "Výsledok hovoru"
-                    : dispositionChannelFilter === "email" ? "Výsledok emailu"
-                    : dispositionChannelFilter === "sms" ? "Výsledok SMS"
-                    : mandatoryDisposition ? "Povinný výsledok hovoru"
-                    : "Výsledok kontaktu"}
+                    ? t.statusEngine.disp.subcatTitle
+                    : dispositionChannelFilter === "phone" ? t.statusEngine.disp.resultPhone
+                    : dispositionChannelFilter === "email" ? t.statusEngine.disp.resultEmail
+                    : dispositionChannelFilter === "sms" ? t.statusEngine.disp.resultSms
+                    : mandatoryDisposition ? t.statusEngine.disp.resultMandatory
+                    : t.statusEngine.disp.resultContact}
                 </SheetTitle>
                 {currentContact && (
                   <SheetDescription className="flex items-center gap-1.5 text-xs">
@@ -7805,7 +7805,7 @@ export default function AgentWorkspacePage() {
                   </SheetDescription>
                 )}
                 {mandatoryDisposition && (
-                  <p className="text-xs text-destructive">Vyberte výsledok pred pokračovaním</p>
+                  <p className="text-xs text-destructive">{t.statusEngine.disp.mandatoryPrompt}</p>
                 )}
               </div>
               {!modalSelectedParent && !checklistParentId && campaignDispositions.length > 0 && (
@@ -7926,31 +7926,31 @@ export default function AgentWorkspacePage() {
 
                     {needsCallback && (
                       <div className="space-y-3 rounded-md border p-3 bg-card">
-                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Naplánovanie callbacku</div>
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.statusEngine.disp.scheduleCallback}</div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-xs text-muted-foreground">Dátum</label>
+                            <label className="text-xs text-muted-foreground">{t.statusEngine.disp.dateLabel}</label>
                             <Input type="date" value={modalCallbackDate} onChange={(e) => setModalCallbackDate(e.target.value)} min={new Date().toISOString().split("T")[0]} data-testid="input-modal-callback-date" />
                           </div>
                           <div>
-                            <label className="text-xs text-muted-foreground">Čas</label>
+                            <label className="text-xs text-muted-foreground">{t.statusEngine.disp.timeLabel}</label>
                             <Input type="time" value={modalCallbackTime} onChange={(e) => setModalCallbackTime(e.target.value)} data-testid="input-modal-callback-time" />
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {[
-                            { label: "Zajtra", days: 1 },
-                            { label: "2 prac. dni", days: 2 },
-                            { label: "3 prac. dni", days: 3 },
-                            { label: "5 prac. dní", days: 5 },
-                            { label: "1 týždeň", days: 7 },
-                            { label: "2 týždne", days: 14 },
-                            { label: "1 mesiac", days: 30 },
-                            { label: "2 mesiace", days: 60 },
-                            { label: "3 mesiace", days: 90 },
-                            { label: "6 mesiacov", days: 180 },
-                            { label: "9 mesiacov", days: 270 },
-                            { label: "1 rok", days: 365 },
+                            { label: t.statusEngine.disp.tomorrow, days: 1 },
+                            { label: "2d", days: 2 },
+                            { label: "3d", days: 3 },
+                            { label: "5d", days: 5 },
+                            { label: "1t", days: 7 },
+                            { label: "2t", days: 14 },
+                            { label: "1m", days: 30 },
+                            { label: "2m", days: 60 },
+                            { label: "3m", days: 90 },
+                            { label: "6m", days: 180 },
+                            { label: "9m", days: 270 },
+                            { label: "1r", days: 365 },
                           ].map((preset) => (
                             <Button key={preset.days} type="button" size="sm" variant="outline" className="text-[11px] h-6 px-2"
                               onClick={() => {
@@ -7966,22 +7966,22 @@ export default function AgentWorkspacePage() {
                           ))}
                         </div>
                         <div>
-                          <label className="text-xs text-muted-foreground">Priradiť komu</label>
+                          <label className="text-xs text-muted-foreground">{t.statusEngine.disp.assignToLabel}</label>
                           <div className="flex gap-2 mt-1">
                             <Button size="sm" variant={modalCallbackAssign === "me" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setModalCallbackAssign("me")} disabled={!user?.id} data-testid="btn-modal-cb-assign-me">
-                              <User className="h-3 w-3" /> Mne
+                              <User className="h-3 w-3" /> {t.statusEngine.disp.assignToMe}
                             </Button>
                             <Button size="sm" variant={modalCallbackAssign === "all" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setModalCallbackAssign("all")} data-testid="btn-modal-cb-assign-all">
-                              <Users className="h-3 w-3" /> Všetkým
+                              <Users className="h-3 w-3" /> {t.statusEngine.disp.assignToAll}
                             </Button>
                           </div>
                         </div>
                         <div>
-                          <label className="text-xs text-muted-foreground">Poznámka ku callbacku</label>
+                          <label className="text-xs text-muted-foreground">{t.statusEngine.disp.cbNoteLabel}</label>
                           <Textarea
                             value={modalCallbackNote}
                             onChange={(e) => setModalCallbackNote(e.target.value)}
-                            placeholder="Napr. zavolať po 16:00, preferuje email..."
+                            placeholder={t.statusEngine.disp.cbNotePlaceholder}
                             className="mt-1 min-h-[60px] max-h-[120px] text-sm"
                             data-testid="input-modal-callback-note"
                           />
@@ -7991,7 +7991,7 @@ export default function AgentWorkspacePage() {
 
                     {children.length > 0 && (
                       <div className="space-y-2">
-                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vyberte konkrétny dôvod</div>
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.statusEngine.disp.reasonTitle}</div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {children.map((child) => {
                             const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
@@ -8155,11 +8155,16 @@ export default function AgentWorkspacePage() {
               (a, b) => CHECKLIST_ACTION_PRIORITY.indexOf(a.actionType) - CHECKLIST_ACTION_PRIORITY.indexOf(b.actionType)
             );
             const effectiveChild = sortedByPriority[0];
+            const aw = t.agentWorkspace as any;
             const actionLabels: Record<string, string> = {
-              callback: "⏰ Naplánuje hovor", schedule_email: "📧 Naplánuje email",
-              schedule_sms: "💬 Naplánuje SMS", dnd: "🚫 Nezavolávať (DND)",
-              complete: "✓ Uzatvorí kontakt", convert: "★ Konvertuje kontakt",
-              send_email: "📤 Pošle email", send_sms: "📱 Pošle SMS",
+              callback: `⏰ ${aw.actionWillScheduleCall ?? "Schedule call"}`,
+              schedule_email: `📧 ${aw.actionWillScheduleEmail ?? "Schedule email"}`,
+              schedule_sms: `💬 ${aw.actionWillScheduleSms ?? "Schedule SMS"}`,
+              dnd: `🚫 ${aw.actionWillDnd ?? t.statusEngine.dnd}`,
+              complete: `✓ ${aw.actionWillComplete ?? t.statusEngine.complete}`,
+              convert: `★ ${aw.actionWillConvert ?? t.statusEngine.convert}`,
+              send_email: `📤 ${aw.actionWillSendEmail ?? "Send email"}`,
+              send_sms: `📱 ${aw.actionWillSendSms ?? "Send SMS"}`,
             };
             const effectiveActionLabel = effectiveChild
               ? actionLabels[effectiveChild.actionType]
@@ -8177,7 +8182,7 @@ export default function AgentWorkspacePage() {
               <div className="border-t bg-background px-4 py-3 space-y-2">
                 {showDatePicker && (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-muted-foreground shrink-0">📅 Preplánovanie:</span>
+                    <span className="text-xs text-muted-foreground shrink-0">📅 {t.statusEngine.disp.simReschedule}:</span>
                     <input type="date"
                       value={checklistCallbackDate}
                       min={new Date().toISOString().split("T")[0]}
@@ -8192,11 +8197,11 @@ export default function AgentWorkspacePage() {
                       data-testid="input-checklist-callback-time"
                     />
                     <div className="flex gap-1 flex-wrap">
-                      {[{l:"Zajtra",d:1},{l:"2d",d:2},{l:"3d",d:3},{l:"1t",d:7},{l:"2t",d:14},{l:"1m",d:30}].map(p=>(
+                      {[{l:t.statusEngine.disp.tomorrow,d:1,biz:true},{l:"2d",d:2,biz:true},{l:"3d",d:3,biz:true},{l:"5d",d:5,biz:true},{l:"1t",d:7,biz:false},{l:"2t",d:14,biz:false},{l:"1m",d:30,biz:false},{l:"3m",d:90,biz:false}].map(p=>(
                         <button key={p.d} type="button"
                           className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-muted transition-colors"
                           onClick={()=>{
-                            const dt = p.d <= 3 ? addBusinessDays(new Date(), p.d) : (() => { const x=new Date(); x.setDate(x.getDate()+p.d); return x; })();
+                            const dt = p.biz ? addBusinessDays(new Date(), p.d) : (() => { const x=new Date(); x.setDate(x.getDate()+p.d); return x; })();
                             setChecklistCallbackDate(dt.toISOString().split("T")[0]);
                           }}
                         >{p.l}</button>
@@ -8207,10 +8212,10 @@ export default function AgentWorkspacePage() {
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     {checklistSelectedCodes.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Zaškrtnite podstatusy alebo potvrďte bez výberu</p>
+                      <p className="text-xs text-muted-foreground">{t.statusEngine.disp.checklistHint}</p>
                     ) : (
                       <div className="space-y-0.5">
-                        <p className="text-xs text-muted-foreground">Zaškrtnuté: <strong>{checklistSelectedCodes.length}</strong></p>
+                        <p className="text-xs text-muted-foreground">{t.statusEngine.disp.checkedCount}: <strong>{checklistSelectedCodes.length}</strong></p>
                         {effectiveActionLabel && (
                           <p className="text-xs text-primary font-medium">{effectiveActionLabel}</p>
                         )}

@@ -178,7 +178,7 @@ import { Switch } from "@/components/ui/switch";
 import { ScriptBuilder } from "@/components/script-builder";
 import { ScriptRunner } from "@/components/script-runner";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { format } from "date-fns";
+import { format, addBusinessDays } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 
 const DATE_LOCALE_MAP: Record<string, Locale> = {
@@ -1859,6 +1859,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
   const [previewNote, setPreviewNote] = useState("");
   const [previewCallbackDate, setPreviewCallbackDate] = useState("");
   const [previewCallbackTime, setPreviewCallbackTime] = useState("09:00");
+  const [previewAssigneeMode, setPreviewAssigneeMode] = useState<"me"|"all">("me");
   const [form, setForm] = useState<DispForm>(EMPTY_FORM);
   const [codeManual, setCodeManual] = useState(false);
   const [showImportPanel, setShowImportPanel] = useState(false);
@@ -2070,13 +2071,13 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">{t.statusEngine.name}</label>
-          <input autoFocus value={form.name} placeholder={parentId?"napr. Zavolajte ráno":"napr. Nevhodný čas"}
+          <input autoFocus value={form.name} placeholder={parentId?t.statusEngine.disp.namePHChild:t.statusEngine.disp.namePH}
             className="w-full h-8 mt-1 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             onChange={e=>{const n=e.target.value;setForm(f=>({...f,name:n,...(!codeManual?{code:nameToCode(n)}:{})}));}} />
         </div>
         <div>
           <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">{t.statusEngine.code}</label>
-          <input value={form.code} placeholder="napr. wrong_time"
+          <input value={form.code} placeholder={t.statusEngine.disp.codePH}
             className="w-full h-8 mt-1 rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
             onChange={e=>{setCodeManual(true);setForm(f=>({...f,code:e.target.value}));}} />
         </div>
@@ -2114,7 +2115,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
         {form.actionType==="callback" && (
           <div>
             <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">{t.statusEngine.callbackOffsetDays}</label>
-            <input type="number" min={0} max={365} value={form.callbackOffsetDays??""} placeholder="napr. 1"
+            <input type="number" min={0} max={365} value={form.callbackOffsetDays??""} placeholder={t.statusEngine.disp.cbDaysPH}
               className="w-full h-8 mt-1 rounded-md border border-input bg-background px-3 text-sm focus:outline-none"
               onChange={e=>setForm(f=>({...f,callbackOffsetDays:e.target.value?Number(e.target.value):null}))} />
           </div>
@@ -2201,7 +2202,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {kids.length>0
-                          ? <span className="text-[11px] text-muted-foreground">{isChecklist?"☑ multi výber":"◉ jeden výber"} · {kids.length} podvýsledkov</span>
+                          ? <span className="text-[11px] text-muted-foreground">{isChecklist?"☑ "+t.statusEngine.disp.listChoice:"◉ "+t.statusEngine.disp.oneChoice} · {kids.length} {t.statusEngine.disp.subCount}</span>
                           : <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ai.className}`}>{(t.statusEngine.actions as Record<string,string>)[parent.actionType] ?? ai.label}</span>
                         }
                       </div>
@@ -2314,16 +2315,37 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                                 onChange={e => setPreviewCallbackTime(e.target.value)}
                                 className="h-7 text-xs border rounded px-2 bg-background w-24"
                               />
-                              <div className="flex gap-1">
-                                {[{l:t.statusEngine.disp.tomorrow,d:1},{l:"2d",d:2},{l:"3d",d:3},{l:"1t",d:7}].map(p=>(
+                              <div className="flex gap-1 flex-wrap">
+                                {[
+                                  {l:t.statusEngine.disp.tomorrow,d:1,biz:true},
+                                  {l:"2d",d:2,biz:true},{l:"3d",d:3,biz:true},{l:"5d",d:5,biz:true},
+                                  {l:"1t",d:7,biz:false},{l:"2t",d:14,biz:false},
+                                  {l:"1m",d:30,biz:false},{l:"3m",d:90,biz:false}
+                                ].map(p=>(
                                   <button key={p.d} type="button"
                                     className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-muted transition-colors"
                                     onClick={()=>{
-                                      const dt = new Date(); dt.setDate(dt.getDate()+p.d);
+                                      const dt = p.biz ? addBusinessDays(new Date(), p.d) : (() => { const x=new Date(); x.setDate(x.getDate()+p.d); return x; })();
                                       setPreviewCallbackDate(dt.toISOString().split("T")[0]);
                                     }}
                                   >{p.l}</button>
                                 ))}
+                              </div>
+                              <div className="flex gap-1 mt-1.5">
+                                <button type="button"
+                                  onClick={()=>setPreviewAssigneeMode("me")}
+                                  className={`flex-1 text-[10px] px-2 py-1 rounded border flex items-center justify-center gap-1 transition-colors ${previewAssigneeMode==="me"?"bg-primary text-primary-foreground border-primary":"hover:bg-muted"}`}
+                                  data-testid="btn-preview-assign-me">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                                  {t.statusEngine.disp.assignToMe}
+                                </button>
+                                <button type="button"
+                                  onClick={()=>setPreviewAssigneeMode("all")}
+                                  className={`flex-1 text-[10px] px-2 py-1 rounded border flex items-center justify-center gap-1 transition-colors ${previewAssigneeMode==="all"?"bg-primary text-primary-foreground border-primary":"hover:bg-muted"}`}
+                                  data-testid="btn-preview-assign-all">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6"/><circle cx="16" cy="7" r="3"/><path d="M21 20c0-3.3-2.7-6-6-6"/></svg>
+                                  {t.statusEngine.disp.assignToAll}
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -2362,9 +2384,9 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
         )}
         {activeParents.length > 0 && (
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground px-1">
-            <span>◉ = jeden výber</span>
-            <span>☑ = multi výber</span>
-            <span className="flex items-center gap-1"><ArrowRight className="h-3 w-3"/>= priama akcia</span>
+            <span>◉ = {t.statusEngine.disp.oneChoice}</span>
+            <span>☑ = {t.statusEngine.disp.listChoice}</span>
+            <span className="flex items-center gap-1"><ArrowRight className="h-3 w-3"/>= {t.statusEngine.disp.directAction}</span>
           </div>
         )}
       </div>
@@ -2378,9 +2400,9 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <p className="text-sm font-semibold">Výsledky hovorov tejto kampane</p>
+          <p className="text-sm font-semibold">{t.statusEngine.disp.resultsTitle}</p>
           <p className="text-xs text-muted-foreground">
-            {activeParents.length} hlavných výsledkov · {dispositions.filter((d:any)=>d.parentId&&d.isActive).length} podvýsledkov
+            {activeParents.length} {t.statusEngine.disp.mainCount} · {dispositions.filter((d:any)=>d.parentId&&d.isActive).length} {t.statusEngine.disp.subCount}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -2522,7 +2544,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ai.className}`}>{(t.statusEngine.actions as Record<string,string>)[parent.actionType] ?? ai.label}</span>
-                      {kids.length>0 && <span className="text-[10px] text-muted-foreground">{kids.length} podvýsledkov · {isChecklist?"Zoznam":"Jeden výber"}</span>}
+                      {kids.length>0 && <span className="text-[10px] text-muted-foreground">{kids.length} {t.statusEngine.disp.subCount} · {isChecklist?t.statusEngine.disp.checklistBtn:t.statusEngine.disp.radioBtn}</span>}
                       {parent.requiresNote && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-amber-300 text-amber-700 bg-amber-50">N</span>}
                       {parent.requiresCallback && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-blue-300 text-blue-700 bg-blue-50">CB</span>}
                       {parent.isFinal && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-red-300 text-red-700 bg-red-50">F</span>}
@@ -2559,15 +2581,15 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                         {kids.length>0 && (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Podvýsledky ({kids.length})</p>
+                              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">{t.statusEngine.disp.subresults} ({kids.length})</p>
                               <div className="flex rounded-md border overflow-hidden text-xs">
                                 <button onClick={()=>typeMut.mutate({id:parent.id,childrenType:"radio"})} disabled={typeMut.isPending}
                                   className={`px-2.5 py-1 flex items-center gap-1 transition-colors ${!isChecklist?"bg-primary text-primary-foreground font-medium":"hover:bg-muted text-muted-foreground"}`}>
-                                  <CircleDot className="h-3 w-3"/>Jeden
+                                  <CircleDot className="h-3 w-3"/>{t.statusEngine.disp.radioBtn}
                                 </button>
                                 <button onClick={()=>typeMut.mutate({id:parent.id,childrenType:"checklist"})} disabled={typeMut.isPending}
                                   className={`px-2.5 py-1 flex items-center gap-1 border-l transition-colors ${isChecklist?"bg-primary text-primary-foreground font-medium":"hover:bg-muted text-muted-foreground"}`}>
-                                  <CheckSquare className="h-3 w-3"/>Zoznam
+                                  <CheckSquare className="h-3 w-3"/>{t.statusEngine.disp.checklistBtn}
                                 </button>
                               </div>
                             </div>
@@ -2648,7 +2670,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                                       data-testid={`input-global-search-${parent.id}`}
                                     />
                                     {matchedCats.length===0 ? (
-                                      <p className="text-xs text-muted-foreground py-1 text-center">Žiadne výsledky</p>
+                                      <p className="text-xs text-muted-foreground py-1 text-center">{t.statusEngine.disp.noResults}</p>
                                     ) : (
                                       <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                                         {matchedCats.map((cat:any)=>{
@@ -3195,7 +3217,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                                     <Pencil className="h-3 w-3" />
                                   </Button>
                                   {!isChild && (
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-sky-500" title="Pridať podstatus" onClick={() => {
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-sky-500" title={t.statusEngine.disp.addSubstatus} onClick={() => {
                                       setIsNewStatus(true);
                                       setEditingStatus({ id: "", categoryId: cat.id, parentId: status.id, name: "", code: "", icon: "", color: status.color, defaultAction: "none", isFinal: false, isConversion: false, requiresNote: false, requiresCallback: false, allowRecontact: true, allowEmail: true, allowSms: true, allowPhone: true, isSystemStatus: false, callbackOffsetDays: null, rescheduleOptions: null, sortOrder: (localChildMap[status.id]?.length || 0) + 1, isActive: true, visibleInCampaigns: true, createdAt: new Date(), updatedAt: new Date() });
                                     }} data-testid={`button-add-substatus-${status.id}`}>
@@ -3539,7 +3561,7 @@ function StatusEditDialogCampaign({ status, categories, allStatuses, isNew, onSa
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-amber-800/60 italic">Zatiaľ žiadne automatizácie pre tento status.</p>
+                <p className="text-xs text-amber-800/60 italic">{t.statusEngine.disp.noAutomations}</p>
               )}
             </div>
           )}
@@ -7984,31 +8006,31 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   >
                     {requestVerificationMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     <Shield className="w-4 h-4 mr-2" />
-                    Vyžiadať overovací kód
+                    {mc.requestCode}
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {verificationMethod === "email" && (
                     <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-sm">
-                      <p>Overovací kód bol odoslaný na email: <strong>{verificationEmail}</strong></p>
-                      <p className="text-xs text-muted-foreground mt-1">Kód je platný 10 minút.</p>
+                      <p>{mc.codeEmailSent} <strong>{verificationEmail}</strong></p>
+                      <p className="text-xs text-muted-foreground mt-1">{mc.codeValidMinutes}</p>
                     </div>
                   )}
                   {verificationMethod === "display" && (
                     <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-sm">
-                      <p className="text-xs text-muted-foreground mb-2">Email nemohol byť odoslaný. Zadajte zobrazený kód:</p>
+                      <p className="text-xs text-muted-foreground mb-2">{mc.codeEmailFailed}</p>
                       <div className="text-center py-2 bg-white dark:bg-gray-900 rounded border">
                         <span className="text-2xl font-bold tracking-[6px] text-primary">{displayedCode}</span>
                       </div>
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Label>Overovací kód</Label>
+                    <Label>{mc.verificationCode}</Label>
                     <Input
                       value={verificationCode}
                       onChange={e => setVerificationCode(e.target.value.toUpperCase())}
-                      placeholder="Zadajte 6-znakový kód"
+                      placeholder={mc.enterCode}
                       maxLength={6}
                       className="text-center text-lg tracking-widest font-mono"
                       data-testid="input-mc-verification-code"
@@ -8016,10 +8038,10 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   </div>
                   <div className="flex justify-between items-center">
                     <Button variant="ghost" size="sm" onClick={() => requestVerificationMutation.mutate()} disabled={requestVerificationMutation.isPending}>
-                      Poslať nový kód
+                      {mc.sendNewCode}
                     </Button>
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => setShowSendConfirm(false)}>Zrušiť</Button>
+                      <Button variant="outline" onClick={() => setShowSendConfirm(false)}>{mc.cancel}</Button>
                       <Button
                         onClick={() => sendCampaignMutation.mutate()}
                         disabled={sendCampaignMutation.isPending || verificationCode.length < 4}
@@ -8027,7 +8049,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                         data-testid="btn-mc-confirm-send"
                       >
                         {sendCampaignMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        Potvrdiť a odoslať
+                        {mc.confirmAndSend}
                       </Button>
                     </div>
                   </div>

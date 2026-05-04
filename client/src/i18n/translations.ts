@@ -2982,6 +2982,7 @@ export interface Translations {
     callBack: string;
     myCB: string;
     teamCB: string;
+    filterAll: string; filterMyCB: string; filterTeamCB: string; filterDue: string; filterPending: string;
     emailHistory: string;
     smsHistory: string;
     communicationHistory: string;
@@ -6016,6 +6017,15 @@ export interface Translations {
         toastAdded: string; toastSaved: string; toastDeleted: string;
         toastLinked: string; toastError: string; toastResetSuccess: string;
         tab1: string; tab2: string; wizard: string;
+        resultsTitle: string; radioBtn: string; checklistBtn: string; directAction: string;
+        assignToLabel: string; assignToMe: string; assignToAll: string;
+        noAutomations: string; addSubstatus: string;
+        scheduleCallback: string; dateLabel: string; timeLabel: string;
+        cbNoteLabel: string; cbNotePlaceholder: string;
+        subcatTitle: string; resultPhone: string; resultEmail: string; resultSms: string;
+        resultMandatory: string; resultContact: string;
+        reasonTitle: string; checklistHint: string; checkedCount: string; mandatoryPrompt: string;
+        namePH: string; namePHChild: string; codePH: string; cbDaysPH: string;
       };
       categoryNames: Record<string, string>;
       statusNames: Record<string, string>;
@@ -9509,6 +9519,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Call!',
       myCB: 'My CB',
       teamCB: 'Team CB',
+      filterAll: 'All contacts', filterMyCB: 'My scheduled', filterTeamCB: 'Team scheduled', filterDue: 'Due now', filterPending: 'Pending (new)',
       emailHistory: 'Email history',
       smsHistory: 'SMS history',
       communicationHistory: 'Communication history',
@@ -12064,6 +12075,16 @@ export const translations: Record<Locale, Translations> = {
         toastLinked: 'Result linked as sub-result', toastError: 'Error',
         toastResetSuccess: 'Default results restored',
         tab1: '1. Definitions', tab2: '2. Call Results', wizard: 'Setup wizard',
+        resultsTitle: 'Call results for this campaign', radioBtn: 'One', checklistBtn: 'List', directAction: 'direct action',
+        assignToLabel: 'Assign to', assignToMe: 'Me', assignToAll: 'Everyone',
+        noAutomations: 'No automations yet for this status.', addSubstatus: 'Add sub-status',
+        scheduleCallback: 'Schedule callback', dateLabel: 'Date', timeLabel: 'Time',
+        cbNoteLabel: 'Callback note', cbNotePlaceholder: 'E.g. call after 16:00, prefers email...',
+        subcatTitle: 'Sub-category of result', resultPhone: 'Call result', resultEmail: 'Email result',
+        resultSms: 'SMS result', resultMandatory: 'Mandatory call result', resultContact: 'Contact result',
+        reasonTitle: 'Select specific reason', checklistHint: 'Check sub-statuses or confirm without selection',
+        checkedCount: 'Checked', mandatoryPrompt: 'Select result before continuing',
+        namePH: 'e.g. Wrong time', namePHChild: 'e.g. Call in the morning', codePH: 'e.g. wrong_time', cbDaysPH: 'e.g. 1',
       },
       categoryNames: {
         not_reached: 'Not reached / no connection', callback: 'Callback / deferred', interest: 'Interest / business progress',
@@ -15520,6 +15541,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Zavolať!',
       myCB: 'Môj CB',
       teamCB: 'Tím CB',
+      filterAll: 'Všetky kontakty', filterMyCB: 'Moje preplánované', filterTeamCB: 'Tím preplánované', filterDue: 'Splatné teraz', filterPending: 'Čakajúce (nové)',
       emailHistory: 'História emailov',
       smsHistory: 'História SMS',
       communicationHistory: 'História komunikácie',
@@ -18091,6 +18113,16 @@ export const translations: Record<Locale, Translations> = {
         toastLinked: 'Výsledok prepojený ako podvýsledok', toastError: 'Chyba',
         toastResetSuccess: 'Predvolené výsledky obnovené',
         tab1: '1. Definície', tab2: '2. Výsledky hovoru', wizard: 'Sprievodca nastavením',
+        resultsTitle: 'Výsledky hovorov tejto kampane', radioBtn: 'Jeden', checklistBtn: 'Zoznam', directAction: 'priama akcia',
+        assignToLabel: 'Priradiť komu', assignToMe: 'Mne', assignToAll: 'Všetkým',
+        noAutomations: 'Zatiaľ žiadne automatizácie pre tento status.', addSubstatus: 'Pridať podstatus',
+        scheduleCallback: 'Naplánovanie callbacku', dateLabel: 'Dátum', timeLabel: 'Čas',
+        cbNoteLabel: 'Poznámka ku callbacku', cbNotePlaceholder: 'Napr. zavolať po 16:00, preferuje email...',
+        subcatTitle: 'Podkategória výsledku', resultPhone: 'Výsledok hovoru', resultEmail: 'Výsledok emailu',
+        resultSms: 'Výsledok SMS', resultMandatory: 'Povinný výsledok hovoru', resultContact: 'Výsledok kontaktu',
+        reasonTitle: 'Vyberte konkrétny dôvod', checklistHint: 'Zaškrtnite podstatusy alebo potvrďte bez výberu',
+        checkedCount: 'Zaškrtnuté', mandatoryPrompt: 'Vyberte výsledok pred pokračovaním',
+        namePH: 'napr. Nevhodný čas', namePHChild: 'napr. Zavolajte ráno', codePH: 'napr. wrong_time', cbDaysPH: 'napr. 1',
       },
       categoryNames: {
         not_reached: 'Nedovolané / bez spojenia', callback: 'Callback / odložené', interest: 'Záujem / obchodný progres',
@@ -21510,6 +21542,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Zavolat!',
       myCB: 'Můj CB',
       teamCB: 'Tým CB',
+      filterAll: 'Všechny kontakty', filterMyCB: 'Moje přeplánované', filterTeamCB: 'Tým přeplánované', filterDue: 'Splatné nyní', filterPending: 'Čekající (nové)',
       emailHistory: 'Historie e-mailů',
       smsHistory: 'Historie SMS',
       communicationHistory: 'Historie komunikace',
@@ -24044,6 +24077,16 @@ export const translations: Record<Locale, Translations> = {
         toastLinked: 'Výsledek propojen jako podvýsledek', toastError: 'Chyba',
         toastResetSuccess: 'Výchozí výsledky obnoveny',
         tab1: '1. Definice', tab2: '2. Výsledky hovoru', wizard: 'Průvodce nastavením',
+        resultsTitle: 'Výsledky hovorů této kampaně', radioBtn: 'Jeden', checklistBtn: 'Seznam', directAction: 'přímá akce',
+        assignToLabel: 'Přiřadit komu', assignToMe: 'Mně', assignToAll: 'Všem',
+        noAutomations: 'Zatím žádné automatizace pro tento status.', addSubstatus: 'Přidat podstatus',
+        scheduleCallback: 'Naplánování callbacku', dateLabel: 'Datum', timeLabel: 'Čas',
+        cbNoteLabel: 'Poznámka ke callbacku', cbNotePlaceholder: 'Např. zavolat po 16:00, preferuje email...',
+        subcatTitle: 'Podkategorie výsledku', resultPhone: 'Výsledek hovoru', resultEmail: 'Výsledek emailu',
+        resultSms: 'Výsledek SMS', resultMandatory: 'Povinný výsledek hovoru', resultContact: 'Výsledek kontaktu',
+        reasonTitle: 'Vyberte konkrétní důvod', checklistHint: 'Zaškrtněte podstatusy nebo potvrďte bez výběru',
+        checkedCount: 'Zaškrtnuto', mandatoryPrompt: 'Vyberte výsledek před pokračováním',
+        namePH: 'např. Nevhodný čas', namePHChild: 'např. Zavolejte ráno', codePH: 'např. wrong_time', cbDaysPH: 'např. 1',
       },
       categoryNames: {
         not_reached: 'Nedovoláno / bez spojení', callback: 'Callback / odloženo', interest: 'Zájem / obchodní pokrok',
@@ -27458,6 +27501,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Hívás!',
       myCB: 'Saját CB',
       teamCB: 'Csapat CB',
+      filterAll: 'Minden névjegy', filterMyCB: 'Saját átütemezett', filterTeamCB: 'Csapat átütemezett', filterDue: 'Esedékes most', filterPending: 'Függőben (új)',
       emailHistory: 'E-mail előzmények',
       smsHistory: 'SMS előzmények',
       communicationHistory: 'Kommunikációs előzmények',
@@ -29967,6 +30011,16 @@ export const translations: Record<Locale, Translations> = {
         toastLinked: 'Eredmény alábbiaként kapcsolva', toastError: 'Hiba',
         toastResetSuccess: 'Alapértelmezett eredmények visszaállítva',
         tab1: '1. Meghatározások', tab2: '2. Híváseredmények', wizard: 'Beállítási varázsló',
+        resultsTitle: 'Híváseredmények ehhez a kampányhoz', radioBtn: 'Egy', checklistBtn: 'Lista', directAction: 'közvetlen művelet',
+        assignToLabel: 'Hozzárendelés', assignToMe: 'Nekem', assignToAll: 'Mindenkinek',
+        noAutomations: 'Még nincs automatizáció ehhez a státuszhoz.', addSubstatus: 'Alstátusz hozzáadása',
+        scheduleCallback: 'Visszahívás ütemezése', dateLabel: 'Dátum', timeLabel: 'Idő',
+        cbNoteLabel: 'Visszahívási megjegyzés', cbNotePlaceholder: 'Pl. hívjon 16:00 után, emailt preferál...',
+        subcatTitle: 'Eredmény alkategóriája', resultPhone: 'Híváseredmény', resultEmail: 'Email eredmény',
+        resultSms: 'SMS eredmény', resultMandatory: 'Kötelező híváseredmény', resultContact: 'Kapcsolati eredmény',
+        reasonTitle: 'Válasszon konkrét okot', checklistHint: 'Jelölje meg az alstátuszokat vagy erősítse meg kiválasztás nélkül',
+        checkedCount: 'Kijelölve', mandatoryPrompt: 'Válasszon eredményt a folytatás előtt',
+        namePH: 'pl. Nem megfelelő időpont', namePHChild: 'pl. Reggel hívja', codePH: 'pl. wrong_time', cbDaysPH: 'pl. 1',
       },
       categoryNames: {
         not_reached: 'Nem elért / nincs kapcsolat', callback: 'Visszahívás / elhalasztott', interest: 'Érdeklődés / üzleti haladás',
@@ -33301,6 +33355,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Apelează!',
       myCB: 'CB-ul meu',
       teamCB: 'CB echipă',
+      filterAll: 'Toate contactele', filterMyCB: 'Reprogramate ale mele', filterTeamCB: 'Reprogramate echipă', filterDue: 'Scadente acum', filterPending: 'În așteptare (noi)',
       emailHistory: 'Istoric e-mailuri',
       smsHistory: 'Istoric SMS',
       communicationHistory: 'Istoric comunicare',
@@ -35810,6 +35865,16 @@ export const translations: Record<Locale, Translations> = {
         toastLinked: 'Rezultat legat ca subrezultat', toastError: 'Eroare',
         toastResetSuccess: 'Rezultate implicite restaurate',
         tab1: '1. Definiții', tab2: '2. Rezultate apeluri', wizard: 'Expert de configurare',
+        resultsTitle: 'Rezultate apeluri pentru această campanie', radioBtn: 'Unu', checklistBtn: 'Listă', directAction: 'acțiune directă',
+        assignToLabel: 'Atribuiți la', assignToMe: 'Mie', assignToAll: 'Tuturor',
+        noAutomations: 'Nicio automatizare pentru acest status.', addSubstatus: 'Adăugați substatus',
+        scheduleCallback: 'Programare reapelare', dateLabel: 'Dată', timeLabel: 'Oră',
+        cbNoteLabel: 'Notă reapelare', cbNotePlaceholder: 'Ex. sunați după 16:00, preferă email...',
+        subcatTitle: 'Subcategorie rezultat', resultPhone: 'Rezultat apel', resultEmail: 'Rezultat email',
+        resultSms: 'Rezultat SMS', resultMandatory: 'Rezultat apel obligatoriu', resultContact: 'Rezultat contact',
+        reasonTitle: 'Selectați motivul specific', checklistHint: 'Bifați substatusurile sau confirmați fără selecție',
+        checkedCount: 'Bifat', mandatoryPrompt: 'Selectați rezultatul înainte de a continua',
+        namePH: 'ex. Moment nepotrivit', namePHChild: 'ex. Sunați dimineața', codePH: 'ex. wrong_time', cbDaysPH: 'ex. 1',
       },
       categoryNames: {
         not_reached: 'Necontactat / fără conexiune', callback: 'Reapelare / amânat', interest: 'Interes / progres comercial',
@@ -39146,6 +39211,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Chiama!',
       myCB: 'Mio CB',
       teamCB: 'CB squadra',
+      filterAll: 'Tutti i contatti', filterMyCB: 'Miei riprogrammati', filterTeamCB: 'Squadra riprogrammati', filterDue: 'In scadenza ora', filterPending: 'In attesa (nuovi)',
       emailHistory: 'Cronologia e-mail',
       smsHistory: 'Cronologia SMS',
       communicationHistory: 'Cronologia comunicazioni',
@@ -41655,6 +41721,16 @@ export const translations: Record<Locale, Translations> = {
         toastLinked: 'Risultato collegato come sottorísultato', toastError: 'Errore',
         toastResetSuccess: 'Risultati predefiniti ripristinati',
         tab1: '1. Definizioni', tab2: '2. Risultati chiamata', wizard: 'Configurazione guidata',
+        resultsTitle: 'Risultati chiamate per questa campagna', radioBtn: 'Uno', checklistBtn: 'Lista', directAction: 'azione diretta',
+        assignToLabel: 'Assegna a', assignToMe: 'Me', assignToAll: 'Tutti',
+        noAutomations: 'Nessuna automazione per questo stato.', addSubstatus: 'Aggiungi sottostato',
+        scheduleCallback: 'Pianifica richiamata', dateLabel: 'Data', timeLabel: 'Ora',
+        cbNoteLabel: 'Nota richiamata', cbNotePlaceholder: 'Es. chiamare dopo le 16:00, preferisce email...',
+        subcatTitle: 'Sottocategoria risultato', resultPhone: 'Risultato chiamata', resultEmail: 'Risultato email',
+        resultSms: 'Risultato SMS', resultMandatory: 'Risultato chiamata obbligatorio', resultContact: 'Risultato contatto',
+        reasonTitle: 'Selezionare il motivo specifico', checklistHint: 'Selezionare i sottostati o confermare senza selezione',
+        checkedCount: 'Selezionati', mandatoryPrompt: 'Selezionare il risultato prima di continuare',
+        namePH: 'es. Momento inadatto', namePHChild: 'es. Chiamare la mattina', codePH: 'es. wrong_time', cbDaysPH: 'es. 1',
       },
       categoryNames: {
         not_reached: 'Non raggiunto / senza connessione', callback: 'Richiamata / rinviato', interest: 'Interesse / progresso commerciale',
@@ -44991,6 +45067,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Anrufen!',
       myCB: 'Mein CB',
       teamCB: 'Team CB',
+      filterAll: 'Alle Kontakte', filterMyCB: 'Meine umgeplanten', filterTeamCB: 'Team umgeplante', filterDue: 'Jetzt fällig', filterPending: 'Ausstehend (neu)',
       emailHistory: 'E-Mail-Verlauf',
       smsHistory: 'SMS-Verlauf',
       communicationHistory: 'Kommunikationsverlauf',
@@ -47486,6 +47563,16 @@ export const translations: Record<Locale, Translations> = {
         toastLinked: 'Ergebnis als Teilergebnis verknüpft', toastError: 'Fehler',
         toastResetSuccess: 'Standardergebnisse wiederhergestellt',
         tab1: '1. Definitionen', tab2: '2. Anrufergebnisse', wizard: 'Einrichtungsassistent',
+        resultsTitle: 'Anrufergebnisse für diese Kampagne', radioBtn: 'Eines', checklistBtn: 'Liste', directAction: 'direkte Aktion',
+        assignToLabel: 'Zuweisen an', assignToMe: 'Mir', assignToAll: 'Allen',
+        noAutomations: 'Noch keine Automatisierungen für diesen Status.', addSubstatus: 'Unterstatus hinzufügen',
+        scheduleCallback: 'Rückruf planen', dateLabel: 'Datum', timeLabel: 'Uhrzeit',
+        cbNoteLabel: 'Rückruf-Notiz', cbNotePlaceholder: 'Z.B. nach 16:00 Uhr anrufen, bevorzugt Email...',
+        subcatTitle: 'Unterkategorie des Ergebnisses', resultPhone: 'Anrufergebnis', resultEmail: 'E-Mail-Ergebnis',
+        resultSms: 'SMS-Ergebnis', resultMandatory: 'Pflichtanrufergebnis', resultContact: 'Kontaktergebnis',
+        reasonTitle: 'Wählen Sie einen spezifischen Grund', checklistHint: 'Wählen Sie Unterstatuse oder bestätigen Sie ohne Auswahl',
+        checkedCount: 'Ausgewählt', mandatoryPrompt: 'Wählen Sie ein Ergebnis vor dem Fortfahren',
+        namePH: 'z.B. Unpassender Zeitpunkt', namePHChild: 'z.B. Morgens anrufen', codePH: 'z.B. wrong_time', cbDaysPH: 'z.B. 1',
       },
       categoryNames: {
         not_reached: 'Nicht erreicht / keine Verbindung', callback: 'Rückruf / verschoben', interest: 'Interesse / geschäftlicher Fortschritt',
