@@ -1850,6 +1850,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
   const [expandedId, setExpandedId] = useState<string|null>(null);
   const [editingId, setEditingId] = useState<string|null>(null);
   const [addingChildFor, setAddingChildFor] = useState<string|null>(null);
+  const [childPickMode, setChildPickMode] = useState<"new"|"existing">("new");
   const [addingParent, setAddingParent] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [previewStep2, setPreviewStep2] = useState<string|null>(null);
@@ -1884,6 +1885,16 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
       return res.json();
     },
     onSuccess: () => { invalidate(); setEditingId(null); setForm(EMPTY_FORM); toast({title:"Zmeny uložené"}); },
+    onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
+  });
+
+  const linkExistMut = useMutation({
+    mutationFn: async ({id, parentId}:{id:string;parentId:string}) => {
+      const res = await apiRequest("PATCH",`/api/campaigns/${campaignId}/dispositions/${id}`,{parentId});
+      if(!res.ok) throw new Error((await res.json()).error||"Chyba pri prepojení");
+      return res.json();
+    },
+    onSuccess: () => { invalidate(); setAddingChildFor(null); setChildPickMode("new"); toast({title:"Výsledok prepojený ako podvýsledok"}); },
     onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
   });
 
@@ -2256,9 +2267,69 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
 
                         {/* Add child */}
                         {addingChildFor===parent.id ? (
-                          <DispFormUI parentId={parent.id}/>
+                          <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
+                            {/* Toggle: Nový / Existujúci */}
+                            <div className="flex gap-1 p-0.5 bg-muted rounded-md w-fit">
+                              <button
+                                onClick={()=>setChildPickMode("new")}
+                                className={`text-xs px-3 py-1 rounded transition-colors ${childPickMode==="new"?"bg-white dark:bg-slate-800 shadow font-medium":"text-muted-foreground hover:text-foreground"}`}
+                                data-testid={`btn-child-mode-new-${parent.id}`}
+                              >
+                                <Plus className="h-3 w-3 inline mr-1"/>Nový
+                              </button>
+                              <button
+                                onClick={()=>setChildPickMode("existing")}
+                                className={`text-xs px-3 py-1 rounded transition-colors ${childPickMode==="existing"?"bg-white dark:bg-slate-800 shadow font-medium":"text-muted-foreground hover:text-foreground"}`}
+                                data-testid={`btn-child-mode-existing-${parent.id}`}
+                              >
+                                <ListChecks className="h-3 w-3 inline mr-1"/>Prepojiť existujúci
+                              </button>
+                            </div>
+
+                            {childPickMode==="new" ? (
+                              <DispFormUI parentId={parent.id}/>
+                            ) : (
+                              (() => {
+                                const available = dispositions.filter((d:any)=>
+                                  !d.parentId && d.id!==parent.id && d.isActive
+                                );
+                                return available.length===0 ? (
+                                  <p className="text-xs text-muted-foreground py-2">
+                                    Žiadne voľné výsledky na prepojenie. Najprv vytvorte výsledok bez rodiča.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <p className="text-[11px] text-muted-foreground">Kliknite na výsledok — presuniete ho ako podvýsledok tohto rodiča:</p>
+                                    <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto">
+                                      {available.map((d:any)=>{
+                                        const I = DISP_ICON_MAP[d.icon||""]||CircleDot;
+                                        const colorCls = DISP_COLOR_STYLES[d.color||"gray"]||DISP_COLOR_STYLES.gray;
+                                        return (
+                                          <button key={d.id}
+                                            onClick={()=>linkExistMut.mutate({id:d.id,parentId:parent.id})}
+                                            disabled={linkExistMut.isPending}
+                                            className={`flex items-center gap-2 px-3 py-2 rounded-md border text-left transition-all hover:shadow-sm ${colorCls} disabled:opacity-50`}
+                                            data-testid={`btn-link-existing-${d.id}`}
+                                          >
+                                            <I className="h-3.5 w-3.5 shrink-0"/>
+                                            <span className="text-sm font-medium flex-1">{d.name}</span>
+                                            <span className="text-[10px] opacity-60">{d.code}</span>
+                                            {linkExistMut.isPending && <Loader2 className="h-3 w-3 animate-spin"/>}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()
+                            )}
+
+                            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={()=>{setAddingChildFor(null);setChildPickMode("new");}}>
+                              Zrušiť
+                            </Button>
+                          </div>
                         ) : (
-                          <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={()=>{setAddingChildFor(parent.id);setEditingId(null);setForm(EMPTY_FORM);setCodeManual(false);}} data-testid={`btn-add-child-${parent.id}`}>
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={()=>{setAddingChildFor(parent.id);setEditingId(null);setChildPickMode("new");setForm(EMPTY_FORM);setCodeManual(false);}} data-testid={`btn-add-child-${parent.id}`}>
                             <Plus className="h-3.5 w-3.5"/>Pridať podvýsledok
                           </Button>
                         )}
@@ -2311,6 +2382,8 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const [pulseCallbackTime, setPulseCallbackTime] = useState("09:00");
   const [pulseNotes, setPulseNotes] = useState("");
   const [pulseExpandedCats, setPulseExpandedCats] = useState<Set<string>>(new Set());
+  const [campPulseStep2, setCampPulseStep2] = useState<string|null>(null);
+  const [campPulseChecked, setCampPulseChecked] = useState<string[]>([]);
 
   const { data: categories = [], isLoading: catLoading } = useQuery<any[]>({
     queryKey: ["/api/status-categories"],
@@ -2322,6 +2395,12 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     queryKey: ["/api/campaigns", campaignId, "status-assignments"],
     queryFn: () => fetch(`/api/campaigns/${campaignId}/status-assignments`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error("Failed"); return r.json(); }),
   });
+  const { data: campDisps = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaignId, "dispositions"],
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
+  });
+  const campDispParents = campDisps.filter((d:any) => !d.parentId && d.isActive);
+  const campDispChildrenOf = (id:string) => campDisps.filter((d:any) => d.parentId === id && d.isActive);
 
   const assignedIds = useMemo(() => new Set(assignments.map((a: any) => a.statusDefinitionId)), [assignments]);
   const assignedStatuses = useMemo(() => allStatuses.filter((s: any) => assignedIds.has(s.id)), [allStatuses, assignedIds]);
@@ -2906,239 +2985,131 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       )}
 
       {!isLoading && viewMode === "pulse" && (
-        <>
-          {assignedStatuses.length === 0 ? (
-            <Card className="p-8 text-center">
-              <AlertCircle className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-              <p className="font-medium">{t.statusEngine?.noStatuses || "Najprv priraďte statusy v záložke \"Priradenie\""}</p>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-br from-slate-50 via-indigo-50/60 to-violet-50/40 border border-indigo-100 p-5 rounded-xl shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center shadow-sm">
-                    <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-base font-semibold text-slate-800">{t.statusEngine?.nexusPulse || "Nexus Pulse"}</h3>
-                    <p className="text-xs text-slate-500">{t.statusEngine?.pulseSubtitle || "Takto uvidí agent výber statusov po ukončení hovoru"}</p>
-                  </div>
-                  <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50/50">{assignedStatuses.length} {t.statusEngine?.selected || "statusov"}</Badge>
-                  <Button variant="outline" size="sm" className="text-xs gap-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50" onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending} data-testid="pulse-reseed">
-                    <RefreshCw className={`h-3 w-3 ${seedMutation.isPending ? "animate-spin" : ""}`} />
-                    {t.statusEngine?.seedDefaults || "Obnoviť predvolené"}
-                  </Button>
-                </div>
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="bg-gradient-to-br from-slate-50 via-indigo-50/60 to-violet-50/40 border border-indigo-100 p-4 rounded-xl shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center shadow-sm">
+                <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse"/>
               </div>
-
-              {pulseStack.length === 0 ? (
-                <NexusPulseView
-                  categories={categories}
-                  statuses={assignedStatuses}
-                  emptyMessage={t.statusEngine?.noStatusesForFilter || "Žiadne statusy v tejto kategórii"}
-                  onSelectStatus={(status: any) => {
-                    setPulseStack([status]);
-                    setPulseReschedule(null);
-                    setPulseNotes("");
-                    setPulseCallbackDate("");
-                  }}
-                />
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      if (pulseStack.length > 1) {
-                        setPulseStack(prev => prev.slice(0, -1));
-                      } else {
-                        setPulseStack([]); setPulseNotes(""); setPulseCallbackDate(""); setPulseReschedule(null);
-                      }
-                    }}>
-                      <ArrowLeft className="h-4 w-4 mr-1" /> Späť
-                    </Button>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {pulseStack.map((item: any, idx: number) => (
-                        <span key={item.id} className="flex items-center gap-1">
-                          {idx > 0 && <span className="text-muted-foreground mx-0.5">→</span>}
-                          <button
-                            className={`text-sm font-semibold ${idx === pulseStack.length - 1 ? "text-slate-900" : "text-indigo-600 hover:underline cursor-pointer"}`}
-                            onClick={() => { if (idx < pulseStack.length - 1) setPulseStack(prev => prev.slice(0, idx + 1)); }}
-                            data-testid={`pulse-breadcrumb-${idx}`}
-                          >
-                            {item.name}
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <Badge className={`${STATUS_ACTION_COLORS[pulseCurrentStatus.defaultAction] || ""}`}>
-                      {STATUS_ACTION_LABELS[pulseCurrentStatus.defaultAction]}
-                    </Badge>
-                  </div>
-
-                  {pulseHasChildren && (
-                    <Card className="p-4">
-                      <h4 className="font-medium mb-3">{t.statusEngine?.selectSubstatus || "Vyberte podstatus"} <span className="text-xs text-muted-foreground ml-1">(úroveň {pulseStack.length + 1})</span></h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {(childMap[pulseCurrentStatus.id] || []).map((sub: any) => {
-                          const colorClass = PULSE_STATUS_COLORS[sub.color || pulseCurrentStatus.color || "gray"] || PULSE_STATUS_COLORS.gray;
-                          const SubIcon = getStatusIcon(sub.icon);
-                          const subChildren = childMap[sub.id] || [];
-                          return (
-                            <button key={sub.id} className={`p-3 rounded-lg border text-left transition-all ${colorClass} hover:shadow-md active:scale-[0.98]`} onClick={() => setPulseStack(prev => [...prev, sub])} data-testid={`pulse-substatus-${sub.id}`}>
-                              <div className="flex items-center gap-1.5">
-                                {SubIcon && <SubIcon className="h-3.5 w-3.5 opacity-60" />}
-                                <div className="font-semibold text-sm">{sub.name}</div>
-                              </div>
-                              <div className="text-xs opacity-70 flex items-center gap-1">
-                                {STATUS_ACTION_LABELS[sub.defaultAction] || sub.defaultAction}
-                                {subChildren.length > 0 && <span className="text-indigo-500 font-medium">→ {subChildren.length}</span>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </Card>
-                  )}
-
-                  {!pulseHasChildren && (
-                    <>
-                      <Card className="p-4 space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                            <span className="text-muted-foreground">Finálny:</span>
-                            <Badge variant={pulseActiveStatus.isFinal ? "destructive" : "secondary"}>
-                              {pulseActiveStatus.isFinal ? "Áno" : "Nie"}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                            <span className="text-muted-foreground">Konverzia:</span>
-                            <Badge variant={pulseActiveStatus.isConversion ? "default" : "secondary"} className={pulseActiveStatus.isConversion ? "bg-green-600" : ""}>
-                              {pulseActiveStatus.isConversion ? "Áno" : "Nie"}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                            <span className="text-muted-foreground">Kód:</span>
-                            <code className="text-xs bg-muted px-1 rounded">{pulseActiveStatus.code}</code>
-                          </div>
-                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                            <span className="text-muted-foreground">Akcia:</span>
-                            <Badge className={`${STATUS_ACTION_COLORS[pulseActiveStatus.defaultAction] || ""} text-xs`}>
-                              {STATUS_ACTION_LABELS[pulseActiveStatus.defaultAction]}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        {pulseStack.length > 1 && (
-                          <>
-                            <Separator />
-                            <div className="bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
-                              <div className="text-xs font-medium text-indigo-700 mb-1">Cesta výberu:</div>
-                              <div className="flex items-center gap-1 flex-wrap text-sm">
-                                {pulseStack.map((item: any, idx: number) => {
-                                  const ItemIcon = getStatusIcon(item.icon);
-                                  return (
-                                    <span key={item.id} className="flex items-center gap-1">
-                                      {idx > 0 && <ChevronRight className="h-3 w-3 text-indigo-300" />}
-                                      {ItemIcon && <ItemIcon className="h-3 w-3 text-indigo-400" />}
-                                      <span className={idx === pulseStack.length - 1 ? "font-semibold text-indigo-800" : "text-indigo-600"}>{item.name}</span>
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </>
-                        )}
-
-                        <Separator />
-
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${pulseActiveStatus.allowPhone ? "bg-blue-50 border-blue-200" : "bg-muted/30 border-transparent"}`}>
-                            <Phone className={`h-5 w-5 ${pulseActiveStatus.allowPhone ? "text-blue-500" : "text-muted-foreground"}`} />
-                            <div>
-                              <div className="text-sm font-medium">Telefón</div>
-                              <div className="text-xs text-muted-foreground">{pulseActiveStatus.allowPhone ? "Povolený" : "Nepovolený"}</div>
-                            </div>
-                          </div>
-                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${pulseActiveStatus.allowEmail ? "bg-purple-50 border-purple-200" : "bg-muted/30 border-transparent"}`}>
-                            <Mail className={`h-5 w-5 ${pulseActiveStatus.allowEmail ? "text-purple-500" : "text-muted-foreground"}`} />
-                            <div>
-                              <div className="text-sm font-medium">Email</div>
-                              <div className="text-xs text-muted-foreground">{pulseActiveStatus.allowEmail ? "Povolený" : "Nepovolený"}</div>
-                            </div>
-                          </div>
-                          <div className={`flex items-center gap-2 p-3 rounded-lg border ${pulseActiveStatus.allowSms ? "bg-teal-50 border-teal-200" : "bg-muted/30 border-transparent"}`}>
-                            <MessageSquare className={`h-5 w-5 ${pulseActiveStatus.allowSms ? "text-teal-500" : "text-muted-foreground"}`} />
-                            <div>
-                              <div className="text-sm font-medium">SMS</div>
-                              <div className="text-xs text-muted-foreground">{pulseActiveStatus.allowSms ? "Povolený" : "Nepovolený"}</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {(pulseActiveStatus.defaultAction === "reschedule" || pulseActiveStatus.defaultAction === "callback") && pulseActiveStatus.rescheduleOptions?.length > 0 && (
-                          <>
-                            <Separator />
-                            <div className="bg-sky-50 dark:bg-sky-950 p-4 rounded-lg border border-sky-200 dark:border-sky-800">
-                              <Label className="text-sm font-medium flex items-center gap-1 mb-3">
-                                <Settings2 className="h-4 w-4" />
-                                Preplánovať hovor na:
-                              </Label>
-                              <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                                {(pulseActiveStatus.rescheduleOptions || []).map((optValue: string) => {
-                                  const opt = RESCHEDULE_PERIOD_OPTIONS.find((o: any) => o.value === optValue);
-                                  if (!opt) return null;
-                                  const isSelected = pulseReschedule === optValue;
-                                  return (
-                                    <button key={optValue} className={`p-2.5 rounded-lg border-2 text-center transition-all ${isSelected ? "border-sky-500 bg-sky-100 text-sky-800 shadow-md" : "border-gray-200 bg-white hover:border-sky-300 hover:bg-sky-50"}`} onClick={() => setPulseReschedule(isSelected ? null : optValue)} data-testid={`pulse-reschedule-${optValue}`}>
-                                      <div className="font-semibold text-sm">{opt.label}</div>
-                                      <div className="text-xs text-muted-foreground">{opt.days} dní</div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </>
-                        )}
-
-                        {pulseActiveStatus.requiresCallback && !(pulseActiveStatus.rescheduleOptions?.length > 0) && (
-                          <>
-                            <Separator />
-                            <div>
-                              <Label className="text-sm font-medium">Callback dátum</Label>
-                              <div className="grid grid-cols-2 gap-2 mt-1">
-                                <Input type="date" value={pulseCallbackDate} onChange={(e: any) => setPulseCallbackDate(e.target.value)} data-testid="pulse-callback-date" />
-                                <Input type="time" value={pulseCallbackTime} onChange={(e: any) => setPulseCallbackTime(e.target.value)} data-testid="pulse-callback-time" />
-                              </div>
-                            </div>
-                          </>
-                        )}
-
-                        {pulseActiveStatus.requiresNote && (
-                          <>
-                            <Separator />
-                            <div>
-                              <Label className="text-sm font-medium">Poznámka (povinná)</Label>
-                              <textarea className="w-full mt-1 p-2 border rounded-md text-sm min-h-[60px] resize-none" placeholder="Zadajte poznámku..." value={pulseNotes} onChange={(e) => setPulseNotes(e.target.value)} data-testid="pulse-notes" />
-                            </div>
-                          </>
-                        )}
-                      </Card>
-                      <div className="flex gap-2 justify-end">
-                        <Button variant="outline" onClick={() => { setPulseStack([]); setPulseReschedule(null); setPulseNotes(""); setPulseCallbackDate(""); }}>Zrušiť</Button>
-                        <Button className="bg-green-600 hover:bg-green-700" disabled={
-                          (pulseActiveStatus.requiresNote && !pulseNotes.trim()) ||
-                          (pulseActiveStatus.requiresCallback && !pulseCallbackDate && !pulseReschedule)
-                        } data-testid="pulse-confirm">
-                          <Check className="h-4 w-4 mr-1" /> Potvrdiť dispozíciu
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-slate-800">Nexus Pulse — Simulácia agenta</h3>
+                <p className="text-xs text-slate-500">Interaktívna ukážka toho, čo vidí agent v dialógu "Ukončiť hovor"</p>
+              </div>
+              <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50/50">{campDispParents.length} výsledkov</Badge>
+              <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={()=>{setCampPulseStep2(null);setCampPulseChecked([]);}} data-testid="pulse-reset">
+                <RefreshCw className="h-3.5 w-3.5"/>Reset
+              </Button>
             </div>
-          )}
-        </>
+          </div>
+
+          {/* Explanation */}
+          <div className="text-xs bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 text-amber-700 dark:text-amber-300 flex items-start gap-2">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5"/>
+            <span>Toto zobrazuje <strong>Výsledky kampane</strong> (záložka "3. Výsledky kampane") — presne tak, ako ich vidí agent. Spravujte ich v záložke "3. Výsledky kampane".</span>
+          </div>
+
+          {campDispParents.length === 0 ? (
+            <Card className="p-8 text-center">
+              <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2"/>
+              <p className="text-sm text-muted-foreground font-medium">Žiadne výsledky kampane</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-3">Prejdite do záložky "3. Výsledky kampane" a pridajte výsledky hovorov.</p>
+              <Button size="sm" onClick={()=>setViewMode("campaign")}>
+                <ListChecks className="h-3.5 w-3.5 mr-1"/>Spravovať výsledky
+              </Button>
+            </Card>
+          ) : !campPulseStep2 ? (
+            <div className="space-y-2">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Krok 1 — Výber výsledku hovoru</p>
+              <div className="grid grid-cols-2 gap-2">
+                {campDispParents.map((p:any) => {
+                  const kids = campDispChildrenOf(p.id);
+                  const colorCls = DISP_COLOR_STYLES[p.color||"gray"]||DISP_COLOR_STYLES.gray;
+                  const I = DISP_ICON_MAP[p.icon||""]||CircleDot;
+                  return (
+                    <button key={p.id}
+                      onClick={()=>{ if(kids.length>0) setCampPulseStep2(p.id); else toast({title:`Simulácia: "${p.name}"`,description:ACTION_TYPE_LABEL[p.actionType||"none"]?.label||"Bez akcie"}); }}
+                      className={`flex items-center gap-2.5 p-3 rounded-lg border text-left transition-all hover:shadow-md active:scale-[0.98] ${colorCls}`}
+                      data-testid={`nexus-pulse-disp-${p.id}`}
+                    >
+                      <I className="h-5 w-5 shrink-0"/>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{p.name}</div>
+                        {kids.length>0
+                          ? <div className="text-[11px] opacity-70">{kids.length} podvýsledkov {p.childrenType==="checklist"?"(checklist)":"(výber)"} →</div>
+                          : <div className="text-[11px] opacity-70">{ACTION_TYPE_LABEL[p.actionType||"none"]?.label||"Bez akcie"}</div>
+                        }
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (()=>{
+            const pulseParent = campDisps.find((d:any)=>d.id===campPulseStep2);
+            const pulseKids = campDispChildrenOf(campPulseStep2);
+            const isChecklist = pulseParent?.childrenType==="checklist";
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={()=>{setCampPulseStep2(null);setCampPulseChecked([]);}}>
+                    <ChevronLeft className="h-3.5 w-3.5 mr-1"/>Späť
+                  </Button>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                    Krok 2 — {pulseParent?.name} · {isChecklist?"zaškrtnite viacero":"vyberte jeden"}
+                  </p>
+                </div>
+                {isChecklist ? (
+                  <>
+                    <div className="space-y-1.5">
+                      {pulseKids.map((c:any)=>{
+                        const isChecked = campPulseChecked.includes(c.code);
+                        const CI = DISP_ICON_MAP[c.icon||""]||CircleDot;
+                        const ai = ACTION_TYPE_LABEL[c.actionType||"none"];
+                        return (
+                          <label key={c.id} className={`flex items-center gap-3 p-2.5 rounded-md border cursor-pointer transition-colors ${isChecked?"border-primary bg-primary/5":"hover:bg-muted/40"}`}>
+                            <Checkbox checked={isChecked} onCheckedChange={v=>setCampPulseChecked(prev=>v?[...prev,c.code]:prev.filter(x=>x!==c.code))}/>
+                            <CI className="h-4 w-4 text-muted-foreground shrink-0"/>
+                            <span className="text-sm flex-1">{c.name}</span>
+                            {c.actionType!=="none" && <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ai.className}`}>{ai.label}</span>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <Button size="sm" className="w-full" onClick={()=>{
+                      setCampPulseStep2(null);setCampPulseChecked([]);
+                      toast({title:"Simulácia: výsledok uložený",description:`${pulseParent?.name} + ${campPulseChecked.length} podvýsledkov`});
+                    }}>
+                      <Check className="h-3.5 w-3.5 mr-1.5"/>Uložiť výsledok (simulácia)
+                    </Button>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {pulseKids.map((c:any)=>{
+                      const colorCls = DISP_COLOR_STYLES[c.color||pulseParent?.color||"gray"]||DISP_COLOR_STYLES.gray;
+                      const CI = DISP_ICON_MAP[c.icon||""]||CircleDot;
+                      const ai = ACTION_TYPE_LABEL[c.actionType||"none"];
+                      return (
+                        <button key={c.id}
+                          onClick={()=>{setCampPulseStep2(null);toast({title:`Simulácia: "${c.name}"`,description:ai?.label||"Bez akcie"});}}
+                          className={`flex items-center gap-2.5 p-3 rounded-lg border text-left hover:shadow-md transition-all active:scale-[0.98] ${colorCls}`}
+                        >
+                          <CI className="h-4 w-4 shrink-0"/>
+                          <div>
+                            <div className="text-sm font-semibold">{c.name}</div>
+                            {c.actionType!=="none" && <div className="text-[11px] opacity-70">{ai?.label}</div>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
       )}
+
 
       {!isLoading && viewMode === "campaign" && <CampaignDispositionManager campaignId={campaignId} />}
 
