@@ -5464,6 +5464,14 @@ export default function AgentWorkspacePage() {
       .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   }, [nexusPulseData, campaignDispositions]);
 
+  const dispChannelAllowed = (d: any, ch: "phone" | "email" | "sms" | null): boolean => {
+    if (!ch) return true;
+    if (ch === "phone") return d.allowPhone != null ? d.allowPhone === true : d.channel === "phone";
+    if (ch === "email") return d.allowEmail != null ? d.allowEmail === true : d.channel === "email";
+    if (ch === "sms")   return d.allowSms   != null ? d.allowSms   === true : d.channel === "sms";
+    return true;
+  };
+
   const { data: contractCategories = [] } = useQuery<Array<{ id: number; value: string; label: string }>>({
     queryKey: ["/api/contracts/categories"],
     enabled: contractWizardOpen,
@@ -7834,7 +7842,7 @@ export default function AgentWorkspacePage() {
               ) : checklistParentId ? (() => {
                 /* ---- Step 2: Dvojkrokový výber (Checklist) ---- */
                 const clParent = campaignDispositions.find((d: any) => d.id === checklistParentId);
-                const clChildren = campaignDispositions.filter((d: any) => d.parentId === checklistParentId && d.isActive);
+                const clChildren = campaignDispositions.filter((d: any) => d.parentId === checklistParentId && d.isActive && dispChannelAllowed(d, dispositionChannelFilter));
                 const clColorClass = DISPOSITION_COLOR_MAP[clParent?.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
                 return (
                   <div className="space-y-4">
@@ -7902,7 +7910,7 @@ export default function AgentWorkspacePage() {
               })() : modalSelectedParent ? (() => {
                 /* ---- Detail parent (children + callback form) ---- */
                 const parent = campaignDispositions.find(d => d.id === modalSelectedParent);
-                const children = campaignDispositions.filter(d => d.parentId === modalSelectedParent && d.isActive);
+                const children = campaignDispositions.filter((d: any) => d.parentId === modalSelectedParent && d.isActive && dispChannelAllowed(d, dispositionChannelFilter));
                 const cbAssignTo = modalCallbackAssign === "me" && user?.id ? user.id : null;
                 const needsCallback = parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms"
                   || children.some(c => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms");
@@ -8036,11 +8044,7 @@ export default function AgentWorkspacePage() {
                 /* ---- Hlavný zoznam: rovnaký vizuál ako Nexus Pulse náhľad v kampani ---- */
                 const channelFiltered = campaignDispositions.filter((d: any) => {
                   if (!d.isActive) return false;
-                  if (d.parentId) return true; // include children for sub-counts
-                  if (!dispositionChannelFilter) return true;
-                  if (dispositionChannelFilter === "sms") return d.actionType === "send_sms" || d.actionType === "schedule_sms";
-                  if (dispositionChannelFilter === "email") return d.actionType === "send_email" || d.actionType === "schedule_email";
-                  return d.channel === dispositionChannelFilter;
+                  return dispChannelAllowed(d, dispositionChannelFilter);
                 });
 
                 const selectedSet = new Set(
@@ -8066,7 +8070,7 @@ export default function AgentWorkspacePage() {
                       selectedIds={selectedSet}
                       emptyMessage="Žiadne výsledky pre túto kampaň."
                       onSelectStatus={(disp: any) => {
-                        const children = campaignDispositions.filter((d: any) => d.parentId === disp.id && d.isActive);
+                        const children = campaignDispositions.filter((d: any) => d.parentId === disp.id && d.isActive && dispChannelAllowed(d, dispositionChannelFilter));
                         const hasChildren = children.length > 0;
                         const isCallback = disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms" || disp.requiresCallback;
                         const needsConfig = hasChildren || isCallback || disp.requiresNote;
