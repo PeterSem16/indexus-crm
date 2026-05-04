@@ -2827,7 +2827,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     {
       step: 3,
       mode: "campaign" as const,
-      title: "Výsledky kampane — správa a náhľad",
+      title: "Výsledky hovoru — správa a náhľad",
       desc: "Pridávajte, upravujte a mažte výsledky hovorov priamo v tejto kampani. Pre každý výsledok nastavte ikonu, farbu, automatizáciu (callback, DND...) a podvýsledky. Tlačidlom \"Náhľad agenta\" simulujete pohľad agenta.",
       action: "Kliknite na riadok výsledku pre rozbalenie, ceruzkou ho upravte, koším ho zmažte. Tlačidlo \"+ Pridať výsledok\" pridá nový.",
     },
@@ -2857,7 +2857,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
           {[
             { key: "engine" as const, icon: Settings2, label: "1. Definície" },
             { key: "assign" as const, icon: CheckSquare, label: "2. Priradenie" },
-            { key: "campaign" as const, icon: ListChecks, label: "3. Výsledky kampane" },
+            { key: "campaign" as const, icon: ListChecks, label: "3. Výsledky hovoru" },
           ].map(tab => (
             <Button
               key={tab.key}
@@ -2926,7 +2926,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       {viewMode === "campaign" && (
         <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
           <ListChecks className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          <span><strong>Krok 3 — Výsledky kampane:</strong> Tu priamo spravujete výsledky hovorov (pridávanie, úprava, mazanie). Kliknite na riadok pre rozbalenie a správu podvýsledkov. Tlačidlo <Eye className="h-3 w-3 inline mx-0.5"/><strong>Náhľad agenta</strong> simuluje, ako to uvidí agent pri ukončení hovoru.</span>
+          <span><strong>Krok 3 — Výsledky hovoru:</strong> Tu priamo spravujete výsledky hovorov (pridávanie, úprava, mazanie). Kliknite na riadok pre rozbalenie a správu podvýsledkov. Tlačidlo <Eye className="h-3 w-3 inline mx-0.5"/><strong>Náhľad agenta</strong> simuluje, ako to uvidí agent pri ukončení hovoru.</span>
         </div>
       )}
 

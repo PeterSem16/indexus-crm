@@ -5081,6 +5081,8 @@ export default function AgentWorkspacePage() {
   const [multiSelectedCodes, setMultiSelectedCodes] = useState<string[]>([]);
   const [checklistParentId, setChecklistParentId] = useState<string | null>(null);
   const [checklistSelectedCodes, setChecklistSelectedCodes] = useState<string[]>([]);
+  const [checklistCallbackDate, setChecklistCallbackDate] = useState("");
+  const [checklistCallbackTime, setChecklistCallbackTime] = useState("09:00");
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [pendingEmailTemplateId, setPendingEmailTemplateId] = useState<string | null>(null);
   const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
@@ -8131,33 +8133,74 @@ export default function AgentWorkspacePage() {
               : clConfirmParent?.actionType && clConfirmParent.actionType !== 'none'
                 ? actionLabels[clConfirmParent.actionType]
                 : null;
+            const needsCallbackDate = (effectiveChild?.actionType === "callback" || effectiveChild?.actionType === "schedule_email" || effectiveChild?.actionType === "schedule_sms")
+              || (!effectiveChild && (clConfirmParent?.actionType === "callback" || clConfirmParent?.actionType === "schedule_email" || clConfirmParent?.actionType === "schedule_sms"));
             return (
-              <div className="border-t bg-background px-6 py-3 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  {checklistSelectedCodes.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Zaškrtnite podstatusy alebo potvrďte bez výberu</p>
-                  ) : (
-                    <div className="space-y-0.5">
-                      <p className="text-xs text-muted-foreground">Zaškrtnuté: <strong>{checklistSelectedCodes.length}</strong></p>
-                      {effectiveActionLabel && (
-                        <p className="text-xs text-primary font-medium">{effectiveActionLabel}</p>
-                      )}
+              <div className="border-t bg-background px-4 py-3 space-y-2">
+                {needsCallbackDate && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-muted-foreground shrink-0">📅 Preplánovanie:</span>
+                    <input type="date"
+                      value={checklistCallbackDate}
+                      min={new Date().toISOString().split("T")[0]}
+                      onChange={e => setChecklistCallbackDate(e.target.value)}
+                      className="h-7 text-xs border rounded px-2 bg-background"
+                      data-testid="input-checklist-callback-date"
+                    />
+                    <input type="time"
+                      value={checklistCallbackTime}
+                      onChange={e => setChecklistCallbackTime(e.target.value)}
+                      className="h-7 text-xs border rounded px-2 bg-background w-24"
+                      data-testid="input-checklist-callback-time"
+                    />
+                    <div className="flex gap-1 flex-wrap">
+                      {[{l:"Zajtra",d:1},{l:"2d",d:2},{l:"3d",d:3},{l:"1t",d:7},{l:"2t",d:14},{l:"1m",d:30}].map(p=>(
+                        <button key={p.d} type="button"
+                          className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-muted transition-colors"
+                          onClick={()=>{
+                            const dt = p.d <= 3 ? addBusinessDays(new Date(), p.d) : (() => { const x=new Date(); x.setDate(x.getDate()+p.d); return x; })();
+                            setChecklistCallbackDate(dt.toISOString().split("T")[0]);
+                          }}
+                        >{p.l}</button>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    {checklistSelectedCodes.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Zaškrtnite podstatusy alebo potvrďte bez výberu</p>
+                    ) : (
+                      <div className="space-y-0.5">
+                        <p className="text-xs text-muted-foreground">Zaškrtnuté: <strong>{checklistSelectedCodes.length}</strong></p>
+                        {effectiveActionLabel && (
+                          <p className="text-xs text-primary font-medium">{effectiveActionLabel}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    disabled={needsCallbackDate && !checklistCallbackDate}
+                    onClick={() => {
+                      if (clConfirmParent) {
+                        handleDisposition(
+                          clConfirmParent.code, undefined,
+                          needsCallbackDate && checklistCallbackDate && checklistCallbackTime
+                            ? `${checklistCallbackDate}T${checklistCallbackTime}` : undefined,
+                          undefined, undefined, undefined, checklistSelectedCodes
+                        );
+                      }
+                      setChecklistParentId(null);
+                      setChecklistSelectedCodes([]);
+                      setChecklistCallbackDate("");
+                      setChecklistCallbackTime("09:00");
+                    }}
+                    data-testid="btn-checklist-confirm"
+                  >
+                    <Target className="h-4 w-4 mr-1" />
+                    {needsCallbackDate ? "Naplánovať a uložiť" : "Uložiť výsledok"}
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => {
-                    if (clConfirmParent) {
-                      handleDisposition(clConfirmParent.code, undefined, undefined, undefined, undefined, undefined, checklistSelectedCodes);
-                    }
-                    setChecklistParentId(null);
-                    setChecklistSelectedCodes([]);
-                  }}
-                  data-testid="btn-checklist-confirm"
-                >
-                  <Target className="h-4 w-4 mr-1" />
-                  Uložiť výsledok
-                </Button>
               </div>
             );
           })()}

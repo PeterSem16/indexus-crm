@@ -3301,11 +3301,7 @@ export const DEFAULT_PHONE_DISPOSITIONS = [
     { name: "Nikdy", code: "never", icon: "XCircle", color: "orange" },
     { name: "Má konkurenciu", code: "has_competitor", icon: "Users", color: "orange" },
   ]},
-  { name: "Nedvíha", code: "no_answer", icon: "PhoneOff", color: "gray", actionType: "none" as const, channel: "phone" as const, children: [] },
-  { name: "Obsadené", code: "busy", icon: "Phone", color: "yellow", actionType: "callback" as const, channel: "phone" as const, children: [] },
-  { name: "Hlasová schránka", code: "voicemail", icon: "MessageSquare", color: "gray", actionType: "callback" as const, channel: "phone" as const, children: [] },
-  { name: "Zlé číslo", code: "wrong_number", icon: "AlertCircle", color: "red", actionType: "complete" as const, channel: "phone" as const, children: [] },
-  { name: "Nevolať (DND)", code: "dnd", icon: "XCircle", color: "red", actionType: "dnd" as const, channel: "phone" as const, children: [] },
+  { name: "Nedovolané", code: "no_answer", icon: "PhoneOff", color: "gray", actionType: "none" as const, channel: "phone" as const, children: [] },
 ];
 
 export const DEFAULT_EMAIL_DISPOSITIONS = [
