@@ -2856,8 +2856,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         <div className="flex bg-muted rounded-lg p-0.5">
           {[
             { key: "engine" as const, icon: Settings2, label: "1. Definície" },
-            { key: "assign" as const, icon: CheckSquare, label: "2. Priradenie" },
-            { key: "campaign" as const, icon: ListChecks, label: "3. Výsledky hovoru" },
+            { key: "campaign" as const, icon: ListChecks, label: "2. Výsledky hovoru" },
           ].map(tab => (
             <Button
               key={tab.key}
@@ -3753,8 +3752,8 @@ export default function CampaignDetailPage() {
     return locale;
   }, [user?.countries, locale]);
 
-  const getDispName = (code: string, fallbackName: string) => {
-    return DISPOSITION_NAME_TRANSLATIONS[code]?.[userLocale] || fallbackName;
+  const getDispName = (_code: string, fallbackName: string) => {
+    return fallbackName;
   };
   const [activeTab, setActiveTab] = useState("overview");
   const [settingsSubTab, setSettingsSubTab] = useState("general");

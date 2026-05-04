@@ -5517,7 +5517,7 @@ export default function AgentWorkspacePage() {
   }, [user?.countries, locale]);
 
   const getDispName = (disp: { code: string; name: string }) => {
-    return DISPOSITION_NAME_TRANSLATIONS[disp.code]?.[userLocale] || disp.name;
+    return disp.name;
   };
 
   const { data: rawCampaignContacts = [] } = useQuery<EnrichedCampaignContact[]>({
@@ -8133,8 +8133,11 @@ export default function AgentWorkspacePage() {
               : clConfirmParent?.actionType && clConfirmParent.actionType !== 'none'
                 ? actionLabels[clConfirmParent.actionType]
                 : null;
-            const needsCallbackDate = (effectiveChild?.actionType === "callback" || effectiveChild?.actionType === "schedule_email" || effectiveChild?.actionType === "schedule_sms")
-              || (!effectiveChild && (clConfirmParent?.actionType === "callback" || clConfirmParent?.actionType === "schedule_email" || clConfirmParent?.actionType === "schedule_sms"));
+            const needsCallbackDate =
+              clConfirmParent?.actionType === "callback" ||
+              clConfirmParent?.actionType === "schedule_email" ||
+              clConfirmParent?.actionType === "schedule_sms" ||
+              selectedChildren.some((c: any) => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms");
             return (
               <div className="border-t bg-background px-4 py-3 space-y-2">
                 {needsCallbackDate && (

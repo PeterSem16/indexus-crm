@@ -3301,7 +3301,7 @@ export const DEFAULT_PHONE_DISPOSITIONS = [
     { name: "Nikdy", code: "never", icon: "XCircle", color: "orange" },
     { name: "Má konkurenciu", code: "has_competitor", icon: "Users", color: "orange" },
   ]},
-  { name: "Nedovolané", code: "no_answer", icon: "PhoneOff", color: "gray", actionType: "none" as const, channel: "phone" as const, children: [] },
+  { name: "Nedovolané / Nespojené", code: "no_answer", icon: "PhoneOff", color: "gray", actionType: "callback" as const, channel: "phone" as const, children: [] },
 ];
 
 export const DEFAULT_EMAIL_DISPOSITIONS = [
