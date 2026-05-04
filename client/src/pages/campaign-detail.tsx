@@ -1715,7 +1715,7 @@ const STATUS_ACTION_LABELS: Record<string, string> = {
   none: "Žiadna", callback: "Spätné volanie", reschedule: "Preplánovať hovor",
   do_not_call: "Nevolať", complete: "Dokončiť", conversion: "Konverzia",
   send_email: "Odoslať email", send_sms: "Odoslať SMS",
-  schedule_email: "Schedule email", schedule_sms: "Schedule SMS",
+  schedule_email: "Naplánovať email", schedule_sms: "Naplánovať SMS",
   assign_owner: "Priradiť vlastníkovi", move_queue: "Presunúť do fronty",
   start_onboarding: "Spustiť onboarding", create_task: "Vytvoriť task",
   verify_contact: "Verifikácia kontaktu",
@@ -2005,11 +2005,11 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
 
   const seedMut = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST",`/api/campaigns/${campaignId}/dispositions/seed`,{});
+      const res = await apiRequest("POST",`/api/campaigns/${campaignId}/dispositions/seed`,{force: true, language: "sk"});
       if(!res.ok) throw new Error("Chyba pri naplnení predvolených");
       return res.json();
     },
-    onSuccess: () => { invalidate(); toast({title:"Predvolené výsledky naplnené"}); },
+    onSuccess: (data:any) => { invalidate(); toast({title:"Predvolené výsledky obnovené", description:`Nahradené slovenskou sadou (${Array.isArray(data)?data.length:0} výsledkov)`}); },
     onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
   });
 

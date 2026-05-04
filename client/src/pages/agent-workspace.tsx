@@ -2412,7 +2412,7 @@ function CommunicationCanvas({
         )}
         <StatusBadge status={(contact.status as any) || "pending"} className="text-[10px] h-5" />
         <Badge variant="outline" className="text-[10px] h-5">
-          {contact.clientStatus === "acquired" ? "Acquired" : contact.clientStatus === "potential" ? "Prospect" : contact.clientStatus || "—"}
+          {contact.clientStatus === "acquired" ? "Získaný klient" : contact.clientStatus === "potential" ? "Potenciálny" : contact.clientStatus || "—"}
         </Badge>
       </div>
 
