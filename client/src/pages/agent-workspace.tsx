@@ -5079,6 +5079,8 @@ export default function AgentWorkspacePage() {
   const [activeDispCategory, setActiveDispCategory] = useState<string>("__all__");
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [multiSelectedCodes, setMultiSelectedCodes] = useState<string[]>([]);
+  const [checklistParentId, setChecklistParentId] = useState<string | null>(null);
+  const [checklistSelectedCodes, setChecklistSelectedCodes] = useState<string[]>([]);
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [pendingEmailTemplateId, setPendingEmailTemplateId] = useState<string | null>(null);
   const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
@@ -5786,7 +5788,7 @@ export default function AgentWorkspacePage() {
   }, [selectedCampaignId]);
 
   const dispositionMutation = useMutation({
-    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null; callbackNote?: string; callMeta?: Record<string, any> }) => {
+    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null; callbackNote?: string; callMeta?: Record<string, any>; checklistCodes?: string[] }) => {
       const disp = campaignDispositions.find(d => d.code === data.disposition) 
         || campaignDispositions.find(d => d.code === data.parentCode);
       
@@ -5812,6 +5814,10 @@ export default function AgentWorkspacePage() {
         assignedTo: user?.id || null,
         callMeta: data.callMeta || undefined,
       };
+
+      if (data.checklistCodes?.length) {
+        updateData.dispositionChecklistCodes = data.checklistCodes;
+      }
       
       if (data.callbackDateTime && (disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms")) {
         updateData.callbackDate = data.callbackDateTime;
@@ -5852,7 +5858,7 @@ export default function AgentWorkspacePage() {
     },
   });
 
-  const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null, callbackNote?: string, notesOverride?: string) => {
+  const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null, callbackNote?: string, notesOverride?: string, checklistCodes?: string[]) => {
     const disp = campaignDispositions.find(d => d.code === value)
       || campaignDispositions.find(d => d.code === parentCode);
 
@@ -5891,6 +5897,7 @@ export default function AgentWorkspacePage() {
         callbackAssignedTo,
         callbackNote: callbackNote || undefined,
         callMeta,
+        checklistCodes,
       });
     }
 
@@ -5901,6 +5908,8 @@ export default function AgentWorkspacePage() {
 
     setDispositionModalOpen(false);
     setModalSelectedParent(null);
+    setChecklistParentId(null);
+    setChecklistSelectedCodes([]);
     setMandatoryDisposition(false);
     setDispositionChannelFilter(null);
     setCallEndTimestamp(null);
@@ -7747,7 +7756,7 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); } }}>
+      <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); setChecklistParentId(null); setChecklistSelectedCodes([]); } }}>
         <SheetContent
           side="right"
           className={`w-full sm:max-w-[720px] p-0 flex flex-col gap-0 ${mandatoryDisposition ? "[&>button]:hidden" : ""}`}
@@ -7760,7 +7769,9 @@ export default function AgentWorkspacePage() {
               <div className="space-y-1 min-w-0">
                 <SheetTitle className="flex items-center gap-2 text-base">
                   <Target className="h-5 w-5 text-primary shrink-0" />
-                  {modalSelectedParent
+                  {checklistParentId
+                    ? t.agentWorkspace.checklistStep2
+                    : modalSelectedParent
                     ? "Podkategória výsledku"
                     : dispositionChannelFilter === "phone" ? "Výsledok hovoru"
                     : dispositionChannelFilter === "email" ? "Výsledok emailu"
@@ -7779,7 +7790,7 @@ export default function AgentWorkspacePage() {
                   <p className="text-xs text-destructive">Vyberte výsledok pred pokračovaním</p>
                 )}
               </div>
-              {!modalSelectedParent && campaignDispositions.length > 0 && (
+              {!modalSelectedParent && !checklistParentId && campaignDispositions.length > 0 && (
                 <div className="flex items-center gap-2 shrink-0">
                   <Label htmlFor="multi-toggle" className="text-xs cursor-pointer text-muted-foreground">Multi-výber</Label>
                   <Checkbox
@@ -7802,7 +7813,59 @@ export default function AgentWorkspacePage() {
                   <p className="text-sm font-medium">Žiadne výsledky pre túto kampaň</p>
                   <p className="text-xs text-muted-foreground mt-1">Priraďte statusy v Nexus Pulse v detaile kampane.</p>
                 </div>
-              ) : modalSelectedParent ? (() => {
+              ) : checklistParentId ? (() => {
+                /* ---- Step 2: Dvojkrokový výber (Checklist) ---- */
+                const clParent = campaignDispositions.find((d: any) => d.id === checklistParentId);
+                const clChildren = campaignDispositions.filter((d: any) => d.parentId === checklistParentId && d.isActive);
+                const clColorClass = DISPOSITION_COLOR_MAP[clParent?.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                return (
+                  <div className="space-y-4">
+                    <Button variant="ghost" size="sm" className="gap-1 text-xs -ml-2" onClick={() => { setChecklistParentId(null); setChecklistSelectedCodes([]); }} data-testid="btn-checklist-back">
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                      {t.agentWorkspace.checklistBack}
+                    </Button>
+
+                    {clParent && (() => {
+                      const ClIcon = DISPOSITION_ICON_MAP[clParent.icon || ""] || CircleDot;
+                      return (
+                        <div className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${clColorClass}`}>
+                          <ClIcon className="h-5 w-5 shrink-0" />
+                          <div>
+                            <div className="text-sm font-semibold">{getDispName(clParent)}</div>
+                            <div className="text-xs opacity-70">{clParent.code}</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    <div>
+                      <p className="text-sm font-medium mb-3">{t.agentWorkspace.checklistRequirements}</p>
+                      <div className="space-y-2">
+                        {clChildren.map((child: any) => {
+                          const isChecked = checklistSelectedCodes.includes(child.code);
+                          const ChildIcon = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
+                          return (
+                            <label key={child.id} className="flex items-center gap-3 p-2.5 rounded-md border cursor-pointer hover:bg-muted/40 transition-colors" data-testid={`checklist-item-${child.code}`}>
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={(v) => {
+                                  setChecklistSelectedCodes(prev =>
+                                    v ? [...prev, child.code] : prev.filter(c => c !== child.code)
+                                  );
+                                }}
+                              />
+                              <ChildIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                              <span className="text-sm flex-1">{getDispName(child)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground italic">{t.agentWorkspace.checklistOptional}</p>
+                  </div>
+                );
+              })() : modalSelectedParent ? (() => {
                 /* ---- Detail parent (children + callback form) ---- */
                 const parent = campaignDispositions.find(d => d.id === modalSelectedParent);
                 const children = campaignDispositions.filter(d => d.parentId === modalSelectedParent && d.isActive);
@@ -7976,7 +8039,10 @@ export default function AgentWorkspacePage() {
                           return;
                         }
 
-                        if (needsConfig) {
+                        if (disp.childrenType === "checklist" && hasChildren) {
+                          setChecklistParentId(disp.id);
+                          setChecklistSelectedCodes([]);
+                        } else if (needsConfig) {
                           setModalSelectedParent(disp.id);
                           if (isCallback) {
                             const tomorrow = new Date();
@@ -8008,6 +8074,33 @@ export default function AgentWorkspacePage() {
               )}
             </div>
           </ScrollArea>
+
+          {/* Sticky footer for checklist confirm */}
+          {checklistParentId && !multiSelectMode && campaignDispositions.length > 0 && (() => {
+            const clConfirmParent = campaignDispositions.find((d: any) => d.id === checklistParentId);
+            return (
+              <div className="border-t bg-background px-6 py-3 flex items-center gap-3">
+                <div className="text-xs text-muted-foreground flex-1">
+                  {checklistSelectedCodes.length === 0
+                    ? t.agentWorkspace.checklistOptional
+                    : `Zaznačené: ${checklistSelectedCodes.length}`}
+                </div>
+                <Button
+                  onClick={() => {
+                    if (clConfirmParent) {
+                      handleDisposition(clConfirmParent.code, undefined, undefined, undefined, undefined, undefined, checklistSelectedCodes);
+                    }
+                    setChecklistParentId(null);
+                    setChecklistSelectedCodes([]);
+                  }}
+                  data-testid="btn-checklist-confirm"
+                >
+                  <Target className="h-4 w-4 mr-1" />
+                  {t.agentWorkspace.checklistConfirm}
+                </Button>
+              </div>
+            );
+          })()}
 
           {/* Sticky footer for multi-select */}
           {multiSelectMode && !modalSelectedParent && campaignDispositions.length > 0 && (

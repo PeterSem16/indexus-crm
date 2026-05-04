@@ -3029,6 +3029,7 @@ export const campaignContacts = pgTable("campaign_contacts", {
   assignedTo: varchar("assigned_to"), // user id
   notes: text("notes"),
   dispositionCode: text("disposition_code"),
+  dispositionChecklistCodes: text("disposition_checklist_codes").array(),
   attemptCount: integer("attempt_count").notNull().default(0),
   lastAttemptAt: timestamp("last_attempt_at"),
   priorityScore: integer("priority_score").notNull().default(50), // 0-100, higher = more priority
@@ -3254,6 +3255,7 @@ export const campaignDispositions = pgTable("campaign_dispositions", {
   color: text("color"),
   actionType: text("action_type").notNull().default("none"),
   callbackOffsetDays: integer("callback_offset_days"),
+  childrenType: text("children_type").notNull().default("radio"), // "radio" | "checklist"
   isDefault: boolean("is_default").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
@@ -3274,6 +3276,7 @@ export const insertCampaignDispositionSchema = createInsertSchema(campaignDispos
   color: z.string().optional().nullable(),
   actionType: z.enum(DISPOSITION_ACTION_TYPES).optional().default("none"),
   callbackOffsetDays: z.number().optional().nullable(),
+  childrenType: z.enum(["radio", "checklist"]).optional().default("radio"),
   isDefault: z.boolean().optional().default(false),
   isActive: z.boolean().optional().default(true),
   sortOrder: z.number().optional().default(0),

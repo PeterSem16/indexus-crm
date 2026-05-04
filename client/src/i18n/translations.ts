@@ -1801,6 +1801,13 @@ export interface Translations {
       dispDeleteError: string;
       dispNoDispositions: string;
       dispNoDispositionsHint: string;
+      dispChildrenType: string;
+      dispChildrenTypeRadio: string;
+      dispChildrenTypeChecklist: string;
+      dispChecklistItems: string;
+      dispAddChecklistItem: string;
+      dispChecklistItemSaved: string;
+      dispChecklistItemDeleted: string;
       scriptBuilder: string;
       scriptBuilderUI: {
         heading: string;
@@ -3092,6 +3099,11 @@ export interface Translations {
     connectedWith: string;
     callRejected: string;
     errorLabel: string;
+    checklistStep2: string;
+    checklistOptional: string;
+    checklistConfirm: string;
+    checklistRequirements: string;
+    checklistBack: string;
   };
   sop: {
     title: string;
@@ -8311,6 +8323,13 @@ export const translations: Record<Locale, Translations> = {
         dispDeleteError: 'Error deleting disposition',
         dispNoDispositions: 'No contact dispositions.',
         dispNoDispositionsHint: 'Click "Load defaults" or add your own.',
+        dispChildrenType: 'Children type',
+        dispChildrenTypeRadio: 'Radio – pick one',
+        dispChildrenTypeChecklist: 'Checklist – mark multiple',
+        dispChecklistItems: 'Checklist items',
+        dispAddChecklistItem: 'Add item',
+        dispChecklistItemSaved: 'Item saved',
+        dispChecklistItemDeleted: 'Item deleted',
         scriptBuilder: 'Script Builder',
         scriptBuilderUI: {
           heading: 'Heading',
@@ -9593,6 +9612,11 @@ export const translations: Record<Locale, Translations> = {
       connectedWith: 'Connected with',
       callRejected: 'Call rejected',
       errorLabel: 'Error',
+      checklistStep2: 'Step 2 of 2 – Details',
+      checklistOptional: 'You can continue without checking — checklist is optional.',
+      checklistConfirm: 'Save result',
+      checklistRequirements: 'What does the customer need?',
+      checklistBack: 'Back to results',
     },
     sop: {
         title: 'SOP & Procedures',
@@ -14326,6 +14350,13 @@ export const translations: Record<Locale, Translations> = {
         dispDeleteError: 'Chyba pri mazaní',
         dispNoDispositions: 'Žiadne výsledky kontaktu.',
         dispNoDispositionsHint: 'Kliknite na "Načítať predvolené" alebo pridajte vlastné.',
+        dispChildrenType: 'Typ detailu',
+        dispChildrenTypeRadio: 'Radio – výber jednej',
+        dispChildrenTypeChecklist: 'Checklist – zaznačenie viacerých',
+        dispChecklistItems: 'Položky checklistu',
+        dispAddChecklistItem: 'Pridať položku',
+        dispChecklistItemSaved: 'Položka uložená',
+        dispChecklistItemDeleted: 'Položka zmazaná',
         scriptBuilder: 'Tvorca skriptov',
         scriptBuilderUI: {
           heading: 'Nadpis',
@@ -15568,6 +15599,11 @@ export const translations: Record<Locale, Translations> = {
       connectedWith: 'Prepojený s',
       callRejected: 'Hovor odmietnutý',
       errorLabel: 'Chyba',
+      checklistStep2: 'Krok 2 z 2 – Detaily',
+      checklistOptional: 'Môžete pokračovať bez zaškrtnutia — checklist je voliteľný.',
+      checklistConfirm: 'Uložiť výsledok',
+      checklistRequirements: 'Aké požiadavky zákazník má?',
+      checklistBack: 'Späť na výsledky',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -20280,6 +20316,13 @@ export const translations: Record<Locale, Translations> = {
         dispDeleteError: 'Chyba při mazání',
         dispNoDispositions: 'Žádné výsledky kontaktu.',
         dispNoDispositionsHint: 'Klikněte na "Načíst výchozí" nebo přidejte vlastní.',
+        dispChildrenType: 'Typ detailu',
+        dispChildrenTypeRadio: 'Radio – výběr jednoho',
+        dispChildrenTypeChecklist: 'Checklist – zaznačení více',
+        dispChecklistItems: 'Položky checklistu',
+        dispAddChecklistItem: 'Přidat položku',
+        dispChecklistItemSaved: 'Položka uložena',
+        dispChecklistItemDeleted: 'Položka smazána',
         scriptBuilder: 'Tvůrce skriptů',
         scriptBuilderUI: {
           heading: 'Nadpis',
@@ -21522,6 +21565,11 @@ export const translations: Record<Locale, Translations> = {
       connectedWith: 'Připojen s',
       callRejected: 'Hovor odmítnut',
       errorLabel: 'Chyba',
+      checklistStep2: 'Krok 2 ze 2 – Detaily',
+      checklistOptional: 'Můžete pokračovat bez zaškrtnutí — checklist je volitelný.',
+      checklistConfirm: 'Uložit výsledek',
+      checklistRequirements: 'Jaké požadavky zákazník má?',
+      checklistBack: 'Zpět na výsledky',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -26192,6 +26240,13 @@ export const translations: Record<Locale, Translations> = {
         dispDeleteError: 'Hiba a törléskor',
         dispNoDispositions: 'Nincsenek kapcsolat eredmények.',
         dispNoDispositionsHint: 'Kattintson az "Alapértékek betöltése" gombra vagy adjon hozzá sajátot.',
+        dispChildrenType: 'Részlet típusa',
+        dispChildrenTypeRadio: 'Radio – egy választás',
+        dispChildrenTypeChecklist: 'Ellenőrző lista – több jelölés',
+        dispChecklistItems: 'Lista elemek',
+        dispAddChecklistItem: 'Elem hozzáadása',
+        dispChecklistItemSaved: 'Elem mentve',
+        dispChecklistItemDeleted: 'Elem törölve',
         scriptBuilder: 'Szkript készítő',
         scriptBuilderUI: {
           heading: 'Címsor',
@@ -27434,6 +27489,11 @@ export const translations: Record<Locale, Translations> = {
       connectedWith: 'Kapcsolódva:',
       callRejected: 'Hívás elutasítva',
       errorLabel: 'Hiba',
+      checklistStep2: '2/2. lépés – Részletek',
+      checklistOptional: 'Folytathat jelölés nélkül — az ellenőrző lista opcionális.',
+      checklistConfirm: 'Eredmény mentése',
+      checklistRequirements: 'Mire van szüksége az ügyfélnek?',
+      checklistBack: 'Vissza az eredményekhez',
     },
     sop: {
         title: 'SOP & Eljárások',
@@ -31999,6 +32059,13 @@ export const translations: Record<Locale, Translations> = {
         dispDeleteError: 'Eroare la ștergere',
         dispNoDispositions: 'Nu există rezultate contact.',
         dispNoDispositionsHint: 'Faceți clic pe "Încarcă valorile implicite" sau adăugați propriile.',
+        dispChildrenType: 'Tip detaliu',
+        dispChildrenTypeRadio: 'Radio – alegeți unul',
+        dispChildrenTypeChecklist: 'Checklist – bifați mai multe',
+        dispChecklistItems: 'Elemente checklist',
+        dispAddChecklistItem: 'Adăugați element',
+        dispChecklistItemSaved: 'Element salvat',
+        dispChecklistItemDeleted: 'Element șters',
         scriptBuilder: 'Constructor scripturi',
         scriptBuilderUI: {
           heading: 'Titlu',
@@ -33241,6 +33308,11 @@ export const translations: Record<Locale, Translations> = {
       connectedWith: 'Conectat cu',
       callRejected: 'Apel respins',
       errorLabel: 'Eroare',
+      checklistStep2: 'Pasul 2 din 2 – Detalii',
+      checklistOptional: 'Puteți continua fără a bifa — lista este opțională.',
+      checklistConfirm: 'Salvați rezultatul',
+      checklistRequirements: 'Ce nevoi are clientul?',
+      checklistBack: 'Înapoi la rezultate',
     },
     sop: {
         title: 'SOP & Proceduri',
@@ -37808,6 +37880,13 @@ export const translations: Record<Locale, Translations> = {
         dispDeleteError: 'Errore nell\'eliminazione',
         dispNoDispositions: 'Nessun esito contatto.',
         dispNoDispositionsHint: 'Clicca su "Carica predefiniti" o aggiungi i tuoi.',
+        dispChildrenType: 'Tipo dettaglio',
+        dispChildrenTypeRadio: 'Radio – scelta singola',
+        dispChildrenTypeChecklist: 'Checklist – selezione multipla',
+        dispChecklistItems: 'Elementi checklist',
+        dispAddChecklistItem: 'Aggiungi elemento',
+        dispChecklistItemSaved: 'Elemento salvato',
+        dispChecklistItemDeleted: 'Elemento eliminato',
         scriptBuilder: 'Costruttore script',
         scriptBuilderUI: {
           heading: 'Intestazione',
@@ -39050,6 +39129,11 @@ export const translations: Record<Locale, Translations> = {
       connectedWith: 'Collegato con',
       callRejected: 'Chiamata rifiutata',
       errorLabel: 'Errore',
+      checklistStep2: 'Passo 2 di 2 – Dettagli',
+      checklistOptional: 'Puoi continuare senza spuntare — la checklist è opzionale.',
+      checklistConfirm: 'Salva risultato',
+      checklistRequirements: 'Cosa richiede il cliente?',
+      checklistBack: 'Torna ai risultati',
     },
     sop: {
         title: 'SOP & Procedure',
@@ -43617,6 +43701,13 @@ export const translations: Record<Locale, Translations> = {
         dispDeleteError: 'Fehler beim Löschen',
         dispNoDispositions: 'Keine Kontaktergebnisse.',
         dispNoDispositionsHint: 'Klicken Sie auf "Standardwerte laden" oder fügen Sie eigene hinzu.',
+        dispChildrenType: 'Detail-Typ',
+        dispChildrenTypeRadio: 'Radio – eine Auswahl',
+        dispChildrenTypeChecklist: 'Checkliste – mehrere markieren',
+        dispChecklistItems: 'Checklisten-Einträge',
+        dispAddChecklistItem: 'Eintrag hinzufügen',
+        dispChecklistItemSaved: 'Eintrag gespeichert',
+        dispChecklistItemDeleted: 'Eintrag gelöscht',
         scriptBuilder: 'Skript-Ersteller',
         scriptBuilderUI: {
           heading: 'Überschrift',
@@ -44859,6 +44950,11 @@ export const translations: Record<Locale, Translations> = {
       connectedWith: 'Verbunden mit',
       callRejected: 'Anruf abgelehnt',
       errorLabel: 'Fehler',
+      checklistStep2: 'Schritt 2 von 2 – Details',
+      checklistOptional: 'Sie können ohne Ankreuzen fortfahren — die Checkliste ist optional.',
+      checklistConfirm: 'Ergebnis speichern',
+      checklistRequirements: 'Was benötigt der Kunde?',
+      checklistBack: 'Zurück zu den Ergebnissen',
     },
     sop: {
         title: 'SOP & Verfahren',

@@ -44,6 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES, DISPOSITION_NAME_TRANSLATIONS, RESCHEDULE_PERIOD_OPTIONS, STATUS_ACTION_TYPES } from "@shared/schema";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function getDefaultSalesScript(lang: string): OperatorScript {
   const texts: Record<string, { greeting: string; intro: string; introNote: string; interestQ: string; interestOpts: { value: string; label: string }[]; productQ: string; productOpts: { value: string; label: string }[]; objectionQ: string; objectionOpts: { value: string; label: string }[]; closing: string; closingNote: string; noInterest: string; noInterestNote: string; thankYou: string; thankYouNote: string; name: string; desc: string }> = {
@@ -1784,11 +1785,188 @@ const PULSE_CATEGORY_COLORS: Record<string, { bg: string; border: string; icon: 
   slate: { bg: "bg-slate-50", border: "border-slate-200", icon: "text-slate-500", hoverBg: "hover:bg-slate-100" },
 };
 
+function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [addingItemFor, setAddingItemFor] = useState<string | null>(null);
+  const [newItemName, setNewItemName] = useState("");
+
+  const { data: dispositions = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaignId, "dispositions"],
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
+  });
+
+  const parents = dispositions.filter((d: any) => !d.parentId);
+  const childrenOf = (id: string) => dispositions.filter((d: any) => d.parentId === id && d.isActive);
+
+  const updateTypeMutation = useMutation({
+    mutationFn: async ({ id, childrenType }: { id: string; childrenType: string }) => {
+      const res = await apiRequest("PATCH", `/api/campaigns/${campaignId}/dispositions/${id}`, { childrenType });
+      if (!res.ok) throw new Error("Chyba pri ukladaní");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] }),
+    onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
+  });
+
+  const addItemMutation = useMutation({
+    mutationFn: async ({ parentId, name }: { parentId: string; name: string }) => {
+      const parent = dispositions.find((d: any) => d.id === parentId);
+      const kids = childrenOf(parentId);
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/dispositions`, {
+        parentId,
+        name,
+        code: `${parent?.code || "item"}_${Date.now()}`,
+        icon: "CheckSquare",
+        color: parent?.color || "gray",
+        actionType: "none",
+        childrenType: "radio",
+        isActive: true,
+        sortOrder: kids.length + 1,
+      });
+      if (!res.ok) throw new Error("Chyba pri vytváraní");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
+      setAddingItemFor(null);
+      setNewItemName("");
+      toast({ title: t.campaigns.detail.dispChecklistItemSaved });
+    },
+    onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/campaigns/${campaignId}/dispositions/${id}`);
+      if (!res.ok) throw new Error("Chyba pri mazaní");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
+      toast({ title: t.campaigns.detail.dispChecklistItemDeleted });
+    },
+    onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
+  });
+
+  if (isLoading) return (
+    <div className="flex justify-center py-16">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+
+  const parentsWithChildren = parents.filter((p: any) => childrenOf(p.id).length > 0);
+
+  if (parentsWithChildren.length === 0) return (
+    <div className="text-center py-12">
+      <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+      <p className="text-sm text-muted-foreground">{t.campaigns.detail.dispNoDispositions}</p>
+      <p className="text-xs text-muted-foreground mt-1">{t.campaigns.detail.dispNoDispositionsHint}</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {parentsWithChildren.map((parent: any) => {
+        const isChecklist = parent.childrenType === "checklist";
+        const kids = childrenOf(parent.id);
+        return (
+          <Card key={parent.id} className="overflow-hidden" data-testid={`card-disp-editor-${parent.id}`}>
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b">
+              <div className="flex items-center gap-2">
+                <CircleDot className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold">{parent.name}</span>
+                <Badge variant="secondary" className="text-[10px]">{parent.code}</Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{t.campaigns.detail.dispChildrenType}:</span>
+                <div className="flex rounded-md border overflow-hidden text-xs">
+                  <button
+                    className={`px-2.5 py-1 transition-colors ${!isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted"}`}
+                    onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "radio" })}
+                    data-testid={`btn-children-type-radio-${parent.id}`}
+                  >
+                    {t.campaigns.detail.dispChildrenTypeRadio}
+                  </button>
+                  <button
+                    className={`px-2.5 py-1 transition-colors border-l ${isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted"}`}
+                    onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "checklist" })}
+                    data-testid={`btn-children-type-checklist-${parent.id}`}
+                  >
+                    {t.campaigns.detail.dispChildrenTypeChecklist}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="px-4 py-3 space-y-2">
+              {isChecklist && (
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t.campaigns.detail.dispChecklistItems}</p>
+              )}
+              <div className="space-y-1.5">
+                {kids.map((kid: any) => (
+                  <div key={kid.id} className="flex items-center gap-2" data-testid={`row-checklist-item-${kid.id}`}>
+                    {isChecklist
+                      ? <Checkbox disabled checked={false} className="opacity-50" />
+                      : <CircleDot className="h-3.5 w-3.5 text-muted-foreground" />
+                    }
+                    <span className="text-sm flex-1">{kid.name}</span>
+                    <Badge variant="outline" className="text-[10px] font-mono">{kid.code}</Badge>
+                    {isChecklist && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive hover:text-destructive"
+                        onClick={() => deleteItemMutation.mutate(kid.id)}
+                        disabled={deleteItemMutation.isPending}
+                        data-testid={`btn-delete-checklist-item-${kid.id}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {isChecklist && (
+                addingItemFor === parent.id ? (
+                  <div className="flex gap-2 items-center mt-2">
+                    <Input
+                      autoFocus
+                      value={newItemName}
+                      onChange={(e: any) => setNewItemName(e.target.value)}
+                      placeholder="Názov položky..."
+                      className="h-7 text-sm flex-1"
+                      onKeyDown={(e: any) => {
+                        if (e.key === "Enter" && newItemName.trim()) addItemMutation.mutate({ parentId: parent.id, name: newItemName.trim() });
+                        if (e.key === "Escape") { setAddingItemFor(null); setNewItemName(""); }
+                      }}
+                      data-testid="input-new-checklist-item"
+                    />
+                    <Button size="sm" className="h-7" disabled={!newItemName.trim() || addItemMutation.isPending} onClick={() => addItemMutation.mutate({ parentId: parent.id, name: newItemName.trim() })} data-testid="btn-save-checklist-item">
+                      {addItemMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7" onClick={() => { setAddingItemFor(null); setNewItemName(""); }}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button variant="ghost" size="sm" className="gap-1 text-xs mt-1" onClick={() => { setAddingItemFor(parent.id); setNewItemName(""); }} data-testid={`btn-add-checklist-item-${parent.id}`}>
+                    <Plus className="h-3 w-3" />
+                    {t.campaigns.detail.dispAddChecklistItem}
+                  </Button>
+                )
+              )}
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [viewMode, setViewMode] = useState<"engine" | "assign" | "pulse">("engine");
+  const [viewMode, setViewMode] = useState<"engine" | "assign" | "pulse" | "campaign">("engine");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -1991,6 +2169,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
             { key: "engine" as const, icon: Settings2, label: "Definície" },
             { key: "assign" as const, icon: CheckSquare, label: "Priradenie" },
             { key: "pulse" as const, icon: Eye, label: "Nexus Pulse" },
+            { key: "campaign" as const, icon: ListChecks, label: "Výsledky kampane" },
           ].map(tab => (
             <Button
               key={tab.key}
@@ -2537,6 +2716,8 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
           )}
         </>
       )}
+
+      {!isLoading && viewMode === "campaign" && <CampaignDispositionEditor campaignId={campaignId} />}
 
       {editingStatus && (
         <StatusEditDialogCampaign
