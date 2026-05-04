@@ -2197,7 +2197,6 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-semibold text-sm">{parent.name}</span>
-                        <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded hidden sm:inline">{parent.code}</code>
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {kids.length>0
@@ -2519,11 +2518,10 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-semibold">{parent.name}</span>
-                      <Badge variant="outline" className="text-[10px] font-mono shrink-0">{parent.code}</Badge>
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ai.className}`}>{ai.label}</span>
-                      {kids.length>0 && <span className="text-[10px] text-muted-foreground">{kids.length} podvýsledkov · {isChecklist?"Checklist":"Jeden výber"}</span>}
+                      {kids.length>0 && <span className="text-[10px] text-muted-foreground">{kids.length} podvýsledkov · {isChecklist?"Zoznam":"Jeden výber"}</span>}
                       {parent.requiresNote && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-amber-300 text-amber-700 bg-amber-50">N</span>}
                       {parent.requiresCallback && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-blue-300 text-blue-700 bg-blue-50">CB</span>}
                       {parent.isFinal && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-red-300 text-red-700 bg-red-50">F</span>}
@@ -2568,7 +2566,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                                 </button>
                                 <button onClick={()=>typeMut.mutate({id:parent.id,childrenType:"checklist"})} disabled={typeMut.isPending}
                                   className={`px-2.5 py-1 flex items-center gap-1 border-l transition-colors ${isChecklist?"bg-primary text-primary-foreground font-medium":"hover:bg-muted text-muted-foreground"}`}>
-                                  <CheckSquare className="h-3 w-3"/>Checklist
+                                  <CheckSquare className="h-3 w-3"/>Zoznam
                                 </button>
                               </div>
                             </div>
@@ -2587,7 +2585,6 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                                         <CI className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
                                         <span className="text-sm flex-1">{child.name}</span>
                                         <span className={`text-[10px] font-medium px-1 py-0.5 rounded shrink-0 ${cai.className}`}>{cai.label}</span>
-                                        <Badge variant="outline" className="text-[10px] font-mono shrink-0">{child.code}</Badge>
                                         <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 shrink-0 transition-opacity">
                                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>startEdit(child)} data-testid={`btn-edit-child-${child.id}`}>
                                             <Pencil className="h-2.5 w-2.5"/>
