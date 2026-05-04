@@ -5789,9 +5789,25 @@ export default function AgentWorkspacePage() {
 
   const dispositionMutation = useMutation({
     mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null; callbackNote?: string; callMeta?: Record<string, any>; checklistCodes?: string[] }) => {
-      const disp = campaignDispositions.find(d => d.code === data.disposition) 
+      // Resolve effective disposition for action: checklist children override parent's action
+      const ACTION_PRIORITY = ['dnd', 'complete', 'callback', 'schedule_sms', 'schedule_email', 'convert', 'send_email', 'send_sms', 'none'];
+      const parentDisp = campaignDispositions.find(d => d.code === data.disposition)
         || campaignDispositions.find(d => d.code === data.parentCode);
-      
+      let disp = parentDisp;
+      if (data.checklistCodes?.length) {
+        const selectedChildren = (data.checklistCodes
+          .map(code => campaignDispositions.find(d => d.code === code))
+          .filter(Boolean) as any[]);
+        // Only override if at least one child has a meaningful action
+        const withAction = selectedChildren.filter(c => c.actionType && c.actionType !== 'none');
+        if (withAction.length > 0) {
+          const sorted = [...withAction].sort(
+            (a, b) => ACTION_PRIORITY.indexOf(a.actionType ?? 'none') - ACTION_PRIORITY.indexOf(b.actionType ?? 'none')
+          );
+          disp = sorted[0];
+        }
+      }
+
       const actionStatusMap: Record<string, string> = {
         callback: "callback_scheduled",
         schedule_email: "callback_scheduled",
@@ -7839,13 +7855,24 @@ export default function AgentWorkspacePage() {
                     })()}
 
                     <div>
-                      <p className="text-sm font-medium mb-3">{t.agentWorkspace.checklistRequirements}</p>
+                      <p className="text-sm font-medium mb-3">Zaškrtnite všetky platné podstatusy:</p>
                       <div className="space-y-2">
                         {clChildren.map((child: any) => {
                           const isChecked = checklistSelectedCodes.includes(child.code);
                           const ChildIcon = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
+                          const actionLabels: Record<string, { label: string; cls: string }> = {
+                            callback:       { label: "Callback",      cls: "bg-blue-100 text-blue-700" },
+                            schedule_email: { label: "Email plán",    cls: "bg-indigo-100 text-indigo-700" },
+                            schedule_sms:   { label: "SMS plán",      cls: "bg-violet-100 text-violet-700" },
+                            dnd:            { label: "Nezavolávať",   cls: "bg-red-100 text-red-700" },
+                            complete:       { label: "Uzatvoriť",     cls: "bg-green-100 text-green-700" },
+                            convert:        { label: "Konvertovať",   cls: "bg-emerald-100 text-emerald-700" },
+                            send_email:     { label: "Poslať email",  cls: "bg-sky-100 text-sky-700" },
+                            send_sms:       { label: "Poslať SMS",    cls: "bg-teal-100 text-teal-700" },
+                          };
+                          const actionInfo = actionLabels[child.actionType];
                           return (
-                            <label key={child.id} className="flex items-center gap-3 p-2.5 rounded-md border cursor-pointer hover:bg-muted/40 transition-colors" data-testid={`checklist-item-${child.code}`}>
+                            <label key={child.id} className={`flex items-center gap-3 p-2.5 rounded-md border cursor-pointer transition-colors ${isChecked ? "border-primary bg-primary/5" : "hover:bg-muted/40"}`} data-testid={`checklist-item-${child.code}`}>
                               <Checkbox
                                 checked={isChecked}
                                 onCheckedChange={(v) => {
@@ -7856,13 +7883,18 @@ export default function AgentWorkspacePage() {
                               />
                               <ChildIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                               <span className="text-sm flex-1">{getDispName(child)}</span>
+                              {actionInfo && (
+                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${actionInfo.cls}`}>
+                                  {actionInfo.label}
+                                </span>
+                              )}
                             </label>
                           );
                         })}
                       </div>
                     </div>
 
-                    <p className="text-xs text-muted-foreground italic">{t.agentWorkspace.checklistOptional}</p>
+                    <p className="text-xs text-muted-foreground italic">Výber je voliteľný — ak nič nezaškrtnete, použije sa automatizácia rodičovského statusu.</p>
                   </div>
                 );
               })() : modalSelectedParent ? (() => {
@@ -8078,12 +8110,40 @@ export default function AgentWorkspacePage() {
           {/* Sticky footer for checklist confirm */}
           {checklistParentId && !multiSelectMode && campaignDispositions.length > 0 && (() => {
             const clConfirmParent = campaignDispositions.find((d: any) => d.id === checklistParentId);
+            // Determine effective action from selected children
+            const CHECKLIST_ACTION_PRIORITY = ['dnd', 'complete', 'callback', 'schedule_sms', 'schedule_email', 'convert', 'send_email', 'send_sms'];
+            const selectedChildren = checklistSelectedCodes
+              .map(code => campaignDispositions.find((d: any) => d.code === code))
+              .filter(Boolean) as any[];
+            const withAction = selectedChildren.filter((c: any) => c.actionType && c.actionType !== 'none');
+            const sortedByPriority = [...withAction].sort(
+              (a, b) => CHECKLIST_ACTION_PRIORITY.indexOf(a.actionType) - CHECKLIST_ACTION_PRIORITY.indexOf(b.actionType)
+            );
+            const effectiveChild = sortedByPriority[0];
+            const actionLabels: Record<string, string> = {
+              callback: "⏰ Naplánuje callback", schedule_email: "📧 Naplánuje email",
+              schedule_sms: "💬 Naplánuje SMS", dnd: "🚫 Nezavolávať (DND)",
+              complete: "✓ Uzatvorí kontakt", convert: "★ Konvertuje kontakt",
+              send_email: "📤 Pošle email", send_sms: "📱 Pošle SMS",
+            };
+            const effectiveActionLabel = effectiveChild
+              ? actionLabels[effectiveChild.actionType]
+              : clConfirmParent?.actionType && clConfirmParent.actionType !== 'none'
+                ? actionLabels[clConfirmParent.actionType]
+                : null;
             return (
               <div className="border-t bg-background px-6 py-3 flex items-center gap-3">
-                <div className="text-xs text-muted-foreground flex-1">
-                  {checklistSelectedCodes.length === 0
-                    ? t.agentWorkspace.checklistOptional
-                    : `Zaznačené: ${checklistSelectedCodes.length}`}
+                <div className="flex-1 min-w-0">
+                  {checklistSelectedCodes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Zaškrtnite podstatusy alebo potvrďte bez výberu</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Zaškrtnuté: <strong>{checklistSelectedCodes.length}</strong></p>
+                      {effectiveActionLabel && (
+                        <p className="text-xs text-primary font-medium">{effectiveActionLabel}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <Button
                   onClick={() => {
@@ -8096,7 +8156,7 @@ export default function AgentWorkspacePage() {
                   data-testid="btn-checklist-confirm"
                 >
                   <Target className="h-4 w-4 mr-1" />
-                  {t.agentWorkspace.checklistConfirm}
+                  Uložiť výsledok
                 </Button>
               </div>
             );

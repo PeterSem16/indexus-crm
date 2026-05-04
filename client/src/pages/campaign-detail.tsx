@@ -1785,10 +1785,20 @@ const PULSE_CATEGORY_COLORS: Record<string, { bg: string; border: string; icon: 
   slate: { bg: "bg-slate-50", border: "border-slate-200", icon: "text-slate-500", hoverBg: "hover:bg-slate-100" },
 };
 
+const ACTION_TYPE_LABEL: Record<string, { label: string; className: string }> = {
+  callback:       { label: "Callback",       className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
+  schedule_email: { label: "Email plán",     className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" },
+  schedule_sms:   { label: "SMS plán",       className: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" },
+  dnd:            { label: "Nezavolávať",    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
+  complete:       { label: "Uzatvoriť",      className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
+  convert:        { label: "Konvertovať",    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
+  send_email:     { label: "Poslať email",   className: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" },
+  send_sms:       { label: "Poslať SMS",     className: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" },
+  none:           { label: "Bez akcie",      className: "bg-muted text-muted-foreground" },
+};
+
 function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
-  const [addingItemFor, setAddingItemFor] = useState<string | null>(null);
-  const [newItemName, setNewItemName] = useState("");
 
   const { data: dispositions = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions"],
@@ -1807,50 +1817,11 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
       toast({
-        title: vars.childrenType === "checklist" ? "Zapnutý checklist" : "Zapnutý radio výber",
+        title: vars.childrenType === "checklist" ? "Zapnutý checklist" : "Zapnutý jeden výber",
         description: vars.childrenType === "checklist"
-          ? "Agent bude môcť zaznačiť viacero možností naraz."
-          : "Agent vyberie práve jednu možnosť.",
+          ? "Agent zaškrtí viacero podstatusov — každý spustí svoju automatizáciu."
+          : "Agent vyberie práve jeden podstatus.",
       });
-    },
-    onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
-  });
-
-  const addItemMutation = useMutation({
-    mutationFn: async ({ parentId, name }: { parentId: string; name: string }) => {
-      const parent = dispositions.find((d: any) => d.id === parentId);
-      const kids = childrenOf(parentId);
-      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/dispositions`, {
-        parentId,
-        name,
-        code: `${parent?.code || "item"}_${Date.now()}`,
-        icon: "CheckSquare",
-        color: parent?.color || "gray",
-        actionType: "none",
-        childrenType: "radio",
-        isActive: true,
-        sortOrder: kids.length + 1,
-      });
-      if (!res.ok) throw new Error("Chyba pri vytváraní");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
-      setAddingItemFor(null);
-      setNewItemName("");
-      toast({ title: "Položka uložená", description: "Nová možnosť checklistu bola pridaná." });
-    },
-    onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
-  });
-
-  const deleteItemMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiRequest("DELETE", `/api/campaigns/${campaignId}/dispositions/${id}`);
-      if (!res.ok) throw new Error("Chyba pri mazaní");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
-      toast({ title: "Položka zmazaná" });
     },
     onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
   });
@@ -1869,15 +1840,19 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
       <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-4">
         <div className="flex gap-3">
           <ListChecks className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Ako funguje táto záložka?</p>
-            <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
-              Tu nastavíte, ako sa zobrazia podkategórie výsledku agentovi pri ukončení hovoru.
-            </p>
-            <ul className="text-xs text-blue-700 dark:text-blue-400 mt-1.5 space-y-0.5 list-none">
-              <li className="flex items-start gap-1.5"><span className="font-semibold shrink-0">Jeden výber (Radio):</span> agent vyberie presne jednu možnosť — napr. "Záujem o informácie"</li>
-              <li className="flex items-start gap-1.5"><span className="font-semibold shrink-0">Checklist (viacero):</span> agent zaškrtí ľubovoľný počet možností — napr. "Chce stretnutie" + "Chce cenovú ponuku"</li>
+          <div className="space-y-1.5">
+            <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Ako funguje výber podstatusov?</p>
+            <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+              <li className="flex items-start gap-1.5">
+                <CircleDot className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span><strong>Jeden výber (Radio):</strong> agent vyberie presne jeden podstatus — spustí sa jeho automatizácia (callback, uzatvorenie...) a hlavný výsledok kontaktu bude rodičovský status.</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <CheckSquare className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span><strong>Checklist (viacero):</strong> agent zaškrtí ľubovoľný počet podstatusov — spustí sa automatizácia s najvyššou prioritou spomedzi zaškrtnutých, hlavný výsledok zostane rodičovský status.</span>
+              </li>
             </ul>
+            <p className="text-xs text-blue-600 dark:text-blue-400 italic mt-1">Podstatusy a ich automatizácie spravujte v záložke "Definície".</p>
           </div>
         </div>
       </div>
@@ -1885,8 +1860,8 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
       {parentsWithChildren.length === 0 ? (
         <div className="text-center py-12">
           <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
-          <p className="text-sm text-muted-foreground">Žiadne výsledky s podkategóriami.</p>
-          <p className="text-xs text-muted-foreground mt-1">Najprv v záložke "Definície" vytvorte výsledok a pridajte mu podkategórie.</p>
+          <p className="text-sm text-muted-foreground">Žiadne výsledky s podstatusmi.</p>
+          <p className="text-xs text-muted-foreground mt-1">V záložke "Definície" vytvorte rodičovský výsledok a pridajte mu podstatusy.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1895,6 +1870,7 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
             const kids = childrenOf(parent.id);
             return (
               <Card key={parent.id} className="overflow-hidden" data-testid={`card-disp-editor-${parent.id}`}>
+                {/* Header: parent name + toggle */}
                 <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b gap-4">
                   <div className="flex items-center gap-2 min-w-0">
                     <CircleDot className="h-4 w-4 text-primary shrink-0" />
@@ -1902,24 +1878,24 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
                     <Badge variant="secondary" className="text-[10px] shrink-0">{parent.code}</Badge>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground hidden sm:inline">Typ výberu:</span>
+                    <span className="text-xs text-muted-foreground hidden sm:inline">Výber podstatusov:</span>
                     <div className="flex rounded-md border overflow-hidden text-xs">
                       <button
                         className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${!isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-muted-foreground"}`}
                         onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "radio" })}
                         disabled={updateTypeMutation.isPending}
                         data-testid={`btn-children-type-radio-${parent.id}`}
-                        title="Agent vyberie jednu možnosť"
+                        title="Agent vyberie jeden podstatus"
                       >
                         <CircleDot className="h-3 w-3" />
-                        Jeden výber
+                        Jeden
                       </button>
                       <button
                         className={`px-3 py-1.5 transition-colors border-l flex items-center gap-1.5 ${isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-muted-foreground"}`}
                         onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "checklist" })}
                         disabled={updateTypeMutation.isPending}
                         data-testid={`btn-children-type-checklist-${parent.id}`}
-                        title="Agent zaškrtí viacero možností"
+                        title="Agent zaškrtí viacero podstatusov"
                       >
                         <CheckSquare className="h-3 w-3" />
                         Checklist
@@ -1929,66 +1905,30 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
                   </div>
                 </div>
 
-                <div className="px-4 py-3 space-y-2">
-                  {isChecklist && (
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                      Možnosti checklistu ({kids.length})
-                    </p>
-                  )}
-                  <div className="space-y-1.5">
-                    {kids.map((kid: any) => (
-                      <div key={kid.id} className="flex items-center gap-2" data-testid={`row-checklist-item-${kid.id}`}>
+                {/* Child dispositions list (read-only, managed in Definície tab) */}
+                <div className="px-4 py-3 space-y-1.5">
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-2">
+                    {isChecklist ? "Podstatusy — checklist" : "Podstatusy — jeden výber"} ({kids.length})
+                  </p>
+                  {kids.map((kid: any) => {
+                    const actionInfo = ACTION_TYPE_LABEL[kid.actionType || "none"] || ACTION_TYPE_LABEL.none;
+                    return (
+                      <div key={kid.id} className="flex items-center gap-2 py-1" data-testid={`row-checklist-item-${kid.id}`}>
                         {isChecklist
-                          ? <Checkbox disabled checked={false} className="opacity-40" />
-                          : <CircleDot className="h-3.5 w-3.5 text-muted-foreground" />
+                          ? <Checkbox disabled checked={false} className="opacity-40 shrink-0" />
+                          : <CircleDot className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                         }
                         <span className="text-sm flex-1">{kid.name}</span>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${actionInfo.className}`}>
+                          {actionInfo.label}
+                        </span>
                         <Badge variant="outline" className="text-[10px] font-mono">{kid.code}</Badge>
-                        {isChecklist && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:text-destructive"
-                            onClick={() => deleteItemMutation.mutate(kid.id)}
-                            disabled={deleteItemMutation.isPending}
-                            data-testid={`btn-delete-checklist-item-${kid.id}`}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        )}
                       </div>
-                    ))}
-                  </div>
-
-                  {isChecklist && (
-                    addingItemFor === parent.id ? (
-                      <div className="flex gap-2 items-center mt-2">
-                        <Input
-                          autoFocus
-                          value={newItemName}
-                          onChange={(e: any) => setNewItemName(e.target.value)}
-                          placeholder="Názov novej možnosti..."
-                          className="h-7 text-sm flex-1"
-                          onKeyDown={(e: any) => {
-                            if (e.key === "Enter" && newItemName.trim()) addItemMutation.mutate({ parentId: parent.id, name: newItemName.trim() });
-                            if (e.key === "Escape") { setAddingItemFor(null); setNewItemName(""); }
-                          }}
-                          data-testid="input-new-checklist-item"
-                        />
-                        <Button size="sm" className="h-7" disabled={!newItemName.trim() || addItemMutation.isPending} onClick={() => addItemMutation.mutate({ parentId: parent.id, name: newItemName.trim() })} data-testid="btn-save-checklist-item">
-                          {addItemMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7" onClick={() => { setAddingItemFor(null); setNewItemName(""); }}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button variant="ghost" size="sm" className="gap-1 text-xs mt-1" onClick={() => { setAddingItemFor(parent.id); setNewItemName(""); }} data-testid={`btn-add-checklist-item-${parent.id}`}>
-                        <Plus className="h-3 w-3" />
-                        Pridať možnosť
-                      </Button>
-                    )
-                  )}
+                    );
+                  })}
+                  <p className="text-[11px] text-muted-foreground italic pt-1">
+                    Podstatusy pridávate a upravujete v záložke "Definície".
+                  </p>
                 </div>
               </Card>
             );
