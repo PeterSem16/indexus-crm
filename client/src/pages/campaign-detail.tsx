@@ -2985,29 +2985,55 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       )}
 
       {!isLoading && viewMode === "pulse" && (
-        <div className="space-y-4">
-          {/* Header */}
-          <div className="bg-gradient-to-br from-slate-50 via-indigo-50/60 to-violet-50/40 border border-indigo-100 p-4 rounded-xl shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center shadow-sm">
-                <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse"/>
+        <div className="space-y-3">
+
+          {/* ── HEADER ── */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center shadow-sm shrink-0">
+                <div className="w-2 h-2 rounded-full bg-white animate-pulse"/>
               </div>
-              <div className="flex-1">
-                <h3 className="text-base font-semibold text-slate-800">Nexus Pulse — Simulácia agenta</h3>
-                <p className="text-xs text-slate-500">Interaktívna ukážka toho, čo vidí agent v dialógu "Ukončiť hovor"</p>
+              <div>
+                <h3 className="text-sm font-semibold leading-none">Nexus Pulse</h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Prehľad výsledkov kampane + simulácia agenta</p>
               </div>
-              <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50/50">{campDispParents.length} výsledkov</Badge>
-              <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={()=>{setCampPulseStep2(null);setCampPulseChecked([]);}} data-testid="pulse-reset">
-                <RefreshCw className="h-3.5 w-3.5"/>Reset
+            </div>
+            <div className="flex items-center gap-2">
+              {campPulseStep2 && (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-indigo-300 text-indigo-600" onClick={()=>{setCampPulseStep2(null);setCampPulseChecked([]);}} data-testid="pulse-reset">
+                  <X className="h-3.5 w-3.5"/>Zavrieť simuláciu
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={()=>setViewMode("campaign")}>
+                <Settings2 className="h-3.5 w-3.5 mr-1"/>Spravovať
               </Button>
             </div>
           </div>
 
-          {/* Explanation */}
-          <div className="text-xs bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 text-amber-700 dark:text-amber-300 flex items-start gap-2">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5"/>
-            <span>Toto zobrazuje <strong>Výsledky kampane</strong> (záložka "3. Výsledky kampane") — presne tak, ako ich vidí agent. Spravujte ich v záložke "3. Výsledky kampane".</span>
+          {/* ── WHAT IS PRIRADENIE vs NEXUS PULSE ── */}
+          <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5"/>
+              <div className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                <p><strong>Nexus Pulse</strong> = výsledky z záložky <strong>"3. Výsledky kampane"</strong> — to, čo agent vidí po skončení hovoru.</p>
+                <p className="text-blue-600 dark:text-blue-400">Záložka <strong>"2. Priradenie"</strong> priraďuje globálne štatistické kategórie pre reporty — <em>nesúvisí</em> s tým, čo agent vidí.</p>
+              </div>
+            </div>
           </div>
+
+          {/* ── SIMULATION HINT ── */}
+          {campDispParents.length > 0 && !campPulseStep2 && (
+            <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 px-1">
+              <ArrowRight className="h-3 w-3 shrink-0"/>
+              Kliknite na výsledok hovoru a spustíte interaktívnu simuláciu toho, čo vidí agent.
+            </div>
+          )}
+          {campDispParents.length > 0 && campPulseStep2 && (
+            <div className="text-[11px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 px-1 font-medium">
+              <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse shrink-0"/>
+              Simulácia beží — zvýraznený výsledok čaká na výber podvýsledku agentom.
+            </div>
+          )}
 
           {campDispParents.length === 0 ? (
             <Card className="p-8 text-center">
@@ -3018,95 +3044,155 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                 <ListChecks className="h-3.5 w-3.5 mr-1"/>Spravovať výsledky
               </Button>
             </Card>
-          ) : !campPulseStep2 ? (
-            <div className="space-y-2">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Krok 1 — Výber výsledku hovoru</p>
-              <div className="grid grid-cols-2 gap-2">
-                {campDispParents.map((p:any) => {
-                  const kids = campDispChildrenOf(p.id);
-                  const colorCls = DISP_COLOR_STYLES[p.color||"gray"]||DISP_COLOR_STYLES.gray;
-                  const I = DISP_ICON_MAP[p.icon||""]||CircleDot;
-                  return (
-                    <button key={p.id}
-                      onClick={()=>{ if(kids.length>0) setCampPulseStep2(p.id); else toast({title:`Simulácia: "${p.name}"`,description:ACTION_TYPE_LABEL[p.actionType||"none"]?.label||"Bez akcie"}); }}
-                      className={`flex items-center gap-2.5 p-3 rounded-lg border text-left transition-all hover:shadow-md active:scale-[0.98] ${colorCls}`}
-                      data-testid={`nexus-pulse-disp-${p.id}`}
+          ) : (
+            <div className="rounded-lg border overflow-hidden divide-y">
+              {campDispParents.map((parent:any) => {
+                const kids = campDispChildrenOf(parent.id);
+                const I = DISP_ICON_MAP[parent.icon||""]||CircleDot;
+                const ai = ACTION_TYPE_LABEL[parent.actionType||"none"];
+                const isSimulating = campPulseStep2 === parent.id;
+                const isChecklist = parent.childrenType === "checklist";
+
+                const colorBorderMap: Record<string,string> = {
+                  gray:"border-l-gray-400", red:"border-l-red-500", orange:"border-l-orange-500",
+                  amber:"border-l-amber-500", yellow:"border-l-yellow-400", green:"border-l-green-500",
+                  teal:"border-l-teal-500", cyan:"border-l-cyan-500", blue:"border-l-blue-500",
+                  indigo:"border-l-indigo-500", violet:"border-l-violet-500", purple:"border-l-purple-500",
+                  pink:"border-l-pink-500", rose:"border-l-rose-500",
+                };
+                const borderCls = colorBorderMap[parent.color||"gray"] || "border-l-gray-400";
+
+                return (
+                  <div key={parent.id} className={`transition-colors ${isSimulating ? "bg-indigo-50/60 dark:bg-indigo-950/20" : "bg-card"}`}>
+
+                    {/* ── PARENT ROW ── */}
+                    <button
+                      onClick={()=>{
+                        if(isSimulating){ setCampPulseStep2(null); setCampPulseChecked([]); }
+                        else if(kids.length>0){ setCampPulseStep2(parent.id); setCampPulseChecked([]); }
+                        else toast({title:`Výsledok: "${parent.name}"`, description:ai?.label||"Bez akcie"});
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors border-l-4 ${borderCls} ${isSimulating?"ring-1 ring-inset ring-indigo-300 dark:ring-indigo-700":""}`}
+                      data-testid={`nexus-pulse-parent-${parent.id}`}
                     >
-                      <I className="h-5 w-5 shrink-0"/>
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold truncate">{p.name}</div>
-                        {kids.length>0
-                          ? <div className="text-[11px] opacity-70">{kids.length} podvýsledkov {p.childrenType==="checklist"?"(checklist)":"(výber)"} →</div>
-                          : <div className="text-[11px] opacity-70">{ACTION_TYPE_LABEL[p.actionType||"none"]?.label||"Bez akcie"}</div>
-                        }
+                      <I className="h-5 w-5 shrink-0 text-current opacity-80"/>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm">{parent.name}</span>
+                          <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded hidden sm:inline">{parent.code}</code>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {kids.length>0 ? (
+                            <span className="text-[11px] text-muted-foreground">
+                              {isChecklist ? "☑ multi výber" : "◉ jeden výber"} · {kids.length} podvýsledkov
+                            </span>
+                          ) : (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ai.className}`}>{ai.label}</span>
+                          )}
+                        </div>
                       </div>
+                      {kids.length>0 ? (
+                        isSimulating
+                          ? <ChevronDown className="h-4 w-4 text-indigo-500 shrink-0"/>
+                          : <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0"/>
+                      ) : (
+                        <ArrowRight className="h-4 w-4 text-muted-foreground/40 shrink-0"/>
+                      )}
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (()=>{
-            const pulseParent = campDisps.find((d:any)=>d.id===campPulseStep2);
-            const pulseKids = campDispChildrenOf(campPulseStep2);
-            const isChecklist = pulseParent?.childrenType==="checklist";
-            return (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={()=>{setCampPulseStep2(null);setCampPulseChecked([]);}}>
-                    <ChevronLeft className="h-3.5 w-3.5 mr-1"/>Späť
-                  </Button>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                    Krok 2 — {pulseParent?.name} · {isChecklist?"zaškrtnite viacero":"vyberte jeden"}
-                  </p>
-                </div>
-                {isChecklist ? (
-                  <>
-                    <div className="space-y-1.5">
-                      {pulseKids.map((c:any)=>{
-                        const isChecked = campPulseChecked.includes(c.code);
-                        const CI = DISP_ICON_MAP[c.icon||""]||CircleDot;
-                        const ai = ACTION_TYPE_LABEL[c.actionType||"none"];
-                        return (
-                          <label key={c.id} className={`flex items-center gap-3 p-2.5 rounded-md border cursor-pointer transition-colors ${isChecked?"border-primary bg-primary/5":"hover:bg-muted/40"}`}>
-                            <Checkbox checked={isChecked} onCheckedChange={v=>setCampPulseChecked(prev=>v?[...prev,c.code]:prev.filter(x=>x!==c.code))}/>
-                            <CI className="h-4 w-4 text-muted-foreground shrink-0"/>
-                            <span className="text-sm flex-1">{c.name}</span>
-                            {c.actionType!=="none" && <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ai.className}`}>{ai.label}</span>}
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <Button size="sm" className="w-full" onClick={()=>{
-                      setCampPulseStep2(null);setCampPulseChecked([]);
-                      toast({title:"Simulácia: výsledok uložený",description:`${pulseParent?.name} + ${campPulseChecked.length} podvýsledkov`});
-                    }}>
-                      <Check className="h-3.5 w-3.5 mr-1.5"/>Uložiť výsledok (simulácia)
-                    </Button>
-                  </>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {pulseKids.map((c:any)=>{
-                      const colorCls = DISP_COLOR_STYLES[c.color||pulseParent?.color||"gray"]||DISP_COLOR_STYLES.gray;
-                      const CI = DISP_ICON_MAP[c.icon||""]||CircleDot;
-                      const ai = ACTION_TYPE_LABEL[c.actionType||"none"];
-                      return (
-                        <button key={c.id}
-                          onClick={()=>{setCampPulseStep2(null);toast({title:`Simulácia: "${c.name}"`,description:ai?.label||"Bez akcie"});}}
-                          className={`flex items-center gap-2.5 p-3 rounded-lg border text-left hover:shadow-md transition-all active:scale-[0.98] ${colorCls}`}
-                        >
-                          <CI className="h-4 w-4 shrink-0"/>
-                          <div>
-                            <div className="text-sm font-semibold">{c.name}</div>
-                            {c.actionType!=="none" && <div className="text-[11px] opacity-70">{ai?.label}</div>}
+
+                    {/* ── CHILDREN TREE (always visible) ── */}
+                    {kids.length>0 && (
+                      <div className={`border-t border-dashed transition-colors ${isSimulating?"border-indigo-200 dark:border-indigo-800":"border-muted"}`}>
+                        {kids.map((child:any, idx:number)=>{
+                          const CI = DISP_ICON_MAP[child.icon||""]||CircleDot;
+                          const cai = ACTION_TYPE_LABEL[child.actionType||"none"];
+                          const isLast = idx === kids.length-1;
+                          const isChecked = campPulseChecked.includes(child.code);
+
+                          return (
+                            <div
+                              key={child.id}
+                              className={`flex items-center gap-2 pl-6 pr-4 py-2 text-sm border-b border-dashed last:border-b-0 transition-colors
+                                ${isSimulating
+                                  ? isChecklist
+                                    ? isChecked ? "bg-indigo-100/80 dark:bg-indigo-900/40 cursor-pointer" : "bg-indigo-50/40 dark:bg-indigo-950/20 hover:bg-indigo-100/60 cursor-pointer"
+                                    : "bg-indigo-50/40 dark:bg-indigo-950/20 hover:bg-indigo-100/60 cursor-pointer"
+                                  : "bg-muted/10 hover:bg-muted/20"
+                                }`}
+                              onClick={isSimulating && !isChecklist ? ()=>{
+                                setCampPulseStep2(null);
+                                toast({title:`Simulácia: výsledok uložený`, description:`${parent.name} → ${child.name}`});
+                              } : undefined}
+                            >
+                              {/* Tree connector */}
+                              <span className="font-mono text-[11px] text-muted-foreground/40 shrink-0 select-none">{isLast?"└":"├"}──</span>
+
+                              {/* Checklist checkbox (only in simulation mode) */}
+                              {isSimulating && isChecklist && (
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={v=>setCampPulseChecked(prev=>v?[...prev,child.code]:prev.filter((x:string)=>x!==child.code))}
+                                  className="shrink-0"
+                                  onClick={e=>e.stopPropagation()}
+                                />
+                              )}
+
+                              {/* Radio indicator in simulation mode */}
+                              {isSimulating && !isChecklist && (
+                                <div className="w-4 h-4 rounded-full border-2 border-indigo-400 flex items-center justify-center shrink-0">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 opacity-0 group-hover:opacity-100"/>
+                                </div>
+                              )}
+
+                              {/* In overview mode: simple bullet */}
+                              {!isSimulating && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 shrink-0"/>
+                              )}
+
+                              <CI className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
+                              <span className={`flex-1 text-sm ${isSimulating?"font-medium":""} ${isChecked?"text-indigo-700 dark:text-indigo-300":""}`}>{child.name}</span>
+                              {child.actionType!=="none" && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${cai.className}`}>{cai.label}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Checklist confirm bar */}
+                        {isSimulating && isChecklist && (
+                          <div className="flex items-center justify-between gap-2 px-6 py-2 bg-indigo-50 dark:bg-indigo-950/40 border-t border-indigo-200 dark:border-indigo-800">
+                            <span className="text-xs text-indigo-600 dark:text-indigo-400">
+                              {campPulseChecked.length > 0
+                                ? `${campPulseChecked.length} vybraných: ${campPulseChecked.join(", ")}`
+                                : "Zaškrtnite aspoň jeden podvýsledok"}
+                            </span>
+                            <Button size="sm" className="h-7 text-xs" disabled={campPulseChecked.length===0}
+                              onClick={()=>{
+                                const names = kids.filter((k:any)=>campPulseChecked.includes(k.code)).map((k:any)=>k.name).join(", ");
+                                setCampPulseStep2(null); setCampPulseChecked([]);
+                                toast({title:"Simulácia: výsledok uložený", description:`${parent.name}: ${names}`});
+                              }}
+                            >
+                              <Check className="h-3 w-3 mr-1"/>Potvrdiť ({campPulseChecked.length})
+                            </Button>
                           </div>
-                        </button>
-                      );
-                    })}
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })()}
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── LEGEND ── */}
+          {campDispParents.length>0 && (
+            <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground px-1">
+              <span>◉ = jeden výber</span>
+              <span>☑ = multi výber (checklist)</span>
+              <span className="flex items-center gap-1"><ArrowRight className="h-3 w-3"/>= priama akcia bez podvýsledkov</span>
+            </div>
+          )}
         </div>
       )}
 
