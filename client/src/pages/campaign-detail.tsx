@@ -1857,6 +1857,9 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
   const [previewChecked, setPreviewChecked] = useState<string[]>([]);
   const [form, setForm] = useState<DispForm>(EMPTY_FORM);
   const [codeManual, setCodeManual] = useState(false);
+  const [showImportPanel, setShowImportPanel] = useState(false);
+  const [importSearch, setImportSearch] = useState("");
+  const [existingSearch, setExistingSearch] = useState("");
 
   const { data: dispositions = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions"],
@@ -1867,6 +1870,11 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
   const activeParents = parents.filter((d:any)=>d.isActive);
   const childrenOf = (id:string) => dispositions.filter((d:any)=>d.parentId===id && d.isActive);
   const invalidate = () => queryClient.invalidateQueries({queryKey:["/api/campaigns",campaignId,"dispositions"]});
+
+  const { data: globalStatuses = [] } = useQuery<any[]>({ queryKey: ["/api/status-definitions"] });
+  const { data: globalCategories = [] } = useQuery<any[]>({ queryKey: ["/api/status-categories"] });
+
+  const existingCodes = new Set(dispositions.map((d:any) => d.code));
 
   const createMut = useMutation({
     mutationFn: async (data:any) => {
@@ -1929,6 +1937,71 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
     });
     reorderMut.mutate(items);
   };
+
+  const importFromGlobalMut = useMutation({
+    mutationFn: async ({status, parentId}:{status:any; parentId:string}) => {
+      const code = existingCodes.has(status.code) ? `${status.code}_${Date.now()}` : status.code;
+      const payload = {
+        name: status.name,
+        code,
+        color: status.color || "gray",
+        icon: status.icon || "CircleDot",
+        actionType: status.defaultAction || "none",
+        callbackOffsetDays: status.callbackOffsetDays || null,
+        childrenType: "radio",
+        channel: "phone",
+        isActive: true,
+        sortOrder: dispositions.length + 1,
+        parentId,
+      };
+      const res = await apiRequest("POST",`/api/campaigns/${campaignId}/dispositions`,payload);
+      if(!res.ok) throw new Error((await res.json()).error||"Chyba pri importovaní");
+      return res.json();
+    },
+    onSuccess: () => { invalidate(); toast({title:"Status pridaný ako podvýsledok"}); },
+    onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
+  });
+
+  const importCategoryMut = useMutation({
+    mutationFn: async (cat:any) => {
+      const catStatuses = (globalStatuses as any[]).filter((s:any)=>s.categoryId===cat.id && s.isActive && !s.parentId);
+      const parentCode = existingCodes.has(cat.code) ? `${cat.code}_${Date.now()}` : cat.code;
+      const parentPayload = {
+        name: cat.name,
+        code: parentCode,
+        color: cat.color || "gray",
+        icon: cat.icon || "CircleDot",
+        actionType: catStatuses.length > 0 ? "none" : "none",
+        childrenType: "radio",
+        channel: "phone",
+        isActive: true,
+        sortOrder: dispositions.length + 1,
+        parentId: null,
+      };
+      const parentRes = await apiRequest("POST",`/api/campaigns/${campaignId}/dispositions`,parentPayload);
+      if(!parentRes.ok) throw new Error("Chyba pri vytváraní rodičovského výsledku");
+      const parent = await parentRes.json();
+      for (let i = 0; i < catStatuses.length; i++) {
+        const s = catStatuses[i];
+        const childCode = existingCodes.has(s.code) ? `${s.code}_${i}` : s.code;
+        await apiRequest("POST",`/api/campaigns/${campaignId}/dispositions`,{
+          name: s.name, code: childCode,
+          color: s.color || cat.color || "gray",
+          icon: s.icon || "CircleDot",
+          actionType: s.defaultAction || "none",
+          callbackOffsetDays: s.callbackOffsetDays || null,
+          childrenType: "radio", channel: "phone", isActive: true,
+          sortOrder: i * 10, parentId: parent.id,
+        });
+      }
+      return { count: catStatuses.length + 1, catName: cat.name };
+    },
+    onSuccess: (data) => {
+      invalidate(); setShowImportPanel(false); setImportSearch("");
+      toast({title:"Skupina importovaná", description:`${data.catName}: ${data.count} výsledkov pridaných`});
+    },
+    onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
+  });
 
   const seedMut = useMutation({
     mutationFn: async () => {
@@ -2199,14 +2272,85 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
             <Eye className="h-3.5 w-3.5"/>
             {previewMode?"Zavrieť náhľad":"Náhľad agenta"}
           </Button>
-          {!previewMode && (
+          {!previewMode && (<>
+            <Button variant="outline" size="sm" className="gap-1.5"
+              onClick={()=>{setShowImportPanel(v=>!v);setImportSearch("");}}
+              data-testid="btn-import-category">
+              <ListChecks className="h-3.5 w-3.5"/>
+              {showImportPanel?"Zavrieť import":"Importovať skupinu"}
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={()=>seedMut.mutate()} disabled={seedMut.isPending}>
               {seedMut.isPending?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<RefreshCw className="h-3.5 w-3.5"/>}
               Obnoviť predvolené
             </Button>
-          )}
+          </>)}
         </div>
       </div>
+
+      {/* ── Import kategórie panel ── */}
+      {!previewMode && showImportPanel && (()=>{
+        const cats = (globalCategories as any[]).filter((c:any)=>c.isActive);
+        const q = importSearch.toLowerCase();
+        const filtered = cats.filter((c:any)=>{
+          if(!q) return true;
+          if(c.name.toLowerCase().includes(q)) return true;
+          return (globalStatuses as any[]).some((s:any)=>s.categoryId===c.id && s.isActive && !s.parentId && s.name.toLowerCase().includes(q));
+        });
+        return (
+          <div className="border rounded-lg bg-muted/30 p-3 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold">Importovať celú skupinu z "1. Definície"</p>
+              <p className="text-[11px] text-muted-foreground">Vytvorí rodičovský výsledok + všetky podvýsledky skupiny</p>
+            </div>
+            <input
+              className="w-full text-sm border rounded-md px-3 py-1.5 bg-background"
+              placeholder="Hľadať skupinu..."
+              value={importSearch}
+              onChange={e=>setImportSearch(e.target.value)}
+              data-testid="input-import-search"
+            />
+            {filtered.length===0 ? (
+              <p className="text-xs text-muted-foreground py-2 text-center">Žiadna skupina nezodpovedá filtru</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                {filtered.map((cat:any)=>{
+                  const statuses = (globalStatuses as any[]).filter((s:any)=>s.categoryId===cat.id && s.isActive && !s.parentId);
+                  const colorCls = DISP_COLOR_STYLES[cat.color||"gray"]||DISP_COLOR_STYLES.gray;
+                  const CatIcon = DISP_ICON_MAP[cat.icon||""]||CircleDot;
+                  return (
+                    <div key={cat.id} className={`rounded-md border p-2.5 space-y-1.5 ${colorCls}`}>
+                      <div className="flex items-center gap-1.5">
+                        <CatIcon className="h-3.5 w-3.5 shrink-0"/>
+                        <span className="text-sm font-semibold flex-1">{cat.name}</span>
+                        <span className="text-[10px] opacity-60">{statuses.length} statusov</span>
+                      </div>
+                      {statuses.length>0 && (
+                        <div className="space-y-0.5 pl-5">
+                          {statuses.slice(0,4).map((s:any)=>(
+                            <div key={s.id} className="text-[11px] opacity-80 flex items-center gap-1">
+                              <span className="opacity-50">├──</span>
+                              <span>{s.name}</span>
+                              {existingCodes.has(s.code) && <span className="text-[9px] bg-white/40 rounded px-1">už v kampani</span>}
+                            </div>
+                          ))}
+                          {statuses.length>4 && <div className="text-[10px] opacity-50">+{statuses.length-4} ďalších</div>}
+                        </div>
+                      )}
+                      <Button size="sm" className="w-full text-xs h-7 gap-1 mt-1"
+                        onClick={()=>importCategoryMut.mutate(cat)}
+                        disabled={importCategoryMut.isPending}
+                        data-testid={`btn-import-cat-${cat.id}`}>
+                        {importCategoryMut.isPending ? <Loader2 className="h-3 w-3 animate-spin"/> : <Plus className="h-3 w-3"/>}
+                        Importovať skupinu
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Info banner ── */}
       {previewMode ? (
@@ -2353,11 +2497,11 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                                 <Plus className="h-3 w-3 inline mr-1"/>Nový
                               </button>
                               <button
-                                onClick={()=>setChildPickMode("existing")}
+                                onClick={()=>{setChildPickMode("existing");setExistingSearch("");}}
                                 className={`text-xs px-3 py-1 rounded transition-colors ${childPickMode==="existing"?"bg-white dark:bg-slate-800 shadow font-medium":"text-muted-foreground hover:text-foreground"}`}
                                 data-testid={`btn-child-mode-existing-${parent.id}`}
                               >
-                                <ListChecks className="h-3 w-3 inline mr-1"/>Prepojiť existujúci
+                                <ListChecks className="h-3 w-3 inline mr-1"/>Prepojiť zo Definícií
                               </button>
                             </div>
 
@@ -2365,35 +2509,69 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                               <DispFormUI parentId={parent.id}/>
                             ) : (
                               (() => {
-                                const available = dispositions.filter((d:any)=>
-                                  !d.parentId && d.id!==parent.id && d.isActive
-                                );
-                                return available.length===0 ? (
-                                  <p className="text-xs text-muted-foreground py-2">
-                                    Žiadne voľné výsledky na prepojenie. Najprv vytvorte výsledok bez rodiča.
-                                  </p>
-                                ) : (
-                                  <div className="space-y-1">
-                                    <p className="text-[11px] text-muted-foreground">Kliknite na výsledok — presuniete ho ako podvýsledok tohto rodiča:</p>
-                                    <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto">
-                                      {available.map((d:any)=>{
-                                        const I = DISP_ICON_MAP[d.icon||""]||CircleDot;
-                                        const colorCls = DISP_COLOR_STYLES[d.color||"gray"]||DISP_COLOR_STYLES.gray;
-                                        return (
-                                          <button key={d.id}
-                                            onClick={()=>linkExistMut.mutate({id:d.id,parentId:parent.id})}
-                                            disabled={linkExistMut.isPending}
-                                            className={`flex items-center gap-2 px-3 py-2 rounded-md border text-left transition-all hover:shadow-sm ${colorCls} disabled:opacity-50`}
-                                            data-testid={`btn-link-existing-${d.id}`}
-                                          >
-                                            <I className="h-3.5 w-3.5 shrink-0"/>
-                                            <span className="text-sm font-medium flex-1">{d.name}</span>
-                                            <span className="text-[10px] opacity-60">{d.code}</span>
-                                            {linkExistMut.isPending && <Loader2 className="h-3 w-3 animate-spin"/>}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
+                                const q = existingSearch.toLowerCase();
+                                const activeCats = (globalCategories as any[]).filter((c:any)=>c.isActive);
+                                const matchedCats = activeCats.filter((c:any)=>{
+                                  if(!q) return true;
+                                  if(c.name.toLowerCase().includes(q)) return true;
+                                  return (globalStatuses as any[]).some((s:any)=>s.categoryId===c.id && s.isActive && !s.parentId && s.name.toLowerCase().includes(q));
+                                });
+                                return (
+                                  <div className="space-y-2">
+                                    <p className="text-[11px] text-muted-foreground">
+                                      Vyberte status zo globálnych definícií — importuje sa ako nový podvýsledok tohto rodiča:
+                                    </p>
+                                    <input
+                                      className="w-full text-xs border rounded px-2 py-1 bg-background"
+                                      placeholder="Hľadať status..."
+                                      value={existingSearch}
+                                      onChange={e=>setExistingSearch(e.target.value)}
+                                      data-testid={`input-global-search-${parent.id}`}
+                                    />
+                                    {matchedCats.length===0 ? (
+                                      <p className="text-xs text-muted-foreground py-1 text-center">Žiadne výsledky</p>
+                                    ) : (
+                                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                                        {matchedCats.map((cat:any)=>{
+                                          const catStatuses = (globalStatuses as any[]).filter((s:any)=>
+                                            s.categoryId===cat.id && s.isActive && !s.parentId &&
+                                            (!q || s.name.toLowerCase().includes(q) || cat.name.toLowerCase().includes(q))
+                                          );
+                                          if(catStatuses.length===0) return null;
+                                          const CatColorCls = CATEGORY_COLORS_MAP[cat.color||"gray"]||CATEGORY_COLORS_MAP.gray;
+                                          return (
+                                            <div key={cat.id}>
+                                              <div className={`text-[10px] font-semibold px-2 py-0.5 rounded-sm mb-1 border ${CatColorCls}`}>{cat.name}</div>
+                                              <div className="space-y-0.5 pl-2">
+                                                {catStatuses.map((s:any)=>{
+                                                  const SIcon = DISP_ICON_MAP[s.icon||""]||CircleDot;
+                                                  const colorCls = DISP_COLOR_STYLES[s.color||cat.color||"gray"]||DISP_COLOR_STYLES.gray;
+                                                  const alreadyIn = existingCodes.has(s.code);
+                                                  return (
+                                                    <button key={s.id}
+                                                      onClick={()=>!alreadyIn && importFromGlobalMut.mutate({status:s, parentId:parent.id})}
+                                                      disabled={importFromGlobalMut.isPending}
+                                                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-left w-full transition-all hover:shadow-sm ${colorCls} ${alreadyIn?"opacity-40 cursor-default":"hover:brightness-95"} disabled:opacity-50`}
+                                                      title={alreadyIn?"Tento status je už v kampani":"Importovať ako podvýsledok"}
+                                                      data-testid={`btn-import-global-${s.id}`}
+                                                    >
+                                                      <SIcon className="h-3.5 w-3.5 shrink-0"/>
+                                                      <span className="text-xs font-medium flex-1">{s.name}</span>
+                                                      <span className="text-[9px] opacity-50 font-mono">{s.code}</span>
+                                                      {alreadyIn
+                                                        ? <span className="text-[9px] bg-white/30 rounded px-1">v kampani</span>
+                                                        : <Badge className={`text-[8px] px-1 py-0 ${STATUS_ACTION_COLORS[s.defaultAction]||""}`}>{STATUS_ACTION_LABELS[s.defaultAction]||s.defaultAction}</Badge>
+                                                      }
+                                                      {importFromGlobalMut.isPending && <Loader2 className="h-3 w-3 animate-spin"/>}
+                                                    </button>
+                                                  );
+                                                })}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })()
