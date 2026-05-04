@@ -1878,6 +1878,15 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
 
   const { data: globalStatuses = [] } = useQuery<any[]>({ queryKey: ["/api/status-definitions"] });
   const { data: globalCategories = [] } = useQuery<any[]>({ queryKey: ["/api/status-categories"] });
+  const { data: assignedStatusesData } = useQuery<{ categories: any[]; statuses: any[]; assignments: any[] }>({
+    queryKey: ["/api/campaigns", campaignId, "assigned-statuses"],
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/assigned-statuses`, { credentials: "include" }).then(r => r.json()),
+  });
+  const previewUseNexus = !!(assignedStatusesData?.statuses?.length);
+  const previewNexusStatuses = previewUseNexus
+    ? (assignedStatusesData!.statuses.map((s: any) => ({ ...s, actionType: s.defaultAction, isActive: s.isActive !== false })))
+    : [];
+  const previewNexusCategories = assignedStatusesData?.categories || [];
 
   const existingCodes = new Set(dispositions.map((d:any) => d.code));
 
@@ -2153,6 +2162,25 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
 
   // ── Agent Preview ────────────────────────────────────────────────────────
   const AgentPreview = () => {
+    if (previewUseNexus) {
+      return (
+        <div className="space-y-3">
+          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 px-1 pb-1 border-b">
+            <div className="w-2 h-2 rounded-full bg-primary/60 shrink-0"/>
+            {t.statusEngine.disp.simClick}
+          </div>
+          <NexusPulseView
+            categories={previewNexusCategories}
+            statuses={previewNexusStatuses}
+            getStatusName={(s) => s.name}
+            onSelectStatus={(s) => {
+              toast({ title: t.statusEngine.disp.simChecked, description: s.name });
+            }}
+          />
+        </div>
+      );
+    }
+
     const colorBorderMap: Record<string,string> = {
       gray:"border-l-gray-400", red:"border-l-red-500", orange:"border-l-orange-500",
       amber:"border-l-amber-500", yellow:"border-l-yellow-400", green:"border-l-green-500",
@@ -2213,142 +2241,68 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                     }
                   </button>
 
-                  {kids.length>0 && (
-                    <div className={`border-t border-dashed transition-colors ${isSimulating?"border-indigo-200 dark:border-indigo-800":"border-muted"}`}>
-                      {kids.map((child:any, idx:number)=>{
-                        const CI = DISP_ICON_MAP[child.icon||""]||CircleDot;
-                        const cai = ACTION_TYPE_LABEL[child.actionType||"none"];
-                        const isLast = idx === kids.length-1;
-                        const isChecked = previewChecked.includes(child.code);
-                        return (
-                          <div key={child.id}
-                            className={`flex items-center gap-2 pl-5 pr-3 py-2 text-sm border-b border-dashed last:border-b-0 transition-colors
-                              ${isSimulating
-                                ? isChecklist
-                                  ? isChecked ? "bg-indigo-100/80 dark:bg-indigo-900/40 cursor-pointer" : "bg-indigo-50/40 dark:bg-indigo-950/20 hover:bg-indigo-100/60 cursor-pointer"
-                                  : "bg-indigo-50/40 dark:bg-indigo-950/20 hover:bg-indigo-100/60 cursor-pointer"
-                                : "bg-muted/10"
-                              }`}
-                            onClick={isSimulating && !isChecklist ? ()=>{
-                              setPreviewStep2(null);
-                              toast({title: t.statusEngine.disp.simSaved, description:`${parent.name} → ${child.name}`});
-                            } : undefined}
-                          >
-                            <span className="font-mono text-[11px] text-muted-foreground/40 shrink-0 select-none">{isLast?"└":"├"}──</span>
-                            {isSimulating && isChecklist && (
-                              <Checkbox
-                                checked={isChecked}
-                                onCheckedChange={v=>setPreviewChecked(prev=>v?[...prev,child.code]:prev.filter((x:string)=>x!==child.code))}
-                                className="shrink-0"
-                                onClick={e=>e.stopPropagation()}
-                              />
-                            )}
-                            {isSimulating && !isChecklist && (
-                              <div className="w-3.5 h-3.5 rounded-full border-2 border-indigo-400 shrink-0"/>
-                            )}
-                            {!isSimulating && <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 shrink-0"/>}
-                            <CI className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
-                            <span className={`flex-1 text-sm ${isSimulating?"font-medium":""} ${isChecked?"text-indigo-700 dark:text-indigo-300":""}`}>{child.name}</span>
-                            {child.actionType!=="none" && (
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${cai.className}`}>{(t.statusEngine.actions as Record<string,string>)[child.actionType] ?? cai.label}</span>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {isSimulating && isChecklist && (
-                        <div className="flex items-center justify-between gap-2 px-5 py-2 bg-indigo-50 dark:bg-indigo-950/40 border-t border-indigo-200 dark:border-indigo-800">
-                          <span className="text-xs text-indigo-600 dark:text-indigo-400">
-                            {previewChecked.length>0 ? `${previewChecked.length} ${t.statusEngine.disp.simChecked}` : t.statusEngine.disp.simCheckAtLeastOne}
-                          </span>
-                          <Button size="sm" className="h-7 text-xs" disabled={previewChecked.length===0}
-                            onClick={()=>{
-                              const names = kids.filter((k:any)=>previewChecked.includes(k.code)).map((k:any)=>k.name).join(", ");
-                              setPreviewStep2(null); setPreviewChecked([]);
-                              toast({title: t.statusEngine.disp.simSaved, description:`${parent.name}: ${names}`});
-                            }}
-                          >
-                            <Check className="h-3 w-3 mr-1"/>{t.statusEngine.disp.simConfirm} ({previewChecked.length})
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ── Simulačný panel: poznámka + preplánovanie ── */}
-                  {isSimulating && (() => {
-                    const needsCb = parent.requiresCallback || parent.actionType === "callback" || parent.actionType === "schedule_email" || parent.actionType === "schedule_sms";
+                  {kids.length>0 && isSimulating && (() => {
+                    const needsCb = parent.actionType==="callback"||parent.actionType==="schedule_email"||parent.actionType==="schedule_sms"||parent.requiresCallback;
                     const needsNote = parent.requiresNote;
-                    if (!needsCb && !needsNote && kids.length > 0) return null;
-                    const canConfirm = (!needsCb || !!previewCallbackDate) && (!needsNote || !!previewNote.trim());
+                    const canConfirm = (!needsCb || previewCallbackDate) && (!needsNote || previewNote.trim());
                     return (
-                      <div className="border-t border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-4 py-3 space-y-2">
-                        {needsNote && (
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"/>
-                              {t.statusEngine.disp.simNoteRequired}
-                            </label>
-                            <textarea
-                              value={previewNote}
-                              onChange={e => setPreviewNote(e.target.value)}
-                              placeholder={t.statusEngine.disp.simNotePlaceholder}
-                              rows={2}
-                              className="w-full text-xs border rounded px-2 py-1.5 bg-background resize-none border-amber-300 focus:border-amber-500 outline-none"
+                      <div className="px-4 pb-3 space-y-2 bg-indigo-50/40 dark:bg-indigo-950/10">
+                        {isChecklist ? (
+                          <div className="space-y-1 pt-2">
+                            {kids.map((child:any)=>{
+                              const CI = DISP_ICON_MAP[child.icon||""]||CircleDot;
+                              return (
+                                <label key={child.id} className="flex items-center gap-2 py-1 cursor-pointer">
+                                  <input type="checkbox" className="h-3.5 w-3.5 rounded"
+                                    checked={previewChecked.includes(child.id)}
+                                    onChange={e=>setPreviewChecked(prev=>e.target.checked?[...prev,child.id]:prev.filter(x=>x!==child.id))}
+                                  />
+                                  <CI className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
+                                  <span className="text-xs">{child.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5 pt-2">
+                            {kids.map((child:any)=>{
+                              const CI = DISP_ICON_MAP[child.icon||""]||CircleDot;
+                              return (
+                                <button key={child.id} type="button"
+                                  onClick={()=>{
+                                    setPreviewStep2(null); setPreviewChecked([]); setPreviewNote(""); setPreviewCallbackDate("");
+                                    toast({title: t.statusEngine.disp.simChecked, description: child.name});
+                                  }}
+                                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border bg-background hover:bg-muted transition-colors"
+                                >
+                                  <CI className="h-3 w-3 text-muted-foreground shrink-0"/>
+                                  {child.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {needsCb && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <input type="date"
+                              value={previewCallbackDate}
+                              min={new Date().toISOString().split("T")[0]}
+                              onChange={e => setPreviewCallbackDate(e.target.value)}
+                              className="h-7 text-xs border rounded px-2 bg-background"
+                            />
+                            <input type="time"
+                              value={previewCallbackTime}
+                              onChange={e => setPreviewCallbackTime(e.target.value)}
+                              className="h-7 text-xs border rounded px-2 bg-background w-24"
                             />
                           </div>
                         )}
-                        {needsCb && (
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-indigo-700 dark:text-indigo-400 flex items-center gap-1">
-                              <CalendarPlus className="h-3 w-3"/>
-                              {t.statusEngine.disp.simReschedule}
-                            </label>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <input type="date"
-                                value={previewCallbackDate}
-                                min={new Date().toISOString().split("T")[0]}
-                                onChange={e => setPreviewCallbackDate(e.target.value)}
-                                className="h-7 text-xs border rounded px-2 bg-background"
-                              />
-                              <input type="time"
-                                value={previewCallbackTime}
-                                onChange={e => setPreviewCallbackTime(e.target.value)}
-                                className="h-7 text-xs border rounded px-2 bg-background w-24"
-                              />
-                              <div className="flex gap-1 flex-wrap">
-                                {[
-                                  {l:t.statusEngine.disp.tomorrow,d:1,biz:true},
-                                  {l:"2d",d:2,biz:true},{l:"3d",d:3,biz:true},{l:"5d",d:5,biz:true},
-                                  {l:"1t",d:7,biz:false},{l:"2t",d:14,biz:false},
-                                  {l:"1m",d:30,biz:false},{l:"3m",d:90,biz:false}
-                                ].map(p=>(
-                                  <button key={p.d} type="button"
-                                    className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-muted transition-colors"
-                                    onClick={()=>{
-                                      const dt = p.biz ? addBusinessDays(new Date(), p.d) : (() => { const x=new Date(); x.setDate(x.getDate()+p.d); return x; })();
-                                      setPreviewCallbackDate(dt.toISOString().split("T")[0]);
-                                    }}
-                                  >{p.l}</button>
-                                ))}
-                              </div>
-                              <div className="flex gap-1 mt-1.5">
-                                <button type="button"
-                                  onClick={()=>setPreviewAssigneeMode("me")}
-                                  className={`flex-1 text-[10px] px-2 py-1 rounded border flex items-center justify-center gap-1 transition-colors ${previewAssigneeMode==="me"?"bg-primary text-primary-foreground border-primary":"hover:bg-muted"}`}
-                                  data-testid="btn-preview-assign-me">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-                                  {t.statusEngine.disp.assignToMe}
-                                </button>
-                                <button type="button"
-                                  onClick={()=>setPreviewAssigneeMode("all")}
-                                  className={`flex-1 text-[10px] px-2 py-1 rounded border flex items-center justify-center gap-1 transition-colors ${previewAssigneeMode==="all"?"bg-primary text-primary-foreground border-primary":"hover:bg-muted"}`}
-                                  data-testid="btn-preview-assign-all">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6"/><circle cx="16" cy="7" r="3"/><path d="M21 20c0-3.3-2.7-6-6-6"/></svg>
-                                  {t.statusEngine.disp.assignToAll}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
+                        {needsNote && (
+                          <textarea rows={2} value={previewNote} onChange={e=>setPreviewNote(e.target.value)}
+                            placeholder={t.statusEngine.disp.simNotePlaceholder}
+                            className="w-full text-xs border rounded px-2 py-1 bg-background resize-none"
+                          />
                         )}
                         <div className="flex items-center justify-between gap-2">
                           {!needsCb && !needsNote && kids.length === 0 && (
@@ -2392,6 +2346,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
       </div>
     );
   };
+
 
   if(isLoading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground"/></div>;
 
