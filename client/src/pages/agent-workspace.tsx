@@ -7863,14 +7863,14 @@ export default function AgentWorkspacePage() {
                           const isChecked = checklistSelectedCodes.includes(child.code);
                           const ChildIcon = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
                           const actionLabels: Record<string, { label: string; cls: string }> = {
-                            callback:       { label: "Callback",      cls: "bg-blue-100 text-blue-700" },
-                            schedule_email: { label: "Email plán",    cls: "bg-indigo-100 text-indigo-700" },
-                            schedule_sms:   { label: "SMS plán",      cls: "bg-violet-100 text-violet-700" },
-                            dnd:            { label: "Nezavolávať",   cls: "bg-red-100 text-red-700" },
-                            complete:       { label: "Uzatvoriť",     cls: "bg-green-100 text-green-700" },
-                            convert:        { label: "Konvertovať",   cls: "bg-emerald-100 text-emerald-700" },
-                            send_email:     { label: "Poslať email",  cls: "bg-sky-100 text-sky-700" },
-                            send_sms:       { label: "Poslať SMS",    cls: "bg-teal-100 text-teal-700" },
+                            callback:       { label: "Naplánovať hovor",  cls: "bg-blue-100 text-blue-700" },
+                            schedule_email: { label: "Naplánovať email",  cls: "bg-indigo-100 text-indigo-700" },
+                            schedule_sms:   { label: "Naplánovať SMS",    cls: "bg-violet-100 text-violet-700" },
+                            dnd:            { label: "Nezavolávať (DND)", cls: "bg-red-100 text-red-700" },
+                            complete:       { label: "Uzatvoriť",         cls: "bg-green-100 text-green-700" },
+                            convert:        { label: "Konvertovať",       cls: "bg-emerald-100 text-emerald-700" },
+                            send_email:     { label: "Poslať email",      cls: "bg-sky-100 text-sky-700" },
+                            send_sms:       { label: "Poslať SMS",        cls: "bg-teal-100 text-teal-700" },
                           };
                           const actionInfo = actionLabels[child.actionType];
                           return (
@@ -8123,7 +8123,7 @@ export default function AgentWorkspacePage() {
             );
             const effectiveChild = sortedByPriority[0];
             const actionLabels: Record<string, string> = {
-              callback: "⏰ Naplánuje callback", schedule_email: "📧 Naplánuje email",
+              callback: "⏰ Naplánuje hovor", schedule_email: "📧 Naplánuje email",
               schedule_sms: "💬 Naplánuje SMS", dnd: "🚫 Nezavolávať (DND)",
               complete: "✓ Uzatvorí kontakt", convert: "★ Konvertuje kontakt",
               send_email: "📤 Pošle email", send_sms: "📱 Pošle SMS",
@@ -8138,9 +8138,11 @@ export default function AgentWorkspacePage() {
               clConfirmParent?.actionType === "schedule_email" ||
               clConfirmParent?.actionType === "schedule_sms" ||
               selectedChildren.some((c: any) => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms");
+            // Always show date/time picker in checklist footer so user can always schedule
+            const showDatePicker = true;
             return (
               <div className="border-t bg-background px-4 py-3 space-y-2">
-                {needsCallbackDate && (
+                {showDatePicker && (
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-muted-foreground shrink-0">📅 Preplánovanie:</span>
                     <input type="date"
@@ -8183,7 +8185,7 @@ export default function AgentWorkspacePage() {
                     )}
                   </div>
                   <Button
-                    disabled={needsCallbackDate && !checklistCallbackDate}
+                    disabled={needsCallbackDate && !checklistCallbackDate && false}
                     onClick={() => {
                       if (clConfirmParent) {
                         handleDisposition(

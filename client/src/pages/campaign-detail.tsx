@@ -1788,15 +1788,15 @@ const PULSE_CATEGORY_COLORS: Record<string, { bg: string; border: string; icon: 
 // ─── Campaign Disposition Manager ────────────────────────────────────────────
 
 const ACTION_TYPE_LABEL: Record<string, { label: string; className: string }> = {
-  callback:       { label: "Callback",       className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
-  schedule_email: { label: "Email plán",     className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" },
-  schedule_sms:   { label: "SMS plán",       className: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" },
-  dnd:            { label: "Nezavolávať",    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
-  complete:       { label: "Uzatvoriť",      className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
-  convert:        { label: "Konvertovať",    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
-  send_email:     { label: "Poslať email",   className: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" },
-  send_sms:       { label: "Poslať SMS",     className: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" },
-  none:           { label: "Bez akcie",      className: "bg-muted text-muted-foreground" },
+  callback:       { label: "Naplánovať hovor",  className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
+  schedule_email: { label: "Naplánovať email",  className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" },
+  schedule_sms:   { label: "Naplánovať SMS",    className: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" },
+  dnd:            { label: "Nezavolávať (DND)", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
+  complete:       { label: "Uzatvoriť",         className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
+  convert:        { label: "Konvertovať",       className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
+  send_email:     { label: "Poslať email",      className: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" },
+  send_sms:       { label: "Poslať SMS",        className: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" },
+  none:           { label: "Bez akcie",         className: "bg-muted text-muted-foreground" },
 };
 
 const DISP_COLORS = ["green","blue","orange","red","gray","yellow","purple"] as const;
@@ -1826,10 +1826,10 @@ const DISP_ICON_MAP: Record<string, LucideIcon> = {
 };
 const DISP_ACTIONS = [
   { value:"none",           label:"Bez akcie"                 },
-  { value:"callback",       label:"Callback (naplánovať hovor)" },
+  { value:"callback",       label:"Naplánovať hovor"          },
   { value:"complete",       label:"Uzatvoriť kontakt"         },
-  { value:"dnd",            label:"DND – nikdy nevolať"       },
-  { value:"convert",        label:"Konvertovať"               },
+  { value:"dnd",            label:"Nezavolávať (DND)"         },
+  { value:"convert",        label:"Konvertovať kontakt"       },
   { value:"send_email",     label:"Poslať email ihneď"        },
   { value:"send_sms",       label:"Poslať SMS ihneď"          },
   { value:"schedule_email", label:"Naplánovať email"          },
