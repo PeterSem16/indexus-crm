@@ -3463,6 +3463,7 @@ export const statusDefinitions = pgTable("status_definitions", {
   allowPhone: boolean("allow_phone").notNull().default(true),
   isSystemStatus: boolean("is_system_status").notNull().default(false),
   callbackOffsetDays: integer("callback_offset_days"),
+  childrenType: text("children_type").notNull().default("checklist"), // "radio" | "checklist"
   rescheduleOptions: jsonb("reschedule_options").$type<string[]>(),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
@@ -3481,6 +3482,7 @@ export const insertStatusDefinitionSchema = createInsertSchema(statusDefinitions
   color: z.string().optional().nullable(),
   defaultAction: z.enum(STATUS_ACTION_TYPES).optional().default("none"),
   callbackOffsetDays: z.number().optional().nullable(),
+  childrenType: z.enum(["radio", "checklist"]).optional().default("checklist"),
   rescheduleOptions: z.array(z.string()).optional().nullable(),
 });
 export type InsertStatusDefinition = z.infer<typeof insertStatusDefinitionSchema>;

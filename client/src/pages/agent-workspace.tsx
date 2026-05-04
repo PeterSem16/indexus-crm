@@ -8083,7 +8083,7 @@ export default function AgentWorkspacePage() {
                           return;
                         }
 
-                        if (disp.childrenType === "checklist" && hasChildren) {
+                        if ((disp.childrenType === "checklist" || !disp.childrenType) && hasChildren) {
                           setChecklistParentId(disp.id);
                           setChecklistSelectedCodes([]);
                           // Pre-fill callback date from disposition offset (or default 1 business day)

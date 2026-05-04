@@ -44640,7 +44640,8 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
       const allStatuses = await storage.getAllStatusDefinitions();
       const allCategories = await storage.getAllStatusCategories();
       const assignedIds = new Set(assignments.map(a => a.statusDefinitionId));
-      const assignedStatuses = allStatuses.filter(s => assignedIds.has(s.id));
+      // Include assigned statuses + their children (so checklist/radio children are available in the client)
+      const assignedStatuses = allStatuses.filter(s => assignedIds.has(s.id) || (s.parentId != null && assignedIds.has(s.parentId)));
       res.json({ categories: allCategories, statuses: assignedStatuses, assignments });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
