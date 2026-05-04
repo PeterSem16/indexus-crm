@@ -1786,7 +1786,6 @@ const PULSE_CATEGORY_COLORS: Record<string, { bg: string; border: string; icon: 
 };
 
 function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
-  const { t } = useI18n();
   const { toast } = useToast();
   const [addingItemFor, setAddingItemFor] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState("");
@@ -1805,7 +1804,15 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
       if (!res.ok) throw new Error("Chyba pri ukladaní");
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
+      toast({
+        title: vars.childrenType === "checklist" ? "Zapnutý checklist" : "Zapnutý radio výber",
+        description: vars.childrenType === "checklist"
+          ? "Agent bude môcť zaznačiť viacero možností naraz."
+          : "Agent vyberie práve jednu možnosť.",
+      });
+    },
     onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
   });
 
@@ -1831,7 +1838,7 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
       setAddingItemFor(null);
       setNewItemName("");
-      toast({ title: t.campaigns.detail.dispChecklistItemSaved });
+      toast({ title: "Položka uložená", description: "Nová možnosť checklistu bola pridaná." });
     },
     onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
   });
@@ -1843,7 +1850,7 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
-      toast({ title: t.campaigns.detail.dispChecklistItemDeleted });
+      toast({ title: "Položka zmazaná" });
     },
     onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
   });
@@ -1856,108 +1863,138 @@ function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
 
   const parentsWithChildren = parents.filter((p: any) => childrenOf(p.id).length > 0);
 
-  if (parentsWithChildren.length === 0) return (
-    <div className="text-center py-12">
-      <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
-      <p className="text-sm text-muted-foreground">{t.campaigns.detail.dispNoDispositions}</p>
-      <p className="text-xs text-muted-foreground mt-1">{t.campaigns.detail.dispNoDispositionsHint}</p>
-    </div>
-  );
-
   return (
-    <div className="space-y-3">
-      {parentsWithChildren.map((parent: any) => {
-        const isChecklist = parent.childrenType === "checklist";
-        const kids = childrenOf(parent.id);
-        return (
-          <Card key={parent.id} className="overflow-hidden" data-testid={`card-disp-editor-${parent.id}`}>
-            <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b">
-              <div className="flex items-center gap-2">
-                <CircleDot className="h-4 w-4 text-primary" />
-                <span className="text-sm font-semibold">{parent.name}</span>
-                <Badge variant="secondary" className="text-[10px]">{parent.code}</Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{t.campaigns.detail.dispChildrenType}:</span>
-                <div className="flex rounded-md border overflow-hidden text-xs">
-                  <button
-                    className={`px-2.5 py-1 transition-colors ${!isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted"}`}
-                    onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "radio" })}
-                    data-testid={`btn-children-type-radio-${parent.id}`}
-                  >
-                    {t.campaigns.detail.dispChildrenTypeRadio}
-                  </button>
-                  <button
-                    className={`px-2.5 py-1 transition-colors border-l ${isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted"}`}
-                    onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "checklist" })}
-                    data-testid={`btn-children-type-checklist-${parent.id}`}
-                  >
-                    {t.campaigns.detail.dispChildrenTypeChecklist}
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="px-4 py-3 space-y-2">
-              {isChecklist && (
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t.campaigns.detail.dispChecklistItems}</p>
-              )}
-              <div className="space-y-1.5">
-                {kids.map((kid: any) => (
-                  <div key={kid.id} className="flex items-center gap-2" data-testid={`row-checklist-item-${kid.id}`}>
-                    {isChecklist
-                      ? <Checkbox disabled checked={false} className="opacity-50" />
-                      : <CircleDot className="h-3.5 w-3.5 text-muted-foreground" />
-                    }
-                    <span className="text-sm flex-1">{kid.name}</span>
-                    <Badge variant="outline" className="text-[10px] font-mono">{kid.code}</Badge>
-                    {isChecklist && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive hover:text-destructive"
-                        onClick={() => deleteItemMutation.mutate(kid.id)}
-                        disabled={deleteItemMutation.isPending}
-                        data-testid={`btn-delete-checklist-item-${kid.id}`}
+    <div className="space-y-4">
+      {/* Vysvetľujúci banner */}
+      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-4">
+        <div className="flex gap-3">
+          <ListChecks className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Ako funguje táto záložka?</p>
+            <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
+              Tu nastavíte, ako sa zobrazia podkategórie výsledku agentovi pri ukončení hovoru.
+            </p>
+            <ul className="text-xs text-blue-700 dark:text-blue-400 mt-1.5 space-y-0.5 list-none">
+              <li className="flex items-start gap-1.5"><span className="font-semibold shrink-0">Jeden výber (Radio):</span> agent vyberie presne jednu možnosť — napr. "Záujem o informácie"</li>
+              <li className="flex items-start gap-1.5"><span className="font-semibold shrink-0">Checklist (viacero):</span> agent zaškrtí ľubovoľný počet možností — napr. "Chce stretnutie" + "Chce cenovú ponuku"</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {parentsWithChildren.length === 0 ? (
+        <div className="text-center py-12">
+          <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+          <p className="text-sm text-muted-foreground">Žiadne výsledky s podkategóriami.</p>
+          <p className="text-xs text-muted-foreground mt-1">Najprv v záložke "Definície" vytvorte výsledok a pridajte mu podkategórie.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {parentsWithChildren.map((parent: any) => {
+            const isChecklist = parent.childrenType === "checklist";
+            const kids = childrenOf(parent.id);
+            return (
+              <Card key={parent.id} className="overflow-hidden" data-testid={`card-disp-editor-${parent.id}`}>
+                <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b gap-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CircleDot className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-sm font-semibold truncate">{parent.name}</span>
+                    <Badge variant="secondary" className="text-[10px] shrink-0">{parent.code}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground hidden sm:inline">Typ výberu:</span>
+                    <div className="flex rounded-md border overflow-hidden text-xs">
+                      <button
+                        className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${!isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-muted-foreground"}`}
+                        onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "radio" })}
+                        disabled={updateTypeMutation.isPending}
+                        data-testid={`btn-children-type-radio-${parent.id}`}
+                        title="Agent vyberie jednu možnosť"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <CircleDot className="h-3 w-3" />
+                        Jeden výber
+                      </button>
+                      <button
+                        className={`px-3 py-1.5 transition-colors border-l flex items-center gap-1.5 ${isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-muted-foreground"}`}
+                        onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "checklist" })}
+                        disabled={updateTypeMutation.isPending}
+                        data-testid={`btn-children-type-checklist-${parent.id}`}
+                        title="Agent zaškrtí viacero možností"
+                      >
+                        <CheckSquare className="h-3 w-3" />
+                        Checklist
+                      </button>
+                    </div>
+                    {updateTypeMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                  </div>
+                </div>
+
+                <div className="px-4 py-3 space-y-2">
+                  {isChecklist && (
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                      Možnosti checklistu ({kids.length})
+                    </p>
+                  )}
+                  <div className="space-y-1.5">
+                    {kids.map((kid: any) => (
+                      <div key={kid.id} className="flex items-center gap-2" data-testid={`row-checklist-item-${kid.id}`}>
+                        {isChecklist
+                          ? <Checkbox disabled checked={false} className="opacity-40" />
+                          : <CircleDot className="h-3.5 w-3.5 text-muted-foreground" />
+                        }
+                        <span className="text-sm flex-1">{kid.name}</span>
+                        <Badge variant="outline" className="text-[10px] font-mono">{kid.code}</Badge>
+                        {isChecklist && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-destructive"
+                            onClick={() => deleteItemMutation.mutate(kid.id)}
+                            disabled={deleteItemMutation.isPending}
+                            data-testid={`btn-delete-checklist-item-${kid.id}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {isChecklist && (
+                    addingItemFor === parent.id ? (
+                      <div className="flex gap-2 items-center mt-2">
+                        <Input
+                          autoFocus
+                          value={newItemName}
+                          onChange={(e: any) => setNewItemName(e.target.value)}
+                          placeholder="Názov novej možnosti..."
+                          className="h-7 text-sm flex-1"
+                          onKeyDown={(e: any) => {
+                            if (e.key === "Enter" && newItemName.trim()) addItemMutation.mutate({ parentId: parent.id, name: newItemName.trim() });
+                            if (e.key === "Escape") { setAddingItemFor(null); setNewItemName(""); }
+                          }}
+                          data-testid="input-new-checklist-item"
+                        />
+                        <Button size="sm" className="h-7" disabled={!newItemName.trim() || addItemMutation.isPending} onClick={() => addItemMutation.mutate({ parentId: parent.id, name: newItemName.trim() })} data-testid="btn-save-checklist-item">
+                          {addItemMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7" onClick={() => { setAddingItemFor(null); setNewItemName(""); }}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button variant="ghost" size="sm" className="gap-1 text-xs mt-1" onClick={() => { setAddingItemFor(parent.id); setNewItemName(""); }} data-testid={`btn-add-checklist-item-${parent.id}`}>
+                        <Plus className="h-3 w-3" />
+                        Pridať možnosť
                       </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {isChecklist && (
-                addingItemFor === parent.id ? (
-                  <div className="flex gap-2 items-center mt-2">
-                    <Input
-                      autoFocus
-                      value={newItemName}
-                      onChange={(e: any) => setNewItemName(e.target.value)}
-                      placeholder="Názov položky..."
-                      className="h-7 text-sm flex-1"
-                      onKeyDown={(e: any) => {
-                        if (e.key === "Enter" && newItemName.trim()) addItemMutation.mutate({ parentId: parent.id, name: newItemName.trim() });
-                        if (e.key === "Escape") { setAddingItemFor(null); setNewItemName(""); }
-                      }}
-                      data-testid="input-new-checklist-item"
-                    />
-                    <Button size="sm" className="h-7" disabled={!newItemName.trim() || addItemMutation.isPending} onClick={() => addItemMutation.mutate({ parentId: parent.id, name: newItemName.trim() })} data-testid="btn-save-checklist-item">
-                      {addItemMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7" onClick={() => { setAddingItemFor(null); setNewItemName(""); }}>
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button variant="ghost" size="sm" className="gap-1 text-xs mt-1" onClick={() => { setAddingItemFor(parent.id); setNewItemName(""); }} data-testid={`btn-add-checklist-item-${parent.id}`}>
-                    <Plus className="h-3 w-3" />
-                    {t.campaigns.detail.dispAddChecklistItem}
-                  </Button>
-                )
-              )}
-            </div>
-          </Card>
-        );
-      })}
+                    )
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
