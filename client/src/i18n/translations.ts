@@ -20155,7 +20155,7 @@ export const translations: Record<Locale, Translations> = {
         overview: 'Přehled',
         contacts: 'Kontakty',
         settings: 'Nastavení',
-        reporting: 'Reporting',
+        reporting: 'Výkazy',
         script: 'Skript',
         dispositions: 'Výsledky',
         general: 'Obecné',
@@ -23878,7 +23878,7 @@ export const translations: Record<Locale, Translations> = {
         submit: 'Odeslat',
       },
     statusEngine: {
-      title: 'Status Engine',
+      title: 'Správce stavů',
       subtitle: 'Správa kategorií, statusů, akcí a meta pravidel pro kampaně',
       seedDefaults: 'Naplnit výchozí statusy',
       seedSuccess: 'Seed úspěšný',
@@ -47224,7 +47224,7 @@ export const translations: Record<Locale, Translations> = {
         submit: 'Absenden',
       },
     statusEngine: {
-      title: 'Status Engine',
+      title: 'Statusverwaltung',
       subtitle: 'Verwaltung von Kategorien, Status, Aktionen und Meta-Regeln für Kampagnen',
       seedDefaults: 'Standardstatus laden',
       seedSuccess: 'Laden erfolgreich',
