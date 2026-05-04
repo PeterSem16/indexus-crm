@@ -2498,7 +2498,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
         </div>
       ) : (
         <div className="text-xs bg-muted/50 border rounded-md px-3 py-2 text-muted-foreground">
-          Tu spravujete výsledky hovorov priradené <strong>tejto kampani</strong>. Kliknite na riadok pre rozbalenie, <Pencil className="h-3 w-3 inline mx-0.5"/>na úpravu, <Trash2 className="h-3 w-3 inline mx-0.5"/>na zmazanie.
+          {t.statusEngine.disp.managerHintA} <strong>{t.statusEngine.disp.managerHintThis}</strong>. {t.statusEngine.disp.managerHintB} <Pencil className="h-3 w-3 inline mx-0.5"/>{t.statusEngine.disp.managerHintEdit} <Trash2 className="h-3 w-3 inline mx-0.5"/>{t.statusEngine.disp.managerHintDelete}
         </div>
       )}
 
@@ -2853,7 +2853,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/status-assignments/assign-all`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-assignments"] });
-      toast({ title: "Všetky statusy priradené" });
+      toast({ title: t.statusEngine.disp.allStatusesAssigned });
     },
     onError: (error: any) => { toast({ title: "Chyba", description: error.message, variant: "destructive" }); },
   });

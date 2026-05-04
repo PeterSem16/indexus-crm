@@ -6006,6 +6006,7 @@ export interface Translations {
       reseedDefaults: string;
       disp: {
         title: string; subtitle: string; agentPreview: string; closePreview: string;
+        managerHintA: string; managerHintThis: string; managerHintB: string; managerHintEdit: string; managerHintDelete: string; allStatusesAssigned: string;
         importGroup: string; closeImport: string; noResults: string; subresults: string;
         oneChoice: string; listChoice: string; addResult: string; addSubresult: string;
         mainCount: string; subCount: string; hintNoResults: string;
@@ -12055,6 +12056,7 @@ export const translations: Record<Locale, Translations> = {
       disp: {
         title: 'Call Result Manager', subtitle: 'Manage call results for this campaign',
         agentPreview: 'Agent preview', closePreview: 'Close preview',
+        managerHintA: 'You manage call results assigned to', managerHintThis: 'this campaign', managerHintB: 'Click a row to expand,', managerHintEdit: 'to edit,', managerHintDelete: 'to delete.', allStatusesAssigned: 'All statuses assigned',
         importGroup: 'Import group', closeImport: 'Close import',
         noResults: 'No results yet. Add them using the button below.',
         subresults: 'Sub-results', oneChoice: 'Single choice', listChoice: 'List',
@@ -18093,6 +18095,7 @@ export const translations: Record<Locale, Translations> = {
       disp: {
         title: 'Správca výsledkov hovorov', subtitle: 'Správa výsledkov hovorov pre túto kampaň',
         agentPreview: 'Náhľad agenta', closePreview: 'Zavrieť náhľad',
+        managerHintA: 'Tu spravujete výsledky hovorov priradené', managerHintThis: 'tejto kampani', managerHintB: 'Kliknite na riadok pre rozbalenie,', managerHintEdit: 'na úpravu,', managerHintDelete: 'na zmazanie.', allStatusesAssigned: 'Všetky statusy priradené',
         importGroup: 'Importovať skupinu', closeImport: 'Zavrieť import',
         noResults: 'Zatiaľ žiadne výsledky. Pridajte ich tlačidlom nižšie.',
         subresults: 'Podvýsledky', oneChoice: 'Jeden výber', listChoice: 'Zoznam',
@@ -24057,6 +24060,7 @@ export const translations: Record<Locale, Translations> = {
       disp: {
         title: 'Správce výsledků hovorů', subtitle: 'Správa výsledků hovorů pro tuto kampaň',
         agentPreview: 'Náhled agenta', closePreview: 'Zavřít náhled',
+        managerHintA: 'Spravujete výsledky hovorů přiřazené', managerHintThis: 'této kampani', managerHintB: 'Klikněte na řádek pro rozbalení,', managerHintEdit: 'pro úpravu,', managerHintDelete: 'pro smazání.', allStatusesAssigned: 'Všechny statusy přiřazeny',
         importGroup: 'Importovat skupinu', closeImport: 'Zavřít import',
         noResults: 'Zatím žádné výsledky. Přidejte je tlačítkem níže.',
         subresults: 'Podvýsledky', oneChoice: 'Jeden výběr', listChoice: 'Seznam',
@@ -29991,6 +29995,7 @@ export const translations: Record<Locale, Translations> = {
       disp: {
         title: 'Híváseredmény-kezelő', subtitle: 'Híváseredmények kezelése ehhez a kampányhoz',
         agentPreview: 'Ügynök előnézete', closePreview: 'Előnézet bezárása',
+        managerHintA: 'A kampányhoz rendelt híváseredményeket kezeli:', managerHintThis: 'ez a kampány', managerHintB: 'Kattintson egy sorra a kibontáshoz,', managerHintEdit: 'szerkesztéshez,', managerHintDelete: 'törléshez.', allStatusesAssigned: 'Minden státusz hozzárendelve',
         importGroup: 'Csoport importálása', closeImport: 'Import bezárása',
         noResults: 'Még nincsenek eredmények. Adjon hozzá az alábbi gombbal.',
         subresults: 'Alábbiak', oneChoice: 'Egyes választás', listChoice: 'Lista',
@@ -35845,6 +35850,7 @@ export const translations: Record<Locale, Translations> = {
       disp: {
         title: 'Manager rezultate apeluri', subtitle: 'Gestionare rezultate apeluri pentru această campanie',
         agentPreview: 'Previzualizare agent', closePreview: 'Închide previzualizarea',
+        managerHintA: 'Gestionați rezultatele apelurilor atribuite', managerHintThis: 'acestei campanii', managerHintB: 'Faceți clic pe un rând pentru a extinde,', managerHintEdit: 'pentru editare,', managerHintDelete: 'pentru ștergere.', allStatusesAssigned: 'Toate statusurile atribuite',
         importGroup: 'Importare grup', closeImport: 'Închide importul',
         noResults: 'Nu există rezultate. Adăugați cu butonul de mai jos.',
         subresults: 'Subrezultate', oneChoice: 'Alegere unică', listChoice: 'Listă',
@@ -41701,6 +41707,7 @@ export const translations: Record<Locale, Translations> = {
       disp: {
         title: 'Gestore risultati chiamate', subtitle: 'Gestione risultati chiamate per questa campagna',
         agentPreview: 'Anteprima agente', closePreview: 'Chiudi anteprima',
+        managerHintA: 'Gestisci i risultati delle chiamate assegnati a', managerHintThis: 'questa campagna', managerHintB: 'Clicca su una riga per espandere,', managerHintEdit: 'per modificare,', managerHintDelete: 'per eliminare.', allStatusesAssigned: 'Tutti gli stati assegnati',
         importGroup: 'Importa gruppo', closeImport: 'Chiudi importazione',
         noResults: 'Nessun risultato. Aggiungine con il pulsante in basso.',
         subresults: 'Sottorísultati', oneChoice: 'Scelta singola', listChoice: 'Lista',
@@ -47543,6 +47550,7 @@ export const translations: Record<Locale, Translations> = {
       disp: {
         title: 'Anruf-Ergebnismanager', subtitle: 'Anruf-Ergebnisse für diese Kampagne verwalten',
         agentPreview: 'Agentenvorschau', closePreview: 'Vorschau schließen',
+        managerHintA: 'Sie verwalten die dieser Kampagne zugeordneten Anrufergebnisse:', managerHintThis: 'diese Kampagne', managerHintB: 'Klicken Sie zum Aufklappen,', managerHintEdit: 'zum Bearbeiten,', managerHintDelete: 'zum Löschen.', allStatusesAssigned: 'Alle Status zugewiesen',
         importGroup: 'Gruppe importieren', closeImport: 'Import schließen',
         noResults: 'Noch keine Ergebnisse. Fügen Sie sie mit der Schaltfläche unten hinzu.',
         subresults: 'Teilergebnisse', oneChoice: 'Einzelauswahl', listChoice: 'Liste',
