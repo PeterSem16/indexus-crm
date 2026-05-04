@@ -884,7 +884,7 @@ function TaskListPanel({
                     {(myCallbackCount > 0 || teamCallbackCount > 0) && (
                       <div className="flex flex-wrap items-center gap-1.5 px-1 pb-1.5">
                         {myCallbackCount > 0 && (
-                          <Badge variant="default" className="text-[9px] gap-1 bg-purple-500 text-white">
+                          <Badge variant="default" className="text-[9px] gap-1 bg-indigo-400 text-white">
                             <User className="h-2.5 w-2.5" />
                             {myCallbackCount} {t.agentWorkspace.myCB}
                           </Badge>
@@ -921,13 +921,13 @@ function TaskListPanel({
                         return (
                           <div
                             key={cc.id}
-                            className={`relative rounded-lg overflow-hidden ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${isMyCallback ? "bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700" : "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700"} text-white shadow-md ${!isDisabled ? "hover:shadow-lg hover:scale-[1.02] transition-all" : ""}`}
+                            className={`relative rounded-lg overflow-hidden ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${isMyCallback ? "bg-gradient-to-r from-indigo-400 to-indigo-500 dark:from-indigo-500 dark:to-indigo-600" : "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700"} text-white shadow-md ${!isDisabled ? "hover:shadow-lg hover:scale-[1.02] transition-all" : ""}`}
                             onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
                             data-testid={`contact-item-${cc.id}`}
                           >
                             <div className="flex items-center gap-2.5 p-2.5">
                               <div className="relative shrink-0">
-                                <div className={`h-9 w-9 rounded-full flex items-center justify-center ${isMyCallback ? "bg-purple-400/30" : "bg-blue-400/30"} ring-2 ring-white/30`}>
+                                <div className={`h-9 w-9 rounded-full flex items-center justify-center ${isMyCallback ? "bg-white/20" : "bg-blue-400/30"} ring-2 ring-white/30`}>
                                   <PhoneCall className="h-4 w-4 text-white" />
                                 </div>
                               </div>
@@ -947,7 +947,7 @@ function TaskListPanel({
                                 {cc.attemptCount > 0 && (
                                   <span className="text-[9px] bg-white/20 rounded-full px-1.5 py-0.5">{cc.attemptCount}x</span>
                                 )}
-                                <div className={`h-7 w-7 rounded-full flex items-center justify-center ${isMyCallback ? "bg-purple-400/40" : "bg-blue-400/40"}`}>
+                                <div className={`h-7 w-7 rounded-full flex items-center justify-center ${isMyCallback ? "bg-white/20" : "bg-blue-400/40"}`}>
                                   <Phone className="h-3.5 w-3.5" />
                                 </div>
                               </div>
@@ -960,7 +960,7 @@ function TaskListPanel({
                         return (
                           <div
                             key={cc.id}
-                            className={`rounded-lg border-l-[3px] ${isMyCallback ? "border-l-purple-400 bg-purple-50/60 dark:bg-purple-950/20" : "border-l-blue-400 bg-blue-50/60 dark:bg-blue-950/20"} ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors"}`}
+                            className={`rounded-lg border-l-[3px] ${isMyCallback ? "border-l-indigo-300 bg-indigo-50/60 dark:bg-indigo-950/20" : "border-l-blue-400 bg-blue-50/60 dark:bg-blue-950/20"} ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors"}`}
                             onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
                             data-testid={`contact-item-${cc.id}`}
                           >
@@ -969,7 +969,7 @@ function TaskListPanel({
                                 <div className={`h-8 w-8 rounded-full flex items-center justify-center ${ctConfig.bg}`}>
                                   <TypeIcon className={`h-3.5 w-3.5 ${ctConfig.text}`} />
                                 </div>
-                                <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center ${isMyCallback ? "bg-purple-400" : "bg-blue-400"}`}>
+                                <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center ${isMyCallback ? "bg-indigo-400" : "bg-blue-400"}`}>
                                   <Clock className="h-2 w-2 text-white" />
                                 </div>
                               </div>
@@ -977,7 +977,7 @@ function TaskListPanel({
                                 <p className="text-sm font-medium truncate">{entityDisplay.name}</p>
                                 <div className="flex items-center gap-1 mt-0.5">
                                   <Calendar className="h-2.5 w-2.5 text-muted-foreground" />
-                                  <span className={`text-[10px] font-medium ${isMyCallback ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400"}`}>{callbackDateStr}</span>
+                                  <span className={`text-[10px] font-medium ${isMyCallback ? "text-indigo-600 dark:text-indigo-400" : "text-blue-600 dark:text-blue-400"}`}>{callbackDateStr}</span>
                                 </div>
                                 {cc.callbackNote && (
                                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate italic" title={cc.callbackNote}>📝 {cc.callbackNote}</p>
@@ -7649,7 +7649,7 @@ export default function AgentWorkspacePage() {
                     const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM.yyyy HH:mm") : null;
 
                     let rowClass = "";
-                    if (isDueCallback && isMyCallback) rowClass = "ring-1 ring-purple-400 dark:ring-purple-600 bg-purple-50/50 dark:bg-purple-950/20";
+                    if (isDueCallback && isMyCallback) rowClass = "ring-1 ring-indigo-300 dark:ring-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20";
                     else if (isDueCallback && isTeamCallback) rowClass = "ring-1 ring-blue-400 dark:ring-blue-600 bg-blue-50/50 dark:bg-blue-950/20";
                     else if (isCallback) rowClass = "bg-muted/30";
 
@@ -7686,12 +7686,12 @@ export default function AgentWorkspacePage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {isCallback && (
-                            <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[10px] ${isDueCallback && isMyCallback ? "bg-purple-500 text-white" : isDueCallback ? "bg-blue-500 text-white" : ""}`}>
+                            <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[10px] ${isDueCallback && isMyCallback ? "bg-indigo-400 text-white" : isDueCallback ? "bg-blue-500 text-white" : ""}`}>
                               {isDueCallback ? t.agentWorkspace.callBack : isMyCallback ? t.agentWorkspace.myCB : isTeamCallback ? t.agentWorkspace.teamCB : "CB"}
                             </Badge>
                           )}
                           {callbackDateStr && (
-                            <span className={`text-[10px] ${isDueCallback ? (isMyCallback ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400") + " font-medium" : "text-muted-foreground"}`}>
+                            <span className={`text-[10px] ${isDueCallback ? (isMyCallback ? "text-indigo-600 dark:text-indigo-400" : "text-blue-600 dark:text-blue-400") + " font-medium" : "text-muted-foreground"}`}>
                               <Calendar className="h-3 w-3 inline mr-0.5" />
                               {callbackDateStr}
                             </span>
