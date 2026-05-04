@@ -2241,48 +2241,72 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                     }
                   </button>
 
-                  {kids.length>0 && isSimulating && (() => {
-                    const needsCb = parent.actionType==="callback"||parent.actionType==="schedule_email"||parent.actionType==="schedule_sms"||parent.requiresCallback;
+                  {kids.length>0 && (
+                    <div className={`border-t border-dashed transition-colors ${isSimulating?"border-indigo-200 dark:border-indigo-800":"border-muted"}`}>
+                      {kids.map((child:any, idx:number)=>{
+                        const CI = DISP_ICON_MAP[child.icon||""]||CircleDot;
+                        const cai = ACTION_TYPE_LABEL[child.actionType||"none"];
+                        const isLast = idx === kids.length-1;
+                        const isChecked = previewChecked.includes(child.code);
+                        return (
+                          <div key={child.id}
+                            className={`flex items-center gap-2 pl-5 pr-3 py-2 text-sm border-b border-dashed last:border-b-0 transition-colors
+                              ${isSimulating
+                                ? isChecklist
+                                  ? isChecked ? "bg-indigo-100/80 dark:bg-indigo-900/40 cursor-pointer" : "bg-indigo-50/40 dark:bg-indigo-950/20 hover:bg-indigo-100/60 cursor-pointer"
+                                  : "bg-indigo-50/40 dark:bg-indigo-950/20 hover:bg-indigo-100/60 cursor-pointer"
+                                : "bg-muted/10"
+                              }`}
+                            onClick={isSimulating && !isChecklist ? ()=>{
+                              setPreviewStep2(null); setPreviewChecked([]); setPreviewNote(""); setPreviewCallbackDate("");
+                              toast({title: t.statusEngine.disp.simSaved, description:`${parent.name} → ${child.name}`});
+                            } : undefined}
+                          >
+                            <span className="font-mono text-[11px] text-muted-foreground/40 shrink-0 select-none">{isLast?"└":"├"}──</span>
+                            {isSimulating && isChecklist && (
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={v=>setPreviewChecked(prev=>v?[...prev,child.code]:prev.filter((x:string)=>x!==child.code))}
+                                className="shrink-0"
+                                onClick={(e:React.MouseEvent)=>e.stopPropagation()}
+                              />
+                            )}
+                            {isSimulating && !isChecklist && (
+                              <div className="w-3.5 h-3.5 rounded-full border-2 border-indigo-400 shrink-0"/>
+                            )}
+                            {!isSimulating && <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 shrink-0"/>}
+                            <CI className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
+                            <span className="flex-1 truncate text-sm">{child.name}</span>
+                            <span className={`text-[10px] px-1 py-0.5 rounded shrink-0 ${cai.className}`}>{(t.statusEngine.actions as Record<string,string>)[child.actionType] ?? cai.label}</span>
+                          </div>
+                        );
+                      })}
+                      {isSimulating && isChecklist && (
+                        <div className="flex items-center justify-between gap-2 px-5 py-2 bg-indigo-50 dark:bg-indigo-950/40 border-t border-indigo-200 dark:border-indigo-800">
+                          <span className="text-xs text-indigo-600 dark:text-indigo-400">
+                            {previewChecked.length>0 ? `${previewChecked.length} ${t.statusEngine.disp.simChecked}` : t.statusEngine.disp.simCheckAtLeastOne}
+                          </span>
+                          <Button size="sm" className="h-7 text-xs" disabled={previewChecked.length===0}
+                            onClick={()=>{
+                              const names = kids.filter((k:any)=>previewChecked.includes(k.code)).map((k:any)=>k.name).join(", ");
+                              setPreviewStep2(null); setPreviewChecked([]);
+                              toast({title: t.statusEngine.disp.simSaved, description:`${parent.name}: ${names}`});
+                            }}
+                          >
+                            <Check className="h-3 w-3 mr-1"/>{t.statusEngine.disp.simConfirm} ({previewChecked.length})
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isSimulating && (() => {
+                    const needsCb = parent.requiresCallback || parent.actionType==="callback"||parent.actionType==="schedule_email"||parent.actionType==="schedule_sms";
                     const needsNote = parent.requiresNote;
+                    if (!needsCb && !needsNote && kids.length > 0) return null;
                     const canConfirm = (!needsCb || previewCallbackDate) && (!needsNote || previewNote.trim());
                     return (
-                      <div className="px-4 pb-3 space-y-2 bg-indigo-50/40 dark:bg-indigo-950/10">
-                        {isChecklist ? (
-                          <div className="space-y-1 pt-2">
-                            {kids.map((child:any)=>{
-                              const CI = DISP_ICON_MAP[child.icon||""]||CircleDot;
-                              return (
-                                <label key={child.id} className="flex items-center gap-2 py-1 cursor-pointer">
-                                  <input type="checkbox" className="h-3.5 w-3.5 rounded"
-                                    checked={previewChecked.includes(child.id)}
-                                    onChange={e=>setPreviewChecked(prev=>e.target.checked?[...prev,child.id]:prev.filter(x=>x!==child.id))}
-                                  />
-                                  <CI className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
-                                  <span className="text-xs">{child.name}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-1.5 pt-2">
-                            {kids.map((child:any)=>{
-                              const CI = DISP_ICON_MAP[child.icon||""]||CircleDot;
-                              return (
-                                <button key={child.id} type="button"
-                                  onClick={()=>{
-                                    setPreviewStep2(null); setPreviewChecked([]); setPreviewNote(""); setPreviewCallbackDate("");
-                                    toast({title: t.statusEngine.disp.simChecked, description: child.name});
-                                  }}
-                                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border bg-background hover:bg-muted transition-colors"
-                                >
-                                  <CI className="h-3 w-3 text-muted-foreground shrink-0"/>
-                                  {child.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-
+                      <div className="border-t border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-4 py-3 space-y-2">
                         {needsCb && (
                           <div className="flex items-center gap-2 flex-wrap">
                             <input type="date"
@@ -2301,20 +2325,17 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                         {needsNote && (
                           <textarea rows={2} value={previewNote} onChange={e=>setPreviewNote(e.target.value)}
                             placeholder={t.statusEngine.disp.simNotePlaceholder}
-                            className="w-full text-xs border rounded px-2 py-1 bg-background resize-none"
+                            className="w-full text-xs border rounded px-2 py-1 bg-background resize-none border-amber-300 focus:border-amber-500 outline-none"
                           />
                         )}
                         <div className="flex items-center justify-between gap-2">
-                          {!needsCb && !needsNote && kids.length === 0 && (
-                            <span className="text-xs text-indigo-600 dark:text-indigo-400">{(t.statusEngine.actions as Record<string,string>)[parent.actionType] ?? ai?.label ?? t.statusEngine.actions.none}</span>
-                          )}
                           {(needsCb || needsNote) && !canConfirm && (
                             <span className="text-xs text-muted-foreground">
                               {needsNote && !previewNote.trim() ? t.statusEngine.disp.simFillNote : t.statusEngine.disp.simSelectDate}
                             </span>
                           )}
-                          {!(needsCb || needsNote) && kids.length === 0 && <span/>}
-                          <Button size="sm" className="h-7 text-xs ml-auto" disabled={!canConfirm}
+                          <span/>
+                          <Button size="sm" className="h-7 text-xs" disabled={!canConfirm}
                             onClick={()=>{
                               setPreviewStep2(null); setPreviewChecked([]); setPreviewNote(""); setPreviewCallbackDate("");
                               const desc = [
@@ -2325,7 +2346,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                             }}
                           >
                             <Check className="h-3 w-3 mr-1"/>
-                            {kids.length > 0 && !isChecklist ? t.statusEngine.disp.simConfirm : needsCb ? t.statusEngine.disp.simSchedule : t.statusEngine.disp.simConfirmResult}
+                            {needsCb ? t.statusEngine.disp.simSchedule : t.statusEngine.disp.simConfirmResult}
                           </Button>
                         </div>
                       </div>
