@@ -23272,6 +23272,51 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         updatePayload.lastAttemptAt = lastContactedAt;
       }
       
+      // ── Server-side disposition automation ──────────────────────────────
+      // Look up the actual disposition definition to reliably apply its
+      // actionType + callbackOffsetDays, regardless of what the client sent.
+      if (updatePayload.dispositionCode) {
+        const allDisps = await db.select().from(campaignDispositions)
+          .where(eq(campaignDispositions.campaignId, req.params.campaignId));
+
+        // Determine effective disposition (checklist child override)
+        const ACTION_PRIORITY = ['dnd','complete','callback','schedule_sms','schedule_email','convert','send_email','send_sms'];
+        let effectiveDisp = allDisps.find(d => d.code === updatePayload.dispositionCode);
+        const checklistCodes = Array.isArray(req.body.checklistCodes) ? req.body.checklistCodes as string[] : [];
+        if (checklistCodes.length > 0) {
+          const children = allDisps.filter(d => checklistCodes.includes(d.code) && d.actionType && d.actionType !== 'none');
+          if (children.length > 0) {
+            children.sort((a, b) => ACTION_PRIORITY.indexOf(a.actionType ?? 'none') - ACTION_PRIORITY.indexOf(b.actionType ?? 'none'));
+            effectiveDisp = children[0];
+          }
+        }
+
+        if (effectiveDisp) {
+          const actionType = effectiveDisp.actionType || 'none';
+          const dispActionStatusMap: Record<string, string> = {
+            callback: "callback_scheduled", schedule_email: "callback_scheduled", schedule_sms: "callback_scheduled",
+            dnd: "not_interested", complete: "completed", convert: "completed",
+            send_email: "contacted", send_sms: "contacted", none: "contacted",
+          };
+          // Authoritative status from disposition definition
+          if (actionType !== 'none') {
+            updatePayload.status = dispActionStatusMap[actionType] || updatePayload.status;
+          }
+          // Auto-compute callback date from offset when agent did not pick one
+          if (['callback','schedule_email','schedule_sms'].includes(actionType) && !updatePayload.callbackDate) {
+            const offsetDays = effectiveDisp.callbackOffsetDays ?? 1;
+            const cbDate = new Date();
+            let added = 0;
+            while (added < offsetDays) { cbDate.setDate(cbDate.getDate() + 1); const d = cbDate.getDay(); if (d !== 0 && d !== 6) added++; }
+            cbDate.setHours(9, 0, 0, 0);
+            updatePayload.callbackDate = cbDate.toISOString();
+            updatePayload.status = "callback_scheduled";
+          }
+          console.log(`[Disposition] actionType=${actionType} callbackOffsetDays=${effectiveDisp.callbackOffsetDays ?? 'none'} → status=${updatePayload.status}`);
+        }
+      }
+      // ────────────────────────────────────────────────────────────────────
+
       if (updatePayload.status === "contacted" || updatePayload.status === "completed") {
         updatePayload.contactedAt = new Date().toISOString();
       }

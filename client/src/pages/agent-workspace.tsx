@@ -8076,12 +8076,23 @@ export default function AgentWorkspacePage() {
                         if (disp.childrenType === "checklist" && hasChildren) {
                           setChecklistParentId(disp.id);
                           setChecklistSelectedCodes([]);
+                          // Pre-fill callback date from disposition offset (or default 1 business day)
+                          if (disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms") {
+                            const offsetDays = disp.callbackOffsetDays || 1;
+                            const cbDate = addBusinessDays(new Date(), offsetDays);
+                            setChecklistCallbackDate(cbDate.toISOString().split("T")[0]);
+                            setChecklistCallbackTime("09:00");
+                          } else {
+                            setChecklistCallbackDate("");
+                            setChecklistCallbackTime("09:00");
+                          }
                         } else if (needsConfig) {
                           setModalSelectedParent(disp.id);
                           if (isCallback) {
-                            const tomorrow = new Date();
-                            tomorrow.setDate(tomorrow.getDate() + 1);
-                            setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+                            const offsetDays = disp.callbackOffsetDays || 1;
+                            const cbDate = addBusinessDays(new Date(), offsetDays);
+                            setModalCallbackDate(cbDate.toISOString().split("T")[0]);
+                            setModalCallbackTime("09:00");
                           }
                         } else {
                           handleDisposition(disp.code);
