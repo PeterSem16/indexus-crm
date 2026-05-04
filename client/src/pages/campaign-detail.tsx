@@ -2134,19 +2134,58 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const isLoading = catLoading || statusLoading;
   const isEmpty = categories.length === 0;
 
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  const STATUS_ENGINE_GUIDE = [
+    {
+      step: 1,
+      mode: "engine" as const,
+      title: "Definície — vytvorte výsledky hovorov",
+      desc: "Tu vytvoríte výsledky (napr. \"Záujem\", \"Nevhodný čas\") a ich podvýsledky (napr. \"Chce stretnutie\", \"Zavolajte ráno\"). Každý výsledok môže mať vlastnú automatizáciu (callback, uzatvorenie, DND...).",
+      action: "Kliknite + Kategória pre novú skupinu, + Status pre nový výsledok.",
+    },
+    {
+      step: 2,
+      mode: "assign" as const,
+      title: "Priradenie — vyberte čo uvidia agenti",
+      desc: "Z vytvorených výsledkov vyberte tie, ktoré budú viditeľné v TEJTO kampani. Ostatné kampane môžu mať iný výber.",
+      action: "Zaškrtnite výsledky ktoré chcete priradiť, alebo kliknite \"Priradiť všetky\".",
+    },
+    {
+      step: 3,
+      mode: "campaign" as const,
+      title: "Výsledky kampane — nastavte typ výberu",
+      desc: "Pre výsledky s podvýsledkami zvoľte ako ich bude agent vyberať: Jeden výber (radio) = vyberie práve jeden podvýsledok. Checklist = zaškrtí viacero naraz, každý spustí svoju automatizáciu.",
+      action: "Prepínajte tlačidlá \"Jeden\" / \"Checklist\" pri každom výsledku.",
+    },
+  ] as const;
+
   const content = (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">{t.statusEngine?.title || "Status Engine"}</h3>
-          <p className="text-sm text-muted-foreground">Správa dispozícií, statusov a Nexus Pulse pre túto kampaň</p>
+      {/* Header + tabs */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <div>
+            <h3 className="text-lg font-semibold">{t.statusEngine?.title || "Status Engine"}</h3>
+            <p className="text-sm text-muted-foreground">Správa výsledkov hovorov pre túto kampaň</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={() => setGuideOpen(v => !v)}
+            title="Sprievodca nastavením"
+            data-testid="btn-status-engine-guide"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </Button>
         </div>
         <div className="flex bg-muted rounded-lg p-0.5">
           {[
-            { key: "engine" as const, icon: Settings2, label: "Definície" },
-            { key: "assign" as const, icon: CheckSquare, label: "Priradenie" },
+            { key: "engine" as const, icon: Settings2, label: "1. Definície" },
+            { key: "assign" as const, icon: CheckSquare, label: "2. Priradenie" },
             { key: "pulse" as const, icon: Eye, label: "Nexus Pulse" },
-            { key: "campaign" as const, icon: ListChecks, label: "Výsledky kampane" },
+            { key: "campaign" as const, icon: ListChecks, label: "3. Typ výberu" },
           ].map(tab => (
             <Button
               key={tab.key}
@@ -2162,6 +2201,62 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
           ))}
         </div>
       </div>
+
+      {/* Collapsible guide */}
+      {guideOpen && (
+        <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+              <HelpCircle className="h-4 w-4" />
+              Sprievodca nastavením výsledkov kampane
+            </p>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setGuideOpen(false)}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {STATUS_ENGINE_GUIDE.map(({ step, mode, title, desc, action }) => (
+              <div
+                key={step}
+                className={`flex gap-3 p-3 rounded-md border cursor-pointer transition-colors ${viewMode === mode ? "bg-amber-100 dark:bg-amber-900/30 border-amber-300" : "bg-white dark:bg-background border-amber-100 hover:bg-amber-50"}`}
+                onClick={() => { setViewMode(mode); setGuideOpen(false); }}
+              >
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-amber-600 text-white text-xs font-bold flex items-center justify-center">
+                  {step}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">{title}</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">{desc}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-1 font-medium">→ {action}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-amber-600 dark:text-amber-500 mt-3 italic">
+            Po nastavení agenti vidia výsledky v dialógu "Ukončiť hovor" v pracovnej ploche.
+          </p>
+        </div>
+      )}
+
+      {/* Active tab description */}
+      {viewMode === "engine" && (
+        <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
+          <Settings2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span><strong>Krok 1 — Definície:</strong> Vytvorte skupiny a výsledky hovorov. Každý výsledok môže mať podvýsledky a vlastnú automatizáciu (callback, uzatvorenie, DND...). Použite tlačidlo <strong>"Naplniť predvolené statusy"</strong> pre rýchly štart.</span>
+        </div>
+      )}
+      {viewMode === "assign" && (
+        <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
+          <CheckSquare className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span><strong>Krok 2 — Priradenie:</strong> Zaškrtnite ktoré výsledky budú viditeľné pre agentov v TEJTO kampani. Výsledky z iných kampaní nie sú ovplyvnené.</span>
+        </div>
+      )}
+      {viewMode === "campaign" && (
+        <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
+          <ListChecks className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span><strong>Krok 3 — Typ výberu podvýsledkov:</strong> Pre výsledky s podvýsledkami nastavte či agent vyberie jeden (<strong>Jeden</strong>) alebo viacero naraz (<strong>Checklist</strong>). Automatizácia sa riadi podvýsledkom s najvyššou prioritou.</span>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center justify-center h-32">
