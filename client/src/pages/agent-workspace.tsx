@@ -8018,10 +8018,16 @@ export default function AgentWorkspacePage() {
                       </div>
                     )}
 
-                    {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms") && (
-                      <Button className="w-full" disabled={!modalCallbackDate} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo, modalCallbackNote || undefined); }} data-testid="btn-modal-disposition-confirm-callback">
+                    {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms" || parent?.requiresCallback) && (
+                      <Button className="w-full" disabled={!modalCallbackDate || (parent?.requiresNote && !callNotes.trim())} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo, modalCallbackNote || undefined); }} data-testid="btn-modal-disposition-confirm-callback">
                         <CalendarPlus className="h-4 w-4 mr-1" />
                         {parent?.actionType === "schedule_email" ? "Naplánovať email" : parent?.actionType === "schedule_sms" ? "Naplánovať SMS" : "Potvrdiť preplánovanie"}
+                      </Button>
+                    )}
+                    {!(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms" || parent?.requiresCallback) && children.length === 0 && (
+                      <Button className="w-full" disabled={parent?.requiresNote && !callNotes.trim()} onClick={() => { handleDisposition(parent!.code, undefined, undefined, undefined, undefined); }} data-testid="btn-modal-disposition-confirm-simple">
+                        <Check className="h-4 w-4 mr-1" />
+                        Potvrdiť výsledok
                       </Button>
                     )}
                   </div>
@@ -8062,8 +8068,8 @@ export default function AgentWorkspacePage() {
                       onSelectStatus={(disp: any) => {
                         const children = campaignDispositions.filter((d: any) => d.parentId === disp.id && d.isActive);
                         const hasChildren = children.length > 0;
-                        const isCallback = disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms";
-                        const needsConfig = hasChildren || isCallback;
+                        const isCallback = disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms" || disp.requiresCallback;
+                        const needsConfig = hasChildren || isCallback || disp.requiresNote;
 
                         if (multiSelectMode) {
                           if (needsConfig) return; // can't bulk-select items requiring config
@@ -8104,19 +8110,35 @@ export default function AgentWorkspacePage() {
               })()}
 
               {/* Notes always visible (both main list and parent-detail) */}
-              {campaignDispositions.length > 0 && (
-                <div className="pt-2 border-t">
-                  <Label htmlFor="disp-notes" className="text-xs text-muted-foreground">Poznámka k hovoru (voliteľné)</Label>
-                  <Textarea
-                    id="disp-notes"
-                    value={callNotes}
-                    onChange={(e) => setCallNotes(e.target.value)}
-                    placeholder="Doplňte krátku poznámku..."
-                    className="mt-1 min-h-[60px] max-h-[120px] text-sm"
-                    data-testid="input-disp-notes"
-                  />
-                </div>
-              )}
+              {campaignDispositions.length > 0 && (() => {
+                const activeDisp = modalSelectedParent
+                  ? campaignDispositions.find((d: any) => d.id === modalSelectedParent)
+                  : checklistParentId
+                  ? campaignDispositions.find((d: any) => d.id === checklistParentId)
+                  : null;
+                const noteRequired = activeDisp?.requiresNote;
+                return (
+                  <div className="pt-2 border-t">
+                    <Label htmlFor="disp-notes" className={`text-xs font-medium flex items-center gap-1 ${noteRequired ? "text-amber-700" : "text-muted-foreground"}`}>
+                      Poznámka k hovoru
+                      {noteRequired
+                        ? <span className="text-amber-600 font-semibold">*&nbsp;(povinná)</span>
+                        : <span className="text-muted-foreground font-normal">(voliteľné)</span>}
+                    </Label>
+                    <Textarea
+                      id="disp-notes"
+                      value={callNotes}
+                      onChange={(e) => setCallNotes(e.target.value)}
+                      placeholder={noteRequired ? "Poznámka je povinná pre tento výsledok..." : "Doplňte krátku poznámku..."}
+                      className={`mt-1 min-h-[60px] max-h-[120px] text-sm ${noteRequired && !callNotes.trim() ? "border-amber-400 focus:ring-amber-400" : ""}`}
+                      data-testid="input-disp-notes"
+                    />
+                    {noteRequired && !callNotes.trim() && (
+                      <p className="text-[11px] text-amber-600 mt-1">Vyplňte poznámku pred uložením výsledku.</p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </ScrollArea>
 

@@ -1842,8 +1842,8 @@ function nameToCode(name: string): string {
     .replace(/[^a-z0-9\s_]/g,"").trim().replace(/\s+/g,"_").slice(0,30);
 }
 
-type DispForm = { name:string; code:string; color:string; icon:string; actionType:string; callbackOffsetDays:number|null; childrenType:string };
-const EMPTY_FORM: DispForm = { name:"", code:"", color:"gray", icon:"CircleDot", actionType:"none", callbackOffsetDays:null, childrenType:"radio" };
+type DispForm = { name:string; code:string; color:string; icon:string; actionType:string; callbackOffsetDays:number|null; childrenType:string; requiresNote:boolean; requiresCallback:boolean; isFinal:boolean; isConversion:boolean };
+const EMPTY_FORM: DispForm = { name:"", code:"", color:"gray", icon:"CircleDot", actionType:"none", callbackOffsetDays:null, childrenType:"radio", requiresNote:false, requiresCallback:false, isFinal:false, isConversion:false };
 
 function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
@@ -1953,6 +1953,10 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
         isActive: true,
         sortOrder: dispositions.length + 1,
         parentId,
+        requiresNote: status.requiresNote || false,
+        requiresCallback: status.requiresCallback || false,
+        isFinal: status.isFinal || false,
+        isConversion: status.isConversion || false,
       };
       const res = await apiRequest("POST",`/api/campaigns/${campaignId}/dispositions`,payload);
       if(!res.ok) throw new Error((await res.json()).error||"Chyba pri importovaní");
@@ -1992,6 +1996,10 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
           callbackOffsetDays: s.callbackOffsetDays || null,
           childrenType: "radio", channel: "phone", isActive: true,
           sortOrder: i * 10, parentId: parent.id,
+          requiresNote: s.requiresNote || false,
+          requiresCallback: s.requiresCallback || false,
+          isFinal: s.isFinal || false,
+          isConversion: s.isConversion || false,
         });
       }
       return { count: catStatuses.length + 1, catName: cat.name };
@@ -2025,7 +2033,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
 
   const startEdit = (disp:any) => {
     setEditingId(disp.id);
-    setForm({ name:disp.name, code:disp.code, color:disp.color||"gray", icon:disp.icon||"CircleDot", actionType:disp.actionType||"none", callbackOffsetDays:disp.callbackOffsetDays??null, childrenType:disp.childrenType||"radio" });
+    setForm({ name:disp.name, code:disp.code, color:disp.color||"gray", icon:disp.icon||"CircleDot", actionType:disp.actionType||"none", callbackOffsetDays:disp.callbackOffsetDays??null, childrenType:disp.childrenType||"radio", requiresNote:(disp as any).requiresNote||false, requiresCallback:(disp as any).requiresCallback||false, isFinal:(disp as any).isFinal||false, isConversion:(disp as any).isConversion||false });
     setCodeManual(true);
     setExpandedId(disp.parentId||disp.id);
   };
@@ -2040,6 +2048,10 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
       actionType: form.actionType,
       callbackOffsetDays: form.actionType==="callback" ? form.callbackOffsetDays : null,
       childrenType: form.childrenType,
+      requiresNote: form.requiresNote,
+      requiresCallback: form.requiresCallback,
+      isFinal: form.isFinal,
+      isConversion: form.isConversion,
       channel:"phone", isActive:true,
       sortOrder: dispositions.length+1,
       parentId: parentId??null,
@@ -2104,7 +2116,27 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
           </div>
         )}
       </div>
-      <div className="flex gap-2 justify-end pt-1 border-t mt-2">
+      <div className="border-t pt-2 mt-1">
+        <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-2 block">Nastavenia výsledku</label>
+        <div className="grid grid-cols-2 gap-1.5">
+          {([
+            { key: "requiresNote" as const,     label: "Vyžaduje poznámku",  cls: "text-amber-700 bg-amber-50 border-amber-200" },
+            { key: "requiresCallback" as const, label: "Vyžaduje callback",   cls: "text-blue-700 bg-blue-50 border-blue-200" },
+            { key: "isFinal" as const,          label: "Finálny výsledok",    cls: "text-red-700 bg-red-50 border-red-200" },
+            { key: "isConversion" as const,     label: "Konverzia",           cls: "text-green-700 bg-green-50 border-green-200" },
+          ] as { key: keyof DispForm & string; label: string; cls: string }[]).map(({key, label, cls})=>(
+            <button key={key} type="button"
+              onClick={()=>setForm(f=>({...f,[key]:!f[key as keyof DispForm]}))}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] font-medium transition-all ${form[key as keyof DispForm] ? cls : "text-muted-foreground bg-muted/30 border-muted"}`}>
+              {form[key as keyof DispForm]
+                ? <Check className="h-3 w-3 shrink-0"/>
+                : <div className="h-3 w-3 rounded-sm border border-current shrink-0"/>}
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2 justify-end pt-1 border-t mt-1">
         <Button variant="ghost" size="sm" onClick={cancelEdit}>Zrušiť</Button>
         <Button size="sm" disabled={!form.name.trim()||createMut.isPending||updateMut.isPending} onClick={()=>saveForm(parentId)}>
           {(createMut.isPending||updateMut.isPending)?<Loader2 className="h-3.5 w-3.5 animate-spin mr-1"/>:<Check className="h-3.5 w-3.5 mr-1"/>}
@@ -2407,6 +2439,10 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ai.className}`}>{ai.label}</span>
                       {kids.length>0 && <span className="text-[10px] text-muted-foreground">{kids.length} podvýsledkov · {isChecklist?"Checklist":"Jeden výber"}</span>}
+                      {parent.requiresNote && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-amber-300 text-amber-700 bg-amber-50">N</span>}
+                      {parent.requiresCallback && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-blue-300 text-blue-700 bg-blue-50">CB</span>}
+                      {parent.isFinal && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-red-300 text-red-700 bg-red-50">F</span>}
+                      {parent.isConversion && <span className="text-[9px] font-medium px-1 py-0.5 rounded border border-green-300 text-green-700 bg-green-50">K</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0" onClick={e=>e.stopPropagation()}>
