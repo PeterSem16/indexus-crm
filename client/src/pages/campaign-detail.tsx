@@ -151,7 +151,7 @@ function getDefaultSalesScript(lang: string): OperatorScript {
         id: "step_objection", title: tx.objectionQ,
         elements: [
           { id: "el_objection", type: "select" as const, label: tx.objectionQ, options: tx.objectionOpts },
-          { id: "el_notes", type: "textarea" as const, label: "Notes", placeholder: "..." },
+          { id: "el_notes", type: "textarea" as const, label: "Poznámky", placeholder: "..." },
         ],
         nextStepId: "step_closing",
       },
@@ -1855,6 +1855,9 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
   const [previewMode, setPreviewMode] = useState(false);
   const [previewStep2, setPreviewStep2] = useState<string|null>(null);
   const [previewChecked, setPreviewChecked] = useState<string[]>([]);
+  const [previewNote, setPreviewNote] = useState("");
+  const [previewCallbackDate, setPreviewCallbackDate] = useState("");
+  const [previewCallbackTime, setPreviewCallbackTime] = useState("09:00");
   const [form, setForm] = useState<DispForm>(EMPTY_FORM);
   const [codeManual, setCodeManual] = useState(false);
   const [showImportPanel, setShowImportPanel] = useState(false);
@@ -2184,9 +2187,8 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                 <div key={parent.id} className={`transition-colors ${isSimulating?"bg-indigo-50/60 dark:bg-indigo-950/20":"bg-card"}`}>
                   <button
                     onClick={()=>{
-                      if(isSimulating){ setPreviewStep2(null); setPreviewChecked([]); }
-                      else if(kids.length>0){ setPreviewStep2(parent.id); setPreviewChecked([]); }
-                      else toast({title:`Simulácia: "${parent.name}"`, description:ai?.label||"Bez akcie"});
+                      if(isSimulating){ setPreviewStep2(null); setPreviewChecked([]); setPreviewNote(""); setPreviewCallbackDate(""); }
+                      else { setPreviewStep2(parent.id); setPreviewChecked([]); setPreviewNote(""); setPreviewCallbackDate(""); }
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors border-l-4 ${borderCls} ${isSimulating?"ring-1 ring-inset ring-indigo-300 dark:ring-indigo-700":""}`}
                     data-testid={`preview-disp-${parent.id}`}
@@ -2270,6 +2272,89 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                       )}
                     </div>
                   )}
+
+                  {/* ── Simulačný panel: poznámka + preplánovanie ── */}
+                  {isSimulating && (() => {
+                    const needsCb = parent.requiresCallback || parent.actionType === "callback" || parent.actionType === "schedule_email" || parent.actionType === "schedule_sms";
+                    const needsNote = parent.requiresNote;
+                    if (!needsCb && !needsNote && kids.length > 0) return null;
+                    const canConfirm = (!needsCb || !!previewCallbackDate) && (!needsNote || !!previewNote.trim());
+                    return (
+                      <div className="border-t border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-4 py-3 space-y-2">
+                        {needsNote && (
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"/>
+                              Poznámka (povinná)
+                            </label>
+                            <textarea
+                              value={previewNote}
+                              onChange={e => setPreviewNote(e.target.value)}
+                              placeholder="Zadajte poznámku k hovoru..."
+                              rows={2}
+                              className="w-full text-xs border rounded px-2 py-1.5 bg-background resize-none border-amber-300 focus:border-amber-500 outline-none"
+                            />
+                          </div>
+                        )}
+                        {needsCb && (
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-indigo-700 dark:text-indigo-400 flex items-center gap-1">
+                              <CalendarPlus className="h-3 w-3"/>
+                              Preplánovanie (povinné)
+                            </label>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <input type="date"
+                                value={previewCallbackDate}
+                                min={new Date().toISOString().split("T")[0]}
+                                onChange={e => setPreviewCallbackDate(e.target.value)}
+                                className="h-7 text-xs border rounded px-2 bg-background"
+                              />
+                              <input type="time"
+                                value={previewCallbackTime}
+                                onChange={e => setPreviewCallbackTime(e.target.value)}
+                                className="h-7 text-xs border rounded px-2 bg-background w-24"
+                              />
+                              <div className="flex gap-1">
+                                {[{l:"Zajtra",d:1},{l:"2d",d:2},{l:"3d",d:3},{l:"1t",d:7}].map(p=>(
+                                  <button key={p.d} type="button"
+                                    className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-muted transition-colors"
+                                    onClick={()=>{
+                                      const dt = new Date(); dt.setDate(dt.getDate()+p.d);
+                                      setPreviewCallbackDate(dt.toISOString().split("T")[0]);
+                                    }}
+                                  >{p.l}</button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-2">
+                          {!needsCb && !needsNote && kids.length === 0 && (
+                            <span className="text-xs text-indigo-600 dark:text-indigo-400">{ai?.label || "Bez akcie"}</span>
+                          )}
+                          {(needsCb || needsNote) && !canConfirm && (
+                            <span className="text-xs text-muted-foreground">
+                              {needsNote && !previewNote.trim() ? "Vyplňte poznámku" : "Vyberte dátum"}
+                            </span>
+                          )}
+                          {!(needsCb || needsNote) && kids.length === 0 && <span/>}
+                          <Button size="sm" className="h-7 text-xs ml-auto" disabled={!canConfirm}
+                            onClick={()=>{
+                              setPreviewStep2(null); setPreviewChecked([]); setPreviewNote(""); setPreviewCallbackDate("");
+                              const desc = [
+                                needsCb && previewCallbackDate ? `📅 ${previewCallbackDate} ${previewCallbackTime}` : null,
+                                needsNote && previewNote ? `📝 ${previewNote.slice(0,40)}` : null,
+                              ].filter(Boolean).join(" · ") || ai?.label || "Bez akcie";
+                              toast({title:"Simulácia: výsledok uložený", description:`${parent.name} · ${desc}`});
+                            }}
+                          >
+                            <Check className="h-3 w-3 mr-1"/>
+                            {kids.length > 0 && !isChecklist ? "Potvrdiť" : needsCb ? "Naplánovať" : "Potvrdiť výsledok"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -2875,7 +2960,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <div>
-            <h3 className="text-lg font-semibold">{t.statusEngine?.title || "Status Engine"}</h3>
+            <h3 className="text-lg font-semibold">Správca výsledkov hovorov</h3>
             <p className="text-sm text-muted-foreground">Správa výsledkov hovorov pre túto kampaň</p>
           </div>
           <Button
