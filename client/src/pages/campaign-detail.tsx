@@ -1785,6 +1785,8 @@ const PULSE_CATEGORY_COLORS: Record<string, { bg: string; border: string; icon: 
   slate: { bg: "bg-slate-50", border: "border-slate-200", icon: "text-slate-500", hoverBg: "hover:bg-slate-100" },
 };
 
+// ─── Campaign Disposition Manager ────────────────────────────────────────────
+
 const ACTION_TYPE_LABEL: Record<string, { label: string; className: string }> = {
   callback:       { label: "Callback",       className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
   schedule_email: { label: "Email plán",     className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" },
@@ -1797,142 +1799,491 @@ const ACTION_TYPE_LABEL: Record<string, { label: string; className: string }> = 
   none:           { label: "Bez akcie",      className: "bg-muted text-muted-foreground" },
 };
 
-function CampaignDispositionEditor({ campaignId }: { campaignId: string }) {
+const DISP_COLORS = ["green","blue","orange","red","gray","yellow","purple"] as const;
+const DISP_COLOR_STYLES: Record<string,string> = {
+  green:  "bg-green-100  text-green-800  border-green-200  dark:bg-green-900/40  dark:text-green-200",
+  blue:   "bg-blue-100   text-blue-800   border-blue-200   dark:bg-blue-900/40   dark:text-blue-200",
+  orange: "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-200",
+  red:    "bg-red-100    text-red-800    border-red-200    dark:bg-red-900/40    dark:text-red-200",
+  gray:   "bg-gray-100   text-gray-800   border-gray-200   dark:bg-gray-800      dark:text-gray-200",
+  yellow: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-200",
+  purple: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/40 dark:text-purple-200",
+};
+const DISP_COLOR_DOTS: Record<string,string> = {
+  green:"bg-green-500", blue:"bg-blue-500", orange:"bg-orange-500",
+  red:"bg-red-500", gray:"bg-gray-400", yellow:"bg-yellow-500", purple:"bg-purple-500",
+};
+const DISP_ICON_NAMES = [
+  "CircleDot","ThumbsUp","ThumbsDown","CalendarPlus","PhoneOff","AlertCircle","XCircle",
+  "Phone","Clock","Calendar","MessageSquare","FileText","Info","User","Mail","Star",
+  "CheckCircle","Send","Ban","Heart","Bell","Flag","Target","Eye","Users","Home","MapPin",
+  "Globe","Briefcase","Zap","UserCheck","UserX","Gift","Volume2","VolumeX",
+] as const;
+const DISP_ICON_MAP: Record<string, LucideIcon> = {
+  CircleDot,ThumbsUp,ThumbsDown,CalendarPlus,PhoneOff,AlertCircle,XCircle,Phone,Clock,
+  Calendar,MessageSquare,FileText,Info,User,Mail,Star,CheckCircle,Send,Ban,Heart,Bell,
+  Flag,Target,Eye,Users,Home,MapPin,Globe,Briefcase,Zap,UserCheck,UserX,Gift,Volume2,VolumeX,
+};
+const DISP_ACTIONS = [
+  { value:"none",           label:"Bez akcie"                 },
+  { value:"callback",       label:"Callback (naplánovať hovor)" },
+  { value:"complete",       label:"Uzatvoriť kontakt"         },
+  { value:"dnd",            label:"DND – nikdy nevolať"       },
+  { value:"convert",        label:"Konvertovať"               },
+  { value:"send_email",     label:"Poslať email ihneď"        },
+  { value:"send_sms",       label:"Poslať SMS ihneď"          },
+  { value:"schedule_email", label:"Naplánovať email"          },
+  { value:"schedule_sms",   label:"Naplánovať SMS"            },
+];
+
+function nameToCode(name: string): string {
+  return name.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9\s_]/g,"").trim().replace(/\s+/g,"_").slice(0,30);
+}
+
+type DispForm = { name:string; code:string; color:string; icon:string; actionType:string; callbackOffsetDays:number|null; childrenType:string };
+const EMPTY_FORM: DispForm = { name:"", code:"", color:"gray", icon:"CircleDot", actionType:"none", callbackOffsetDays:null, childrenType:"radio" };
+
+function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
+  const [expandedId, setExpandedId] = useState<string|null>(null);
+  const [editingId, setEditingId] = useState<string|null>(null);
+  const [addingChildFor, setAddingChildFor] = useState<string|null>(null);
+  const [addingParent, setAddingParent] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [previewStep2, setPreviewStep2] = useState<string|null>(null);
+  const [previewChecked, setPreviewChecked] = useState<string[]>([]);
+  const [form, setForm] = useState<DispForm>(EMPTY_FORM);
+  const [codeManual, setCodeManual] = useState(false);
 
   const { data: dispositions = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions"],
-    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`,{credentials:"include"}).then(r=>r.json()),
   });
 
-  const parents = dispositions.filter((d: any) => !d.parentId);
-  const childrenOf = (id: string) => dispositions.filter((d: any) => d.parentId === id && d.isActive);
+  const parents = dispositions.filter((d:any)=>!d.parentId);
+  const activeParents = parents.filter((d:any)=>d.isActive);
+  const childrenOf = (id:string) => dispositions.filter((d:any)=>d.parentId===id && d.isActive);
+  const invalidate = () => queryClient.invalidateQueries({queryKey:["/api/campaigns",campaignId,"dispositions"]});
 
-  const updateTypeMutation = useMutation({
-    mutationFn: async ({ id, childrenType }: { id: string; childrenType: string }) => {
-      const res = await apiRequest("PATCH", `/api/campaigns/${campaignId}/dispositions/${id}`, { childrenType });
-      if (!res.ok) throw new Error("Chyba pri ukladaní");
+  const createMut = useMutation({
+    mutationFn: async (data:any) => {
+      const res = await apiRequest("POST",`/api/campaigns/${campaignId}/dispositions`,data);
+      if(!res.ok) throw new Error((await res.json()).error||"Chyba pri vytváraní");
       return res.json();
     },
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
-      toast({
-        title: vars.childrenType === "checklist" ? "Zapnutý checklist" : "Zapnutý jeden výber",
-        description: vars.childrenType === "checklist"
-          ? "Agent zaškrtí viacero podstatusov — každý spustí svoju automatizáciu."
-          : "Agent vyberie práve jeden podstatus.",
-      });
-    },
-    onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
+    onSuccess: () => { invalidate(); setAddingParent(false); setAddingChildFor(null); setForm(EMPTY_FORM); setCodeManual(false); toast({title:"Výsledok pridaný"}); },
+    onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
   });
 
-  if (isLoading) return (
-    <div className="flex justify-center py-16">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+  const updateMut = useMutation({
+    mutationFn: async ({id,data}:{id:string;data:any}) => {
+      const res = await apiRequest("PATCH",`/api/campaigns/${campaignId}/dispositions/${id}`,data);
+      if(!res.ok) throw new Error((await res.json()).error||"Chyba pri ukladaní");
+      return res.json();
+    },
+    onSuccess: () => { invalidate(); setEditingId(null); setForm(EMPTY_FORM); toast({title:"Zmeny uložené"}); },
+    onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id:string) => {
+      const res = await apiRequest("DELETE",`/api/campaigns/${campaignId}/dispositions/${id}`);
+      if(!res.ok) throw new Error("Chyba pri mazaní");
+    },
+    onSuccess: () => { invalidate(); toast({title:"Výsledok zmazaný"}); },
+    onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
+  });
+
+  const seedMut = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST",`/api/campaigns/${campaignId}/dispositions/seed`,{});
+      if(!res.ok) throw new Error("Chyba pri naplnení predvolených");
+      return res.json();
+    },
+    onSuccess: () => { invalidate(); toast({title:"Predvolené výsledky naplnené"}); },
+    onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
+  });
+
+  const typeMut = useMutation({
+    mutationFn: async ({id,childrenType}:{id:string;childrenType:string}) => {
+      const res = await apiRequest("PATCH",`/api/campaigns/${campaignId}/dispositions/${id}`,{childrenType});
+      if(!res.ok) throw new Error("Chyba");
+      return res.json();
+    },
+    onSuccess: (_,vars) => { invalidate(); toast({title:vars.childrenType==="checklist"?"Zapnutý checklist":"Zapnutý jeden výber"}); },
+    onError: (e:any)=>toast({title:"Chyba",description:e.message,variant:"destructive"}),
+  });
+
+  const startEdit = (disp:any) => {
+    setEditingId(disp.id);
+    setForm({ name:disp.name, code:disp.code, color:disp.color||"gray", icon:disp.icon||"CircleDot", actionType:disp.actionType||"none", callbackOffsetDays:disp.callbackOffsetDays??null, childrenType:disp.childrenType||"radio" });
+    setCodeManual(true);
+    setExpandedId(disp.parentId||disp.id);
+  };
+
+  const cancelEdit = () => { setEditingId(null); setAddingParent(false); setAddingChildFor(null); setForm(EMPTY_FORM); setCodeManual(false); };
+
+  const saveForm = (parentId?:string|null) => {
+    const payload = {
+      name: form.name.trim(),
+      code: form.code.trim()||nameToCode(form.name.trim()),
+      color: form.color, icon: form.icon,
+      actionType: form.actionType,
+      callbackOffsetDays: form.actionType==="callback" ? form.callbackOffsetDays : null,
+      childrenType: form.childrenType,
+      channel:"phone", isActive:true,
+      sortOrder: dispositions.length+1,
+      parentId: parentId??null,
+    };
+    if(editingId) updateMut.mutate({id:editingId,data:payload});
+    else createMut.mutate(payload);
+  };
+
+  // ── Inline form ──────────────────────────────────────────────────────────
+  const DispFormUI = ({parentId}:{parentId?:string|null}) => (
+    <div className="space-y-3 p-3 rounded-lg border bg-muted/20" onClick={e=>e.stopPropagation()}>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Názov</label>
+          <input autoFocus value={form.name} placeholder={parentId?"napr. Zavolajte ráno":"napr. Nevhodný čas"}
+            className="w-full h-8 mt-1 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            onChange={e=>{const n=e.target.value;setForm(f=>({...f,name:n,...(!codeManual?{code:nameToCode(n)}:{})}));}} />
+        </div>
+        <div>
+          <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Kód (slug)</label>
+          <input value={form.code} placeholder="napr. wrong_time"
+            className="w-full h-8 mt-1 rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+            onChange={e=>{setCodeManual(true);setForm(f=>({...f,code:e.target.value}));}} />
+        </div>
+      </div>
+      <div>
+        <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Farba</label>
+        <div className="flex gap-1.5 mt-1.5 flex-wrap">
+          {DISP_COLORS.map(c=>(
+            <button key={c} onClick={()=>setForm(f=>({...f,color:c}))}
+              className={`w-6 h-6 rounded-full border-2 transition-all ${DISP_COLOR_DOTS[c]} ${form.color===c?"border-foreground scale-110":"border-transparent"}`}
+              title={c}
+            />
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Ikona</label>
+        <div className="flex gap-1 mt-1.5 flex-wrap">
+          {DISP_ICON_NAMES.map(n=>{const I=DISP_ICON_MAP[n]||CircleDot; return(
+            <button key={n} onClick={()=>setForm(f=>({...f,icon:n}))}
+              className={`w-7 h-7 rounded border flex items-center justify-center transition-all ${form.icon===n?"bg-primary text-primary-foreground border-primary":"hover:bg-muted"}`}
+              title={n}
+            ><I className="h-3.5 w-3.5"/></button>
+          );})}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Automatizácia</label>
+          <select value={form.actionType} onChange={e=>setForm(f=>({...f,actionType:e.target.value}))}
+            className="w-full h-8 mt-1 rounded-md border border-input bg-background px-2 text-sm focus:outline-none">
+            {DISP_ACTIONS.map(a=><option key={a.value} value={a.value}>{a.label}</option>)}
+          </select>
+        </div>
+        {form.actionType==="callback" && (
+          <div>
+            <label className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Auto-callback za (dni)</label>
+            <input type="number" min={0} max={365} value={form.callbackOffsetDays??""} placeholder="napr. 1"
+              className="w-full h-8 mt-1 rounded-md border border-input bg-background px-3 text-sm focus:outline-none"
+              onChange={e=>setForm(f=>({...f,callbackOffsetDays:e.target.value?Number(e.target.value):null}))} />
+          </div>
+        )}
+      </div>
+      <div className="flex gap-2 justify-end pt-1 border-t mt-2">
+        <Button variant="ghost" size="sm" onClick={cancelEdit}>Zrušiť</Button>
+        <Button size="sm" disabled={!form.name.trim()||createMut.isPending||updateMut.isPending} onClick={()=>saveForm(parentId)}>
+          {(createMut.isPending||updateMut.isPending)?<Loader2 className="h-3.5 w-3.5 animate-spin mr-1"/>:<Check className="h-3.5 w-3.5 mr-1"/>}
+          {editingId?"Uložiť zmeny":"Pridať"}
+        </Button>
+      </div>
     </div>
   );
 
-  const parentsWithChildren = parents.filter((p: any) => childrenOf(p.id).length > 0);
+  // ── Agent Preview ────────────────────────────────────────────────────────
+  const AgentPreview = () => {
+    const previewParent = previewStep2 ? dispositions.find((d:any)=>d.id===previewStep2) : null;
+    const previewChildren = previewStep2 ? childrenOf(previewStep2) : [];
+    return (
+      <div className="space-y-3">
+        <div className="rounded-lg border bg-gradient-to-r from-slate-50 to-indigo-50 dark:from-slate-900 dark:to-indigo-950/30 px-4 py-3 flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center shadow-sm">
+            <div className="w-2 h-2 rounded-full bg-white animate-pulse"/>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              {previewStep2 ? `Krok 2 — ${previewParent?.name}` : "Krok 1 — Výber výsledku hovoru"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {previewStep2 ? (previewParent?.childrenType==="checklist"?"Zaškrtnite viacero podvýsledkov":"Vyberte jeden podvýsledok") : "Kliknite na výsledok pre simuláciu"}
+            </p>
+          </div>
+          {previewStep2 && (
+            <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={()=>{setPreviewStep2(null);setPreviewChecked([]);}}>
+              <ChevronLeft className="h-3.5 w-3.5"/>Späť
+            </Button>
+          )}
+        </div>
+
+        {!previewStep2 ? (
+          <div className="grid grid-cols-2 gap-2">
+            {activeParents.map((p:any)=>{
+              const kids=childrenOf(p.id);
+              const colorCls=DISP_COLOR_STYLES[p.color||"gray"]||DISP_COLOR_STYLES.gray;
+              const I=DISP_ICON_MAP[p.icon||""]||CircleDot;
+              return(
+                <button key={p.id} onClick={()=>{if(kids.length>0)setPreviewStep2(p.id);else toast({title:`Simulácia: "${p.name}"`,description:ACTION_TYPE_LABEL[p.actionType||"none"]?.label||"Bez akcie"});}}
+                  className={`flex items-center gap-2.5 p-3 rounded-lg border text-left transition-all hover:shadow-md active:scale-[0.98] ${colorCls}`}
+                  data-testid={`preview-disp-${p.id}`}
+                >
+                  <I className="h-5 w-5 shrink-0"/>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">{p.name}</div>
+                    {kids.length>0
+                      ? <div className="text-[11px] opacity-70">{kids.length} podvýsledkov {p.childrenType==="checklist"?"(checklist)":"(výber)"} →</div>
+                      : <div className="text-[11px] opacity-70">{ACTION_TYPE_LABEL[p.actionType||"none"]?.label||"Bez akcie"}</div>
+                    }
+                  </div>
+                </button>
+              );
+            })}
+            {activeParents.length===0 && (
+              <div className="col-span-2 text-center py-10 text-sm text-muted-foreground">
+                Zatiaľ žiadne výsledky — prepnite na Správu a pridajte výsledky.
+              </div>
+            )}
+          </div>
+        ) : previewParent?.childrenType==="checklist" ? (
+          <div className="space-y-2">
+            {previewChildren.map((c:any)=>{
+              const isChecked=previewChecked.includes(c.code);
+              const CI=DISP_ICON_MAP[c.icon||""]||CircleDot;
+              const ai=ACTION_TYPE_LABEL[c.actionType||"none"];
+              return(
+                <label key={c.id} className={`flex items-center gap-3 p-2.5 rounded-md border cursor-pointer transition-colors ${isChecked?"border-primary bg-primary/5":"hover:bg-muted/40"}`}>
+                  <Checkbox checked={isChecked} onCheckedChange={v=>setPreviewChecked(prev=>v?[...prev,c.code]:prev.filter(x=>x!==c.code))}/>
+                  <CI className="h-4 w-4 text-muted-foreground shrink-0"/>
+                  <span className="text-sm flex-1">{c.name}</span>
+                  {c.actionType!=="none" && <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ai.className}`}>{ai.label}</span>}
+                </label>
+              );
+            })}
+            <Button size="sm" className="w-full mt-2" onClick={()=>{setPreviewStep2(null);setPreviewChecked([]);toast({title:"Simulácia: výsledok uložený",description:`${previewParent?.name} + ${previewChecked.length} podvýsledkov`});}}>
+              <Target className="h-3.5 w-3.5 mr-1.5"/>Uložiť výsledok (simulácia)
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {previewChildren.map((c:any)=>{
+              const colorCls=DISP_COLOR_STYLES[c.color||previewParent?.color||"gray"]||DISP_COLOR_STYLES.gray;
+              const CI=DISP_ICON_MAP[c.icon||""]||CircleDot;
+              const ai=ACTION_TYPE_LABEL[c.actionType||"none"];
+              return(
+                <button key={c.id} onClick={()=>{setPreviewStep2(null);toast({title:`Simulácia: "${c.name}"`,description:ai?.label||"Bez akcie"});}}
+                  className={`flex items-center gap-2.5 p-3 rounded-lg border text-left hover:shadow-md transition-all active:scale-[0.98] ${colorCls}`}
+                >
+                  <CI className="h-4 w-4 shrink-0"/>
+                  <div>
+                    <div className="text-sm font-semibold">{c.name}</div>
+                    {c.actionType!=="none" && <div className="text-[11px] opacity-70">{ai?.label}</div>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if(isLoading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground"/></div>;
 
   return (
     <div className="space-y-4">
-      {/* Vysvetľujúci banner */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-4">
-        <div className="flex gap-3">
-          <ListChecks className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-          <div className="space-y-1.5">
-            <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Ako funguje výber podstatusov?</p>
-            <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-              <li className="flex items-start gap-1.5">
-                <CircleDot className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span><strong>Jeden výber (Radio):</strong> agent vyberie presne jeden podstatus — spustí sa jeho automatizácia (callback, uzatvorenie...) a hlavný výsledok kontaktu bude rodičovský status.</span>
-              </li>
-              <li className="flex items-start gap-1.5">
-                <CheckSquare className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span><strong>Checklist (viacero):</strong> agent zaškrtí ľubovoľný počet podstatusov — spustí sa automatizácia s najvyššou prioritou spomedzi zaškrtnutých, hlavný výsledok zostane rodičovský status.</span>
-              </li>
-            </ul>
-            <p className="text-xs text-blue-600 dark:text-blue-400 italic mt-1">Podstatusy a ich automatizácie spravujte v záložke "Definície".</p>
-          </div>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm font-semibold">Výsledky hovorov tejto kampane</p>
+          <p className="text-xs text-muted-foreground">
+            {activeParents.length} hlavných výsledkov · {dispositions.filter((d:any)=>d.parentId&&d.isActive).length} podvýsledkov
+          </p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant={previewMode?"default":"outline"} size="sm" className="gap-1.5"
+            onClick={()=>{setPreviewMode(v=>!v);setPreviewStep2(null);setPreviewChecked([]);}}>
+            <Eye className="h-3.5 w-3.5"/>
+            {previewMode?"Zavrieť náhľad":"Náhľad agenta"}
+          </Button>
+          {!previewMode && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={()=>seedMut.mutate()} disabled={seedMut.isPending}>
+              {seedMut.isPending?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<RefreshCw className="h-3.5 w-3.5"/>}
+              Obnoviť predvolené
+            </Button>
+          )}
         </div>
       </div>
 
-      {parentsWithChildren.length === 0 ? (
-        <div className="text-center py-12">
-          <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
-          <p className="text-sm text-muted-foreground">Žiadne výsledky s podstatusmi.</p>
-          <p className="text-xs text-muted-foreground mt-1">V záložke "Definície" vytvorte rodičovský výsledok a pridajte mu podstatusy.</p>
+      {/* ── Info banner ── */}
+      {previewMode ? (
+        <div className="text-xs bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 rounded-md px-3 py-2 text-indigo-700 dark:text-indigo-300">
+          Simulácia pohľadu agenta pri ukončení hovoru. Kliknite na výsledok pre interaktívny náhľad.
         </div>
       ) : (
-        <div className="space-y-3">
-          {parentsWithChildren.map((parent: any) => {
-            const isChecklist = parent.childrenType === "checklist";
-            const kids = childrenOf(parent.id);
+        <div className="text-xs bg-muted/50 border rounded-md px-3 py-2 text-muted-foreground">
+          Tu spravujete výsledky hovorov priradené <strong>tejto kampani</strong>. Kliknite na riadok pre rozbalenie, <Pencil className="h-3 w-3 inline mx-0.5"/>na úpravu, <Trash2 className="h-3 w-3 inline mx-0.5"/>na zmazanie.
+        </div>
+      )}
+
+      {/* ── Content ── */}
+      {previewMode ? <AgentPreview/> : (
+        <div className="space-y-2">
+          {activeParents.length===0 && !addingParent && (
+            <div className="text-center py-12 border-2 border-dashed rounded-xl">
+              <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2"/>
+              <p className="text-sm text-muted-foreground font-medium">Zatiaľ žiadne výsledky hovorov</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">Použite "Obnoviť predvolené" pre rýchly štart alebo pridajte vlastné.</p>
+              <div className="flex gap-2 justify-center">
+                <Button size="sm" onClick={()=>seedMut.mutate()} disabled={seedMut.isPending} className="gap-1">
+                  {seedMut.isPending?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<RefreshCw className="h-3.5 w-3.5"/>}
+                  Predvolené výsledky
+                </Button>
+                <Button size="sm" variant="outline" onClick={()=>{setAddingParent(true);setForm(EMPTY_FORM);}} className="gap-1">
+                  <Plus className="h-3.5 w-3.5"/>Vlastný výsledok
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {activeParents.map((parent:any)=>{
+            const kids=childrenOf(parent.id);
+            const isExpanded=expandedId===parent.id;
+            const isEditingThis=editingId===parent.id;
+            const isChecklist=parent.childrenType==="checklist";
+            const colorCls=DISP_COLOR_STYLES[parent.color||"gray"]||DISP_COLOR_STYLES.gray;
+            const ParentIcon=DISP_ICON_MAP[parent.icon||""]||CircleDot;
+            const ai=ACTION_TYPE_LABEL[parent.actionType||"none"];
             return (
-              <Card key={parent.id} className="overflow-hidden" data-testid={`card-disp-editor-${parent.id}`}>
-                {/* Header: parent name + toggle */}
-                <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b gap-4">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <CircleDot className="h-4 w-4 text-primary shrink-0" />
-                    <span className="text-sm font-semibold truncate">{parent.name}</span>
-                    <Badge variant="secondary" className="text-[10px] shrink-0">{parent.code}</Badge>
+              <Card key={parent.id} className="overflow-hidden" data-testid={`card-disp-${parent.id}`}>
+                {/* ── Parent row ── */}
+                <div className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none ${isExpanded?"border-b bg-muted/30":""}`}
+                  onClick={()=>!isEditingThis&&setExpandedId(isExpanded?null:parent.id)}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${colorCls}`}>
+                    <ParentIcon className="h-4 w-4"/>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground hidden sm:inline">Výber podstatusov:</span>
-                    <div className="flex rounded-md border overflow-hidden text-xs">
-                      <button
-                        className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${!isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-muted-foreground"}`}
-                        onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "radio" })}
-                        disabled={updateTypeMutation.isPending}
-                        data-testid={`btn-children-type-radio-${parent.id}`}
-                        title="Agent vyberie jeden podstatus"
-                      >
-                        <CircleDot className="h-3 w-3" />
-                        Jeden
-                      </button>
-                      <button
-                        className={`px-3 py-1.5 transition-colors border-l flex items-center gap-1.5 ${isChecklist ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-muted-foreground"}`}
-                        onClick={() => updateTypeMutation.mutate({ id: parent.id, childrenType: "checklist" })}
-                        disabled={updateTypeMutation.isPending}
-                        data-testid={`btn-children-type-checklist-${parent.id}`}
-                        title="Agent zaškrtí viacero podstatusov"
-                      >
-                        <CheckSquare className="h-3 w-3" />
-                        Checklist
-                      </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-sm font-semibold">{parent.name}</span>
+                      <Badge variant="outline" className="text-[10px] font-mono shrink-0">{parent.code}</Badge>
                     </div>
-                    {updateTypeMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ai.className}`}>{ai.label}</span>
+                      {kids.length>0 && <span className="text-[10px] text-muted-foreground">{kids.length} podvýsledkov · {isChecklist?"Checklist":"Jeden výber"}</span>}
+                    </div>
                   </div>
+                  <div className="flex items-center gap-0.5 shrink-0" onClick={e=>e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={()=>startEdit(parent)} data-testid={`btn-edit-${parent.id}`}>
+                      <Pencil className="h-3 w-3"/>
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={()=>deleteMut.mutate(parent.id)} disabled={deleteMut.isPending} data-testid={`btn-delete-${parent.id}`}>
+                      <Trash2 className="h-3 w-3"/>
+                    </Button>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${isExpanded?"rotate-180":""}`}/>
                 </div>
 
-                {/* Child dispositions list (read-only, managed in Definície tab) */}
-                <div className="px-4 py-3 space-y-1.5">
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-2">
-                    {isChecklist ? "Podstatusy — checklist" : "Podstatusy — jeden výber"} ({kids.length})
-                  </p>
-                  {kids.map((kid: any) => {
-                    const actionInfo = ACTION_TYPE_LABEL[kid.actionType || "none"] || ACTION_TYPE_LABEL.none;
-                    return (
-                      <div key={kid.id} className="flex items-center gap-2 py-1" data-testid={`row-checklist-item-${kid.id}`}>
-                        {isChecklist
-                          ? <Checkbox disabled checked={false} className="opacity-40 shrink-0" />
-                          : <CircleDot className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        }
-                        <span className="text-sm flex-1">{kid.name}</span>
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${actionInfo.className}`}>
-                          {actionInfo.label}
-                        </span>
-                        <Badge variant="outline" className="text-[10px] font-mono">{kid.code}</Badge>
-                      </div>
-                    );
-                  })}
-                  <p className="text-[11px] text-muted-foreground italic pt-1">
-                    Podstatusy pridávate a upravujete v záložke "Definície".
-                  </p>
-                </div>
+                {/* ── Expanded body ── */}
+                {isExpanded && (
+                  <div className="px-3 py-3 space-y-3">
+                    {isEditingThis && <DispFormUI parentId={null}/>}
+
+                    {!isEditingThis && (
+                      <>
+                        {/* Children section */}
+                        {kids.length>0 && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Podvýsledky ({kids.length})</p>
+                              <div className="flex rounded-md border overflow-hidden text-xs">
+                                <button onClick={()=>typeMut.mutate({id:parent.id,childrenType:"radio"})} disabled={typeMut.isPending}
+                                  className={`px-2.5 py-1 flex items-center gap-1 transition-colors ${!isChecklist?"bg-primary text-primary-foreground font-medium":"hover:bg-muted text-muted-foreground"}`}>
+                                  <CircleDot className="h-3 w-3"/>Jeden
+                                </button>
+                                <button onClick={()=>typeMut.mutate({id:parent.id,childrenType:"checklist"})} disabled={typeMut.isPending}
+                                  className={`px-2.5 py-1 flex items-center gap-1 border-l transition-colors ${isChecklist?"bg-primary text-primary-foreground font-medium":"hover:bg-muted text-muted-foreground"}`}>
+                                  <CheckSquare className="h-3 w-3"/>Checklist
+                                </button>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              {kids.map((child:any)=>{
+                                const isEditingChild=editingId===child.id;
+                                const CI=DISP_ICON_MAP[child.icon||""]||CircleDot;
+                                const cai=ACTION_TYPE_LABEL[child.actionType||"none"];
+                                return (
+                                  <div key={child.id}>
+                                    {isEditingChild ? (
+                                      <DispFormUI parentId={parent.id}/>
+                                    ) : (
+                                      <div className="flex items-center gap-2 p-2 rounded-md bg-muted/30 group hover:bg-muted/50 transition-colors" data-testid={`row-child-${child.id}`}>
+                                        {isChecklist?<Checkbox disabled checked={false} className="opacity-40 shrink-0"/>:<CircleDot className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>}
+                                        <CI className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
+                                        <span className="text-sm flex-1">{child.name}</span>
+                                        <span className={`text-[10px] font-medium px-1 py-0.5 rounded shrink-0 ${cai.className}`}>{cai.label}</span>
+                                        <Badge variant="outline" className="text-[10px] font-mono shrink-0">{child.code}</Badge>
+                                        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 shrink-0 transition-opacity">
+                                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={()=>startEdit(child)} data-testid={`btn-edit-child-${child.id}`}>
+                                            <Pencil className="h-2.5 w-2.5"/>
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={()=>deleteMut.mutate(child.id)} data-testid={`btn-delete-child-${child.id}`}>
+                                            <Trash2 className="h-2.5 w-2.5"/>
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Add child */}
+                        {addingChildFor===parent.id ? (
+                          <DispFormUI parentId={parent.id}/>
+                        ) : (
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={()=>{setAddingChildFor(parent.id);setEditingId(null);setForm(EMPTY_FORM);setCodeManual(false);}} data-testid={`btn-add-child-${parent.id}`}>
+                            <Plus className="h-3.5 w-3.5"/>Pridať podvýsledok
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </Card>
             );
           })}
+
+          {/* Add parent form */}
+          {addingParent && (
+            <Card className="p-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Nový výsledok hovoru</p>
+              <DispFormUI parentId={null}/>
+            </Card>
+          )}
+
+          {/* Add parent button */}
+          {activeParents.length>0 && !addingParent && (
+            <Button variant="outline" className="w-full gap-1.5" onClick={()=>{setAddingParent(true);setEditingId(null);setAddingChildFor(null);setForm(EMPTY_FORM);setCodeManual(false);}} data-testid="btn-add-parent-disp">
+              <Plus className="h-4 w-4"/>Pridať výsledok hovoru
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -2154,9 +2505,9 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     {
       step: 3,
       mode: "campaign" as const,
-      title: "Výsledky kampane — nastavte typ výberu",
-      desc: "Pre výsledky s podvýsledkami zvoľte ako ich bude agent vyberať: Jeden výber (radio) = vyberie práve jeden podvýsledok. Checklist = zaškrtí viacero naraz, každý spustí svoju automatizáciu.",
-      action: "Prepínajte tlačidlá \"Jeden\" / \"Checklist\" pri každom výsledku.",
+      title: "Výsledky kampane — správa a náhľad",
+      desc: "Pridávajte, upravujte a mažte výsledky hovorov priamo v tejto kampani. Pre každý výsledok nastavte ikonu, farbu, automatizáciu (callback, DND...) a podvýsledky. Tlačidlom \"Náhľad agenta\" simulujete pohľad agenta.",
+      action: "Kliknite na riadok výsledku pre rozbalenie, ceruzkou ho upravte, koším ho zmažte. Tlačidlo \"+ Pridať výsledok\" pridá nový.",
     },
   ] as const;
 
@@ -2185,7 +2536,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
             { key: "engine" as const, icon: Settings2, label: "1. Definície" },
             { key: "assign" as const, icon: CheckSquare, label: "2. Priradenie" },
             { key: "pulse" as const, icon: Eye, label: "Nexus Pulse" },
-            { key: "campaign" as const, icon: ListChecks, label: "3. Typ výberu" },
+            { key: "campaign" as const, icon: ListChecks, label: "3. Výsledky kampane" },
           ].map(tab => (
             <Button
               key={tab.key}
@@ -2254,7 +2605,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
       {viewMode === "campaign" && (
         <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
           <ListChecks className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          <span><strong>Krok 3 — Typ výberu podvýsledkov:</strong> Pre výsledky s podvýsledkami nastavte či agent vyberie jeden (<strong>Jeden</strong>) alebo viacero naraz (<strong>Checklist</strong>). Automatizácia sa riadi podvýsledkom s najvyššou prioritou.</span>
+          <span><strong>Krok 3 — Výsledky kampane:</strong> Tu priamo spravujete výsledky hovorov (pridávanie, úprava, mazanie). Kliknite na riadok pre rozbalenie a správu podvýsledkov. Tlačidlo <Eye className="h-3 w-3 inline mx-0.5"/><strong>Náhľad agenta</strong> simuluje, ako to uvidí agent pri ukončení hovoru.</span>
         </div>
       )}
 
@@ -2789,7 +3140,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         </>
       )}
 
-      {!isLoading && viewMode === "campaign" && <CampaignDispositionEditor campaignId={campaignId} />}
+      {!isLoading && viewMode === "campaign" && <CampaignDispositionManager campaignId={campaignId} />}
 
       {editingStatus && (
         <StatusEditDialogCampaign
