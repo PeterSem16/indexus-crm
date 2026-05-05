@@ -211,6 +211,7 @@ interface ContactHistory {
   dispositionName?: string | null;
   dispositionColor?: string | null;
   dispositionIcon?: string | null;
+  dispositionChecklistNames?: string[] | null;
 }
 
 interface TimelineEntry {
@@ -3971,7 +3972,7 @@ function CustomerInfoPanel({
                               {item.type === "disposition" && (
                                 <span className={`${isModal ? "text-xs" : "text-[9px]"} font-medium text-purple-600 dark:text-purple-400`}>Dispozícia</span>
                               )}
-                              {item.type === "disposition" && (item as any).dispositionName && (() => {
+                              {(item as any).dispositionName && (() => {
                                 const dColor = (item as any).dispositionColor || "gray";
                                 const colorMap: Record<string, string> = {
                                   green: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800",
@@ -3982,10 +3983,18 @@ function CustomerInfoPanel({
                                   purple: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800",
                                   gray: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
                                 };
+                                const cls = colorMap[dColor] || colorMap.gray;
                                 return (
-                                  <span className={`inline-flex items-center gap-1 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-semibold ${colorMap[dColor] || colorMap.gray}`}>
-                                    {(item as any).dispositionName}
-                                  </span>
+                                  <>
+                                    <span className={`inline-flex items-center gap-1 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-semibold ${cls}`}>
+                                      {(item as any).dispositionName}
+                                    </span>
+                                    {(item as any).dispositionChecklistNames?.map((name: string, idx: number) => (
+                                      <span key={idx} className={`inline-flex items-center gap-0.5 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-semibold ${cls} opacity-75`}>
+                                        ↳ {name}
+                                      </span>
+                                    ))}
+                                  </>
                                 );
                               })()}
                               {item.status && item.type !== "disposition" && (
@@ -4456,6 +4465,9 @@ interface ScheduledItem {
   stepName?: string | null;
   stepIndex?: number | null;
   dispositionCode?: string | null;
+  dispositionName?: string | null;
+  dispositionChecklistCodes?: string[] | null;
+  dispositionChecklistNames?: string[] | null;
   campaignQueueDisplayMode?: string | null;
 }
 
@@ -4879,13 +4891,19 @@ function ScheduledQueuePanel({
                         <div className="flex items-center">
                           {item.campaignQueueDisplayMode === "last_status" ? (
                             item.dispositionCode ? (
-                              <span
-                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium truncate bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                                title={item.dispositionCode}
-                                data-testid={`text-scheduled-step-${item.id}`}
-                              >
-                                {item.dispositionCode}
-                              </span>
+                              <div className="flex flex-col gap-0.5 items-start" data-testid={`text-scheduled-step-${item.id}`}>
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                  title={item.dispositionName || item.dispositionCode}
+                                >
+                                  {item.dispositionName || item.dispositionCode}
+                                </span>
+                                {item.dispositionChecklistNames?.map((name, idx) => (
+                                  <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400">
+                                    ↳ {name}
+                                  </span>
+                                ))}
+                              </div>
                             ) : (
                               <span className="text-[10px] text-muted-foreground/50">—</span>
                             )
@@ -5781,6 +5799,7 @@ export default function AgentWorkspacePage() {
       dispositionName: item.dispositionName || null,
       dispositionColor: item.dispositionColor || null,
       dispositionIcon: item.dispositionIcon || null,
+      dispositionChecklistNames: item.dispositionChecklistNames || null,
     }));
   }, [persistentHistory]);
 

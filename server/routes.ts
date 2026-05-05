@@ -10858,6 +10858,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           notes: call.notes,
           campaignId: call.campaignId,
           callLogId: call.id,
+          campaignContactId: call.campaignContactId || null,
         });
       }
 
@@ -10916,13 +10917,51 @@ Return ONLY valid JSON, no markdown code blocks.`,
         });
       }
 
-      const campaignIds = [...new Set(campaignHistory.map(h => h.campaignId).filter(Boolean))] as string[];
-      const allDispositions = campaignIds.length > 0
-        ? await db.select().from(campaignDispositions).where(inArray(campaignDispositions.campaignId, campaignIds))
+      const histCampaignIds = [...new Set(campaignHistory.map(h => h.campaignId).filter(Boolean))] as string[];
+      const callCampaignIdsForDisp = [...new Set(callLogsList.map(c => c.campaignId).filter(Boolean))] as string[];
+      const allCampaignIdsForDisp = [...new Set([...histCampaignIds, ...callCampaignIdsForDisp])];
+      const allDispositions = allCampaignIdsForDisp.length > 0
+        ? await db.select().from(campaignDispositions).where(inArray(campaignDispositions.campaignId, allCampaignIdsForDisp))
         : [];
       const dispCodeToName = new Map<string, { name: string; color: string | null; icon: string | null; actionType: string }>();
+      const dispCampaignCodeToInfo = new Map<string, { name: string; color: string | null; icon: string | null }>();
       for (const d of allDispositions) {
         dispCodeToName.set(d.code, { name: d.name, color: d.color, icon: d.icon, actionType: d.actionType });
+        dispCampaignCodeToInfo.set(`${d.campaignId}::${d.code}`, { name: d.name, color: d.color, icon: d.icon });
+      }
+
+      // Attach current disposition info to call history items via campaignContactId
+      const callCcIds = callLogsList.map(c => c.campaignContactId).filter(Boolean) as string[];
+      if (callCcIds.length > 0) {
+        const callCCs = await db.select({
+          id: campaignContacts.id,
+          campaignId: campaignContacts.campaignId,
+          dispositionCode: campaignContacts.dispositionCode,
+          dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+        }).from(campaignContacts).where(inArray(campaignContacts.id, callCcIds));
+
+        const ccDispMap = new Map<string, { campaignId: string; dispositionCode: string | null; checklistCodes: string[] | null }>();
+        for (const cc of callCCs) {
+          ccDispMap.set(cc.id, { campaignId: cc.campaignId, dispositionCode: cc.dispositionCode, checklistCodes: cc.dispositionChecklistCodes });
+        }
+
+        for (const item of historyItems) {
+          if (item.type === "call" && item.campaignContactId) {
+            const ccDisp = ccDispMap.get(item.campaignContactId);
+            if (ccDisp?.dispositionCode) {
+              const key = `${ccDisp.campaignId}::${ccDisp.dispositionCode}`;
+              const dInfo = dispCampaignCodeToInfo.get(key) || dispCodeToName.get(ccDisp.dispositionCode);
+              item.dispositionCode = ccDisp.dispositionCode;
+              item.dispositionName = dInfo?.name || null;
+              item.dispositionColor = dInfo?.color || null;
+              item.dispositionChecklistCodes = ccDisp.checklistCodes || [];
+              item.dispositionChecklistNames = (ccDisp.checklistCodes || []).map((code: string) => {
+                const ck = dispCampaignCodeToInfo.get(`${ccDisp.campaignId}::${code}`) || dispCodeToName.get(code);
+                return ck?.name || code;
+              });
+            }
+          }
+        }
       }
 
       for (const h of campaignHistory) {
@@ -20615,6 +20654,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           campaignSettings: campaigns.settings,
           ccCurrentStepId: campaignContacts.currentScriptStepId,
           ccDispositionCode: campaignContacts.dispositionCode,
+          ccDispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
         })
         .from(campaignContacts)
         .leftJoin(customers, eq(campaignContacts.customerId, customers.id))
@@ -20663,6 +20703,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           campaignSettings: campaigns.settings,
           ccCurrentStepId: campaignContacts.currentScriptStepId,
           ccDispositionCode: campaignContacts.dispositionCode,
+          ccDispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
         })
         .from(campaignContactSessions)
         .innerJoin(campaignContacts, eq(campaignContactSessions.campaignContactId, campaignContacts.id))
@@ -20747,6 +20788,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           stepName: stepInfo.stepName,
           stepIndex: stepInfo.stepIndex,
           dispositionCode: row.ccDispositionCode || null,
+          dispositionChecklistCodes: (row.ccDispositionChecklistCodes as string[] | null) || [],
           campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
         });
       }
@@ -20794,8 +20836,29 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           stepName: sStepInfo.stepName,
           stepIndex: sStepInfo.stepIndex,
           dispositionCode: row.ccDispositionCode || null,
+          dispositionChecklistCodes: (row.ccDispositionChecklistCodes as string[] | null) || [],
           campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
         });
+      }
+
+      // Resolve disposition names and checklist names for queue items
+      const queueCampaignIds = [...new Set((items as any[]).map(i => i.campaignId).filter(Boolean))];
+      if (queueCampaignIds.length > 0) {
+        const queueDispositions = await db.select().from(campaignDispositions)
+          .where(inArray(campaignDispositions.campaignId, queueCampaignIds));
+        const queueDispLookup = new Map<string, string>();
+        for (const d of queueDispositions) {
+          queueDispLookup.set(`${d.campaignId}::${d.code}`, d.name);
+        }
+        for (const item of items as any[]) {
+          if (item.dispositionCode) {
+            item.dispositionName = queueDispLookup.get(`${item.campaignId}::${item.dispositionCode}`) || null;
+          }
+          if (Array.isArray(item.dispositionChecklistCodes) && item.dispositionChecklistCodes.length > 0) {
+            item.dispositionChecklistNames = item.dispositionChecklistCodes
+              .map((code: string) => queueDispLookup.get(`${item.campaignId}::${code}`) || code);
+          }
+        }
       }
 
       items.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
