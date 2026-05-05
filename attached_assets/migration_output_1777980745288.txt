@@ -1,0 +1,114 @@
+BEGIN
+=== [A] DUPLIKATY s ROVNAKYM RODNYM CISLOM (istota = tá istá osoba) ===
+            osoba            | birth_number | pocet |                winner                |                 losers                 
+-----------------------------+--------------+-------+--------------------------------------+----------------------------------------
+ Adéla Golianová             | 695505/3666  |     2 | cbe9f007-747b-414a-a8ac-5c36fbd570e4 | {99ac6796-e2ce-45df-a256-c3b87f12901a}
+ Andrea Galčíková            | 845526/6380  |     2 | fa703615-5521-4891-97cb-6b4e5dd9c80d | {ed62c9a3-2407-4784-a1f8-0aef767386fc}
+ Andrea Písecká              | 746006/1268  |     2 | 271ef9c3-2593-4e5b-a857-ca1f07b89fe4 | {bffec6c9-a0ac-4995-b3e6-f834766e30f5}
+ Anna Holinková              | 705728/5763  |     2 | e9ada80d-1ab7-408e-8974-5d2764ed9c10 | {e5b2f524-b36c-4910-b63d-e3b4b7a64a23}
+ Barbora Kloučková           | 855128/2344  |     2 | 8c204276-677a-431f-b405-5c54c90e2348 | {9b3d349f-b480-4286-8391-d072eb046a42}
+ Bibiana Drápalová Pališková | 785920/4419  |     2 | dc78074c-6f28-4965-a24c-9fba5802fda4 | {3df71a89-205e-442d-a7aa-6b8837ed006c}
+ Dominika Bočkajová          | 955921/7932  |     2 | e60e8022-9d38-428a-afd0-dae28a3a9698 | {a5d08ea8-cb13-4adc-b870-83e61b89fa66}
+ Eva Lukácsová               | 655215/6710  |     2 | cd07cc7e-f0db-4114-b29f-a346f140463b | {3b4865fc-3e4a-4b27-ad6a-0db7e6ef1edc}
+ Gabriela Jandourková        | 755316/0670  |     2 | 6bb19ea9-d891-4348-8463-7823d1a6396f | {4ffec0f4-eace-4266-9443-665d8c8eb0fa}
+ Hynek Procházka             | 501127/274   |     2 | abeda666-8d30-488c-9117-9f5932265696 | {b5a0400f-2797-4216-8f64-7a90a7daa24d}
+ Ibrahim Razak               | 580404/2706  |     2 | a123ebf6-7d17-4345-9b5d-c42a4a355b9c | {f8ce84e4-a390-45bf-bd5a-5b8f6fe852c3}
+ Igor Madzin                 | 840417/9520  |     2 | cfe60147-010a-4ebb-9af9-cdc65c08f286 | {b1a42734-16b5-4175-89e4-5f0a2af15221}
+ Ivana Horáková              | 595901/0838  |     2 | ac9b820d-714b-4735-8ac7-080aab86262d | {4d8e413b-5571-4ee0-b2f0-7ce64ba46b6e}
+ Ivana Pavlíková             | 756211/5682  |     2 | c92bfe65-ded0-4a67-a57b-c2872ada1adb | {03b4a6b4-3157-4710-9b30-3b0d8277556f}
+ Jana Kučerová               | 726120/4346  |     2 | 9a68f2d3-defa-4bf3-93f8-2ed9a5ffe61f | {e5a40610-a81a-4013-97db-02955ab24853}
+ Jana Palková                | 805212/8656  |     2 | 74b87790-595b-4170-9c44-dcf03a9b2521 | {9c1243d3-431e-496b-b4d2-60dbbe1758fa}
+ Jitka Pavlasová             | 736223/2427  |     2 | 72719198-b43f-43eb-894d-8a71933086c5 | {021f9931-a7b7-40a6-bd7a-2c108f588abf}
+ Jozef Tholt                 | 550913/6699  |     2 | 43066139-d14c-48d2-9875-40a5351dc323 | {2cbec685-997b-419c-a5ed-7a02a7a98c81}
+ Kateřina Konderlová         | 826123/5191  |     2 | a444fadd-7565-4fc5-a0b3-d7b177cb8eb4 | {db95f376-5204-485d-9c07-4293fcf3fa9a}
+ Kristýna Čapková            | 975314/3422  |     2 | 0bbb7f29-a6e2-4761-a681-cac88093a809 | {5ae0c245-4df1-45ac-bc6b-aa321c6ab4b4}
+ Lenka Zahálková             | 846125/3306  |     2 | ff66e764-8b7d-4177-8d39-b3856f98cb74 | {f7f815ce-1af3-4336-b23c-d7fddb227566}
+ Lucie Králová               | 855331/2119  |     2 | 787dcb61-9d4b-4e44-9f3d-fc4acf257a21 | {92c9a47b-0d49-4470-837c-9d87723d4c16}
+ Martin Balák                | 671226/1501  |     2 | 7a443553-44f7-48a3-9360-ec10b431b2e8 | {d1a5c628-1079-4ea7-b6a1-a5f76ebcca36}
+ Martina Egyedová            | 866229/6577  |     2 | 52cfcf06-6cf4-47ea-9c1f-2341f75e98ac | {13e44184-0c67-41fa-b8f3-395f1240ecf9}
+ Martina Piskorzová          | 775620/5083  |     2 | 644bff77-52fd-405e-9177-2db39c45b6c4 | {7ea24d05-77c9-40f0-977b-7cd927b61b87}
+ Martina Špringerová         | 735516/3299  |     2 | d664c7fe-3c4d-4df6-9534-5f528ba230a7 | {29482498-0871-454b-9ba7-4a5b0ab9fd8e}
+ Miroslava Juzová            | 456216/084   |     2 | c67cbc31-7a54-41ea-b939-7d2adcb49d9e | {298ade4b-210d-4448-8fc0-6b25b4f094f7}
+ Monika Stašíková            | 795506/9166  |     2 | 0df20050-9cb9-4d78-b152-a58819a6d06e | {17eb8b7e-8894-463a-b138-ffc7b860e98c}
+ Mária Mišíková              | 925407/8207  |     2 | 3f2ee247-9d1f-4a67-9227-87a83e31da96 | {ccfe50fe-85cf-40fa-b0b3-ea994d02d7c3}
+ Mária Procházková           | 695904/6116  |     2 | 4bfe0941-a3bb-4c1c-a59b-ca9e883c65b8 | {43767c2f-262c-4f31-8054-1f9d6b0d8118}
+ Pavel Szwarc                | 700323/4975  |     2 | 0eae3451-37c0-46e7-b2be-1b830aaaa8f2 | {2e591153-d5b2-4d1c-a7d5-63bfca378c64}
+ Petr Kolek                  | 740201/0198  |     2 | b1dfe58c-11b0-4056-8f8e-4e525f98ba5d | {62100a74-cc0f-4e3a-b27e-c67a0532d48c}
+ Petr Křepelka               | 600228/0779  |     2 | 6850cdcd-17d3-4fb3-8ed1-31ff38a4c090 | {d14a449e-505b-49d2-8389-19edbd849817}
+ Radek Poláček               | 790116/0696  |     2 | f3626e71-d614-4858-9ba4-c71073432c7f | {84f78654-430e-45b6-9d4c-d3cfd885534c}
+ Rita Drinková               | 666218/1372  |     2 | 0dd32ad5-34da-4c57-bf8e-39469f41314f | {4094de82-ca48-4d3c-82d0-028c23b40e7d}
+ Soňa Chytilová              | 765923/5309  |     2 | d93342b4-452b-4811-86fb-79bcb0085c9d | {bc3ce6ab-237f-478f-9556-846d51ea9af3}
+ Tomáš Jirák                 | 830909/0845  |     2 | b87c1f1d-90c6-49b2-afb9-0d25e094e151 | {57e06f91-4600-4d7a-a14e-0791fdaabea1}
+ Vlasta Černáková            | 665119/6750  |     2 | ab594cb1-f850-4a1b-bc00-2ec33a1ee000 | {c0847e38-da2f-4814-82d5-2532e1dfb500}
+ Zlatica Pešková             | 795907/6169  |     2 | d76f5ec5-df9c-40b4-a594-30ebfd795dad | {111364bf-9974-43d0-b99c-2fe6bf257507}
+ Štěpánka Špilarová          | 785818/2079  |     2 | 5efbe165-8afd-43b0-ac20-e02ba669868f | {39a8945b-d5af-4857-ac05-165adbf85325}
+(40 rows)
+
+=== [B] DUPLIKATY s ROVNAKOU KLINIKOU bez RC (iscbc import) ===
+       osoba        |              clinic_id               | pocet |                winner                |                                                                        losers                                                                         
+--------------------+--------------------------------------+-------+--------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ Ivana Tyllichová   | ea072db9-f0e5-4dca-9dc7-4f2a4f1e7ab1 |     5 | aa73c494-5012-44b5-9010-4de4fd74aa1e | {d4dff5f0-43f9-43d5-abf7-32ae267dc29e,e4135801-25f0-4435-80e3-0dd523004184,e59384e9-e362-4786-a755-231b2abdb956,900245ca-ddeb-48bb-a250-41b35162b14f}
+ Zoltán Fekete      | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     4 | 9d1b730a-a957-4c20-a9dd-c915d9b4c212 | {6951f493-4570-446f-bf24-a4b777183909,4e7fb7a1-a583-4388-a00f-bb294003a3e6,f2d25ebe-8b2e-460d-b897-af26a1edc37b}
+ Eva Sedláčková     | bbf01dc1-6dde-4c46-a1b1-156c81618c48 |     4 | 3151391a-3782-40aa-bb9d-93e410993c94 | {52be25ca-59ee-4064-b7fa-828a20185a1b,0716f835-47b6-4e91-9243-b881a0c2a9b9,2df57707-afea-4702-9fd6-240780ec5c08}
+ Jitka Kantová      | bbf01dc1-6dde-4c46-a1b1-156c81618c48 |     4 | 1a623f5a-aa96-4062-989b-cef7c3024826 | {5f084ba1-de11-40e1-9fcb-30b0107bdff6,c99eb041-5d53-47c9-9f7c-11e9724d781e,a0b42711-1949-42a3-b835-3a09c370f7be}
+ Radka Velová       | 5fc254e8-19c9-4dbf-b0a0-e4fb5d2726bc |     4 | 14920521-310c-457a-9328-83ac485db03d | {7876d7ce-6cc8-42bc-98b9-7bd4f27286ac,b3f23014-5f5c-4845-94de-5d0f22e667c2,2b622fd1-8baf-4061-ae25-9153552d485a}
+ Miroslava Škojcová | ea072db9-f0e5-4dca-9dc7-4f2a4f1e7ab1 |     3 | 1fa3dd94-0890-4351-a57e-cc7b589d3c26 | {3033112e-a878-47de-bee6-fbfe5c0b84ab,5e266cd2-1269-4fbe-9b9a-5f4bc68402b1}
+ László Csabai      | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | 5741c62c-6863-4a00-b26b-3333703cd8cc | {67e55456-7073-4cd4-b2b7-fdb6faa2678a,bea2715b-790d-408b-8589-e807b7f4b7a7}
+ Naděžda Blahová    | ea072db9-f0e5-4dca-9dc7-4f2a4f1e7ab1 |     3 | 895a0742-1ca7-41b9-bd71-a093773318f3 | {4d6abb6e-7fae-4f98-b91f-53996064fa40,a7919b10-e23d-49fb-8d34-b303513b7204}
+ Iva Kadlicová      | ea072db9-f0e5-4dca-9dc7-4f2a4f1e7ab1 |     3 | 1b1120a7-4bb2-4756-8505-e6610a92e398 | {9545aaf2-b443-4a7a-97fe-3e8f33180661,05be9e7d-23a3-4caa-af5c-2ceff59c50a7}
+ István Szabó       | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | 9a82e06d-7668-4d28-b4e0-00bcdc8e211f | {c42de0dd-4ecc-435f-a2ab-0b9cc5b39b94,2c72ef27-111e-4773-8a4d-5e56ee523fc1}
+ Kateřina Rigová    | ea072db9-f0e5-4dca-9dc7-4f2a4f1e7ab1 |     3 | ff521737-a789-4d87-8e92-375dd5190086 | {94cb525d-bf83-40c7-88d2-77deb8d1d3c6,4ad73bad-9df3-408e-b044-1bf28f2170d4}
+ László Albert      | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | a1fe2b71-5e80-4f84-a49e-1a1fd368439a | {55263fa3-92d1-406e-88d7-55e274efa1d7,2fa0d40e-52c1-46eb-a422-dabda08ea814}
+ László Mozejko     | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | 9a7099f8-28a6-4b79-a375-3f34fb9c6bdb | {bb4b20ef-051b-4a09-ab90-effdc2ca5812,c9f0aacf-9c44-4a58-99c1-b9aa1e0d2699}
+ Milan Hricko       | 5fc254e8-19c9-4dbf-b0a0-e4fb5d2726bc |     3 | 63f8d720-8edb-476c-8e36-b764c9e56409 | {72878037-4715-4bdb-b3e2-0b40ab08afa4,74a92fb2-f37f-431a-9b45-3b37422017e6}
+ Iván Nedeczky      | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | e486f541-1bb7-460c-9e09-f4ff02d7f148 | {16172c1b-3cb5-4852-8007-2a7a115ab424,aecd54c6-5728-42a1-8b90-7edd4cfe6b88}
+ Eliška Abrahamová  | 5fc254e8-19c9-4dbf-b0a0-e4fb5d2726bc |     3 | cc70c12d-9370-4099-8408-213de148ca97 | {884088da-65ae-4726-a221-e49b4e57e2d5,1f091dcd-a5c6-48d0-a521-cf672ee92a69}
+ Antal Fábián       | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | 673d03b1-e54a-4156-b1f2-de332a80c1da | {bd33b031-5f0c-4ce0-9809-abfa8e2219d7,6eb92e08-23df-4e7c-b484-dafdd4fc475a}
+ Eva Hladišová      | ea072db9-f0e5-4dca-9dc7-4f2a4f1e7ab1 |     3 | 992c6709-a65e-4f9d-8400-28b466ae4feb | {c6bebf4f-14e9-4be9-95d2-6f11cd1a56d5,9f1c7ddf-b6cf-4cba-8291-fb164f0d5b58}
+ Farjid Karazma     | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | 0ff80297-74af-45fb-b55c-9f00165d4873 | {57274933-f710-4dc5-9725-6ad28f3b45c7,e4b284c3-b89c-4636-aeb9-b7b91910f297}
+ Ferenc Tóth        | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | c8b9cf0a-630b-42cd-ba55-b6b4972919f3 | {db5fb806-4988-4db0-b2c5-f5abf80462b8,55072954-215d-43ee-8eb9-fae2c58e92ea}
+ Dagmar Dolinová    | ea072db9-f0e5-4dca-9dc7-4f2a4f1e7ab1 |     3 | f9aef48d-eba9-4b95-a434-1471aa422313 | {237d8744-3bb2-4d34-8d66-98a467b97d15,9c1da5ad-5409-4b8c-bd3d-fcc246fc587a}
+ Ivana Kuklová      | 5fc254e8-19c9-4dbf-b0a0-e4fb5d2726bc |     3 | 27cb2d03-d4b8-4095-b6e8-4555390cb495 | {be9d8364-6ea8-46da-a6ee-f42471633573,0426cc18-6d22-4aa7-800b-f6fbb6c2a85b}
+ Judit Péli-Tóth    | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | 572c7117-a89d-472d-8c45-8eb3f1e81f38 | {38877c3b-ce1f-43cf-8e23-72250d046cff,5d4740a2-3a35-4803-83de-9707d537f732}
+ Karla Štěpánová    | bbf01dc1-6dde-4c46-a1b1-156c81618c48 |     3 | 6c6be4e5-2896-4bfa-b266-b09fe9a8fe0a | {67886936-4bcc-4dc1-9e6f-921ce39679d2,7ab47e1b-bbc6-4546-b571-a002500e4fa5}
+ Károly Tóth        | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | bb53273e-77fe-4a22-a9f5-09cb7e5ee45f | {2fc4ac86-2e4e-4e61-82b4-2627ed1e6b77,0a1ffd1c-8d85-4db3-884f-ecb0e73f8c5e}
+ Lenka Koutná       | bbf01dc1-6dde-4c46-a1b1-156c81618c48 |     3 | 2aa1bf6d-8432-48ba-b7fa-c8e672142af2 | {5ef00f8e-9016-4113-97c1-45ae55c66910,80df969d-9de1-48a6-a547-a7199456861c}
+ László Kovács      | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | b6cb1144-9a35-464a-962a-2697d8d70be8 | {53fb6543-4e2f-4e3c-97ec-fb0c27058b7c,992e86da-0231-41a4-973a-b49ab9c460f0}
+ László Medve       | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | 66217f4e-db5d-435e-82fb-7cc12f5154be | {d9924158-be5e-4f1d-b3aa-b5bb3e4b7f19,5d316711-4e65-4252-b62f-175259bd0de0}
+ Michaela Schierová | 5fc254e8-19c9-4dbf-b0a0-e4fb5d2726bc |     3 | affa6387-5fb2-45fb-a362-39f03699c0af | {6474c3c3-030b-4065-891d-324a77566702,fe70d909-b976-4dd1-9342-41a820b1c20f}
+ Barnabás Bata      | bc92293d-eaa4-425e-b48a-3f9f25cf0475 |     3 | 7ecfe35c-4981-471a-b62c-2635bdd0bc3a | {2f292e9e-23ba-4e15-8ae5-aa21cb716ff3,baf5fa2d-ee33-4739-8dfe-591c9b514ded}
+(30 rows)
+
+=== [C] OSOBY na klinikach BEZ id_zz kde existuje klinika S id_zz ===
+ osoba | collab_id | stara_klinika | stara_id_zz | nova_klinika | nova_id_zz | nova_nazov 
+-------+-----------+---------------+-------------+--------------+------------+------------
+(0 rows)
+
+=== [D] POCTY — co bude zmenene ===
+psql:/tmp/indexus_migration.sql:45: ERROR:  syntax error at or near "*"
+LINE 5:   ) x * (SELECT AVG(c) FROM (
+              ^
+psql:/tmp/indexus_migration.sql:65: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:88: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:113: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:117: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:120: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:124: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:127: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:138: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:146: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:152: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:157: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:/tmp/indexus_migration.sql:170: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+=== [Z1] ZÁVEREČNÝ SUHRN ===
+psql:/tmp/indexus_migration.sql:182: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+=== [Z2] OVERENIE: zmluvy NESMÚ ostať na loseroch ===
+psql:/tmp/indexus_migration.sql:186: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+=== [Z3] ZOSTATOK DUPLIKATOV po migrácii ===
+psql:/tmp/indexus_migration.sql:192: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! TERAZ BEZI ROLLBACK — nič nebolo zmenené !!
+!! Ak je všetko OK: zmeň ROLLBACK na COMMIT  !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ROLLBACK
