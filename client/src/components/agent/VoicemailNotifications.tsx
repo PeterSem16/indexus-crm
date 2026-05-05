@@ -178,9 +178,25 @@ function MinimizedVoicemailBadge({ count, onClick }: { count: number; onClick: (
 export function VoicemailEmptyBadge() {
   const { t } = useI18n();
   return (
-    <div className="flex items-center gap-2 bg-muted/50 border rounded-full px-3 py-1.5 text-muted-foreground text-xs" data-testid="voicemail-empty-indicator">
-      <Voicemail className="h-3.5 w-3.5" />
-      <span>{t.agentWorkspace.noNewVoicemails}</span>
+    <div
+      className="flex items-center gap-2.5 px-3 py-2"
+      style={{
+        background: "#F8F4EE",
+        border: "1.5px solid #9A887830",
+        borderRadius: "14px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}
+      data-testid="voicemail-empty-indicator"
+    >
+      <div
+        className="h-7 w-7 rounded-xl flex items-center justify-center shrink-0"
+        style={{ background: "#9A8878", boxShadow: "0 2px 5px #9A887840" }}
+      >
+        <Voicemail className="h-3.5 w-3.5 text-white" />
+      </div>
+      <span className="text-xs font-medium" style={{ color: "#7A6858" }}>
+        {t.agentWorkspace.noNewVoicemails}
+      </span>
     </div>
   );
 }

@@ -795,49 +795,82 @@ function TaskListPanel({
         </div>
       )}
 
-      <div className="px-3 py-2">
-        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+      <div className="px-3 pt-2 pb-1 flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#9A8878" }}>
           {t.agentWorkspace.campaigns}
         </span>
       </div>
-      <div className="px-2 pb-2">
-        <div className="flex flex-wrap gap-1.5">
-          {filteredCampaigns.map((campaign) => {
-            const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
-            const ChIcon = chConfig.icon;
-            const isSelected = selectedCampaignId === campaign.id;
+      <div className="px-2 pb-2 space-y-1">
+        {filteredCampaigns.map((campaign) => {
+          const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
+          const ChIcon = chConfig.icon;
+          const isSelected = selectedCampaignId === campaign.id;
+          const ac = "#B5622E";
 
-            return (
+          return (
+            <div
+              key={campaign.id}
+              className="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-all duration-150"
+              style={{
+                background: isSelected ? ac : "#F8F4EE",
+                border: `1.5px solid ${isSelected ? ac : ac + "30"}`,
+                borderRadius: "14px",
+                boxShadow: isSelected ? `0 4px 14px ${ac}35` : "0 1px 3px rgba(0,0,0,0.05)",
+              }}
+              onMouseEnter={(e) => {
+                if (!isSelected) {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = `${ac}60`;
+                  el.style.boxShadow = `0 4px 12px ${ac}18`;
+                  el.style.transform = "translateY(-1px)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = `${ac}30`;
+                  el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
+                  el.style.transform = "";
+                }
+              }}
+              onClick={() => onSelectCampaign(campaign.id)}
+              data-testid={`btn-queue-${campaign.id}`}
+            >
               <div
-                key={campaign.id}
-                className={`
-                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors text-xs font-medium border
-                  ${isSelected
-                    ? "bg-primary text-primary-foreground border-primary animate-pulse"
-                    : "bg-muted/50 border-border hover:bg-muted"
-                  }
-                `}
-                style={isSelected ? { animationDuration: '3s' } : undefined}
-                onClick={() => onSelectCampaign(campaign.id)}
-                data-testid={`btn-queue-${campaign.id}`}
+                className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  background: isSelected ? "rgba(255,255,255,0.22)" : ac,
+                  boxShadow: isSelected ? "none" : `0 2px 6px ${ac}45`,
+                }}
               >
-                <ChIcon className={`h-3 w-3 shrink-0 ${isSelected ? "text-primary-foreground" : chConfig.color}`} />
-                <span className="truncate max-w-[100px]">{campaign.name}</span>
-                <span className={`text-[9px] font-mono ${isSelected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                  {campaign.contactCount}
-                </span>
+                <ChIcon className="h-3.5 w-3.5 text-white" />
               </div>
-            );
-          })}
-          {filteredCampaigns.length === 0 && (
-            <div className="text-center py-3 w-full">
-              <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "No missions"}</p>
+              <span
+                className="flex-1 truncate text-xs font-semibold"
+                style={{ color: isSelected ? "#fff" : "#3D2E20" }}
+              >
+                {campaign.name}
+              </span>
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
+                style={{
+                  background: isSelected ? "rgba(255,255,255,0.25)" : `${ac}18`,
+                  color: isSelected ? "#fff" : ac,
+                }}
+              >
+                {campaign.contactCount}
+              </span>
             </div>
-          )}
-        </div>
+          );
+        })}
+        {filteredCampaigns.length === 0 && (
+          <div className="text-center py-3">
+            <p className="text-xs" style={{ color: "#9A8878" }}>{t.agentWorkspace.noCampaigns || "No missions"}</p>
+          </div>
+        )}
       </div>
 
-      <div className="px-3 pb-2 space-y-2">
+      <div className="px-2 pb-2 space-y-1.5">
         <InboundQueueStatus userId={currentUserId} />
         {showVoicemailEmpty && <VoicemailEmptyBadge />}
       </div>
