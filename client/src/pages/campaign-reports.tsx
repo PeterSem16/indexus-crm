@@ -523,6 +523,20 @@ export default function CampaignReportsPage() {
   const isLoading = activeTab === 'operator-stats' ? loadingOps : activeTab === 'call-list' ? loadingCalls : loadingAnalysis;
   const hasData = activeTab === 'operator-stats' ? operatorStats.length > 0 : activeTab === 'call-list' ? callList.length > 0 : callAnalysis.length > 0;
 
+  const dispositionFirstRowIds = useMemo(() => {
+    const seen = new Set<string>();
+    const first = new Set<string>();
+    for (const call of callList) {
+      if (!call.dispositionName) continue;
+      const key = `${call.customer}::${call.phoneNumber}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        first.add(call.id);
+      }
+    }
+    return first;
+  }, [callList]);
+
   const totalSummary = useMemo(() => {
     if (operatorStats.length === 0) return null;
     const totals = operatorStats.reduce((acc, s) => ({
@@ -1089,111 +1103,109 @@ export default function CampaignReportsPage() {
                   <p className="text-sm">{cr.noDataDesc}</p>
                 </div>
               ) : (
-                <ScrollArea className="w-full">
-                  <div className="min-w-[1600px]">
-                    <table className="w-full text-sm" data-testid="table-call-list">
-                      <thead>
-                        <tr className="border-b bg-muted/50">
-                          <th className="text-center p-2 font-medium w-10">{cr?.type || 'Typ'}</th>
-                          <th className="text-left p-2 font-medium">{cr.agent}</th>
-                          <th className="text-left p-2 font-medium">{cr.customer}</th>
-                          <th className="text-left p-2 font-medium">{cr.phoneNumber}</th>
-                          <th className="text-center p-2 font-medium">{cr.direction}</th>
-                          <th className="text-center p-2 font-medium">{cr.status}</th>
-                          <th className="text-left p-2 font-medium">{cr.disposition}</th>
-                          <th className="text-left p-2 font-medium">{cr?.subStatuses || 'Sub-statusy'}</th>
-                          <th className="text-center p-2 font-medium">{cr.startedAt}</th>
-                          <th className="text-center p-2 font-medium">{cr.ringTime}</th>
-                          <th className="text-center p-2 font-medium">{cr.talkTime}</th>
-                          <th className="text-center p-2 font-medium">{cr.totalDuration}</th>
-                          <th className="text-center p-2 font-medium">{cr?.hungUpBy || 'Zavesil'}</th>
-                          <th className="text-left p-2 font-medium">{cr?.subjectOrNotes || 'Detaily'}</th>
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full text-sm whitespace-nowrap" style={{ minWidth: '1400px' }} data-testid="table-call-list">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-center p-2 font-medium w-10 sticky left-0 bg-muted/50">{cr?.type || 'Typ'}</th>
+                        <th className="text-left p-2 font-medium min-w-[140px]">{cr.agent}</th>
+                        <th className="text-left p-2 font-medium min-w-[160px]">{cr.customer}</th>
+                        <th className="text-left p-2 font-medium min-w-[130px]">{cr.phoneNumber}</th>
+                        <th className="text-center p-2 font-medium">{cr.direction}</th>
+                        <th className="text-center p-2 font-medium min-w-[100px]">{cr.status}</th>
+                        <th className="text-center p-2 font-medium min-w-[130px]">{cr.startedAt}</th>
+                        <th className="text-center p-2 font-medium min-w-[80px]">{cr.ringTime}</th>
+                        <th className="text-center p-2 font-medium min-w-[80px]">{cr.talkTime}</th>
+                        <th className="text-center p-2 font-medium min-w-[80px]">{cr.totalDuration}</th>
+                        <th className="text-center p-2 font-medium min-w-[80px]">{cr?.hungUpBy || 'Zavesil'}</th>
+                        <th className="text-left p-2 font-medium min-w-[160px]">{cr.disposition}</th>
+                        <th className="text-left p-2 font-medium min-w-[200px]">{cr?.subStatuses || 'Sub-statusy'}</th>
+                        <th className="text-left p-2 font-medium min-w-[180px]">{cr?.subjectOrNotes || 'Detaily'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {callList.map((call) => (
+                        <tr key={call.id} className={`border-b hover:bg-muted/30 ${call.type === 'email' ? 'bg-blue-50/30 dark:bg-blue-950/20' : call.type === 'sms' ? 'bg-green-50/30 dark:bg-green-950/20' : ''}`} data-testid={`row-event-${call.id}`}>
+                          <td className="p-2 text-center sticky left-0 bg-background border-r border-border/30">
+                            {call.type === 'call' ? (
+                              <Phone className="h-4 w-4 mx-auto text-orange-500" />
+                            ) : call.type === 'email' ? (
+                              <Mail className="h-4 w-4 mx-auto text-blue-500" />
+                            ) : call.type === 'sms' ? (
+                              <MessageSquare className="h-4 w-4 mx-auto text-green-500" />
+                            ) : (
+                              <MessageSquare className="h-4 w-4 mx-auto text-muted-foreground" />
+                            )}
+                          </td>
+                          <td className="p-2 font-medium text-xs">{call.agent || '-'}</td>
+                          <td className="p-2 font-medium text-xs">{call.customer || '-'}</td>
+                          <td className="p-2 font-mono text-xs">{call.phoneNumber || call.recipient || '-'}</td>
+                          <td className="p-2 text-center">
+                            <Badge variant={call.direction === 'inbound' ? 'secondary' : 'outline'} className="text-[10px]">
+                              {call.direction === 'inbound' ? (cr.inbound || 'In') : (cr.outbound || 'Out')}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-center"><StatusBadge status={call.status} /></td>
+                          <td className="p-2 text-center text-xs tabular-nums">{formatDateTime(call.startedAt)}</td>
+                          <td className="p-2 text-center font-mono text-xs">
+                            {call.type === 'call' ? call.ringTimeFormatted : '—'}
+                          </td>
+                          <td className="p-2 text-center font-mono text-xs font-semibold text-green-600 dark:text-green-400">
+                            {call.type === 'call' ? call.talkTimeFormatted : '—'}
+                          </td>
+                          <td className="p-2 text-center font-mono text-xs">
+                            {call.type === 'call' ? call.totalDurationFormatted : '—'}
+                          </td>
+                          <td className="p-2 text-center text-xs">
+                            {call.type === 'call' && call.hungUpBy ? (
+                              <Badge variant="outline" className="text-[10px]">{call.hungUpBy}</Badge>
+                            ) : '—'}
+                          </td>
+                          <td className="p-2">
+                            {dispositionFirstRowIds.has(call.id) && call.dispositionName ? (
+                              <span
+                                className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-normal leading-tight"
+                                style={call.dispositionColor ? { backgroundColor: `${call.dispositionColor}22`, color: call.dispositionColor, border: `1px solid ${call.dispositionColor}44` } : { backgroundColor: 'rgb(241 245 249)', color: 'rgb(71 85 105)' }}
+                                data-testid={`disposition-${call.id}`}
+                              >
+                                {call.dispositionName}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            {dispositionFirstRowIds.has(call.id) && call.dispositionChecklistNames && call.dispositionChecklistNames.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {call.dispositionChecklistNames.map((item, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-normal leading-tight"
+                                    style={item.color ? { backgroundColor: `${item.color}22`, color: item.color, border: `1px solid ${item.color}44` } : { backgroundColor: 'rgb(241 245 249)', color: 'rgb(71 85 105)' }}
+                                    data-testid={`sub-status-${call.id}-${idx}`}
+                                  >
+                                    {item.name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="p-2 text-xs max-w-[180px] truncate" title={call.subject || call.notes}>
+                            {call.type === 'email' ? (
+                              <span className="text-blue-600 dark:text-blue-400">{call.subject || call.notes || '-'}</span>
+                            ) : call.type === 'sms' ? (
+                              <span className="text-green-600 dark:text-green-400">{call.notes || '-'}</span>
+                            ) : (
+                              call.notes || '-'
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {callList.map((call) => (
-                          <tr key={call.id} className={`border-b hover:bg-muted/30 ${call.type === 'email' ? 'bg-blue-50/30 dark:bg-blue-950/20' : call.type === 'sms' ? 'bg-green-50/30 dark:bg-green-950/20' : ''}`} data-testid={`row-event-${call.id}`}>
-                            <td className="p-2 text-center">
-                              {call.type === 'call' ? (
-                                <Phone className="h-4 w-4 mx-auto text-orange-500" />
-                              ) : call.type === 'email' ? (
-                                <Mail className="h-4 w-4 mx-auto text-blue-500" />
-                              ) : call.type === 'sms' ? (
-                                <MessageSquare className="h-4 w-4 mx-auto text-green-500" />
-                              ) : (
-                                <MessageSquare className="h-4 w-4 mx-auto text-muted-foreground" />
-                              )}
-                            </td>
-                            <td className="p-2 font-medium">{call.agent || '-'}</td>
-                            <td className="p-2 font-medium">{call.customer || '-'}</td>
-                            <td className="p-2 font-mono text-xs">{call.phoneNumber || call.recipient || '-'}</td>
-                            <td className="p-2 text-center">
-                              <Badge variant={call.direction === 'inbound' ? 'secondary' : 'outline'}>
-                                {call.direction === 'inbound' ? (cr.inbound || 'In') : (cr.outbound || 'Out')}
-                              </Badge>
-                            </td>
-                            <td className="p-2 text-center"><StatusBadge status={call.status} /></td>
-                            <td className="p-2">
-                              {call.dispositionName ? (
-                                <span
-                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                                  style={call.dispositionColor ? { backgroundColor: `${call.dispositionColor}22`, color: call.dispositionColor, border: `1px solid ${call.dispositionColor}44` } : undefined}
-                                  data-testid={`disposition-${call.id}`}
-                                >
-                                  {call.dispositionName}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">—</span>
-                              )}
-                            </td>
-                            <td className="p-2 min-w-[160px]">
-                              {call.dispositionChecklistNames && call.dispositionChecklistNames.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {call.dispositionChecklistNames.map((item, idx) => (
-                                    <span
-                                      key={idx}
-                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
-                                      style={item.color ? { backgroundColor: `${item.color}22`, color: item.color, border: `1px solid ${item.color}44` } : { backgroundColor: 'rgb(241 245 249)', color: 'rgb(71 85 105)' }}
-                                      data-testid={`sub-status-${call.id}-${idx}`}
-                                    >
-                                      {item.name}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">—</span>
-                              )}
-                            </td>
-                            <td className="p-2 text-center text-xs">{formatDateTime(call.startedAt)}</td>
-                            <td className="p-2 text-center font-mono text-xs">
-                              {call.type === 'call' ? call.ringTimeFormatted : '—'}
-                            </td>
-                            <td className="p-2 text-center font-mono text-xs font-semibold text-green-600">
-                              {call.type === 'call' ? call.talkTimeFormatted : '—'}
-                            </td>
-                            <td className="p-2 text-center font-mono text-xs">
-                              {call.type === 'call' ? call.totalDurationFormatted : '—'}
-                            </td>
-                            <td className="p-2 text-center text-xs">
-                              {call.type === 'call' && call.hungUpBy ? (
-                                <Badge variant="outline" className="text-[10px]">{call.hungUpBy}</Badge>
-                              ) : '-'}
-                            </td>
-                            <td className="p-2 text-xs max-w-[250px] truncate" title={call.subject || call.notes}>
-                              {call.type === 'email' ? (
-                                <span className="text-blue-600 dark:text-blue-400">{call.subject || call.notes || '-'}</span>
-                              ) : call.type === 'sms' ? (
-                                <span className="text-green-600 dark:text-green-400">{call.notes || '-'}</span>
-                              ) : (
-                                call.notes || '-'
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </ScrollArea>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </CardContent>
           </Card>
