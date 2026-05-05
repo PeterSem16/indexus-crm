@@ -1,0 +1,28 @@
+=== Vsetky partner_categories ===
+                  id                  |         code         |                    name                     | entity_scope | is_active
+--------------------------------------+----------------------+---------------------------------------------+--------------+-----------
+ 3e5c2a78-ce66-43f8-9cc8-add89f1a6851 | ine                  | Iné                                         | hospital     | t
+ e29ecaab-ebfd-4903-8914-d15b7d54c650 | ambulantn_sestra     | Ambulantná sestra                           | clinic       | t
+ 1529a1ce-511d-4b0d-b77d-826f34f3e3b4 | iné                  | Iné                                         | clinic       | t
+ fb9da73b-c1de-44db-819b-45160b1ce821 | hospital_director    | Riaditeľ nemocnice                          | hospital     | t
+ 377fd066-aa42-4038-8423-2f0503a9c059 | department_head      | Vedúci pôrodníckeho oddelenia               | hospital     | t
+ f63a9ead-0c39-4165-b579-eba8551d4a08 | head_nurse           | Hlavná/vrchná sestra pôrodníckeho oddelenia | hospital     | t
+ 4c22ca5d-a43c-48ce-9284-0909b1acef75 | delivery_midwife     | Pôrodné asistentky/hebamme                  | independent  | t
+ c8f6fc5b-7b05-497e-a004-84f7e82a82b2 | department_doctor    | Lekár pôrodníckeho oddelenia                | hospital     | t
+ b3c64c07-15b4-4d5f-b924-8eaa6272b37c | department_nurse     | Sestra pôrodníckeho oddelenia               | hospital     | t
+ 768590db-17a5-4a1e-b74f-f646b5d524cb | neonatology_head     | Primár neonatologického oddelenia           | hospital     | t
+ 85ac2ee3-e602-4385-b32f-3f67b9983cba | neonatology_doctor   | Lekári neonatologického oddelenia           | hospital     | t
+ f11d997f-b842-4cb5-acdd-2a90a9591fe3 | neonatology_nurse    | Sestry neonatologického oddelenia           | hospital     | t
+ aff3c07c-b219-48be-a97a-bb3f76e984ce | gynecologist_private | Ambulantný gynekológ                        | clinic       | t
+ 7a2d91d3-4f15-47b1-9f4d-3142744530c3 | pediatrician_private | Súkromný pediater                           | clinic       | t
+ 3b36c284-c621-4a78-a0c9-5d8e9101aad5 | prenatal_instructor  | Lektorka predpôrodnej prípravy              | independent  | t
+ 3c51df69-a995-4a64-9837-b87129caa8a7 | doula                | Dula                                        | independent  | t
+ 91f8b1ab-95cf-4d14-b489-a2b20d43c8cc | lactation_consultant | Laktačná poradkyňa                          | independent  | t
+(17 rows)
+
+=== Pocet zaznamov s orphaned UUID podla is_active ===
+ is_active | count
+-----------+-------
+ f         |    54
+ t         |   484
+(2 rows)
