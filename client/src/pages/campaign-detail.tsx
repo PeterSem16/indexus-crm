@@ -1980,6 +1980,24 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
     onError: (e:any)=>toast({title: t.statusEngine.disp.toastError, description:e.message, variant:"destructive"}),
   });
 
+  const VALID_DISP_ACTION_TYPES = ["none","callback","dnd","complete","convert","send_email","send_sms","schedule_email","schedule_sms"] as const;
+  type ValidDispAction = typeof VALID_DISP_ACTION_TYPES[number];
+  const mapGlobalActionToDisp = (a: string | null | undefined): ValidDispAction => {
+    const map: Record<string, ValidDispAction> = {
+      reschedule: "callback",
+      do_not_call: "dnd",
+      conversion: "convert",
+      assign_owner: "none",
+      move_queue: "none",
+      start_onboarding: "none",
+      create_task: "none",
+      verify_contact: "none",
+    };
+    if (!a) return "none";
+    if (VALID_DISP_ACTION_TYPES.includes(a as ValidDispAction)) return a as ValidDispAction;
+    return map[a] ?? "none";
+  };
+
   const importCategoryMut = useMutation({
     mutationFn: async (cat:any) => {
       const catStatuses = (globalStatuses as any[]).filter((s:any)=>s.categoryId===cat.id && s.isActive && !s.parentId);
@@ -1989,7 +2007,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
         code: parentCode,
         color: cat.color || "gray",
         icon: cat.icon || "CircleDot",
-        actionType: catStatuses.length > 0 ? "none" : "none",
+        actionType: "none",
         childrenType: "radio",
         channel: "phone",
         isActive: true,
@@ -2006,7 +2024,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
           name: s.name, code: childCode,
           color: s.color || cat.color || "gray",
           icon: s.icon || "CircleDot",
-          actionType: s.defaultAction || "none",
+          actionType: mapGlobalActionToDisp(s.defaultAction),
           callbackOffsetDays: s.callbackOffsetDays || null,
           childrenType: "radio", channel: "phone", isActive: true,
           sortOrder: i * 10, parentId: parent.id,
