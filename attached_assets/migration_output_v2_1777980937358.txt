@@ -1,0 +1,74 @@
+BEGIN
+SELECT 40
+--- [1] RC mapa: pocet zaznamov ---
+ rc_losers_count 
+-----------------
+              40
+(1 row)
+
+SELECT 275
+--- [2] Klinika mapa: pocet zaznamov ---
+ clinic_losers_count 
+---------------------
+                 275
+(1 row)
+
+--- [3] Kolízie winner/loser (musia byt 0) ---
+ kolizie 
+---------
+       0
+(1 row)
+
+UPDATE 193
+--- [4a] Zmluvy presunuté (RC) ---
+ rc_zmluvy_presunutych 
+-----------------------
+                    40
+(1 row)
+
+UPDATE 316
+--- [4b] Zmluvy presunuté (klinika) ---
+ clinic_zmluvy_presunutych 
+---------------------------
+                       275
+(1 row)
+
+UPDATE 94
+UPDATE 1073
+--- [5] Adresy presunuté ---
+ adresy_presunute 
+------------------
+ OK
+(1 row)
+
+UPDATE 40
+UPDATE 230
+--- [6] Winner doplnený o dáta losera ---
+ winner_doplneny 
+-----------------
+ OK
+(1 row)
+
+psql:/tmp/indexus_migration_v2.sql:156: ERROR:  column "notes" does not exist
+LINE 4:   notes = COALESCE(notes || E'\n', '') ||
+                           ^
+HINT:  Perhaps you meant to reference the column "collaborators.note".
+psql:/tmp/indexus_migration_v2.sql:164: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+--- [7] Losers deaktivovaní ---
+psql:/tmp/indexus_migration_v2.sql:169: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+
+══════════════════════ ZÁVEREČNÉ OVERENIE ══════════════════════
+--- [Z1] Celkový stav po migrácii ---
+psql:/tmp/indexus_migration_v2.sql:182: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+--- [Z2] Zmluvy na loseroch — MUSI BYT 0! ---
+psql:/tmp/indexus_migration_v2.sql:191: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+--- [Z3] Aktívne duplikáty zostatok (melo by byt 0 alebo minimum) ---
+psql:/tmp/indexus_migration_v2.sql:200: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+--- [Z4] Aktívne duplikáty (rovnake meno + klinika) zostatok ---
+psql:/tmp/indexus_migration_v2.sql:209: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! TERAZ BEZI ROLLBACK — žiadna zmena nebola zápísaná !!
+!! Ak je Z2=0 a všetko OK: zmeň ROLLBACK na COMMIT   !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ROLLBACK
