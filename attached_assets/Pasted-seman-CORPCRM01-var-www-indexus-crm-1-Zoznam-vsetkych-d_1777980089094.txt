@@ -1,0 +1,46 @@
+seman@CORPCRM01:/var/www/indexus-crm$ # 1. Zoznam vsetkych databaz v PostgreSQL
+PGPASSWORD='HanyurIfKisck' psql -h localhost -U indexus -l
+
+# 2. Ak to nefunguje, skus bez hesla ako postgres superuser
+sudo -u postgres psql -l
+
+# 3. Pozri historiu terminalu na psql prikazy
+history | grep psql
+                                                    List of databases
+    Name     |  Owner   | Encoding | Locale Provider | Collate |  Ctype  | ICU Locale | ICU Rules |   Access privileges
+-------------+----------+----------+-----------------+---------+---------+------------+-----------+-----------------------
+ indexus_crm | indexus  | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           | =Tc/indexus          +
+             |          |          |                 |         |         |            |           | indexus=CTc/indexus
+ postgres    | postgres | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           |
+ template0   | postgres | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           | =c/postgres          +
+             |          |          |                 |         |         |            |           | postgres=CTc/postgres
+ template1   | postgres | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           | =c/postgres          +
+             |          |          |                 |         |         |            |           | postgres=CTc/postgres
+(4 rows)
+
+                                                    List of databases
+    Name     |  Owner   | Encoding | Locale Provider | Collate |  Ctype  | ICU Locale | ICU Rules |   Access privileges
+-------------+----------+----------+-----------------+---------+---------+------------+-----------+-----------------------
+ indexus_crm | indexus  | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           | =Tc/indexus          +
+             |          |          |                 |         |         |            |           | indexus=CTc/indexus
+ postgres    | postgres | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           |
+ template0   | postgres | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           | =c/postgres          +
+             |          |          |                 |         |         |            |           | postgres=CTc/postgres
+ template1   | postgres | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           | =c/postgres          +
+             |          |          |                 |         |         |            |           | postgres=CTc/postgres
+(4 rows)
+
+  164  sudo -u postgres psql -d indexus_crm -c "
+  273  PGPASSWORD='HanyurIfKisck' psql -h localhost -U postgres -d indexus -c "SELECT COUNT(*) FROM clinics;"
+  274  PGPASSWORD='HanyurIfKisck' psql -h localhost -U indexus -d indexus -c "SELECT COUNT(*) FROM clinics;"
+  275  PGPASSWORD='HanyurIfKisck' psql -h localhost -U indexus -d indexus -c "SELECT COUNT(*) FROM clinics;"
+  276  PGPASSWORD='HanyurIfKisck' psql -h localhost -U indexus -d indexus-crm -c "SELECT COUNT(*) FROM clinics;"
+  277  PGPASSWORD='HanyurIfKisck' psql -h localhost -U indexus -d indexus_crm -c "SELECT COUNT(*) FROM clinics;"
+  280  PGPASSWORD='HanyurIfKisck' psql -h localhost -U indexus -d indexus_crm
+  647  psql -U indexus -d indexus -f /tmp/indexus_diagnostics.sql 2>&1 | tee /tmp/indexus_output.txt
+  653  PGPASSWORD='HanyurIfKisck' psql -h localhost -U indexus -d indexus -f /tmp/indexus_diagnostics.sql 2>&1 | tee /tmp/indexus_output.txt
+  656  PGPASSWORD='HanyurIfKisck' psql -h localhost -U indexus -l
+  658  sudo -u postgres psql -l
+  659  # 3. Pozri historiu terminalu na psql prikazy
+  660  history | grep psql
+seman@CORPCRM01:/var/www/indexus-crm$
