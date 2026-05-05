@@ -1,0 +1,73 @@
+BEGIN
+=== [1] BESME klinika merge ===
+UPDATE 0
+UPDATE 1
+              akcia               
+----------------------------------
+ BESME loser klinika deaktivovana
+(1 row)
+
+=== [2] Maria Baskova person merge ===
+UPDATE 17
+UPDATE 3
+UPDATE 1
+UPDATE 1
+              akcia               
+----------------------------------
+ Maria Baskova loser deaktivovana
+(1 row)
+
+=== [3] Sfwan cross-name merge ===
+UPDATE 2
+UPDATE 2
+UPDATE 1
+UPDATE 1
+               akcia               
+-----------------------------------
+ Sfwan Aboromih loser deaktivovany
+(1 row)
+
+=== [4] Oto Balco merge (bez starych klinik) ===
+UPDATE 0
+UPDATE 1
+UPDATE 1
+            akcia             
+------------------------------
+ Oto Balco loser deaktivovany
+(1 row)
+
+=== [5] Vseobecny cistac zostatkovych duplikatov ===
+SELECT 258
+ zostatok_duplikatov_na_zlucenie 
+---------------------------------
+                             258
+(1 row)
+
+UPDATE 1931
+UPDATE 522
+UPDATE 237
+UPDATE 258
+       ?column?        | pocet 
+-----------------------+-------
+ Zostatok deaktivovany |   258
+(1 row)
+
+=== ZAVERECNE OVERENIE ===
+ aktivnych | neaktivnych | celkom_zmliev 
+-----------+-------------+---------------
+     11520 |        3367 |         49617
+(1 row)
+
+ zmluvy_na_loseroch_error 
+--------------------------
+                        0
+(1 row)
+
+ first_name |  last_name  | pocet |        rodne_cisla        
+------------+-------------+-------+---------------------------
+ Jozef      | Melicherčík |     2 | {441025/154,920128/8547}
+ Zuzana     | Baková      |     2 | {756128/7327,825903/8084}
+(2 rows)
+
+!!! ROLLBACK — over vystupy, potom zmen na COMMIT !!!
+ROLLBACK
