@@ -7902,70 +7902,68 @@ export default function AgentWorkspacePage() {
                     </div>
 
                     <p className="text-xs text-muted-foreground italic">Výber je voliteľný — ak nič nezaškrtnete, použije sa automatizácia rodičovského statusu.</p>
-                  </div>
 
-                  {/* Full scheduling form – shown when parent or any child requires callback */}
-                  {(() => {
-                    const anyCallback = clParent?.actionType === "callback" || clParent?.actionType === "schedule_email" || clParent?.actionType === "schedule_sms"
-                      || clChildren.some((c: any) => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms");
-                    const clAssignTo = checklistCallbackAssign === "me" && user?.id ? user.id : null;
-                    if (!anyCallback) return null;
-                    return (
-                      <div className="space-y-3 rounded-md border p-3 bg-card mt-2">
-                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.statusEngine.disp.scheduleCallback}</div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs text-muted-foreground">{t.statusEngine.disp.dateLabel}</label>
-                            <Input type="date" value={checklistCallbackDate} onChange={(e) => setChecklistCallbackDate(e.target.value)} min={new Date().toISOString().split("T")[0]} data-testid="input-checklist-callback-date-full" />
+                    {/* Full scheduling form – shown when parent or any child requires callback */}
+                    {(() => {
+                      const anyCallback = clParent?.actionType === "callback" || clParent?.actionType === "schedule_email" || clParent?.actionType === "schedule_sms"
+                        || clChildren.some((c: any) => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms");
+                      if (!anyCallback) return null;
+                      return (
+                        <div className="space-y-3 rounded-md border p-3 bg-card">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.statusEngine.disp.scheduleCallback}</div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs text-muted-foreground">{t.statusEngine.disp.dateLabel}</label>
+                              <Input type="date" value={checklistCallbackDate} onChange={(e) => setChecklistCallbackDate(e.target.value)} min={new Date().toISOString().split("T")[0]} data-testid="input-checklist-callback-date-full" />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground">{t.statusEngine.disp.timeLabel}</label>
+                              <Input type="time" value={checklistCallbackTime} onChange={(e) => setChecklistCallbackTime(e.target.value)} data-testid="input-checklist-callback-time-full" />
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { label: t.statusEngine.disp.tomorrow, days: 1 },
+                              { label: "2d", days: 2 },
+                              { label: "3d", days: 3 },
+                              { label: "5d", days: 5 },
+                              { label: "1t", days: 7 },
+                              { label: "2t", days: 14 },
+                              { label: "1m", days: 30 },
+                              { label: "2m", days: 60 },
+                              { label: "3m", days: 90 },
+                              { label: "6m", days: 180 },
+                              { label: "9m", days: 270 },
+                              { label: "1r", days: 365 },
+                            ].map((preset) => (
+                              <Button key={preset.days} type="button" size="sm" variant="outline" className="text-[11px] h-6 px-2"
+                                onClick={() => {
+                                  const d = preset.days <= 5
+                                    ? addBusinessDays(new Date(), preset.days)
+                                    : (() => { const dt = new Date(); dt.setDate(dt.getDate() + preset.days); return dt; })();
+                                  setChecklistCallbackDate(d.toISOString().split("T")[0]);
+                                }}
+                                data-testid={`btn-checklist-cb-preset-${preset.days}`}
+                              >
+                                {preset.label}
+                              </Button>
+                            ))}
                           </div>
                           <div>
-                            <label className="text-xs text-muted-foreground">{t.statusEngine.disp.timeLabel}</label>
-                            <Input type="time" value={checklistCallbackTime} onChange={(e) => setChecklistCallbackTime(e.target.value)} data-testid="input-checklist-callback-time-full" />
+                            <label className="text-xs text-muted-foreground">{t.statusEngine.disp.assignToLabel}</label>
+                            <div className="flex gap-2 mt-1">
+                              <Button size="sm" variant={checklistCallbackAssign === "me" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setChecklistCallbackAssign("me")} disabled={!user?.id} data-testid="btn-checklist-cb-assign-me">
+                                <User className="h-3 w-3" /> {t.statusEngine.disp.assignToMe}
+                              </Button>
+                              <Button size="sm" variant={checklistCallbackAssign === "all" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setChecklistCallbackAssign("all")} data-testid="btn-checklist-cb-assign-all">
+                                <Users className="h-3 w-3" /> {t.statusEngine.disp.assignToAll}
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { label: t.statusEngine.disp.tomorrow, days: 1 },
-                            { label: "2d", days: 2 },
-                            { label: "3d", days: 3 },
-                            { label: "5d", days: 5 },
-                            { label: "1t", days: 7 },
-                            { label: "2t", days: 14 },
-                            { label: "1m", days: 30 },
-                            { label: "2m", days: 60 },
-                            { label: "3m", days: 90 },
-                            { label: "6m", days: 180 },
-                            { label: "9m", days: 270 },
-                            { label: "1r", days: 365 },
-                          ].map((preset) => (
-                            <Button key={preset.days} type="button" size="sm" variant="outline" className="text-[11px] h-6 px-2"
-                              onClick={() => {
-                                const d = preset.days <= 5
-                                  ? addBusinessDays(new Date(), preset.days)
-                                  : (() => { const dt = new Date(); dt.setDate(dt.getDate() + preset.days); return dt; })();
-                                setChecklistCallbackDate(d.toISOString().split("T")[0]);
-                              }}
-                              data-testid={`btn-checklist-cb-preset-${preset.days}`}
-                            >
-                              {preset.label}
-                            </Button>
-                          ))}
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground">{t.statusEngine.disp.assignToLabel}</label>
-                          <div className="flex gap-2 mt-1">
-                            <Button size="sm" variant={checklistCallbackAssign === "me" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setChecklistCallbackAssign("me")} disabled={!user?.id} data-testid="btn-checklist-cb-assign-me">
-                              <User className="h-3 w-3" /> {t.statusEngine.disp.assignToMe}
-                            </Button>
-                            <Button size="sm" variant={checklistCallbackAssign === "all" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setChecklistCallbackAssign("all")} data-testid="btn-checklist-cb-assign-all">
-                              <Users className="h-3 w-3" /> {t.statusEngine.disp.assignToAll}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
+                      );
+                    })()}
+                  </div>
                 );
               })() : modalSelectedParent ? (() => {
                 /* ---- Detail parent (children + callback form) ---- */
