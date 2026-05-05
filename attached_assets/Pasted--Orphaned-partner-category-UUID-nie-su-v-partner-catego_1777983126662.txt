@@ -1,0 +1,46 @@
+=== Orphaned partner_category UUID (nie su v partner_categories) ===
+ first_name |       last_name       |           partner_category           | found_in_partner_cats
+------------+-----------------------+--------------------------------------+-----------------------
+ Anton      | Čunderlík             | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Földesová  | Katarína              | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Adriana    | Gáťová                | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Jaroslav   | Hlavačka              | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Alžbeta    | Zadjorová             | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Igor       | Fulla                 | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Attila     | Anna (lekár)          | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Anna       | Moresová              | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Zuzana     | Tkáčová (Magdziaková) | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Augustín   | Nagy                  | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Branislav  | Murín                 | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Karol      | Brányik               | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Jozef      | Rešeta                | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Miroslava  | Blahová               | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Matej      | Böhmer                | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Zuzana     | Zboranová             | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Oto        | Balco                 | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Peter      | Frankovský            | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Valéria    | Sadáková              | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Mária      | Brešťanská            | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Anna       | Bubanová              | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Zlata      | Dančová               | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ František  | Janiček               | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Hegyi      | Zsuzsanna             | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Jana       | Langová               | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Peter      | Ligus                 | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Rudolf     | Lintner               | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Danuta     | Holecová              | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Desana     | Brathová              | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+ Ľubica     | Gindlová              | 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+(30 rows)
+
+=== Pocet orphaned UUID ===
+ orphaned_uuid_count
+---------------------
+                 538
+(1 row)
+
+=== Cim su tieto UUID - mozno ina tabulka? ===
+           partner_category           | cbc_code
+--------------------------------------+----------
+ 053995ca-0e6f-4b7f-bb8d-0fe45b512ded |
+(1 row)
