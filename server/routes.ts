@@ -20612,7 +20612,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           campaignName: campaigns.name,
           campaignChannel: campaigns.channel,
           campaignScript: campaigns.script,
+          campaignSettings: campaigns.settings,
           ccCurrentStepId: campaignContacts.currentScriptStepId,
+          ccDispositionCode: campaignContacts.dispositionCode,
         })
         .from(campaignContacts)
         .leftJoin(customers, eq(campaignContacts.customerId, customers.id))
@@ -20658,7 +20660,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           campaignName: campaigns.name,
           campaignChannel: campaigns.channel,
           campaignScript: campaigns.script,
+          campaignSettings: campaigns.settings,
           ccCurrentStepId: campaignContacts.currentScriptStepId,
+          ccDispositionCode: campaignContacts.dispositionCode,
         })
         .from(campaignContactSessions)
         .innerJoin(campaignContacts, eq(campaignContactSessions.campaignContactId, campaignContacts.id))
@@ -20742,6 +20746,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           status: "pending",
           stepName: stepInfo.stepName,
           stepIndex: stepInfo.stepIndex,
+          dispositionCode: row.ccDispositionCode || null,
+          campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
         });
       }
 
@@ -20787,6 +20793,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           status: "pending",
           stepName: sStepInfo.stepName,
           stepIndex: sStepInfo.stepIndex,
+          dispositionCode: row.ccDispositionCode || null,
+          campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
         });
       }
 

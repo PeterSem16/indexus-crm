@@ -4455,6 +4455,8 @@ interface ScheduledItem {
   status: string;
   stepName?: string | null;
   stepIndex?: number | null;
+  dispositionCode?: string | null;
+  campaignQueueDisplayMode?: string | null;
 }
 
 function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onReschedule: (id: string, campaignId: string, newDate: string) => void; t: any }) {
@@ -4875,7 +4877,19 @@ function ScheduledQueuePanel({
                         </div>
 
                         <div className="flex items-center">
-                          {item.stepName ? (
+                          {item.campaignQueueDisplayMode === "last_status" ? (
+                            item.dispositionCode ? (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium truncate bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                title={item.dispositionCode}
+                                data-testid={`text-scheduled-step-${item.id}`}
+                              >
+                                {item.dispositionCode}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground/50">—</span>
+                            )
+                          ) : item.stepName ? (
                             <span
                               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium truncate"
                               style={{
@@ -7862,20 +7876,20 @@ export default function AgentWorkspacePage() {
                     })()}
 
                     <div>
-                      <p className="text-sm font-medium mb-3">Zaškrtnite všetky platné podstatusy:</p>
+                      <p className="text-sm font-medium mb-3">{t.agentWorkspace.checklistSelectSubstatuses}</p>
                       <div className="space-y-2">
                         {clChildren.map((child: any) => {
                           const isChecked = checklistSelectedCodes.includes(child.code);
                           const ChildIcon = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
                           const actionLabels: Record<string, { label: string; cls: string }> = {
-                            callback:       { label: "Naplánovať hovor",  cls: "bg-blue-100 text-blue-700" },
-                            schedule_email: { label: "Naplánovať email",  cls: "bg-indigo-100 text-indigo-700" },
-                            schedule_sms:   { label: "Naplánovať SMS",    cls: "bg-violet-100 text-violet-700" },
-                            dnd:            { label: "Nezavolávať (DND)", cls: "bg-red-100 text-red-700" },
-                            complete:       { label: "Uzatvoriť",         cls: "bg-green-100 text-green-700" },
-                            convert:        { label: "Konvertovať",       cls: "bg-emerald-100 text-emerald-700" },
-                            send_email:     { label: "Poslať email",      cls: "bg-sky-100 text-sky-700" },
-                            send_sms:       { label: "Poslať SMS",        cls: "bg-teal-100 text-teal-700" },
+                            callback:       { label: t.agentWorkspace.actionLabelCallback,      cls: "bg-blue-100 text-blue-700" },
+                            schedule_email: { label: t.agentWorkspace.actionLabelScheduleEmail, cls: "bg-indigo-100 text-indigo-700" },
+                            schedule_sms:   { label: t.agentWorkspace.actionLabelScheduleSms,   cls: "bg-violet-100 text-violet-700" },
+                            dnd:            { label: t.agentWorkspace.actionLabelDnd,           cls: "bg-red-100 text-red-700" },
+                            complete:       { label: t.agentWorkspace.actionLabelComplete,      cls: "bg-green-100 text-green-700" },
+                            convert:        { label: t.agentWorkspace.actionLabelConvert,       cls: "bg-emerald-100 text-emerald-700" },
+                            send_email:     { label: t.agentWorkspace.actionLabelSendEmail,     cls: "bg-sky-100 text-sky-700" },
+                            send_sms:       { label: t.agentWorkspace.actionLabelSendSms,       cls: "bg-teal-100 text-teal-700" },
                           };
                           const actionInfo = actionLabels[child.actionType];
                           return (
@@ -7901,7 +7915,7 @@ export default function AgentWorkspacePage() {
                       </div>
                     </div>
 
-                    <p className="text-xs text-muted-foreground italic">Výber je voliteľný — ak nič nezaškrtnete, použije sa automatizácia rodičovského statusu.</p>
+                    <p className="text-xs text-muted-foreground italic">{t.agentWorkspace.checklistOptionalHint}</p>
 
                     {/* Full scheduling form – shown when parent or any child requires callback */}
                     {(() => {
@@ -7977,7 +7991,7 @@ export default function AgentWorkspacePage() {
                   <div className="space-y-4">
                     <Button variant="ghost" size="sm" className="gap-1 text-xs -ml-2" onClick={() => { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackNote(""); }} data-testid="btn-modal-disposition-back">
                       <ChevronLeft className="h-3.5 w-3.5" />
-                      Späť na zoznam
+                      {t.agentWorkspace.checklistBackToList}
                     </Button>
 
                     {parent && (() => {
@@ -8087,7 +8101,7 @@ export default function AgentWorkspacePage() {
                     {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms" || parent?.requiresCallback) && (
                       <Button className="w-full" disabled={!modalCallbackDate || (parent?.requiresNote && !callNotes.trim())} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo, modalCallbackNote || undefined); }} data-testid="btn-modal-disposition-confirm-callback">
                         <CalendarPlus className="h-4 w-4 mr-1" />
-                        {parent?.actionType === "schedule_email" ? "Naplánovať email" : parent?.actionType === "schedule_sms" ? "Naplánovať SMS" : "Potvrdiť preplánovanie"}
+                        {parent?.actionType === "schedule_email" ? t.agentWorkspace.actionLabelScheduleEmail : parent?.actionType === "schedule_sms" ? t.agentWorkspace.actionLabelScheduleSms : t.agentWorkspace.actionLabelCallback}
                       </Button>
                     )}
                     {!(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms" || parent?.requiresCallback) && children.length === 0 && (
