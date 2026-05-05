@@ -7842,7 +7842,7 @@ export default function AgentWorkspacePage() {
               ) : checklistParentId ? (() => {
                 /* ---- Step 2: Dvojkrokový výber (Checklist) ---- */
                 const clParent = campaignDispositions.find((d: any) => d.id === checklistParentId);
-                const clChildren = campaignDispositions.filter((d: any) => d.parentId === checklistParentId && d.isActive && dispChannelAllowed(d, dispositionChannelFilter));
+                const clChildren = campaignDispositions.filter((d: any) => d.parentId === checklistParentId && d.isActive);
                 const clColorClass = DISPOSITION_COLOR_MAP[clParent?.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
                 return (
                   <div className="space-y-4">
@@ -8044,6 +8044,8 @@ export default function AgentWorkspacePage() {
                 /* ---- Hlavný zoznam: rovnaký vizuál ako Nexus Pulse náhľad v kampani ---- */
                 const channelFiltered = campaignDispositions.filter((d: any) => {
                   if (!d.isActive) return false;
+                  // Always include children (parentId set) so childCount badge works correctly
+                  if (d.parentId) return true;
                   return dispChannelAllowed(d, dispositionChannelFilter);
                 });
 
@@ -8070,8 +8072,8 @@ export default function AgentWorkspacePage() {
                       selectedIds={selectedSet}
                       emptyMessage="Žiadne výsledky pre túto kampaň."
                       onSelectStatus={(disp: any) => {
-                        const children = campaignDispositions.filter((d: any) => d.parentId === disp.id && d.isActive && dispChannelAllowed(d, dispositionChannelFilter));
-                        const hasChildren = children.length > 0;
+                        // Detect children WITHOUT channel filter so we never miss them
+                        const hasChildren = campaignDispositions.some((d: any) => d.parentId === disp.id && d.isActive);
                         const isCallback = disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms" || disp.requiresCallback;
                         const needsConfig = hasChildren || isCallback || disp.requiresNote;
 
@@ -8083,7 +8085,7 @@ export default function AgentWorkspacePage() {
                           return;
                         }
 
-                        if ((disp.childrenType === "checklist" || !disp.childrenType) && hasChildren) {
+                        if (hasChildren) {
                           setChecklistParentId(disp.id);
                           setChecklistSelectedCodes([]);
                           // Pre-fill callback date from disposition offset (or default 1 business day)
