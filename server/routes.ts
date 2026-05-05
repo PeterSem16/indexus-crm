@@ -10930,36 +10930,56 @@ Return ONLY valid JSON, no markdown code blocks.`,
         dispCampaignCodeToInfo.set(`${d.campaignId}::${d.code}`, { name: d.name, color: d.color, icon: d.icon });
       }
 
-      // Attach current disposition info to call history items via campaignContactId
-      const callCcIds = callLogsList.map(c => c.campaignContactId).filter(Boolean) as string[];
-      if (callCcIds.length > 0) {
-        const callCCs = await db.select({
-          id: campaignContacts.id,
-          campaignId: campaignContacts.campaignId,
-          dispositionCode: campaignContacts.dispositionCode,
-          dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
-        }).from(campaignContacts).where(inArray(campaignContacts.id, callCcIds));
+      // Attach current disposition info to call history items
+      // Look up by entity ID across ALL entity type columns (customer/hospital/clinic/collaborator)
+      const entityCampaignContacts = await db.select({
+        id: campaignContacts.id,
+        campaignId: campaignContacts.campaignId,
+        dispositionCode: campaignContacts.dispositionCode,
+        dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+      }).from(campaignContacts).where(
+        or(
+          eq(campaignContacts.customerId, customerId),
+          eq(campaignContacts.hospitalId, customerId),
+          eq(campaignContacts.clinicId, customerId),
+          eq(campaignContacts.collaboratorId, customerId),
+        )
+      );
 
-        const ccDispMap = new Map<string, { campaignId: string; dispositionCode: string | null; checklistCodes: string[] | null }>();
-        for (const cc of callCCs) {
-          ccDispMap.set(cc.id, { campaignId: cc.campaignId, dispositionCode: cc.dispositionCode, checklistCodes: cc.dispositionChecklistCodes });
+      // Map by cc.id for direct campaignContactId matching
+      const ccDispMapById = new Map<string, { campaignId: string; dispositionCode: string | null; checklistCodes: string[] | null }>();
+      // Map by campaignId for fallback matching when campaignContactId is not on the call log
+      const ccDispByCampaignId = new Map<string, { dispositionCode: string | null; checklistCodes: string[] | null }>();
+      for (const cc of entityCampaignContacts) {
+        ccDispMapById.set(cc.id, { campaignId: cc.campaignId, dispositionCode: cc.dispositionCode, checklistCodes: cc.dispositionChecklistCodes });
+        // Prefer the entry that has a disposition set
+        const existing = ccDispByCampaignId.get(cc.campaignId);
+        if (!existing || (cc.dispositionCode && !existing.dispositionCode)) {
+          ccDispByCampaignId.set(cc.campaignId, { dispositionCode: cc.dispositionCode, checklistCodes: cc.dispositionChecklistCodes });
         }
+      }
 
-        for (const item of historyItems) {
-          if (item.type === "call" && item.campaignContactId) {
-            const ccDisp = ccDispMap.get(item.campaignContactId);
-            if (ccDisp?.dispositionCode) {
-              const key = `${ccDisp.campaignId}::${ccDisp.dispositionCode}`;
-              const dInfo = dispCampaignCodeToInfo.get(key) || dispCodeToName.get(ccDisp.dispositionCode);
-              item.dispositionCode = ccDisp.dispositionCode;
-              item.dispositionName = dInfo?.name || null;
-              item.dispositionColor = dInfo?.color || null;
-              item.dispositionChecklistCodes = ccDisp.checklistCodes || [];
-              item.dispositionChecklistNames = (ccDisp.checklistCodes || []).map((code: string) => {
-                const ck = dispCampaignCodeToInfo.get(`${ccDisp.campaignId}::${code}`) || dispCodeToName.get(code);
-                return ck?.name || code;
-              });
-            }
+      for (const item of historyItems) {
+        if (item.type === "call") {
+          let disp: { dispositionCode: string | null; checklistCodes: string[] | null; campaignId: string } | null = null;
+          if (item.campaignContactId && ccDispMapById.has(item.campaignContactId)) {
+            const d = ccDispMapById.get(item.campaignContactId)!;
+            disp = { ...d, campaignId: d.campaignId };
+          } else if (item.campaignId && ccDispByCampaignId.has(item.campaignId)) {
+            const d = ccDispByCampaignId.get(item.campaignId)!;
+            disp = { ...d, campaignId: item.campaignId };
+          }
+          if (disp?.dispositionCode) {
+            const key = `${disp.campaignId}::${disp.dispositionCode}`;
+            const dInfo = dispCampaignCodeToInfo.get(key) || dispCodeToName.get(disp.dispositionCode);
+            item.dispositionCode = disp.dispositionCode;
+            item.dispositionName = dInfo?.name || null;
+            item.dispositionColor = dInfo?.color || null;
+            item.dispositionChecklistCodes = disp.checklistCodes || [];
+            item.dispositionChecklistNames = (disp.checklistCodes || []).map((code: string) => {
+              const ck = dispCampaignCodeToInfo.get(`${disp!.campaignId}::${code}`) || dispCodeToName.get(code);
+              return ck?.name || code;
+            });
           }
         }
       }

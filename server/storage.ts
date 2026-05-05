@@ -4185,7 +4185,12 @@ export class DatabaseStorage implements IStorage {
   async getCampaignContactHistoryByCustomer(customerId: string): Promise<(CampaignContactHistory & { campaignName?: string; campaignId?: string })[]> {
     const customerCampaignContacts = await db.select({ id: campaignContacts.id, campaignId: campaignContacts.campaignId })
       .from(campaignContacts)
-      .where(eq(campaignContacts.customerId, customerId));
+      .where(or(
+        eq(campaignContacts.customerId, customerId),
+        eq(campaignContacts.hospitalId, customerId),
+        eq(campaignContacts.clinicId, customerId),
+        eq(campaignContacts.collaboratorId, customerId),
+      ));
     
     if (customerCampaignContacts.length === 0) return [];
     
