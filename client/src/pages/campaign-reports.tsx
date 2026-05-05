@@ -1162,7 +1162,7 @@ export default function CampaignReportsPage() {
                             ) : '—'}
                           </td>
                           <td className="p-2">
-                            {dispositionFirstRowIds.has(call.id) && call.dispositionName ? (
+                            {call.dispositionName ? (
                               <span
                                 className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-normal leading-tight"
                                 style={call.dispositionColor ? { backgroundColor: `${call.dispositionColor}22`, color: call.dispositionColor, border: `1px solid ${call.dispositionColor}44` } : { backgroundColor: 'rgb(241 245 249)', color: 'rgb(71 85 105)' }}
@@ -1175,7 +1175,7 @@ export default function CampaignReportsPage() {
                             )}
                           </td>
                           <td className="p-2">
-                            {dispositionFirstRowIds.has(call.id) && call.dispositionChecklistNames && call.dispositionChecklistNames.length > 0 ? (
+                            {call.dispositionChecklistNames && call.dispositionChecklistNames.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {call.dispositionChecklistNames.map((item, idx) => (
                                   <span
