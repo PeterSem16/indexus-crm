@@ -1,0 +1,44 @@
+BEGIN
+SELECT 40
+SELECT 275
+--- Pocty maping (musi suhlasit s predchadzajucim behom) ---
+ rc_losers | clinic_losers | kolizie_musi_byt_0 
+-----------+---------------+--------------------
+        40 |           275 |                  0
+(1 row)
+
+UPDATE 193
+UPDATE 316
+UPDATE 94
+UPDATE 1073
+UPDATE 40
+UPDATE 230
+UPDATE 40
+UPDATE 275
+
+════════════ ZÁVEREČNÉ OVERENIE ════════════
+--- [Z1] Stav po migrácii ---
+ aktivnych | neaktivnych | celkom_zmliev | zlucene_rc | zlucene_klinika 
+-----------+-------------+---------------+------------+-----------------
+     11781 |        3106 |         49617 |         40 |             275
+(1 row)
+
+--- [Z2] Zmluvy na loseroch — MUSI BYT 0! ---
+ zmluvy_na_loseroch_error 
+--------------------------
+                        0
+(1 row)
+
+--- [Z3] Zostatok aktívnych RC duplikátov (malo by byť 0) ---
+ first_name | last_name | birth_number | pocet 
+------------+-----------+--------------+-------
+(0 rows)
+
+--- [Z4] Zostatok aktívnych klinika duplikátov (malo by byť 0) ---
+ first_name | last_name | clinic_id | pocet 
+------------+-----------+-----------+-------
+(0 rows)
+
+
+════════════ COMMIT — zmeny sa ZAPÍŠU do DB ════════════
+COMMIT
