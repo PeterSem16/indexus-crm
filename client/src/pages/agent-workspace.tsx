@@ -652,6 +652,11 @@ function TaskListPanel({
     return campaigns.filter((c) => c.channel === channelFilter);
   }, [campaigns, channelFilter]);
 
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["due", "my-cb", "team-cb", "pending"]));
+  const toggleGroup = (id: string) => setExpandedGroups(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+
   return (
     <div className="w-72 border-r bg-card flex flex-col h-full shrink-0">
       <div className="p-3 border-b space-y-2">
@@ -838,40 +843,61 @@ function TaskListPanel({
             </div>
           </div>
           <ScrollArea className="flex-1">
-            <div className="px-2 pb-2 space-y-1">
+            <div className="px-2 pb-3 pt-1 space-y-2">
               {(() => {
                 const now = new Date();
                 const isDue = (cc: EnrichedCampaignContact) => cc.callbackDate && new Date(cc.callbackDate) <= now;
                 const isMine = (cc: EnrichedCampaignContact) => cc.assignedTo === currentUserId;
                 const isTeam = (cc: EnrichedCampaignContact) => !cc.assignedTo;
-                const isCallback = (cc: EnrichedCampaignContact) => cc.status === "callback_scheduled";
-
+                const isCb = (cc: EnrichedCampaignContact) => cc.status === "callback_scheduled";
                 const sortByDate = (a: EnrichedCampaignContact, b: EnrichedCampaignContact) => {
                   const aDate = a.callbackDate ? new Date(a.callbackDate).getTime() : Infinity;
                   const bDate = b.callbackDate ? new Date(b.callbackDate).getTime() : Infinity;
                   return aDate - bDate;
                 };
 
-                const myDueCallbacks = campaignContacts.filter(cc => isCallback(cc) && isMine(cc) && isDue(cc)).sort(sortByDate);
-                const teamDueCallbacks = campaignContacts.filter(cc => isCallback(cc) && isTeam(cc) && isDue(cc)).sort(sortByDate);
-                const myUpcomingCallbacks = campaignContacts.filter(cc => isCallback(cc) && isMine(cc) && !isDue(cc)).sort(sortByDate);
-                const teamUpcomingCallbacks = campaignContacts.filter(cc => isCallback(cc) && isTeam(cc) && !isDue(cc)).sort(sortByDate);
-                const pendingContacts = campaignContacts.filter(cc => cc.status === "pending");
-                const otherCallbacks = campaignContacts.filter(cc => isCallback(cc) && cc.assignedTo && cc.assignedTo !== currentUserId).sort(sortByDate);
+                const contactGroups = [
+                  {
+                    id: "due",
+                    label: "Splatné hovory",
+                    items: [
+                      ...campaignContacts.filter(cc => isCb(cc) && isMine(cc) && isDue(cc)).sort(sortByDate),
+                      ...campaignContacts.filter(cc => isCb(cc) && isTeam(cc) && isDue(cc)).sort(sortByDate),
+                    ],
+                    ac: "#B5622E",
+                    Icon: PhoneCall,
+                  },
+                  {
+                    id: "my-cb",
+                    label: t.agentWorkspace.myCB || "Moje naplánované",
+                    items: campaignContacts.filter(cc => isCb(cc) && isMine(cc) && !isDue(cc)).sort(sortByDate),
+                    ac: "#5B4FCF",
+                    Icon: Clock,
+                  },
+                  {
+                    id: "team-cb",
+                    label: t.agentWorkspace.teamCB || "Tímové naplánované",
+                    items: campaignContacts.filter(cc => isCb(cc) && isTeam(cc) && !isDue(cc)).sort(sortByDate),
+                    ac: "#2E75B6",
+                    Icon: Users,
+                  },
+                  {
+                    id: "other-cb",
+                    label: "Priradené iným",
+                    items: campaignContacts.filter(cc => isCb(cc) && cc.assignedTo && cc.assignedTo !== currentUserId).sort(sortByDate),
+                    ac: "#7A6858",
+                    Icon: User,
+                  },
+                  {
+                    id: "pending",
+                    label: "Nové kontakty",
+                    items: campaignContacts.filter(cc => cc.status === "pending"),
+                    ac: "#5A7A5A",
+                    Icon: Users,
+                  },
+                ].filter(g => g.items.length > 0);
 
-                const sortedContacts = [
-                  ...myDueCallbacks,
-                  ...teamDueCallbacks,
-                  ...myUpcomingCallbacks,
-                  ...teamUpcomingCallbacks,
-                  ...pendingContacts,
-                  ...otherCallbacks,
-                ];
-
-                const myCallbackCount = myDueCallbacks.length;
-                const teamCallbackCount = teamDueCallbacks.length;
-
-                if (sortedContacts.length === 0) {
+                if (contactGroups.length === 0) {
                   return (
                     <div className="text-center py-6">
                       <Users className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
@@ -880,142 +906,145 @@ function TaskListPanel({
                   );
                 }
 
-                return (
-                  <>
-                    {(myCallbackCount > 0 || teamCallbackCount > 0) && (
-                      <div className="flex flex-wrap items-center gap-1.5 px-1 pb-1.5">
-                        {myCallbackCount > 0 && (
-                          <Badge variant="default" className="text-[9px] gap-1 bg-indigo-400 text-white">
-                            <User className="h-2.5 w-2.5" />
-                            {myCallbackCount} {t.agentWorkspace.myCB}
-                          </Badge>
-                        )}
-                        {teamCallbackCount > 0 && (
-                          <Badge variant="default" className="text-[9px] gap-1 bg-blue-500 text-white">
-                            <Users className="h-2.5 w-2.5" />
-                            {teamCallbackCount} {t.agentWorkspace.teamCB}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    {sortedContacts.map((cc) => {
-                      const cust = cc.customer;
-                      const entityDisplay = getEntityDisplayInfo(cc);
-                      if (!entityDisplay) return null;
-                      const isCallback = cc.status === "callback_scheduled";
-                      const isDueCallback = isCallback && cc.callbackDate && new Date(cc.callbackDate) <= now;
-                      const isMyCallback = isCallback && cc.assignedTo === currentUserId;
-                      const isTeamCallback = isCallback && !cc.assignedTo;
-                      const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM. HH:mm") : null;
-                      const isDisabled = agentStatus === "wrap_up" || agentStatus === "break";
+                const typeIconMap: Record<string, typeof User> = {
+                  hospital: Building2,
+                  clinic: Stethoscope,
+                  collaborator: Handshake,
+                  customer: User,
+                };
 
-                      const contactTypeConfig: Record<string, { icon: typeof User; bg: string; text: string; border: string }> = {
-                        hospital: { icon: Building2, bg: "bg-rose-100 dark:bg-rose-900/40", text: "text-rose-600 dark:text-rose-400", border: "border-rose-200 dark:border-rose-800" },
-                        clinic: { icon: Stethoscope, bg: "bg-emerald-100 dark:bg-emerald-900/40", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800" },
-                        collaborator: { icon: Handshake, bg: "bg-amber-100 dark:bg-amber-900/40", text: "text-amber-600 dark:text-amber-400", border: "border-amber-200 dark:border-amber-800" },
-                        customer: { icon: User, bg: "bg-sky-100 dark:bg-sky-900/40", text: "text-sky-600 dark:text-sky-400", border: "border-sky-200 dark:border-sky-800" },
-                      };
-                      const ctConfig = contactTypeConfig[entityDisplay.type] || contactTypeConfig.customer;
-                      const TypeIcon = ctConfig.icon;
-
-                      if (isDueCallback) {
-                        return (
-                          <div
-                            key={cc.id}
-                            className={`relative rounded-lg overflow-hidden ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${isMyCallback ? "bg-gradient-to-r from-indigo-400 to-indigo-500 dark:from-indigo-500 dark:to-indigo-600" : "bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700"} text-white shadow-md ${!isDisabled ? "hover:shadow-lg hover:scale-[1.02] transition-all" : ""}`}
-                            onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
-                            data-testid={`contact-item-${cc.id}`}
-                          >
-                            <div className="flex items-center gap-2.5 p-2.5">
-                              <div className="relative shrink-0">
-                                <div className={`h-9 w-9 rounded-full flex items-center justify-center ${isMyCallback ? "bg-white/20" : "bg-blue-400/30"} ring-2 ring-white/30`}>
-                                  <PhoneCall className="h-4 w-4 text-white" />
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold truncate">{entityDisplay.name}</p>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <Calendar className="h-3 w-3 opacity-70" />
-                                  <span className="text-[10px] font-medium opacity-90">{callbackDateStr}</span>
-                                  <span className="text-[10px] opacity-60">•</span>
-                                  <span className="text-[10px] opacity-70">{isMyCallback ? t.agentWorkspace.myCB : t.agentWorkspace.teamCB}</span>
-                                </div>
-                                {cc.callbackNote && (
-                                  <p className="text-[10px] opacity-80 mt-0.5 truncate italic" title={cc.callbackNote}>📝 {cc.callbackNote}</p>
-                                )}
-                              </div>
-                              <div className="shrink-0 flex items-center gap-1">
-                                {cc.attemptCount > 0 && (
-                                  <span className="text-[9px] bg-white/20 rounded-full px-1.5 py-0.5">{cc.attemptCount}x</span>
-                                )}
-                                <div className={`h-7 w-7 rounded-full flex items-center justify-center ${isMyCallback ? "bg-white/20" : "bg-blue-400/40"}`}>
-                                  <Phone className="h-3.5 w-3.5" />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      if (isCallback && !isDueCallback) {
-                        return (
-                          <div
-                            key={cc.id}
-                            className={`rounded-lg border-l-[3px] ${isMyCallback ? "border-l-indigo-300 bg-indigo-50/60 dark:bg-indigo-950/20" : "border-l-blue-400 bg-blue-50/60 dark:bg-blue-950/20"} ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors"}`}
-                            onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
-                            data-testid={`contact-item-${cc.id}`}
-                          >
-                            <div className="flex items-center gap-2.5 p-2.5">
-                              <div className="relative shrink-0">
-                                <div className={`h-8 w-8 rounded-full flex items-center justify-center ${ctConfig.bg}`}>
-                                  <TypeIcon className={`h-3.5 w-3.5 ${ctConfig.text}`} />
-                                </div>
-                                <div className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center ${isMyCallback ? "bg-indigo-400" : "bg-blue-400"}`}>
-                                  <Clock className="h-2 w-2 text-white" />
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{entityDisplay.name}</p>
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <Calendar className="h-2.5 w-2.5 text-muted-foreground" />
-                                  <span className={`text-[10px] font-medium ${isMyCallback ? "text-indigo-600 dark:text-indigo-400" : "text-blue-600 dark:text-blue-400"}`}>{callbackDateStr}</span>
-                                </div>
-                                {cc.callbackNote && (
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate italic" title={cc.callbackNote}>📝 {cc.callbackNote}</p>
-                                )}
-                              </div>
-                              <div className="shrink-0">
-                                {cc.attemptCount > 0 && (
-                                  <span className="text-[9px] text-muted-foreground">{cc.attemptCount}x</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      return (
+                return contactGroups.map(({ id, label, items, ac, Icon }) => {
+                  const isOpen = expandedGroups.has(id);
+                  const isDisabled = agentStatus === "wrap_up" || agentStatus === "break";
+                  return (
+                    <div
+                      key={id}
+                      className="rounded-2xl overflow-hidden"
+                      style={{
+                        background: "#F8F4EE",
+                        border: `1.5px solid ${ac}40`,
+                        boxShadow: `0 2px 10px ${ac}15`,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(id)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors duration-150"
+                        style={{
+                          background: isOpen ? `${ac}14` : `${ac}08`,
+                          borderBottom: isOpen ? `1px solid ${ac}30` : "none",
+                        }}
+                      >
                         <div
-                          key={cc.id}
-                          className={`flex items-center gap-2.5 p-2 rounded-lg ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50 transition-colors"}`}
-                          onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
-                          data-testid={`contact-item-${cc.id}`}
+                          className="h-9 w-9 rounded-2xl flex items-center justify-center shrink-0"
+                          style={{ background: ac, boxShadow: `0 2px 6px ${ac}40` }}
                         >
-                          <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${ctConfig.bg}`}>
-                            <TypeIcon className={`h-3.5 w-3.5 ${ctConfig.text}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{entityDisplay.name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">{entityDisplay.subtitle}</p>
-                          </div>
-                          {cc.attemptCount > 0 && (
-                            <span className="text-[9px] text-muted-foreground shrink-0">{cc.attemptCount}x</span>
-                          )}
+                          <Icon className="h-4 w-4 text-white" />
                         </div>
-                      );
-                    })}
-                  </>
-                );
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-xs" style={{ color: "#3D2E20" }}>{label}</div>
+                          <div className="text-[10px] mt-0.5" style={{ color: "#9A8878" }}>{items.length} kontaktov</div>
+                        </div>
+                        <span
+                          className="text-xs font-bold min-w-[26px] h-6 flex items-center justify-center rounded-full px-1.5 shrink-0"
+                          style={{ background: ac, color: "#fff" }}
+                        >
+                          {items.length}
+                        </span>
+                        {isOpen
+                          ? <ChevronUp className="h-3.5 w-3.5 shrink-0" style={{ color: ac }} />
+                          : <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: ac }} />
+                        }
+                      </button>
+
+                      {isOpen && (
+                        <div className="p-2 space-y-1.5" style={{ background: "#F8F4EE" }}>
+                          {items.map(cc => {
+                            const entityDisplay = getEntityDisplayInfo(cc);
+                            if (!entityDisplay) return null;
+                            const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM. HH:mm") : null;
+                            const TypeIcon = typeIconMap[entityDisplay.type] || User;
+                            return (
+                              <div
+                                key={cc.id}
+                                className={`rounded-xl px-2.5 py-2 transition-all duration-200 ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                                style={{
+                                  background: "#FFFFFF",
+                                  border: `1px solid ${ac}25`,
+                                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                                }}
+                                onMouseEnter={isDisabled ? undefined : (e) => {
+                                  const el = e.currentTarget as HTMLElement;
+                                  el.style.borderColor = `${ac}60`;
+                                  el.style.boxShadow = `0 4px 10px ${ac}18`;
+                                  el.style.transform = "translateY(-1px)";
+                                }}
+                                onMouseLeave={isDisabled ? undefined : (e) => {
+                                  const el = e.currentTarget as HTMLElement;
+                                  el.style.borderColor = `${ac}25`;
+                                  el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
+                                  el.style.transform = "translateY(0)";
+                                }}
+                                onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
+                                data-testid={`contact-item-${cc.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
+                                    style={{ background: `${ac}15`, border: `1.5px solid ${ac}30` }}
+                                  >
+                                    <TypeIcon className="h-3.5 w-3.5" style={{ color: ac }} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold truncate" style={{ color: "#2E2118" }}>
+                                      {entityDisplay.name}
+                                    </p>
+                                    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                      {callbackDateStr ? (
+                                        <>
+                                          <Calendar className="h-2.5 w-2.5 shrink-0" style={{ color: "#9A8878" }} />
+                                          <span className="text-[10px]" style={{ color: "#9A8878" }}>{callbackDateStr}</span>
+                                        </>
+                                      ) : (
+                                        <span className="text-[10px]" style={{ color: "#9A8878" }}>{entityDisplay.subtitle}</span>
+                                      )}
+                                    </div>
+                                    {cc.callbackNote && (
+                                      <p className="text-[9px] mt-0.5 truncate italic" style={{ color: "#9A8878" }} title={cc.callbackNote}>
+                                        📝 {cc.callbackNote}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {cc.attemptCount > 0 && (
+                                      <span
+                                        className="text-[10px] font-bold w-6 h-6 flex items-center justify-center rounded-full"
+                                        style={{ background: `${ac}18`, color: ac }}
+                                      >
+                                        {cc.attemptCount}x
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="h-7 w-7 rounded-xl flex items-center justify-center transition-all duration-150"
+                                      style={{ background: ac, color: "#fff", boxShadow: `0 2px 5px ${ac}40` }}
+                                      onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.12)")}
+                                      onMouseLeave={e => (e.currentTarget.style.filter = "none")}
+                                      onClick={e => { e.stopPropagation(); if (!isDisabled) onSelectCampaignContact(cc); }}
+                                      data-testid={`btn-call-${cc.id}`}
+                                    >
+                                      <Phone className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
               })()}
             </div>
           </ScrollArea>
