@@ -5083,6 +5083,7 @@ export default function AgentWorkspacePage() {
   const [checklistSelectedCodes, setChecklistSelectedCodes] = useState<string[]>([]);
   const [checklistCallbackDate, setChecklistCallbackDate] = useState("");
   const [checklistCallbackTime, setChecklistCallbackTime] = useState("09:00");
+  const [checklistCallbackAssign, setChecklistCallbackAssign] = useState<"me" | "all">("me");
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [pendingEmailTemplateId, setPendingEmailTemplateId] = useState<string | null>(null);
   const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
@@ -7789,7 +7790,7 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); setChecklistParentId(null); setChecklistSelectedCodes([]); } }}>
+      <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); setChecklistParentId(null); setChecklistSelectedCodes([]); setChecklistCallbackAssign("me"); } }}>
         <SheetContent
           side="right"
           className={`w-full sm:max-w-[720px] p-0 flex flex-col gap-0 ${mandatoryDisposition ? "[&>button]:hidden" : ""}`}
@@ -7823,17 +7824,6 @@ export default function AgentWorkspacePage() {
                   <p className="text-xs text-destructive">{t.statusEngine.disp.mandatoryPrompt}</p>
                 )}
               </div>
-              {!modalSelectedParent && !checklistParentId && campaignDispositions.length > 0 && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <Label htmlFor="multi-toggle" className="text-xs cursor-pointer text-muted-foreground">Multi-výber</Label>
-                  <Checkbox
-                    id="multi-toggle"
-                    checked={multiSelectMode}
-                    onCheckedChange={(v) => { setMultiSelectMode(!!v); setMultiSelectedCodes([]); }}
-                    data-testid="checkbox-multi-select-mode"
-                  />
-                </div>
-              )}
             </div>
           </SheetHeader>
 
@@ -7913,6 +7903,69 @@ export default function AgentWorkspacePage() {
 
                     <p className="text-xs text-muted-foreground italic">Výber je voliteľný — ak nič nezaškrtnete, použije sa automatizácia rodičovského statusu.</p>
                   </div>
+
+                  {/* Full scheduling form – shown when parent or any child requires callback */}
+                  {(() => {
+                    const anyCallback = clParent?.actionType === "callback" || clParent?.actionType === "schedule_email" || clParent?.actionType === "schedule_sms"
+                      || clChildren.some((c: any) => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms");
+                    const clAssignTo = checklistCallbackAssign === "me" && user?.id ? user.id : null;
+                    if (!anyCallback) return null;
+                    return (
+                      <div className="space-y-3 rounded-md border p-3 bg-card mt-2">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.statusEngine.disp.scheduleCallback}</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground">{t.statusEngine.disp.dateLabel}</label>
+                            <Input type="date" value={checklistCallbackDate} onChange={(e) => setChecklistCallbackDate(e.target.value)} min={new Date().toISOString().split("T")[0]} data-testid="input-checklist-callback-date-full" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">{t.statusEngine.disp.timeLabel}</label>
+                            <Input type="time" value={checklistCallbackTime} onChange={(e) => setChecklistCallbackTime(e.target.value)} data-testid="input-checklist-callback-time-full" />
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { label: t.statusEngine.disp.tomorrow, days: 1 },
+                            { label: "2d", days: 2 },
+                            { label: "3d", days: 3 },
+                            { label: "5d", days: 5 },
+                            { label: "1t", days: 7 },
+                            { label: "2t", days: 14 },
+                            { label: "1m", days: 30 },
+                            { label: "2m", days: 60 },
+                            { label: "3m", days: 90 },
+                            { label: "6m", days: 180 },
+                            { label: "9m", days: 270 },
+                            { label: "1r", days: 365 },
+                          ].map((preset) => (
+                            <Button key={preset.days} type="button" size="sm" variant="outline" className="text-[11px] h-6 px-2"
+                              onClick={() => {
+                                const d = preset.days <= 5
+                                  ? addBusinessDays(new Date(), preset.days)
+                                  : (() => { const dt = new Date(); dt.setDate(dt.getDate() + preset.days); return dt; })();
+                                setChecklistCallbackDate(d.toISOString().split("T")[0]);
+                              }}
+                              data-testid={`btn-checklist-cb-preset-${preset.days}`}
+                            >
+                              {preset.label}
+                            </Button>
+                          ))}
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">{t.statusEngine.disp.assignToLabel}</label>
+                          <div className="flex gap-2 mt-1">
+                            <Button size="sm" variant={checklistCallbackAssign === "me" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setChecklistCallbackAssign("me")} disabled={!user?.id} data-testid="btn-checklist-cb-assign-me">
+                              <User className="h-3 w-3" /> {t.statusEngine.disp.assignToMe}
+                            </Button>
+                            <Button size="sm" variant={checklistCallbackAssign === "all" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setChecklistCallbackAssign("all")} data-testid="btn-checklist-cb-assign-all">
+                              <Users className="h-3 w-3" /> {t.statusEngine.disp.assignToAll}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
                 );
               })() : modalSelectedParent ? (() => {
                 /* ---- Detail parent (children + callback form) ---- */
@@ -8189,39 +8242,9 @@ export default function AgentWorkspacePage() {
               clConfirmParent?.actionType === "schedule_email" ||
               clConfirmParent?.actionType === "schedule_sms" ||
               selectedChildren.some((c: any) => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms");
-            // Always show date/time picker in checklist footer so user can always schedule
-            const showDatePicker = true;
+            const clAssignTo = checklistCallbackAssign === "me" && user?.id ? user.id : null;
             return (
-              <div className="border-t bg-background px-4 py-3 space-y-2">
-                {showDatePicker && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-muted-foreground shrink-0">📅 {t.statusEngine.disp.simReschedule}:</span>
-                    <input type="date"
-                      value={checklistCallbackDate}
-                      min={new Date().toISOString().split("T")[0]}
-                      onChange={e => setChecklistCallbackDate(e.target.value)}
-                      className="h-7 text-xs border rounded px-2 bg-background"
-                      data-testid="input-checklist-callback-date"
-                    />
-                    <input type="time"
-                      value={checklistCallbackTime}
-                      onChange={e => setChecklistCallbackTime(e.target.value)}
-                      className="h-7 text-xs border rounded px-2 bg-background w-24"
-                      data-testid="input-checklist-callback-time"
-                    />
-                    <div className="flex gap-1 flex-wrap">
-                      {[{l:t.statusEngine.disp.tomorrow,d:1,biz:true},{l:"2d",d:2,biz:true},{l:"3d",d:3,biz:true},{l:"5d",d:5,biz:true},{l:"1t",d:7,biz:false},{l:"2t",d:14,biz:false},{l:"1m",d:30,biz:false},{l:"3m",d:90,biz:false}].map(p=>(
-                        <button key={p.d} type="button"
-                          className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-muted transition-colors"
-                          onClick={()=>{
-                            const dt = p.biz ? addBusinessDays(new Date(), p.d) : (() => { const x=new Date(); x.setDate(x.getDate()+p.d); return x; })();
-                            setChecklistCallbackDate(dt.toISOString().split("T")[0]);
-                          }}
-                        >{p.l}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="border-t bg-background px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     {checklistSelectedCodes.length === 0 ? (
@@ -8236,20 +8259,21 @@ export default function AgentWorkspacePage() {
                     )}
                   </div>
                   <Button
-                    disabled={needsCallbackDate && !checklistCallbackDate && false}
+                    disabled={needsCallbackDate && !checklistCallbackDate}
                     onClick={() => {
                       if (clConfirmParent) {
                         handleDisposition(
                           clConfirmParent.code, undefined,
                           needsCallbackDate && checklistCallbackDate && checklistCallbackTime
                             ? `${checklistCallbackDate}T${checklistCallbackTime}` : undefined,
-                          undefined, undefined, undefined, checklistSelectedCodes
+                          clAssignTo ?? undefined, undefined, undefined, checklistSelectedCodes
                         );
                       }
                       setChecklistParentId(null);
                       setChecklistSelectedCodes([]);
                       setChecklistCallbackDate("");
                       setChecklistCallbackTime("09:00");
+                      setChecklistCallbackAssign("me");
                     }}
                     data-testid="btn-checklist-confirm"
                   >

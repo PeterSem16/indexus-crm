@@ -556,6 +556,20 @@ export function NexusPulseView({
     );
   }
 
+  // If there are no real categories (all statuses are uncategorized), render flat expanded list
+  const hasRealCategories = visibleCats.length > 0;
+  const uncatStatuses = statusesByCat["__uncat__"] || [];
+  if (!hasRealCategories) {
+    const gridCols = prefs.displayMode === "compact" ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-3";
+    return (
+      <div className="space-y-2">
+        <div className={`grid ${gridCols} gap-2`}>
+          {uncatStatuses.map((s) => renderStatus(s))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
