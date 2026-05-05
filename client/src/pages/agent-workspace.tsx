@@ -5238,6 +5238,7 @@ export default function AgentWorkspacePage() {
     sipInvitation?: any;
     recordCalls?: boolean;
     ringtoneId?: string;
+    isQueueWaiting?: boolean;
   }>>([]);
   const inboundCallsRef = useRef(inboundCalls);
   inboundCallsRef.current = inboundCalls;
@@ -6883,6 +6884,7 @@ export default function AgentWorkspacePage() {
                 timestamp: Date.now(),
                 recordCalls: data.recordCalls ?? false,
                 ringtoneId: data.ringtoneId ?? undefined,
+                isQueueWaiting: data.isQueueWaiting ?? false,
               }];
             });
           } else if (data.type === "call-cancelled") {
@@ -6893,12 +6895,13 @@ export default function AgentWorkspacePage() {
               return true;
             }));
             queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
-            if (!cancelledCallIdsRef.current.has(data.callId)) {
+            const reason = data.reason || "caller_hangup";
+            const wasQueueWaiting = inboundCallsRef.current.find(c => c.callId === data.callId)?.isQueueWaiting;
+            if (!cancelledCallIdsRef.current.has(data.callId) && reason !== "answered_by_other" && !wasQueueWaiting) {
               cancelledCallIdsRef.current.add(data.callId);
               setTimeout(() => cancelledCallIdsRef.current.delete(data.callId), 10000);
               const callerDisplay = data.callerName || data.callerNumber || "";
               const queueDisplay = data.queueName ? ` (${data.queueName})` : "";
-              const reason = data.reason || "caller_hangup";
               let description = `${callerDisplay}${queueDisplay} ${t.agentWorkspace.callerHangupDesc}`;
               if (reason === "timeout") {
                 description = `${callerDisplay}${queueDisplay} ${t.agentWorkspace.redirectedTimeout}`;
@@ -6911,7 +6914,7 @@ export default function AgentWorkspacePage() {
                 variant: "destructive",
               });
             } else {
-              console.log("[AgentWS] call-cancelled WS: toast already shown for", data.callId);
+              console.log("[AgentWS] call-cancelled WS: suppressing toast, reason:", reason, "wasQueueWaiting:", wasQueueWaiting);
             }
           }
         } catch (err) {
@@ -6957,10 +6960,11 @@ export default function AgentWorkspacePage() {
     return () => clearInterval(staleTimer);
   }, [agentSession.isSessionActive]);
 
-  const oldestInboundRingtoneId = inboundCalls[0]?.ringtoneId;
+  const oldestRingtoneCall = inboundCalls.find(c => !c.isQueueWaiting);
+  const oldestInboundRingtoneId = oldestRingtoneCall?.ringtoneId;
   useEffect(() => {
-    const hasActiveInbound = inboundCalls.length > 0;
-    if (hasActiveInbound && inboundRingtoneEnabled && agentSession.isSessionActive) {
+    const hasRingableInbound = inboundCalls.some(c => !c.isQueueWaiting);
+    if (hasRingableInbound && inboundRingtoneEnabled && agentSession.isSessionActive) {
       stopInboundRingtone();
       startInboundRingtone(oldestInboundRingtoneId);
     } else {

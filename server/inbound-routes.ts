@@ -2717,6 +2717,8 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
     return inboundCallWs;
   };
 
+  const busyAgentNotifications = new Map<string, Set<string>>();
+
   engine.on("call-queued", async (data) => {
     console.log(`[QueueEngine WS] Call queued: ${data.callerNumber} in ${data.queueName} (pos: ${data.position})`);
     const ws = await getWs();
@@ -2728,6 +2730,27 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       queueId: data.queueId,
       position: data.position,
     });
+    const busyAgents = engine.getBusyAgentsForQueue(data.queueId);
+    if (busyAgents.length > 0) {
+      console.log(`[QueueEngine WS] Notifying ${busyAgents.length} busy agent(s) of queued call ${data.callId}`);
+      const notified = new Set<string>();
+      for (const agentId of busyAgents) {
+        ws.notifyInboundCall(agentId, {
+          callId: data.callId,
+          callerNumber: data.callerNumber,
+          callerName: data.callerName,
+          queueName: data.queueName,
+          queueId: data.queueId,
+          waitTime: 0,
+          channelId: data.channelId || "",
+          recordCalls: false,
+          ringtoneId: null,
+          isQueueWaiting: true,
+        });
+        notified.add(agentId);
+      }
+      busyAgentNotifications.set(data.callId, notified);
+    }
   });
 
   engine.on("call-assigned", async (data) => {
@@ -2745,6 +2768,21 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       recordCalls: data.recordCalls ?? false,
       ringtoneId: data.ringtoneId ?? "classic",
     });
+    const notified = busyAgentNotifications.get(data.callId);
+    if (notified && notified.size > 0) {
+      for (const agentId of notified) {
+        if (agentId !== data.agentId) {
+          ws.notifyCallCancelled(agentId, data.callId, {
+            callerNumber: data.callerNumber,
+            callerName: data.callerName,
+            queueName: data.queueName,
+            queueId: data.queueId,
+            reason: "answered_by_other",
+          });
+        }
+      }
+      busyAgentNotifications.delete(data.callId);
+    }
     emitEvent({
       source: "inbound-call",
       module: "call",
@@ -2858,6 +2896,15 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
           }
         }
       } catch {}
+    }
+    const notifiedBusy = busyAgentNotifications.get(data.callId);
+    if (notifiedBusy && notifiedBusy.size > 0) {
+      for (const agentId of notifiedBusy) {
+        if (agentId !== data.assignedAgentId) {
+          ws.notifyCallCancelled(agentId, data.callId, extra);
+        }
+      }
+      busyAgentNotifications.delete(data.callId);
     }
   });
 

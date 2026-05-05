@@ -100,6 +100,16 @@ export class QueueEngine extends EventEmitter {
     this.setupAriHandlers();
   }
 
+  public getBusyAgentsForQueue(queueId: string): string[] {
+    const result: string[] = [];
+    for (const [userId, state] of this.agentStates.entries()) {
+      if (state.queueIds.includes(queueId) && state.status === "busy") {
+        result.push(userId);
+      }
+    }
+    return result;
+  }
+
   private setupAriHandlers(): void {
     this.ariClient.on("stasis-start", (event: AriEvent) => {
       if (event.channel) {

@@ -65,6 +65,7 @@ interface InboundCallData {
   channelId: string;
   timestamp: number;
   hasSipInvitation?: boolean;
+  isQueueWaiting?: boolean;
 }
 
 interface InboundCallPopupProps {
@@ -384,10 +385,11 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
 
   if (!firstCall) return null;
 
-  const canAnswer = !hasActiveCall && firstCall.hasSipInvitation === true;
+  const isQueueWaiting = !!firstCall.isQueueWaiting;
+  const canAnswer = !hasActiveCall && !isQueueWaiting && firstCall.hasSipInvitation === true;
   const displayName = matchedCustomer?.name || firstCall.callerNumber;
-  const pillColor = hasActiveCall ? "#D97706" : "#16A34A";
-  const pillHoverColor = hasActiveCall ? "#B45309" : "#15803D";
+  const pillColor = hasActiveCall ? "#D97706" : isQueueWaiting ? "#7C3AED" : "#16A34A";
+  const pillHoverColor = hasActiveCall ? "#B45309" : isQueueWaiting ? "#6D28D9" : "#15803D";
 
   const handleAccept = () => {
     if (isAccepting) return;
@@ -435,7 +437,10 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
         >
           <div
             className="flex items-center justify-between px-3.5 py-2.5 border-b"
-            style={{ background: hasActiveCall ? "#FFFBEB" : "#F0FDF4", borderColor: hasActiveCall ? "#FDE68A" : "#BBF7D0" }}
+            style={{
+              background: hasActiveCall ? "#FFFBEB" : isQueueWaiting ? "#F5F3FF" : "#F0FDF4",
+              borderColor: hasActiveCall ? "#FDE68A" : isQueueWaiting ? "#DDD6FE" : "#BBF7D0",
+            }}
           >
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -447,8 +452,8 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
                   </span>
                 )}
               </div>
-              <span className="text-xs font-semibold" style={{ color: hasActiveCall ? "#92400E" : "#14532D" }}>
-                Prichádzajúci hovor
+              <span className="text-xs font-semibold" style={{ color: hasActiveCall ? "#92400E" : isQueueWaiting ? "#4C1D95" : "#14532D" }}>
+                {isQueueWaiting ? "Čaká vo fronte" : "Prichádzajúci hovor"}
               </span>
               {count > 1 && (
                 <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{count}</Badge>
@@ -489,6 +494,11 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
               <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs" style={{ background: "#FEF3C7", color: "#92400E" }}>
                 <PhoneCall className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                 <span>Momentálne ste na hovore. Ukončite aktuálny hovor pre prijatie nového.</span>
+              </div>
+            ) : isQueueWaiting ? (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs" style={{ background: "#EDE9FE", color: "#4C1D95" }}>
+                <PhoneIncoming className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>Hovor čaká vo fronte. Zmeňte stav na <strong>Dostupný</strong> pre jeho prijatie.</span>
               </div>
             ) : (
               <div className="flex gap-2">
