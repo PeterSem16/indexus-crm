@@ -5441,11 +5441,17 @@ export default function AgentWorkspacePage() {
     enabled: !!selectedCampaignId,
   });
 
-  // Build effective dispositions: prefer Nexus Pulse assigned statuses if present, fallback to legacy table
+  // Use NexusPulse ONLY when assigned statuses exist AND no legacy parent dispositions
+  // (same logic as campaign-detail AgentPreview previewUseNexus)
+  const legacyActiveParents = useMemo(
+    () => legacyCampaignDispositions.filter((d: any) => !d.parentId && d.isActive !== false),
+    [legacyCampaignDispositions]
+  );
+  const useNexusPulse = (nexusPulseData?.statuses?.length ?? 0) > 0 && legacyActiveParents.length === 0;
+
   const campaignDispositions = useMemo<any[]>(() => {
-    const assigned = nexusPulseData?.statuses || [];
-    if (assigned.length > 0) {
-      return assigned.map((s: any) => ({
+    if (useNexusPulse) {
+      return (nexusPulseData?.statuses || []).map((s: any) => ({
         ...s,
         actionType: s.defaultAction,
         channel: s.allowPhone ? "phone" : s.allowEmail ? "email" : s.allowSms ? "sms" : "phone",
@@ -5453,16 +5459,17 @@ export default function AgentWorkspacePage() {
       }));
     }
     return legacyCampaignDispositions;
-  }, [nexusPulseData, legacyCampaignDispositions]);
+  }, [useNexusPulse, nexusPulseData, legacyCampaignDispositions]);
 
   const dispositionCategories = useMemo<any[]>(() => {
+    if (!useNexusPulse) return [];
     const cats = nexusPulseData?.categories || [];
     if (cats.length === 0) return [];
     const usedCatIds = new Set(campaignDispositions.map((d: any) => d.categoryId).filter(Boolean));
     return cats
       .filter((c: any) => usedCatIds.has(c.id))
       .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  }, [nexusPulseData, campaignDispositions]);
+  }, [useNexusPulse, nexusPulseData, campaignDispositions]);
 
   const dispChannelAllowed = (d: any, ch: "phone" | "email" | "sms" | null): boolean => {
     if (!ch) return true;
