@@ -2784,7 +2784,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
           };
           displayName = localeMap[locale] || resolved.name || cat;
         } else if (isUuid) {
-          displayName = cat.substring(0, 8) + "…";
+          return <span className="text-muted-foreground text-xs">-</span>;
         } else {
           displayName = SLUG_LABELS[cat] || cat.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
         }
