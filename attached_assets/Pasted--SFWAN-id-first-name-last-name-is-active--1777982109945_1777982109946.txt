@@ -1,0 +1,24 @@
+=== SFWAN ===
+                  id                  | first_name | last_name | is_active |              clinic_id               | data_source | birth_number
+--------------------------------------+------------+-----------+-----------+--------------------------------------+-------------+--------------
+ a1263684-7542-4b36-b8fd-5edba7719098 | Sfwan      | Abo Romih | t         | 2b1c65b0-b929-4df3-bd60-7140b9907826 |             |
+ afa2ef1b-f681-41de-a723-9eddbb7c99a2 | Sfwan      | Aboromih  | t         |                                      | iscbc       | 810915/9311
+(2 rows)
+
+=== OTO BALCO ===
+                  id                  | first_name | last_name | is_active |              clinic_id               |               clinic_ids               | data_source
+--------------------------------------+------------+-----------+-----------+--------------------------------------+----------------------------------------+-------------
+ 83ee0a1c-c587-4f55-8627-58ad513e99f9 | Oto        | Balco     | t         | 938bcc42-2b2f-4c8f-85d1-4c9f0e45ddcd | {938bcc42-2b2f-4c8f-85d1-4c9f0e45ddcd} |
+ 2a6680e3-fae3-4267-b9b7-a84291e1968f | Oto        | Balco     | t         | 7cc79841-18b5-41b2-b2b5-d8cd4606f816 | {7cc79841-18b5-41b2-b2b5-d8cd4606f816} |
+(2 rows)
+
+=== BESME KLINIKY ===
+ERROR:  column "clinic_id" does not exist
+LINE 3: ...ELECT COUNT(*) FROM collaborator_agreements WHERE clinic_id ...
+                                                             ^
+=== BASKOVA PERSON ===
+                  id                  | first_name | last_name | is_active |              clinic_id               | data_source | birth_number
+--------------------------------------+------------+-----------+-----------+--------------------------------------+-------------+--------------
+ f22fe4fb-c7f6-43d5-ae29-0312dd9d1c29 | Mária      | Bašková   | t         | 3bdb3c2e-543f-4176-83b8-447bd6d7bc56 | iscbc       | 835801/7184
+ f24ac18d-b0ff-404a-9970-6f41648087ac | Mária      | Bašková   | t         | e229b860-96ea-4d2c-a397-57076d77e1e9 |             |
+(2 rows)
