@@ -2993,6 +2993,7 @@ export interface Translations {
     myCB: string;
     teamCB: string;
     filterAll: string; filterMyCB: string; filterTeamCB: string; filterDue: string; filterPending: string;
+    groupDue: string; groupMyCb: string; groupTeamCb: string; groupOtherCb: string; groupPending: string;
     emailHistory: string;
     smsHistory: string;
     communicationHistory: string;
@@ -9553,6 +9554,7 @@ export const translations: Record<Locale, Translations> = {
       myCB: 'My CB',
       teamCB: 'Team CB',
       filterAll: 'All contacts', filterMyCB: 'My scheduled', filterTeamCB: 'Team scheduled', filterDue: 'Due now', filterPending: 'Pending (new)',
+      groupDue: 'Due Calls', groupMyCb: 'My Scheduled', groupTeamCb: 'Team Scheduled', groupOtherCb: 'Assigned to Others', groupPending: 'New Contacts',
       emailHistory: 'Email history',
       smsHistory: 'SMS history',
       communicationHistory: 'Communication history',
@@ -15598,6 +15600,7 @@ export const translations: Record<Locale, Translations> = {
       myCB: 'Môj CB',
       teamCB: 'Tím CB',
       filterAll: 'Všetky kontakty', filterMyCB: 'Moje preplánované', filterTeamCB: 'Tím preplánované', filterDue: 'Splatné teraz', filterPending: 'Čakajúce (nové)',
+      groupDue: 'Splatné hovory', groupMyCb: 'Moje naplánované', groupTeamCb: 'Tímové naplánované', groupOtherCb: 'Priradené iným', groupPending: 'Nové kontakty',
       emailHistory: 'História emailov',
       smsHistory: 'História SMS',
       communicationHistory: 'História komunikácie',
@@ -21622,6 +21625,7 @@ export const translations: Record<Locale, Translations> = {
       myCB: 'Můj CB',
       teamCB: 'Tým CB',
       filterAll: 'Všechny kontakty', filterMyCB: 'Moje přeplánované', filterTeamCB: 'Tým přeplánované', filterDue: 'Splatné nyní', filterPending: 'Čekající (nové)',
+      groupDue: 'Splatné hovory', groupMyCb: 'Moje naplánované', groupTeamCb: 'Týmové naplánované', groupOtherCb: 'Přiřazené jiným', groupPending: 'Nové kontakty',
       emailHistory: 'Historie e-mailů',
       smsHistory: 'Historie SMS',
       communicationHistory: 'Historie komunikace',
@@ -27604,6 +27608,7 @@ export const translations: Record<Locale, Translations> = {
       myCB: 'Saját CB',
       teamCB: 'Csapat CB',
       filterAll: 'Minden névjegy', filterMyCB: 'Saját átütemezett', filterTeamCB: 'Csapat átütemezett', filterDue: 'Esedékes most', filterPending: 'Függőben (új)',
+      groupDue: 'Esedékes hívások', groupMyCb: 'Saját ütemezett', groupTeamCb: 'Csapat ütemezett', groupOtherCb: 'Másokhoz rendelve', groupPending: 'Új kapcsolatok',
       emailHistory: 'E-mail előzmények',
       smsHistory: 'SMS előzmények',
       communicationHistory: 'Kommunikációs előzmények',
@@ -33481,6 +33486,7 @@ export const translations: Record<Locale, Translations> = {
       myCB: 'CB-ul meu',
       teamCB: 'CB echipă',
       filterAll: 'Toate contactele', filterMyCB: 'Reprogramate ale mele', filterTeamCB: 'Reprogramate echipă', filterDue: 'Scadente acum', filterPending: 'În așteptare (noi)',
+      groupDue: 'Apeluri scadente', groupMyCb: 'Programate ale mele', groupTeamCb: 'Programate echipă', groupOtherCb: 'Atribuite altora', groupPending: 'Contacte noi',
       emailHistory: 'Istoric e-mailuri',
       smsHistory: 'Istoric SMS',
       communicationHistory: 'Istoric comunicare',
@@ -39360,6 +39366,7 @@ export const translations: Record<Locale, Translations> = {
       myCB: 'Mio CB',
       teamCB: 'CB squadra',
       filterAll: 'Tutti i contatti', filterMyCB: 'Miei riprogrammati', filterTeamCB: 'Squadra riprogrammati', filterDue: 'In scadenza ora', filterPending: 'In attesa (nuovi)',
+      groupDue: 'Chiamate in scadenza', groupMyCb: 'I miei programmati', groupTeamCb: 'Squadra programmati', groupOtherCb: 'Assegnati ad altri', groupPending: 'Nuovi contatti',
       emailHistory: 'Cronologia e-mail',
       smsHistory: 'Cronologia SMS',
       communicationHistory: 'Cronologia comunicazioni',
@@ -45239,6 +45246,7 @@ export const translations: Record<Locale, Translations> = {
       myCB: 'Mein CB',
       teamCB: 'Team CB',
       filterAll: 'Alle Kontakte', filterMyCB: 'Meine umgeplanten', filterTeamCB: 'Team umgeplante', filterDue: 'Jetzt fällig', filterPending: 'Ausstehend (neu)',
+      groupDue: 'Fällige Anrufe', groupMyCb: 'Meine geplanten', groupTeamCb: 'Team geplante', groupOtherCb: 'Anderen zugewiesen', groupPending: 'Neue Kontakte',
       emailHistory: 'E-Mail-Verlauf',
       smsHistory: 'SMS-Verlauf',
       communicationHistory: 'Kommunikationsverlauf',

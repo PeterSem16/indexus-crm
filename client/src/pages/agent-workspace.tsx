@@ -652,7 +652,7 @@ function TaskListPanel({
     return campaigns.filter((c) => c.channel === channelFilter);
   }, [campaigns, channelFilter]);
 
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["due", "my-cb", "team-cb", "pending"]));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set([]));
   const toggleGroup = (id: string) => setExpandedGroups(prev => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
@@ -859,7 +859,7 @@ function TaskListPanel({
                 const contactGroups = [
                   {
                     id: "due",
-                    label: "Splatné hovory",
+                    label: t.agentWorkspace.groupDue,
                     items: [
                       ...campaignContacts.filter(cc => isCb(cc) && isMine(cc) && isDue(cc)).sort(sortByDate),
                       ...campaignContacts.filter(cc => isCb(cc) && isTeam(cc) && isDue(cc)).sort(sortByDate),
@@ -869,28 +869,28 @@ function TaskListPanel({
                   },
                   {
                     id: "my-cb",
-                    label: t.agentWorkspace.myCB || "Moje naplánované",
+                    label: t.agentWorkspace.groupMyCb,
                     items: campaignContacts.filter(cc => isCb(cc) && isMine(cc) && !isDue(cc)).sort(sortByDate),
                     ac: "#5B4FCF",
                     Icon: Clock,
                   },
                   {
                     id: "team-cb",
-                    label: t.agentWorkspace.teamCB || "Tímové naplánované",
+                    label: t.agentWorkspace.groupTeamCb,
                     items: campaignContacts.filter(cc => isCb(cc) && isTeam(cc) && !isDue(cc)).sort(sortByDate),
                     ac: "#2E75B6",
                     Icon: Users,
                   },
                   {
                     id: "other-cb",
-                    label: "Priradené iným",
+                    label: t.agentWorkspace.groupOtherCb,
                     items: campaignContacts.filter(cc => isCb(cc) && cc.assignedTo && cc.assignedTo !== currentUserId).sort(sortByDate),
                     ac: "#7A6858",
                     Icon: User,
                   },
                   {
                     id: "pending",
-                    label: "Nové kontakty",
+                    label: t.agentWorkspace.groupPending,
                     items: campaignContacts.filter(cc => cc.status === "pending"),
                     ac: "#5A7A5A",
                     Icon: Users,
@@ -5128,6 +5128,10 @@ export default function AgentWorkspacePage() {
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
   const [tasksModalOpen, setTasksModalOpen] = useState(false);
+  const [modalExpandedGroups, setModalExpandedGroups] = useState<Set<string>>(new Set(["due", "my-cb", "team-cb", "other-cb", "pending"]));
+  const toggleModalGroup = (id: string) => setModalExpandedGroups(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
   const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "" });
   const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
@@ -7654,23 +7658,149 @@ export default function AgentWorkspacePage() {
           <div className="flex-1 min-h-0 -mx-6 px-6 overflow-y-auto">
             {(() => {
               const now = new Date();
+              const isCbM = (cc: typeof sortedPendingContacts[0]) => cc.status === "callback_scheduled";
+              const isDueM = (cc: typeof sortedPendingContacts[0]) => !!(cc.callbackDate && new Date(cc.callbackDate) <= now);
+              const isMineM = (cc: typeof sortedPendingContacts[0]) => cc.assignedTo === user?.id;
+              const isTeamM = (cc: typeof sortedPendingContacts[0]) => !cc.assignedTo;
+              const sortByDateM = (a: typeof sortedPendingContacts[0], b: typeof sortedPendingContacts[0]) => {
+                const aDate = a.callbackDate ? new Date(a.callbackDate).getTime() : Infinity;
+                const bDate = b.callbackDate ? new Date(b.callbackDate).getTime() : Infinity;
+                return aDate - bDate;
+              };
+
+              const modalCtConfig: Record<string, { icon: typeof User; textColor: string }> = {
+                hospital: { icon: Building2, textColor: "#C0392B" },
+                clinic: { icon: Stethoscope, textColor: "#27AE60" },
+                collaborator: { icon: Handshake, textColor: "#E67E22" },
+                customer: { icon: User, textColor: "#2980B9" },
+              };
+
+              const renderModalCard = (cc: typeof sortedPendingContacts[0], ac: string) => {
+                const entityInfo = getEntityDisplayInfo(cc);
+                if (!entityInfo) return null;
+                const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM.yyyy HH:mm") : null;
+                const mCfg = modalCtConfig[entityInfo.type] || modalCtConfig.customer;
+                const MIcon = mCfg.icon;
+                return (
+                  <div
+                    key={cc.id}
+                    className="flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-all duration-150"
+                    style={{
+                      background: "#FFFFFF",
+                      border: `1px solid ${ac}25`,
+                      borderRadius: "12px",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    }}
+                    onMouseEnter={(e) => {
+                      const el = e.currentTarget as HTMLElement;
+                      el.style.borderColor = `${ac}60`;
+                      el.style.boxShadow = `0 4px 12px ${ac}20`;
+                      el.style.transform = "translateY(-1px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      const el = e.currentTarget as HTMLElement;
+                      el.style.borderColor = `${ac}25`;
+                      el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
+                      el.style.transform = "";
+                    }}
+                    onClick={() => { handleSelectCampaignContact(cc); setContactsModalOpen(false); }}
+                    data-testid={`modal-contact-${cc.id}`}
+                  >
+                    <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ background: `${ac}18` }}>
+                      <MIcon className="h-4 w-4" style={{ color: ac }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: "#3D2E20" }}>{entityInfo.name}</p>
+                      <p className="text-xs truncate" style={{ color: "#9A8878" }}>{entityInfo.subtitle}</p>
+                      {cc.callbackNote && (
+                        <p className="text-[10px] mt-0.5 truncate italic" style={{ color: "#B08060" }} title={cc.callbackNote}>📝 {cc.callbackNote}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {callbackDateStr && (
+                        <span className="text-[10px] flex items-center gap-0.5 font-medium" style={{ color: ac }}>
+                          <Calendar className="h-3 w-3" />{callbackDateStr}
+                        </span>
+                      )}
+                      {cc.attemptCount > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${ac}18`, color: ac }}>{cc.attemptCount}x</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              };
+
+              // Grouped view when no search/filter active
+              if (modalFilter === "all" && !modalSearch) {
+                const groups = [
+                  { id: "due", label: t.agentWorkspace.groupDue, ac: "#B5622E", Icon: PhoneCall, items: [...sortedPendingContacts.filter(cc => isCbM(cc) && isDueM(cc))].sort(sortByDateM) },
+                  { id: "my-cb", label: t.agentWorkspace.groupMyCb, ac: "#5B4FCF", Icon: Clock, items: sortedPendingContacts.filter(cc => isCbM(cc) && isMineM(cc) && !isDueM(cc)).sort(sortByDateM) },
+                  { id: "team-cb", label: t.agentWorkspace.groupTeamCb, ac: "#2E75B6", Icon: Users, items: sortedPendingContacts.filter(cc => isCbM(cc) && isTeamM(cc) && !isDueM(cc)).sort(sortByDateM) },
+                  { id: "other-cb", label: t.agentWorkspace.groupOtherCb, ac: "#7A6858", Icon: User, items: sortedPendingContacts.filter(cc => isCbM(cc) && cc.assignedTo && !isMineM(cc) && !isDueM(cc)).sort(sortByDateM) },
+                  { id: "pending", label: t.agentWorkspace.groupPending, ac: "#5A7A5A", Icon: Users, items: sortedPendingContacts.filter(cc => cc.status === "pending") },
+                ].filter(g => g.items.length > 0);
+
+                if (groups.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <Users className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
+                      <p className="text-sm text-muted-foreground">Žiadne kontakty</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3 py-3">
+                    {groups.map(({ id, label, ac, Icon, items }) => {
+                      const isOpen = modalExpandedGroups.has(id);
+                      return (
+                        <div
+                          key={id}
+                          className="rounded-2xl overflow-hidden"
+                          style={{ background: "#F8F4EE", border: `1.5px solid ${ac}40`, boxShadow: `0 2px 10px ${ac}15` }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleModalGroup(id)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-150"
+                            style={{ background: isOpen ? `${ac}14` : `${ac}08`, borderBottom: isOpen ? `1px solid ${ac}30` : "none" }}
+                          >
+                            <div className="h-10 w-10 rounded-2xl flex items-center justify-center shrink-0" style={{ background: ac, boxShadow: `0 2px 8px ${ac}50` }}>
+                              <Icon className="h-5 w-5 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-sm" style={{ color: "#3D2E20" }}>{label}</div>
+                              <div className="text-xs mt-0.5" style={{ color: "#9A8878" }}>{items.length} {items.length === 1 ? "kontakt" : items.length < 5 ? "kontakty" : "kontaktov"}</div>
+                            </div>
+                            <span className="text-sm font-bold min-w-[30px] h-7 flex items-center justify-center rounded-full px-2 shrink-0" style={{ background: ac, color: "#fff" }}>
+                              {items.length}
+                            </span>
+                            {isOpen ? <ChevronUp className="h-4 w-4 shrink-0" style={{ color: ac }} /> : <ChevronDown className="h-4 w-4 shrink-0" style={{ color: ac }} />}
+                          </button>
+                          {isOpen && (
+                            <div className="p-3 space-y-2" style={{ background: "#F8F4EE" }}>
+                              {items.map(cc => renderModalCard(cc, ac))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }
+
+              // Flat filtered view
               let filtered = sortedPendingContacts.filter(cc => {
                 const entityInfo = getEntityDisplayInfo(cc);
                 if (!entityInfo) return false;
                 if (modalSearch) {
                   const q = modalSearch.toLowerCase();
-                  const match = [entityInfo.name, entityInfo.subtitle]
-                    .filter(Boolean).join(" ").toLowerCase().includes(q);
-                  if (!match) return false;
+                  if (![entityInfo.name, entityInfo.subtitle].filter(Boolean).join(" ").toLowerCase().includes(q)) return false;
                 }
-                const isCallback = cc.status === "callback_scheduled";
-                const isDue = cc.callbackDate && new Date(cc.callbackDate) <= now;
-                const isMine = cc.assignedTo === user?.id;
-                const isTeam = !cc.assignedTo;
                 switch (modalFilter) {
-                  case "my_callbacks": return isCallback && isMine;
-                  case "team_callbacks": return isCallback && isTeam;
-                  case "due": return isCallback && isDue;
+                  case "my_callbacks": return isCbM(cc) && isMineM(cc);
+                  case "team_callbacks": return isCbM(cc) && isTeamM(cc);
+                  case "due": return isCbM(cc) && isDueM(cc);
                   case "pending": return cc.status === "pending";
                   default: return true;
                 }
@@ -7678,20 +7808,10 @@ export default function AgentWorkspacePage() {
 
               filtered = [...filtered].sort((a, b) => {
                 switch (modalSort) {
-                  case "callback_asc": {
-                    const aDate = a.callbackDate ? new Date(a.callbackDate).getTime() : Infinity;
-                    const bDate = b.callbackDate ? new Date(b.callbackDate).getTime() : Infinity;
-                    return aDate - bDate;
-                  }
-                  case "name_asc": {
-                    const aName = getEntityDisplayInfo(a)?.name || "";
-                    const bName = getEntityDisplayInfo(b)?.name || "";
-                    return aName.localeCompare(bName, "sk");
-                  }
-                  case "attempts_desc":
-                    return (b.attemptCount || 0) - (a.attemptCount || 0);
-                  default:
-                    return 0;
+                  case "callback_asc": return (a.callbackDate ? new Date(a.callbackDate).getTime() : Infinity) - (b.callbackDate ? new Date(b.callbackDate).getTime() : Infinity);
+                  case "name_asc": return (getEntityDisplayInfo(a)?.name || "").localeCompare(getEntityDisplayInfo(b)?.name || "", "sk");
+                  case "attempts_desc": return (b.attemptCount || 0) - (a.attemptCount || 0);
+                  default: return 0;
                 }
               });
 
@@ -7704,80 +7824,13 @@ export default function AgentWorkspacePage() {
                 );
               }
 
+              const flatAc = modalFilter === "due" ? "#B5622E" : modalFilter === "my_callbacks" ? "#5B4FCF" : modalFilter === "team_callbacks" ? "#2E75B6" : modalFilter === "pending" ? "#5A7A5A" : "#7A6858";
               return (
-                <div className="space-y-1 py-2">
-                  <div className="text-xs text-muted-foreground px-1 pb-2">
+                <div className="space-y-2 py-3">
+                  <div className="text-xs px-1 pb-1 font-medium" style={{ color: "#9A8878" }}>
                     {filtered.length} {filtered.length === 1 ? "kontakt" : filtered.length < 5 ? "kontakty" : "kontaktov"}
                   </div>
-                  {filtered.map((cc) => {
-                    const entityInfo = getEntityDisplayInfo(cc);
-                    if (!entityInfo) return null;
-                    const isCallback = cc.status === "callback_scheduled";
-                    const isDueCallback = isCallback && cc.callbackDate && new Date(cc.callbackDate) <= now;
-                    const isMyCallback = isCallback && cc.assignedTo === user?.id;
-                    const isTeamCallback = isCallback && !cc.assignedTo;
-                    const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM.yyyy HH:mm") : null;
-
-                    let rowClass = "";
-                    if (isDueCallback && isMyCallback) rowClass = "ring-1 ring-indigo-300 dark:ring-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20";
-                    else if (isDueCallback && isTeamCallback) rowClass = "ring-1 ring-blue-400 dark:ring-blue-600 bg-blue-50/50 dark:bg-blue-950/20";
-                    else if (isCallback) rowClass = "bg-muted/30";
-
-                    const modalCtConfig: Record<string, { icon: typeof User; bg: string; text: string }> = {
-                      hospital: { icon: Building2, bg: "bg-rose-100 dark:bg-rose-900/40", text: "text-rose-600 dark:text-rose-400" },
-                      clinic: { icon: Stethoscope, bg: "bg-emerald-100 dark:bg-emerald-900/40", text: "text-emerald-600 dark:text-emerald-400" },
-                      collaborator: { icon: Handshake, bg: "bg-amber-100 dark:bg-amber-900/40", text: "text-amber-600 dark:text-amber-400" },
-                      customer: { icon: User, bg: "bg-sky-100 dark:bg-sky-900/40", text: "text-sky-600 dark:text-sky-400" },
-                    };
-                    const mCfg = modalCtConfig[entityInfo.type] || modalCtConfig.customer;
-                    const MIcon = mCfg.icon;
-
-                    return (
-                      <div
-                        key={cc.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer hover-elevate ${rowClass}`}
-                        onClick={() => {
-                          handleSelectCampaignContact(cc);
-                          setContactsModalOpen(false);
-                        }}
-                        data-testid={`modal-contact-${cc.id}`}
-                      >
-                        <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${mCfg.bg}`}>
-                          <MIcon className={`h-4 w-4 ${mCfg.text}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{entityInfo.name}</p>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="truncate">{entityInfo.subtitle}</span>
-                          </div>
-                          {cc.callbackNote && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate italic" title={cc.callbackNote}>📝 {cc.callbackNote}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isCallback && (
-                            <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[10px] ${isDueCallback && isMyCallback ? "bg-indigo-400 text-white" : isDueCallback ? "bg-blue-500 text-white" : ""}`}>
-                              {isDueCallback ? t.agentWorkspace.callBack : isMyCallback ? t.agentWorkspace.myCB : isTeamCallback ? t.agentWorkspace.teamCB : "CB"}
-                            </Badge>
-                          )}
-                          {callbackDateStr && (
-                            <span className={`text-[10px] ${isDueCallback ? (isMyCallback ? "text-indigo-600 dark:text-indigo-400" : "text-blue-600 dark:text-blue-400") + " font-medium" : "text-muted-foreground"}`}>
-                              <Calendar className="h-3 w-3 inline mr-0.5" />
-                              {callbackDateStr}
-                            </span>
-                          )}
-                          {cc.attemptCount > 0 && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {cc.attemptCount}x
-                            </Badge>
-                          )}
-                          {cc.status === "pending" && (
-                            <Badge variant="secondary" className="text-[10px]">Nový</Badge>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {filtered.map(cc => renderModalCard(cc, flatAc))}
                 </div>
               );
             })()}
@@ -7801,7 +7854,7 @@ export default function AgentWorkspacePage() {
                 <p className="text-sm text-muted-foreground">Žiadne aktívne úlohy</p>
               </div>
             ) : (
-              <div className="space-y-1 py-2">
+              <div className="space-y-3 py-3">
                 {tasks.map((task) => {
                   const chConfig = CHANNEL_CONFIG[task.channel];
                   const ChIcon = chConfig.icon;
@@ -7809,38 +7862,65 @@ export default function AgentWorkspacePage() {
                   const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1000);
                   const mins = Math.floor(elapsed / 60);
                   const secs = elapsed % 60;
+                  const taskAc = task.channel === "phone" ? "#B5622E" : task.channel === "email" ? "#5B4FCF" : task.channel === "sms" ? "#2E75B6" : "#5A7A5A";
                   return (
                     <div
                       key={task.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer hover-elevate ${isActive ? "ring-1 ring-primary bg-primary/5" : ""}`}
+                      className="flex items-center gap-4 px-4 py-3 cursor-pointer transition-all duration-150"
+                      style={{
+                        background: isActive ? `${taskAc}10` : "#FFFFFF",
+                        border: `1.5px solid ${isActive ? taskAc : taskAc + "35"}`,
+                        borderRadius: "16px",
+                        boxShadow: isActive ? `0 4px 16px ${taskAc}25` : "0 2px 8px rgba(0,0,0,0.06)",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.borderColor = `${taskAc}70`;
+                          el.style.boxShadow = `0 6px 20px ${taskAc}20`;
+                          el.style.transform = "translateY(-1px)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.borderColor = `${taskAc}35`;
+                          el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)";
+                          el.style.transform = "";
+                        }
+                      }}
                       onClick={() => { handleSelectTask(task); setTasksModalOpen(false); }}
                       data-testid={`modal-task-${task.id}`}
                     >
-                      <div className="relative shrink-0">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="text-xs bg-muted">
-                            {task.contact.firstName?.[0]}{task.contact.lastName?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className={`absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full ${chConfig.bg} flex items-center justify-center`}>
-                          <ChIcon className="h-2.5 w-2.5 text-white" />
-                        </div>
+                      <div
+                        className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 relative"
+                        style={{ background: taskAc, boxShadow: `0 3px 10px ${taskAc}50` }}
+                      >
+                        <ChIcon className="h-5 w-5 text-white" />
+                        {task.status === "active" && (
+                          <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white animate-pulse" />
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <p className="text-sm font-medium truncate">{task.contact.firstName} {task.contact.lastName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{task.campaignName}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate" style={{ color: "#3D2E20" }}>{task.contact.firstName} {task.contact.lastName}</p>
+                        <p className="text-xs truncate mt-0.5" style={{ color: "#9A8878" }}>{task.campaignName}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className="text-[10px] font-mono whitespace-nowrap">{mins}:{secs.toString().padStart(2, "0")}</Badge>
-                        {task.status === "active" && <span className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0 animate-pulse" />}
+                        <span
+                          className="text-xs font-mono font-bold px-2.5 py-1 rounded-full"
+                          style={{ background: `${taskAc}18`, color: taskAc }}
+                        >
+                          {mins}:{secs.toString().padStart(2, "0")}
+                        </span>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                          className="h-8 w-8 shrink-0 rounded-xl hover:bg-red-50 hover:text-red-500"
+                          style={{ color: "#9A8878" }}
                           onClick={(e) => { e.stopPropagation(); handleCancelTask(task.id); }}
                           data-testid={`btn-modal-cancel-task-${task.id}`}
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
