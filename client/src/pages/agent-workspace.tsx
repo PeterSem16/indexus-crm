@@ -7262,6 +7262,8 @@ export default function AgentWorkspacePage() {
         onAccept={(call) => handleAcceptInboundCall(call)}
         onReject={(call) => handleRejectInboundCall(call)}
         onDismiss={(callId) => setInboundCalls(prev => prev.filter(c => c.callId !== callId))}
+        agentStatus={agentSession.status}
+        activeCallState={callContext.callState}
       />
       {agentSession.isSessionActive && (
         <VoicemailNotifications

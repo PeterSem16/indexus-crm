@@ -9,10 +9,10 @@ import {
   PhoneIncoming,
   PhoneOff,
   Phone,
+  PhoneCall,
   User,
   Clock,
   Building2,
-  MapPin,
   X,
   Users,
   Minimize2,
@@ -20,6 +20,8 @@ import {
   AlertTriangle,
   PhoneMissed,
   Bell,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 let __indexusCallAlertCtx: AudioContext | null = null;
@@ -70,6 +72,8 @@ interface InboundCallPopupProps {
   onAccept: (call: InboundCallData) => void;
   onReject: (call: InboundCallData) => void;
   onDismiss: (callId: string) => void;
+  agentStatus?: string;
+  activeCallState?: string;
 }
 
 function CallTimer({ timestamp }: { timestamp: number }) {
@@ -155,10 +159,9 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
     refetchInterval: 30000,
   });
 
-  // Today's totals exclude the current ringing call (which is also stored as a "queued" row).
   const totalToday = Math.max(0, (todayHistory?.total || 0) - 1);
   const missedToday = todayHistory?.missed || 0;
-  const isUrgentRepeatedCaller = totalToday >= 2 && !!todayHistory?.lastWasMissed; // current + ≥2 prior = ≥3 total today
+  const isUrgentRepeatedCaller = totalToday >= 2 && !!todayHistory?.lastWasMissed;
 
   const beepedRef = useRef(false);
   useEffect(() => {
@@ -339,18 +342,222 @@ function MinimizedBadge({ count, onClick }: { count: number; onClick: () => void
   );
 }
 
-export function InboundCallPopup({ inboundCalls, onAccept, onReject, onDismiss }: InboundCallPopupProps) {
+function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject }: {
+  inboundCalls: InboundCallData[];
+  hasActiveCall: boolean;
+  onAccept: (call: InboundCallData) => void;
+  onReject: (call: InboundCallData) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const count = inboundCalls.length;
+  const firstCall = inboundCalls[0];
+
+  useEffect(() => {
+    if (count === 0) setIsExpanded(false);
+  }, [count]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+    if (isExpanded) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isExpanded]);
+
+  const { data: matchedCustomer } = useQuery<any>({
+    queryKey: ["/api/customers/lookup-phone", firstCall?.callerNumber],
+    queryFn: async () => {
+      if (!firstCall?.callerNumber) return null;
+      const res = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(firstCall.callerNumber)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!firstCall?.callerNumber,
+    staleTime: 30000,
+  });
+
+  if (!firstCall) return null;
+
+  const canAnswer = !hasActiveCall && firstCall.hasSipInvitation === true;
+  const displayName = matchedCustomer?.name || firstCall.callerNumber;
+  const pillColor = hasActiveCall ? "#D97706" : "#16A34A";
+  const pillHoverColor = hasActiveCall ? "#B45309" : "#15803D";
+
+  const handleAccept = () => {
+    if (isAccepting) return;
+    setIsAccepting(true);
+    onAccept(firstCall);
+    setIsExpanded(false);
+    setTimeout(() => setIsAccepting(false), 5000);
+  };
+
+  const handleReject = () => {
+    onReject(firstCall);
+    setIsExpanded(false);
+  };
+
+  return (
+    <div ref={panelRef} className="fixed top-4 right-4 z-[100]" data-testid="busy-incoming-indicator">
+      <button
+        onClick={() => setIsExpanded(v => !v)}
+        className="flex items-center gap-2 px-3.5 py-2 rounded-full text-white shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 select-none"
+        style={{ background: pillColor }}
+        onMouseEnter={e => (e.currentTarget.style.background = pillHoverColor)}
+        onMouseLeave={e => (e.currentTarget.style.background = pillColor)}
+        data-testid="btn-busy-incoming-pill"
+      >
+        <div className="relative">
+          <PhoneIncoming className="h-4 w-4" />
+          {!hasActiveCall && (
+            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-70" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+            </span>
+          )}
+        </div>
+        <span className="text-sm font-bold tabular-nums">{count}</span>
+        {isExpanded
+          ? <ChevronUp className="h-3.5 w-3.5 opacity-80" />
+          : <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+        }
+      </button>
+
+      {isExpanded && (
+        <div
+          className="absolute top-full mt-2 right-0 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 animate-in slide-in-from-top-2 duration-200 overflow-hidden"
+          data-testid="busy-incoming-panel"
+        >
+          <div
+            className="flex items-center justify-between px-3.5 py-2.5 border-b"
+            style={{ background: hasActiveCall ? "#FFFBEB" : "#F0FDF4", borderColor: hasActiveCall ? "#FDE68A" : "#BBF7D0" }}
+          >
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <PhoneIncoming className="h-3.5 w-3.5" style={{ color: pillColor }} />
+                {!hasActiveCall && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-70" style={{ background: pillColor }} />
+                    <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: pillColor }} />
+                  </span>
+                )}
+              </div>
+              <span className="text-xs font-semibold" style={{ color: hasActiveCall ? "#92400E" : "#14532D" }}>
+                Prichádzajúci hovor
+              </span>
+              {count > 1 && (
+                <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{count}</Badge>
+              )}
+            </div>
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+              data-testid="btn-close-busy-panel"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div className="p-3 space-y-3">
+            <div className="flex items-center gap-3">
+              <div
+                className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold text-white"
+                style={{ background: pillColor }}
+              >
+                {displayName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate text-slate-800">{displayName}</p>
+                {matchedCustomer?.name && (
+                  <p className="text-[11px] text-slate-500 truncate">{firstCall.callerNumber}</p>
+                )}
+                <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  <CallTimer timestamp={firstCall.timestamp} />
+                  <span>·</span>
+                  <span className="truncate">{firstCall.queueName}</span>
+                </div>
+              </div>
+            </div>
+
+            {hasActiveCall ? (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                <PhoneCall className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>Momentálne ste na hovore. Ukončite aktuálny hovor pre prijatie nového.</span>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1 h-9 text-xs font-semibold gap-1.5 text-white"
+                  style={{ background: "#16A34A" }}
+                  onClick={handleAccept}
+                  disabled={!canAnswer || isAccepting}
+                  data-testid="btn-busy-accept"
+                >
+                  {isAccepting ? (
+                    <Clock className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Phone className="h-3.5 w-3.5" />
+                  )}
+                  {isAccepting ? "Pripájam..." : "Prijať"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="flex-1 h-9 text-xs font-semibold gap-1.5"
+                  onClick={handleReject}
+                  data-testid="btn-busy-reject"
+                >
+                  <PhoneOff className="h-3.5 w-3.5" />
+                  Odmietnuť
+                </Button>
+              </div>
+            )}
+
+            {count > 1 && (
+              <p className="text-[10px] text-slate-400 text-center">
+                +{count - 1} ďalší {count - 1 === 1 ? "hovor" : count - 1 < 5 ? "hovory" : "hovorov"} v rade
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function InboundCallPopup({ inboundCalls, onAccept, onReject, onDismiss, agentStatus, activeCallState }: InboundCallPopupProps) {
+  const isBusy = agentStatus === "busy";
+  const hasActiveCall = activeCallState === "active" || activeCallState === "on_hold";
+
   const [isMinimized, setIsMinimized] = useState(false);
   const prevCountRef = useRef(inboundCalls.length);
 
   useEffect(() => {
-    if (inboundCalls.length > prevCountRef.current && isMinimized) {
+    if (inboundCalls.length > prevCountRef.current && isMinimized && !isBusy) {
       setIsMinimized(false);
     }
     prevCountRef.current = inboundCalls.length;
-  }, [inboundCalls.length, isMinimized]);
+  }, [inboundCalls.length, isMinimized, isBusy]);
 
   if (inboundCalls.length === 0) return null;
+
+  if (isBusy) {
+    return (
+      <BusyIncomingIndicator
+        inboundCalls={inboundCalls}
+        hasActiveCall={hasActiveCall}
+        onAccept={onAccept}
+        onReject={onReject}
+      />
+    );
+  }
 
   if (isMinimized) {
     return <MinimizedBadge count={inboundCalls.length} onClick={() => setIsMinimized(false)} />;
