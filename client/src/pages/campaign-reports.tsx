@@ -110,6 +110,9 @@ interface CallListItem {
   totalDurationSec: number;
   totalDurationFormatted: string;
   disposition: string;
+  dispositionName: string;
+  dispositionColor: string;
+  dispositionChecklistNames: Array<{ name: string; color: string }>;
   hungUpBy: string;
   notes: string;
   subject: string;
@@ -462,6 +465,16 @@ export default function CampaignReportsPage() {
     return <span className={`font-semibold text-sm ${color}`}>{score}/{max}</span>;
   };
 
+  const STATUS_LABELS: Record<string, Record<string, string>> = {
+    sk: { completed: 'Dokončený', answered: 'Zdvihnutý', failed: 'Neúspešný', no_answer: 'Nedvíha', busy: 'Obsadený', cancelled: 'Zrušený', initiated: 'Začatý', ringing: 'Zvonenie', sent: 'Odoslaný', delivered: 'Doručený', read: 'Prečítaný', received: 'Prijatý', draft: 'Koncept' },
+    en: { completed: 'Completed', answered: 'Answered', failed: 'Failed', no_answer: 'No answer', busy: 'Busy', cancelled: 'Cancelled', initiated: 'Initiated', ringing: 'Ringing', sent: 'Sent', delivered: 'Delivered', read: 'Read', received: 'Received', draft: 'Draft' },
+    cs: { completed: 'Dokončeno', answered: 'Zodviženo', failed: 'Neúspěšné', no_answer: 'Nezvedá', busy: 'Obsazeno', cancelled: 'Zrušeno', initiated: 'Zahájeno', ringing: 'Zvoní', sent: 'Odesláno', delivered: 'Doručeno', read: 'Přečteno', received: 'Přijato', draft: 'Koncept' },
+    hu: { completed: 'Befejezett', answered: 'Megválaszolt', failed: 'Sikertelen', no_answer: 'Nem veszi fel', busy: 'Foglalt', cancelled: 'Törölt', initiated: 'Elindított', ringing: 'Hív', sent: 'Elküldve', delivered: 'Kézbesítve', read: 'Olvasva', received: 'Fogadva', draft: 'Vázlat' },
+    ro: { completed: 'Finalizat', answered: 'Răspuns', failed: 'Eșuat', no_answer: 'Fără răspuns', busy: 'Ocupat', cancelled: 'Anulat', initiated: 'Inițiat', ringing: 'Sună', sent: 'Trimis', delivered: 'Livrat', read: 'Citit', received: 'Primit', draft: 'Ciornă' },
+    it: { completed: 'Completato', answered: 'Risposto', failed: 'Fallito', no_answer: 'Nessuna risposta', busy: 'Occupato', cancelled: 'Annullato', initiated: 'Avviato', ringing: 'Squillo', sent: 'Inviato', delivered: 'Consegnato', read: 'Letto', received: 'Ricevuto', draft: 'Bozza' },
+    de: { completed: 'Abgeschlossen', answered: 'Beantwortet', failed: 'Fehlgeschlagen', no_answer: 'Keine Antwort', busy: 'Besetzt', cancelled: 'Abgebrochen', initiated: 'Gestartet', ringing: 'Klingeln', sent: 'Gesendet', delivered: 'Zugestellt', read: 'Gelesen', received: 'Empfangen', draft: 'Entwurf' },
+  };
+
   const StatusBadge = ({ status }: { status: string }) => {
     const colors: Record<string, string> = {
       completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
@@ -472,10 +485,15 @@ export default function CampaignReportsPage() {
       cancelled: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
       initiated: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
       ringing: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
+      sent: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      delivered: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      read: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
+      received: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
     };
+    const label = STATUS_LABELS[locale]?.[status] || STATUS_LABELS['sk']?.[status] || status;
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
-        {status}
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'}`}>
+        {label}
       </span>
     );
   };
@@ -1072,22 +1090,24 @@ export default function CampaignReportsPage() {
                 </div>
               ) : (
                 <ScrollArea className="w-full">
-                  <div className="min-w-[1200px]">
+                  <div className="min-w-[1600px]">
                     <table className="w-full text-sm" data-testid="table-call-list">
                       <thead>
                         <tr className="border-b bg-muted/50">
-                          <th className="text-center p-2 font-medium w-10">{cr?.type || 'Type'}</th>
+                          <th className="text-center p-2 font-medium w-10">{cr?.type || 'Typ'}</th>
                           <th className="text-left p-2 font-medium">{cr.agent}</th>
                           <th className="text-left p-2 font-medium">{cr.customer}</th>
                           <th className="text-left p-2 font-medium">{cr.phoneNumber}</th>
                           <th className="text-center p-2 font-medium">{cr.direction}</th>
                           <th className="text-center p-2 font-medium">{cr.status}</th>
+                          <th className="text-left p-2 font-medium">{cr.disposition}</th>
+                          <th className="text-left p-2 font-medium">{cr?.subStatuses || 'Sub-statusy'}</th>
                           <th className="text-center p-2 font-medium">{cr.startedAt}</th>
                           <th className="text-center p-2 font-medium">{cr.ringTime}</th>
                           <th className="text-center p-2 font-medium">{cr.talkTime}</th>
                           <th className="text-center p-2 font-medium">{cr.totalDuration}</th>
-                          <th className="text-center p-2 font-medium">{cr?.hungUpBy || 'Hung up'}</th>
-                          <th className="text-left p-2 font-medium">{cr?.subjectOrNotes || 'Details'}</th>
+                          <th className="text-center p-2 font-medium">{cr?.hungUpBy || 'Zavesil'}</th>
+                          <th className="text-left p-2 font-medium">{cr?.subjectOrNotes || 'Detaily'}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1105,7 +1125,7 @@ export default function CampaignReportsPage() {
                               )}
                             </td>
                             <td className="p-2 font-medium">{call.agent || '-'}</td>
-                            <td className="p-2">{call.customer}</td>
+                            <td className="p-2 font-medium">{call.customer || '-'}</td>
                             <td className="p-2 font-mono text-xs">{call.phoneNumber || call.recipient || '-'}</td>
                             <td className="p-2 text-center">
                               <Badge variant={call.direction === 'inbound' ? 'secondary' : 'outline'}>
@@ -1113,6 +1133,37 @@ export default function CampaignReportsPage() {
                               </Badge>
                             </td>
                             <td className="p-2 text-center"><StatusBadge status={call.status} /></td>
+                            <td className="p-2">
+                              {call.dispositionName ? (
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                                  style={call.dispositionColor ? { backgroundColor: `${call.dispositionColor}22`, color: call.dispositionColor, border: `1px solid ${call.dispositionColor}44` } : undefined}
+                                  data-testid={`disposition-${call.id}`}
+                                >
+                                  {call.dispositionName}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </td>
+                            <td className="p-2 min-w-[160px]">
+                              {call.dispositionChecklistNames && call.dispositionChecklistNames.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {call.dispositionChecklistNames.map((item, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                      style={item.color ? { backgroundColor: `${item.color}22`, color: item.color, border: `1px solid ${item.color}44` } : { backgroundColor: 'rgb(241 245 249)', color: 'rgb(71 85 105)' }}
+                                      data-testid={`sub-status-${call.id}-${idx}`}
+                                    >
+                                      {item.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </td>
                             <td className="p-2 text-center text-xs">{formatDateTime(call.startedAt)}</td>
                             <td className="p-2 text-center font-mono text-xs">
                               {call.type === 'call' ? call.ringTimeFormatted : '—'}

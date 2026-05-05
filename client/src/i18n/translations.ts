@@ -5101,6 +5101,7 @@ export interface Translations {
     last30Days: string;
     externalEmails: string;
     externalEmailPlaceholder: string;
+    subStatuses: string;
   };
   nexusOmni: {
     title: string;
@@ -11705,6 +11706,7 @@ export const translations: Record<Locale, Translations> = {
       last30Days: 'Last 30 days',
       externalEmails: 'External Email Addresses',
       externalEmailPlaceholder: 'Enter email address...',
+      subStatuses: 'Sub-statuses',
     },
     nexusOmni: {
         title: 'NEXUS Omni',
@@ -17765,6 +17767,7 @@ export const translations: Record<Locale, Translations> = {
       last30Days: 'Posledných 30 dní',
       externalEmails: 'Externé emailové adresy',
       externalEmailPlaceholder: 'Zadajte emailovú adresu...',
+      subStatuses: 'Sub-statusy',
     },
     nexusOmni: {
         title: 'NEXUS Omni',
@@ -23751,6 +23754,7 @@ export const translations: Record<Locale, Translations> = {
       last30Days: 'Posledních 30 dní',
       externalEmails: 'Externí e-mailové adresy',
       externalEmailPlaceholder: 'Zadejte e-mailovou adresu...',
+      subStatuses: 'Pod-stavy',
     },
     nexusOmni: {
         title: 'NEXUS Omni',
@@ -29707,6 +29711,7 @@ export const translations: Record<Locale, Translations> = {
       last30Days: 'Utolsó 30 nap',
       externalEmails: 'Külső e-mail címek',
       externalEmailPlaceholder: 'Adja meg az e-mail címet...',
+      subStatuses: 'Al-állapotok',
     },
     nexusOmni: {
         title: 'NEXUS Omni',
@@ -35583,6 +35588,7 @@ export const translations: Record<Locale, Translations> = {
       last30Days: 'Ultimele 30 zile',
       externalEmails: 'Adrese de e-mail externe',
       externalEmailPlaceholder: 'Introduceți adresa de e-mail...',
+      subStatuses: 'Sub-statusuri',
     },
     nexusOmni: {
         title: 'NEXUS Omni',
@@ -41461,6 +41467,7 @@ export const translations: Record<Locale, Translations> = {
       last30Days: 'Ultimi 30 giorni',
       externalEmails: 'Indirizzi email esterni',
       externalEmailPlaceholder: 'Inserisci indirizzo email...',
+      subStatuses: 'Sub-stati',
     },
     nexusOmni: {
         title: 'NEXUS Omni',
@@ -47325,6 +47332,7 @@ export const translations: Record<Locale, Translations> = {
       last30Days: 'Letzte 30 Tage',
       externalEmails: 'Externe E-Mail-Adressen',
       externalEmailPlaceholder: 'E-Mail-Adresse eingeben...',
+      subStatuses: 'Sub-Status',
     },
     nexusOmni: {
         title: 'NEXUS Omni',

@@ -21399,8 +21399,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       const contacts = await db.select().from(campaignContacts)
         .where(eq(campaignContacts.campaignId, campaignId));
-      const contactByCustomer = new Map(contacts.map(c => [c.customerId, c]));
-      const campaignCustomerIds = contacts.map(c => c.customerId).filter(Boolean);
+
+      const contactByCustomerId = new Map(contacts.filter(c => c.customerId).map(c => [c.customerId!, c]));
+      const contactByHospitalId = new Map(contacts.filter(c => c.hospitalId).map(c => [c.hospitalId!, c]));
+      const contactByClinicId = new Map(contacts.filter(c => c.clinicId).map(c => [c.clinicId!, c]));
+      const contactByCollaboratorId = new Map(contacts.filter(c => c.collaboratorId).map(c => [c.collaboratorId!, c]));
+
+      const allEntityIds = [
+        ...contacts.map(c => c.customerId).filter(Boolean),
+        ...contacts.map(c => c.hospitalId).filter(Boolean),
+        ...contacts.map(c => c.clinicId).filter(Boolean),
+        ...contacts.map(c => c.collaboratorId).filter(Boolean),
+      ] as string[];
 
       const dateConditions = (dateCol: any) => {
         const conds: any[] = [];
@@ -21416,26 +21426,59 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const callConditions: any[] = [
         or(
           eq(callLogs.campaignId, campaignId),
-          ...(campaignCustomerIds.length > 0 ? [inArray(callLogs.customerId, campaignCustomerIds)] : [])
+          ...(allEntityIds.length > 0 ? [inArray(callLogs.customerId, allEntityIds)] : [])
         ),
         ...dateConditions(callLogs.startedAt),
       ];
       if (agentId && agentId !== 'all') callConditions.push(eq(callLogs.userId, agentId as string));
 
-      const logs = await db.select().from(callLogs)
-        .where(and(...callConditions))
-        .orderBy(desc(callLogs.startedAt));
+      const [logs, allUsers, allCustomers, allHospitals, allClinics, allCollaborators, dispositions] = await Promise.all([
+        db.select().from(callLogs).where(and(...callConditions)).orderBy(desc(callLogs.startedAt)),
+        db.select().from(users),
+        db.select().from(customers),
+        db.select({ id: hospitals.id, name: hospitals.name, fullName: hospitals.fullName }).from(hospitals),
+        db.select({ id: clinics.id, name: clinics.name }).from(clinics),
+        db.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName }).from(collaborators),
+        db.select().from(campaignDispositions).where(eq(campaignDispositions.campaignId, campaignId)),
+      ]);
 
-      const allUsers = await db.select().from(users);
       const userMap = new Map(allUsers.map(u => [u.id, u]));
-
-      const allCustomers = await db.select().from(customers);
       const customerMap = new Map(allCustomers.map(c => [c.id, c]));
+      const hospitalMap = new Map(allHospitals.map(h => [h.id, h]));
+      const clinicMap = new Map(allClinics.map(c => [c.id, c]));
+      const collaboratorMap = new Map(allCollaborators.map(c => [c.id, c]));
+      const dispositionMap = new Map(dispositions.map(d => [d.code, d]));
+
+      const resolveEntityName = (entityId: string | null): { name: string; contact: typeof contacts[0] | null } => {
+        if (!entityId) return { name: '', contact: null };
+        const custContact = contactByCustomerId.get(entityId);
+        if (custContact) {
+          const cust = customerMap.get(entityId);
+          return { name: cust ? `${cust.firstName || ''} ${cust.lastName || ''}`.trim() : entityId, contact: custContact };
+        }
+        const hospContact = contactByHospitalId.get(entityId);
+        if (hospContact) {
+          const hosp = hospitalMap.get(entityId);
+          return { name: hosp?.fullName || hosp?.name || entityId, contact: hospContact };
+        }
+        const clinicContact = contactByClinicId.get(entityId);
+        if (clinicContact) {
+          const clinic = clinicMap.get(entityId);
+          return { name: clinic?.name || entityId, contact: clinicContact };
+        }
+        const collabContact = contactByCollaboratorId.get(entityId);
+        if (collabContact) {
+          const collab = collaboratorMap.get(entityId);
+          return { name: collab ? `${collab.firstName || ''} ${collab.lastName || ''}`.trim() : entityId, contact: collabContact };
+        }
+        const cust = customerMap.get(entityId);
+        if (cust) return { name: `${cust.firstName || ''} ${cust.lastName || ''}`.trim(), contact: null };
+        return { name: entityId, contact: null };
+      };
 
       const callResults = logs.map(log => {
         const user = userMap.get(log.userId);
-        const customer = log.customerId ? customerMap.get(log.customerId) : null;
-        const contact = log.customerId ? contactByCustomer.get(log.customerId) : null;
+        const { name: entityName, contact } = resolveEntityName(log.customerId);
         const totalSec = diffSeconds(log.startedAt, log.endedAt);
         let ringTimeSec = 0;
         let talkTimeSec = 0;
@@ -21446,11 +21489,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           talkTimeSec = totalSec;
         }
 
+        const dispCode = contact?.dispositionCode || '';
+        const dispObj = dispCode ? dispositionMap.get(dispCode) : null;
+        const dispositionName = dispObj?.name || dispCode || '';
+        const dispositionColor = dispObj?.color || '';
+        const checklistCodes = contact?.dispositionChecklistCodes || [];
+        const dispositionChecklistNames = checklistCodes.map(code => {
+          const d = dispositionMap.get(code);
+          return { name: d?.name || code, color: d?.color || '' };
+        });
+
         return {
           id: `call-${log.id}`,
           type: 'call' as const,
           agent: user?.fullName || user?.username || log.userId,
-          customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : (log.customerId || ''),
+          customer: entityName || log.customerId || '',
           phoneNumber: log.phoneNumber,
           direction: log.direction,
           status: log.status,
@@ -21463,7 +21516,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           talkTimeFormatted: formatDuration(talkTimeSec),
           totalDurationSec: totalSec,
           totalDurationFormatted: formatDuration(totalSec),
-          disposition: contact?.dispositionCode || '',
+          disposition: dispCode,
+          dispositionName,
+          dispositionColor,
+          dispositionChecklistNames,
           hungUpBy: log.hungUpBy || '',
           notes: log.notes || '',
           subject: '',
@@ -21471,8 +21527,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         };
       });
 
+      const campaignCustomerIds = contacts.map(c => c.customerId).filter(Boolean) as string[];
       const commConditions: any[] = [
-        ...(campaignCustomerIds.length > 0 ? [inArray(communicationMessages.customerId, campaignCustomerIds)] : [sql`1=0`]),
+        ...(allEntityIds.length > 0 ? [inArray(communicationMessages.customerId, allEntityIds)] : [sql`1=0`]),
         ...dateConditions(communicationMessages.createdAt),
       ];
       if (agentId && agentId !== 'all') commConditions.push(eq(communicationMessages.userId, agentId as string));
@@ -21483,13 +21540,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       const commResults = comms.map(msg => {
         const user = msg.userId ? userMap.get(msg.userId) : null;
-        const customer = msg.customerId ? customerMap.get(msg.customerId) : null;
+        const { name: entityName } = resolveEntityName(msg.customerId);
         const normalizedType = ['email', 'sms'].includes(msg.type || '') ? msg.type! : 'other';
         return {
           id: `${normalizedType}-${msg.id}`,
           type: normalizedType,
           agent: user?.fullName || user?.username || msg.userId || '',
-          customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : (msg.customerId || ''),
+          customer: entityName || msg.customerId || '',
           phoneNumber: msg.recipientPhone || msg.senderPhone || '',
           direction: msg.direction || 'outbound',
           status: msg.status || '',
@@ -21503,6 +21560,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           totalDurationSec: 0,
           totalDurationFormatted: '—',
           disposition: '',
+          dispositionName: '',
+          dispositionColor: '',
+          dispositionChecklistNames: [] as Array<{ name: string; color: string }>,
           hungUpBy: '',
           notes: msg.content ? msg.content.replace(/<[^>]*>/g, '').substring(0, 100) : '',
           subject: msg.subject || '',
