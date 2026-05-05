@@ -109,173 +109,173 @@ interface ColorScheme {
 const COLOR_SCHEMES: Record<string, ColorScheme> = {
   gray: {
     catBg: "bg-slate-50 dark:bg-slate-900/40", catHover: "hover:bg-slate-100 dark:hover:bg-slate-800/50",
-    catBorder: "border-slate-200 dark:border-slate-700", catLeftBorder: "border-l-slate-400",
-    catIconBg: "bg-slate-200 dark:bg-slate-700", catIconColor: "text-slate-600 dark:text-slate-300",
-    catText: "text-slate-700 dark:text-slate-200", catCountBadge: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
-    tileBg: "bg-slate-50 dark:bg-slate-900/30", tileHover: "hover:bg-slate-100 dark:hover:bg-slate-800/50",
-    tileBorder: "border-slate-200 dark:border-slate-700", tileIconBg: "bg-slate-200 dark:bg-slate-700",
+    catBorder: "border-slate-200 dark:border-slate-700", catLeftBorder: "border-l-slate-500",
+    catIconBg: "bg-slate-500 dark:bg-slate-600", catIconColor: "text-white",
+    catText: "text-slate-700 dark:text-slate-200", catCountBadge: "bg-slate-500 text-white dark:bg-slate-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-slate-50 dark:hover:bg-slate-800/40",
+    tileBorder: "border-slate-200 dark:border-slate-700", tileIconBg: "bg-slate-100 dark:bg-slate-800",
     tileIconColor: "text-slate-600 dark:text-slate-300", tileText: "text-slate-700 dark:text-slate-200",
   },
   blue: {
     catBg: "bg-sky-50 dark:bg-sky-950/30", catHover: "hover:bg-sky-100 dark:hover:bg-sky-900/40",
     catBorder: "border-sky-200 dark:border-sky-800", catLeftBorder: "border-l-sky-500",
-    catIconBg: "bg-sky-200 dark:bg-sky-800", catIconColor: "text-sky-700 dark:text-sky-300",
-    catText: "text-sky-800 dark:text-sky-200", catCountBadge: "bg-sky-200 text-sky-700 dark:bg-sky-800 dark:text-sky-200",
-    tileBg: "bg-sky-50 dark:bg-sky-950/20", tileHover: "hover:bg-sky-100 dark:hover:bg-sky-900/30",
-    tileBorder: "border-sky-200 dark:border-sky-800", tileIconBg: "bg-sky-200 dark:bg-sky-800",
-    tileIconColor: "text-sky-700 dark:text-sky-300", tileText: "text-sky-800 dark:text-sky-200",
+    catIconBg: "bg-sky-500 dark:bg-sky-600", catIconColor: "text-white",
+    catText: "text-sky-800 dark:text-sky-200", catCountBadge: "bg-sky-500 text-white dark:bg-sky-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-sky-50 dark:hover:bg-sky-950/20",
+    tileBorder: "border-sky-200 dark:border-sky-800", tileIconBg: "bg-sky-100 dark:bg-sky-900/50",
+    tileIconColor: "text-sky-600 dark:text-sky-400", tileText: "text-sky-900 dark:text-sky-100",
   },
   green: {
     catBg: "bg-emerald-50 dark:bg-emerald-950/30", catHover: "hover:bg-emerald-100 dark:hover:bg-emerald-900/40",
     catBorder: "border-emerald-200 dark:border-emerald-800", catLeftBorder: "border-l-emerald-500",
-    catIconBg: "bg-emerald-200 dark:bg-emerald-800", catIconColor: "text-emerald-700 dark:text-emerald-300",
-    catText: "text-emerald-800 dark:text-emerald-200", catCountBadge: "bg-emerald-200 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-200",
-    tileBg: "bg-emerald-50 dark:bg-emerald-950/20", tileHover: "hover:bg-emerald-100 dark:hover:bg-emerald-900/30",
-    tileBorder: "border-emerald-200 dark:border-emerald-800", tileIconBg: "bg-emerald-200 dark:bg-emerald-800",
-    tileIconColor: "text-emerald-700 dark:text-emerald-300", tileText: "text-emerald-800 dark:text-emerald-200",
+    catIconBg: "bg-emerald-500 dark:bg-emerald-600", catIconColor: "text-white",
+    catText: "text-emerald-800 dark:text-emerald-200", catCountBadge: "bg-emerald-500 text-white dark:bg-emerald-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-emerald-50 dark:hover:bg-emerald-950/20",
+    tileBorder: "border-emerald-200 dark:border-emerald-800", tileIconBg: "bg-emerald-100 dark:bg-emerald-900/50",
+    tileIconColor: "text-emerald-600 dark:text-emerald-400", tileText: "text-emerald-900 dark:text-emerald-100",
   },
   purple: {
     catBg: "bg-violet-50 dark:bg-violet-950/30", catHover: "hover:bg-violet-100 dark:hover:bg-violet-900/40",
     catBorder: "border-violet-200 dark:border-violet-800", catLeftBorder: "border-l-violet-500",
-    catIconBg: "bg-violet-200 dark:bg-violet-800", catIconColor: "text-violet-700 dark:text-violet-300",
-    catText: "text-violet-800 dark:text-violet-200", catCountBadge: "bg-violet-200 text-violet-700 dark:bg-violet-800 dark:text-violet-200",
-    tileBg: "bg-violet-50 dark:bg-violet-950/20", tileHover: "hover:bg-violet-100 dark:hover:bg-violet-900/30",
-    tileBorder: "border-violet-200 dark:border-violet-800", tileIconBg: "bg-violet-200 dark:bg-violet-800",
-    tileIconColor: "text-violet-700 dark:text-violet-300", tileText: "text-violet-800 dark:text-violet-200",
+    catIconBg: "bg-violet-500 dark:bg-violet-600", catIconColor: "text-white",
+    catText: "text-violet-800 dark:text-violet-200", catCountBadge: "bg-violet-500 text-white dark:bg-violet-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-violet-50 dark:hover:bg-violet-950/20",
+    tileBorder: "border-violet-200 dark:border-violet-800", tileIconBg: "bg-violet-100 dark:bg-violet-900/50",
+    tileIconColor: "text-violet-600 dark:text-violet-400", tileText: "text-violet-900 dark:text-violet-100",
   },
   cyan: {
     catBg: "bg-cyan-50 dark:bg-cyan-950/30", catHover: "hover:bg-cyan-100 dark:hover:bg-cyan-900/40",
     catBorder: "border-cyan-200 dark:border-cyan-800", catLeftBorder: "border-l-cyan-500",
-    catIconBg: "bg-cyan-200 dark:bg-cyan-800", catIconColor: "text-cyan-700 dark:text-cyan-300",
-    catText: "text-cyan-800 dark:text-cyan-200", catCountBadge: "bg-cyan-200 text-cyan-700 dark:bg-cyan-800 dark:text-cyan-200",
-    tileBg: "bg-cyan-50 dark:bg-cyan-950/20", tileHover: "hover:bg-cyan-100 dark:hover:bg-cyan-900/30",
-    tileBorder: "border-cyan-200 dark:border-cyan-800", tileIconBg: "bg-cyan-200 dark:bg-cyan-800",
-    tileIconColor: "text-cyan-700 dark:text-cyan-300", tileText: "text-cyan-800 dark:text-cyan-200",
+    catIconBg: "bg-cyan-500 dark:bg-cyan-600", catIconColor: "text-white",
+    catText: "text-cyan-800 dark:text-cyan-200", catCountBadge: "bg-cyan-500 text-white dark:bg-cyan-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-cyan-50 dark:hover:bg-cyan-950/20",
+    tileBorder: "border-cyan-200 dark:border-cyan-800", tileIconBg: "bg-cyan-100 dark:bg-cyan-900/50",
+    tileIconColor: "text-cyan-600 dark:text-cyan-400", tileText: "text-cyan-900 dark:text-cyan-100",
   },
   teal: {
     catBg: "bg-teal-50 dark:bg-teal-950/30", catHover: "hover:bg-teal-100 dark:hover:bg-teal-900/40",
     catBorder: "border-teal-200 dark:border-teal-800", catLeftBorder: "border-l-teal-500",
-    catIconBg: "bg-teal-200 dark:bg-teal-800", catIconColor: "text-teal-700 dark:text-teal-300",
-    catText: "text-teal-800 dark:text-teal-200", catCountBadge: "bg-teal-200 text-teal-700 dark:bg-teal-800 dark:text-teal-200",
-    tileBg: "bg-teal-50 dark:bg-teal-950/20", tileHover: "hover:bg-teal-100 dark:hover:bg-teal-900/30",
-    tileBorder: "border-teal-200 dark:border-teal-800", tileIconBg: "bg-teal-200 dark:bg-teal-800",
-    tileIconColor: "text-teal-700 dark:text-teal-300", tileText: "text-teal-800 dark:text-teal-200",
+    catIconBg: "bg-teal-500 dark:bg-teal-600", catIconColor: "text-white",
+    catText: "text-teal-800 dark:text-teal-200", catCountBadge: "bg-teal-500 text-white dark:bg-teal-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-teal-50 dark:hover:bg-teal-950/20",
+    tileBorder: "border-teal-200 dark:border-teal-800", tileIconBg: "bg-teal-100 dark:bg-teal-900/50",
+    tileIconColor: "text-teal-600 dark:text-teal-400", tileText: "text-teal-900 dark:text-teal-100",
   },
   orange: {
     catBg: "bg-amber-50 dark:bg-amber-950/30", catHover: "hover:bg-amber-100 dark:hover:bg-amber-900/40",
     catBorder: "border-amber-200 dark:border-amber-800", catLeftBorder: "border-l-amber-500",
-    catIconBg: "bg-amber-200 dark:bg-amber-800", catIconColor: "text-amber-700 dark:text-amber-300",
-    catText: "text-amber-800 dark:text-amber-200", catCountBadge: "bg-amber-200 text-amber-700 dark:bg-amber-800 dark:text-amber-200",
-    tileBg: "bg-amber-50 dark:bg-amber-950/20", tileHover: "hover:bg-amber-100 dark:hover:bg-amber-900/30",
-    tileBorder: "border-amber-200 dark:border-amber-800", tileIconBg: "bg-amber-200 dark:bg-amber-800",
-    tileIconColor: "text-amber-700 dark:text-amber-300", tileText: "text-amber-800 dark:text-amber-200",
+    catIconBg: "bg-amber-500 dark:bg-amber-600", catIconColor: "text-white",
+    catText: "text-amber-800 dark:text-amber-200", catCountBadge: "bg-amber-500 text-white dark:bg-amber-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-amber-50 dark:hover:bg-amber-950/20",
+    tileBorder: "border-amber-200 dark:border-amber-800", tileIconBg: "bg-amber-100 dark:bg-amber-900/50",
+    tileIconColor: "text-amber-600 dark:text-amber-400", tileText: "text-amber-900 dark:text-amber-100",
   },
   emerald: {
     catBg: "bg-emerald-50 dark:bg-emerald-950/30", catHover: "hover:bg-emerald-100 dark:hover:bg-emerald-900/40",
     catBorder: "border-emerald-200 dark:border-emerald-800", catLeftBorder: "border-l-emerald-500",
-    catIconBg: "bg-emerald-200 dark:bg-emerald-800", catIconColor: "text-emerald-700 dark:text-emerald-300",
-    catText: "text-emerald-800 dark:text-emerald-200", catCountBadge: "bg-emerald-200 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-200",
-    tileBg: "bg-emerald-50 dark:bg-emerald-950/20", tileHover: "hover:bg-emerald-100 dark:hover:bg-emerald-900/30",
-    tileBorder: "border-emerald-200 dark:border-emerald-800", tileIconBg: "bg-emerald-200 dark:bg-emerald-800",
-    tileIconColor: "text-emerald-700 dark:text-emerald-300", tileText: "text-emerald-800 dark:text-emerald-200",
+    catIconBg: "bg-emerald-500 dark:bg-emerald-600", catIconColor: "text-white",
+    catText: "text-emerald-800 dark:text-emerald-200", catCountBadge: "bg-emerald-500 text-white dark:bg-emerald-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-emerald-50 dark:hover:bg-emerald-950/20",
+    tileBorder: "border-emerald-200 dark:border-emerald-800", tileIconBg: "bg-emerald-100 dark:bg-emerald-900/50",
+    tileIconColor: "text-emerald-600 dark:text-emerald-400", tileText: "text-emerald-900 dark:text-emerald-100",
   },
   red: {
     catBg: "bg-rose-50 dark:bg-rose-950/30", catHover: "hover:bg-rose-100 dark:hover:bg-rose-900/40",
     catBorder: "border-rose-200 dark:border-rose-800", catLeftBorder: "border-l-rose-500",
-    catIconBg: "bg-rose-200 dark:bg-rose-800", catIconColor: "text-rose-700 dark:text-rose-300",
-    catText: "text-rose-800 dark:text-rose-200", catCountBadge: "bg-rose-200 text-rose-700 dark:bg-rose-800 dark:text-rose-200",
-    tileBg: "bg-rose-50 dark:bg-rose-950/20", tileHover: "hover:bg-rose-100 dark:hover:bg-rose-900/30",
-    tileBorder: "border-rose-200 dark:border-rose-800", tileIconBg: "bg-rose-200 dark:bg-rose-800",
-    tileIconColor: "text-rose-700 dark:text-rose-300", tileText: "text-rose-800 dark:text-rose-200",
+    catIconBg: "bg-rose-500 dark:bg-rose-600", catIconColor: "text-white",
+    catText: "text-rose-800 dark:text-rose-200", catCountBadge: "bg-rose-500 text-white dark:bg-rose-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-rose-50 dark:hover:bg-rose-950/20",
+    tileBorder: "border-rose-200 dark:border-rose-800", tileIconBg: "bg-rose-100 dark:bg-rose-900/50",
+    tileIconColor: "text-rose-600 dark:text-rose-400", tileText: "text-rose-900 dark:text-rose-100",
   },
   yellow: {
     catBg: "bg-yellow-50 dark:bg-yellow-950/30", catHover: "hover:bg-yellow-100 dark:hover:bg-yellow-900/40",
-    catBorder: "border-yellow-200 dark:border-yellow-800", catLeftBorder: "border-l-yellow-400",
-    catIconBg: "bg-yellow-200 dark:bg-yellow-800", catIconColor: "text-yellow-700 dark:text-yellow-300",
-    catText: "text-yellow-800 dark:text-yellow-200", catCountBadge: "bg-yellow-200 text-yellow-700 dark:bg-yellow-800 dark:text-yellow-200",
-    tileBg: "bg-yellow-50 dark:bg-yellow-950/20", tileHover: "hover:bg-yellow-100 dark:hover:bg-yellow-900/30",
-    tileBorder: "border-yellow-200 dark:border-yellow-800", tileIconBg: "bg-yellow-200 dark:bg-yellow-800",
-    tileIconColor: "text-yellow-700 dark:text-yellow-300", tileText: "text-yellow-800 dark:text-yellow-200",
+    catBorder: "border-yellow-200 dark:border-yellow-800", catLeftBorder: "border-l-yellow-500",
+    catIconBg: "bg-yellow-500 dark:bg-yellow-600", catIconColor: "text-white",
+    catText: "text-yellow-800 dark:text-yellow-200", catCountBadge: "bg-yellow-500 text-white dark:bg-yellow-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-yellow-50 dark:hover:bg-yellow-950/20",
+    tileBorder: "border-yellow-200 dark:border-yellow-800", tileIconBg: "bg-yellow-100 dark:bg-yellow-900/50",
+    tileIconColor: "text-yellow-600 dark:text-yellow-400", tileText: "text-yellow-900 dark:text-yellow-100",
   },
   indigo: {
     catBg: "bg-indigo-50 dark:bg-indigo-950/30", catHover: "hover:bg-indigo-100 dark:hover:bg-indigo-900/40",
     catBorder: "border-indigo-200 dark:border-indigo-800", catLeftBorder: "border-l-indigo-500",
-    catIconBg: "bg-indigo-200 dark:bg-indigo-800", catIconColor: "text-indigo-700 dark:text-indigo-300",
-    catText: "text-indigo-800 dark:text-indigo-200", catCountBadge: "bg-indigo-200 text-indigo-700 dark:bg-indigo-800 dark:text-indigo-200",
-    tileBg: "bg-indigo-50 dark:bg-indigo-950/20", tileHover: "hover:bg-indigo-100 dark:hover:bg-indigo-900/30",
-    tileBorder: "border-indigo-200 dark:border-indigo-800", tileIconBg: "bg-indigo-200 dark:bg-indigo-800",
-    tileIconColor: "text-indigo-700 dark:text-indigo-300", tileText: "text-indigo-800 dark:text-indigo-200",
+    catIconBg: "bg-indigo-500 dark:bg-indigo-600", catIconColor: "text-white",
+    catText: "text-indigo-800 dark:text-indigo-200", catCountBadge: "bg-indigo-500 text-white dark:bg-indigo-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-indigo-50 dark:hover:bg-indigo-950/20",
+    tileBorder: "border-indigo-200 dark:border-indigo-800", tileIconBg: "bg-indigo-100 dark:bg-indigo-900/50",
+    tileIconColor: "text-indigo-600 dark:text-indigo-400", tileText: "text-indigo-900 dark:text-indigo-100",
   },
   sky: {
     catBg: "bg-sky-50 dark:bg-sky-950/30", catHover: "hover:bg-sky-100 dark:hover:bg-sky-900/40",
     catBorder: "border-sky-200 dark:border-sky-800", catLeftBorder: "border-l-sky-500",
-    catIconBg: "bg-sky-200 dark:bg-sky-800", catIconColor: "text-sky-700 dark:text-sky-300",
-    catText: "text-sky-800 dark:text-sky-200", catCountBadge: "bg-sky-200 text-sky-700 dark:bg-sky-800 dark:text-sky-200",
-    tileBg: "bg-sky-50 dark:bg-sky-950/20", tileHover: "hover:bg-sky-100 dark:hover:bg-sky-900/30",
-    tileBorder: "border-sky-200 dark:border-sky-800", tileIconBg: "bg-sky-200 dark:bg-sky-800",
-    tileIconColor: "text-sky-700 dark:text-sky-300", tileText: "text-sky-800 dark:text-sky-200",
+    catIconBg: "bg-sky-500 dark:bg-sky-600", catIconColor: "text-white",
+    catText: "text-sky-800 dark:text-sky-200", catCountBadge: "bg-sky-500 text-white dark:bg-sky-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-sky-50 dark:hover:bg-sky-950/20",
+    tileBorder: "border-sky-200 dark:border-sky-800", tileIconBg: "bg-sky-100 dark:bg-sky-900/50",
+    tileIconColor: "text-sky-600 dark:text-sky-400", tileText: "text-sky-900 dark:text-sky-100",
   },
   amber: {
     catBg: "bg-amber-50 dark:bg-amber-950/30", catHover: "hover:bg-amber-100 dark:hover:bg-amber-900/40",
     catBorder: "border-amber-200 dark:border-amber-800", catLeftBorder: "border-l-amber-500",
-    catIconBg: "bg-amber-200 dark:bg-amber-800", catIconColor: "text-amber-700 dark:text-amber-300",
-    catText: "text-amber-800 dark:text-amber-200", catCountBadge: "bg-amber-200 text-amber-700 dark:bg-amber-800 dark:text-amber-200",
-    tileBg: "bg-amber-50 dark:bg-amber-950/20", tileHover: "hover:bg-amber-100 dark:hover:bg-amber-900/30",
-    tileBorder: "border-amber-200 dark:border-amber-800", tileIconBg: "bg-amber-200 dark:bg-amber-800",
-    tileIconColor: "text-amber-700 dark:text-amber-300", tileText: "text-amber-800 dark:text-amber-200",
+    catIconBg: "bg-amber-500 dark:bg-amber-600", catIconColor: "text-white",
+    catText: "text-amber-800 dark:text-amber-200", catCountBadge: "bg-amber-500 text-white dark:bg-amber-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-amber-50 dark:hover:bg-amber-950/20",
+    tileBorder: "border-amber-200 dark:border-amber-800", tileIconBg: "bg-amber-100 dark:bg-amber-900/50",
+    tileIconColor: "text-amber-600 dark:text-amber-400", tileText: "text-amber-900 dark:text-amber-100",
   },
   lime: {
     catBg: "bg-lime-50 dark:bg-lime-950/30", catHover: "hover:bg-lime-100 dark:hover:bg-lime-900/40",
     catBorder: "border-lime-200 dark:border-lime-800", catLeftBorder: "border-l-lime-500",
-    catIconBg: "bg-lime-200 dark:bg-lime-800", catIconColor: "text-lime-700 dark:text-lime-300",
-    catText: "text-lime-800 dark:text-lime-200", catCountBadge: "bg-lime-200 text-lime-700 dark:bg-lime-800 dark:text-lime-200",
-    tileBg: "bg-lime-50 dark:bg-lime-950/20", tileHover: "hover:bg-lime-100 dark:hover:bg-lime-900/30",
-    tileBorder: "border-lime-200 dark:border-lime-800", tileIconBg: "bg-lime-200 dark:bg-lime-800",
-    tileIconColor: "text-lime-700 dark:text-lime-300", tileText: "text-lime-800 dark:text-lime-200",
+    catIconBg: "bg-lime-500 dark:bg-lime-600", catIconColor: "text-white",
+    catText: "text-lime-800 dark:text-lime-200", catCountBadge: "bg-lime-500 text-white dark:bg-lime-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-lime-50 dark:hover:bg-lime-950/20",
+    tileBorder: "border-lime-200 dark:border-lime-800", tileIconBg: "bg-lime-100 dark:bg-lime-900/50",
+    tileIconColor: "text-lime-600 dark:text-lime-400", tileText: "text-lime-900 dark:text-lime-100",
   },
   violet: {
     catBg: "bg-violet-50 dark:bg-violet-950/30", catHover: "hover:bg-violet-100 dark:hover:bg-violet-900/40",
     catBorder: "border-violet-200 dark:border-violet-800", catLeftBorder: "border-l-violet-500",
-    catIconBg: "bg-violet-200 dark:bg-violet-800", catIconColor: "text-violet-700 dark:text-violet-300",
-    catText: "text-violet-800 dark:text-violet-200", catCountBadge: "bg-violet-200 text-violet-700 dark:bg-violet-800 dark:text-violet-200",
-    tileBg: "bg-violet-50 dark:bg-violet-950/20", tileHover: "hover:bg-violet-100 dark:hover:bg-violet-900/30",
-    tileBorder: "border-violet-200 dark:border-violet-800", tileIconBg: "bg-violet-200 dark:bg-violet-800",
-    tileIconColor: "text-violet-700 dark:text-violet-300", tileText: "text-violet-800 dark:text-violet-200",
+    catIconBg: "bg-violet-500 dark:bg-violet-600", catIconColor: "text-white",
+    catText: "text-violet-800 dark:text-violet-200", catCountBadge: "bg-violet-500 text-white dark:bg-violet-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-violet-50 dark:hover:bg-violet-950/20",
+    tileBorder: "border-violet-200 dark:border-violet-800", tileIconBg: "bg-violet-100 dark:bg-violet-900/50",
+    tileIconColor: "text-violet-600 dark:text-violet-400", tileText: "text-violet-900 dark:text-violet-100",
   },
   rose: {
     catBg: "bg-rose-50 dark:bg-rose-950/30", catHover: "hover:bg-rose-100 dark:hover:bg-rose-900/40",
     catBorder: "border-rose-200 dark:border-rose-800", catLeftBorder: "border-l-rose-500",
-    catIconBg: "bg-rose-200 dark:bg-rose-800", catIconColor: "text-rose-700 dark:text-rose-300",
-    catText: "text-rose-800 dark:text-rose-200", catCountBadge: "bg-rose-200 text-rose-700 dark:bg-rose-800 dark:text-rose-200",
-    tileBg: "bg-rose-50 dark:bg-rose-950/20", tileHover: "hover:bg-rose-100 dark:hover:bg-rose-900/30",
-    tileBorder: "border-rose-200 dark:border-rose-800", tileIconBg: "bg-rose-200 dark:bg-rose-800",
-    tileIconColor: "text-rose-700 dark:text-rose-300", tileText: "text-rose-800 dark:text-rose-200",
+    catIconBg: "bg-rose-500 dark:bg-rose-600", catIconColor: "text-white",
+    catText: "text-rose-800 dark:text-rose-200", catCountBadge: "bg-rose-500 text-white dark:bg-rose-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-rose-50 dark:hover:bg-rose-950/20",
+    tileBorder: "border-rose-200 dark:border-rose-800", tileIconBg: "bg-rose-100 dark:bg-rose-900/50",
+    tileIconColor: "text-rose-600 dark:text-rose-400", tileText: "text-rose-900 dark:text-rose-100",
   },
   pink: {
     catBg: "bg-pink-50 dark:bg-pink-950/30", catHover: "hover:bg-pink-100 dark:hover:bg-pink-900/40",
     catBorder: "border-pink-200 dark:border-pink-800", catLeftBorder: "border-l-pink-500",
-    catIconBg: "bg-pink-200 dark:bg-pink-800", catIconColor: "text-pink-700 dark:text-pink-300",
-    catText: "text-pink-800 dark:text-pink-200", catCountBadge: "bg-pink-200 text-pink-700 dark:bg-pink-800 dark:text-pink-200",
-    tileBg: "bg-pink-50 dark:bg-pink-950/20", tileHover: "hover:bg-pink-100 dark:hover:bg-pink-900/30",
-    tileBorder: "border-pink-200 dark:border-pink-800", tileIconBg: "bg-pink-200 dark:bg-pink-800",
-    tileIconColor: "text-pink-700 dark:text-pink-300", tileText: "text-pink-800 dark:text-pink-200",
+    catIconBg: "bg-pink-500 dark:bg-pink-600", catIconColor: "text-white",
+    catText: "text-pink-800 dark:text-pink-200", catCountBadge: "bg-pink-500 text-white dark:bg-pink-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-pink-50 dark:hover:bg-pink-950/20",
+    tileBorder: "border-pink-200 dark:border-pink-800", tileIconBg: "bg-pink-100 dark:bg-pink-900/50",
+    tileIconColor: "text-pink-600 dark:text-pink-400", tileText: "text-pink-900 dark:text-pink-100",
   },
   fuchsia: {
     catBg: "bg-fuchsia-50 dark:bg-fuchsia-950/30", catHover: "hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900/40",
     catBorder: "border-fuchsia-200 dark:border-fuchsia-800", catLeftBorder: "border-l-fuchsia-500",
-    catIconBg: "bg-fuchsia-200 dark:bg-fuchsia-800", catIconColor: "text-fuchsia-700 dark:text-fuchsia-300",
-    catText: "text-fuchsia-800 dark:text-fuchsia-200", catCountBadge: "bg-fuchsia-200 text-fuchsia-700 dark:bg-fuchsia-800 dark:text-fuchsia-200",
-    tileBg: "bg-fuchsia-50 dark:bg-fuchsia-950/20", tileHover: "hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900/30",
-    tileBorder: "border-fuchsia-200 dark:border-fuchsia-800", tileIconBg: "bg-fuchsia-200 dark:bg-fuchsia-800",
-    tileIconColor: "text-fuchsia-700 dark:text-fuchsia-300", tileText: "text-fuchsia-800 dark:text-fuchsia-200",
+    catIconBg: "bg-fuchsia-500 dark:bg-fuchsia-600", catIconColor: "text-white",
+    catText: "text-fuchsia-800 dark:text-fuchsia-200", catCountBadge: "bg-fuchsia-500 text-white dark:bg-fuchsia-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/20",
+    tileBorder: "border-fuchsia-200 dark:border-fuchsia-800", tileIconBg: "bg-fuchsia-100 dark:bg-fuchsia-900/50",
+    tileIconColor: "text-fuchsia-600 dark:text-fuchsia-400", tileText: "text-fuchsia-900 dark:text-fuchsia-100",
   },
   slate: {
     catBg: "bg-slate-50 dark:bg-slate-900/40", catHover: "hover:bg-slate-100 dark:hover:bg-slate-800/50",
-    catBorder: "border-slate-200 dark:border-slate-700", catLeftBorder: "border-l-slate-400",
-    catIconBg: "bg-slate-200 dark:bg-slate-700", catIconColor: "text-slate-600 dark:text-slate-300",
-    catText: "text-slate-700 dark:text-slate-200", catCountBadge: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
-    tileBg: "bg-slate-50 dark:bg-slate-900/30", tileHover: "hover:bg-slate-100 dark:hover:bg-slate-800/50",
-    tileBorder: "border-slate-200 dark:border-slate-700", tileIconBg: "bg-slate-200 dark:bg-slate-700",
+    catBorder: "border-slate-200 dark:border-slate-700", catLeftBorder: "border-l-slate-500",
+    catIconBg: "bg-slate-500 dark:bg-slate-600", catIconColor: "text-white",
+    catText: "text-slate-700 dark:text-slate-200", catCountBadge: "bg-slate-500 text-white dark:bg-slate-600",
+    tileBg: "bg-white dark:bg-slate-900/80", tileHover: "hover:bg-slate-50 dark:hover:bg-slate-800/40",
+    tileBorder: "border-slate-200 dark:border-slate-700", tileIconBg: "bg-slate-100 dark:bg-slate-800",
     tileIconColor: "text-slate-600 dark:text-slate-300", tileText: "text-slate-700 dark:text-slate-200",
   },
 };
@@ -452,13 +452,13 @@ export function NexusPulseView({
         key={status.id}
         type="button"
         onClick={() => onSelectStatus(status)}
-        className={`group relative p-3.5 rounded-xl border-2 text-left transition-all duration-150 ${scheme.tileBg} ${scheme.tileBorder} ${scheme.tileHover} hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] ${
+        className={`group relative p-3.5 rounded-xl border text-left transition-all duration-150 shadow-sm ${scheme.tileBg} ${scheme.tileBorder} hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] ${
           isSelected ? "ring-2 ring-primary ring-offset-1 shadow-md" : ""
         }`}
         data-testid={`pulse-status-${status.id}`}
       >
         <div className="flex items-start gap-2.5">
-          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${scheme.tileIconBg}`}>
+          <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 border ${scheme.tileIconBg} ${scheme.tileBorder}`}>
             {StatusIcon
               ? <StatusIcon className={`h-4.5 w-4.5 ${scheme.tileIconColor}`} style={{ width: 18, height: 18 }} />
               : <CircleDot className={`h-4.5 w-4.5 ${scheme.tileIconColor}`} style={{ width: 18, height: 18 }} />
@@ -505,19 +505,19 @@ export function NexusPulseView({
     return (
       <div
         key={catId}
-        className={`rounded-xl border-2 ${scheme.catBorder} overflow-hidden transition-all duration-200 shadow-sm`}
+        className={`rounded-xl border ${scheme.catBorder} overflow-hidden transition-all duration-200 shadow-sm`}
         data-testid={`pulse-cat-${catId}`}
       >
         <button
           type="button"
-          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-150 border-l-4 ${scheme.catLeftBorder} ${scheme.catBg} ${scheme.catHover}`}
+          className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 border-l-4 ${scheme.catLeftBorder} ${scheme.catBg} ${scheme.catHover}`}
           onClick={() => toggle(catId)}
           data-testid={`pulse-cat-toggle-${catId}`}
         >
-          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${scheme.catIconBg}`}>
+          <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${scheme.catIconBg}`}>
             {CatIcon
-              ? <CatIcon className={`h-5 w-5 ${scheme.catIconColor}`} />
-              : <FolderOpen className={`h-5 w-5 ${scheme.catIconColor}`} />
+              ? <CatIcon className="h-5 w-5 text-white" />
+              : <FolderOpen className="h-5 w-5 text-white" />
             }
           </div>
           <div className="flex-1 min-w-0">
