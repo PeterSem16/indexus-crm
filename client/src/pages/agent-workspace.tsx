@@ -126,6 +126,7 @@ import {
   ChevronsUpDown,
   Check,
   Navigation,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   Dialog,
@@ -657,41 +658,56 @@ function TaskListPanel({
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
+  const nContacts = (n: number) => {
+    const s = n === 1 ? t.agentWorkspace.contactSingular : (n >= 2 && n <= 4) ? t.agentWorkspace.contactFew : t.agentWorkspace.contactPlural;
+    return `${n} ${s}`;
+  };
+
   return (
     <div className="w-72 border-r bg-card flex flex-col h-full shrink-0">
-      <div className="p-3 border-b space-y-2">
+      <div className="p-3 border-b">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm flex items-center gap-2">
             <Headphones className="h-4 w-4 text-primary" />
             {t.agentWorkspace.workspace}
           </h3>
-          {tasks.length > 0 && (
-            <Badge variant="secondary">{tasks.length}</Badge>
-          )}
+          <div className="flex items-center gap-1">
+            {tasks.length > 0 && (
+              <Badge variant="secondary">{tasks.length}</Badge>
+            )}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="btn-queue-settings">
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3 space-y-3" align="end">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t.agentWorkspace.queueSettings}</p>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="show-assigned"
+                    checked={showOnlyAssigned}
+                    onCheckedChange={(checked) => onToggleAssigned(!!checked)}
+                    data-testid="checkbox-show-assigned"
+                  />
+                  <Label htmlFor="show-assigned" className="text-xs cursor-pointer">{t.agentWorkspace.onlyAssigned}</Label>
+                </div>
+                <Select value={channelFilter} onValueChange={onChannelFilterChange}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-channel-filter">
+                    <SelectValue placeholder={t.agentWorkspace.allChannels} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.agentWorkspace.allChannels}</SelectItem>
+                    <SelectItem value="phone">Telefón</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="sms">SMS</SelectItem>
+                    <SelectItem value="mixed">Zmiešané</SelectItem>
+                  </SelectContent>
+                </Select>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="show-assigned"
-            checked={showOnlyAssigned}
-            onCheckedChange={(checked) => onToggleAssigned(!!checked)}
-            data-testid="checkbox-show-assigned"
-          />
-          <Label htmlFor="show-assigned" className="text-xs cursor-pointer">
-            {t.agentWorkspace.onlyAssigned}
-          </Label>
-        </div>
-        <Select value={channelFilter} onValueChange={onChannelFilterChange}>
-          <SelectTrigger className="h-8 text-xs" data-testid="select-channel-filter">
-            <SelectValue placeholder="Všetky kanály" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t.agentWorkspace.allChannels}</SelectItem>
-            <SelectItem value="phone">Telefón</SelectItem>
-            <SelectItem value="email">Email</SelectItem>
-            <SelectItem value="sms">SMS</SelectItem>
-            <SelectItem value="mixed">Zmiešané</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {tasks.length > 0 && (
@@ -707,48 +723,60 @@ function TaskListPanel({
           <ScrollArea className="max-h-48">
             <div className="px-2 pb-2 space-y-1">
               {tasks.map((task) => {
-                const chConfig = CHANNEL_CONFIG[task.channel];
-                const ChIcon = chConfig.icon;
+                const ChIcon = CHANNEL_CONFIG[task.channel].icon;
                 const isActive = activeTaskId === task.id;
                 const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1000);
                 const mins = Math.floor(elapsed / 60);
+                const taskAc = task.channel === "phone" ? "#B5622E" : task.channel === "email" ? "#5B4FCF" : task.channel === "sms" ? "#2E75B6" : "#5A7A5A";
 
                 return (
                   <div
                     key={task.id}
-                    className={`
-                      group flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors
-                      ${isActive
-                        ? "bg-primary/10 border border-primary/30"
-                        : "hover-elevate"
+                    className="group flex items-center gap-2.5 px-2.5 py-2 cursor-pointer transition-all duration-150"
+                    style={{
+                      background: isActive ? `${taskAc}12` : "#FFFFFF",
+                      border: `1.5px solid ${isActive ? taskAc : taskAc + "30"}`,
+                      borderRadius: "12px",
+                      boxShadow: isActive ? `0 3px 10px ${taskAc}25` : "0 1px 4px rgba(0,0,0,0.05)",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.borderColor = `${taskAc}65`;
+                        el.style.boxShadow = `0 4px 12px ${taskAc}20`;
+                        el.style.transform = "translateY(-1px)";
                       }
-                    `}
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.borderColor = `${taskAc}30`;
+                        el.style.boxShadow = "0 1px 4px rgba(0,0,0,0.05)";
+                        el.style.transform = "";
+                      }
+                    }}
                     onClick={() => onSelectTask(task)}
                     data-testid={`task-item-${task.id}`}
                   >
-                    <div className="relative shrink-0">
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback className="text-xs bg-muted">
-                          {task.contact.firstName?.[0]}{task.contact.lastName?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className={`absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full ${chConfig.bg} flex items-center justify-center`}>
-                        <ChIcon className="h-2.5 w-2.5 text-white" />
-                      </div>
+                    <div
+                      className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 relative"
+                      style={{ background: taskAc, boxShadow: `0 2px 8px ${taskAc}50` }}
+                    >
+                      <ChIcon className="h-4 w-4 text-white" />
+                      {task.status === "active" && (
+                        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border border-white animate-pulse" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
+                      <p className="text-xs font-bold truncate" style={{ color: "#3D2E20" }}>
                         {task.contact.firstName} {task.contact.lastName}
                       </p>
-                      <p className="text-[10px] text-muted-foreground truncate">
+                      <p className="text-[10px] truncate" style={{ color: "#9A8878" }}>
                         {task.campaignName}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-[10px] text-muted-foreground">{mins}m</span>
-                      {task.status === "active" && (
-                        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                      )}
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${taskAc}18`, color: taskAc }}>{mins}m</span>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -943,7 +971,7 @@ function TaskListPanel({
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-bold text-xs" style={{ color: "#3D2E20" }}>{label}</div>
-                          <div className="text-[10px] mt-0.5" style={{ color: "#9A8878" }}>{items.length} kontaktov</div>
+                          <div className="text-[10px] mt-0.5" style={{ color: "#9A8878" }}>{nContacts(items.length)}</div>
                         </div>
                         <span
                           className="text-xs font-bold min-w-[26px] h-6 flex items-center justify-center rounded-full px-1.5 shrink-0"
@@ -5059,6 +5087,10 @@ export default function AgentWorkspacePage() {
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
+  const nContacts = (n: number) => {
+    const s = n === 1 ? t.agentWorkspace.contactSingular : (n >= 2 && n <= 4) ? t.agentWorkspace.contactFew : t.agentWorkspace.contactPlural;
+    return `${n} ${s}`;
+  };
   const { makeCall, isRegistered: isSipRegistered, isRegistering: isSipRegistering, register: sipRegister, incomingCall: sipIncomingCall, answerIncomingCall, rejectIncomingCall, setIncomingCallWithRef, setAnsweredIncomingSession, incomingCallRef } = useSip();
   const callContext = useCall();
   const [, setLocation] = useLocation();
@@ -5607,10 +5639,14 @@ export default function AgentWorkspacePage() {
   });
 
   const pendingCampaignContacts = useMemo(() => {
-    return rawCampaignContacts.filter(
-      (cc) => (cc.customer || cc.hospital || cc.clinic || cc.collaborator) && (cc.status === "pending" || cc.status === "callback_scheduled") && !disposedContactIds.has(cc.id)
-    );
-  }, [rawCampaignContacts, disposedContactIds]);
+    return rawCampaignContacts.filter((cc) => {
+      if (!(cc.customer || cc.hospital || cc.clinic || cc.collaborator)) return false;
+      if (!(cc.status === "pending" || cc.status === "callback_scheduled")) return false;
+      if (disposedContactIds.has(cc.id)) return false;
+      if (showOnlyAssigned && cc.status === "callback_scheduled" && cc.assignedTo && cc.assignedTo !== user?.id) return false;
+      return true;
+    });
+  }, [rawCampaignContacts, disposedContactIds, showOnlyAssigned, user?.id]);
 
   const currentCampaignContact = useMemo(() => {
     if (!currentCampaignContactId) return null;
@@ -7770,7 +7806,7 @@ export default function AgentWorkspacePage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-bold text-sm" style={{ color: "#3D2E20" }}>{label}</div>
-                              <div className="text-xs mt-0.5" style={{ color: "#9A8878" }}>{items.length} {items.length === 1 ? "kontakt" : items.length < 5 ? "kontakty" : "kontaktov"}</div>
+                              <div className="text-xs mt-0.5" style={{ color: "#9A8878" }}>{nContacts(items.length)}</div>
                             </div>
                             <span className="text-sm font-bold min-w-[30px] h-7 flex items-center justify-center rounded-full px-2 shrink-0" style={{ background: ac, color: "#fff" }}>
                               {items.length}
@@ -7828,7 +7864,7 @@ export default function AgentWorkspacePage() {
               return (
                 <div className="space-y-2 py-3">
                   <div className="text-xs px-1 pb-1 font-medium" style={{ color: "#9A8878" }}>
-                    {filtered.length} {filtered.length === 1 ? "kontakt" : filtered.length < 5 ? "kontakty" : "kontaktov"}
+                    {nContacts(filtered.length)}
                   </div>
                   {filtered.map(cc => renderModalCard(cc, flatAc))}
                 </div>

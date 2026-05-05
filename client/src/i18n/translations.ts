@@ -3091,6 +3091,8 @@ export interface Translations {
     nextBtn: string;
     onlyAssigned: string;
     allChannels: string;
+    queueSettings: string;
+    contactSingular: string; contactFew: string; contactPlural: string;
     contactFinished: string;
     resultLabel: string;
     emailSent: string;
@@ -9652,6 +9654,8 @@ export const translations: Record<Locale, Translations> = {
       nextBtn: 'Next',
       onlyAssigned: 'Only assigned',
       allChannels: 'All channels',
+      queueSettings: 'Queue settings',
+      contactSingular: 'contact', contactFew: 'contacts', contactPlural: 'contacts',
       contactFinished: 'Contact finished',
       resultLabel: 'Result',
       emailSent: 'Email sent',
@@ -15698,6 +15702,8 @@ export const translations: Record<Locale, Translations> = {
       nextBtn: 'Ďalší',
       onlyAssigned: 'Len priradené',
       allChannels: 'Všetky kanály',
+      queueSettings: 'Nastavenia fronty',
+      contactSingular: 'kontakt', contactFew: 'kontakty', contactPlural: 'kontaktov',
       contactFinished: 'Kontakt ukončený',
       resultLabel: 'Výsledok',
       emailSent: 'Email odoslaný',
@@ -21723,6 +21729,8 @@ export const translations: Record<Locale, Translations> = {
       nextBtn: 'Další',
       onlyAssigned: 'Pouze přiřazené',
       allChannels: 'Všechny kanály',
+      queueSettings: 'Nastavení fronty',
+      contactSingular: 'kontakt', contactFew: 'kontakty', contactPlural: 'kontaktů',
       contactFinished: 'Kontakt ukončen',
       resultLabel: 'Výsledek',
       emailSent: 'Email odeslán',
@@ -27706,6 +27714,8 @@ export const translations: Record<Locale, Translations> = {
       nextBtn: 'Következő',
       onlyAssigned: 'Csak hozzárendelt',
       allChannels: 'Minden csatorna',
+      queueSettings: 'Sor beállításai',
+      contactSingular: 'kapcsolat', contactFew: 'kapcsolat', contactPlural: 'kapcsolat',
       contactFinished: 'Kapcsolat befejezve',
       resultLabel: 'Eredmény',
       emailSent: 'Email elküldve',
@@ -33584,6 +33594,8 @@ export const translations: Record<Locale, Translations> = {
       nextBtn: 'Următorul',
       onlyAssigned: 'Doar atribuite',
       allChannels: 'Toate canalele',
+      queueSettings: 'Setări coadă',
+      contactSingular: 'contact', contactFew: 'contacte', contactPlural: 'contacte',
       contactFinished: 'Contact finalizat',
       resultLabel: 'Rezultat',
       emailSent: 'Email trimis',
@@ -39464,6 +39476,8 @@ export const translations: Record<Locale, Translations> = {
       nextBtn: 'Successivo',
       onlyAssigned: 'Solo assegnati',
       allChannels: 'Tutti i canali',
+      queueSettings: 'Impostazioni coda',
+      contactSingular: 'contatto', contactFew: 'contatti', contactPlural: 'contatti',
       contactFinished: 'Contatto terminato',
       resultLabel: 'Risultato',
       emailSent: 'Email inviata',
@@ -45344,6 +45358,8 @@ export const translations: Record<Locale, Translations> = {
       nextBtn: 'Nächster',
       onlyAssigned: 'Nur zugewiesene',
       allChannels: 'Alle Kanäle',
+      queueSettings: 'Warteschlangen-Einstellungen',
+      contactSingular: 'Kontakt', contactFew: 'Kontakte', contactPlural: 'Kontakte',
       contactFinished: 'Kontakt beendet',
       resultLabel: 'Ergebnis',
       emailSent: 'Email gesendet',
