@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useI18n } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,8 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
   onDismiss: (callId: string) => void;
   isFirst: boolean;
 }) {
+  const { t } = useI18n();
+  const aw = t.agentWorkspace;
   const [isAccepting, setIsAccepting] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const acceptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -241,10 +244,10 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
               <Badge
                 variant="secondary"
                 className="text-[10px] px-1.5 py-0 h-5"
-                title="Počet dnešných prichádzajúcich hovorov od tohto volajúceho (okrem aktuálneho)"
+                title={aw.inboundTodayHint}
               >
                 <PhoneIncoming className="h-3 w-3 mr-1" />
-                Dnes: {totalToday} {totalToday === 1 ? "hovor" : totalToday < 5 ? "hovory" : "hovorov"}
+                {aw.inboundTodayLabel} {totalToday} {totalToday === 1 ? aw.inboundCallSingular : totalToday < 5 ? aw.inboundCallFew : aw.inboundCallMany}
               </Badge>
               {missedToday > 0 && (
                 <Badge
@@ -253,7 +256,7 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
                   data-testid={`missed-stats-${call.callId}`}
                 >
                   <PhoneMissed className="h-3 w-3 mr-1" />
-                  {missedToday} nedvíhal
+                  {missedToday} {aw.inboundMissedLabel}
                 </Badge>
               )}
             </div>
@@ -265,7 +268,7 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
             variant="default"
             onClick={handleAccept}
             disabled={!canAccept || isAccepting || isRejecting}
-            title={canAccept ? "Prijať hovor" : "Čakám na SIP pripojenie..."}
+            title={canAccept ? aw.inboundAcceptTitle : aw.inboundWaitingSip}
             data-testid={`btn-accept-${call.callId}`}
           >
             {isAccepting ? (
@@ -273,7 +276,7 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
             ) : (
               <Phone className="h-3.5 w-3.5 mr-1" />
             )}
-            {isAccepting ? "Pripájam..." : "Prijať"}
+            {isAccepting ? aw.inboundConnecting : aw.inboundAccept}
           </Button>
           <Button
             size="sm"
@@ -303,10 +306,10 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
           <div className="flex-1">
             <div className="flex items-center gap-1.5">
               <Bell className="h-3.5 w-3.5" />
-              <span className="font-semibold uppercase tracking-wide">Súrne — opakovaný volajúci</span>
+              <span className="font-semibold uppercase tracking-wide">{aw.inboundUrgentTitle}</span>
             </div>
             <div className="mt-0.5 text-white/95">
-              Tento volajúci dnes volal už {totalToday + 1}× a posledný hovor nebol vybavený. Prijmite hovor prioritne.
+              {aw.inboundUrgentDesc.replace('{n}', String(totalToday + 1))}
             </div>
           </div>
         </div>
@@ -314,7 +317,7 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
       {!canAccept && (
         <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
           <Clock className="h-3 w-3 animate-spin" />
-          Pripájam hovor...
+          {aw.inboundConnectingMsg}
         </div>
       )}
     </div>
@@ -349,6 +352,8 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
   onAccept: (call: InboundCallData) => void;
   onReject: (call: InboundCallData) => void;
 }) {
+  const { t } = useI18n();
+  const aw = t.agentWorkspace;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -453,7 +458,7 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
                 )}
               </div>
               <span className="text-xs font-semibold" style={{ color: hasActiveCall ? "#92400E" : isQueueWaiting ? "#4C1D95" : "#14532D" }}>
-                {isQueueWaiting ? "Čaká vo fronte" : "Prichádzajúci hovor"}
+                {isQueueWaiting ? aw.inboundQueueTitle : aw.inboundBusyCallTitle}
               </span>
               {count > 1 && (
                 <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{count}</Badge>
@@ -493,12 +498,12 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
             {hasActiveCall ? (
               <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs" style={{ background: "#FEF3C7", color: "#92400E" }}>
                 <PhoneCall className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span>Momentálne ste na hovore. Ukončite aktuálny hovor pre prijatie nového.</span>
+                <span>{aw.inboundOnCallMsg}</span>
               </div>
             ) : isQueueWaiting ? (
               <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs" style={{ background: "#EDE9FE", color: "#4C1D95" }}>
                 <PhoneIncoming className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span>Hovor čaká vo fronte. Zmeňte stav na <strong>Dostupný</strong> pre jeho prijatie.</span>
+                <span>{aw.inboundQueueWaitingMsg}</span>
               </div>
             ) : (
               <div className="flex gap-2">
@@ -515,7 +520,7 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
                   ) : (
                     <Phone className="h-3.5 w-3.5" />
                   )}
-                  {isAccepting ? "Pripájam..." : "Prijať"}
+                  {isAccepting ? aw.inboundConnecting : aw.inboundAccept}
                 </Button>
                 <Button
                   size="sm"
@@ -525,14 +530,14 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
                   data-testid="btn-busy-reject"
                 >
                   <PhoneOff className="h-3.5 w-3.5" />
-                  Odmietnuť
+                  {aw.inboundReject}
                 </Button>
               </div>
             )}
 
             {count > 1 && (
               <p className="text-[10px] text-slate-400 text-center">
-                +{count - 1} ďalší {count - 1 === 1 ? "hovor" : count - 1 < 5 ? "hovory" : "hovorov"} v rade
+                +{count - 1} {count - 1 === 1 ? aw.inboundMoreSingular : count - 1 < 5 ? aw.inboundMoreFew : aw.inboundMoreMany} {aw.inboundInQueue}
               </p>
             )}
           </div>
@@ -543,6 +548,8 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
 }
 
 export function InboundCallPopup({ inboundCalls, onAccept, onReject, onDismiss, agentStatus, activeCallState }: InboundCallPopupProps) {
+  const { t } = useI18n();
+  const aw = t.agentWorkspace;
   const isBusy = agentStatus === "busy";
   const hasActiveCall = activeCallState === "active" || activeCallState === "on_hold";
 
@@ -586,19 +593,19 @@ export function InboundCallPopup({ inboundCalls, onAccept, onReject, onDismiss, 
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
                 </span>
               </div>
-              Prichádzajúce hovory
+              {aw.inboundCallsTitle}
             </CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-xs">
                 <Users className="h-3 w-3 mr-1" />
-                {inboundCalls.length} {inboundCalls.length === 1 ? "hovor" : inboundCalls.length < 5 ? "hovory" : "hovorov"}
+                {inboundCalls.length} {inboundCalls.length === 1 ? aw.inboundCallSingular : inboundCalls.length < 5 ? aw.inboundCallFew : aw.inboundCallMany}
               </Badge>
               <Button
                 size="icon"
                 variant="ghost"
                 className="h-6 w-6"
                 onClick={() => setIsMinimized(true)}
-                title="Minimalizovať"
+                title={aw.inboundMinimize}
                 data-testid="btn-minimize-inbound"
               >
                 <Minimize2 className="h-3.5 w-3.5" />
