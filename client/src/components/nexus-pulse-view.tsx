@@ -284,6 +284,18 @@ function getScheme(color: string | null | undefined): ColorScheme {
   return COLOR_SCHEMES[color || "gray"] || COLOR_SCHEMES.gray;
 }
 
+const COLOR_HEX: Record<string, string> = {
+  gray: "#7A6858", blue: "#2E75B6", green: "#4A7A52", purple: "#6B4FCF",
+  cyan: "#2A8A9A", teal: "#2A7A70", orange: "#B5622E", emerald: "#3A7A5A",
+  red: "#A0493A", yellow: "#A08030", indigo: "#4A4ACF", sky: "#2E75B6",
+  amber: "#B5622E", lime: "#5A7A30", violet: "#5B4FCF", rose: "#A04060",
+  pink: "#A03060", fuchsia: "#8A30A0", slate: "#5A6A7A", none: "#7A6858",
+};
+
+function getHex(color: string | null | undefined): string {
+  return COLOR_HEX[color || "gray"] || COLOR_HEX.gray;
+}
+
 function resolveIcon(name: string | null | undefined): LucideIcon | null {
   if (!name) return null;
   const map = LucideIcons as unknown as Record<string, LucideIcon>;
@@ -406,7 +418,7 @@ export function NexusPulseView({
 
   const renderStatus = (status: PulseStatus, fallbackColor?: string) => {
     const colorKey = status.color || fallbackColor || "gray";
-    const scheme = getScheme(colorKey);
+    const hex = getHex(colorKey);
     const StatusIcon = resolveIcon(status.icon);
     const subCount = childCount[status.id] || 0;
     const isSelected = selectedIds?.has(status.id);
@@ -419,29 +431,40 @@ export function NexusPulseView({
           key={status.id}
           type="button"
           onClick={() => onSelectStatus(status)}
-          className={`group flex items-center gap-2.5 rounded-lg border-l-[3px] ${scheme.catLeftBorder} border border-l-[3px] px-3 py-2 text-left transition-all duration-150 ${scheme.tileBg} ${scheme.tileHover} ${
-            isSelected ? "ring-2 ring-primary ring-offset-1" : ""
-          } hover:shadow-sm active:scale-[0.98]`}
+          className={`group flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all duration-150 active:scale-[0.98] ${isSelected ? "ring-2 ring-primary ring-offset-1" : ""}`}
+          style={{
+            background: "#FFFFFF",
+            border: `1px solid ${hex}22`,
+            borderLeft: `3px solid ${hex}`,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.borderColor = `${hex}50`;
+            (e.currentTarget as HTMLElement).style.borderLeftColor = hex;
+            (e.currentTarget as HTMLElement).style.boxShadow = `0 2px 8px ${hex}18`;
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.borderColor = `${hex}22`;
+            (e.currentTarget as HTMLElement).style.borderLeftColor = hex;
+            (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)";
+          }}
           data-testid={`pulse-status-${status.id}`}
         >
           {StatusIcon
-            ? <StatusIcon className={`h-4 w-4 shrink-0 ${scheme.tileIconColor}`} />
-            : <CircleDot className={`h-4 w-4 shrink-0 ${scheme.tileIconColor}`} />
+            ? <StatusIcon className="h-4 w-4 shrink-0" style={{ color: hex }} />
+            : <CircleDot className="h-4 w-4 shrink-0" style={{ color: hex }} />
           }
-          <span className={`font-medium text-sm flex-1 truncate ${scheme.tileText}`}>{renderName(status)}</span>
+          <span className="font-medium text-sm flex-1 truncate" style={{ color: "#2E2118" }}>{renderName(status)}</span>
           <div className="flex items-center gap-1.5 shrink-0">
             {prefs.showActionBadges && action !== "none" && (
-              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${STATUS_ACTION_COLORS[action] || STATUS_ACTION_COLORS.none}`}>
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: `${hex}15`, color: hex }}>
                 {STATUS_ACTION_LABELS[action] || action}
               </span>
             )}
             {subCount > 0 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${scheme.catCountBadge}`}>{subCount}↳</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: hex, color: "#fff" }}>{subCount}↳</span>
             )}
-            {subCount > 0
-              ? <ChevronRight className={`h-3.5 w-3.5 ${scheme.tileIconColor} opacity-60`} />
-              : null
-            }
+            {subCount > 0 && <ChevronRight className="h-3.5 w-3.5 opacity-60" style={{ color: hex }} />}
           </div>
         </button>
       );
@@ -452,37 +475,50 @@ export function NexusPulseView({
         key={status.id}
         type="button"
         onClick={() => onSelectStatus(status)}
-        className={`group relative p-3.5 rounded-xl border text-left transition-all duration-150 shadow-sm ${scheme.tileBg} ${scheme.tileBorder} hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] ${
-          isSelected ? "ring-2 ring-primary ring-offset-1 shadow-md" : ""
-        }`}
+        className={`group relative p-3 rounded-xl text-left transition-all duration-150 active:scale-[0.97] ${isSelected ? "ring-2 ring-primary ring-offset-1" : ""}`}
+        style={{
+          background: "#FFFFFF",
+          border: `1px solid ${hex}22`,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.borderColor = `${hex}55`;
+          (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${hex}18`;
+          (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.borderColor = `${hex}22`;
+          (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.05)";
+          (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+        }}
         data-testid={`pulse-status-${status.id}`}
       >
         <div className="flex items-start gap-2.5">
-          <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 border ${scheme.tileIconBg} ${scheme.tileBorder}`}>
+          <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${hex}12`, border: `1.5px solid ${hex}28` }}>
             {StatusIcon
-              ? <StatusIcon className={`h-4.5 w-4.5 ${scheme.tileIconColor}`} style={{ width: 18, height: 18 }} />
-              : <CircleDot className={`h-4.5 w-4.5 ${scheme.tileIconColor}`} style={{ width: 18, height: 18 }} />
+              ? <StatusIcon style={{ width: 16, height: 16, color: hex }} />
+              : <CircleDot style={{ width: 16, height: 16, color: hex }} />
             }
           </div>
           <div className="flex-1 min-w-0 pt-0.5">
-            <div className={`font-semibold text-sm leading-snug ${scheme.tileText}`}>{renderName(status)}</div>
+            <div className="font-semibold text-sm leading-snug" style={{ color: "#2E2118" }}>{renderName(status)}</div>
             <div className="flex items-center gap-1 mt-1 flex-wrap">
               {prefs.showActionBadges && action !== "none" && (
-                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${STATUS_ACTION_COLORS[action] || STATUS_ACTION_COLORS.none}`}>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: `${hex}15`, color: hex }}>
                   {STATUS_ACTION_LABELS[action] || action}
                 </span>
               )}
               {subCount > 0 && (
-                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${scheme.catCountBadge}`}>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{ background: hex, color: "#fff" }}>
                   {subCount}<ChevronRight className="h-2.5 w-2.5" />
                 </span>
               )}
-              {status.isFinal && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/60 dark:text-red-300">FINAL</span>}
-              {status.isConversion && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 dark:bg-green-900/60 dark:text-green-300">KONV</span>}
+              {status.isFinal && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">FINAL</span>}
+              {status.isConversion && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-600">KONV</span>}
             </div>
           </div>
           {subCount > 0 && (
-            <ChevronRight className={`h-4 w-4 shrink-0 mt-1 ${scheme.tileIconColor} opacity-50 group-hover:opacity-100 transition-opacity`} />
+            <ChevronRight className="h-4 w-4 shrink-0 mt-1 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: hex }} />
           )}
         </div>
         {hasChannels && (
@@ -498,44 +534,53 @@ export function NexusPulseView({
 
   const renderCategoryGroup = (catId: string, statusList: PulseStatus[], cat?: PulseCategory) => {
     const isExpanded = expanded.has(catId);
-    const scheme = getScheme(cat?.color);
+    const hex = getHex(cat?.color);
     const CatIcon = cat ? resolveIcon(cat.icon) : null;
     const gridCols = prefs.displayMode === "compact" ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-3";
 
     return (
       <div
         key={catId}
-        className={`rounded-xl border ${scheme.catBorder} overflow-hidden transition-all duration-200 shadow-sm`}
+        className="rounded-2xl overflow-hidden transition-all duration-200"
+        style={{
+          background: "#F8F4EE",
+          border: `1.5px solid ${hex}35`,
+          boxShadow: `0 2px 10px ${hex}12`,
+        }}
         data-testid={`pulse-cat-${catId}`}
       >
         <button
           type="button"
-          className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 border-l-4 ${scheme.catLeftBorder} ${scheme.catBg} ${scheme.catHover}`}
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150"
+          style={{
+            background: isExpanded ? `${hex}12` : `${hex}07`,
+            borderBottom: isExpanded ? `1px solid ${hex}28` : "none",
+          }}
           onClick={() => toggle(catId)}
           data-testid={`pulse-cat-toggle-${catId}`}
         >
-          <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${scheme.catIconBg}`}>
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: hex, boxShadow: `0 2px 8px ${hex}45` }}>
             {CatIcon
               ? <CatIcon className="h-5 w-5 text-white" />
               : <FolderOpen className="h-5 w-5 text-white" />
             }
           </div>
           <div className="flex-1 min-w-0">
-            <div className={`font-bold text-sm ${scheme.catText}`}>{cat?.name || "Bez kategórie"}</div>
-            <div className="text-xs text-muted-foreground">
+            <div className="font-bold text-sm" style={{ color: "#2E2118" }}>{cat?.name || "Bez kategórie"}</div>
+            <div className="text-xs" style={{ color: "#9A8878" }}>
               {statusList.length} {statusList.length === 1 ? "status" : "statusov"}
             </div>
           </div>
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${scheme.catCountBadge} shrink-0`}>
+          <span className="text-xs font-bold min-w-[28px] h-7 flex items-center justify-center rounded-full px-2 shrink-0" style={{ background: hex, color: "#fff" }}>
             {statusList.length}
           </span>
           {isExpanded
-            ? <ChevronUp className={`h-4 w-4 shrink-0 ${scheme.catIconColor}`} />
-            : <ChevronDown className={`h-4 w-4 shrink-0 ${scheme.catIconColor}`} />
+            ? <ChevronUp className="h-4 w-4 shrink-0" style={{ color: hex }} />
+            : <ChevronDown className="h-4 w-4 shrink-0" style={{ color: hex }} />
           }
         </button>
         {isExpanded && (
-          <div className="p-3 bg-background/80 dark:bg-background/40 border-t border-border/60">
+          <div className="p-3" style={{ background: "#F8F4EE" }}>
             <div className={`grid ${gridCols} gap-2`}>
               {statusList.map((s) => renderStatus(s, cat?.color || undefined))}
             </div>

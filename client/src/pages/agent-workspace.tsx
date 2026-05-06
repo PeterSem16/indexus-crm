@@ -7990,39 +7990,56 @@ export default function AgentWorkspacePage() {
           onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined}
           onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}
         >
-          {/* Sticky header */}
-          <SheetHeader className="px-6 py-4 border-b bg-muted/30 space-y-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1 min-w-0">
-                <SheetTitle className="flex items-center gap-2 text-base">
-                  <Target className="h-5 w-5 text-primary shrink-0" />
-                  {checklistParentId
-                    ? t.agentWorkspace.checklistStep2
-                    : modalSelectedParent
-                    ? t.statusEngine.disp.subcatTitle
-                    : dispositionChannelFilter === "phone" ? t.statusEngine.disp.resultPhone
-                    : dispositionChannelFilter === "email" ? t.statusEngine.disp.resultEmail
-                    : dispositionChannelFilter === "sms" ? t.statusEngine.disp.resultSms
-                    : mandatoryDisposition ? t.statusEngine.disp.resultMandatory
-                    : t.statusEngine.disp.resultContact}
-                </SheetTitle>
-                {currentContact && (
-                  <SheetDescription className="flex items-center gap-1.5 text-xs">
-                    <User className="h-3 w-3" />
-                    <span className="font-medium text-foreground truncate">{currentContact.firstName} {currentContact.lastName}</span>
-                    {currentContact.phone && <span className="text-muted-foreground">· {currentContact.phone}</span>}
-                  </SheetDescription>
-                )}
-                {mandatoryDisposition && (
-                  <p className="text-xs text-destructive">{t.statusEngine.disp.mandatoryPrompt}</p>
-                )}
-              </div>
-            </div>
-          </SheetHeader>
+          {/* Sticky header — Stone & Terracotta */}
+          {(() => {
+            const dispAc = dispositionChannelFilter === "phone" ? "#B5622E"
+              : dispositionChannelFilter === "email" ? "#5B4FCF"
+              : dispositionChannelFilter === "sms" ? "#2E75B6"
+              : "#7A6858";
+            const DispIcon = dispositionChannelFilter === "email" ? Mail
+              : dispositionChannelFilter === "sms" ? MessageSquare
+              : Phone;
+            return (
+              <SheetHeader className="px-5 py-4 border-b space-y-0" style={{ background: "#FFFFFF", borderBottomColor: `${dispAc}35` }}>
+                <div className="flex items-center gap-3">
+                  <div className="shrink-0 h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: dispAc, boxShadow: `0 2px 8px ${dispAc}45` }}>
+                    <DispIcon className="h-4.5 w-4.5 text-white" style={{ width: 18, height: 18 }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <SheetTitle className="text-sm font-bold leading-tight" style={{ color: "#2E2118" }}>
+                      {checklistParentId
+                        ? t.agentWorkspace.checklistStep2
+                        : modalSelectedParent
+                        ? t.statusEngine.disp.subcatTitle
+                        : dispositionChannelFilter === "phone" ? t.statusEngine.disp.resultPhone
+                        : dispositionChannelFilter === "email" ? t.statusEngine.disp.resultEmail
+                        : dispositionChannelFilter === "sms" ? t.statusEngine.disp.resultSms
+                        : mandatoryDisposition ? t.statusEngine.disp.resultMandatory
+                        : t.statusEngine.disp.resultContact}
+                    </SheetTitle>
+                    {currentContact && (
+                      <SheetDescription className="flex items-center gap-1.5 text-xs mt-0.5">
+                        <User className="h-3 w-3 shrink-0" style={{ color: dispAc }} />
+                        <span className="font-semibold truncate" style={{ color: "#2E2118" }}>{currentContact.firstName} {currentContact.lastName}</span>
+                        {dispositionChannelFilter === "email" && currentContact.email
+                          ? <span style={{ color: "#9A8878" }}>· {currentContact.email}</span>
+                          : currentContact.phone
+                          ? <span style={{ color: "#9A8878" }}>· {currentContact.phone}</span>
+                          : null}
+                      </SheetDescription>
+                    )}
+                    {mandatoryDisposition && (
+                      <p className="text-xs text-destructive mt-0.5">{t.statusEngine.disp.mandatoryPrompt}</p>
+                    )}
+                  </div>
+                </div>
+              </SheetHeader>
+            );
+          })()}
 
           {/* Body */}
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="px-6 py-4 space-y-4">
+          <ScrollArea className="flex-1 min-h-0" style={{ background: "#EEEBE4" }}>
+            <div className="px-4 py-4 space-y-4">
               {campaignDispositions.length === 0 ? (
                 <div className="text-center py-16">
                   <Target className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
