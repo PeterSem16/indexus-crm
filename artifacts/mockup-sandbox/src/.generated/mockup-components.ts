@@ -11,7 +11,8 @@ export const modules: ModuleMap = {
   "./components/mockups/filter-variants/ChipFilter.tsx": () => import("../components/mockups/filter-variants/ChipFilter.tsx"),
   "./components/mockups/filter-variants/SidebarFilter.tsx": () => import("../components/mockups/filter-variants/SidebarFilter.tsx"),
   "./components/mockups/filter-variants/ToolbarFilter.tsx": () => import("../components/mockups/filter-variants/ToolbarFilter.tsx"),
+  "./components/mockups/shift-login/VariantB.tsx": () => import("../components/mockups/shift-login/VariantB.tsx"),
   "./components/mockups/result-panels/CallResult.tsx": () => import("../components/mockups/result-panels/CallResult.tsx"),
   "./components/mockups/result-panels/EmailResult.tsx": () => import("../components/mockups/result-panels/EmailResult.tsx"),
-  "./components/mockups/result-panels/SmsResult.tsx": () => import("../components/mockups/result-panels/SmsResult.tsx"),
+  "./components/mockups/result-panels/SmsResult.tsx": () => import("../components/mockups/result-panels/SmsResult.tsx")
 };

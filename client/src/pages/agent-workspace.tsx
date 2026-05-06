@@ -6487,13 +6487,24 @@ export default function AgentWorkspacePage() {
     }
   };
 
-  const loadContact = (customer: Customer) => {
+  const loadContact = (
+    customer: Customer,
+    overrideContactType?: string,
+    overrideClinicData?: Clinic | null,
+    overrideHospitalData?: Hospital | null,
+    overrideCollaboratorData?: Collaborator | null,
+  ) => {
     setCurrentContact(customer);
     agentSession.updateStatus("busy").catch(() => {});
     setCallNotes("");
     const defaultTab = selectedCampaign?.defaultActiveTab || "phone";
     setActiveChannel(defaultTab);
     setRightTab("actions");
+
+    const resolvedContactType = overrideContactType ?? currentContactType ?? "customer";
+    const resolvedClinicData = overrideClinicData !== undefined ? overrideClinicData : currentClinicData;
+    const resolvedHospitalData = overrideHospitalData !== undefined ? overrideHospitalData : currentHospitalData;
+    const resolvedCollaboratorData = overrideCollaboratorData !== undefined ? overrideCollaboratorData : currentCollaboratorData;
 
     const campaignChannel = (selectedCampaign?.channel || "phone") as ChannelType;
     const newTask: TaskItem = {
@@ -6505,10 +6516,10 @@ export default function AgentWorkspacePage() {
       channel: campaignChannel,
       startedAt: new Date(),
       status: "active",
-      contactType: currentContactType || "customer",
-      clinicData: currentClinicData,
-      hospitalData: currentHospitalData,
-      collaboratorData: currentCollaboratorData,
+      contactType: resolvedContactType,
+      clinicData: resolvedClinicData,
+      hospitalData: resolvedHospitalData,
+      collaboratorData: resolvedCollaboratorData,
     };
     setTasks((prev) => [...prev, newTask]);
     setActiveTaskId(newTask.id);
@@ -6555,7 +6566,7 @@ export default function AgentWorkspacePage() {
         phone: h.phone || null,
         countryCode: h.countryCode || null,
       } as Customer;
-      loadContact(virtualCustomer);
+      loadContact(virtualCustomer, "hospital", null, enrichedContact.hospital as Hospital, null);
     } else if (enrichedContact.contactType === "clinic" && enrichedContact.clinic) {
       setCurrentContactType("clinic");
       setCurrentClinicData(enrichedContact.clinic as Clinic);
@@ -6568,7 +6579,7 @@ export default function AgentWorkspacePage() {
         phone: c.phone || null,
         countryCode: c.countryCode || null,
       } as Customer;
-      loadContact(virtualCustomer);
+      loadContact(virtualCustomer, "clinic", enrichedContact.clinic as Clinic, null, null);
     } else if (enrichedContact.contactType === "collaborator" && enrichedContact.collaborator) {
       setCurrentContactType("collaborator");
       setCurrentCollaboratorData(enrichedContact.collaborator as Collaborator);
@@ -6581,10 +6592,10 @@ export default function AgentWorkspacePage() {
         phone: col.phone || null,
         countryCode: col.countryCode || null,
       } as Customer;
-      loadContact(virtualCustomer);
+      loadContact(virtualCustomer, "collaborator", null, null, enrichedContact.collaborator as Collaborator);
     } else if (enrichedContact.customer) {
       setCurrentContactType("customer");
-      loadContact(enrichedContact.customer);
+      loadContact(enrichedContact.customer, "customer", null, null, null);
     }
   };
 
