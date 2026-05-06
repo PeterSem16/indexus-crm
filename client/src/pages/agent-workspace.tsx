@@ -4073,9 +4073,11 @@ function CustomerInfoPanel({
                               </span>
                             </div>
                             <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium ${isModal ? "" : "line-clamp-2"} leading-snug`} style={{ color: "#2E2118" }}>
-                              {highlightMatch(contentText) || "—"}
+                              {isCall
+                                ? (highlightMatch(contentText.replace(/^(Hovor (odchádzajúci|prichádzajúci)|Prichádzajúci hovor): /, "")) || "—")
+                                : (highlightMatch(contentText) || "—")}
                             </p>
-                            {plainDetails && (
+                            {!isCall && plainDetails && (
                               <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} ${isModal ? "line-clamp-3" : "line-clamp-2"} leading-snug`} style={{ color: "#9A8878" }}>
                                 {highlightMatch(plainDetails)}
                               </p>
@@ -4106,8 +4108,8 @@ function CustomerInfoPanel({
                               {item.campaignName}
                             </span>
                           )}
-                          {isCall && item.details && (
-                            <span>{highlightMatch(item.details)}</span>
+                          {isCall && !item.callLogId && item.details && (
+                            <span>{item.details}</span>
                           )}
                         </div>
                       </div>
