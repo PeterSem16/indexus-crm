@@ -3537,39 +3537,41 @@ function CustomerInfoPanel({
   const stars = Math.round(leadScore / 20);
 
   return (
-    <div className="w-64 border-l bg-card flex flex-col shrink-0">
-      <div className="p-3 border-b">
+    <div className="w-64 flex flex-col shrink-0" style={{ background: "#EEEBE4", borderLeft: "1px solid #D9D0C4" }}>
+      <div className="p-3" style={{ background: "#F8F4EE", borderBottom: "1px solid #D9D0C4" }}>
         <div className="flex items-start gap-2.5">
-          <Avatar className="h-10 w-10 ring-2 ring-primary/20 shrink-0">
-            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground font-bold text-xs">
+          <Avatar className="h-10 w-10 shrink-0" style={{ boxShadow: "0 0 0 2px #B5622E55" }}>
+            <AvatarFallback className="font-bold text-xs text-white" style={{ background: "linear-gradient(135deg, #B5622E 0%, #D4854F 100%)" }}>
               {contact.firstName?.[0]}{contact.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
-              <h2 className="font-bold text-sm truncate flex-1" data-testid="text-contact-name">
+              <h2 className="font-bold text-sm truncate flex-1" style={{ color: "#2E2118" }} data-testid="text-contact-name">
                 {contact.firstName} {contact.lastName}
               </h2>
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-7 w-7 shrink-0"
+                className="h-7 w-7 shrink-0 hover:bg-transparent"
                 onClick={onViewCustomer}
                 title={t.agentWorkspace.customerDetail}
                 data-testid="button-view-customer"
+                style={{ color: "#9A8878" }}
               >
                 <Eye className="h-3.5 w-3.5" />
               </Button>
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              <Badge variant="secondary" className="text-[10px]">
+              <Badge className="text-[10px] border-0 font-medium" style={{ background: "#EDE8E0", color: "#7A6858" }}>
                 {contact.status || "Nový"}
               </Badge>
               <div className="flex items-center gap-0.5">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
-                    className={`h-2.5 w-2.5 ${i < stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/20"}`}
+                    className={`h-2.5 w-2.5 ${i < stars ? "fill-amber-500" : ""}`}
+                    style={{ color: i < stars ? "#D97706" : "#CFC8BE" }}
                   />
                 ))}
               </div>
@@ -3751,89 +3753,70 @@ function CustomerInfoPanel({
         </div>
       )}
 
-      <div className="border-b">
+      <div style={{ borderBottom: "1px solid #D9D0C4", background: "#F8F4EE" }}>
         <div className="flex">
-          <button
-            className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
-              rightTab === "actions"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onRightTabChange("actions")}
-            data-testid="tab-actions"
-          >
-            {t.agentWorkspace.actions}
-          </button>
-          <button
-            className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
-              rightTab === "profile"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onRightTabChange("profile")}
-            data-testid="tab-profile"
-          >
-            {t.agentWorkspace.profile}
-          </button>
-          <button
-            className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
-              rightTab === "history"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onRightTabChange("history")}
-            data-testid="tab-history"
-          >
-            {t.agentWorkspace.history}
-          </button>
-          <button
-            className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
-              rightTab === "faq"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onRightTabChange("faq")}
-            data-testid="tab-faq"
-          >
-            FAQ
-          </button>
+          {(["actions", "profile", "history", "faq"] as const).map((tab) => (
+            <button
+              key={tab}
+              className="flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors"
+              style={{
+                borderBottomColor: rightTab === tab ? "#B5622E" : "transparent",
+                color: rightTab === tab ? "#B5622E" : "#9A8878",
+              }}
+              onClick={() => onRightTabChange(tab)}
+              data-testid={`tab-${tab}`}
+            >
+              {tab === "actions" ? t.agentWorkspace.actions
+                : tab === "profile" ? t.agentWorkspace.profile
+                : tab === "history" ? t.agentWorkspace.history
+                : "FAQ"}
+            </button>
+          ))}
         </div>
       </div>
 
       <ScrollArea className="flex-1">
         {rightTab === "profile" && (
-          <div className="p-3 space-y-3">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2.5 p-2.5 rounded-md bg-blue-50 dark:bg-blue-950/30">
-                <Phone className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                <span className="text-sm font-medium truncate" data-testid="text-contact-phone">
+          <div className="p-3 space-y-2">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl" style={{ background: "#FEF3EB", border: "1px solid #F0D5C0" }}>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#B5622E22" }}>
+                  <Phone className="h-3.5 w-3.5" style={{ color: "#B5622E" }} />
+                </div>
+                <span className="text-sm font-medium truncate" style={{ color: "#2E2118" }} data-testid="text-contact-phone">
                   {contact.phone || "—"}
                 </span>
               </div>
-              <div className="flex items-center gap-2.5 p-2.5 rounded-md bg-green-50 dark:bg-green-950/30">
-                <Mail className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                <span className="text-sm truncate" data-testid="text-contact-email">
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl" style={{ background: "#EEF0FB", border: "1px solid #CDD0F0" }}>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#5B4FCF22" }}>
+                  <Mail className="h-3.5 w-3.5" style={{ color: "#5B4FCF" }} />
+                </div>
+                <span className="text-sm truncate" style={{ color: "#2E2118" }} data-testid="text-contact-email">
                   {contact.email || "—"}
                 </span>
               </div>
-              <div className="flex items-center gap-2.5 p-2.5 rounded-md bg-muted/50">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-sm">{[contact.address, contact.city].filter(Boolean).join(", ") || "—"}</span>
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl" style={{ background: "#F8F4EE", border: "1px solid #E5DDD5" }}>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#9A887822" }}>
+                  <MapPin className="h-3.5 w-3.5" style={{ color: "#9A8878" }} />
+                </div>
+                <span className="text-sm" style={{ color: "#2E2118" }}>{[contact.address, contact.city].filter(Boolean).join(", ") || "—"}</span>
               </div>
-              <div className="flex items-center gap-2.5 p-2.5 rounded-md bg-muted/50">
-                <Building className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-sm">{contact.country || "SK"}</span>
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl" style={{ background: "#F8F4EE", border: "1px solid #E5DDD5" }}>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#9A887822" }}>
+                  <Building className="h-3.5 w-3.5" style={{ color: "#9A8878" }} />
+                </div>
+                <span className="text-sm" style={{ color: "#2E2118" }}>{contact.country || "SK"}</span>
               </div>
             </div>
 
             {campaign && (
-              <div className="pt-2 border-t">
-                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              <div className="pt-2" style={{ borderTop: "1px solid #E5DDD5" }}>
+                <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: "#9A8878" }}>
                   Kampaň
                 </h4>
-                <div className="p-2.5 rounded-md bg-muted/50">
-                  <p className="text-sm font-medium">{campaign.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{campaign.type} / {campaign.channel}</p>
+                <div className="p-2.5 rounded-xl" style={{ background: "#FFFFFF", border: "1px solid #E5DDD5" }}>
+                  <p className="text-sm font-medium" style={{ color: "#2E2118" }}>{campaign.name}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "#9A8878" }}>{campaign.type} / {campaign.channel}</p>
                 </div>
               </div>
             )}
@@ -4227,29 +4210,45 @@ function CustomerInfoPanel({
 
           const renderFaqContent = (isModal: boolean) => (
             <>
-              <div className={isModal ? "p-4 border-b space-y-2" : "p-2 border-b space-y-1.5"}>
+              <div
+                className={isModal ? "p-4 space-y-2" : "p-2 space-y-1.5"}
+                style={{ borderBottom: "1px solid #E5DDD5", background: "#F8F4EE" }}
+              >
                 <div className="flex items-center gap-2">
-                  <BookOpen className={isModal ? "h-4 w-4 text-primary" : "h-3.5 w-3.5 text-primary"} />
-                  <span className={isModal ? "text-xs font-semibold uppercase tracking-wider text-muted-foreground" : "text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"}>{t.campaigns.faq.frequentlyAsked}</span>
-                  <Badge variant="secondary" className={isModal ? "text-xs ml-auto" : "text-[9px] h-4 px-1 ml-auto"}>{filteredFaqs.length}</Badge>
+                  <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#B5622E22" }}>
+                    <BookOpen className={isModal ? "h-4 w-4" : "h-3.5 w-3.5"} style={{ color: "#B5622E" }} />
+                  </div>
+                  <span
+                    className={isModal ? "text-xs font-semibold uppercase tracking-wider" : "text-[10px] font-semibold uppercase tracking-wider"}
+                    style={{ color: "#9A8878" }}
+                  >
+                    {t.campaigns.faq.frequentlyAsked}
+                  </span>
+                  <span
+                    className={isModal ? "text-xs ml-auto px-1.5 py-0.5 rounded-md font-medium" : "text-[9px] ml-auto px-1 py-0.5 rounded-md font-medium"}
+                    style={{ background: "#EDE8E0", color: "#7A6858" }}
+                  >
+                    {filteredFaqs.length}
+                  </span>
                   {!isModal && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
+                    <button
                       onClick={() => setFaqMaximized(true)}
                       data-testid="btn-faq-maximize"
+                      className="p-1 rounded-md"
+                      style={{ color: "#9A8878" }}
                     >
                       <Maximize2 className="h-3.5 w-3.5" />
-                    </Button>
+                    </button>
                   )}
                 </div>
                 <div className="relative">
-                  <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${isModal ? "h-4 w-4" : "h-3 w-3"} text-muted-foreground`} />
+                  <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${isModal ? "h-4 w-4" : "h-3 w-3"}`} style={{ color: "#9A8878" }} />
                   <Input
                     value={faqSearch}
                     onChange={(e) => setFaqSearchQuery(e.target.value)}
                     placeholder={t.campaigns.faq.searchPlaceholder}
-                    className={isModal ? "pl-9 h-9 text-sm" : "pl-7 h-7 text-xs"}
+                    className={isModal ? "pl-9 h-9 text-sm rounded-xl" : "pl-7 h-7 text-xs rounded-xl"}
+                    style={{ background: "#FFFFFF", borderColor: "#D9D0C4", color: "#2E2118" }}
                     data-testid={isModal ? "input-faq-search-modal" : "input-faq-search"}
                   />
                 </div>
@@ -4257,18 +4256,31 @@ function CustomerInfoPanel({
 
               <div className="flex-1 overflow-auto">
                 {filteredFaqs.length === 0 ? (
-                  <div className="text-center py-8">
-                    <HelpCircle className={isModal ? "h-12 w-12 mx-auto mb-3 text-muted-foreground/20" : "h-8 w-8 mx-auto mb-2 text-muted-foreground/20"} />
-                    <p className={isModal ? "text-sm text-muted-foreground" : "text-xs text-muted-foreground"}>{t.campaigns.faq.noFaqs}</p>
+                  <div className="text-center py-8" style={{ color: "#9A8878" }}>
+                    <HelpCircle className={isModal ? "h-12 w-12 mx-auto mb-3 opacity-20" : "h-8 w-8 mx-auto mb-2 opacity-20"} />
+                    <p className={isModal ? "text-sm" : "text-xs"}>{t.campaigns.faq.noFaqs}</p>
                   </div>
                 ) : (
                   <div className={isModal ? "p-4 space-y-5" : "p-2 space-y-3"}>
                     {groupedFaqs.map((group) => (
                       <div key={group.category}>
                         <div className="flex items-center gap-1.5 mb-1.5">
-                          <div className={isModal ? "h-2 w-2 rounded-full bg-primary/60" : "h-1.5 w-1.5 rounded-full bg-primary/60"} />
-                          <span className={isModal ? "text-xs font-semibold text-muted-foreground uppercase tracking-wider" : "text-[10px] font-semibold text-muted-foreground uppercase tracking-wider"}>{group.category}</span>
-                          <span className={isModal ? "text-[11px] text-muted-foreground/50" : "text-[9px] text-muted-foreground/50"}>({group.items.length})</span>
+                          <div
+                            className={isModal ? "h-2 w-2 rounded-full" : "h-1.5 w-1.5 rounded-full"}
+                            style={{ background: "#B5622E" }}
+                          />
+                          <span
+                            className={isModal ? "text-xs font-semibold uppercase tracking-wider" : "text-[10px] font-semibold uppercase tracking-wider"}
+                            style={{ color: "#7A6858" }}
+                          >
+                            {group.category}
+                          </span>
+                          <span
+                            className={isModal ? "text-[11px]" : "text-[9px]"}
+                            style={{ color: "#9A887888" }}
+                          >
+                            ({group.items.length})
+                          </span>
                         </div>
                         <div className={isModal ? "space-y-2" : "space-y-1"}>
                           {group.items.map((faq) => {
@@ -4276,25 +4288,46 @@ function CustomerInfoPanel({
                             return (
                               <div
                                 key={faq.id}
-                                className="rounded-md border border-border/40 overflow-visible"
+                                className="rounded-xl overflow-hidden transition-all"
+                                style={{
+                                  background: "#FFFFFF",
+                                  border: "1px solid #E5DDD5",
+                                  borderLeft: isExpanded ? "3px solid #B5622E" : "1px solid #E5DDD5",
+                                }}
                                 data-testid={`faq-item-${faq.id}`}
                               >
                                 <button
                                   onClick={() => setFaqExpandedId(isExpanded ? null : faq.id)}
-                                  className={`w-full flex items-start gap-2 ${isModal ? "p-3" : "p-2"} text-left hover-elevate rounded-md`}
+                                  className={`w-full flex items-start gap-2 ${isModal ? "p-3" : "p-2"} text-left`}
                                   data-testid={`btn-faq-toggle-${faq.id}`}
                                 >
-                                  <HelpCircle className={isModal ? "h-4.5 w-4.5 text-primary/70 shrink-0 mt-0.5" : "h-3.5 w-3.5 text-primary/70 shrink-0 mt-0.5"} />
-                                  <span className={isModal ? "text-sm font-medium text-foreground flex-1 leading-snug" : "text-[11px] font-medium text-foreground flex-1 leading-snug"}>{faq.question}</span>
+                                  <HelpCircle
+                                    className={isModal ? "h-4 w-4 shrink-0 mt-0.5" : "h-3.5 w-3.5 shrink-0 mt-0.5"}
+                                    style={{ color: isExpanded ? "#B5622E" : "#9A8878" }}
+                                  />
+                                  <span
+                                    className={isModal ? "text-sm font-medium flex-1 leading-snug" : "text-[11px] font-medium flex-1 leading-snug"}
+                                    style={{ color: "#2E2118" }}
+                                  >
+                                    {faq.question}
+                                  </span>
                                   {isExpanded ? (
-                                    <ChevronUp className={isModal ? "h-4 w-4 text-muted-foreground shrink-0 mt-0.5" : "h-3 w-3 text-muted-foreground shrink-0 mt-0.5"} />
+                                    <ChevronUp className={isModal ? "h-4 w-4 shrink-0 mt-0.5" : "h-3 w-3 shrink-0 mt-0.5"} style={{ color: "#B5622E" }} />
                                   ) : (
-                                    <ChevronDown className={isModal ? "h-4 w-4 text-muted-foreground shrink-0 mt-0.5" : "h-3 w-3 text-muted-foreground shrink-0 mt-0.5"} />
+                                    <ChevronDown className={isModal ? "h-4 w-4 shrink-0 mt-0.5" : "h-3 w-3 shrink-0 mt-0.5"} style={{ color: "#9A8878" }} />
                                   )}
                                 </button>
                                 {isExpanded && (
-                                  <div className={isModal ? "px-3 pb-3 pt-1 ml-6" : "px-2 pb-2 pt-0.5 ml-5"}>
-                                    <p className={isModal ? "text-sm text-muted-foreground leading-relaxed" : "text-[11px] text-muted-foreground leading-relaxed"}>{faq.answer}</p>
+                                  <div
+                                    className={isModal ? "px-3 pb-3 pt-1 ml-6" : "px-2 pb-2 pt-0.5 ml-5"}
+                                    style={{ borderTop: "1px solid #F0EBE4" }}
+                                  >
+                                    <p
+                                      className={isModal ? "text-sm leading-relaxed" : "text-[11px] leading-relaxed"}
+                                      style={{ color: "#7A6858" }}
+                                    >
+                                      {faq.answer}
+                                    </p>
                                   </div>
                                 )}
                               </div>
@@ -4334,108 +4367,99 @@ function CustomerInfoPanel({
 
         {rightTab === "actions" && (
           <div className="p-3 space-y-3">
+            {/* Quick Actions */}
             <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Zap className="h-3 w-3" />
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: "#9A8878" }}>
+                <Zap className="h-3 w-3" style={{ color: "#B5622E" }} />
                 {t.agentWorkspace.quickActions}
               </h4>
               <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onQuickAction("call")}
-                  disabled={!contact.phone}
-                  className="gap-1.5 justify-start"
-                  data-testid="btn-quick-call"
-                >
-                  <Phone className="h-3.5 w-3.5 text-blue-500" />
-                  <span className="text-xs">{t.agentWorkspace.callAction}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onQuickAction("email")}
-                  disabled={!contact.email}
-                  className="gap-1.5 justify-start"
-                  data-testid="btn-quick-email"
-                >
-                  <Mail className="h-3.5 w-3.5 text-green-500" />
-                  <span className="text-xs">{t.agentWorkspace.emailAction}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onQuickAction("sms")}
-                  disabled={!contact.phone}
-                  className="gap-1.5 justify-start"
-                  data-testid="btn-quick-sms"
-                >
-                  <MessageSquare className="h-3.5 w-3.5 text-orange-500" />
-                  <span className="text-xs">{t.agentWorkspace.smsAction}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onQuickAction("task")}
-                  className="gap-1.5 justify-start"
-                  data-testid="btn-quick-task"
-                >
-                  <CalendarPlus className="h-3.5 w-3.5 text-purple-500" />
-                  <span className="text-xs">{t.agentWorkspace.taskAction}</span>
-                </Button>
+                {[
+                  { key: "call", icon: Phone, label: t.agentWorkspace.callAction, color: "#B5622E", disabled: !contact.phone, testId: "btn-quick-call" },
+                  { key: "email", icon: Mail, label: t.agentWorkspace.emailAction, color: "#5B4FCF", disabled: !contact.email, testId: "btn-quick-email" },
+                  { key: "sms", icon: MessageSquare, label: t.agentWorkspace.smsAction, color: "#2E75B6", disabled: !contact.phone, testId: "btn-quick-sms" },
+                  { key: "task", icon: CalendarPlus, label: t.agentWorkspace.taskAction, color: "#7A6858", disabled: false, testId: "btn-quick-task" },
+                ].map(({ key, icon: Icon, label, color, disabled, testId }) => (
+                  <button
+                    key={key}
+                    onClick={() => !disabled && onQuickAction(key)}
+                    disabled={disabled}
+                    data-testid={testId}
+                    className="flex items-center gap-2 p-2 rounded-xl text-left transition-all"
+                    style={{
+                      background: "#FFFFFF",
+                      border: `1px solid #E5DDD5`,
+                      borderLeft: `3px solid ${color}`,
+                      color: "#2E2118",
+                      opacity: disabled ? 0.4 : 1,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                    }}
+                    onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ""; }}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" style={{ color }} />
+                    <span className="text-xs font-medium truncate">{label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            <Separator />
+            <div style={{ borderTop: "1px solid #E5DDD5" }} />
 
+            {/* Add Note */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <StickyNote className="h-3 w-3" />
+                <h4 className="text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "#9A8878" }}>
+                  <StickyNote className="h-3 w-3" style={{ color: "#B5622E" }} />
                   {t.agentWorkspace.addNote || "Pridať poznámku"}
                 </h4>
-                <Button
-                  size="icon"
-                  variant="ghost"
+                <button
                   onClick={() => setNoteExpanded(!noteExpanded)}
                   data-testid="btn-toggle-note-expand"
+                  className="p-1 rounded-md transition-colors"
+                  style={{ color: "#9A8878" }}
                 >
                   {noteExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                </Button>
+                </button>
               </div>
               <Textarea
                 placeholder={t.agentWorkspace.notePlaceholder || "Poznámka..."}
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
-                className={`text-xs resize-none transition-all ${noteExpanded ? "min-h-[200px]" : "min-h-[60px]"}`}
+                className="text-xs resize-none transition-all rounded-xl"
+                style={{ background: "#FFFFFF", borderColor: "#D9D0C4", minHeight: noteExpanded ? "200px" : "60px", color: "#2E2118" }}
                 rows={noteExpanded ? 8 : 3}
                 data-testid="input-call-notes"
               />
               <div className="flex justify-end mt-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
+                <button
                   onClick={handleAddNote}
                   disabled={!newNote.trim()}
-                  className="gap-1.5"
                   data-testid="btn-add-note"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                  style={{
+                    background: newNote.trim() ? "#B5622E" : "#EDE8E0",
+                    color: newNote.trim() ? "#FFFFFF" : "#9A8878",
+                    cursor: newNote.trim() ? "pointer" : "not-allowed",
+                  }}
                 >
                   <Send className="h-3 w-3" />
-                  <span className="text-xs">{t.customers?.details?.addNote || "Pridať"}</span>
-                </Button>
+                  {t.customers?.details?.addNote || "Pridať"}
+                </button>
               </div>
             </div>
 
-            <Separator />
+            <div style={{ borderTop: "1px solid #E5DDD5" }} />
 
+            {/* Notes list */}
             <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <FileText className="h-3 w-3" />
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: "#9A8878" }}>
+                <FileText className="h-3 w-3" style={{ color: "#B5622E" }} />
                 {t.customers?.tabs?.notes || "Poznámky"}
               </h4>
               {customerNotes.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
+                <div className="text-center py-4" style={{ color: "#9A8878" }}>
                   <MessageSquare className="h-6 w-6 mx-auto mb-1 opacity-30" />
                   <p className="text-[10px]">{t.customers?.details?.noNotes || "Žiadne poznámky"}</p>
                 </div>
@@ -4444,22 +4468,25 @@ function CustomerInfoPanel({
                   {customerNotes.slice(0, 10).map((note) => (
                     <div
                       key={note.id}
-                      className="p-2 rounded-md bg-muted/30 border border-border/50 cursor-pointer hover-elevate"
+                      className="p-2.5 rounded-xl cursor-pointer transition-all"
+                      style={{ background: "#FFFFFF", border: "1px solid #E5DDD5" }}
                       onClick={() => setSelectedNote(note)}
                       data-testid={`note-entry-${note.id}`}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 12px #B5622E18"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ""; (e.currentTarget as HTMLElement).style.boxShadow = ""; }}
                     >
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <User className="h-3 w-3 text-amber-500 shrink-0" />
-                        <span className="text-[10px] font-medium truncate">{note.userName}</span>
-                        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                        <User className="h-3 w-3 shrink-0" style={{ color: "#B5622E" }} />
+                        <span className="text-[10px] font-medium truncate" style={{ color: "#2E2118" }}>{note.userName}</span>
+                        <span className="text-[10px] ml-auto shrink-0" style={{ color: "#9A8878" }}>
                           {format(new Date(note.createdAt), "d.M. HH:mm", { locale: sk })}
                         </span>
                       </div>
-                      <p className="text-[11px] text-foreground/80 line-clamp-2">{note.content}</p>
+                      <p className="text-[11px] line-clamp-2" style={{ color: "#5A4A3A" }}>{note.content}</p>
                     </div>
                   ))}
                   {customerNotes.length > 10 && (
-                    <p className="text-[10px] text-muted-foreground text-center">
+                    <p className="text-[10px] text-center" style={{ color: "#9A8878" }}>
                       +{customerNotes.length - 10} {t.agentWorkspace.moreNotes}
                     </p>
                   )}
