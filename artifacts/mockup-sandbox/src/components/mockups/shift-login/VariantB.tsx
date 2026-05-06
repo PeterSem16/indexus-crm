@@ -1,30 +1,34 @@
 import { useState } from "react";
 
-const PRIMARY = "#C4121E";
-const PRIMARY_DARK = "#8B0E1A";
-const PRIMARY_DEEP = "#1A0507";
-const PRIMARY_TINT = "#FFF0F1";
-const PRIMARY_BORDER = "#F0A0A6";
+const PRIMARY     = "#C4121E";
+const CREAM_DEEP  = "#F5EDE8";   // header bottom
+const CREAM_BASE  = "#FAF6F1";   // header top
+const CREAM_BODY  = "#FAFAF8";   // body bg
+const CREAM_SEL   = "#FDF7F4";   // selected card bg
+const ROSE_BORDER = "#E8C8C8";   // selected card border
+const TEXT_DARK   = "#1E1014";
+const TEXT_MID    = "#6B5B5E";
+const TEXT_MUTED  = "#A89898";
 
 const CAMPAIGNS = [
-  { id: "1", name: "SK Tehotenstvo Q2", channel: "phone", countries: ["🇸🇰", "🇨🇿"], date: "01.04 – 30.06.25" },
-  { id: "2", name: "HU Noviny – Email", channel: "email", countries: ["🇭🇺"], date: "15.03 – 15.06.25" },
-  { id: "3", name: "PL Retencia SMS", channel: "sms", countries: ["🇵🇱"], date: "01.05 – 31.05.25" },
-  { id: "4", name: "RO Aquisitie – Telefon", channel: "phone", countries: ["🇷🇴"], date: "10.04 – 10.07.25" },
+  { id: "1", name: "SK Tehotenstvo Q2",  channel: "phone", countries: ["🇸🇰","🇨🇿"], date: "01.04 – 30.06.25" },
+  { id: "2", name: "HU Noviny – Email",  channel: "email", countries: ["🇭🇺"],        date: "15.03 – 15.06.25" },
+  { id: "3", name: "PL Retencia SMS",    channel: "sms",   countries: ["🇵🇱"],        date: "01.05 – 31.05.25" },
+  { id: "4", name: "RO Aquisitie – Tel", channel: "phone", countries: ["🇷🇴"],        date: "10.04 – 10.07.25" },
 ];
 
 const QUEUES = [
-  { id: "q1", name: "SK Inbound Support", country: "SK", hours: "08:00–18:00", did: "+421 2 333 4400", waiting: 3, online: 2 },
-  { id: "q2", name: "CZ Priority Line", country: "CZ", hours: "09:00–17:00", did: "+420 2 666 1100", waiting: 0, online: 5 },
+  { id: "q1", name: "SK Inbound Support", hours: "08:00–18:00", did: "+421 2 333 4400", waiting: 3, online: 2 },
+  { id: "q2", name: "CZ Priority Line",   hours: "09:00–17:00", did: "+420 2 666 1100", waiting: 0, online: 5 },
 ];
 
 const CHANNEL = {
-  phone: { label: "Telefón", color: "#C4121E", bg: PRIMARY_TINT, icon: "📞" },
-  email: { label: "Email",   color: "#5B4FCF", bg: "#F3F1FD", icon: "✉️" },
-  sms:   { label: "SMS",     color: "#2E75B6", bg: "#EFF5FB", icon: "💬" },
+  phone: { label: "Telefón", color: PRIMARY,    bg: "#FDF4F4", icon: "📞" },
+  email: { label: "Email",   color: "#5B4FCF",  bg: "#F3F1FD", icon: "✉️" },
+  sms:   { label: "SMS",     color: "#2E75B6",  bg: "#EFF5FB", icon: "💬" },
 };
 
-function HeadphonesIcon({ size = 28, color = "white" }: { size?: number; color?: string }) {
+function HeadphonesIcon({ size = 24, color = PRIMARY }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
@@ -34,7 +38,7 @@ function HeadphonesIcon({ size = 28, color = "white" }: { size?: number; color?:
   );
 }
 
-function CheckIcon() {
+function Check() {
   return (
     <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
       <path d="M1 4L4 7.5L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -42,147 +46,118 @@ function CheckIcon() {
   );
 }
 
-function ArrowIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14M12 5l7 7-7 7"/>
-    </svg>
-  );
-}
-
 export function VariantB() {
-  const [selCampaigns, setSelCampaigns] = useState<string[]>(["1"]);
-  const [selQueues, setSelQueues] = useState<string[]>([]);
-
-  const toggleC = (id: string) =>
-    setSelCampaigns(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-  const toggleQ = (id: string) =>
-    setSelQueues(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-
-  const canStart = selCampaigns.length > 0 || selQueues.length > 0;
+  const [selC, setSelC] = useState<string[]>(["1"]);
+  const [selQ, setSelQ] = useState<string[]>([]);
+  const toggleC = (id: string) => setSelC(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  const toggleQ = (id: string) => setSelQ(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  const canStart = selC.length > 0 || selQ.length > 0;
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gray-100">
-      <div className="w-[480px] rounded-2xl overflow-hidden shadow-2xl bg-white">
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#EDE9E4" }}>
+      <div className="w-[480px] rounded-2xl overflow-hidden shadow-xl" style={{ border: "1px solid #DDD5CE" }}>
 
-        {/* ── Hero band ── */}
+        {/* ── Krémová hlavička ── */}
         <div
-          className="relative px-8 pt-8 pb-6 flex flex-col items-center gap-3 overflow-hidden"
-          style={{ background: `linear-gradient(140deg, ${PRIMARY_DEEP} 0%, ${PRIMARY_DARK} 55%, ${PRIMARY} 100%)` }}
+          className="relative px-8 pt-7 pb-6 overflow-hidden"
+          style={{ background: `linear-gradient(160deg, ${CREAM_BASE} 0%, ${CREAM_DEEP} 100%)` }}
         >
-          {/* Decorative circles */}
-          <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full opacity-10"
-               style={{ background: PRIMARY }} />
-          <div className="absolute -bottom-6 -left-6 w-32 h-32 rounded-full opacity-10"
-               style={{ background: "#FF8090" }} />
-          {/* Subtle grid texture */}
-          <div className="absolute inset-0 opacity-5"
-               style={{
-                 backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
-                 backgroundSize: "20px 20px"
-               }} />
+          {/* Jemná dekoratívna kružnica */}
+          <div className="absolute -top-12 -right-12 w-52 h-52 rounded-full pointer-events-none"
+               style={{ background: `radial-gradient(circle, ${PRIMARY}12 0%, transparent 70%)` }} />
+          <div className="absolute bottom-0 left-0 w-40 h-24 pointer-events-none"
+               style={{ background: `radial-gradient(ellipse, ${PRIMARY}08 0%, transparent 70%)` }} />
 
-          {/* Icon */}
-          <div className="relative z-10 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg"
-               style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)" }}>
-            <HeadphonesIcon size={26} color="white" />
+          {/* Horný riadok: ikona + nadpis */}
+          <div className="relative z-10 flex items-center gap-4 mb-5">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0"
+                 style={{ background: "#FFFFFF", border: `1px solid ${ROSE_BORDER}` }}>
+              <HeadphonesIcon size={22} color={PRIMARY} />
+            </div>
+            <div>
+              <h2 className="font-bold text-lg leading-tight" style={{ color: TEXT_DARK }}>
+                Prihlásenie na zmenu
+              </h2>
+              <p className="text-xs mt-0.5" style={{ color: TEXT_MUTED }}>
+                Vyberte kampane a fronty pre túto zmenu
+              </p>
+            </div>
           </div>
 
-          <div className="relative z-10 text-center">
-            <h2 className="text-white font-bold text-xl tracking-tight">Prihlásenie na zmenu</h2>
-            <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.6)" }}>
-              Vyberte kampane a fronty pre túto zmenu
-            </p>
-          </div>
-
-          {/* Agent strip */}
-          <div className="relative z-10 w-full flex items-center gap-3 mt-2 px-4 py-3 rounded-xl"
-               style={{ background: "rgba(255,255,255,0.10)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.12)" }}>
-            <div className="relative">
+          {/* Agent karta */}
+          <div className="relative z-10 flex items-center gap-3 px-4 py-3 rounded-xl"
+               style={{ background: "#FFFFFF", border: "1px solid #E8E0DA", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+            <div className="relative flex-shrink-0">
               <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                   style={{ background: "rgba(255,255,255,0.20)", color: "#fff", border: "2px solid rgba(255,255,255,0.30)" }}>
+                   style={{ background: `${PRIMARY}18`, color: PRIMARY, border: `1.5px solid ${ROSE_BORDER}` }}>
                 MN
               </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
-                   style={{ background: "#4ADE80", borderColor: PRIMARY_DEEP }} />
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white"
+                   style={{ background: "#22C55E" }} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-semibold">Mária Nováková</p>
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>Operátor · Bratislava</p>
+              <p className="text-sm font-semibold" style={{ color: TEXT_DARK }}>Mária Nováková</p>
+              <p className="text-xs" style={{ color: TEXT_MUTED }}>Operátor · Bratislava</p>
             </div>
             <div className="text-xs px-2.5 py-1 rounded-full font-medium"
-                 style={{ background: "rgba(74,222,128,0.18)", color: "#4ADE80", border: "1px solid rgba(74,222,128,0.30)" }}>
+                 style={{ background: "#F0FDF4", color: "#16A34A", border: "1px solid #BBF7D0" }}>
               Online
             </div>
           </div>
         </div>
 
-        {/* ── Body ── */}
-        <div className="px-6 py-5 space-y-5" style={{ background: "#F7F7F8" }}>
+        {/* ── Telo ── */}
+        <div className="px-6 py-5 space-y-5" style={{ background: CREAM_BODY }}>
 
-          {/* Campaigns */}
+          {/* Kampane */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED }}>
                 Kampane
               </span>
-              {selCampaigns.length > 0 && (
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-                      style={{ background: PRIMARY_TINT, color: PRIMARY }}>
-                  {selCampaigns.length} vybrané
+              {selC.length > 0 && (
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                      style={{ background: `${PRIMARY}12`, color: PRIMARY }}>
+                  {selC.length} vybrané
                 </span>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {CAMPAIGNS.map(c => {
                 const cfg = CHANNEL[c.channel as keyof typeof CHANNEL];
-                const sel = selCampaigns.includes(c.id);
+                const sel = selC.includes(c.id);
                 return (
-                  <button
-                    key={c.id}
-                    onClick={() => toggleC(c.id)}
-                    className="w-full text-left rounded-xl transition-all duration-150 overflow-hidden"
+                  <button key={c.id} onClick={() => toggleC(c.id)}
+                    className="w-full text-left rounded-xl transition-all duration-150"
                     style={{
-                      background: sel ? PRIMARY_TINT : "#FFFFFF",
-                      border: `1px solid ${sel ? PRIMARY_BORDER : "#E5E7EB"}`,
-                      boxShadow: sel ? `0 0 0 1px ${PRIMARY_BORDER}` : "none",
-                    }}
-                  >
+                      background: sel ? CREAM_SEL : "#FFFFFF",
+                      border: `1px solid ${sel ? ROSE_BORDER : "#EDE5DF"}`,
+                      boxShadow: sel ? `inset 0 0 0 1px ${ROSE_BORDER}40` : "none",
+                    }}>
                     <div className="flex items-center gap-3 px-3.5 py-2.5">
-                      {/* Left color bar — always brand crimson when selected, channel color otherwise */}
-                      <div className="w-1 self-stretch rounded-full shrink-0"
-                           style={{ background: sel ? PRIMARY : cfg.color, minHeight: 32 }} />
-
-                      {/* Channel icon */}
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm"
-                           style={{ background: sel ? `${PRIMARY}18` : `${cfg.color}15` }}>
+                      {/* Farebný pruh */}
+                      <div className="w-1 self-stretch rounded-full flex-shrink-0"
+                           style={{ background: sel ? PRIMARY : cfg.color, minHeight: 30 }} />
+                      {/* Kanálová ikona */}
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm"
+                           style={{ background: sel ? `${PRIMARY}10` : cfg.bg }}>
                         {cfg.icon}
                       </div>
-
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate text-gray-800">
-                          {c.name}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-sm font-semibold truncate" style={{ color: TEXT_DARK }}>{c.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-[10px]">{c.countries.join(" ")}</span>
-                          <span className="text-[10px] text-gray-400">{c.date}</span>
+                          <span className="text-[10px]" style={{ color: TEXT_MUTED }}>{c.date}</span>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                              style={{
-                                background: sel ? `${PRIMARY}15` : `${cfg.color}15`,
-                                color: sel ? PRIMARY : cfg.color
-                              }}>
+                              style={{ background: sel ? `${PRIMARY}12` : `${cfg.color}12`, color: sel ? PRIMARY : cfg.color }}>
                           {cfg.label}
                         </span>
-                        <div className="w-5 h-5 rounded-md flex items-center justify-center transition-colors"
-                             style={{
-                               background: sel ? PRIMARY : "transparent",
-                               border: `2px solid ${sel ? PRIMARY : "#D1D5DB"}`,
-                             }}>
-                          {sel && <CheckIcon />}
+                        <div className="w-5 h-5 rounded-md flex items-center justify-center"
+                             style={{ background: sel ? PRIMARY : "transparent", border: `2px solid ${sel ? PRIMARY : "#CBBFBA"}` }}>
+                          {sel && <Check />}
                         </div>
                       </div>
                     </div>
@@ -192,36 +167,33 @@ export function VariantB() {
             </div>
           </div>
 
-          {/* Inbound Queues */}
+          {/* Inbound fronty */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED }}>
                 Inbound fronty
               </span>
-              {selQueues.length > 0 && (
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+              {selQ.length > 0 && (
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full"
                       style={{ background: "#F0FDF4", color: "#16A34A" }}>
-                  {selQueues.length} vybrané
+                  {selQ.length} vybrané
                 </span>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {QUEUES.map(q => {
-                const sel = selQueues.includes(q.id);
+                const sel = selQ.includes(q.id);
                 return (
-                  <button
-                    key={q.id}
-                    onClick={() => toggleQ(q.id)}
-                    className="w-full text-left rounded-xl transition-all duration-150 overflow-hidden"
+                  <button key={q.id} onClick={() => toggleQ(q.id)}
+                    className="w-full text-left rounded-xl transition-all duration-150"
                     style={{
-                      background: sel ? "#F0FDF4" : "#FFFFFF",
-                      border: `1px solid ${sel ? "#86EFAC" : "#E5E7EB"}`,
-                    }}
-                  >
+                      background: sel ? "#F6FEF9" : "#FFFFFF",
+                      border: `1px solid ${sel ? "#86EFAC" : "#EDE5DF"}`,
+                    }}>
                     <div className="flex items-center gap-3 px-3.5 py-2.5">
-                      <div className="w-1 self-stretch rounded-full shrink-0"
-                           style={{ background: "#16A34A", minHeight: 32 }} />
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                      <div className="w-1 self-stretch rounded-full flex-shrink-0"
+                           style={{ background: "#16A34A", minHeight: 30 }} />
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                            style={{ background: sel ? "#DCFCE7" : "#F0FDF4" }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
@@ -229,28 +201,27 @@ export function VariantB() {
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate text-gray-800">{q.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] text-gray-400">{q.hours}</span>
-                          <span className="text-[10px] text-gray-300">·</span>
-                          <span className="text-[10px] text-gray-400">{q.did}</span>
+                        <p className="text-sm font-semibold truncate" style={{ color: TEXT_DARK }}>{q.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px]" style={{ color: TEXT_MUTED }}>{q.hours}</span>
+                          <span className="text-[10px]" style={{ color: "#CBBFBA" }}>·</span>
+                          <span className="text-[10px]" style={{ color: TEXT_MUTED }}>{q.did}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
                         {q.waiting > 0 && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                                style={{ background: "#FEF2F2", color: "#DC2626" }}>
                             {q.waiting} čaká
                           </span>
                         )}
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                              style={{ background: "#F0FDF4", color: "#16A34A" }}>
                           {q.online} online
                         </span>
-                        <div className="w-5 h-5 rounded-md flex items-center justify-center ml-1"
-                             style={{
-                               background: sel ? "#16A34A" : "transparent",
-                               border: `2px solid ${sel ? "#16A34A" : "#D1D5DB"}`,
-                             }}>
-                          {sel && <CheckIcon />}
+                        <div className="w-5 h-5 rounded-md flex items-center justify-center"
+                             style={{ background: sel ? "#16A34A" : "transparent", border: `2px solid ${sel ? "#16A34A" : "#CBBFBA"}` }}>
+                          {sel && <Check />}
                         </div>
                       </div>
                     </div>
@@ -261,26 +232,27 @@ export function VariantB() {
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <div className="px-6 pb-6" style={{ background: "#F7F7F8" }}>
+        {/* ── Päta ── */}
+        <div className="px-6 pb-6 pt-1" style={{ background: CREAM_BODY }}>
           <button
             disabled={!canStart}
             className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-sm transition-all duration-200"
             style={{
-              background: canStart
-                ? `linear-gradient(135deg, ${PRIMARY_DARK} 0%, ${PRIMARY} 100%)`
-                : "#E5E7EB",
-              color: canStart ? "#FFFFFF" : "#9CA3AF",
-              boxShadow: canStart ? `0 4px 16px ${PRIMARY}40` : "none",
+              background: canStart ? PRIMARY : "#E8E0DA",
+              color: canStart ? "#FFFFFF" : "#A89898",
+              boxShadow: canStart ? `0 3px 12px ${PRIMARY}30` : "none",
               cursor: canStart ? "pointer" : "not-allowed",
-            }}
-          >
-            <HeadphonesIcon size={17} color="currentColor" />
+            }}>
+            <HeadphonesIcon size={16} color="currentColor" />
             Začať zmenu
-            {canStart && <ArrowIcon />}
+            {canStart && (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            )}
           </button>
           {!canStart && (
-            <p className="text-center text-xs mt-2 text-gray-400">
+            <p className="text-center text-[11px] mt-2" style={{ color: TEXT_MUTED }}>
               Vyberte aspoň jednu kampaň alebo frontu
             </p>
           )}
