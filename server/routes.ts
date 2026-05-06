@@ -45,6 +45,7 @@ import {
   insertPartnerCategorySchema, insertContactAssignmentSchema, insertContactChannelSchema, insertCommunicationScheduleSchema, insertFirstContactProtocolSchema,
   cbcActivityDefinitions, insertCbcActivityDefinitionSchema,
   campaignOperatorSettings,
+  campaignSchedules,
   trainingRoomArchives,
   scriptTemplates,
   collaboratorDocuments,
@@ -40748,6 +40749,102 @@ Return ONLY the JSON object.`
     } catch (error) {
       console.error("Error fetching active agent session:", error);
       res.status(500).json({ error: "Failed to fetch active session" });
+    }
+  });
+
+  app.get("/api/agent-sessions/shift-data", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const todayStart = startOfDay(new Date());
+      const todayEnd = endOfDay(new Date());
+
+      const sessions = await db.select({
+        contactsHandled: agentSessions.contactsHandled,
+        totalBreakTime: agentSessions.totalBreakTime,
+        totalCallTime: agentSessions.totalCallTime,
+        totalWorkTime: agentSessions.totalWorkTime,
+        campaignId: agentSessions.campaignId,
+      }).from(agentSessions)
+        .where(and(
+          eq(agentSessions.userId, userId),
+          gte(agentSessions.startedAt, todayStart),
+          lte(agentSessions.startedAt, todayEnd)
+        ));
+
+      const totals = sessions.reduce((acc, s) => ({
+        contactsHandled: acc.contactsHandled + (s.contactsHandled || 0),
+        totalBreakSeconds: acc.totalBreakSeconds + (s.totalBreakTime || 0),
+        totalCallSeconds: acc.totalCallSeconds + (s.totalCallTime || 0),
+        totalWorkSeconds: acc.totalWorkSeconds + (s.totalWorkTime || 0),
+      }), { contactsHandled: 0, totalBreakSeconds: 0, totalCallSeconds: 0, totalWorkSeconds: 0 });
+
+      let callerIdNumber: string | null = null;
+      const sipExt = await db.select({
+        assignedToCollaboratorId: sipExtensions.assignedToCollaboratorId,
+      }).from(sipExtensions)
+        .where(eq(sipExtensions.assignedToUserId, userId))
+        .limit(1);
+
+      if (sipExt.length > 0 && sipExt[0].assignedToCollaboratorId) {
+        const collab = await db.select({ outboundCallerId: collaborators.outboundCallerId })
+          .from(collaborators)
+          .where(eq(collaborators.id, sipExt[0].assignedToCollaboratorId))
+          .limit(1);
+        if (collab.length > 0) callerIdNumber = collab[0].outboundCallerId;
+      }
+
+      const campaignIdsParam = (req.query.campaignIds as string) || "";
+      const campaignIds = campaignIdsParam.split(",").filter(Boolean);
+
+      const campaignData: Record<string, {
+        workingHoursStart: string; workingHoursEnd: string;
+        dailyCallQuota: number | null; contactsToday: number;
+      }> = {};
+
+      if (campaignIds.length > 0) {
+        const [schedules, opSettings] = await Promise.all([
+          db.select().from(campaignSchedules).where(inArray(campaignSchedules.campaignId, campaignIds)),
+          db.select().from(campaignOperatorSettings).where(and(
+            inArray(campaignOperatorSettings.campaignId, campaignIds),
+            eq(campaignOperatorSettings.userId, userId)
+          )),
+        ]);
+        const scheduleMap = new Map(schedules.map(s => [s.campaignId, s]));
+        const opMap = new Map(opSettings.map(s => [s.campaignId, s]));
+
+        for (const cId of campaignIds) {
+          const sched = scheduleMap.get(cId);
+          const op = opMap.get(cId);
+          const contactsToday = sessions.filter(s => s.campaignId === cId).reduce((a, s) => a + (s.contactsHandled || 0), 0);
+          campaignData[cId] = {
+            workingHoursStart: sched?.workingHoursStart || "09:00",
+            workingHoursEnd: sched?.workingHoursEnd || "17:00",
+            dailyCallQuota: op?.dailyCallQuota ?? null,
+            contactsToday,
+          };
+        }
+      }
+
+      const dispositionsRows = await db.select({ count: count() })
+        .from(campaignContactHistory)
+        .where(and(
+          eq(campaignContactHistory.userId, userId),
+          gte(campaignContactHistory.createdAt, todayStart),
+          lte(campaignContactHistory.createdAt, todayEnd)
+        ));
+
+      res.json({
+        callerIdNumber,
+        contactsHandled: totals.contactsHandled,
+        totalBreakMinutes: Math.floor(totals.totalBreakSeconds / 60),
+        totalCallMinutes: Math.floor(totals.totalCallSeconds / 60),
+        totalWorkMinutes: Math.floor(totals.totalWorkSeconds / 60),
+        dispositionsToday: Number(dispositionsRows[0]?.count || 0),
+        campaignData,
+      });
+    } catch (error) {
+      console.error("Error fetching shift data:", error);
+      res.status(500).json({ error: "Failed to fetch shift data" });
     }
   });
 

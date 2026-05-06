@@ -5542,10 +5542,29 @@ export default function AgentWorkspacePage() {
     refetchInterval: 10000,
   });
 
-  const { data: todayStats } = useQuery<{ contactsHandled: number; totalBreakMinutes: number }>({
-    queryKey: ["/api/agent-sessions/today-stats"],
+  const shiftDataCampaignIds = loginCampaigns.map(c => c.id).join(",");
+  const { data: shiftData, refetch: refetchShiftData } = useQuery<{
+    callerIdNumber: string | null;
+    contactsHandled: number;
+    totalBreakMinutes: number;
+    totalCallMinutes: number;
+    totalWorkMinutes: number;
+    dispositionsToday: number;
+    campaignData: Record<string, { workingHoursStart: string; workingHoursEnd: string; dailyCallQuota: number | null; contactsToday: number }>;
+  }>({
+    queryKey: [`/api/agent-sessions/shift-data?campaignIds=${shiftDataCampaignIds}`],
     enabled: sessionLoginOpen && !agentSession.isSessionActive,
+    refetchOnMount: true,
+    staleTime: 0,
   });
+
+  useEffect(() => {
+    if (sessionLoginOpen && !agentSession.isSessionActive) {
+      refetchShiftData();
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/my-queues"] });
+    }
+  }, [sessionLoginOpen, agentSession.isSessionActive]);
 
   const { data: abandonedCalls = [] } = useQuery<any[]>({
     queryKey: ["/api/agent/abandoned-calls"],
@@ -7354,11 +7373,18 @@ export default function AgentWorkspacePage() {
             {/* Agent karta */}
             {(() => {
               const selectedCamps = loginCampaigns.filter(c => selectedLoginCampaignIds.includes(c.id));
-              const maxCallQuota = selectedCamps.reduce((m, c) => Math.max(m, (c as any).dailyCallQuota || 0), 0) || null;
-              const hasTodayData = todayStats && (todayStats.contactsHandled > 0 || todayStats.totalBreakMinutes > 0);
-              const callPct = maxCallQuota && todayStats ? Math.min(100, Math.round((todayStats.contactsHandled / maxCallQuota) * 100)) : 0;
-              const breakPct = todayStats ? Math.min(100, Math.round((todayStats.totalBreakMinutes / 60) * 100)) : 0;
-              const breakOver = (todayStats?.totalBreakMinutes || 0) >= 60;
+              const maxCallQuota = selectedCamps.length > 0
+                ? selectedCamps.reduce((m, c) => {
+                    const q = shiftData?.campaignData?.[c.id]?.dailyCallQuota ?? 0;
+                    return Math.max(m, q);
+                  }, 0) || null
+                : null;
+              const hasTodayData = shiftData && (shiftData.contactsHandled > 0 || shiftData.totalBreakMinutes > 0 || shiftData.dispositionsToday > 0 || shiftData.totalCallMinutes > 0);
+              const callPct = maxCallQuota && shiftData ? Math.min(100, Math.round((shiftData.contactsHandled / maxCallQuota) * 100)) : 0;
+              const breakPct = shiftData ? Math.min(100, Math.round((shiftData.totalBreakMinutes / 60) * 100)) : 0;
+              const breakOver = (shiftData?.totalBreakMinutes || 0) >= 60;
+              const totalH = Math.floor((shiftData?.totalWorkMinutes || 0) / 60);
+              const totalM = (shiftData?.totalWorkMinutes || 0) % 60;
               return (
                 <div className="relative z-10 rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #E8E0DA", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
                   <div className="flex items-center gap-3 px-3.5 py-2.5">
@@ -7380,12 +7406,33 @@ export default function AgentWorkspacePage() {
                   {hasTodayData && (
                     <div className="px-3.5 pb-3 border-t" style={{ borderColor: "#F0EAE5" }}>
                       <p className="text-[10px] font-semibold uppercase tracking-wider mt-2 mb-2" style={{ color: "#A89898" }}>{t.agentSession.dailyTargetReached}</p>
+
+                      {/* Riadok štatistík: hovory, dispozície, čas */}
+                      <div className="flex items-center gap-3 mb-2.5">
+                        <div className="flex items-center gap-1">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                          <span className="text-[10px] font-semibold text-foreground">{shiftData!.contactsHandled}</span>
+                          <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.calls}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                          <span className="text-[10px] font-semibold text-foreground">{shiftData!.dispositionsToday}</span>
+                          <span className="text-[10px]" style={{ color: "#A89898" }}>disp.</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          <span className="text-[10px] font-semibold text-foreground">
+                            {totalH > 0 ? `${totalH}h ` : ""}{totalM}m
+                          </span>
+                        </div>
+                      </div>
+
                       {(maxCallQuota !== null) && (
                         <div className="mb-2">
                           <div className="flex justify-between mb-1">
                             <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.calls}</span>
                             <span className="text-[10px] font-semibold text-foreground">
-                              {todayStats!.contactsHandled}<span style={{ color: "#A89898" }}>/{maxCallQuota}</span>
+                              {shiftData!.contactsHandled}<span style={{ color: "#A89898" }}>/{maxCallQuota}</span>
                             </span>
                           </div>
                           <div className="h-1.5 rounded-full" style={{ background: "#EDE5DF" }}>
@@ -7397,7 +7444,7 @@ export default function AgentWorkspacePage() {
                         <div className="flex justify-between mb-1">
                           <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.breakTimeUsed}</span>
                           <span className="text-[10px] font-semibold" style={{ color: breakOver ? "#DC2626" : undefined }}>
-                            {todayStats!.totalBreakMinutes} min
+                            {shiftData!.totalBreakMinutes} min
                           </span>
                         </div>
                         <div className="h-1.5 rounded-full" style={{ background: "#EDE5DF" }}>
@@ -7473,28 +7520,35 @@ export default function AgentWorkspacePage() {
                                 <span className="text-[10px]" style={{ color: "#A89898" }}>{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
-                              <div className="flex items-center gap-1">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
-                                  {(campaign as any).workingHoursStart || "09:00"} – {(campaign as any).workingHoursEnd || "17:00"}
-                                </span>
-                              </div>
-                              {(campaign as any).outboundCallerId && (
-                                <div className="flex items-center gap-1">
-                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                                  <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>{(campaign as any).outboundCallerId}</span>
+                            {(() => {
+                              const cd = shiftData?.campaignData?.[campaign.id];
+                              const wStart = cd?.workingHoursStart || "09:00";
+                              const wEnd = cd?.workingHoursEnd || "17:00";
+                              const quota = cd?.dailyCallQuota ?? null;
+                              const callerId = shiftData?.callerIdNumber ?? null;
+                              return (
+                                <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+                                  <div className="flex items-center gap-1">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>{wStart} – {wEnd}</span>
+                                  </div>
+                                  {callerId && (
+                                    <div className="flex items-center gap-1">
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                      <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>{callerId}</span>
+                                    </div>
+                                  )}
+                                  {quota !== null && (
+                                    <div className="flex items-center gap-1">
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                      <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
+                                        {quota} {t.agentSession.calls}{t.agentSession.perDay}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                              {(campaign as any).dailyCallQuota && (
-                                <div className="flex items-center gap-1">
-                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                                  <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
-                                    {(campaign as any).dailyCallQuota} {t.agentSession.calls}{t.agentSession.perDay}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
