@@ -7693,6 +7693,49 @@ export default function AgentWorkspacePage() {
 
           {/* ── Päta ── */}
           <div className="px-6 pb-5 pt-1" style={{ background: "#FAFAF8" }}>
+            {(() => {
+              const parseHHMM = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+              const now = new Date();
+              const nowMin = now.getHours() * 60 + now.getMinutes();
+              const WARN_THRESHOLD = 30;
+
+              const campWarnings = selectedLoginCampaignIds.flatMap(id => {
+                const cd = shiftData?.campaignData?.[id];
+                if (!cd?.workingHoursEnd) return [];
+                const endMin = parseHHMM(cd.workingHoursEnd);
+                const remaining = endMin - nowMin;
+                if (remaining < 0 || remaining >= WARN_THRESHOLD) return [];
+                return [{ name: loginCampaigns.find(c => c.id === id)?.name || id, remaining, endTime: cd.workingHoursEnd, kind: "mission" as const }];
+              });
+
+              const queueWarnings = selectedLoginQueueIds.flatMap(id => {
+                const q = myQueues.find(q => q.id === id);
+                if (!q?.activeTo) return [];
+                const endMin = parseHHMM(q.activeTo);
+                const remaining = endMin - nowMin;
+                if (remaining < 0 || remaining >= WARN_THRESHOLD) return [];
+                return [{ name: q.name, remaining, endTime: q.activeTo, kind: "inbound" as const }];
+              });
+
+              const allWarnings = [...campWarnings, ...queueWarnings];
+              if (allWarnings.length === 0) return null;
+
+              const minRemaining = Math.min(...allWarnings.map(w => w.remaining));
+              const names = allWarnings.map(w => w.name).join(", ");
+
+              return (
+                <div className="mb-3 rounded-xl px-3 py-2.5 flex items-start gap-2.5" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }} data-testid="shift-end-warning">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "#D97706" }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold" style={{ color: "#92400E" }}>Blíži sa koniec smeny</p>
+                    <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "#B45309" }}>
+                      Do konca <span className="font-medium">{names}</span> zostáva iba <span className="font-semibold">{minRemaining} min</span>. Venujte sa len najdôležitejším hovorom.
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+
             <Button
               className="w-full gap-2 h-11 font-semibold"
               onClick={handleStartSession}
