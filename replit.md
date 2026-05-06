@@ -1,154 +1,67 @@
 # INDEXUS CRM
 
-## Overview
-INDEXUS is a multi-country CRM system for cord blood banking companies. It provides role-based access, a comprehensive dashboard, and tools for customer and user management. Key capabilities include medical-grade design, mobile integration for field representatives, campaign management, an AI assistant, real-time notifications, and a built-in SIP phone for call center operations. The project aims to streamline operations, enhance customer engagement, and offer robust sales, collections, and communication management across international markets.
+INDEXUS is a multi-country CRM system for cord blood banking companies, streamlining operations and enhancing customer engagement with tools for sales, collections, and communication.
 
-## User Preferences
+## Run & Operate
+_Populate as you build_
+
+## Stack
+- **Frontend**: React 18, TypeScript, Wouter, TanStack React Query, Tailwind CSS, shadcn/ui, Vite
+- **Backend**: Node.js, Express, TypeScript (ESM), Drizzle ORM, PostgreSQL
+- **Build Tool**: Vite
+
+## Where things live
+- `client/src/lib/regions.ts`: Geographic data (regions, districts) source of truth.
+- `server/db/schema.ts`: Database schema definition (Drizzle ORM).
+- `server/seed-statuses.ts`: Seed data for Status Management Engine.
+- `/api/mpn/*`: API routes for Medical Partner Network.
+- `/api/status-categories/*`, `/api/status-definitions/*`, `/api/campaigns/:id/status-assignments/*`: API routes for Status Management Engine.
+- `/api/lead-intelligence/*`: API routes for Lead Intelligence System V3.
+- `attached_assets/indexus_gyn_data_import_*.csv`: Source for INDEXUS Gyn CSV Import.
+- `attached_assets/postal_code_cache.json`: Persistent cache for postal code AI lookup.
+- `attached_assets/import_write_log_<timestamp>.md`: Audit log for INDEXUS Gyn CSV Import.
+
+## Architecture decisions
+- **Shared Schema**: Database schema defined via Drizzle ORM is shared between frontend and backend.
+- **Layered Backend**: Clear separation of app setup, route handling, and database interactions.
+- **WebSocket for Real-time**: Utilizes WebSockets for features like real-time notifications.
+- **AI Integration**: Deep integration with OpenAI GPT-4o for AI assistant, transcription, sentiment analysis, and lead intelligence.
+- **Multi-country Design**: Core features like i18n, regional data, and country-specific filters are built-in from the ground up.
+
+## Product
+- **Customer & User Management**: Role-based access, comprehensive dashboard.
+- **Collections Management**: OCR extraction from documents, CBU report downloads.
+- **Communication Suite**: Email, SMS, Tasks, Chats, Teams, NexusPoint (SharePoint integration), built-in SIP phone.
+- **Campaign Management**: Multi-phase campaigns, templates, contact filtering, KPI reporting, Mailchimp integration.
+- **Call Center Operations**: Agent workspace, shift management, queue handling, AI sentiment analysis, FAQ, SOP panel.
+- **AI Assistant**: GPT-4o powered, multi-language, role-based data visibility.
+- **Real-time Notifications**: WebSocket-based push notifications.
+- **Medical Partner Network (MPN)**: Management of medical partner relationships, communication schedules, first contact protocols.
+- **Lead Intelligence System V3**: 7-layer self-learning lead generation platform with goal-based search, discovery engine, hybrid extraction, contact scoring, feedback learning, entity knowledge graph, and closed-loop CRM integration.
+- **Web Forms Module**: Public-facing registration forms with visual builder and pipeline management.
+- **Status Management Engine**: Configurable status/disposition system for campaigns.
+- **AI Virtual Agent**: GPT-4o-mini powered voice bot for inbound calls with TTS, multi-language support, and conversation analysis.
+- **Mobile Application (INDEXUS Connect)**: For field representatives with optimistic UI, GPS tracking, and WebRTC phone.
+
+## User preferences
 Preferred communication style: Simple, everyday language.
 
-## System Architecture
+## Gotchas
+- **INDEXUS Gyn CSV Import**: `--dry-run` is default; use `--commit` for actual writes. Replit shell kills background processes after ~60s, requiring temporary workflow configuration for long runs.
+- **Pagination**: Endpoints for customers, invoices, hospitals, clinics, collaborators return plain arrays if no pagination parameters are sent (backwards compatible).
 
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Routing**: Wouter
-- **State Management**: TanStack React Query
-- **Styling**: Tailwind CSS with CSS custom properties, utilizing shadcn/ui components
-- **Build Tool**: Vite
-- **UI/UX**: Sidebar navigation, global country filter, light/dark theme support, reusable components (DataTable, StatsCard).
-
-### Backend
-- **Runtime**: Node.js with Express
-- **Language**: TypeScript (ESM modules)
-- **API Pattern**: RESTful JSON API
-- **Database ORM**: Drizzle ORM for PostgreSQL
-- **Architecture**: Layered design separating app setup, route handling, and database interactions.
-
-### Data Storage
-- **Database**: PostgreSQL
-- **Schema**: Defined via Drizzle ORM, shared between frontend and backend.
-
-### Modules and Features
-- **Collections**: Manages cord blood collection processes, including OCR extraction from accompanying documents with per-field confidence and highlighting, and CBU report downloads via LAB API integration.
-- **NEXUS Communication Client**: Tab-based interface (Email, SMS, Tasks, Chats, Teams, NexusPoint) with AI-powered search (GPT-4o to KQL parsing), Tiptap-based rich text editor for email, email tagging, mailbox color coding, and filter toolbar.
-- **NexusPoint (SharePoint File Manager)**: Full SharePoint integration for file management, including browsing, upload/download, folder creation, deletion, version history, and sharing, with IDOR protection.
-- **Teams Meeting Enhancement**: Facilitates meeting creation with participant picker and scheduler, and displays upcoming meetings with real-time notifications.
-- **External Communication**: Supports email (MS365) and SMS (BulkGate API).
-- **Built-in SIP Phone**: WebRTC-based SIP phone with call recording and playback.
-- **Campaign Management**: Tools for creating and managing multi-phase campaigns with templates, operator scripts, contact filtering (customers, hospitals, clinics, collaborators), scheduling, KPI reporting, and Mailchimp integration (campaign creation, contact sync, analytics, webhook auto-registration).
-- **Call Center Agent Workspace**: Dedicated interface with shift management, queue handling, integrated SIP phone, contact cards, script viewer, disposition tracking, AI sentiment analysis, FAQ system, SOP panel, and multi-rule contact sorting.
-- **MSG Template Import**: ZIP-based import of Outlook .msg email templates with variable detection, HTML cleaning, and attachment handling.
-- **SOP Management**: Admin page for creating and managing Standard Operating Procedures with subcategory support, article sorting, rich text editor (Tiptap), PDF upload with text extraction, priority levels, pinning, country filtering, read tracking, and campaign linking.
-- **Break Types Management**: Configurable global break types for call center agents with multi-language support.
-- **NEXUS AI Assistant**: OpenAI GPT-4o powered, multi-language, role-based data visibility assistant.
-- **Real-time Notification Center**: WebSocket-based push notifications with historical view.
-- **File Storage**: Centralized storage for documents.
-- **Invoice PDF Generation**: Automated PDF generation from DOCX templates with QR code injection.
-- **Call Recording & Analysis**: AI-powered (GPT-4o) transcription, sentiment analysis, keyword detection, and quality scoring with search.
-- **Inbound Queue System**: Asterisk ARI-integrated call queue management with routing strategies and SLA targets.
-- **IVR Audio Management**: Upload or generate multi-language audio files for IVR prompts using OpenAI TTS.
-- **IVR Menu Builder**: Visual tool for designing IVR decision trees.
-- **DID Routing**: Configuration for mapping DID numbers.
-- **Medical Partner Network (MPN)**: Unified module for managing medical partner relationships. Includes partner categories (10 predefined: hospital directors, department heads, nurses, midwives, ambulatory gynecologists, etc.), contact assignments (person ↔ institution mapping with category, department, position, role, subcategory A/B/C), contact channels (unlimited phones, emails, WhatsApp, Viber, Signal per person), communication schedules (configurable frequencies per category/subcategory), and first contact protocols (step-by-step workflows with required documents). API routes under `/api/mpn/*`. DB tables: `partner_categories`, `contact_assignments`, `contact_channels`, `communication_schedules`, `first_contact_protocols`. Migration script: `scripts/seed-medical-partner-network.sql`.
-- **Inbound Call Reports**: Reports on queue performance, SLA, and agent statistics.
-- **Voicemail Management**: Voicemail box configuration with greetings, email notifications, and transcription.
-- **Entity Campaign Timeline**: Automatic recording of campaign interactions on entity detail pages (customers, hospitals, clinics, collaborators).
-- **Web Forms Module**: Public-facing registration forms with a visual field builder, layout templates, typography customization, GDPR consent, confirmation emails, and progress pipeline.
-- **Status Management Engine**: Comprehensive, configurable status/disposition system integrated directly into each campaign's Dispositions tab with 3 modes: **Definície** (full CRUD for categories and statuses with hierarchy — parent status + sub-statuses), **Priradenie** (assign/unassign statuses per campaign with bulk operations), and **Nexus Pulse** (agent-facing disposition simulator with sub-status selection and reschedule period picker). Supports 9 categories, 104+ pre-seeded statuses, 14 disposition action types, hierarchical status combos (main → sub-status), reschedule periods (1 day through 1 year), and per-status meta rules (isFinal, isConversion, requiresNote, requiresCallback, allowRecontact, allowPhone/Email/SMS, isSystemStatus, visibleInCampaigns). Removed from main sidebar — now lives per-campaign. Legacy route still available at `/status-management`. DB tables: `status_categories`, `status_definitions` (with `parentId`, `rescheduleOptions`), `campaign_status_assignments`. API routes: `/api/status-categories/*`, `/api/status-definitions/*`, `/api/campaigns/:id/status-assignments/*`. Seed data: `server/seed-statuses.ts`.
-- **Collaborator Campaign Support**: Collaborators can be targeted as campaign contacts with specific filtering criteria.
-- **Lead Intelligence System V3 (7-Layer Self-Learning)**: Multi-feature lead generation platform with 9 sub-tabs (Dashboard, Search, Sources, Campaigns, Templates, Webhooks, Entity Graf, Učenie, Konverzie). **7 Intelligent Layers**: (1) Goal-based Search — AI natural language goal parsing with learned preferences, recommended sources from history. (2) Discovery Engine — Source learning metrics (email/phone/address/person quality per source, best segments, structure changes). (3) Hybrid Extraction — Rules + heuristics + AI extraction. (4) Contact Multi-Scoring — Completeness (email/phone/web/address/person/role), Relevance, Trust (multi-source confirmation, IČO verification), Outreach (personal vs generic email, decision-maker roles). (5) Feedback Learning — Thumbs up/down per result, good/bad source feedback, preferred role learning, pattern-based weight accumulation. (6) Entity Knowledge Graph — Entity resolution from search results, company/person entities, relationship tracking (works_at), evidence aggregation, multi-source trust building, dedup across searches. Tables: `lead_entities`, `entity_relations`, `entity_evidences`. (7) CRM Closed Loop — Lifecycle tracking (new→contacted→replied→deal→converted/invalid), conversion rate analytics, source conversion scoring, auto-feedback to source quality from deal outcomes. Tables: `lead_lifecycle`. **Also includes all V2 features**: Query templates, source scoring, merge/reject/approve workflow, XLSX export, webhooks, multi-source enrichment, intelligent source sampling. Tables: `lead_sources`, `lead_campaigns`, `query_templates`, `webhook_configs`, `source_learning_metrics`, `contact_scores`, `lead_feedback`, `feedback_patterns`. Endpoints: `/api/lead-intelligence/parse-goal`, `/api/source-learning/*`, `/api/contact-scores/*`, `/api/lead-feedback`, `/api/feedback-patterns`, `/api/lead-entities/*`, `/api/lead-lifecycle/*`.
-- **Campaign Reports**: Detailed campaign reports including operator statistics and call analysis.
-- **AI Virtual Agent**: GPT-4o-mini powered voice bot for inbound calls with configurable greetings, TTS, multi-language support, conversation analysis, callback detection, transcript logging, customer context awareness, configurable AI parameters, queue MOH integration, SFTP connection pooling, and website knowledge base integration.
-
-### Geographic Data
-- **Region (Kraj)**: Selectable dropdown for hospitals, clinics, and collaborators. Auto-suggested from city name via `getAutoRegion()`.
-- **District (Okres)**: Selectable dropdown filtered by selected region. Auto-suggested from city name via `getAutoDistrict()`. Data available for SK, CZ, HU.
-- **Data file**: `client/src/lib/regions.ts` — contains `REGIONS_BY_COUNTRY`, `DISTRICTS_BY_REGION`, `REGION_MAP`, `DISTRICT_MAP`, and helper functions.
-- **DB columns**: `district` column added to `hospitals`, `clinics`, and `collaborators` tables.
-
-### Multi-Language Support (i18n)
-- **Languages**: EN, SK, CS, HU, RO, IT, DE.
-- **Implementation**: Custom I18nProvider with React Context, localStorage persistence, and locale-aware formatting.
-- **Coverage**: Full localization across all modules.
-
-### Mobile Application (INDEXUS Connect)
-- **Framework**: React Native (Expo)
-- **Purpose**: For field representatives (hospital visits, GPS tracking, event management).
-- **Features**: Optimistic UI, GPS synchronization, multi-language support.
-- **Authentication**: JWT Bearer token.
-- **WebRTC Phone**: SIP.js-based phone with keypad, CRM contact search (customers, hospitals, clinics), local and server-side call history, recording playback, SIP auto re-registration, fake ringback, and personal contacts management.
-- **Activity Tab**: Displays complete mobile app activity history (calls, visits) for collaborators.
-
-### Process Stability
-- **Production mode**: Frontend is pre-built and served statically. Backend is compiled into a single CJS bundle.
-- **Fast restart**: Script checks for frontend build presence to optimize server rebuild time.
-- **SIGHUP handling**: Node.js process ignores SIGHUP to prevent unexpected shutdowns.
-
-### Key Design Patterns
-- Shared schema definitions.
-- Zod schemas for validation.
-- Storage interface for database abstraction.
-- React Context for global state.
-- WebSocket for real-time features.
-- Reusable UI components.
-- Cache-safe query keys.
-
-## External Dependencies
-
-### Database
-- PostgreSQL
-
-### UI Component Libraries
-- Radix UI primitives
-- Lucide React
-- react-hook-form
-- date-fns
-- embla-carousel-react
-
-### Third-Party Services
-- Microsoft 365 Graph API (Email)
-- BulkGate API (SMS)
-- Mailchimp API v3 (Email campaign management)
-- OpenAI GPT-4o (AI Assistant, transcription, analysis)
-- SIP.js (WebRTC SIP phone)
-- Jira API (Issue tracking)
-
-### Server-Side Pagination
-- **Customers** (`/api/customers`): Server-side paginated with `?page=&limit=&search=&country=` params. Returns `{ data: [], total: N }`. Frontend uses debounced search (400ms). Page size: 50.
-- **Invoices** (`/api/invoices`): Server-side paginated with `?page=&limit=&search=` params. Returns `{ data: [], total: N }`. Frontend uses debounced search (400ms). Page size: 50.
-- **Hospitals** (`/api/hospitals`): Server-side paginated with `?page=&limit=&search=&country=`. Returns `{ data: [], total: N }`. Debounced search + country tab filter. Page size: 50.
-- **Clinics** (`/api/clinics`): Server-side paginated with `?page=&limit=&search=&country=`. Returns `{ data: [], total: N }`. Debounced search + country tab filter. Page size: 50.
-- **Collaborators** (`/api/collaborators`): Server-side paginated with `?page=&limit=&search=&country=`. Returns `{ data: [], total: N }`. Debounced search + country filter. Page size: 50.
-- **Contracts** (`/api/contracts`): Server-side pagination endpoint available, currently using client-side filtering.
-- **Collections** (`/api/collections`): Server-side pagination endpoint available, currently using client-side filtering.
-- Backwards-compatible: endpoints return plain array when no pagination params are sent.
-
-### Lightweight Lookup Endpoints
-- `/api/customers/lookup` — Returns id, firstName, lastName, country, email, status, serviceType only. Used by contracts, collections, invoices, pipeline, email client, quick-create, and all components that need customer dropdowns/cross-references.
-- `/api/hospitals/lookup` — Returns id, name, countryCode only. Used by collaborators, contracts, collections, campaign filters, and form wizards.
-- `/api/clinics/lookup` — Returns id, name, countryCode, doctorName only. Used by dashboard lookups and clinic form wizard.
-- `/api/collaborators/lookup` — Returns id, firstName, lastName, countryCode only. Used by collections, configurator, and collaborator reports.
-- `/api/dashboard/stats` — Server-side aggregated dashboard statistics (customer counts, invoice totals/amounts). Replaces full customer + invoice dataset fetches on the dashboard.
-
-### ISCBC Migration
-- Migration from MSSQL CBC database.
-- Migrated data includes customers, contracts, invoices, collections, collaborators, hospitals, notes, calls, debt collection, potential clients.
-- Supports full and incremental migration procedures.
-
-### INDEXUS Gyn CSV Import (`scripts/import-clinics-write.ts`)
-- Idempotent UPSERT loader for `attached_assets/indexus_gyn_data_import_*.csv` (754 SK gynecology clinics).
-- Match key on `clinics.id_zz`; default `--dry-run`, `--commit` enables writes; `--limit=N` and `--no-ai` flags supported.
-- Region normalization: 2-letter codes (BA, NR, KE, …) auto-converted to full names ("Bratislavský kraj", …) via `REGION_MAP`. Aplikuje sa aj na `collaborator_addresses`.
-- AI lookup PSČ + okresu cez OpenAI `gpt-5` (`reasoning_effort: minimal`, `max_completion_tokens: 384`, JSON output), persistent cache at `attached_assets/postal_code_cache.json` (backward-compatible legacy string format), concurrency=8.
-- Plan phase fills PSČ pre INSERTy vždy, pre UPDATE len ak `existing.postalCode` je prázdne (FILL_IF_EMPTY).
-- Primary collaborator kontakty získajú `partnerCategory = PRIVATE_GYNECOLOGIST_CATEGORY_ID` (053995ca-…) pri INSERT; existujúci sa updatuje len ak `partnerCategory` je null.
-- `collaborator_addresses` (Personnel → Company Address) pri INSERT/UPDATE doplňujeme `postal_code`, `district` a `region` (plný názov kraja) z CSV + AI + materskej kliniky.
-- Klinicky dôležité hodnoty `clinics.initial_status` sa nastavujú na `"initial:not_contacted"` (zladenie s `PIPELINE_CATEGORIES` v `clinic-form-wizard.tsx`, aby UI tile "New contact" zvýraznil); legacy "not_contacted" sa migruje bulk-updatom.
-- Bilingválne mená (slash-format): parser handluje "Ján / János Perhács" aj "Klaudia/Claudia Čuboňová" (s/bez medzier). Ak `between` má tokeny → alias firstName; ak je prázdny → alternatívne lastName sa zahodí. Globálny `aliasClusters` map zabezpečí, že "MUDr. János Perhács" v jednom riadku sa namatchne na "Ján Perhács" už zapísaného z iného (slash) riadku.
-- Post-write maintenance v `--commit` móde (idempotentné):
-  - bulk dedup duplikátnych osôb kde `first_name = last_name` per `(clinic_id, lower(first_name), lower(last_name))` — zachová najstaršiu kópiu, ostatné aj s `contact_assignments` a `collaborator_addresses` vymaže.
-  - cleanup zlých "/" mien (legacy záznamy s lomkou v fn/ln) + globálny merge alias-mien (zlúči varianty pod kanonickú osobu zo všetkých klinik, presunie assignments).
-  - migrácia `clinics.initial_status` "not_contacted" → "initial:not_contacted".
-  - normalizácia 2-písmenkových regiónov v `collaborator_addresses` na plný názov.
-  - deaktivácia kliník bez `id_zz`: `UPDATE clinics SET is_active=false WHERE id_zz IS NULL OR id_zz=''`.
-- Spustenie: pre dlhotrvajúce behy použiť dočasný workflow (cez `configureWorkflow`) — Replit shell zabíja background processy po ~60s.
-- Audit log: `attached_assets/import_write_log_<timestamp>.md`.
+## Pointers
+- Radix UI: [https://www.radix-ui.com/](https://www.radix-ui.com/)
+- Lucide React: [https://lucide.dev/](https://lucide.dev/)
+- react-hook-form: [https://react-hook-form.com/](https://react-hook-form.com/)
+- date-fns: [https://date-fns.org/](https://date-fns.org/)
+- embla-carousel-react: [https://www.embla-carousel.com/](https://www.embla-carousel.com/)
+- Drizzle ORM: [https://orm.drizzle.team/](https://orm.drizzle.team/)
+- Tailwind CSS: [https://tailwindcss.com/](https://tailwindcss.com/)
+- Vite: [https://vitejs.dev/](https://vitejs.dev/)
+- Wouter: [https://docs.wouter.com/](https://docs.wouter.com/)
+- TanStack Query: [https://tanstack.com/query/latest](https://tanstack.com/query/latest)
+- Mailchimp API v3: [https://mailchimp.com/developer/marketing/docs/](https://mailchimp.com/developer/marketing/docs/)
+- OpenAI API: [https://platform.openai.com/docs/](https://platform.openai.com/docs/)
+- SIP.js: [https://sipjs.com/](https://sipjs.com/)
+- Jira API: [https://developer.atlassian.com/cloud/jira/platform/rest/v3/](https://developer.atlassian.com/cloud/jira/platform/rest/v3/)

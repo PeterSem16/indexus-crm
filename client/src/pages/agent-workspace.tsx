@@ -182,6 +182,11 @@ interface TaskItem {
   channel: ChannelType;
   startedAt: Date;
   status: "active" | "waiting" | "wrap_up";
+  direction?: "inbound" | "outbound";
+  contactType?: string;
+  clinicData?: any;
+  hospitalData?: any;
+  collaboratorData?: any;
 }
 
 interface ContactHistory {
@@ -3957,110 +3962,57 @@ function CustomerInfoPanel({
               )}
 
               {filteredHistory.length > 0 && (
-                <div className={`${isModal ? "p-4 space-y-2" : "p-2 space-y-1.5"}`}>
+                <div className={`${isModal ? "p-4 space-y-2" : "p-2 space-y-2"}`}>
                   {filteredHistory.map((item) => {
                     const isClickable = item.type === "email" || item.type === "sms";
                     const plainDetails = item.details?.replace(/<[^>]*>/g, '') || "";
                     const isCall = item.type === "call";
                     const contentText = item.content || item.notes || "";
 
+                    const itemAc = item.type === "call" ? "#B5622E" : item.type === "email" ? "#5B4FCF" : item.type === "sms" ? "#2E75B6" : "#7A6858";
                     return (
-                      isModal && (item.type === "email" || item.type === "sms") ? (
                       <div
                         key={item.id}
-                        className={`relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
-                          item.direction === "outbound"
-                            ? "ml-8"
-                            : "mr-8"
-                        }`}
+                        className={`rounded-xl overflow-visible transition-all duration-200 ${isClickable ? "cursor-pointer group" : ""}`}
                         data-testid={`history-item-${item.id}`}
-                        onClick={() => { if (onOpenHistoryDetail) onOpenHistoryDetail(item); }}
-                      >
-                        <div className={`rounded-2xl overflow-hidden shadow-sm border transition-shadow hover:shadow-md ${
-                          item.direction === "outbound"
-                            ? "bg-primary/5 border-primary/15 dark:bg-primary/10 dark:border-primary/20 rounded-br-md"
-                            : "bg-muted/40 border-border/50 dark:bg-muted/20 rounded-bl-md"
-                        }`}>
-                          <div className="px-3.5 pt-2.5 pb-1 flex items-center gap-2">
-                            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                              item.type === "email"
-                                ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400"
-                                : "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400"
-                            }`}>
-                              {item.type === "email" ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
-                            </div>
-                            <span className={`text-[11px] font-medium ${item.direction === "outbound" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}`}>
-                              {item.direction === "inbound" ? "Prijatý" : "Odoslaný"}
-                            </span>
-                            {item.status && (
-                              <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{item.status}</Badge>
-                            )}
-                            {item.sentiment && (
-                              <SentimentBadge sentiment={item.sentiment} size="sm" />
-                            )}
-                            <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                              {format(new Date(item.date), "d. MMM yyyy, HH:mm", { locale: sk })}
-                            </span>
-                          </div>
-                          <div className="px-3.5 pb-1">
-                            <p className="text-sm font-medium text-foreground leading-snug">
-                              {highlightMatch(contentText) || "—"}
-                            </p>
-                          </div>
-                          {plainDetails && (
-                            <div className="px-3.5 pb-2">
-                              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                                {highlightMatch(plainDetails)}
-                              </p>
-                            </div>
-                          )}
-                          <div className="px-3.5 pb-2 flex items-center gap-2 text-[10px] text-muted-foreground/50">
-                            {item.agentName && (
-                              <span className="flex items-center gap-0.5">
-                                <UserCircle className="h-2.5 w-2.5" />
-                                {item.agentName}
-                              </span>
-                            )}
-                            {(item as any).recipientEmail && (
-                              <span className="truncate max-w-[180px]" title={(item as any).recipientEmail}>
-                                → {(item as any).recipientEmail}
-                              </span>
-                            )}
-                            {(item as any).recipientPhone && (
-                              <span>→ {(item as any).recipientPhone}</span>
-                            )}
-                            <ExternalLink className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-60 transition-opacity" />
-                          </div>
-                        </div>
-                      </div>
-                      ) : (
-                      <div
-                        key={item.id}
-                        className={`rounded-md border border-border/40 overflow-visible transition-colors ${isClickable ? "cursor-pointer hover-elevate group" : ""}`}
-                        data-testid={`history-item-${item.id}`}
+                        style={{
+                          background: "#FFFFFF",
+                          border: `1px solid ${itemAc}25`,
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+                        }}
                         onClick={() => { if (isClickable && onOpenHistoryDetail) onOpenHistoryDetail(item); }}
+                        onMouseEnter={isClickable ? (e) => {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.borderColor = `${itemAc}60`;
+                          el.style.boxShadow = `0 4px 12px ${itemAc}20`;
+                          el.style.transform = "translateY(-1px)";
+                        } : undefined}
+                        onMouseLeave={isClickable ? (e) => {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.borderColor = `${itemAc}25`;
+                          el.style.boxShadow = "0 1px 4px rgba(0,0,0,0.05)";
+                          el.style.transform = "translateY(0)";
+                        } : undefined}
                       >
-                        <div className={`flex items-start gap-2 ${isModal ? "p-3" : "p-2"}`}>
-                          <div className={`flex ${isModal ? "h-8 w-8" : "h-6 w-6"} shrink-0 items-center justify-center rounded-full mt-0.5 ${
-                            item.type === "call" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" :
-                            item.type === "email" ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400" :
-                            item.type === "sms" ? "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" :
-                            "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400"
-                          }`}>
-                            {item.type === "call" && <Phone className={isModal ? "h-4 w-4" : "h-3 w-3"} />}
-                            {item.type === "email" && <Mail className={isModal ? "h-4 w-4" : "h-3 w-3"} />}
-                            {item.type === "sms" && <MessageSquare className={isModal ? "h-4 w-4" : "h-3 w-3"} />}
-                            {item.type === "disposition" && <ListChecks className={isModal ? "h-4 w-4" : "h-3 w-3"} />}
+                        <div className={`flex items-start gap-2.5 ${isModal ? "p-3" : "p-2.5"}`}>
+                          <div
+                            className={`flex ${isModal ? "h-9 w-9" : "h-7 w-7"} shrink-0 items-center justify-center rounded-full mt-0.5`}
+                            style={{ background: `${itemAc}15`, border: `1.5px solid ${itemAc}30` }}
+                          >
+                            {item.type === "call" && <Phone className={isModal ? "h-4 w-4" : "h-3 w-3"} style={{ color: itemAc }} />}
+                            {item.type === "email" && <Mail className={isModal ? "h-4 w-4" : "h-3 w-3"} style={{ color: itemAc }} />}
+                            {item.type === "sms" && <MessageSquare className={isModal ? "h-4 w-4" : "h-3 w-3"} style={{ color: itemAc }} />}
+                            {item.type === "disposition" && <ListChecks className={isModal ? "h-4 w-4" : "h-3 w-3"} style={{ color: itemAc }} />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {item.direction && (
-                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-medium ${item.direction === "outbound" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}`}>
+                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-semibold`} style={{ color: itemAc }}>
                                   {item.direction === "inbound" ? "Prijatý" : "Odoslaný"}
                                 </span>
                               )}
                               {item.type === "disposition" && (
-                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-medium text-purple-600 dark:text-purple-400`}>Dispozícia</span>
+                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-semibold`} style={{ color: itemAc }}>Dispozícia</span>
                               )}
                               {(item as any).dispositionName && (() => {
                                 const dColor = (item as any).dispositionColor || "gray";
@@ -4088,34 +4040,37 @@ function CustomerInfoPanel({
                                 );
                               })()}
                               {item.status && item.type !== "disposition" && (
-                                <Badge variant="secondary" className={`${isModal ? "text-[10px] h-5" : "text-[9px] h-4"} px-1`}>{item.status}</Badge>
+                                <span
+                                  className={`inline-flex items-center ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full font-medium`}
+                                  style={{ background: `${itemAc}15`, color: itemAc, border: `1px solid ${itemAc}25` }}
+                                >{item.status}</span>
                               )}
                               {(item.type === "email" || item.type === "sms") && item.sentiment && (
                                 <SentimentBadge sentiment={item.sentiment} size={isModal ? "md" : "sm"} />
                               )}
-                              <span className={`${isModal ? "text-xs" : "text-[9px]"} text-muted-foreground/70 ml-auto`}>
+                              <span className={`${isModal ? "text-xs" : "text-[9px]"} ml-auto`} style={{ color: "#9A8878" }}>
                                 {format(new Date(item.date), isModal ? "d. MMMM yyyy, HH:mm" : "d.M. HH:mm", { locale: sk })}
                               </span>
                             </div>
-                            <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} text-foreground ${isModal ? "" : "line-clamp-2"} leading-snug`}>
+                            <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium ${isModal ? "" : "line-clamp-2"} leading-snug`} style={{ color: "#2E2118" }}>
                               {highlightMatch(contentText) || "—"}
                             </p>
                             {plainDetails && (
-                              <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} text-muted-foreground ${isModal ? "line-clamp-3" : "line-clamp-2"} leading-snug`}>
+                              <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} ${isModal ? "line-clamp-3" : "line-clamp-2"} leading-snug`} style={{ color: "#9A8878" }}>
                                 {highlightMatch(plainDetails)}
                               </p>
                             )}
                           </div>
                           {isClickable && (
-                            <ExternalLink className={`${isModal ? "h-4 w-4" : "h-3 w-3"} text-muted-foreground/40 shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity`} />
+                            <ExternalLink className={`${isModal ? "h-4 w-4" : "h-3 w-3"} shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity`} style={{ color: "#9A8878" }} />
                           )}
                         </div>
                         {isCall && item.callLogId && (
-                          <div className={`${isModal ? "px-3 pb-2" : "px-2 pb-1.5"}`} onClick={(e) => e.stopPropagation()}>
+                          <div className={`${isModal ? "px-3 pb-2" : "px-2.5 pb-2"}`} onClick={(e) => e.stopPropagation()}>
                             <CallRecordingPlayer callLogId={item.callLogId} compact />
                           </div>
                         )}
-                        <div className={`flex items-center gap-2 ${isModal ? "px-3 pb-2 text-xs" : "px-2 pb-1.5 text-[9px]"} text-muted-foreground/60 flex-wrap`}>
+                        <div className={`flex items-center gap-2 ${isModal ? "px-3 pb-2.5 text-xs" : "px-2.5 pb-2 text-[9px]"} flex-wrap`} style={{ color: "#9A8878" }}>
                           {item.agentName && (
                             <span className="flex items-center gap-0.5">
                               <UserCircle className={isModal ? "h-3 w-3" : "h-2.5 w-2.5"} />
@@ -4123,7 +4078,11 @@ function CustomerInfoPanel({
                             </span>
                           )}
                           {item.campaignName && (
-                            <span className={`truncate ${isModal ? "max-w-[200px]" : "max-w-[120px]"}`} title={item.campaignName}>
+                            <span
+                              className={`inline-flex items-center ${isModal ? "text-xs px-2 py-0.5" : "text-[9px] px-1.5 py-0.5"} rounded-full truncate ${isModal ? "max-w-[200px]" : "max-w-[120px]"}`}
+                              style={{ background: "#EDE8E0", color: "#7A6858" }}
+                              title={item.campaignName}
+                            >
                               {item.campaignName}
                             </span>
                           )}
@@ -4132,7 +4091,6 @@ function CustomerInfoPanel({
                           )}
                         </div>
                       </div>
-                      )
                     );
                   })}
                 </div>
@@ -6520,6 +6478,10 @@ export default function AgentWorkspacePage() {
       channel: campaignChannel,
       startedAt: new Date(),
       status: "active",
+      contactType: currentContactType || "customer",
+      clinicData: currentClinicData,
+      hospitalData: currentHospitalData,
+      collaboratorData: currentCollaboratorData,
     };
     setTasks((prev) => [...prev, newTask]);
     setActiveTaskId(newTask.id);
@@ -6602,10 +6564,10 @@ export default function AgentWorkspacePage() {
   const handleSelectTask = (task: TaskItem) => {
     setActiveTaskId(task.id);
     setCurrentContact(task.contact);
-    setCurrentContactType("customer");
-    setCurrentHospitalData(null);
-    setCurrentClinicData(null);
-    setCurrentCollaboratorData(null);
+    setCurrentContactType((task.contactType || "customer") as any);
+    setCurrentHospitalData(task.hospitalData || null);
+    setCurrentClinicData(task.clinicData || null);
+    setCurrentCollaboratorData(task.collaboratorData || null);
     setSelectedCampaignId(task.campaignId);
     setCurrentCampaignContactId(task.campaignContactId);
   };
@@ -6749,11 +6711,15 @@ export default function AgentWorkspacePage() {
         return;
       }
       let customer: any;
+      let _clinicEntity: any = null;
+      let _hospitalEntity: any = null;
+      let _collaboratorEntity: any = null;
       const cType = contactType || "customer";
       if (cType === "clinic") {
         const res = await fetch(`/api/clinics/${contactId}`, { credentials: "include" });
         if (!res.ok) throw new Error("Clinic not found");
         const clinic = await res.json();
+        _clinicEntity = clinic;
         customer = {
           id: clinic.id,
           firstName: clinic.doctorFirstName || "",
@@ -6770,6 +6736,7 @@ export default function AgentWorkspacePage() {
         const res = await fetch(`/api/hospitals/${contactId}`, { credentials: "include" });
         if (!res.ok) throw new Error("Hospital not found");
         const hospital = await res.json();
+        _hospitalEntity = hospital;
         customer = {
           id: hospital.id,
           firstName: "",
@@ -6784,6 +6751,7 @@ export default function AgentWorkspacePage() {
         const res = await fetch(`/api/collaborators/${contactId}`, { credentials: "include" });
         if (!res.ok) throw new Error("Collaborator not found");
         const collab = await res.json();
+        _collaboratorEntity = collab;
         customer = {
           id: collab.id,
           firstName: collab.firstName || "",
@@ -6805,6 +6773,10 @@ export default function AgentWorkspacePage() {
       }
       setCurrentCampaignContactId(campaignContactId);
       setCurrentContact(customer);
+      setCurrentContactType(cType as any);
+      setCurrentClinicData(_clinicEntity);
+      setCurrentHospitalData(_hospitalEntity);
+      setCurrentCollaboratorData(_collaboratorEntity);
       agentSession.updateStatus("busy").catch(() => {});
       setCallNotes("");
       setActiveChannel(channel);
@@ -6821,6 +6793,10 @@ export default function AgentWorkspacePage() {
         channel: campaignChannel,
         startedAt: new Date(),
         status: "active",
+        contactType: cType,
+        clinicData: _clinicEntity,
+        hospitalData: _hospitalEntity,
+        collaboratorData: _collaboratorEntity,
       };
       setTasks((prev) => [...prev, newTask]);
       setActiveTaskId(newTask.id);
