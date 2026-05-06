@@ -608,6 +608,8 @@ function TaskListPanel({
   activeTaskId,
   onSelectTask,
   campaigns,
+  inboundQueues,
+  sessionInboundQueueIds,
   selectedCampaignId,
   onSelectCampaign,
   showOnlyAssigned,
@@ -5576,7 +5578,9 @@ export default function AgentWorkspacePage() {
     refetchInterval: 10000,
   });
 
-  const shiftDataCampaignIds = loginCampaigns.map(c => c.id).join(",");
+  const shiftDataCampaignIds = agentSession.isSessionActive
+    ? ((((agentSession.session as any)?.campaignIds as string[]) || selectedLoginCampaignIds) || []).join(",")
+    : loginCampaigns.map(c => c.id).join(",");
   const { data: shiftData, refetch: refetchShiftData } = useQuery<{
     callerIdNumber: string | null;
     contactsHandled: number;
@@ -5587,9 +5591,10 @@ export default function AgentWorkspacePage() {
     campaignData: Record<string, { workingHoursStart: string; workingHoursEnd: string; dailyCallQuota: number | null; contactsToday: number }>;
   }>({
     queryKey: [`/api/agent-sessions/shift-data?campaignIds=${shiftDataCampaignIds}`],
-    enabled: sessionLoginOpen && !agentSession.isSessionActive,
+    enabled: !!hasAccess,
     refetchOnMount: true,
     staleTime: 0,
+    refetchInterval: agentSession.isSessionActive ? 30000 : false,
   });
 
   useEffect(() => {
@@ -6065,9 +6070,12 @@ export default function AgentWorkspacePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/contact-counts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "assigned-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"] });
       if (currentContact?.id) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "contact-history"] });
       }
+      refetchShiftData();
     },
     onError: (error: Error) => {
       toast({ title: t.agentWorkspace.errorLabel, description: error.message, variant: "destructive" });
