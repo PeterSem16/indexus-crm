@@ -631,7 +631,9 @@ function TaskListPanel({
   tasks: TaskItem[];
   activeTaskId: string | null;
   onSelectTask: (task: TaskItem) => void;
-  campaigns: { id: string; name: string; contactCount: number; status: string; channel: string }[];
+  campaigns: { id: string; name: string; contactCount: number; status: string; channel: string; callerIdNumber?: string | null; workingHoursStart?: string | null; workingHoursEnd?: string | null }[];
+  inboundQueues?: { id: string; name: string; didNumber: string | null }[];
+  sessionInboundQueueIds?: string[];
   selectedCampaignId: string | null;
   onSelectCampaign: (id: string) => void;
   showOnlyAssigned: boolean;
@@ -810,15 +812,23 @@ function TaskListPanel({
           const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
           const ChIcon = chConfig.icon;
           const isSelected = selectedCampaignId === campaign.id;
-          const ac = "#B5622E";
+          const ac = "#4A7FA6";
+          const scheduleInfo = (campaign.workingHoursStart && campaign.workingHoursEnd)
+            ? `${campaign.workingHoursStart} – ${campaign.workingHoursEnd}`
+            : null;
+          const inboundDids = (sessionInboundQueueIds || [])
+            .map(qId => (inboundQueues || []).find(q => q.id === qId))
+            .filter(Boolean)
+            .map(q => q!.didNumber)
+            .filter(Boolean);
 
           return (
             <div
               key={campaign.id}
               className="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-all duration-150"
               style={{
-                background: isSelected ? ac : "#F8F4EE",
-                border: `1.5px solid ${isSelected ? ac : ac + "30"}`,
+                background: isSelected ? ac : "#F0F5FA",
+                border: `1.5px solid ${isSelected ? ac : ac + "28"}`,
                 borderRadius: "14px",
                 boxShadow: isSelected ? `0 4px 14px ${ac}35` : "0 1px 3px rgba(0,0,0,0.05)",
               }}
@@ -833,7 +843,7 @@ function TaskListPanel({
               onMouseLeave={(e) => {
                 if (!isSelected) {
                   const el = e.currentTarget as HTMLElement;
-                  el.style.borderColor = `${ac}30`;
+                  el.style.borderColor = `${ac}28`;
                   el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
                   el.style.transform = "";
                 }
@@ -850,12 +860,36 @@ function TaskListPanel({
               >
                 <ChIcon className="h-3.5 w-3.5 text-white" />
               </div>
-              <span
-                className="flex-1 truncate text-xs font-semibold"
-                style={{ color: isSelected ? "#fff" : "#3D2E20" }}
-              >
-                {campaign.name}
-              </span>
+              <div className="flex-1 min-w-0">
+                <span
+                  className="block truncate text-xs font-semibold leading-tight"
+                  style={{ color: isSelected ? "#fff" : "#2A3A4A" }}
+                >
+                  {campaign.name}
+                </span>
+                {(campaign.callerIdNumber || scheduleInfo || inboundDids.length > 0) && (
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {scheduleInfo && (
+                      <span className="flex items-center gap-0.5 text-[9px]" style={{ color: isSelected ? "rgba(255,255,255,0.75)" : "#607080" }}>
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        {scheduleInfo}
+                      </span>
+                    )}
+                    {campaign.callerIdNumber && (
+                      <span className="flex items-center gap-0.5 text-[9px]" style={{ color: isSelected ? "rgba(255,255,255,0.75)" : "#607080" }}>
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                        {campaign.callerIdNumber}
+                      </span>
+                    )}
+                    {inboundDids.map((did, i) => (
+                      <span key={i} className="flex items-center gap-0.5 text-[9px]" style={{ color: isSelected ? "rgba(255,255,255,0.70)" : "#5A7A5A" }}>
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 2 6a2 2 0 0 1 2-2z"/></svg>
+                        {did}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               <span
                 className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
                 style={{
@@ -5858,8 +5892,11 @@ export default function AgentWorkspacePage() {
         contactCount: campaignContactCounts[c.id]?.pending ?? 0,
         status: c.status,
         channel: c.channel || "phone",
+        callerIdNumber: (c as any).callerIdNumber || null,
+        workingHoursStart: shiftData?.campaignData?.[c.id]?.workingHoursStart || null,
+        workingHoursEnd: shiftData?.campaignData?.[c.id]?.workingHoursEnd || null,
       }));
-  }, [campaigns, campaignContactCounts, sessionCampaignIds, agentSession.isSessionActive]);
+  }, [campaigns, campaignContactCounts, sessionCampaignIds, agentSession.isSessionActive, shiftData]);
 
   useEffect(() => {
     if (agentSession.isSessionActive && !selectedCampaignId && sessionCampaignIds.length > 0) {
@@ -7525,7 +7562,7 @@ export default function AgentWorkspacePage() {
                               const wStart = cd?.workingHoursStart || "09:00";
                               const wEnd = cd?.workingHoursEnd || "17:00";
                               const quota = cd?.dailyCallQuota ?? null;
-                              const callerId = shiftData?.callerIdNumber ?? null;
+                              const callerId = campaign.callerIdNumber ?? null;
                               return (
                                 <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
                                   <div className="flex items-center gap-1">
@@ -7662,6 +7699,8 @@ export default function AgentWorkspacePage() {
           activeTaskId={activeTaskId}
           onSelectTask={handleSelectTask}
           campaigns={activeCampaigns}
+          inboundQueues={myQueues.map(q => ({ id: q.id, name: q.name, didNumber: q.didNumber }))}
+          sessionInboundQueueIds={sessionInboundQueueIds}
           selectedCampaignId={selectedCampaignId}
           onSelectCampaign={(id: string) => { setSelectedCampaignId(id); setDisposedContactIds(new Set()); queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] }); queryClient.invalidateQueries({ queryKey: ["/api/user/assigned-campaigns"] }); }}
           showOnlyAssigned={showOnlyAssigned}
