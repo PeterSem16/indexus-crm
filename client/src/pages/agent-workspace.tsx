@@ -7327,174 +7327,181 @@ export default function AgentWorkspacePage() {
         />
       )}
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
-        <DialogContent className="sm:max-w-lg overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Headphones className="h-5 w-5" />
-              {t.agentSession.shiftLogin}
-            </DialogTitle>
-            <DialogDescription>
-              {t.agentSession.shiftLoginDesc}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
-              <Avatar className="h-10 w-10">
-                {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} />}
-                <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                  {user?.firstName?.[0]}{user?.lastName?.[0]}
-                </AvatarFallback>
-              </Avatar>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden gap-0">
+          <DialogTitle className="sr-only">{t.agentSession.shiftLogin}</DialogTitle>
+
+          {/* ── Krémová hlavička ── */}
+          <div className="relative px-7 pt-6 pb-5 overflow-hidden" style={{ background: "linear-gradient(160deg, #FAF6F1 0%, #F5EDE8 100%)" }}>
+            <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, hsl(355 85% 42% / 0.08) 0%, transparent 70%)" }} />
+            <div className="absolute bottom-0 left-0 w-36 h-20 pointer-events-none" style={{ background: "radial-gradient(ellipse, hsl(355 85% 42% / 0.05) 0%, transparent 70%)" }} />
+
+            {/* Ikona + nadpis */}
+            <div className="relative z-10 flex items-center gap-4 mb-4">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm shrink-0" style={{ background: "#FFFFFF", border: "1px solid #E8C8C8" }}>
+                <Headphones className="h-5 w-5 text-primary" />
+              </div>
               <div>
-                <p className="font-medium text-sm">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-muted-foreground">{user?.role === "admin" ? t.agentSession.administrator : t.agentSession.operator}</p>
+                <h2 className="font-bold text-base leading-tight text-foreground">{t.agentSession.shiftLogin}</h2>
+                <p className="text-xs mt-0.5 text-muted-foreground">{t.agentSession.shiftLoginDesc}</p>
               </div>
             </div>
+
+            {/* Agent karta */}
+            <div className="relative z-10 flex items-center gap-3 px-3.5 py-2.5 rounded-xl" style={{ background: "#FFFFFF", border: "1px solid #E8E0DA", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+              <div className="relative shrink-0">
+                <Avatar className="h-9 w-9" style={{ border: "1.5px solid #E8C8C8" }}>
+                  {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} />}
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">{user?.firstName} {user?.lastName}</p>
+                <p className="text-xs text-muted-foreground">{user?.role === "admin" ? t.agentSession.administrator : t.agentSession.operator}</p>
+              </div>
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ background: "#F0FDF4", color: "#16A34A", border: "1px solid #BBF7D0" }}>Online</span>
+            </div>
+          </div>
+
+          {/* ── Telo ── */}
+          <div className="px-6 py-4 space-y-4" style={{ background: "#FAFAF8" }}>
+
+            {/* Kampane */}
             <div>
-              <Label className="text-sm font-medium mb-2 block">{t.agentWorkspace.campaigns}</Label>
-              <ScrollArea className="max-h-64 border rounded-md">
-                <div className="p-2 space-y-1">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentWorkspace.campaigns}</span>
+                {selectedLoginCampaignIds.length > 0 && (
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "hsl(355 85% 42% / 0.10)", color: "hsl(355 85% 42%)" }}>
+                    {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? "vybraná" : "vybrané"}
+                  </span>
+                )}
+              </div>
+              <ScrollArea className="max-h-56">
+                <div className="space-y-1.5 pr-1">
                   {loginCampaigns.length === 0 ? (
-                    <div className="text-center py-4">
-                      <Megaphone className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-                      <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "No missions available"}</p>
+                    <div className="text-center py-5">
+                      <Megaphone className="h-7 w-7 mx-auto text-muted-foreground/30 mb-2" />
+                      <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "Žiadne kampane"}</p>
                     </div>
                   ) : (
                     loginCampaigns.map((campaign) => {
                       const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
                       const ChIcon = chConfig.icon;
                       const isChecked = selectedLoginCampaignIds.includes(campaign.id);
+                      const channelHex: Record<string, string> = { phone: "#3B82F6", email: "#22C55E", sms: "#F97316", mixed: "#A855F7" };
+                      const barColor = channelHex[campaign.channel] || "#3B82F6";
                       return (
                         <div
                           key={campaign.id}
-                          className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isChecked ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"}`}
-                          onClick={() => {
-                            setSelectedLoginCampaignIds(prev =>
-                              prev.includes(campaign.id)
-                                ? prev.filter(id => id !== campaign.id)
-                                : [...prev, campaign.id]
-                            );
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                          style={{
+                            background: isChecked ? "#FDF7F4" : "#FFFFFF",
+                            border: `1px solid ${isChecked ? "#E8C8C8" : "#EDE5DF"}`,
+                            boxShadow: isChecked ? "inset 0 0 0 1px #E8C8C840" : "none",
                           }}
+                          onClick={() => setSelectedLoginCampaignIds(prev => prev.includes(campaign.id) ? prev.filter(id => id !== campaign.id) : [...prev, campaign.id])}
                           data-testid={`login-campaign-${campaign.id}`}
                         >
-                          <Checkbox
-                            checked={isChecked}
-                            onClick={(e) => e.stopPropagation()}
-                            onCheckedChange={(checked) => {
-                              setSelectedLoginCampaignIds(prev =>
-                                checked
-                                  ? [...prev, campaign.id]
-                                  : prev.filter(id => id !== campaign.id)
-                              );
-                            }}
-                            data-testid={`checkbox-login-campaign-${campaign.id}`}
-                          />
-                          <div className={`p-1.5 rounded-md bg-muted`}>
-                            <ChIcon className={`h-3.5 w-3.5 ${chConfig.color}`} />
+                          <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isChecked ? "hsl(355 85% 42%)" : barColor, minHeight: 28 }} />
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "#F3F4F6" }}>
+                            <ChIcon className="h-3.5 w-3.5" style={{ color: isChecked ? "hsl(355 85% 42%)" : barColor }} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{campaign.name}</p>
-                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <p className="text-sm font-semibold truncate text-foreground">{campaign.name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
                               {campaign.countryCodes && campaign.countryCodes.length > 0 && (
-                                <span className="flex items-center gap-0.5">
-                                  {campaign.countryCodes.map((code: string) => (
-                                    <span key={code}>{getCountryFlag(code)}</span>
-                                  ))}
-                                </span>
+                                <span className="text-[10px]">{campaign.countryCodes.map((code: string) => getCountryFlag(code)).join(" ")}</span>
                               )}
                               {campaign.startDate && (
-                                <span>{format(new Date(campaign.startDate), "dd.MM.yy")} - {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
+                                <span className="text-[10px]" style={{ color: "#A89898" }}>{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
                               )}
                             </div>
                           </div>
-                          <Badge variant="outline" className="text-[10px] shrink-0">{chConfig.label}</Badge>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "#F3F4F6", color: isChecked ? "hsl(355 85% 42%)" : barColor }}>{chConfig.label}</span>
+                            <div className="w-4.5 h-4.5 rounded flex items-center justify-center transition-colors" style={{ width: 18, height: 18, background: isChecked ? "hsl(355 85% 42%)" : "transparent", border: `2px solid ${isChecked ? "hsl(355 85% 42%)" : "#CBBFBA"}` }}
+                                 data-testid={`checkbox-login-campaign-${campaign.id}`}>
+                              {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
+                            </div>
+                          </div>
                         </div>
                       );
                     })
                   )}
                 </div>
               </ScrollArea>
-              {selectedLoginCampaignIds.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? "mission" : "missions"} selected
-                </p>
-              )}
             </div>
+
+            {/* Inbound fronty */}
             {myQueues.length > 0 && (
               <div>
-                <Label className="text-sm font-medium mb-2 block">
-                  <PhoneIncoming className="h-3.5 w-3.5 inline mr-1.5" />
-                  Inbound Queues
-                </Label>
-                <ScrollArea className="max-h-48 border rounded-md">
-                  <div className="p-2 space-y-1">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>Inbound fronty</span>
+                  {selectedLoginQueueIds.length > 0 && (
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "#F0FDF4", color: "#16A34A" }}>
+                      {selectedLoginQueueIds.length} {selectedLoginQueueIds.length === 1 ? "vybraná" : "vybrané"}
+                    </span>
+                  )}
+                </div>
+                <ScrollArea className="max-h-44">
+                  <div className="space-y-1.5 pr-1">
                     {myQueues.map((queue) => {
                       const isChecked = selectedLoginQueueIds.includes(queue.id);
                       return (
                         <div
                           key={queue.id}
-                          className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isChecked ? "bg-green-500/10 border border-green-500/30" : "hover:bg-muted/50"}`}
-                          onClick={() => {
-                            setSelectedLoginQueueIds(prev =>
-                              prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id]
-                            );
-                          }}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                          style={{ background: isChecked ? "#F6FEF9" : "#FFFFFF", border: `1px solid ${isChecked ? "#86EFAC" : "#EDE5DF"}` }}
+                          onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
                           data-testid={`login-queue-${queue.id}`}
                         >
-                          <Checkbox
-                            checked={isChecked}
-                            onClick={(e) => e.stopPropagation()}
-                            onCheckedChange={(checked) => {
-                              setSelectedLoginQueueIds(prev =>
-                                checked ? [...prev, queue.id] : prev.filter(id => id !== queue.id)
-                              );
-                            }}
-                            data-testid={`checkbox-login-queue-${queue.id}`}
-                          />
-                          <div className="p-1.5 rounded-md bg-green-100 dark:bg-green-900/30">
+                          <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: "#16A34A", minHeight: 28 }} />
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "#DCFCE7" : "#F0FDF4" }}>
                             <PhoneIncoming className="h-3.5 w-3.5 text-green-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{queue.name}</p>
-                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                              {queue.countryCode && <span>{queue.countryCode}</span>}
-                              {queue.activeFrom && queue.activeTo && (
-                                <span>{queue.activeFrom} - {queue.activeTo}</span>
-                              )}
-                              {queue.didNumber && <span>DID: {queue.didNumber}</span>}
+                            <p className="text-sm font-semibold truncate text-foreground">{queue.name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px]" style={{ color: "#A89898" }}>
+                              {queue.activeFrom && queue.activeTo && <span>{queue.activeFrom} – {queue.activeTo}</span>}
+                              {queue.didNumber && <><span style={{ color: "#CBBFBA" }}>·</span><span>{queue.didNumber}</span></>}
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {queue.waiting > 0 && (
-                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                                {queue.waiting}
-                              </Badge>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#FEF2F2", color: "#DC2626" }}>{queue.waiting} čaká</span>
                             )}
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                              {queue.activeAgents} online
-                            </Badge>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "#F0FDF4", color: "#16A34A" }}>{queue.activeAgents} online</span>
+                            <div className="rounded flex items-center justify-center ml-0.5" style={{ width: 18, height: 18, background: isChecked ? "#16A34A" : "transparent", border: `2px solid ${isChecked ? "#16A34A" : "#CBBFBA"}` }}
+                                 data-testid={`checkbox-login-queue-${queue.id}`}>
+                              {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
+                            </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 </ScrollArea>
-                {selectedLoginQueueIds.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-1.5">
-                    {selectedLoginQueueIds.length} {selectedLoginQueueIds.length === 1 ? "queue" : "queues"} selected
-                  </p>
-                )}
               </div>
             )}
+          </div>
+
+          {/* ── Päta ── */}
+          <div className="px-6 pb-5 pt-1" style={{ background: "#FAFAF8" }}>
             <Button
-              className="w-full gap-2"
+              className="w-full gap-2 h-11 font-semibold"
               onClick={handleStartSession}
               disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0}
               data-testid="button-start-session"
             >
-              <Play className="h-4 w-4" />
+              <Headphones className="h-4 w-4" />
               {t.agentSession.startShift}
+              <ArrowRight className="h-4 w-4" />
             </Button>
+            {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && (
+              <p className="text-center text-[11px] mt-2" style={{ color: "#A89898" }}>Vyberte aspoň jednu kampaň alebo frontu</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
