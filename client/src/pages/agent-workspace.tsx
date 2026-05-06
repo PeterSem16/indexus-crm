@@ -7473,32 +7473,28 @@ export default function AgentWorkspacePage() {
                                 <span className="text-[10px]" style={{ color: "#A89898" }}>{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
                               )}
                             </div>
-                            {((campaign as any).workingHoursStart || (campaign as any).outboundCallerId || (campaign as any).dailyCallQuota) && (
-                              <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
-                                {(campaign as any).workingHoursStart && (
-                                  <div className="flex items-center gap-1">
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                    <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
-                                      {(campaign as any).workingHoursStart} – {(campaign as any).workingHoursEnd}
-                                    </span>
-                                  </div>
-                                )}
-                                {(campaign as any).outboundCallerId && (
-                                  <div className="flex items-center gap-1">
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                                    <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>{(campaign as any).outboundCallerId}</span>
-                                  </div>
-                                )}
-                                {(campaign as any).dailyCallQuota && (
-                                  <div className="flex items-center gap-1">
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                                    <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
-                                      {(campaign as any).dailyCallQuota} {t.agentSession.calls}{t.agentSession.perDay}
-                                    </span>
-                                  </div>
-                                )}
+                            <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+                              <div className="flex items-center gap-1">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
+                                  {(campaign as any).workingHoursStart || "09:00"} – {(campaign as any).workingHoursEnd || "17:00"}
+                                </span>
                               </div>
-                            )}
+                              {(campaign as any).outboundCallerId && (
+                                <div className="flex items-center gap-1">
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                  <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>{(campaign as any).outboundCallerId}</span>
+                                </div>
+                              )}
+                              {(campaign as any).dailyCallQuota && (
+                                <div className="flex items-center gap-1">
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                  <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
+                                    {(campaign as any).dailyCallQuota} {t.agentSession.calls}{t.agentSession.perDay}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
