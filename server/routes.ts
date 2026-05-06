@@ -40825,19 +40825,39 @@ Return ONLY the JSON object.`
         }
       }
 
-      const dispositionsRows = await db.select({ count: count() })
-        .from(campaignContactHistory)
-        .where(and(
-          eq(campaignContactHistory.userId, userId),
-          gte(campaignContactHistory.createdAt, todayStart),
-          lte(campaignContactHistory.createdAt, todayEnd)
-        ));
+      const [dispositionsRows, todayCallLogs] = await Promise.all([
+        db.select({ count: count() })
+          .from(campaignContactHistory)
+          .where(and(
+            eq(campaignContactHistory.userId, userId),
+            gte(campaignContactHistory.createdAt, todayStart),
+            lte(campaignContactHistory.createdAt, todayEnd)
+          )),
+        db.select({
+          durationSeconds: callLogs.durationSeconds,
+          status: callLogs.status,
+          campaignId: callLogs.campaignId,
+        }).from(callLogs)
+          .where(and(
+            eq(callLogs.userId, userId),
+            gte(callLogs.startedAt, todayStart),
+            lte(callLogs.startedAt, todayEnd),
+            inArray(callLogs.status, ['answered', 'completed'])
+          )),
+      ]);
+
+      const callsCount = todayCallLogs.length;
+      const callSecondsFromLogs = todayCallLogs.reduce((a, c) => a + (c.durationSeconds || 0), 0);
+
+      // Use the higher of: agentSessions.contactsHandled OR actual callLogs count
+      const effectiveContactsHandled = Math.max(totals.contactsHandled, callsCount);
+      const effectiveCallSeconds = Math.max(totals.totalCallSeconds, callSecondsFromLogs);
 
       res.json({
         callerIdNumber,
-        contactsHandled: totals.contactsHandled,
+        contactsHandled: effectiveContactsHandled,
         totalBreakMinutes: Math.floor(totals.totalBreakSeconds / 60),
-        totalCallMinutes: Math.floor(totals.totalCallSeconds / 60),
+        totalCallMinutes: Math.floor(effectiveCallSeconds / 60),
         totalWorkMinutes: Math.floor(totals.totalWorkSeconds / 60),
         dispositionsToday: Number(dispositionsRows[0]?.count || 0),
         campaignData,

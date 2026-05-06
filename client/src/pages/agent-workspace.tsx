@@ -127,6 +127,7 @@ import {
   Check,
   Navigation,
   SlidersHorizontal,
+  RotateCw,
 } from "lucide-react";
 import {
   Dialog,
@@ -884,8 +885,8 @@ function TaskListPanel({
                       </span>
                     )}
                     {inboundDids.map((did, i) => (
-                      <span key={i} className="flex items-center gap-0.5 text-[9px]" style={{ color: isSelected ? "rgba(255,255,255,0.70)" : "#5A7A5A" }}>
-                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 2 6a2 2 0 0 1 2-2z"/></svg>
+                      <span key={i} className="flex items-center gap-0.5 text-[9px]" style={{ color: isSelected ? "rgba(255,255,255,0.70)" : "#4A7A5A" }}>
+                        <PhoneIncoming width={8} height={8} strokeWidth={2.5} />
                         {did}
                       </span>
                     ))}
@@ -7450,7 +7451,17 @@ export default function AgentWorkspacePage() {
                   </div>
                   {hasTodayData && (
                     <div className="px-3.5 pb-3 border-t" style={{ borderColor: "#F0EAE5" }}>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider mt-2 mb-2" style={{ color: "#A89898" }}>{t.agentSession.dailyTargetReached}</p>
+                      <div className="flex items-center justify-between mt-2 mb-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentSession.dailyTargetReached}</p>
+                        <button
+                          onClick={() => refetchShiftData()}
+                          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md transition-colors hover:bg-black/5"
+                          style={{ color: "#A89898" }}
+                          title="Refresh shift data"
+                        >
+                          <RotateCw className="h-3 w-3" />
+                        </button>
+                      </div>
 
                       {/* Riadok štatistík: hovory, dispozície, čas */}
                       <div className="flex items-center gap-3 mb-2.5">
