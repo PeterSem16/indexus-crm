@@ -4474,6 +4474,21 @@ export interface Translations {
     operator: string;
     breakError: string;
     breakEndError: string;
+    selectAtLeastOne: string;
+    inboundQueues: string;
+    selected: string;
+    selectedOne: string;
+    schedule: string;
+    callerId: string;
+    dailyQuota: string;
+    dailyTargetReached: string;
+    breakTimeUsed: string;
+    waiting: string;
+    online: string;
+    calls: string;
+    emails: string;
+    sms: string;
+    perDay: string;
   };
   contractsModule: {
     title: string;
@@ -11107,6 +11122,21 @@ export const translations: Record<Locale, Translations> = {
       operator: 'Operator',
       breakError: 'Failed to start break',
       breakEndError: 'Failed to end break',
+      selectAtLeastOne: 'Select at least one campaign or queue',
+      inboundQueues: 'Inbound Queues',
+      selected: 'selected',
+      selectedOne: 'selected',
+      schedule: 'Schedule',
+      callerId: 'Caller ID',
+      dailyQuota: 'Daily Quota',
+      dailyTargetReached: "Today's Progress",
+      breakTimeUsed: 'Break Time Today',
+      waiting: 'waiting',
+      online: 'online',
+      calls: 'calls',
+      emails: 'emails',
+      sms: 'SMS',
+      perDay: '/day',
     },
     contractsModule: {
       title: 'Contracts',
@@ -17179,6 +17209,21 @@ export const translations: Record<Locale, Translations> = {
       operator: 'Operátor',
       breakError: 'Nepodarilo sa začať prestávku',
       breakEndError: 'Nepodarilo sa ukončiť prestávku',
+      selectAtLeastOne: 'Vyberte aspoň jednu kampaň alebo frontu',
+      inboundQueues: 'Inbound fronty',
+      selected: 'vybrané',
+      selectedOne: 'vybraná',
+      schedule: 'Rozvrh',
+      callerId: 'Caller ID',
+      dailyQuota: 'Denná kvóta',
+      dailyTargetReached: 'Dnešný pokrok',
+      breakTimeUsed: 'Čas prestávok dnes',
+      waiting: 'čaká',
+      online: 'online',
+      calls: 'hovorov',
+      emails: 'e-mailov',
+      sms: 'SMS',
+      perDay: '/deň',
     },
     callBar: {
       connecting: 'Pripájam...',
@@ -23193,6 +23238,21 @@ export const translations: Record<Locale, Translations> = {
       operator: 'Operátor',
       breakError: 'Nepodařilo se zahájit přestávku',
       breakEndError: 'Nepodařilo se ukončit přestávku',
+      selectAtLeastOne: 'Vyberte alespoň jednu kampaň nebo frontu',
+      inboundQueues: 'Inbound fronty',
+      selected: 'vybrané',
+      selectedOne: 'vybraná',
+      schedule: 'Rozvrh',
+      callerId: 'Caller ID',
+      dailyQuota: 'Denní kvóta',
+      dailyTargetReached: 'Dnešní pokrok',
+      breakTimeUsed: 'Čas přestávek dnes',
+      waiting: 'čeká',
+      online: 'online',
+      calls: 'hovorů',
+      emails: 'e-mailů',
+      sms: 'SMS',
+      perDay: '/den',
     },
     callBar: {
       connecting: 'Připojuji...',

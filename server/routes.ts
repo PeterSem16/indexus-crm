@@ -40751,6 +40751,34 @@ Return ONLY the JSON object.`
     }
   });
 
+  app.get("/api/agent-sessions/today-stats", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const todayStart = startOfDay(new Date());
+      const todayEnd = endOfDay(new Date());
+      const sessions = await db.select({
+        contactsHandled: agentSessions.contactsHandled,
+        totalBreakTime: agentSessions.totalBreakTime,
+      }).from(agentSessions)
+        .where(and(
+          eq(agentSessions.userId, userId),
+          gte(agentSessions.startedAt, todayStart),
+          lte(agentSessions.startedAt, todayEnd)
+        ));
+      const totals = sessions.reduce((acc, s) => ({
+        contactsHandled: acc.contactsHandled + (s.contactsHandled || 0),
+        totalBreakSeconds: acc.totalBreakSeconds + (s.totalBreakTime || 0),
+      }), { contactsHandled: 0, totalBreakSeconds: 0 });
+      res.json({
+        contactsHandled: totals.contactsHandled,
+        totalBreakMinutes: Math.floor(totals.totalBreakSeconds / 60),
+      });
+    } catch (error) {
+      console.error("Error fetching today stats:", error);
+      res.status(500).json({ error: "Failed to fetch today stats" });
+    }
+  });
+
   app.get("/api/agent-sessions", requireAuth, async (req, res) => {
     try {
       const { userId, startDate, endDate } = req.query;

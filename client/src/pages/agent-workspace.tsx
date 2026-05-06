@@ -5542,6 +5542,11 @@ export default function AgentWorkspacePage() {
     refetchInterval: 10000,
   });
 
+  const { data: todayStats } = useQuery<{ contactsHandled: number; totalBreakMinutes: number }>({
+    queryKey: ["/api/agent-sessions/today-stats"],
+    enabled: sessionLoginOpen && !agentSession.isSessionActive,
+  });
+
   const { data: abandonedCalls = [] } = useQuery<any[]>({
     queryKey: ["/api/agent/abandoned-calls"],
     enabled: !!hasAccess && agentSession.isSessionActive,
@@ -7347,22 +7352,63 @@ export default function AgentWorkspacePage() {
             </div>
 
             {/* Agent karta */}
-            <div className="relative z-10 flex items-center gap-3 px-3.5 py-2.5 rounded-xl" style={{ background: "#FFFFFF", border: "1px solid #E8E0DA", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-              <div className="relative shrink-0">
-                <Avatar className="h-9 w-9" style={{ border: "1.5px solid #E8C8C8" }}>
-                  {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} />}
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-muted-foreground">{user?.role === "admin" ? t.agentSession.administrator : t.agentSession.operator}</p>
-              </div>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ background: "#F0FDF4", color: "#16A34A", border: "1px solid #BBF7D0" }}>Online</span>
-            </div>
+            {(() => {
+              const selectedCamps = loginCampaigns.filter(c => selectedLoginCampaignIds.includes(c.id));
+              const maxCallQuota = selectedCamps.reduce((m, c) => Math.max(m, (c as any).dailyCallQuota || 0), 0) || null;
+              const hasTodayData = todayStats && (todayStats.contactsHandled > 0 || todayStats.totalBreakMinutes > 0);
+              const callPct = maxCallQuota && todayStats ? Math.min(100, Math.round((todayStats.contactsHandled / maxCallQuota) * 100)) : 0;
+              const breakPct = todayStats ? Math.min(100, Math.round((todayStats.totalBreakMinutes / 60) * 100)) : 0;
+              const breakOver = (todayStats?.totalBreakMinutes || 0) >= 60;
+              return (
+                <div className="relative z-10 rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #E8E0DA", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                  <div className="flex items-center gap-3 px-3.5 py-2.5">
+                    <div className="relative shrink-0">
+                      <Avatar className="h-9 w-9" style={{ border: "1.5px solid #E8C8C8" }}>
+                        {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} />}
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                          {user?.firstName?.[0]}{user?.lastName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{user?.firstName} {user?.lastName}</p>
+                      <p className="text-xs text-muted-foreground">{user?.role === "admin" ? t.agentSession.administrator : t.agentSession.operator}</p>
+                    </div>
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ background: "#F0FDF4", color: "#16A34A", border: "1px solid #BBF7D0" }}>Online</span>
+                  </div>
+                  {hasTodayData && (
+                    <div className="px-3.5 pb-3 border-t" style={{ borderColor: "#F0EAE5" }}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider mt-2 mb-2" style={{ color: "#A89898" }}>{t.agentSession.dailyTargetReached}</p>
+                      {(maxCallQuota !== null) && (
+                        <div className="mb-2">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.calls}</span>
+                            <span className="text-[10px] font-semibold text-foreground">
+                              {todayStats!.contactsHandled}<span style={{ color: "#A89898" }}>/{maxCallQuota}</span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full" style={{ background: "#EDE5DF" }}>
+                            <div className="h-1.5 rounded-full transition-all" style={{ width: `${callPct}%`, background: "hsl(355 85% 42%)" }} />
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.breakTimeUsed}</span>
+                          <span className="text-[10px] font-semibold" style={{ color: breakOver ? "#DC2626" : undefined }}>
+                            {todayStats!.totalBreakMinutes} min
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full" style={{ background: "#EDE5DF" }}>
+                          <div className="h-1.5 rounded-full transition-all" style={{ width: `${breakPct}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── Telo ── */}
@@ -7374,7 +7420,7 @@ export default function AgentWorkspacePage() {
                 <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentWorkspace.campaigns}</span>
                 {selectedLoginCampaignIds.length > 0 && (
                   <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "hsl(355 85% 42% / 0.10)", color: "hsl(355 85% 42%)" }}>
-                    {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? "vybraná" : "vybrané"}
+                    {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? t.agentSession.selectedOne : t.agentSession.selected}
                   </span>
                 )}
               </div>
@@ -7409,8 +7455,17 @@ export default function AgentWorkspacePage() {
                             <ChIcon className="h-3.5 w-3.5" style={{ color: isChecked ? "hsl(355 85% 42%)" : barColor }} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate text-foreground">{campaign.name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-semibold text-foreground leading-tight">{campaign.name}</p>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "#F3F4F6", color: isChecked ? "hsl(355 85% 42%)" : barColor }}>{chConfig.label}</span>
+                                <div className="rounded flex items-center justify-center transition-colors" style={{ width: 18, height: 18, background: isChecked ? "hsl(355 85% 42%)" : "transparent", border: `2px solid ${isChecked ? "hsl(355 85% 42%)" : "#CBBFBA"}` }}
+                                     data-testid={`checkbox-login-campaign-${campaign.id}`}>
+                                  {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               {campaign.countryCodes && campaign.countryCodes.length > 0 && (
                                 <span className="text-[10px]">{campaign.countryCodes.map((code: string) => getCountryFlag(code)).join(" ")}</span>
                               )}
@@ -7418,13 +7473,32 @@ export default function AgentWorkspacePage() {
                                 <span className="text-[10px]" style={{ color: "#A89898" }}>{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
                               )}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "#F3F4F6", color: isChecked ? "hsl(355 85% 42%)" : barColor }}>{chConfig.label}</span>
-                            <div className="w-4.5 h-4.5 rounded flex items-center justify-center transition-colors" style={{ width: 18, height: 18, background: isChecked ? "hsl(355 85% 42%)" : "transparent", border: `2px solid ${isChecked ? "hsl(355 85% 42%)" : "#CBBFBA"}` }}
-                                 data-testid={`checkbox-login-campaign-${campaign.id}`}>
-                              {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
-                            </div>
+                            {((campaign as any).workingHoursStart || (campaign as any).outboundCallerId || (campaign as any).dailyCallQuota) && (
+                              <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+                                {(campaign as any).workingHoursStart && (
+                                  <div className="flex items-center gap-1">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
+                                      {(campaign as any).workingHoursStart} – {(campaign as any).workingHoursEnd}
+                                    </span>
+                                  </div>
+                                )}
+                                {(campaign as any).outboundCallerId && (
+                                  <div className="flex items-center gap-1">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                    <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>{(campaign as any).outboundCallerId}</span>
+                                  </div>
+                                )}
+                                {(campaign as any).dailyCallQuota && (
+                                  <div className="flex items-center gap-1">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                    <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
+                                      {(campaign as any).dailyCallQuota} {t.agentSession.calls}{t.agentSession.perDay}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -7438,10 +7512,10 @@ export default function AgentWorkspacePage() {
             {myQueues.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>Inbound fronty</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentSession.inboundQueues}</span>
                   {selectedLoginQueueIds.length > 0 && (
                     <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "#F0FDF4", color: "#16A34A" }}>
-                      {selectedLoginQueueIds.length} {selectedLoginQueueIds.length === 1 ? "vybraná" : "vybrané"}
+                      {selectedLoginQueueIds.length} {selectedLoginQueueIds.length === 1 ? t.agentSession.selectedOne : t.agentSession.selected}
                     </span>
                   )}
                 </div>
@@ -7470,9 +7544,9 @@ export default function AgentWorkspacePage() {
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {queue.waiting > 0 && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#FEF2F2", color: "#DC2626" }}>{queue.waiting} čaká</span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#FEF2F2", color: "#DC2626" }}>{queue.waiting} {t.agentSession.waiting}</span>
                             )}
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "#F0FDF4", color: "#16A34A" }}>{queue.activeAgents} online</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "#F0FDF4", color: "#16A34A" }}>{queue.activeAgents} {t.agentSession.online}</span>
                             <div className="rounded flex items-center justify-center ml-0.5" style={{ width: 18, height: 18, background: isChecked ? "#16A34A" : "transparent", border: `2px solid ${isChecked ? "#16A34A" : "#CBBFBA"}` }}
                                  data-testid={`checkbox-login-queue-${queue.id}`}>
                               {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
@@ -7500,7 +7574,7 @@ export default function AgentWorkspacePage() {
               <ArrowRight className="h-4 w-4" />
             </Button>
             {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && (
-              <p className="text-center text-[11px] mt-2" style={{ color: "#A89898" }}>Vyberte aspoň jednu kampaň alebo frontu</p>
+              <p className="text-center text-[11px] mt-2" style={{ color: "#A89898" }}>{t.agentSession.selectAtLeastOne}</p>
             )}
           </div>
         </DialogContent>
