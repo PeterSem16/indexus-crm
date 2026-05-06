@@ -298,9 +298,11 @@ function WaveformSeekBar({
             className="absolute top-0 h-full w-px bg-foreground/20 pointer-events-none"
             style={{ left: hoverX }}
           >
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-mono px-1.5 py-0.5 rounded whitespace-nowrap">
-              {formatTime(hoverTime)}
-            </div>
+            {!compact && (
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-mono px-1.5 py-0.5 rounded whitespace-nowrap">
+                {formatTime(hoverTime)}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -449,6 +451,7 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
     return (
       <div className="space-y-1" data-testid={`recording-player-${recording.id}`}>
         <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+          {/* Row 1: controls only — no time display here to prevent any overlap */}
           <div className="flex items-center gap-1 mb-1.5">
             <Mic className="h-3 w-3 text-muted-foreground shrink-0" />
             <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => handleSkip(-10)} data-testid={`btn-skip-back-${recording.id}`}>
@@ -460,21 +463,15 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
             <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => handleSkip(10)} data-testid={`btn-skip-forward-${recording.id}`}>
               <SkipForward className="h-2.5 w-2.5" />
             </Button>
-            <span className="flex-1" />
-            <span className="text-[10px] text-primary font-mono font-semibold shrink-0">
-              {formatTime(currentTime)}
-            </span>
-            <span className="text-[10px] text-muted-foreground font-mono shrink-0 mx-0.5">/</span>
-            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
-              {formatTime(duration)}
-            </span>
-            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 ml-0.5" onClick={handleDownload} data-testid={`btn-download-recording-${recording.id}`}>
+            <div className="flex-1" />
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={handleDownload} data-testid={`btn-download-recording-${recording.id}`}>
               <Download className="h-3 w-3" />
             </Button>
             <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setShowAnalysis(!showAnalysis)} data-testid={`btn-toggle-analysis-${recording.id}`}>
               {isAnalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
             </Button>
           </div>
+          {/* Row 2: waveform seekbar */}
           <WaveformSeekBar
             audioSrc={audioSrc}
             currentTime={currentTime}
@@ -483,6 +480,11 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
             onSeek={handleWaveformSeek}
             compact={true}
           />
+          {/* Row 3: time display below seekbar — completely isolated from controls */}
+          <div className="flex items-center justify-between mt-1 px-0.5">
+            <span className="text-[10px] text-primary font-mono font-semibold">{formatTime(currentTime)}</span>
+            <span className="text-[10px] text-muted-foreground font-mono">{formatTime(duration)}</span>
+          </div>
         </div>
 
         {(recording as any).sentiment && !showAnalysis && (
