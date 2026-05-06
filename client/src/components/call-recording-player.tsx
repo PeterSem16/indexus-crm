@@ -449,27 +449,26 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
     return (
       <div className="space-y-1" data-testid={`recording-player-${recording.id}`}>
         <div className="rounded-lg bg-muted/40 px-2.5 py-2">
-          <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="flex items-center gap-1 mb-1.5">
             <Mic className="h-3 w-3 text-muted-foreground shrink-0" />
-            <div className="flex items-center gap-1 flex-1 min-w-0">
-              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => handleSkip(-10)} data-testid={`btn-skip-back-${recording.id}`}>
-                <SkipBack className="h-2.5 w-2.5" />
-              </Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 bg-primary/10 hover:bg-primary/20" onClick={togglePlay} data-testid={`btn-play-recording-${recording.id}`}>
-                {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
-              </Button>
-              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => handleSkip(10)} data-testid={`btn-skip-forward-${recording.id}`}>
-                <SkipForward className="h-2.5 w-2.5" />
-              </Button>
-            </div>
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => handleSkip(-10)} data-testid={`btn-skip-back-${recording.id}`}>
+              <SkipBack className="h-2.5 w-2.5" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 bg-primary/10 hover:bg-primary/20" onClick={togglePlay} data-testid={`btn-play-recording-${recording.id}`}>
+              {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
+            </Button>
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => handleSkip(10)} data-testid={`btn-skip-forward-${recording.id}`}>
+              <SkipForward className="h-2.5 w-2.5" />
+            </Button>
+            <span className="flex-1" />
             <span className="text-[10px] text-primary font-mono font-semibold shrink-0">
               {formatTime(currentTime)}
             </span>
-            <span className="text-[10px] text-muted-foreground font-mono shrink-0">/</span>
+            <span className="text-[10px] text-muted-foreground font-mono shrink-0 mx-0.5">/</span>
             <span className="text-[10px] text-muted-foreground font-mono shrink-0">
               {formatTime(duration)}
             </span>
-            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={handleDownload} data-testid={`btn-download-recording-${recording.id}`}>
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 ml-0.5" onClick={handleDownload} data-testid={`btn-download-recording-${recording.id}`}>
               <Download className="h-3 w-3" />
             </Button>
             <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setShowAnalysis(!showAnalysis)} data-testid={`btn-toggle-analysis-${recording.id}`}>
