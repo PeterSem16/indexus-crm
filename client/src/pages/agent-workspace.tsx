@@ -5575,6 +5575,8 @@ export default function AgentWorkspacePage() {
     didNumber: string | null; strategy: string; isActive: boolean;
     activeFrom: string | null; activeTo: string | null;
     waiting: number; activeAgents: number; activeCalls: number;
+    afterHoursAction: string | null; afterHoursTarget: string | null;
+    afterHoursVoicemailBoxId: string | null; afterHoursVoicemailBoxName: string | null;
   }>>({
     queryKey: ["/api/agent/my-queues"],
     enabled: !!hasAccess,
@@ -7653,17 +7655,36 @@ export default function AgentWorkspacePage() {
                   <div className="space-y-1.5 pr-1">
                     {myQueues.map((queue) => {
                       const isChecked = selectedLoginQueueIds.includes(queue.id);
+                      const isAfterHours = (() => {
+                        if (!queue.activeTo) return false;
+                        const [h, m] = queue.activeTo.split(":").map(Number);
+                        const endMin = h * 60 + m;
+                        const now = new Date();
+                        const nowMin = now.getHours() * 60 + now.getMinutes();
+                        return nowMin >= endMin;
+                      })();
+                      const afterHoursLabel = (() => {
+                        if (!isAfterHours || !queue.afterHoursAction) return null;
+                        if (queue.afterHoursAction === "voicemail") return queue.afterHoursVoicemailBoxName ? `Voicemail → ${queue.afterHoursVoicemailBoxName}` : "Voicemail";
+                        if (queue.afterHoursAction === "hangup") return "Zavesiť";
+                        if (queue.afterHoursAction === "transfer") return queue.afterHoursTarget ? `Presmerovat → ${queue.afterHoursTarget}` : "Presmerovat";
+                        if (queue.afterHoursAction === "queue") return queue.afterHoursTarget ? `Fronta → ${queue.afterHoursTarget}` : "Iná fronta";
+                        return queue.afterHoursAction;
+                      })();
                       return (
                         <div
                           key={queue.id}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
-                          style={{ background: isChecked ? "#F6FEF9" : "#FFFFFF", border: `1px solid ${isChecked ? "#86EFAC" : "#EDE5DF"}` }}
+                          style={{
+                            background: isChecked ? (isAfterHours ? "#FFFBEB" : "#F6FEF9") : (isAfterHours ? "#FFFDF5" : "#FFFFFF"),
+                            border: `1px solid ${isChecked ? (isAfterHours ? "#FCD34D" : "#86EFAC") : (isAfterHours ? "#FDE68A" : "#EDE5DF")}`,
+                          }}
                           onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
                           data-testid={`login-queue-${queue.id}`}
                         >
-                          <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: "#16A34A", minHeight: 28 }} />
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "#DCFCE7" : "#F0FDF4" }}>
-                            <PhoneIncoming className="h-3.5 w-3.5 text-green-600" />
+                          <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isAfterHours ? "#D97706" : "#16A34A", minHeight: 28 }} />
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? (isAfterHours ? "#FEF3C7" : "#DCFCE7") : (isAfterHours ? "#FFFBEB" : "#F0FDF4") }}>
+                            <PhoneIncoming className={`h-3.5 w-3.5 ${isAfterHours ? "text-amber-600" : "text-green-600"}`} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate text-foreground">{queue.name}</p>
@@ -7671,13 +7692,23 @@ export default function AgentWorkspacePage() {
                               {queue.activeFrom && queue.activeTo && <span>{queue.activeFrom} – {queue.activeTo}</span>}
                               {queue.didNumber && <><span style={{ color: "#CBBFBA" }}>·</span><span>{queue.didNumber}</span></>}
                             </div>
+                            {isAfterHours && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                                  mimo pracovných hodín
+                                </span>
+                                {afterHoursLabel && (
+                                  <span className="text-[10px] truncate" style={{ color: "#B45309" }}>{afterHoursLabel}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {queue.waiting > 0 && (
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#FEF2F2", color: "#DC2626" }}>{queue.waiting} {t.agentSession.waiting}</span>
                             )}
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "#F0FDF4", color: "#16A34A" }}>{queue.activeAgents} {t.agentSession.online}</span>
-                            <div className="rounded flex items-center justify-center ml-0.5" style={{ width: 18, height: 18, background: isChecked ? "#16A34A" : "transparent", border: `2px solid ${isChecked ? "#16A34A" : "#CBBFBA"}` }}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: isAfterHours ? "#FEF3C7" : "#F0FDF4", color: isAfterHours ? "#92400E" : "#16A34A" }}>{queue.activeAgents} {t.agentSession.online}</span>
+                            <div className="rounded flex items-center justify-center ml-0.5" style={{ width: 18, height: 18, background: isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "transparent", border: `2px solid ${isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "#CBBFBA"}` }}
                                  data-testid={`checkbox-login-queue-${queue.id}`}>
                               {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
                             </div>

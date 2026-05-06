@@ -1828,11 +1828,24 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           isActive: inboundQueues.isActive,
           activeFrom: inboundQueues.activeFrom,
           activeTo: inboundQueues.activeTo,
+          afterHoursAction: inboundQueues.afterHoursAction,
+          afterHoursTarget: inboundQueues.afterHoursTarget,
+          afterHoursVoicemailBoxId: inboundQueues.afterHoursVoicemailBoxId,
         },
       })
         .from(queueMembers)
         .innerJoin(inboundQueues, eq(queueMembers.queueId, inboundQueues.id))
         .where(and(eq(queueMembers.userId, userId), eq(queueMembers.isActive, true), eq(inboundQueues.isActive, true)));
+
+      // Fetch voicemail box names for after-hours display
+      const vmBoxIds = [...new Set(memberships.map(m => m.queue.afterHoursVoicemailBoxId).filter(Boolean))] as string[];
+      const vmBoxMap = new Map<string, string>();
+      if (vmBoxIds.length > 0) {
+        const boxes = await db.select({ id: voicemailBoxes.id, name: voicemailBoxes.name })
+          .from(voicemailBoxes)
+          .where(inArray(voicemailBoxes.id, vmBoxIds));
+        boxes.forEach(b => vmBoxMap.set(b.id, b.name));
+      }
 
       const engine = getQueueEngine();
       const result = memberships.map(m => {
@@ -1843,6 +1856,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           waiting: stats.waiting,
           activeAgents: stats.agents,
           activeCalls: stats.active,
+          afterHoursVoicemailBoxName: m.queue.afterHoursVoicemailBoxId ? (vmBoxMap.get(m.queue.afterHoursVoicemailBoxId) ?? null) : null,
         };
       });
 
