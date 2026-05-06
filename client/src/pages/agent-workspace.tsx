@@ -5585,11 +5585,13 @@ export default function AgentWorkspacePage() {
   const { data: shiftData, refetch: refetchShiftData } = useQuery<{
     callerIdNumber: string | null;
     contactsHandled: number;
+    totalCallsToday: number;
+    conversionsToday: number;
     totalBreakMinutes: number;
     totalCallMinutes: number;
     totalWorkMinutes: number;
     dispositionsToday: number;
-    campaignData: Record<string, { workingHoursStart: string; workingHoursEnd: string; dailyCallQuota: number | null; contactsToday: number }>;
+    campaignData: Record<string, { workingHoursStart: string; workingHoursEnd: string; dailyCallQuota: number | null; contactsToday: number; maxContactsPerDay: number | null; conversionGoal: number }>;
   }>({
     queryKey: [`/api/agent-sessions/shift-data?campaignIds=${shiftDataCampaignIds}`],
     enabled: !!hasAccess,
@@ -7425,12 +7427,53 @@ export default function AgentWorkspacePage() {
                     return Math.max(m, q);
                   }, 0) || null
                 : null;
-              const hasTodayData = shiftData && (shiftData.contactsHandled > 0 || shiftData.totalBreakMinutes > 0 || shiftData.dispositionsToday > 0 || shiftData.totalCallMinutes > 0);
-              const callPct = maxCallQuota && shiftData ? Math.min(100, Math.round((shiftData.contactsHandled / maxCallQuota) * 100)) : 0;
-              const breakPct = shiftData ? Math.min(100, Math.round((shiftData.totalBreakMinutes / 60) * 100)) : 0;
+              const maxContactsQuota = selectedCamps.length > 0
+                ? selectedCamps.reduce((m, c) => {
+                    const q = shiftData?.campaignData?.[c.id]?.maxContactsPerDay ?? 0;
+                    return Math.max(m, q);
+                  }, 0) || null
+                : null;
+              const conversionGoalPct = selectedCamps.length > 0
+                ? selectedCamps.reduce((m, c) => {
+                    const g = shiftData?.campaignData?.[c.id]?.conversionGoal ?? 0;
+                    return Math.max(m, g);
+                  }, 0)
+                : 0;
+              const contactsVal = shiftData?.contactsHandled ?? 0;
+              const callsVal = shiftData?.totalCallsToday ?? 0;
+              const convsVal = shiftData?.conversionsToday ?? 0;
               const breakOver = (shiftData?.totalBreakMinutes || 0) >= 60;
               const totalH = Math.floor((shiftData?.totalWorkMinutes || 0) / 60);
               const totalM = (shiftData?.totalWorkMinutes || 0) % 60;
+
+              // Conversion targets
+              const convTarget = conversionGoalPct > 0 && maxContactsQuota
+                ? Math.round(conversionGoalPct / 100 * maxContactsQuota)
+                : null;
+              const convRateActual = contactsVal > 0 ? (convsVal / contactsVal) * 100 : 0;
+
+              const hasTodayData = shiftData && (contactsVal > 0 || callsVal > 0 || shiftData.totalBreakMinutes > 0 || shiftData.dispositionsToday > 0 || shiftData.totalCallMinutes > 0 || convsVal > 0);
+
+              // KPI bar helper
+              const KpiBar = ({ label, value, quota, suffix = "", color = "hsl(355 85% 42%)" }: { label: string; value: number; quota: number | null; suffix?: string; color?: string }) => {
+                const pct = quota ? Math.min(100, Math.round((value / quota) * 100)) : 0;
+                const fmt = (v: number) => suffix === "%" ? v.toFixed(1) + "%" : String(v);
+                return (
+                  <div className="mb-2 last:mb-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[10px]" style={{ color: "#A89898" }}>{label}</span>
+                      <span className="text-[10px] font-semibold text-foreground">
+                        {fmt(value)}
+                        {quota !== null && <span style={{ color: "#A89898" }}>/{suffix === "%" ? fmt(quota) : quota}</span>}
+                      </span>
+                    </div>
+                    <div className="h-1 rounded-full" style={{ background: "#EDE5DF" }}>
+                      <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+                    </div>
+                  </div>
+                );
+              };
+
               return (
                 <div className="relative z-10 rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #E8E0DA", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
                   <div className="flex items-center gap-3 px-3.5 py-2.5">
@@ -7451,60 +7494,39 @@ export default function AgentWorkspacePage() {
                   </div>
                   {hasTodayData && (
                     <div className="px-3.5 pb-3 border-t" style={{ borderColor: "#F0EAE5" }}>
-                      <div className="flex items-center justify-between mt-2 mb-2">
+                      <div className="flex items-center justify-between mt-2 mb-2.5">
                         <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentSession.dailyTargetReached}</p>
-                        <button
-                          onClick={() => refetchShiftData()}
-                          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md transition-colors hover:bg-black/5"
-                          style={{ color: "#A89898" }}
-                          title="Refresh shift data"
-                        >
-                          <RotateCw className="h-3 w-3" />
-                        </button>
-                      </div>
-
-                      {/* Riadok štatistík: hovory, dispozície, čas */}
-                      <div className="flex items-center gap-3 mb-2.5">
-                        <div className="flex items-center gap-1">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                          <span className="text-[10px] font-semibold text-foreground">{shiftData!.contactsHandled}</span>
-                          <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.calls}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                          <span className="text-[10px] font-semibold text-foreground">{shiftData!.dispositionsToday}</span>
-                          <span className="text-[10px]" style={{ color: "#A89898" }}>disp.</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                          <span className="text-[10px] font-semibold text-foreground">
-                            {totalH > 0 ? `${totalH}h ` : ""}{totalM}m
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px]" style={{ color: "#A89898" }}>
+                            {totalH > 0 ? `${totalH}h ` : ""}{totalM}m práce
                           </span>
+                          <button
+                            onClick={() => refetchShiftData()}
+                            className="flex items-center gap-1 px-1 py-0.5 rounded-md transition-colors hover:bg-black/5"
+                            style={{ color: "#A89898" }}
+                            title="Refresh shift data"
+                          >
+                            <RotateCw className="h-3 w-3" />
+                          </button>
                         </div>
                       </div>
 
-                      {(maxCallQuota !== null) && (
-                        <div className="mb-2">
-                          <div className="flex justify-between mb-1">
-                            <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.calls}</span>
-                            <span className="text-[10px] font-semibold text-foreground">
-                              {shiftData!.contactsHandled}<span style={{ color: "#A89898" }}>/{maxCallQuota}</span>
-                            </span>
-                          </div>
-                          <div className="h-1.5 rounded-full" style={{ background: "#EDE5DF" }}>
-                            <div className="h-1.5 rounded-full transition-all" style={{ width: `${callPct}%`, background: "hsl(355 85% 42%)" }} />
-                          </div>
-                        </div>
-                      )}
-                      <div>
-                        <div className="flex justify-between mb-1">
+                      {/* 4 KPI bary */}
+                      <KpiBar label="Kontakty dnes" value={contactsVal} quota={maxContactsQuota} />
+                      <KpiBar label="Hovory dnes" value={callsVal} quota={maxCallQuota} />
+                      <KpiBar label="Konverzie dnes" value={convsVal} quota={convTarget} color="#16A34A" />
+                      <KpiBar label="Conversion rate" value={convRateActual} quota={conversionGoalPct > 0 ? conversionGoalPct : null} suffix="%" color="#7C3AED" />
+
+                      {/* Prestávka */}
+                      <div className="mt-2 pt-2 border-t" style={{ borderColor: "#F0EAE5" }}>
+                        <div className="flex items-center justify-between mb-0.5">
                           <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.breakTimeUsed}</span>
-                          <span className="text-[10px] font-semibold" style={{ color: breakOver ? "#DC2626" : undefined }}>
+                          <span className="text-[10px] font-semibold" style={{ color: breakOver ? "#DC2626" : "#A89898" }}>
                             {shiftData!.totalBreakMinutes} min
                           </span>
                         </div>
-                        <div className="h-1.5 rounded-full" style={{ background: "#EDE5DF" }}>
-                          <div className="h-1.5 rounded-full transition-all" style={{ width: `${breakPct}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
+                        <div className="h-1 rounded-full" style={{ background: "#EDE5DF" }}>
+                          <div className="h-1 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((shiftData!.totalBreakMinutes / 60) * 100))}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
                         </div>
                       </div>
                     </div>

@@ -40799,33 +40799,46 @@ Return ONLY the JSON object.`
       const campaignData: Record<string, {
         workingHoursStart: string; workingHoursEnd: string;
         dailyCallQuota: number | null; contactsToday: number;
+        maxContactsPerDay: number | null; conversionGoal: number;
       }> = {};
 
       if (campaignIds.length > 0) {
-        const [schedules, opSettings] = await Promise.all([
+        const [schedules, opSettings, campRows] = await Promise.all([
           db.select().from(campaignSchedules).where(inArray(campaignSchedules.campaignId, campaignIds)),
           db.select().from(campaignOperatorSettings).where(and(
             inArray(campaignOperatorSettings.campaignId, campaignIds),
             eq(campaignOperatorSettings.userId, userId)
           )),
+          db.select({ id: campaigns.id, conversionGoal: campaigns.conversionGoal })
+            .from(campaigns).where(inArray(campaigns.id, campaignIds)),
         ]);
         const scheduleMap = new Map(schedules.map(s => [s.campaignId, s]));
         const opMap = new Map(opSettings.map(s => [s.campaignId, s]));
+        const campMap = new Map(campRows.map(c => [c.id, c]));
 
         for (const cId of campaignIds) {
           const sched = scheduleMap.get(cId);
           const op = opMap.get(cId);
+          const camp = campMap.get(cId);
           const contactsToday = sessions.filter(s => s.campaignId === cId).reduce((a, s) => a + (s.contactsHandled || 0), 0);
           campaignData[cId] = {
             workingHoursStart: sched?.workingHoursStart || "09:00",
             workingHoursEnd: sched?.workingHoursEnd || "17:00",
             dailyCallQuota: op?.dailyCallQuota ?? null,
             contactsToday,
+            maxContactsPerDay: op?.maxContactsPerDay ?? null,
+            conversionGoal: parseFloat(camp?.conversionGoal || "0"),
           };
         }
       }
 
-      const [dispositionsRows, todayCallLogs] = await Promise.all([
+      // Fetch conversion disposition codes, all call logs today and answered call logs in parallel
+      const conversionCodesRows = await db.select({ code: campaignDispositions.code })
+        .from(campaignDispositions)
+        .where(eq(campaignDispositions.isConversion, true));
+      const conversionCodes = [...new Set(conversionCodesRows.map(d => d.code))];
+
+      const [dispositionsRows, todayCallLogs, totalCallsRows, conversionsRows] = await Promise.all([
         db.select({ count: count() })
           .from(campaignContactHistory)
           .where(and(
@@ -40844,6 +40857,21 @@ Return ONLY the JSON object.`
             lte(callLogs.startedAt, todayEnd),
             inArray(callLogs.status, ['answered', 'completed'])
           )),
+        db.select({ count: count() }).from(callLogs)
+          .where(and(
+            eq(callLogs.userId, userId),
+            gte(callLogs.startedAt, todayStart),
+            lte(callLogs.startedAt, todayEnd)
+          )),
+        conversionCodes.length > 0
+          ? db.select({ count: count() }).from(campaignContactHistory)
+            .where(and(
+              eq(campaignContactHistory.userId, userId),
+              gte(campaignContactHistory.createdAt, todayStart),
+              lte(campaignContactHistory.createdAt, todayEnd),
+              inArray(campaignContactHistory.newStatus, conversionCodes)
+            ))
+          : Promise.resolve([{ count: 0 }]),
       ]);
 
       const callsCount = todayCallLogs.length;
@@ -40856,6 +40884,8 @@ Return ONLY the JSON object.`
       res.json({
         callerIdNumber,
         contactsHandled: effectiveContactsHandled,
+        totalCallsToday: Number(totalCallsRows[0]?.count || 0),
+        conversionsToday: Number(conversionsRows[0]?.count || 0),
         totalBreakMinutes: Math.floor(totals.totalBreakSeconds / 60),
         totalCallMinutes: Math.floor(effectiveCallSeconds / 60),
         totalWorkMinutes: Math.floor(totals.totalWorkSeconds / 60),
