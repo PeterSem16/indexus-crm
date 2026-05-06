@@ -7492,7 +7492,7 @@ export default function AgentWorkspacePage() {
                       <p className="text-sm font-semibold text-foreground">{user?.firstName} {user?.lastName}</p>
                       <p className="text-xs text-muted-foreground">{user?.role === "admin" ? t.agentSession.administrator : t.agentSession.operator}</p>
                     </div>
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ background: "#F0FDF4", color: "#16A34A", border: "1px solid #BBF7D0" }}>Online</span>
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ background: "#F0FDF4", color: "#16A34A", border: "1px solid #BBF7D0" }}>{t.agentSession.onlineStatus}</span>
                   </div>
                   {hasTodayData && (
                     <div className="px-3.5 pb-3 border-t" style={{ borderColor: "#F0EAE5" }}>
@@ -7500,7 +7500,7 @@ export default function AgentWorkspacePage() {
                         <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentSession.dailyTargetReached}</p>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px]" style={{ color: "#A89898" }}>
-                            {totalH > 0 ? `${totalH}h ` : ""}{totalM}m práce
+                            {totalH > 0 ? `${totalH}h ` : ""}{totalM}m {t.agentSession.workLabel}
                           </span>
                           <button
                             onClick={() => refetchShiftData()}
@@ -7514,10 +7514,10 @@ export default function AgentWorkspacePage() {
                       </div>
 
                       {/* 4 KPI bary */}
-                      <KpiBar label="Kontakty dnes" value={contactsVal} quota={maxContactsQuota} />
-                      <KpiBar label="Hovory dnes" value={callsVal} quota={maxCallQuota} />
-                      <KpiBar label="Konverzie dnes" value={convsVal} quota={convTarget} color="#16A34A" />
-                      <KpiBar label="Conversion rate" value={convRateActual} quota={conversionGoalPct > 0 ? conversionGoalPct : null} suffix="%" color="#7C3AED" />
+                      <KpiBar label={t.agentSession.contactsToday} value={contactsVal} quota={maxContactsQuota} />
+                      <KpiBar label={t.agentSession.callsToday} value={callsVal} quota={maxCallQuota} />
+                      <KpiBar label={t.agentSession.conversionsToday} value={convsVal} quota={convTarget} color="#16A34A" />
+                      <KpiBar label={t.agentSession.conversionRate} value={convRateActual} quota={conversionGoalPct > 0 ? conversionGoalPct : null} suffix="%" color="#7C3AED" />
 
                       {/* Prestávka */}
                       <div className="mt-2 pt-2 border-t" style={{ borderColor: "#F0EAE5" }}>
@@ -7727,9 +7727,9 @@ export default function AgentWorkspacePage() {
                 <div className="mb-3 rounded-xl px-3 py-2.5 flex items-start gap-2.5" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }} data-testid="shift-end-warning">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "#D97706" }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold" style={{ color: "#92400E" }}>Blíži sa koniec smeny</p>
+                    <p className="text-xs font-semibold" style={{ color: "#92400E" }}>{t.agentSession.shiftEndingSoon}</p>
                     <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "#B45309" }}>
-                      Do konca <span className="font-medium">{names}</span> zostáva iba <span className="font-semibold">{minRemaining} min</span>. Venujte sa len najdôležitejším hovorom.
+                      {t.agentSession.shiftEndingWarn} <span className="font-medium">{names}</span> {t.agentSession.shiftEndingRemains} <span className="font-semibold">{minRemaining}{t.agentSession.shiftEndingSuffix}</span>
                     </p>
                   </div>
                 </div>

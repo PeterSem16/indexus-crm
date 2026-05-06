@@ -40809,21 +40809,38 @@ Return ONLY the JSON object.`
             inArray(campaignOperatorSettings.campaignId, campaignIds),
             eq(campaignOperatorSettings.userId, userId)
           )),
-          db.select({ id: campaigns.id, conversionGoal: campaigns.conversionGoal })
+          db.select({ id: campaigns.id, conversionGoal: campaigns.conversionGoal, settings: campaigns.settings })
             .from(campaigns).where(inArray(campaigns.id, campaignIds)),
         ]);
         const scheduleMap = new Map(schedules.map(s => [s.campaignId, s]));
         const opMap = new Map(opSettings.map(s => [s.campaignId, s]));
         const campMap = new Map(campRows.map(c => [c.id, c]));
+        const todayDOW = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
 
         for (const cId of campaignIds) {
           const sched = scheduleMap.get(cId);
           const op = opMap.get(cId);
           const camp = campMap.get(cId);
           const contactsToday = sessions.filter(s => s.campaignId === cId).reduce((a, s) => a + (s.contactsHandled || 0), 0);
+
+          // Default to campaignSchedules single-value fallback
+          let wStart = sched?.workingHoursStart || "09:00";
+          let wEnd = sched?.workingHoursEnd || "17:00";
+          // Override with per-day weeklySchedule from campaigns.settings if available
+          if (camp?.settings) {
+            try {
+              const parsed = JSON.parse(camp.settings);
+              const daySchedule = parsed.weeklySchedule?.[todayDOW];
+              if (daySchedule?.enabled && Array.isArray(daySchedule.slots) && daySchedule.slots.length > 0) {
+                wStart = daySchedule.slots[0].startTime || wStart;
+                wEnd = daySchedule.slots[daySchedule.slots.length - 1].endTime || wEnd;
+              }
+            } catch {}
+          }
+
           campaignData[cId] = {
-            workingHoursStart: sched?.workingHoursStart || "09:00",
-            workingHoursEnd: sched?.workingHoursEnd || "17:00",
+            workingHoursStart: wStart,
+            workingHoursEnd: wEnd,
             dailyCallQuota: op?.dailyCallQuota ?? null,
             contactsToday,
             maxContactsPerDay: op?.maxContactsPerDay ?? null,
