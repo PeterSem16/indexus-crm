@@ -5337,12 +5337,18 @@ export default function AgentWorkspacePage() {
     staleTime: 60000,
   });
 
-  const handleSelectInboundMatch = async (match: PhoneMatch, mode: "card" | "details" | "open") => {
+  const handleSelectInboundMatch = async (
+    match: PhoneMatch,
+    mode: "card" | "details" | "open",
+    inboundTaskContext?: { callId?: string; campaignId?: string; campaignName?: string; callerNumber?: string }
+  ) => {
     try {
+      let contact: Customer | null = null;
       if (match.entityType === "customer") {
         const res = await fetch(`/api/customers/${match.id}`, { credentials: "include" });
         if (!res.ok) return;
         const customer: Customer = await res.json();
+        contact = customer;
         setCurrentContact(customer);
         setCurrentContactType("customer");
         setCurrentHospitalData(null);
@@ -5360,6 +5366,7 @@ export default function AgentWorkspacePage() {
           email: hospital.email || null, phone: hospital.phone || null,
           countryCode: hospital.countryCode || null,
         } as Customer;
+        contact = virtualCustomer;
         setCurrentContact(virtualCustomer);
         setCurrentContactType("hospital");
         setCurrentHospitalData(hospital);
@@ -5378,6 +5385,7 @@ export default function AgentWorkspacePage() {
           email: clinic.email || null, phone: clinic.phone || null,
           countryCode: clinic.countryCode || null,
         } as Customer;
+        contact = virtualCustomer;
         setCurrentContact(virtualCustomer);
         setCurrentContactType("clinic");
         setCurrentHospitalData(null);
@@ -5396,6 +5404,7 @@ export default function AgentWorkspacePage() {
           email: collaborator.email || null, phone: collaborator.phone || null,
           countryCode: collaborator.countryCode || null,
         } as Customer;
+        contact = virtualCustomer;
         setCurrentContact(virtualCustomer);
         setCurrentContactType("collaborator");
         setCurrentHospitalData(null);
@@ -5404,6 +5413,29 @@ export default function AgentWorkspacePage() {
         setActiveChannel("phone");
         setPhoneSubTabOverride("details");
         setTimeout(() => setPhoneSubTabOverride(null), 100);
+      }
+
+      if (inboundTaskContext && contact) {
+        const newTask: TaskItem = {
+          id: `task-inbound-${Date.now()}`,
+          contact,
+          campaignId: inboundTaskContext.campaignId || "",
+          campaignName: inboundTaskContext.campaignName || "Inbound",
+          campaignContactId: null,
+          channel: "phone",
+          startedAt: new Date(),
+          status: "active",
+          direction: "inbound",
+        };
+        setTasks((prev) => [...prev, newTask]);
+        setActiveTaskId(newTask.id);
+        setTimeline([{
+          id: `sys-inbound-${Date.now()}`,
+          type: "system",
+          timestamp: new Date(),
+          content: `Prichádzajúci hovor od ${match.name} (${inboundTaskContext.callerNumber || ""})`,
+          details: "Inbound call",
+        }]);
       }
     } catch (e) {
       console.error("Error loading inbound match entity:", e);
@@ -5418,7 +5450,7 @@ export default function AgentWorkspacePage() {
   const [selectedLoginCampaignIds, setSelectedLoginCampaignIds] = useState<string[]>([]);
   const [selectedLoginQueueIds, setSelectedLoginQueueIds] = useState<string[]>([]);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
-  const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[] } | null>(null);
+  const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[]; callId?: string } | null>(null);
   const [contractWizardStep, setContractWizardStep] = useState(1);
   const [contractForm, setContractForm] = useState({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
   const [inboundCalls, setInboundCalls] = useState<Array<{
@@ -7372,6 +7404,10 @@ export default function AgentWorkspacePage() {
         return;
       }
 
+      // Normalize to last 9 digits to handle +421/00421/0 prefix mismatches
+      const normPhone = (p?: string | null) => { const d = (p || "").replace(/\D/g, ""); return d.slice(-9); };
+      const callerLast9 = normPhone(sipIncomingCall.callerNumber);
+
       setInboundCalls(prev => {
         // Original guard: skip if this exact invitation object is already linked.
         const alreadyLinked = prev.some(c => c.hasSipInvitation && c.sipInvitation && c.sipInvitation === invitation);
@@ -7379,8 +7415,8 @@ export default function AgentWorkspacePage() {
 
         const directUnlinked = prev.filter(c => !c.hasSipInvitation && c.channelId === "sip-webrtc");
         const directMatch = directUnlinked.find(c => {
-          const n = c.callerNumber?.replace(/[\s\-\(\)]/g, "");
-          return n === callerNum;
+          const n = normPhone(c.callerNumber);
+          return callerLast9.length >= 7 && n === callerLast9;
         });
         if (directMatch) {
           console.log("[AgentWS] SIP INVITE re-linked to existing direct SIP call:", directMatch.callId, directMatch.callerNumber);
@@ -7390,8 +7426,8 @@ export default function AgentWorkspacePage() {
         const queueUnlinked = prev.filter(c => !c.hasSipInvitation && c.channelId !== "sip-webrtc");
         if (queueUnlinked.length > 0) {
           const matchByNumber = queueUnlinked.find(c => {
-            const n = c.callerNumber?.replace(/[\s\-\(\)]/g, "");
-            return n === callerNum;
+            const n = normPhone(c.callerNumber);
+            return callerLast9.length >= 7 && n === callerLast9;
           });
           const target = matchByNumber || queueUnlinked[queueUnlinked.length - 1];
           console.log("[AgentWS] SIP INVITE linked to queue call:", target.callId, target.callerNumber);
@@ -7485,7 +7521,7 @@ export default function AgentWorkspacePage() {
           if (allMatches.length > 1) {
             // Multiple matches — show entity selection modal; agent will pick
             anyFound = true;
-            setPendingInboundMatches({ phone: callerNumber, matches: allMatches });
+            setPendingInboundMatches({ phone: callerNumber, matches: allMatches, callId: call.callId });
             setTimeline([{
               id: `sys-inbound-${Date.now()}`,
               type: "system",
@@ -7625,10 +7661,46 @@ export default function AgentWorkspacePage() {
         toast({ title: t.agentWorkspace.callAccepted, description: `${t.agentWorkspace.connectedWith} ${callerNumber}` });
         await setupCallContext();
       } else {
-        await apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id });
-        toast({ title: t.agentWorkspace.callAccepted });
-        removeCall();
-        await setupCallContext();
+        // Fallback: even if not linked via useEffect (number format mismatch), check incomingCallRef
+        const fallbackInvite = incomingCallRef?.current?.invitation;
+        if (fallbackInvite && fallbackInvite.state !== "Terminated" && fallbackInvite.state !== "Canceled") {
+          console.log("[AgentWS] hasSipInvitation=false but invite found in ref, accepting via SIP fallback");
+          fallbackInvite._inboundQueueId = call.queueId;
+          fallbackInvite._inboundQueueName = call.queueName;
+          fallbackInvite._inboundCallLogId = call.callId;
+          fallbackInvite._inboundCallerNumber = callerNumber;
+          fallbackInvite._inboundCallerName = call.callerName;
+          fallbackInvite._inboundRecordCalls = !!call.recordCalls;
+          try {
+            if (fallbackInvite.state !== "Established") {
+              await fallbackInvite.accept({ sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } } });
+            }
+          } catch (acceptErr: any) {
+            const postState = fallbackInvite.state;
+            if (postState !== "Established" && postState !== "Establishing") {
+              toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.callAcceptError, variant: "destructive" });
+              acceptingCallRef.current = false;
+              return;
+            }
+          }
+          removeCall();
+          setIncomingCallWithRef(null);
+          const shouldAutoRecord = !!call.recordCalls || callContext.autoRecord;
+          if (callContext.handleInboundAnsweredFn.current) {
+            callContext.handleInboundAnsweredFn.current(fallbackInvite, { autoRecord: shouldAutoRecord });
+          } else {
+            callContext.queuedInboundSession.current = { session: fallbackInvite, options: { autoRecord: shouldAutoRecord } };
+            callContext.setAutoRecord(shouldAutoRecord);
+            setAnsweredIncomingSession(fallbackInvite);
+          }
+          toast({ title: t.agentWorkspace.callAccepted, description: `${t.agentWorkspace.connectedWith} ${callerNumber}` });
+          await setupCallContext();
+        } else {
+          await apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id });
+          toast({ title: t.agentWorkspace.callAccepted });
+          removeCall();
+          await setupCallContext();
+        }
       }
     } catch (err: any) {
       console.error("[AgentWS] Error accepting call:", err);
@@ -9842,10 +9914,10 @@ export default function AgentWorkspacePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PhoneIncoming className="h-5 w-5 text-green-600" />
-              Vyberte kontakt pre hovor
+              {t.agentWorkspace.inboundSelectTitle}
             </DialogTitle>
             <DialogDescription>
-              Číslo <span className="font-mono font-medium">{pendingInboundMatches?.phone}</span> je priradené viacerým kontaktom. Vyberte, ku komu chcete tento hovor priradiť.
+              {t.agentWorkspace.inboundSelectDesc.replace("{phone}", pendingInboundMatches?.phone || "")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2 max-h-80 overflow-y-auto">
@@ -9874,8 +9946,11 @@ export default function AgentWorkspacePage() {
                   className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors text-left group"
                   data-testid={`btn-select-entity-${match.entityType}-${match.id}`}
                   onClick={async () => {
+                    const ctx = pendingInboundMatches
+                      ? { callId: pendingInboundMatches.callId, campaignId: selectedCampaignId || "", campaignName: selectedCampaign?.name || "Inbound", callerNumber: pendingInboundMatches.phone }
+                      : undefined;
                     setPendingInboundMatches(null);
-                    await handleSelectInboundMatch(match, "card");
+                    await handleSelectInboundMatch(match, "card", ctx);
                   }}
                 >
                   <div className={`p-2 rounded-md border ${colorMap[match.entityType] || "bg-muted"}`}>
@@ -9896,7 +9971,7 @@ export default function AgentWorkspacePage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setPendingInboundMatches(null)} data-testid="btn-entity-selection-skip">
-              Preskočiť
+              {t.agentWorkspace.inboundSelectSkip}
             </Button>
           </DialogFooter>
         </DialogContent>
