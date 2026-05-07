@@ -1145,7 +1145,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
           </div>
         </div>
 
-        <div className="shrink-0 bg-background/95 backdrop-blur-sm border-t px-5 py-2 flex justify-end gap-3">
+        <div className="shrink-0 border-t px-5 py-2 flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-customer">
             {t.common.cancel}
           </Button>
