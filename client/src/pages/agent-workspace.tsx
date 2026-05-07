@@ -155,7 +155,7 @@ import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import { InboundCallPopup, InboundQueueStatus } from "@/components/agent/InboundCallPopup";
-import { VoicemailNotifications, VoicemailEmptyBadge } from "@/components/agent/VoicemailNotifications";
+import { VoicemailNotifications } from "@/components/agent/VoicemailNotifications";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType, Hospital, Clinic, Collaborator } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
 import ReactQuill from "react-quill";
@@ -629,7 +629,6 @@ function TaskListPanel({
   onOpenTasksModal,
   onCancelTask,
   agentStatus,
-  showVoicemailEmpty,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -655,7 +654,6 @@ function TaskListPanel({
   onOpenTasksModal: () => void;
   onCancelTask: (taskId: string) => void;
   agentStatus: AgentStatus;
-  showVoicemailEmpty?: boolean;
 }) {
   const { t } = useI18n();
   const filteredCampaigns = useMemo(() => {
@@ -914,7 +912,6 @@ function TaskListPanel({
 
       <div className="px-2 pb-2 space-y-1.5">
         <InboundQueueStatus userId={currentUserId} />
-        {showVoicemailEmpty && <VoicemailEmptyBadge />}
       </div>
 
       {selectedCampaignId && (
@@ -3865,7 +3862,7 @@ function CustomerInfoPanel({
           const [histSearchQuery, setHistSearchQuery] = [historySearchQuery, setHistorySearchQuery];
           const [histTypeFilter, setHistTypeFilter] = [historyTypeFilter, setHistoryTypeFilter];
 
-          const typeLabels: Record<string, string> = { all: "Všetko", call: "Hovory", email: "Emaily", sms: "SMS", disposition: "Dispozície" };
+          const typeLabels: Record<string, string> = { all: t.agentWorkspace.historyAll, call: t.agentWorkspace.historyCalls, email: t.agentWorkspace.historyEmailsFilter, sms: t.agentWorkspace.historySmsFilter, disposition: t.agentWorkspace.historyDispositionsFilter };
           const typeCounts = contactHistory.reduce((acc, item) => {
             acc[item.type] = (acc[item.type] || 0) + 1;
             return acc;
@@ -3912,7 +3909,7 @@ function CustomerInfoPanel({
                       className="shrink-0"
                       onClick={() => setHistoryMaximized(true)}
                       data-testid="btn-history-maximize"
-                      title="Maximalizovať históriu"
+                      title={t.agentWorkspace.historyMaximize}
                     >
                       <Maximize2 className="h-3.5 w-3.5" />
                     </Button>
@@ -3922,7 +3919,7 @@ function CustomerInfoPanel({
                     <Input
                       value={histSearchQuery}
                       onChange={(e) => setHistorySearchQuery(e.target.value)}
-                      placeholder="Hľadať v histórii..."
+                      placeholder={t.agentWorkspace.historySearchPlaceholder}
                       className={`${isModal ? "pl-9 h-9 text-sm" : "pl-8 h-8 text-xs"}`}
                       data-testid={isModal ? "input-history-search-modal" : "input-history-search"}
                     />
@@ -3970,12 +3967,12 @@ function CustomerInfoPanel({
                   {contactHistory.length === 0 ? (
                     <>
                       <History className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
-                      <p className={`${isModal ? "text-sm" : "text-xs"} text-muted-foreground`}>Žiadna história komunikácie</p>
+                      <p className={`${isModal ? "text-sm" : "text-xs"} text-muted-foreground`}>{t.agentWorkspace.historyNoComm}</p>
                     </>
                   ) : (
                     <>
                       <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
-                      <p className={`${isModal ? "text-sm" : "text-xs"} text-muted-foreground`}>Žiadne výsledky pre "{histSearchQuery}"</p>
+                      <p className={`${isModal ? "text-sm" : "text-xs"} text-muted-foreground`}>{t.agentWorkspace.historyNoResults} "{histSearchQuery}"</p>
                     </>
                   )}
                 </div>
@@ -4028,11 +4025,11 @@ function CustomerInfoPanel({
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {item.direction && (
                                 <span className={`${isModal ? "text-xs" : "text-[9px]"} font-semibold`} style={{ color: itemAc }}>
-                                  {item.direction === "inbound" ? "Prijatý" : "Odoslaný"}
+                                  {item.direction === "inbound" ? t.agentWorkspace.historyInbound : t.agentWorkspace.historyOutbound}
                                 </span>
                               )}
                               {item.type === "disposition" && (
-                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-semibold`} style={{ color: itemAc }}>Dispozícia</span>
+                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-semibold`} style={{ color: itemAc }}>{t.agentWorkspace.historyDispositionType}</span>
                               )}
                               {(item as any).dispositionName && (() => {
                                 const dColor = (item as any).dispositionColor || "gray";
@@ -4122,8 +4119,8 @@ function CustomerInfoPanel({
             {filteredHistory.length > 0 && (
               <div className={`${isModal ? "px-4 py-2" : "px-3 py-1.5"} border-t bg-muted/20 text-center`}>
                 <span className={`${isModal ? "text-xs" : "text-[10px]"} text-muted-foreground`}>
-                  {filteredHistory.length} {filteredHistory.length === 1 ? "záznam" : filteredHistory.length < 5 ? "záznamy" : "záznamov"}
-                  {histSearchQuery && ` pre "${histSearchQuery}"`}
+                  {filteredHistory.length} {filteredHistory.length === 1 ? t.agentWorkspace.historyRecordSingular : filteredHistory.length < 5 ? t.agentWorkspace.historyRecordFew : t.agentWorkspace.historyRecordPlural}
+                  {histSearchQuery && ` ${t.agentWorkspace.historyFor} "${histSearchQuery}"`}
                 </span>
               </div>
             )}
@@ -7836,7 +7833,6 @@ export default function AgentWorkspacePage() {
           onOpenTasksModal={() => setTasksModalOpen(true)}
           onCancelTask={handleCancelTask}
           agentStatus={agentSession.status}
-          showVoicemailEmpty={agentSession.isSessionActive && sessionInboundQueueIds.length > 0 && agentVoicemails.length === 0}
         />
 
         <CommunicationCanvas
@@ -9169,10 +9165,10 @@ export default function AgentWorkspacePage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="text-base font-semibold" data-testid="text-history-detail-title">
-                          {isEmail ? (subject || "Email") : "SMS správa"}
+                          {isEmail ? (subject || "Email") : t.agentWorkspace.historySmsTitle}
                         </h3>
                         <Badge variant={direction === "outbound" ? "secondary" : "outline"} className="text-[10px]">
-                          {direction === "outbound" ? "Odoslaný" : "Prijatý"}
+                          {direction === "outbound" ? t.agentWorkspace.historyOutbound : t.agentWorkspace.historyInbound}
                         </Badge>
                         {status && (
                           <Badge variant="outline" className="text-[10px]">{status}</Badge>

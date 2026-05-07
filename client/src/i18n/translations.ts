@@ -3153,6 +3153,23 @@ export interface Translations {
     inboundMoreFew: string;
     inboundMoreMany: string;
     inboundInQueue: string;
+    historySearchPlaceholder: string;
+    historyMaximize: string;
+    historyNoComm: string;
+    historyNoResults: string;
+    historyAll: string;
+    historyCalls: string;
+    historyEmailsFilter: string;
+    historySmsFilter: string;
+    historyDispositionsFilter: string;
+    historyInbound: string;
+    historyOutbound: string;
+    historyDispositionType: string;
+    historyRecordSingular: string;
+    historyRecordFew: string;
+    historyRecordPlural: string;
+    historySmsTitle: string;
+    historyFor: string;
   };
   sop: {
     title: string;
@@ -9765,6 +9782,23 @@ export const translations: Record<Locale, Translations> = {
       inboundMoreFew: 'more calls',
       inboundMoreMany: 'more calls',
       inboundInQueue: 'in queue',
+      historySearchPlaceholder: 'Search in history...',
+      historyMaximize: 'Maximize history',
+      historyNoComm: 'No communication history',
+      historyNoResults: 'No results for',
+      historyAll: 'All',
+      historyCalls: 'Calls',
+      historyEmailsFilter: 'Emails',
+      historySmsFilter: 'SMS',
+      historyDispositionsFilter: 'Dispositions',
+      historyInbound: 'Inbound',
+      historyOutbound: 'Outbound',
+      historyDispositionType: 'Disposition',
+      historyRecordSingular: 'record',
+      historyRecordFew: 'records',
+      historyRecordPlural: 'records',
+      historySmsTitle: 'SMS message',
+      historyFor: 'for',
     },
     sop: {
         title: 'SOP & Procedures',
@@ -15862,6 +15896,23 @@ export const translations: Record<Locale, Translations> = {
       inboundMoreFew: 'ďalšie',
       inboundMoreMany: 'ďalších',
       inboundInQueue: 'v rade',
+      historySearchPlaceholder: 'Hľadať v histórii...',
+      historyMaximize: 'Maximalizovať históriu',
+      historyNoComm: 'Žiadna história komunikácie',
+      historyNoResults: 'Žiadne výsledky pre',
+      historyAll: 'Všetko',
+      historyCalls: 'Hovory',
+      historyEmailsFilter: 'Emaily',
+      historySmsFilter: 'SMS',
+      historyDispositionsFilter: 'Dispozície',
+      historyInbound: 'Prijatý',
+      historyOutbound: 'Odoslaný',
+      historyDispositionType: 'Dispozícia',
+      historyRecordSingular: 'záznam',
+      historyRecordFew: 'záznamy',
+      historyRecordPlural: 'záznamov',
+      historySmsTitle: 'SMS správa',
+      historyFor: 'pre',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -21938,6 +21989,23 @@ export const translations: Record<Locale, Translations> = {
       inboundMoreFew: 'další',
       inboundMoreMany: 'dalších',
       inboundInQueue: 've frontě',
+      historySearchPlaceholder: 'Hledat v historii...',
+      historyMaximize: 'Maximalizovat historii',
+      historyNoComm: 'Žádná komunikační historie',
+      historyNoResults: 'Žádné výsledky pro',
+      historyAll: 'Vše',
+      historyCalls: 'Hovory',
+      historyEmailsFilter: 'Emaily',
+      historySmsFilter: 'SMS',
+      historyDispositionsFilter: 'Dispozice',
+      historyInbound: 'Přijatý',
+      historyOutbound: 'Odeslaný',
+      historyDispositionType: 'Dispozice',
+      historyRecordSingular: 'záznam',
+      historyRecordFew: 'záznamy',
+      historyRecordPlural: 'záznamů',
+      historySmsTitle: 'SMS zpráva',
+      historyFor: 'pro',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -27972,6 +28040,23 @@ export const translations: Record<Locale, Translations> = {
       inboundMoreFew: 'további',
       inboundMoreMany: 'további',
       inboundInQueue: 'a sorban',
+      historySearchPlaceholder: 'Keresés az előzményekben...',
+      historyMaximize: 'Előzmények maximalizálása',
+      historyNoComm: 'Nincs kommunikációs előzmény',
+      historyNoResults: 'Nincs találat erre',
+      historyAll: 'Összes',
+      historyCalls: 'Hívások',
+      historyEmailsFilter: 'E-mailek',
+      historySmsFilter: 'SMS',
+      historyDispositionsFilter: 'Diszpozíciók',
+      historyInbound: 'Bejövő',
+      historyOutbound: 'Kimenő',
+      historyDispositionType: 'Diszpozíció',
+      historyRecordSingular: 'bejegyzés',
+      historyRecordFew: 'bejegyzés',
+      historyRecordPlural: 'bejegyzés',
+      historySmsTitle: 'SMS üzenet',
+      historyFor: 'erre',
     },
     sop: {
         title: 'SOP & Eljárások',
@@ -33901,6 +33986,23 @@ export const translations: Record<Locale, Translations> = {
       inboundMoreFew: 'alte',
       inboundMoreMany: 'alte',
       inboundInQueue: 'în coadă',
+      historySearchPlaceholder: 'Caută în istoric...',
+      historyMaximize: 'Maximizați istoricul',
+      historyNoComm: 'Fără istoric de comunicare',
+      historyNoResults: 'Niciun rezultat pentru',
+      historyAll: 'Toate',
+      historyCalls: 'Apeluri',
+      historyEmailsFilter: 'E-mailuri',
+      historySmsFilter: 'SMS',
+      historyDispositionsFilter: 'Dispoziții',
+      historyInbound: 'Primit',
+      historyOutbound: 'Trimis',
+      historyDispositionType: 'Dispoziție',
+      historyRecordSingular: 'înregistrare',
+      historyRecordFew: 'înregistrări',
+      historyRecordPlural: 'înregistrări',
+      historySmsTitle: 'Mesaj SMS',
+      historyFor: 'pentru',
     },
     sop: {
         title: 'SOP & Proceduri',
@@ -39832,6 +39934,23 @@ export const translations: Record<Locale, Translations> = {
       inboundMoreFew: 'altre',
       inboundMoreMany: 'altre',
       inboundInQueue: 'in coda',
+      historySearchPlaceholder: 'Cerca nella cronologia...',
+      historyMaximize: 'Massimizza cronologia',
+      historyNoComm: 'Nessuna cronologia comunicazioni',
+      historyNoResults: 'Nessun risultato per',
+      historyAll: 'Tutti',
+      historyCalls: 'Chiamate',
+      historyEmailsFilter: 'Email',
+      historySmsFilter: 'SMS',
+      historyDispositionsFilter: 'Disposizioni',
+      historyInbound: 'Ricevuto',
+      historyOutbound: 'Inviato',
+      historyDispositionType: 'Disposizione',
+      historyRecordSingular: 'record',
+      historyRecordFew: 'record',
+      historyRecordPlural: 'record',
+      historySmsTitle: 'Messaggio SMS',
+      historyFor: 'per',
     },
     sop: {
         title: 'SOP & Procedure',
@@ -45763,6 +45882,23 @@ export const translations: Record<Locale, Translations> = {
       inboundMoreFew: 'weitere',
       inboundMoreMany: 'weitere',
       inboundInQueue: 'in der Warteschlange',
+      historySearchPlaceholder: 'Im Verlauf suchen...',
+      historyMaximize: 'Verlauf maximieren',
+      historyNoComm: 'Keine Kommunikationshistorie',
+      historyNoResults: 'Keine Ergebnisse für',
+      historyAll: 'Alle',
+      historyCalls: 'Anrufe',
+      historyEmailsFilter: 'E-Mails',
+      historySmsFilter: 'SMS',
+      historyDispositionsFilter: 'Dispositionen',
+      historyInbound: 'Eingehend',
+      historyOutbound: 'Ausgehend',
+      historyDispositionType: 'Disposition',
+      historyRecordSingular: 'Eintrag',
+      historyRecordFew: 'Einträge',
+      historyRecordPlural: 'Einträge',
+      historySmsTitle: 'SMS-Nachricht',
+      historyFor: 'für',
     },
     sop: {
         title: 'SOP & Verfahren',
