@@ -2441,21 +2441,18 @@ function CommunicationCanvas({
           {contact.phone && (
             <span className="text-xs text-muted-foreground">{contact.phone}</span>
           )}
-          {isSipRegistered && onMakeCall && contact.phone ? (
+          {contact.phone && (
             <Button
               size="sm"
-              onClick={() => onMakeCall(contact.phone!)}
+              onClick={() => isSipRegistered && onMakeCall ? onMakeCall(contact.phone!) : undefined}
+              disabled={!isSipRegistered || !onMakeCall}
               data-testid="btn-call-from-canvas"
-              className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5"
+              className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Phone className="h-3.5 w-3.5" />
               {t.agentWorkspace.call}
             </Button>
-          ) : contact.phone ? (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Phone className="h-3.5 w-3.5" />
-            </span>
-          ) : null}
+          )}
         </div>
       </div>
 
