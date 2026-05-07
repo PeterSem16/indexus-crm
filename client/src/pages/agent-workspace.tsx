@@ -2438,20 +2438,43 @@ function CommunicationCanvas({
         </div>
         <div className="flex items-center gap-1">
           {contact.phone && (
-            <>
-              <span className="text-xs text-muted-foreground px-2">{contact.phone}</span>
-              {isSipRegistered && onMakeCall && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => onMakeCall(contact.phone!)}
-                  data-testid="btn-call-from-canvas"
-                  title={t.agentWorkspace.call}
-                >
-                  <Phone className="h-4 w-4 text-green-600" />
-                </Button>
-              )}
-            </>
+            <span className="text-xs text-muted-foreground px-2">{contact.phone}</span>
+          )}
+          {isSipRegistered && onMakeCall && contact.phone && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onMakeCall(contact.phone!)}
+              data-testid="btn-call-from-canvas"
+              title={t.agentWorkspace.call}
+              className="h-7 w-7"
+            >
+              <Phone className="h-3.5 w-3.5 text-green-600" />
+            </Button>
+          )}
+          {contact.email && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onChannelChange("email")}
+              data-testid="btn-email-from-canvas"
+              title="Email"
+              className="h-7 w-7"
+            >
+              <Mail className="h-3.5 w-3.5 text-indigo-500" />
+            </Button>
+          )}
+          {contact.phone && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onChannelChange("sms")}
+              data-testid="btn-sms-from-canvas"
+              title="SMS"
+              className="h-7 w-7"
+            >
+              <MessageSquare className="h-3.5 w-3.5 text-sky-500" />
+            </Button>
           )}
         </div>
       </div>
@@ -2511,40 +2534,6 @@ function CommunicationCanvas({
         </div>
       </div>
 
-      <div className="border-b bg-muted/30 px-4 py-1.5 flex items-center gap-4 flex-wrap text-xs" data-testid="contact-info-bar">
-        <div className="flex items-center gap-1.5">
-          <User className="h-3 w-3 text-muted-foreground" />
-          <span className="font-medium">{contact.firstName} {contact.lastName}</span>
-        </div>
-        {contact.phone && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Phone className="h-3 w-3" />
-            <span>{contact.phone}</span>
-          </div>
-        )}
-        {contact.email && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Mail className="h-3 w-3" />
-            <span>{contact.email}</span>
-          </div>
-        )}
-        {contact.country && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Globe className="h-3 w-3" />
-            <span>{contact.country}</span>
-          </div>
-        )}
-        {contact.notes && (
-          <div className="flex items-center gap-1.5 text-muted-foreground truncate max-w-[200px]">
-            <FileText className="h-3 w-3 shrink-0" />
-            <span className="truncate">{contact.notes.split("\n")[0]}</span>
-          </div>
-        )}
-        <StatusBadge status={(contact.status as any) || "pending"} className="text-[10px] h-5" />
-        <Badge variant="outline" className="text-[10px] h-5">
-          {contact.clientStatus === "acquired" ? "Získaný klient" : contact.clientStatus === "potential" ? "Potenciálny" : contact.clientStatus || "—"}
-        </Badge>
-      </div>
 
       {activeChannel === "script" && (
         <div className="flex flex-col flex-1 relative overflow-y-auto">
@@ -2615,18 +2604,18 @@ function CommunicationCanvas({
           </div>
 
           {(phoneSubTab === "card" || phoneSubTab === "details") && contact && contact.phone && isSipRegistered && onMakeCall && (
-            <div className="border-b bg-muted/20 px-3 py-2 flex items-center gap-2 shrink-0" data-testid="phone-call-strip">
+            <div className="border-b bg-muted/20 px-4 py-2 flex items-center gap-2.5 shrink-0" data-testid="phone-call-strip">
               <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium">{contact.phone}</span>
+              <span className="text-sm font-medium">{contact.phone}</span>
               {callState === "idle" || !callState ? (
                 <Button
                   size="sm"
                   variant="default"
-                  className="h-6 text-[10px] px-3 ml-auto bg-green-600 hover:bg-green-700 text-white"
+                  className="h-8 text-sm px-5 ml-auto bg-green-600 hover:bg-green-700 text-white font-semibold shadow-sm"
                   onClick={() => onMakeCall(contact.phone!)}
                   data-testid="btn-call-from-subtab"
                 >
-                  <Phone className="h-3 w-3 mr-1" />
+                  <Phone className="h-3.5 w-3.5 mr-2" />
                   {t.agentWorkspace.call}
                 </Button>
               ) : callState === "connecting" || callState === "ringing" ? (
