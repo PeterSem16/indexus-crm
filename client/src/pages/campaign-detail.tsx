@@ -4124,6 +4124,7 @@ export default function CampaignDetailPage() {
   const [showSortRulesDialog, setShowSortRulesDialog] = useState(false);
   const [draggingContactId, setDraggingContactId] = useState<string | null>(null);
   const [dragOverAgentId, setDragOverAgentId] = useState<string | null>(null);
+  const [selectedAgentViewId, setSelectedAgentViewId] = useState<string | null>(null);
   const [requeueDispositions, setRequeueDispositions] = useState<Set<string>>(new Set());
   const [requeueStatuses, setRequeueStatuses] = useState<Set<string>>(new Set());
   const [requeueCallbackFrom, setRequeueCallbackFrom] = useState("");
@@ -4670,9 +4671,27 @@ export default function CampaignDetailPage() {
   const sortedFilteredContacts = parsedSortRules.length > 0
     ? applySortRulesToContacts(filteredContacts, parsedSortRules)
     : filteredContacts;
+
+  const agentViewFilteredContacts = (() => {
+    if (!selectedAgentViewId || parsedAssignmentMode !== "per-agent") return sortedFilteredContacts;
+    if (selectedAgentViewId === "__unassigned__") {
+      return sortedFilteredContacts.filter((c: any) => !c.assignedTo);
+    }
+    const af = parsedAgentContactFilters.find((f: any) => f.agentId === selectedAgentViewId);
+    if (!af) return sortedFilteredContacts;
+    if (af.isRemainder) {
+      const explicitIds = new Set<string>();
+      parsedAgentContactFilters.filter((f: any) => !f.isRemainder).forEach((f: any) => {
+        sortedFilteredContacts.forEach((c: any) => { if (contactMatchesAgentFilter(c, f)) explicitIds.add(c.id); });
+      });
+      return sortedFilteredContacts.filter((c: any) => !explicitIds.has(c.id));
+    }
+    return sortedFilteredContacts.filter((c: any) => contactMatchesAgentFilter(c, af));
+  })();
+
   const contactsPerPage = 20;
-  const totalContactPages = Math.max(1, Math.ceil(sortedFilteredContacts.length / contactsPerPage));
-  const paginatedContacts = sortedFilteredContacts.slice((contactsPage - 1) * contactsPerPage, contactsPage * contactsPerPage);
+  const totalContactPages = Math.max(1, Math.ceil(agentViewFilteredContacts.length / contactsPerPage));
+  const paginatedContacts = agentViewFilteredContacts.slice((contactsPage - 1) * contactsPerPage, contactsPage * contactsPerPage);
 
   const progressPercentage = stats 
     ? ((stats.completedContacts + stats.notInterestedContacts) / Math.max(stats.totalContacts, 1)) * 100
@@ -5164,7 +5183,7 @@ export default function CampaignDetailPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground shrink-0">
-                {filteredContacts.length} / {contacts.length} kontaktov
+                {agentViewFilteredContacts.length}{selectedAgentViewId ? ` / ${filteredContacts.length}` : ""} / {contacts.length} kontaktov
               </span>
 
               {/* Data management: Import → Generate → Export */}
@@ -5241,6 +5260,7 @@ export default function CampaignDetailPage() {
               {/* Unassigned zone */}
               <div
                 data-testid="drop-zone-unassigned"
+                onClick={() => { setSelectedAgentViewId(v => v === "__unassigned__" ? null : "__unassigned__"); setContactsPage(1); }}
                 onDragOver={(e) => { e.preventDefault(); setDragOverAgentId("__unassigned__"); }}
                 onDragLeave={() => setDragOverAgentId(null)}
                 onDrop={(e) => {
@@ -5248,10 +5268,19 @@ export default function CampaignDetailPage() {
                   if (draggingContactId) updateContactMutation.mutate({ contactId: draggingContactId, data: { assignedTo: null } });
                   setDraggingContactId(null); setDragOverAgentId(null);
                 }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border-2 border-dashed text-xs font-medium transition-all cursor-pointer select-none ${dragOverAgentId === "__unassigned__" ? "border-primary bg-primary/10 text-primary scale-105" : "border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/60"}`}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border-2 border-dashed text-xs font-medium transition-all cursor-pointer select-none ${
+                  selectedAgentViewId === "__unassigned__"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : dragOverAgentId === "__unassigned__"
+                      ? "border-primary bg-primary/10 text-primary scale-105"
+                      : "border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/60 hover:text-foreground"
+                }`}
               >
                 <UserX className="w-3.5 h-3.5" />
                 Nepriradené
+                {selectedAgentViewId === "__unassigned__" && (
+                  <span className="ml-0.5 text-[10px] font-semibold text-primary">✓</span>
+                )}
               </div>
               {parsedAgentContactFilters.map((af) => {
                 const agent = allUsers.find(u => u.id === af.agentId);
@@ -5259,10 +5288,12 @@ export default function CampaignDetailPage() {
                 const initials = agent.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
                 const matchCount = countContactsForAgentFilter(filteredContacts as any, af);
                 const isOver = dragOverAgentId === af.agentId;
+                const isSelected = selectedAgentViewId === af.agentId;
                 return (
                   <div
                     key={af.id}
                     data-testid={`drop-zone-${af.agentId}`}
+                    onClick={() => { setSelectedAgentViewId(v => v === af.agentId ? null : af.agentId); setContactsPage(1); }}
                     onDragOver={(e) => { e.preventDefault(); setDragOverAgentId(af.agentId); }}
                     onDragLeave={() => setDragOverAgentId(null)}
                     onDrop={(e) => {
@@ -5270,13 +5301,19 @@ export default function CampaignDetailPage() {
                       if (draggingContactId) updateContactMutation.mutate({ contactId: draggingContactId, data: { assignedTo: af.agentId } });
                       setDraggingContactId(null); setDragOverAgentId(null);
                     }}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border-2 text-xs font-medium transition-all cursor-pointer select-none ${isOver ? "border-primary bg-primary/10 text-primary scale-105 shadow-md" : "border-transparent bg-background hover:border-muted-foreground/40"}`}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border-2 text-xs font-medium transition-all cursor-pointer select-none ${
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : isOver
+                          ? "border-primary bg-primary/10 text-primary scale-105 shadow-md"
+                          : "border-transparent bg-background hover:border-muted-foreground/40 hover:bg-muted/40"
+                    }`}
                   >
                     <Avatar className="h-5 w-5 shrink-0">
-                      <AvatarFallback className="text-[9px] bg-primary/10">{initials}</AvatarFallback>
+                      <AvatarFallback className={`text-[9px] ${isSelected ? "bg-primary/20" : "bg-primary/10"}`}>{initials}</AvatarFallback>
                     </Avatar>
                     <span>{agent.fullName.split(" ")[0]}</span>
-                    <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">{matchCount}</Badge>
+                    <Badge variant={isSelected ? "default" : "secondary"} className="text-[10px] px-1 py-0 h-4">{matchCount}</Badge>
                     {af.isRemainder && <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 text-purple-600 border-purple-400">zvyšok</Badge>}
                   </div>
                 );
