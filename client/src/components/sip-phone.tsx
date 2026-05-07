@@ -762,7 +762,9 @@ export function SipPhone({
       const duration = callStartTimeRef.current ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) : 0;
       console.log("[SIP-INBOUND] Call duration:", duration, "seconds");
       setCallState("ended");
-      ctxNow.setCallDirection(null);
+      // Do NOT clear callDirection here — React batches this with setCallState("ended"),
+      // causing agent-workspace effect to see callDirection===null when detecting inbound.
+      // callDirection is cleared in agent-workspace's "idle" handler after disposition flow.
       if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
       const hungUpBy = userHungUpRef.current ? "user" : "customer";
       userHungUpRef.current = false;

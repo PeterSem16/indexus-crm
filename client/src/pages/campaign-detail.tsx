@@ -1409,19 +1409,36 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
                       </Button>
                     )}
                     {onDistribute && agentFilters.length > 0 && contacts.length > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowDistributeConfirm(true)}
-                        disabled={isDistributing}
-                        data-testid="button-distribute-randomly-drawer"
-                        className="border-dashed text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5"
-                      >
-                        {isDistributing
-                          ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-                          : <Shuffle className="w-4 h-4 mr-1" />}
-                        Rozdeliť náhodne
-                      </Button>
+                      showDistributeConfirm ? (
+                        <div className="flex items-center gap-2 rounded-md border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5">
+                          <span className="text-xs text-amber-700 dark:text-amber-400">Naozaj rozdeliť {contacts.length} kontaktov?</span>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            disabled={isDistributing}
+                            onClick={() => { setShowDistributeConfirm(false); onDistribute(agentFilters); }}
+                            data-testid="button-distribute-confirm"
+                          >
+                            {isDistributing ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Áno"}
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setShowDistributeConfirm(false)}>Nie</Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowDistributeConfirm(true)}
+                          disabled={isDistributing}
+                          data-testid="button-distribute-randomly-drawer"
+                          className="border-dashed text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5"
+                        >
+                          {isDistributing
+                            ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                            : <Shuffle className="w-4 h-4 mr-1" />}
+                          Rozdeliť náhodne
+                        </Button>
+                      )
                     )}
                     {assignedAgentIds.length === 0 && (
                       <p className="text-xs text-muted-foreground italic">Žiadni agenti nie sú priradení ku kampani. Najprv ich pridajte v Nastavenia → Operátori.</p>
@@ -1479,29 +1496,6 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
         </DialogContent>
       </Dialog>
 
-      {/* Distribute confirmation */}
-      <AlertDialog open={showDistributeConfirm} onOpenChange={setShowDistributeConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Shuffle className="w-5 h-5 text-primary" />Rozdeliť náhodne
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Kontakty budú náhodne a rovnomerne rozdelené medzi {agentFilters.length} agentov ({contacts.length} kontaktov). Existujúce priradenia budú prepísané.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => { setShowDistributeConfirm(false); onDistribute?.(agentFilters); }}
-              disabled={isDistributing}
-            >
-              {isDistributing ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Shuffle className="w-4 h-4 mr-1" />}
-              Rozdeliť
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

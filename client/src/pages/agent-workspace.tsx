@@ -5760,6 +5760,7 @@ export default function AgentWorkspacePage() {
       }
       if (curr === "idle") {
         callWasActiveRef.current = false;
+        callContext.setCallDirection(null);
         setRingDuration(0);
         if (pendingCallbackAbandonedIdRef.current) {
           const abandonedId = pendingCallbackAbandonedIdRef.current;
