@@ -5492,6 +5492,13 @@ export default function AgentWorkspacePage() {
   const acceptingCallRef = useRef(false);
   const wasInboundCallRef = useRef(false);
   const dialingRef = useRef(false);
+
+  // Register callback so sip-phone triggers wasInboundCallRef=true on every answered inbound call
+  useEffect(() => {
+    callContext.onInboundAnsweredFn.current = () => {
+      wasInboundCallRef.current = true;
+    };
+  }, []);
   const dispositionContextRef = useRef<{
     taskId: string | null;
     contactId: string | null;
@@ -5718,57 +5725,62 @@ export default function AgentWorkspacePage() {
         ringTimerRef.current = null;
       }
     }
-    if (callWasActiveRef.current && (curr === "ended" || curr === "idle")) {
+    if ((callWasActiveRef.current || wasInboundCallRef.current) && curr === "ended") {
       if (ringTimerRef.current) {
         clearInterval(ringTimerRef.current);
         ringTimerRef.current = null;
       }
-      if (curr === "ended") {
-        callWasActiveRef.current = false;
-        const isInboundCall = wasInboundCallRef.current;
-        // Inbound: show disposition regardless of contact match; outbound: require campaignContactId
-        if (isInboundCall || (currentContact && currentCampaignContactId)) {
-          dispositionContextRef.current = {
-            taskId: activeTaskId,
-            contactId: currentContact?.id ?? null,
-            campaignContactId: currentCampaignContactId,
-            campaignId: selectedCampaignId,
-          };
-          setCallEndTimestamp(Date.now());
-          setDispositionChannelFilter("phone");
-          setMandatoryDisposition(true);
-          setDispositionModalOpen(true);
-        }
-        if (pendingCallbackAbandonedIdRef.current) {
-          const abandonedId = pendingCallbackAbandonedIdRef.current;
-          pendingCallbackAbandonedIdRef.current = null;
-          fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back`, {
-            method: "POST",
-            credentials: "include",
-          }).then(() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
-          }).catch(console.error);
-        }
+      callWasActiveRef.current = false;
+      const isInboundCall = wasInboundCallRef.current || callContext.callDirection === "inbound";
+      // Inbound: show disposition regardless of contact match; outbound: require campaignContactId
+      if (isInboundCall || (currentContact && currentCampaignContactId)) {
+        dispositionContextRef.current = {
+          taskId: activeTaskId,
+          contactId: currentContact?.id ?? null,
+          campaignContactId: currentCampaignContactId,
+          campaignId: selectedCampaignId,
+        };
+        setCallEndTimestamp(Date.now());
+        setDispositionChannelFilter("phone");
+        setMandatoryDisposition(true);
+        setDispositionModalOpen(true);
       }
-      if (curr === "idle") {
-        callWasActiveRef.current = false;
-        wasInboundCallRef.current = false;
-        callContext.setCallDirection(null);
-        setRingDuration(0);
-        if (pendingCallbackAbandonedIdRef.current) {
-          const abandonedId = pendingCallbackAbandonedIdRef.current;
-          pendingCallbackAbandonedIdRef.current = null;
-          fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back`, {
-            method: "POST",
-            credentials: "include",
-          }).then(() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
-          }).catch(console.error);
-        }
+      if (pendingCallbackAbandonedIdRef.current) {
+        const abandonedId = pendingCallbackAbandonedIdRef.current;
+        pendingCallbackAbandonedIdRef.current = null;
+        fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back`, {
+          method: "POST",
+          credentials: "include",
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
+        }).catch(console.error);
       }
     }
+    if (callWasActiveRef.current && curr === "idle") {
+      callWasActiveRef.current = false;
+      if (ringTimerRef.current) {
+        clearInterval(ringTimerRef.current);
+        ringTimerRef.current = null;
+      }
+      if (pendingCallbackAbandonedIdRef.current) {
+        const abandonedId = pendingCallbackAbandonedIdRef.current;
+        pendingCallbackAbandonedIdRef.current = null;
+        fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back`, {
+          method: "POST",
+          credentials: "include",
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
+        }).catch(console.error);
+      }
+    }
+    // Always clear inbound tracking on idle regardless of callWasActiveRef gate
+    if (curr === "idle") {
+      wasInboundCallRef.current = false;
+      callContext.setCallDirection(null);
+      setRingDuration(0);
+    }
     prevCallStateRef.current = curr;
-  }, [callContext.callState, currentContact, currentCampaignContactId]);
+  }, [callContext.callState, callContext.callDirection, currentContact, currentCampaignContactId]);
 
   // Post-call wrap-up timer: count seconds elapsed since call ended, until disposition is submitted
   useEffect(() => {

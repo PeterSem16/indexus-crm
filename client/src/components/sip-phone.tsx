@@ -251,9 +251,11 @@ export function SipPhone({
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/call-logs"] });
-      if (variables.customerId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "call-logs"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/customers", Number(variables.customerId), "call-logs"] });
+      const cid = variables.customerId || (variables.data as any)?.customerId;
+      if (cid) {
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", cid, "call-logs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", Number(cid), "call-logs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", cid, "contact-history"] });
       }
     }
   });
@@ -693,6 +695,7 @@ export function SipPhone({
     setPhoneNumber(callerNumber);
     setCallState("active");
     ctx.setCallDirection("inbound");
+    ctx.onInboundAnsweredFn.current?.();
     setIsOnHold(false);
     ctx.resetCallTiming();
     callStartTimeRef.current = Date.now();

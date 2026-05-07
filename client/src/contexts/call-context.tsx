@@ -65,6 +65,7 @@ interface CallContextType {
   setAutoRecord: (auto: boolean) => void;
   handleInboundAnsweredFn: React.MutableRefObject<((session: any, options: { autoRecord: boolean }) => void) | null>;
   queuedInboundSession: React.MutableRefObject<{ session: any; options: { autoRecord: boolean } } | null>;
+  onInboundAnsweredFn: React.MutableRefObject<(() => void) | null>;
 }
 
 const defaultTiming: CallTimingMeta = {
@@ -108,6 +109,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const updateCallCustomerFn = useRef<((customerId: string) => void) | null>(null);
   const handleInboundAnsweredFn = useRef<((session: any, options: { autoRecord: boolean }) => void) | null>(null);
   const queuedInboundSession = useRef<{ session: any; options: { autoRecord: boolean } } | null>(null);
+  const onInboundAnsweredFn = useRef<(() => void) | null>(null);
 
   const setCallTiming = useCallback((partial: Partial<CallTimingMeta>) => {
     setCallTimingState(prev => ({ ...prev, ...partial }));
@@ -160,6 +162,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setAutoRecord,
     handleInboundAnsweredFn,
     queuedInboundSession,
+    onInboundAnsweredFn,
   }), [callState, callInfo, callDirection, callDuration, isMuted, isOnHold, isRecording, isRecordingPaused, volume, micVolume, callTiming, preventAutoReset, autoRecord, setCallTiming, resetCallTiming]);
 
   return (
