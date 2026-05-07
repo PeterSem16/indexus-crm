@@ -244,7 +244,7 @@ export function SipPhone({
   });
 
   const updateCallLogMutation = useMutation({
-    mutationFn: async ({ id, data, customerId }: { id: number; data: { status?: string; endedAt?: string; answeredAt?: string; duration?: number; durationSeconds?: number; notes?: string; hungUpBy?: string }; customerId?: string }) => {
+    mutationFn: async ({ id, data, customerId }: { id: number; data: { status?: string; endedAt?: string; answeredAt?: string; duration?: number; durationSeconds?: number; notes?: string; hungUpBy?: string; customerId?: string }; customerId?: string }) => {
       const res = await apiRequest("PATCH", `/api/call-logs/${id}`, data);
       return res.json();
     },
@@ -794,25 +794,50 @@ export function SipPhone({
       console.log("[SIP-INBOUND] Session state at setup:", currentSessionState);
     }
 
+    // For inbound calls, always look up the caller by phone number to get the correct
+    // customerId — never use localCustomerId which reflects whatever the agent had open.
+    const resolveInboundCustomerId = async (phone: string): Promise<string | undefined> => {
+      if (!phone || phone === "Unknown") return undefined;
+      try {
+        const res = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(phone)}`, { credentials: "include" });
+        if (res.ok) {
+          const matched = await res.json();
+          if (matched?.id) {
+            console.log("[SIP-INBOUND] Caller matched to customer:", matched.id);
+            return String(matched.id);
+          }
+        }
+      } catch (err) {
+        console.warn("[SIP-INBOUND] Phone lookup failed:", err);
+      }
+      return undefined;
+    };
+
     createCallLogMutation.mutateAsync({
       phoneNumber: callerNumber,
       direction: "inbound",
       status: "answered",
       userId: userId || currentUser?.id,
-      customerId: localCustomerId,
+      customerId: undefined,
       customerName: session._inboundCallerName || callerNumber,
       inboundQueueId: session._inboundQueueId || undefined,
       inboundQueueName: session._inboundQueueName || undefined,
       inboundCallLogId: session._inboundCallLogId || undefined,
-    }).then((callLogData) => {
+    }).then(async (callLogData) => {
       setCurrentCallLogId(callLogData.id);
       inboundCallLogIdRef.current = callLogData.id;
       console.log("[SIP-INBOUND] Call log created, id:", callLogData.id);
 
+      // Resolve the actual caller's customerId and update both the callLog and local state
+      const resolvedCustomerId = await resolveInboundCustomerId(callerNumber);
+      if (resolvedCustomerId) {
+        setLocalCustomerId(resolvedCustomerId);
+      }
+
       updateCallLogMutation.mutate({
         id: callLogData.id,
-        data: { status: "answered", answeredAt: new Date().toISOString() },
-        customerId: localCustomerId
+        data: { status: "answered", answeredAt: new Date().toISOString(), ...(resolvedCustomerId ? { customerId: resolvedCustomerId } : {}) },
+        customerId: resolvedCustomerId
       });
 
       onCallStart?.(callerNumber, callLogData.id);

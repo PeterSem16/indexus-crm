@@ -1395,7 +1395,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
                   <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" data-testid="button-add-agent-filter">
-                        <Plus className="w-4 h-4 mr-1" />{t.callCenterQueues.addAgent}
+                        <Plus className="w-4 h-4 mr-1" />{t.inboundQueues.addAgent}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
