@@ -7421,7 +7421,7 @@ export default function AgentWorkspacePage() {
                 : null;
               const convRateActual = contactsVal > 0 ? (convsVal / contactsVal) * 100 : 0;
 
-              const hasTodayData = !!shiftData;
+              const hasTodayData = shiftData && (contactsVal > 0 || callsVal > 0 || shiftData.totalBreakMinutes > 0 || shiftData.dispositionsToday > 0 || shiftData.totalCallMinutes > 0 || convsVal > 0);
 
               // KPI bar helper
               const KpiBar = ({ label, value, quota, suffix = "", color = "hsl(355 85% 42%)" }: { label: string; value: number; quota: number | null; suffix?: string; color?: string }) => {
@@ -7461,9 +7461,10 @@ export default function AgentWorkspacePage() {
                     </div>
                     <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ background: "#F0FDF4", color: "#16A34A", border: "1px solid #BBF7D0" }}>{t.agentSession.onlineStatus}</span>
                   </div>
-                  {hasTodayData && (
+                  {shiftData && (
                     <div className="px-3.5 pb-3 border-t" style={{ borderColor: "#F0EAE5" }}>
-                      <div className="flex items-center justify-between mt-2 mb-2.5">
+                      {/* Čas prihlásenia + refresh — vždy */}
+                      <div className="flex items-center justify-between mt-2" style={{ marginBottom: hasTodayData ? "0.625rem" : 0 }}>
                         <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentSession.dailyTargetReached}</p>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px]" style={{ color: "#A89898" }}>
@@ -7480,26 +7481,30 @@ export default function AgentWorkspacePage() {
                         </div>
                       </div>
 
-                      {/* 4 KPI bary — 2 stĺpce */}
-                      <div className="grid grid-cols-2 gap-x-3">
-                        <KpiBar label={t.agentSession.contactsToday} value={contactsVal} quota={maxContactsQuota} />
-                        <KpiBar label={t.agentSession.callsToday} value={callsVal} quota={maxCallQuota} />
-                        <KpiBar label={t.agentSession.conversionsToday} value={convsVal} quota={convTarget} color="#16A34A" />
-                        <KpiBar label={t.agentSession.conversionRate} value={convRateActual} quota={conversionGoalPct > 0 ? conversionGoalPct : null} suffix="%" color="#7C3AED" />
-                      </div>
+                      {/* KPI bary — len keď sú nenulové */}
+                      {hasTodayData && (
+                        <div className="grid grid-cols-2 gap-x-3 mt-2.5">
+                          <KpiBar label={t.agentSession.contactsToday} value={contactsVal} quota={maxContactsQuota} />
+                          <KpiBar label={t.agentSession.callsToday} value={callsVal} quota={maxCallQuota} />
+                          <KpiBar label={t.agentSession.conversionsToday} value={convsVal} quota={convTarget} color="#16A34A" />
+                          <KpiBar label={t.agentSession.conversionRate} value={convRateActual} quota={conversionGoalPct > 0 ? conversionGoalPct : null} suffix="%" color="#7C3AED" />
+                        </div>
+                      )}
 
-                      {/* Prestávka */}
-                      <div className="mt-2 pt-2 border-t" style={{ borderColor: "#F0EAE5" }}>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.breakTimeUsed}</span>
-                          <span className="text-[10px] font-semibold" style={{ color: breakOver ? "#DC2626" : "#A89898" }}>
-                            {shiftData!.totalBreakMinutes} min
-                          </span>
+                      {/* Prestávka — len keď > 0 */}
+                      {shiftData.totalBreakMinutes > 0 && (
+                        <div className="mt-2 pt-2 border-t" style={{ borderColor: "#F0EAE5" }}>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.breakTimeUsed}</span>
+                            <span className="text-[10px] font-semibold" style={{ color: breakOver ? "#DC2626" : "#A89898" }}>
+                              {shiftData.totalBreakMinutes} min
+                            </span>
+                          </div>
+                          <div className="h-1 rounded-full" style={{ background: "#EDE5DF" }}>
+                            <div className="h-1 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((shiftData.totalBreakMinutes / 60) * 100))}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
+                          </div>
                         </div>
-                        <div className="h-1 rounded-full" style={{ background: "#EDE5DF" }}>
-                          <div className="h-1 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((shiftData!.totalBreakMinutes / 60) * 100))}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
-                        </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>
