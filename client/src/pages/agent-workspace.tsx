@@ -9119,7 +9119,7 @@ export default function AgentWorkspacePage() {
 
             return (
               <>
-                <div className="px-5 pt-4 pb-3 border-b bg-background">
+                <div className="px-5 pt-4 pb-3 border-b bg-background rounded-t-lg">
                   <div className="flex items-center gap-3">
                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isEmail ? "bg-indigo-50 dark:bg-indigo-900/30" : "bg-sky-50 dark:bg-sky-900/30"}`}>
                       {isEmail ? (
