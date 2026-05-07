@@ -3559,7 +3559,7 @@ function CustomerInfoPanel({
   onViewCustomer: () => void;
   onOpenHistoryDetail?: (entry: ContactHistory) => void;
   inboundMatches?: PhoneMatch[];
-  onSelectMatch?: (match: PhoneMatch) => void;
+  onSelectMatch?: (match: PhoneMatch, mode: "card" | "details" | "open") => void;
 }) {
   const { t, locale } = useI18n();
   const callContext = useCall();
@@ -3689,19 +3689,50 @@ function CustomerInfoPanel({
                 const labelMap: Record<string, string> = {
                   customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník",
                 };
+                const isCustomer = match.entityType === "customer";
                 return (
-                  <button
+                  <div
                     key={`${match.entityType}-${match.id}`}
-                    onClick={() => onSelectMatch?.(match)}
-                    className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-muted/70 transition-colors"
-                    data-testid={`btn-phone-match-${match.entityType}-${match.id}`}
+                    className="flex items-center gap-1.5 w-full px-2 py-1 rounded-md hover:bg-muted/50 transition-colors group"
+                    data-testid={`phone-match-${match.entityType}-${match.id}`}
                   >
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${colorMap[match.entityType] || "bg-muted text-muted-foreground"}`}>
                       {labelMap[match.entityType] || match.entityType}
                     </span>
-                    <span className="text-[11px] font-medium truncate">{match.name}</span>
-                    {match.subtype && <span className="text-[10px] text-muted-foreground truncate">{match.subtype}</span>}
-                  </button>
+                    <span className="text-[11px] font-medium truncate flex-1 min-w-0">{match.name}</span>
+                    {match.subtype && <span className="text-[10px] text-muted-foreground truncate max-w-[60px]">{match.subtype}</span>}
+                    <div className="flex items-center gap-0.5 shrink-0 ml-auto opacity-60 group-hover:opacity-100 transition-opacity">
+                      {isCustomer ? (
+                        <>
+                          <button
+                            onClick={() => onSelectMatch?.(match, "card")}
+                            title="Otvoriť kartu"
+                            className="h-5 w-5 flex items-center justify-center rounded hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors"
+                            data-testid={`btn-match-card-${match.id}`}
+                          >
+                            <User className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => onSelectMatch?.(match, "details")}
+                            title="Otvoriť detail"
+                            className="h-5 w-5 flex items-center justify-center rounded hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors"
+                            data-testid={`btn-match-details-${match.id}`}
+                          >
+                            <Info className="h-3 w-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => onSelectMatch?.(match, "open")}
+                          title="Otvoriť v CRM"
+                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors"
+                          data-testid={`btn-match-open-${match.id}`}
+                        >
+                          <ArrowRight className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -5337,19 +5368,76 @@ export default function AgentWorkspacePage() {
     staleTime: 60000,
   });
 
-  const handleSelectInboundMatch = (match: PhoneMatch) => {
-    if (match.entityType === "customer") {
-      setActiveChannel("phone");
-      setPhoneSubTabOverride("details");
-      setTimeout(() => setPhoneSubTabOverride(null), 100);
-    } else {
-      const pathMap: Record<string, string> = {
-        hospital: "/hospitals",
-        clinic: "/clinics",
-        collaborator: "/collaborators",
-      };
-      const base = pathMap[match.entityType];
-      if (base) window.open(`${base}#${match.id}`, "_blank");
+  const handleSelectInboundMatch = async (match: PhoneMatch, mode: "card" | "details" | "open") => {
+    try {
+      if (match.entityType === "customer") {
+        const res = await fetch(`/api/customers/${match.id}`, { credentials: "include" });
+        if (!res.ok) return;
+        const customer: Customer = await res.json();
+        setCurrentContact(customer);
+        setCurrentContactType("customer");
+        setCurrentHospitalData(null);
+        setCurrentClinicData(null);
+        setCurrentCollaboratorData(null);
+        setActiveChannel("phone");
+        setPhoneSubTabOverride(mode === "card" ? "card" : "details");
+        setTimeout(() => setPhoneSubTabOverride(null), 100);
+      } else if (match.entityType === "hospital") {
+        const res = await fetch(`/api/hospitals/${match.id}`, { credentials: "include" });
+        if (!res.ok) return;
+        const hospital = await res.json();
+        const virtualCustomer: Customer = {
+          id: hospital.id, firstName: hospital.name || "", lastName: "",
+          email: hospital.email || null, phone: hospital.phone || null,
+          countryCode: hospital.countryCode || null,
+        } as Customer;
+        setCurrentContact(virtualCustomer);
+        setCurrentContactType("hospital");
+        setCurrentHospitalData(hospital);
+        setCurrentClinicData(null);
+        setCurrentCollaboratorData(null);
+        setActiveChannel("phone");
+        setPhoneSubTabOverride("details");
+        setTimeout(() => setPhoneSubTabOverride(null), 100);
+      } else if (match.entityType === "clinic") {
+        const res = await fetch(`/api/clinics/${match.id}`, { credentials: "include" });
+        if (!res.ok) return;
+        const clinic = await res.json();
+        const virtualCustomer: Customer = {
+          id: clinic.id, firstName: clinic.clinicName || clinic.name || "",
+          lastName: clinic.doctorName || "",
+          email: clinic.email || null, phone: clinic.phone || null,
+          countryCode: clinic.countryCode || null,
+        } as Customer;
+        setCurrentContact(virtualCustomer);
+        setCurrentContactType("clinic");
+        setCurrentHospitalData(null);
+        setCurrentClinicData(clinic);
+        setCurrentCollaboratorData(null);
+        setActiveChannel("phone");
+        setPhoneSubTabOverride("details");
+        setTimeout(() => setPhoneSubTabOverride(null), 100);
+      } else if (match.entityType === "collaborator") {
+        const res = await fetch(`/api/collaborators/${match.id}`, { credentials: "include" });
+        if (!res.ok) return;
+        const collaborator = await res.json();
+        const virtualCustomer: Customer = {
+          id: collaborator.id, firstName: collaborator.firstName || collaborator.name || "",
+          lastName: collaborator.lastName || "",
+          email: collaborator.email || null, phone: collaborator.phone || null,
+          countryCode: collaborator.countryCode || null,
+        } as Customer;
+        setCurrentContact(virtualCustomer);
+        setCurrentContactType("collaborator");
+        setCurrentHospitalData(null);
+        setCurrentClinicData(null);
+        setCurrentCollaboratorData(collaborator);
+        setActiveChannel("phone");
+        setPhoneSubTabOverride("details");
+        setTimeout(() => setPhoneSubTabOverride(null), 100);
+      }
+    } catch (e) {
+      console.error("Error loading inbound match entity:", e);
     }
   };
   const callWasActiveRef = useRef(false);
