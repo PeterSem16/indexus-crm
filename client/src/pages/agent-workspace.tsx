@@ -2529,56 +2529,58 @@ function CommunicationCanvas({
 
       {activeChannel === "phone" && (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="border-b bg-card/50 flex items-center shrink-0 z-10">
-            <button
-              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
-                phoneSubTab === "card"
-                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={() => setPhoneSubTab("card")}
-              data-testid="subtab-customer-card"
-            >
-              <Pencil className="h-3 w-3" />
-              {t.agentWorkspace.customerCard}
-            </button>
-            <button
-              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
-                phoneSubTab === "details"
-                  ? "border-purple-500 text-purple-600 dark:text-purple-400"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={() => setPhoneSubTab("details")}
-              data-testid="subtab-customer-details"
-            >
-              <Eye className="h-3 w-3" />
-              {t.agentWorkspace.customerDetail}
-            </button>
-            <button
-              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
-                phoneSubTab === "documents"
-                  ? "border-green-500 text-green-600 dark:text-green-400"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={() => setPhoneSubTab("documents")}
-              data-testid="subtab-customer-documents"
-            >
-              <FileText className="h-3 w-3" />
-              {t.agentWorkspace.customerDocumentsTab}
-            </button>
-            <button
-              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
-                phoneSubTab === "sop"
-                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={() => setPhoneSubTab("sop")}
-              data-testid="subtab-sop"
-            >
-              <BookOpen className="h-3 w-3" />
-              {t.agentWorkspace.sopTab || "SOP"}
-            </button>
-          </div>
+          {contactType === "customer" && (
+            <div className="border-b bg-card/50 flex items-center shrink-0 z-10">
+              <button
+                className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                  phoneSubTab === "card"
+                    ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setPhoneSubTab("card")}
+                data-testid="subtab-customer-card"
+              >
+                <Pencil className="h-3 w-3" />
+                {t.agentWorkspace.customerCard}
+              </button>
+              <button
+                className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                  phoneSubTab === "details"
+                    ? "border-purple-500 text-purple-600 dark:text-purple-400"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setPhoneSubTab("details")}
+                data-testid="subtab-customer-details"
+              >
+                <Eye className="h-3 w-3" />
+                {t.agentWorkspace.customerDetail}
+              </button>
+              <button
+                className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                  phoneSubTab === "documents"
+                    ? "border-green-500 text-green-600 dark:text-green-400"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setPhoneSubTab("documents")}
+                data-testid="subtab-customer-documents"
+              >
+                <FileText className="h-3 w-3" />
+                {t.agentWorkspace.customerDocumentsTab}
+              </button>
+              <button
+                className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                  phoneSubTab === "sop"
+                    ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setPhoneSubTab("sop")}
+                data-testid="subtab-sop"
+              >
+                <BookOpen className="h-3 w-3" />
+                {t.agentWorkspace.sopTab || "SOP"}
+              </button>
+            </div>
+          )}
 
           {(phoneSubTab === "card" || phoneSubTab === "details") && contact && contact.phone && isSipRegistered && onMakeCall && (
             <div className="border-b bg-muted/20 px-4 py-2 flex items-center gap-2.5 shrink-0" data-testid="phone-call-strip">
