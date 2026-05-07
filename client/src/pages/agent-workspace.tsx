@@ -2582,42 +2582,6 @@ function CommunicationCanvas({
             </div>
           )}
 
-          {(phoneSubTab === "card" || phoneSubTab === "details") && contact && contact.phone && isSipRegistered && onMakeCall && (
-            <div className="border-b bg-muted/20 px-4 py-2 flex items-center gap-2.5 shrink-0" data-testid="phone-call-strip">
-              <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-sm font-medium">{contact.phone}</span>
-              {callState === "idle" || !callState ? (
-                <Button
-                  size="sm"
-                  variant="default"
-                  className="h-8 text-sm px-5 ml-auto bg-green-600 hover:bg-green-700 text-white font-semibold shadow-sm"
-                  onClick={() => onMakeCall(contact.phone!)}
-                  data-testid="btn-call-from-subtab"
-                >
-                  <Phone className="h-3.5 w-3.5 mr-2" />
-                  {t.agentWorkspace.call}
-                </Button>
-              ) : callState === "connecting" || callState === "ringing" ? (
-                <span className="text-[11px] text-yellow-600 dark:text-yellow-400 ml-auto flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
-                  {ringDuration ? `Vyzvánanie ${ringDuration}s` : "Pripájanie..."}
-                </span>
-              ) : callState === "active" || callState === "on_hold" ? (
-                <span className="text-[11px] text-green-600 dark:text-green-400 ml-auto flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="font-mono tabular-nums">
-                    {String(Math.floor((callDuration || 0) / 60)).padStart(2, "0")}:{String((callDuration || 0) % 60).padStart(2, "0")}
-                  </span>
-                  {callState === "on_hold" && <Badge variant="outline" className="text-[9px] h-4 px-1">HOLD</Badge>}
-                </span>
-              ) : callState === "ended" ? (
-                <span className="text-[11px] text-red-500 ml-auto flex items-center gap-1.5 font-semibold">
-                  <span className="h-2 w-2 rounded-full bg-red-500" />
-                  {hungUpBy === "customer" ? "Zákazník zavesil" : "Hovor ukončený"}
-                </span>
-              ) : null}
-            </div>
-          )}
 
           {phoneSubTab === "card" && contact && (
             <>
