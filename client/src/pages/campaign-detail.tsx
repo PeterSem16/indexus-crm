@@ -5143,61 +5143,74 @@ export default function CampaignDetailPage() {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-muted-foreground shrink-0">
                 {filteredContacts.length} / {contacts.length} kontaktov
               </span>
-              <Button
-                variant="outline"
-                onClick={() => setShowSortRulesDialog(true)}
-                data-testid="button-open-sort-rules"
-              >
-                <ArrowUpDown className="w-4 h-4 mr-2" />
-                {t.campaigns.detail.sortRulesConfigureBtn}
-                {(() => { try { const s = JSON.parse(campaign.settings || "{}"); const c = (s.contactSortRules || []).length; return c > 0 ? <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">{c}</Badge> : null; } catch { return null; } })()}
-              </Button>
-              <Button
-                className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 dark:from-amber-600 dark:to-orange-600 dark:border-amber-700"
-                onClick={() => {
-                  setRequeueDispositions(new Set());
-                  setRequeueStatuses(new Set());
-                  setRequeueCallbackFrom("");
-                  setRequeueCallbackTo("");
-                  setShowRequeueDialog(true);
-                }}
-                data-testid="button-requeue-contacts"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                {t.campaigns.detail.requeueButton}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setImportFile(null);
-                  setImportResult(null);
-                  setShowImportDialog(true);
-                }}
-                data-testid="button-import-contacts"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Import
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowGenerateDialog(true)}
-                disabled={generateContactsMutation.isPending}
-                data-testid="button-generate-contacts"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${generateContactsMutation.isPending ? "animate-spin" : ""}`} />
-                {t.campaigns.detail.generateContacts}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={handleExportContacts}
-                data-testid="button-export-contacts"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                {selectedContacts.size > 0 ? `Export (${selectedContacts.size})` : "Export"}
-              </Button>
+
+              {/* Data management: Import → Generate → Export */}
+              <div className="flex items-center gap-1 border-l pl-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setImportFile(null);
+                    setImportResult(null);
+                    setShowImportDialog(true);
+                  }}
+                  data-testid="button-import-contacts"
+                >
+                  <Upload className="w-4 h-4 mr-1.5" />
+                  {t.campaigns.detail.importContacts}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowGenerateDialog(true)}
+                  disabled={generateContactsMutation.isPending}
+                  data-testid="button-generate-contacts"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1.5 ${generateContactsMutation.isPending ? "animate-spin" : ""}`} />
+                  {t.campaigns.detail.generateContacts}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportContacts}
+                  data-testid="button-export-contacts"
+                >
+                  <Download className="w-4 h-4 mr-1.5" />
+                  {selectedContacts.size > 0 ? `${t.campaigns.detail.exportContacts} (${selectedContacts.size})` : t.campaigns.detail.exportContacts}
+                </Button>
+              </div>
+
+              {/* Config & queue operations */}
+              <div className="flex items-center gap-1 border-l pl-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSortRulesDialog(true)}
+                  data-testid="button-open-sort-rules"
+                >
+                  <ArrowUpDown className="w-4 h-4 mr-1.5" />
+                  {t.campaigns.detail.sortRulesConfigureBtn}
+                  {(() => { try { const s = JSON.parse(campaign.settings || "{}"); const c = (s.contactSortRules || []).length; return c > 0 ? <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">{c}</Badge> : null; } catch { return null; } })()}
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 dark:from-amber-600 dark:to-orange-600 dark:border-amber-700"
+                  onClick={() => {
+                    setRequeueDispositions(new Set());
+                    setRequeueStatuses(new Set());
+                    setRequeueCallbackFrom("");
+                    setRequeueCallbackTo("");
+                    setShowRequeueDialog(true);
+                  }}
+                  data-testid="button-requeue-contacts"
+                >
+                  <RefreshCw className="w-4 h-4 mr-1.5" />
+                  {t.campaigns.detail.requeueButton}
+                </Button>
+              </div>
             </div>
           </div>
 
