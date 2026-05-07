@@ -181,10 +181,7 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
     ? primaryMatch.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : call.callerNumber.slice(-2);
 
-  // Accept is always enabled: for WebRTC calls the SIP invite is answered automatically;
-  // for external SIP devices (JustCall, hardware phones) the call is already ringing on
-  // the device — clicking Accept here loads CRM context without a browser SIP answer.
-  const canAccept = true;
+  const canAccept = call.hasSipInvitation === true;
   const displayName = primaryMatch?.name || call.callerNumber;
   const entityTypeColors: Record<string, string> = {
     customer: "bg-blue-100 text-blue-700",
@@ -419,7 +416,7 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
 
   const pillPrimaryMatch = pillPhoneMatches[0] ?? null;
   const isQueueWaiting = !!firstCall.isQueueWaiting;
-  const canAnswer = !hasActiveCall && !isQueueWaiting;
+  const canAnswer = !hasActiveCall && !isQueueWaiting && firstCall.hasSipInvitation === true;
   const displayName = pillPrimaryMatch?.name || firstCall.callerNumber;
   const pillColor = hasActiveCall ? "#D97706" : isQueueWaiting ? "#7C3AED" : "#16A34A";
   const pillHoverColor = hasActiveCall ? "#B45309" : isQueueWaiting ? "#6D28D9" : "#15803D";

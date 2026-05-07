@@ -5418,6 +5418,7 @@ export default function AgentWorkspacePage() {
   const [selectedLoginCampaignIds, setSelectedLoginCampaignIds] = useState<string[]>([]);
   const [selectedLoginQueueIds, setSelectedLoginQueueIds] = useState<string[]>([]);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
+  const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[] } | null>(null);
   const [contractWizardStep, setContractWizardStep] = useState(1);
   const [contractForm, setContractForm] = useState({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
   const [inboundCalls, setInboundCalls] = useState<Array<{
@@ -7372,10 +7373,11 @@ export default function AgentWorkspacePage() {
       }
 
       setInboundCalls(prev => {
-        // Guard against re-linking the same invitation object (e.g. effect re-firing)
-        // Do NOT block if a *different* call already has an invitation — each queue call
-        // gets its own SIP INVITE and must be linkable independently.
-        const alreadyLinked = prev.some(c => c.sipInvitation === invitation);
+        // Guard against re-linking the SAME invitation object (e.g. effect re-firing).
+        // Only check if invitation is defined — when invitation is undefined we must still
+        // proceed so that hasSipInvitation gets set true (queue calls sometimes deliver
+        // the invitation object slightly later via incomingCallRef).
+        const alreadyLinked = invitation != null && prev.some(c => c.sipInvitation === invitation);
         if (alreadyLinked) return prev;
 
         const directUnlinked = prev.filter(c => !c.hasSipInvitation && c.channelId === "sip-webrtc");
@@ -7477,53 +7479,75 @@ export default function AgentWorkspacePage() {
         apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id }).catch(() => {});
       }
 
-      let customerFound = false;
+      // Fetch ALL entity matches for this number so agent can pick the right one
+      let anyFound = false;
       try {
-        const res = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(callerNumber)}`, { credentials: "include" });
-        if (res.ok) {
-          const matched = await res.json();
-          if (matched?.id) {
-            const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" });
-            if (custRes.ok) {
-              const customer = await custRes.json();
-              customerFound = true;
-              setCurrentContact(customer);
-              setCurrentCampaignContactId(null);
-
-              const newTask: TaskItem = {
-                id: `task-inbound-${Date.now()}`,
-                contact: customer,
-                campaignId: selectedCampaignId || "",
-                campaignName: selectedCampaign?.name || "Inbound",
-                campaignContactId: null,
-                channel: "phone",
-                startedAt: new Date(),
-                status: "active",
-                direction: "inbound",
-              };
-              setTasks((prev) => [...prev, newTask]);
-              setActiveTaskId(newTask.id);
-
+        const allRes = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(callerNumber)}`, { credentials: "include" });
+        if (allRes.ok) {
+          const allMatches: PhoneMatch[] = await allRes.json();
+          if (allMatches.length > 1) {
+            // Multiple matches — show entity selection modal; agent will pick
+            anyFound = true;
+            setPendingInboundMatches({ phone: callerNumber, matches: allMatches });
+            setTimeline([{
+              id: `sys-inbound-${Date.now()}`,
+              type: "system",
+              timestamp: new Date(),
+              content: `Prichádzajúci hovor od ${callerNumber} — ${allMatches.length} zhôd, vyberte kontakt`,
+            }]);
+          } else if (allMatches.length === 1) {
+            // Single match — auto-load it (customer or any other entity type)
+            anyFound = true;
+            const m = allMatches[0];
+            if (m.entityType === "customer") {
+              const custRes = await fetch(`/api/customers/${m.id}`, { credentials: "include" });
+              if (custRes.ok) {
+                const customer = await custRes.json();
+                setCurrentContact(customer);
+                setCurrentCampaignContactId(null);
+                const newTask: TaskItem = {
+                  id: `task-inbound-${Date.now()}`,
+                  contact: customer,
+                  campaignId: selectedCampaignId || "",
+                  campaignName: selectedCampaign?.name || "Inbound",
+                  campaignContactId: null,
+                  channel: "phone",
+                  startedAt: new Date(),
+                  status: "active",
+                  direction: "inbound",
+                };
+                setTasks((prev) => [...prev, newTask]);
+                setActiveTaskId(newTask.id);
+                setTimeline([{
+                  id: `sys-inbound-${Date.now()}`,
+                  type: "system",
+                  timestamp: new Date(),
+                  content: `Prichádzajúci hovor od ${m.name} (${callerNumber})`,
+                  details: "Inbound call",
+                }]);
+              }
+            } else {
+              // Hospital / clinic / collaborator — use handleSelectInboundMatch style inline
               setTimeline([{
                 id: `sys-inbound-${Date.now()}`,
                 type: "system",
                 timestamp: new Date(),
-                content: `Prichádzajúci hovor od ${customer.firstName} ${customer.lastName} (${callerNumber})`,
+                content: `Prichádzajúci hovor od ${m.name} (${callerNumber})`,
                 details: "Inbound call",
               }]);
             }
           }
         }
       } catch (lookupErr) {
-        console.warn("[AgentWS] Customer lookup failed:", lookupErr);
+        console.warn("[AgentWS] lookup-all failed:", lookupErr);
       }
 
-      if (!customerFound) {
+      if (!anyFound) {
         setTimeline([{
           id: `sys-inbound-${Date.now()}`,
           type: "system",
           timestamp: new Date(),
-          content: `Prichádzajúci hovor od ${callerNumber} (neznámy zákazník)`,
+          content: `Prichádzajúci hovor od ${callerNumber} (neznámy kontakt)`,
         }]);
       }
     };
@@ -9811,6 +9835,72 @@ export default function AgentWorkspacePage() {
                 )}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Post-accept entity selection modal — shown when multiple phone matches exist */}
+      <Dialog open={!!pendingInboundMatches} onOpenChange={(open) => { if (!open) setPendingInboundMatches(null); }}>
+        <DialogContent className="max-w-md" data-testid="dialog-entity-selection">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PhoneIncoming className="h-5 w-5 text-green-600" />
+              Vyberte kontakt pre hovor
+            </DialogTitle>
+            <DialogDescription>
+              Číslo <span className="font-mono font-medium">{pendingInboundMatches?.phone}</span> je priradené viacerým kontaktom. Vyberte, ku komu chcete tento hovor priradiť.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2 max-h-80 overflow-y-auto">
+            {pendingInboundMatches?.matches.map((match) => {
+              const colorMap: Record<string, string> = {
+                customer: "bg-blue-100 text-blue-700 border-blue-200",
+                hospital: "bg-purple-100 text-purple-700 border-purple-200",
+                clinic: "bg-cyan-100 text-cyan-700 border-cyan-200",
+                collaborator: "bg-amber-100 text-amber-700 border-amber-200",
+              };
+              const labelMap: Record<string, string> = {
+                customer: t.agentWorkspace.entityTypeCustomer,
+                hospital: t.agentWorkspace.entityTypeHospital,
+                clinic: t.agentWorkspace.entityTypeClinic,
+                collaborator: t.agentWorkspace.entityTypeCollaborator,
+              };
+              const iconMap: Record<string, React.ReactNode> = {
+                customer: <User className="h-4 w-4 shrink-0" />,
+                hospital: <Building2 className="h-4 w-4 shrink-0" />,
+                clinic: <Building2 className="h-4 w-4 shrink-0" />,
+                collaborator: <Users className="h-4 w-4 shrink-0" />,
+              };
+              return (
+                <button
+                  key={`${match.entityType}-${match.id}`}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors text-left group"
+                  data-testid={`btn-select-entity-${match.entityType}-${match.id}`}
+                  onClick={async () => {
+                    setPendingInboundMatches(null);
+                    await handleSelectInboundMatch(match, "card");
+                  }}
+                >
+                  <div className={`p-2 rounded-md border ${colorMap[match.entityType] || "bg-muted"}`}>
+                    {iconMap[match.entityType]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">{match.name}</div>
+                    {match.subtype && (
+                      <div className="text-xs text-muted-foreground truncate">{match.subtype}</div>
+                    )}
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${colorMap[match.entityType] || "bg-muted"}`}>
+                    {labelMap[match.entityType] || match.entityType}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setPendingInboundMatches(null)} data-testid="btn-entity-selection-skip">
+              Preskočiť
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
