@@ -244,6 +244,13 @@ export interface Translations {
     endCall: string;
     dialpad: string;
     leadScore: string;
+    customerHungUp: string;
+    callEnded: string;
+    pauseRecording: string;
+    resumeRecording: string;
+    speaker: string;
+    microphone: string;
+    volume: string;
   };
   common: {
     save: string;
@@ -6427,6 +6434,13 @@ export const translations: Record<Locale, Translations> = {
       endCall: 'End call',
       dialpad: 'Dialpad',
       leadScore: 'Score',
+      customerHungUp: 'Customer hung up',
+      callEnded: 'Call ended',
+      pauseRecording: 'Pause recording',
+      resumeRecording: 'Resume recording',
+      speaker: 'Speaker',
+      microphone: 'Microphone',
+      volume: 'Volume',
     },
     common: {
       save: 'Save',
@@ -17351,6 +17365,13 @@ export const translations: Record<Locale, Translations> = {
       endCall: 'Ukončiť hovor',
       dialpad: 'Klávesnica',
       leadScore: 'Skóre',
+      customerHungUp: 'Zákazník položil',
+      callEnded: 'Hovor ukončený',
+      pauseRecording: 'Pozastaviť nahrávanie',
+      resumeRecording: 'Obnoviť nahrávanie',
+      speaker: 'Reproduktor',
+      microphone: 'Mikrofón',
+      volume: 'Hlasitosť',
     },
     contractsModule: {
       title: 'Zmluvy',
@@ -23417,6 +23438,13 @@ export const translations: Record<Locale, Translations> = {
       endCall: 'Ukončit hovor',
       dialpad: 'Klávesnice',
       leadScore: 'Skóre',
+      customerHungUp: 'Zákazník zavěsil',
+      callEnded: 'Hovor ukončen',
+      pauseRecording: 'Pozastavit nahrávání',
+      resumeRecording: 'Obnovit nahrávání',
+      speaker: 'Reproduktor',
+      microphone: 'Mikrofon',
+      volume: 'Hlasitost',
     },
     contractsModule: {
       title: 'Smlouvy',
@@ -29453,6 +29481,13 @@ export const translations: Record<Locale, Translations> = {
       endCall: 'Hívás befejezése',
       dialpad: 'Billentyűzet',
       leadScore: 'Pontszám',
+      customerHungUp: 'Az ügyfél letette',
+      callEnded: 'Hívás befejezve',
+      pauseRecording: 'Felvétel szüneteltetése',
+      resumeRecording: 'Felvétel folytatása',
+      speaker: 'Hangszóró',
+      microphone: 'Mikrofon',
+      volume: 'Hangerő',
     },
     contractsModule: {
       title: 'Szerződések',
@@ -35409,6 +35444,13 @@ export const translations: Record<Locale, Translations> = {
       endCall: 'Încheiere apel',
       dialpad: 'Tastatură',
       leadScore: 'Scor',
+      customerHungUp: 'Clientul a închis',
+      callEnded: 'Apel încheiat',
+      pauseRecording: 'Pauză înregistrare',
+      resumeRecording: 'Reluare înregistrare',
+      speaker: 'Difuzor',
+      microphone: 'Microfon',
+      volume: 'Volum',
     },
     contractsModule: {
       title: 'Contracte',
@@ -41367,6 +41409,13 @@ export const translations: Record<Locale, Translations> = {
       endCall: 'Termina chiamata',
       dialpad: 'Tastierino',
       leadScore: 'Punteggio',
+      customerHungUp: 'Il cliente ha riagganciato',
+      callEnded: 'Chiamata terminata',
+      pauseRecording: 'Pausa registrazione',
+      resumeRecording: 'Riprendi registrazione',
+      speaker: 'Altoparlante',
+      microphone: 'Microfono',
+      volume: 'Volume',
     },
     contractsModule: {
       title: 'Contratti',
@@ -47312,6 +47361,13 @@ export const translations: Record<Locale, Translations> = {
       endCall: 'Anruf beenden',
       dialpad: 'Tastenfeld',
       leadScore: 'Punktzahl',
+      customerHungUp: 'Kunde hat aufgelegt',
+      callEnded: 'Anruf beendet',
+      pauseRecording: 'Aufnahme pausieren',
+      resumeRecording: 'Aufnahme fortsetzen',
+      speaker: 'Lautsprecher',
+      microphone: 'Mikrofon',
+      volume: 'Lautstärke',
     },
     contractsModule: {
       title: 'Verträge',

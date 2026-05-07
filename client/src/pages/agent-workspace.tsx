@@ -3609,17 +3609,6 @@ function CustomerInfoPanel({
               <h2 className="font-bold text-sm truncate flex-1" style={{ color: "#2E2118" }} data-testid="text-contact-name">
                 {contact.firstName} {contact.lastName}
               </h2>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7 shrink-0 hover:bg-transparent"
-                onClick={onViewCustomer}
-                title={t.agentWorkspace.customerDetail}
-                data-testid="button-view-customer"
-                style={{ color: "#9A8878" }}
-              >
-                <Eye className="h-3.5 w-3.5" />
-              </Button>
             </div>
             <div className="flex items-center gap-1.5 mt-1">
               <Badge className="text-[10px] border-0 font-medium" style={{ background: "#EDE8E0", color: "#7A6858" }}>
@@ -3658,12 +3647,12 @@ function CustomerInfoPanel({
                 "bg-red-500"
               }`} />
               <span className="text-xs font-semibold truncate">
-                {(callState === "connecting") ? "Pripájanie..." :
-                 (callState === "ringing") ? "Zvoní..." :
-                 (callState === "on_hold") ? "Podržané" :
-                 (callState === "ended" && hungUpBy === "customer") ? "Zákazník položil" :
-                 (callState === "ended") ? "Hovor ukončený" :
-                 "Aktívny hovor"}
+                {(callState === "connecting") ? t.callBar.connecting :
+                 (callState === "ringing") ? t.callBar.ringing :
+                 (callState === "on_hold") ? t.callBar.onHold :
+                 (callState === "ended" && hungUpBy === "customer") ? t.callBar.customerHungUp :
+                 (callState === "ended") ? t.callBar.callEnded :
+                 t.callBar.active}
               </span>
             </div>
             <span className="font-mono text-sm font-bold tabular-nums shrink-0">
@@ -3694,7 +3683,7 @@ function CustomerInfoPanel({
                   }
                 }}
                 data-testid="button-toggle-recording-pause"
-                title={callContext.isRecordingPaused ? "Obnoviť nahrávanie" : "Pozastaviť nahrávanie"}
+                title={callContext.isRecordingPaused ? t.callBar.resumeRecording : t.callBar.pauseRecording}
               >
                 {callContext.isRecordingPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
               </Button>
@@ -3708,7 +3697,7 @@ function CustomerInfoPanel({
                 variant={isMuted ? "destructive" : "outline"}
                 onClick={onToggleMute}
                 data-testid="button-card-mute"
-                title={isMuted ? "Zapnúť mikrofón" : "Stlmiť"}
+                title={isMuted ? t.callBar.unmute : t.callBar.mute}
               >
                 {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </Button>
@@ -3718,14 +3707,14 @@ function CustomerInfoPanel({
                 variant={isOnHold ? "secondary" : "outline"}
                 onClick={onToggleHold}
                 data-testid="button-card-hold"
-                title={isOnHold ? "Obnoviť" : "Podržať"}
+                title={isOnHold ? t.callBar.resume : t.callBar.hold}
               >
                 {isOnHold ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
               </Button>
 
               <Popover open={showDialpad} onOpenChange={setShowDialpad}>
                 <PopoverTrigger asChild>
-                  <Button size="icon" variant="outline" data-testid="button-card-dialpad" title="Klávesnica">
+                  <Button size="icon" variant="outline" data-testid="button-card-dialpad" title={t.callBar.dialpad}>
                     <Grid3X3 className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
@@ -3749,21 +3738,21 @@ function CustomerInfoPanel({
 
               <Popover open={showVolume} onOpenChange={setShowVolume}>
                 <PopoverTrigger asChild>
-                  <Button size="icon" variant="outline" data-testid="button-card-volume" title="Hlasitosť">
+                  <Button size="icon" variant="outline" data-testid="button-card-volume" title={t.callBar.volume}>
                     <Volume2 className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-56 p-3 space-y-3" align="center" side="left">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1"><Volume2 className="h-3 w-3" /> Reproduktor</span>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1"><Volume2 className="h-3 w-3" /> {t.callBar.speaker}</span>
                       <span className="text-xs font-mono">{volume}%</span>
                     </div>
                     <Slider value={[volume]} onValueChange={([v]) => onVolumeChange(v)} max={100} step={1} data-testid="slider-card-speaker" />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1"><Mic className="h-3 w-3" /> Mikrofón</span>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1"><Mic className="h-3 w-3" /> {t.callBar.microphone}</span>
                       <span className="text-xs font-mono">{micVolume}%</span>
                     </div>
                     <Slider value={[micVolume]} onValueChange={([v]) => onMicVolumeChange(v)} max={100} step={1} data-testid="slider-card-mic" />
@@ -3779,7 +3768,7 @@ function CustomerInfoPanel({
                 data-testid="button-card-end-call"
               >
                 <PhoneOff className="h-3.5 w-3.5" />
-                <span className="text-xs">Ukončiť</span>
+                <span className="text-xs">{t.callBar.endCall}</span>
               </Button>
             </div>
           )}
@@ -3793,7 +3782,7 @@ function CustomerInfoPanel({
               data-testid="button-card-cancel-call"
             >
               <PhoneOff className="h-3.5 w-3.5" />
-              Ukončiť hovor
+              {t.callBar.endCall}
             </Button>
           )}
 
