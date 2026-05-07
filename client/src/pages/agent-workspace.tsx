@@ -7372,7 +7372,10 @@ export default function AgentWorkspacePage() {
       }
 
       setInboundCalls(prev => {
-        const alreadyLinked = prev.some(c => c.hasSipInvitation && c.sipInvitation);
+        // Guard against re-linking the same invitation object (e.g. effect re-firing)
+        // Do NOT block if a *different* call already has an invitation — each queue call
+        // gets its own SIP INVITE and must be linkable independently.
+        const alreadyLinked = prev.some(c => c.sipInvitation === invitation);
         if (alreadyLinked) return prev;
 
         const directUnlinked = prev.filter(c => !c.hasSipInvitation && c.channelId === "sip-webrtc");
