@@ -5270,6 +5270,7 @@ export default function AgentWorkspacePage() {
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
   const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "" });
   const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
+  const [dispositionOpenedAt, setDispositionOpenedAt] = useState<number | null>(null);
   const [dispositionChannelFilter, setDispositionChannelFilter] = useState<"phone" | "email" | "sms" | null>(null);
   const [modalSelectedParent, setModalSelectedParent] = useState<string | null>(null);
   const [modalCallbackDate, setModalCallbackDate] = useState("");
@@ -6212,11 +6213,14 @@ export default function AgentWorkspacePage() {
 
     const assignLabel = callbackAssignedTo ? "osobný" : "pre všetkých";
     const dispositionElapsed = callEndTimestamp ? Math.round((Date.now() - callEndTimestamp) / 1000) : undefined;
+    const dispositionFormDurationSeconds = dispositionOpenedAt ? Math.round((Date.now() - dispositionOpenedAt) / 1000) : null;
+    setDispositionOpenedAt(null);
     const timing = callContext.callTiming;
     const callMeta = {
       ringDurationSeconds: timing.ringDurationSeconds,
       talkDurationSeconds: timing.talkDurationSeconds,
       dispositionDurationSeconds: dispositionElapsed || null,
+      dispositionFormDurationSeconds: dispositionFormDurationSeconds || null,
       hungUpBy: timing.hungUpBy,
       ringStartTime: timing.ringStartTime ? new Date(timing.ringStartTime).toISOString() : null,
       callStartTime: timing.callStartTime ? new Date(timing.callStartTime).toISOString() : null,
@@ -6230,7 +6234,7 @@ export default function AgentWorkspacePage() {
         type: "system",
         timestamp: new Date(),
         content: `Výsledok: ${disp?.name || value}`,
-        details: `Kontakt ukončený - ${disp?.name || value}${callbackDateTime ? ` (callback ${assignLabel}: ${callbackDateTime})` : ""}${timing.ringDurationSeconds ? ` | Ring: ${timing.ringDurationSeconds}s` : ""}${timing.talkDurationSeconds ? ` | Hovor: ${timing.talkDurationSeconds}s` : ""}${dispositionElapsed !== undefined ? ` | Dispozícia: ${dispositionElapsed}s` : ""}${timing.hungUpBy ? ` | Ukončil: ${timing.hungUpBy}` : ""}`,
+        details: `Kontakt ukončený - ${disp?.name || value}${callbackDateTime ? ` (callback ${assignLabel}: ${callbackDateTime})` : ""}${timing.ringDurationSeconds ? ` | Ring: ${timing.ringDurationSeconds}s` : ""}${timing.talkDurationSeconds ? ` | Hovor: ${timing.talkDurationSeconds}s` : ""}${dispositionElapsed !== undefined ? ` | Wrap-up: ${dispositionElapsed}s` : ""}${dispositionFormDurationSeconds ? ` | Formulár: ${dispositionFormDurationSeconds}s` : ""}${timing.hungUpBy ? ` | Ukončil: ${timing.hungUpBy}` : ""}`,
       },
     ]);
 
@@ -8452,7 +8456,7 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); setChecklistParentId(null); setChecklistSelectedCodes([]); setChecklistCallbackAssign("me"); } }}>
+      <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; if (open && !dispositionOpenedAt) setDispositionOpenedAt(Date.now()); setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); setChecklistParentId(null); setChecklistSelectedCodes([]); setChecklistCallbackAssign("me"); } }}>
         <SheetContent
           side="right"
           className={`w-full sm:max-w-[720px] p-0 flex flex-col gap-0 ${mandatoryDisposition ? "[&>button]:hidden" : ""}`}

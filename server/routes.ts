@@ -21251,7 +21251,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             totalSmsTime: 0,
             totalWrapUpTime: 0,
             totalDispositionTime: 0,
+            totalFormDispositionTime: 0,
             dispositionCount: 0,
+            formDispositionCount: 0,
             contactsHandled: 0,
             callCount: 0,
             emailCount: 0,
@@ -21281,6 +21283,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         let callTime = 0;
         let dispositionTime = 0;
         let dispositionCount = 0;
+        let formDispositionTime = 0;
+        let formDispositionCount = 0;
         for (const cl of sessionCalls) {
           if (cl.answeredAt && cl.endedAt) {
             callTime += diffSeconds(cl.answeredAt, cl.endedAt);
@@ -21292,6 +21296,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           if (typeof clMeta.dispositionDurationSeconds === 'number') {
             dispositionTime += clMeta.dispositionDurationSeconds;
             dispositionCount += 1;
+          }
+          if (typeof clMeta.dispositionFormDurationSeconds === 'number') {
+            formDispositionTime += clMeta.dispositionFormDurationSeconds;
+            formDispositionCount += 1;
           }
         }
 
@@ -21321,6 +21329,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         stats.totalWrapUpTime += wrapUpTime;
         stats.totalDispositionTime += dispositionTime;
         stats.dispositionCount += dispositionCount;
+        stats.totalFormDispositionTime += formDispositionTime;
+        stats.formDispositionCount += formDispositionCount;
         stats.contactsHandled += (session.contactsHandled || 0) + sessionCalls.length + sessionEmails.length + sessionSms.length;
         stats.callCount += sessionCalls.length;
         stats.emailCount += sessionEmails.length;
@@ -21380,6 +21390,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           totalWrapUpTimeFormatted: formatDuration(s.totalWrapUpTime),
           totalDispositionTimeFormatted: formatDuration(s.totalDispositionTime),
           avgDispositionTime: s.dispositionCount > 0 ? formatDuration(Math.round(s.totalDispositionTime / s.dispositionCount)) : '0:00:00',
+          totalFormDispositionTimeFormatted: formatDuration(s.totalFormDispositionTime),
+          avgFormDispositionTime: s.formDispositionCount > 0 ? formatDuration(Math.round(s.totalFormDispositionTime / s.formDispositionCount)) : '0:00:00',
           longestSessionFormatted: formatDuration(s.longestSession),
           shortestSessionFormatted: formatDuration(s.shortestSession === Infinity ? 0 : s.shortestSession),
           avgSessionDuration: s.sessionsCount > 0 ? formatDuration(Math.round((s.totalWorkTime + s.totalBreakTime) / s.sessionsCount)) : '0:00:00',
@@ -21517,6 +21529,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         let logMeta: Record<string, any> = {};
         try { logMeta = log.metadata ? JSON.parse(log.metadata) : {}; } catch {}
         const dispositionDurationSec: number | null = logMeta.dispositionDurationSeconds ?? null;
+        const dispositionFormDurationSec: number | null = logMeta.dispositionFormDurationSeconds ?? null;
 
         return {
           id: `call-${log.id}`,
@@ -21537,6 +21550,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           totalDurationFormatted: formatDuration(totalSec),
           dispositionDurationSec,
           dispositionDurationFormatted: dispositionDurationSec !== null ? formatDuration(dispositionDurationSec) : '',
+          dispositionFormDurationSec,
+          dispositionFormDurationFormatted: dispositionFormDurationSec !== null ? formatDuration(dispositionFormDurationSec) : '',
           disposition: dispCode,
           dispositionName,
           dispositionColor,
@@ -23520,8 +23535,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           metadata: callMeta || undefined,
         });
 
-        // Persist dispositionDurationSeconds into the most recent callLog for this contact
-        if (callMeta?.dispositionDurationSeconds && req.params.contactId) {
+        // Persist disposition timing fields into the most recent callLog for this contact
+        if ((callMeta?.dispositionDurationSeconds || callMeta?.dispositionFormDurationSeconds) && req.params.contactId) {
           try {
             const [latestLog] = await db.select().from(callLogs)
               .where(eq(callLogs.campaignContactId, req.params.contactId))
@@ -23530,8 +23545,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             if (latestLog) {
               let existingMeta: Record<string, any> = {};
               try { existingMeta = latestLog.metadata ? JSON.parse(latestLog.metadata) : {}; } catch {}
+              const metaUpdate: Record<string, any> = { ...existingMeta };
+              if (callMeta.dispositionDurationSeconds) metaUpdate.dispositionDurationSeconds = callMeta.dispositionDurationSeconds;
+              if (callMeta.dispositionFormDurationSeconds) metaUpdate.dispositionFormDurationSeconds = callMeta.dispositionFormDurationSeconds;
               await db.update(callLogs)
-                .set({ metadata: JSON.stringify({ ...existingMeta, dispositionDurationSeconds: callMeta.dispositionDurationSeconds }) })
+                .set({ metadata: JSON.stringify(metaUpdate) })
                 .where(eq(callLogs.id, latestLog.id));
             }
           } catch {}
