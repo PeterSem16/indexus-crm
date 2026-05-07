@@ -5286,7 +5286,15 @@ export default function CampaignDetailPage() {
                 const agent = allUsers.find(u => u.id === af.agentId);
                 if (!agent) return null;
                 const initials = agent.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
-                const matchCount = countContactsForAgentFilter(filteredContacts as any, af);
+                const matchCount = af.isRemainder
+                  ? (() => {
+                      const explicitIds = new Set<string>();
+                      parsedAgentContactFilters.filter((f: any) => !f.isRemainder).forEach((f: any) => {
+                        filteredContacts.forEach((c: any) => { if (contactMatchesAgentFilter(c, f)) explicitIds.add(c.id); });
+                      });
+                      return filteredContacts.filter((c: any) => !explicitIds.has(c.id)).length;
+                    })()
+                  : countContactsForAgentFilter(filteredContacts as any, af);
                 const isOver = dragOverAgentId === af.agentId;
                 const isSelected = selectedAgentViewId === af.agentId;
                 return (

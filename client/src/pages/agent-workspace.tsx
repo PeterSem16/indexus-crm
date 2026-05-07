@@ -3689,50 +3689,19 @@ function CustomerInfoPanel({
                 const labelMap: Record<string, string> = {
                   customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník",
                 };
-                const isCustomer = match.entityType === "customer";
                 return (
-                  <div
+                  <button
                     key={`${match.entityType}-${match.id}`}
-                    className="flex items-center gap-1.5 w-full px-2 py-1 rounded-md hover:bg-muted/50 transition-colors group"
-                    data-testid={`phone-match-${match.entityType}-${match.id}`}
+                    onClick={() => onSelectMatch?.(match, match.entityType === "customer" ? "card" : "open")}
+                    className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-muted/70 transition-colors"
+                    data-testid={`btn-phone-match-${match.entityType}-${match.id}`}
                   >
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${colorMap[match.entityType] || "bg-muted text-muted-foreground"}`}>
                       {labelMap[match.entityType] || match.entityType}
                     </span>
                     <span className="text-[11px] font-medium truncate flex-1 min-w-0">{match.name}</span>
-                    {match.subtype && <span className="text-[10px] text-muted-foreground truncate max-w-[60px]">{match.subtype}</span>}
-                    <div className="flex items-center gap-0.5 shrink-0 ml-auto opacity-60 group-hover:opacity-100 transition-opacity">
-                      {isCustomer ? (
-                        <>
-                          <button
-                            onClick={() => onSelectMatch?.(match, "card")}
-                            title="Otvoriť kartu"
-                            className="h-5 w-5 flex items-center justify-center rounded hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors"
-                            data-testid={`btn-match-card-${match.id}`}
-                          >
-                            <User className="h-3 w-3" />
-                          </button>
-                          <button
-                            onClick={() => onSelectMatch?.(match, "details")}
-                            title="Otvoriť detail"
-                            className="h-5 w-5 flex items-center justify-center rounded hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors"
-                            data-testid={`btn-match-details-${match.id}`}
-                          >
-                            <Info className="h-3 w-3" />
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => onSelectMatch?.(match, "open")}
-                          title="Otvoriť v CRM"
-                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors"
-                          data-testid={`btn-match-open-${match.id}`}
-                        >
-                          <ArrowRight className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                    {match.subtype && <span className="text-[10px] text-muted-foreground truncate">{match.subtype}</span>}
+                  </button>
                 );
               })}
             </div>
