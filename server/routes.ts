@@ -40904,6 +40904,7 @@ Return ONLY the JSON object.`
         totalCallsToday: Number(totalCallsRows[0]?.count || 0),
         conversionsToday: Number(conversionsRows[0]?.count || 0),
         totalBreakMinutes: Math.floor(totals.totalBreakSeconds / 60),
+        totalBreakSeconds: totals.totalBreakSeconds,
         totalCallMinutes: Math.floor(effectiveCallSeconds / 60),
         totalWorkMinutes: Math.floor(totals.totalWorkSeconds / 60),
         dispositionsToday: Number(dispositionsRows[0]?.count || 0),

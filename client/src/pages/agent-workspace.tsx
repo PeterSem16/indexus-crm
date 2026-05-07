@@ -5565,6 +5565,7 @@ export default function AgentWorkspacePage() {
     totalCallsToday: number;
     conversionsToday: number;
     totalBreakMinutes: number;
+    totalBreakSeconds: number;
     totalCallMinutes: number;
     totalWorkMinutes: number;
     dispositionsToday: number;
@@ -6308,6 +6309,7 @@ export default function AgentWorkspacePage() {
     try {
       if (agentSession.activeBreak) {
         await agentSession.endBreak();
+        refetchShiftData();
       }
       await agentSession.updateStatus(newStatus);
       const STATUS_CONFIG = getStatusConfig(t);
@@ -6332,6 +6334,7 @@ export default function AgentWorkspacePage() {
   const handleEndBreak = async () => {
     try {
       await agentSession.endBreak();
+      refetchShiftData();
       toast({ title: t.agentSession.continueWork, description: t.agentSession.continueWork });
     } catch (error) {
       toast({ title: t.agentSession.shiftError, description: t.agentSession.breakEndError, variant: "destructive" });
@@ -7429,7 +7432,7 @@ export default function AgentWorkspacePage() {
                 : null;
               const convRateActual = contactsVal > 0 ? (convsVal / contactsVal) * 100 : 0;
 
-              const hasTodayData = shiftData && (contactsVal > 0 || callsVal > 0 || shiftData.totalBreakMinutes > 0 || shiftData.dispositionsToday > 0 || shiftData.totalCallMinutes > 0 || convsVal > 0);
+              const hasTodayData = shiftData && (contactsVal > 0 || callsVal > 0 || (shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) > 0 || shiftData.dispositionsToday > 0 || shiftData.totalCallMinutes > 0 || convsVal > 0);
 
               // KPI bar helper
               const KpiBar = ({ label, value, quota, suffix = "", color = "hsl(355 85% 42%)" }: { label: string; value: number; quota: number | null; suffix?: string; color?: string }) => {
@@ -7499,17 +7502,19 @@ export default function AgentWorkspacePage() {
                         </div>
                       )}
 
-                      {/* Prestávka — len keď > 0 */}
-                      {shiftData.totalBreakMinutes > 0 && (
+                      {/* Prestávka — len keď > 0 sekúnd */}
+                      {((shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) > 0) && (
                         <div className="mt-2 pt-2 border-t" style={{ borderColor: "#F0EAE5" }}>
                           <div className="flex items-center justify-between mb-0.5">
                             <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.breakTimeUsed}</span>
                             <span className="text-[10px] font-semibold" style={{ color: breakOver ? "#DC2626" : "#A89898" }}>
-                              {shiftData.totalBreakMinutes} min
+                              {shiftData.totalBreakMinutes > 0
+                                ? `${shiftData.totalBreakMinutes} min`
+                                : `${shiftData.totalBreakSeconds ?? 0} s`}
                             </span>
                           </div>
                           <div className="h-1 rounded-full" style={{ background: "#EDE5DF" }}>
-                            <div className="h-1 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((shiftData.totalBreakMinutes / 60) * 100))}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
+                            <div className="h-1 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round(((shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) / 3600) * 100))}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
                           </div>
                         </div>
                       )}
