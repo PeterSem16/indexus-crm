@@ -5291,6 +5291,12 @@ export default function AgentWorkspacePage() {
   const filteredCallerNumbersRef = useRef<Map<string, number>>(new Map());
   const acceptingCallRef = useRef(false);
   const dialingRef = useRef(false);
+  const dispositionContextRef = useRef<{
+    taskId: string | null;
+    contactId: string | null;
+    campaignContactId: string | null;
+    campaignId: string | null;
+  } | null>(null);
 
   const [inboundRingtoneEnabled, setInboundRingtoneEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -5519,6 +5525,12 @@ export default function AgentWorkspacePage() {
       if (curr === "ended") {
         callWasActiveRef.current = false;
         if (currentContact && currentCampaignContactId) {
+          dispositionContextRef.current = {
+            taskId: activeTaskId,
+            contactId: currentContact.id,
+            campaignContactId: currentCampaignContactId,
+            campaignId: selectedCampaignId,
+          };
           setCallEndTimestamp(Date.now());
           setDispositionChannelFilter("phone");
           setMandatoryDisposition(true);
@@ -6150,10 +6162,18 @@ export default function AgentWorkspacePage() {
       },
     ]);
 
-    if (currentCampaignContactId && selectedCampaignId) {
+    const dCtx = dispositionContextRef.current;
+    dispositionContextRef.current = null;
+
+    const effectiveCampaignContactId = dCtx?.campaignContactId ?? currentCampaignContactId;
+    const effectiveCampaignId = dCtx?.campaignId ?? selectedCampaignId;
+    const effectiveTaskId = dCtx?.taskId ?? activeTaskId;
+    const isNewContactActive = !!(dCtx?.contactId && currentContact?.id && dCtx.contactId !== currentContact.id);
+
+    if (effectiveCampaignContactId && effectiveCampaignId) {
       dispositionMutation.mutate({
-        contactId: currentCampaignContactId,
-        campaignId: selectedCampaignId,
+        contactId: effectiveCampaignContactId,
+        campaignId: effectiveCampaignId,
         disposition: value,
         notes: notesOverride !== undefined ? notesOverride : callNotes,
         callbackDateTime,
@@ -6178,36 +6198,44 @@ export default function AgentWorkspacePage() {
     setDispositionChannelFilter(null);
     setCallEndTimestamp(null);
     setRingDuration(0);
-    callContext.resetCallTiming();
-    callContext.setCallState("idle");
-    callContext.setCallDuration(0);
-    agentSession.updateStatus("wrap_up").catch(() => {});
 
-    if (activeTaskId) {
-      setTasks((prev) => prev.filter((t) => t.id !== activeTaskId));
-      setActiveTaskId(null);
+    if (!isNewContactActive) {
+      callContext.resetCallTiming();
+      callContext.setCallState("idle");
+      callContext.setCallDuration(0);
+      agentSession.updateStatus("wrap_up").catch(() => {});
     }
 
-    if (currentCampaignContactId) {
-      setDisposedContactIds(prev => new Set(prev).add(currentCampaignContactId));
+    if (effectiveTaskId) {
+      setTasks((prev) => prev.filter((t) => t.id !== effectiveTaskId));
+      if (activeTaskId === effectiveTaskId) setActiveTaskId(null);
     }
-    setCurrentContact(null);
-    setCurrentCampaignContactId(null);
-    setCallNotes("");
-    setTimeline([]);
-    setActiveChannel("phone");
 
-    const isAuto = isAutoMode || campaignAutoSettings.autoMode;
-    const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
+    if (effectiveCampaignContactId) {
+      setDisposedContactIds(prev => new Set(prev).add(effectiveCampaignContactId));
+    }
 
-    setTimeout(async () => {
-      try {
-        await agentSession.updateStatus("available");
-        if (isAuto) {
-          handleNextContact(true);
-        }
-      } catch {}
-    }, wrapUpDelay);
+    if (!isNewContactActive) {
+      setCurrentContact(null);
+      setCurrentCampaignContactId(null);
+      setCallNotes("");
+      setTimeline([]);
+      setActiveChannel("phone");
+    }
+
+    if (!isNewContactActive) {
+      const isAuto = isAutoMode || campaignAutoSettings.autoMode;
+      const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
+
+      setTimeout(async () => {
+        try {
+          await agentSession.updateStatus("available");
+          if (isAuto) {
+            handleNextContact(true);
+          }
+        } catch {}
+      }, wrapUpDelay);
+    }
   };
 
   const sendEmailMutation = useMutation({
