@@ -3075,6 +3075,12 @@ export interface Translations {
     actionLabelConvert: string;
     actionLabelSendEmail: string;
     actionLabelSendSms: string;
+    callStateConnecting: string;
+    callStateRinging: string;
+    callStateActive: string;
+    callStateHold: string;
+    callStateHungUp: string;
+    callStateEnd: string;
     scheduledNotes: string;
     agoMinutes: string;
     agoHours: string;
@@ -9704,6 +9710,12 @@ export const translations: Record<Locale, Translations> = {
       actionLabelConvert: 'Convert',
       actionLabelSendEmail: 'Send email',
       actionLabelSendSms: 'Send SMS',
+      callStateConnecting: 'Connecting…',
+      callStateRinging: 'Ringing…',
+      callStateActive: 'In Call',
+      callStateHold: 'HOLD',
+      callStateHungUp: 'Customer hung up!',
+      callStateEnd: 'End call',
       scheduledNotes: 'Notes',
       agoMinutes: 'min ago',
       agoHours: 'h ago',
@@ -15818,6 +15830,12 @@ export const translations: Record<Locale, Translations> = {
       actionLabelConvert: 'Konvertovať',
       actionLabelSendEmail: 'Poslať email',
       actionLabelSendSms: 'Poslať SMS',
+      callStateConnecting: 'Pripájanie…',
+      callStateRinging: 'Zvonenie…',
+      callStateActive: 'V Hovore',
+      callStateHold: 'HOLD',
+      callStateHungUp: 'Zákazník položil!',
+      callStateEnd: 'Ukončiť',
       scheduledNotes: 'Poznámky',
       agoMinutes: 'min',
       agoHours: 'h',
@@ -21911,6 +21929,12 @@ export const translations: Record<Locale, Translations> = {
       actionLabelConvert: 'Konvertovat',
       actionLabelSendEmail: 'Odeslat email',
       actionLabelSendSms: 'Odeslat SMS',
+      callStateConnecting: 'Připojování…',
+      callStateRinging: 'Vyzvánění…',
+      callStateActive: 'V Hovoru',
+      callStateHold: 'HOLD',
+      callStateHungUp: 'Zákazník zavěsil!',
+      callStateEnd: 'Ukončit',
       scheduledNotes: 'Poznámky',
       agoMinutes: 'min',
       agoHours: 'h',
@@ -27962,6 +27986,12 @@ export const translations: Record<Locale, Translations> = {
       actionLabelConvert: 'Konvertálás',
       actionLabelSendEmail: 'Email küldése',
       actionLabelSendSms: 'SMS küldése',
+      callStateConnecting: 'Csatlakozás…',
+      callStateRinging: 'Csörög…',
+      callStateActive: 'Hívásban',
+      callStateHold: 'TARTVA',
+      callStateHungUp: 'Ügyfél letette!',
+      callStateEnd: 'Hívás befejezése',
       scheduledNotes: 'Megjegyzések',
       agoMinutes: 'perce',
       agoHours: 'órája',
@@ -33908,6 +33938,12 @@ export const translations: Record<Locale, Translations> = {
       actionLabelConvert: 'Convertește',
       actionLabelSendEmail: 'Trimite email',
       actionLabelSendSms: 'Trimite SMS',
+      callStateConnecting: 'Conectare…',
+      callStateRinging: 'Sună…',
+      callStateActive: 'În Convorbire',
+      callStateHold: 'HOLD',
+      callStateHungUp: 'Clientul a închis!',
+      callStateEnd: 'Închide apel',
       scheduledNotes: 'Notițe',
       agoMinutes: 'min în urmă',
       agoHours: 'ore în urmă',
@@ -39856,6 +39892,12 @@ export const translations: Record<Locale, Translations> = {
       actionLabelConvert: 'Converti',
       actionLabelSendEmail: 'Invia email',
       actionLabelSendSms: 'Invia SMS',
+      callStateConnecting: 'Connessione…',
+      callStateRinging: 'Squillo…',
+      callStateActive: 'In Chiamata',
+      callStateHold: 'HOLD',
+      callStateHungUp: 'Cliente ha riattaccato!',
+      callStateEnd: 'Termina chiamata',
       scheduledNotes: 'Note',
       agoMinutes: 'min fa',
       agoHours: 'ore fa',
@@ -45804,6 +45846,12 @@ export const translations: Record<Locale, Translations> = {
       actionLabelConvert: 'Konvertieren',
       actionLabelSendEmail: 'E-Mail senden',
       actionLabelSendSms: 'SMS senden',
+      callStateConnecting: 'Verbinden…',
+      callStateRinging: 'Klingelt…',
+      callStateActive: 'Im Gespräch',
+      callStateHold: 'HALTEN',
+      callStateHungUp: 'Kunde aufgelegt!',
+      callStateEnd: 'Anruf beenden',
       scheduledNotes: 'Notizen',
       agoMinutes: 'Min.',
       agoHours: 'Std.',

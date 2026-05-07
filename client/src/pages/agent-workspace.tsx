@@ -2451,9 +2451,6 @@ function CommunicationCanvas({
           <StatusBadge status={(contact.status as any) || "pending"} className="text-[10px] h-5 shrink-0" />
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {contact.phone && (
-            <span className="text-xs text-muted-foreground">{contact.phone}</span>
-          )}
           {contact.phone && (() => {
             const cs = callState || "idle";
             const fmtDur = (s?: number) => `${String(Math.floor((s||0)/60)).padStart(2,"0")}:${String((s||0)%60).padStart(2,"0")}`;
@@ -2461,17 +2458,19 @@ function CommunicationCanvas({
             const isEnded = cs === "ended";
             const isActive = cs === "active" || cs === "on_hold";
             const isConnecting = cs === "connecting" || cs === "ringing";
+            const phone = contact.phone!;
 
             if (isCustomerHungUp) {
               return (
                 <button
                   onClick={() => onEndCall?.()}
                   data-testid="btn-call-from-canvas"
-                  className="flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-bold text-white animate-pulse"
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-bold text-white animate-pulse"
                   style={{ background: "#DC2626", boxShadow: "0 0 0 3px rgba(220,38,38,0.35)", animationDuration: "0.6s" }}
                 >
-                  <PhoneOff className="h-3.5 w-3.5" />
-                  Zákazník položil!
+                  <PhoneOff className="h-3.5 w-3.5 shrink-0" />
+                  <span>{t.agentWorkspace.callStateHungUp}</span>
+                  <span className="opacity-70 font-normal">· {phone}</span>
                 </button>
               );
             }
@@ -2481,11 +2480,11 @@ function CommunicationCanvas({
                 <button
                   onClick={() => onEndCall?.()}
                   data-testid="btn-call-from-canvas"
-                  className="flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold text-white"
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold text-white"
                   style={{ background: "#EA580C" }}
                 >
-                  <PhoneOff className="h-3.5 w-3.5" />
-                  Ukončiť
+                  <PhoneOff className="h-3.5 w-3.5 shrink-0" />
+                  {t.agentWorkspace.callStateEnd}
                 </button>
               );
             }
@@ -2494,13 +2493,13 @@ function CommunicationCanvas({
               return (
                 <button
                   data-testid="btn-call-from-canvas"
-                  className="flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold text-white animate-pulse"
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold text-white animate-pulse"
                   style={{ background: "#2563EB", animationDuration: "2s" }}
                   disabled
                 >
-                  <PhoneCall className="h-3.5 w-3.5" />
-                  IN Call · {fmtDur(callDuration)}
-                  {cs === "on_hold" && <span className="ml-1 opacity-70">· HOLD</span>}
+                  <PhoneCall className="h-3.5 w-3.5 shrink-0" />
+                  {t.agentWorkspace.callStateActive} · {fmtDur(callDuration)}
+                  {cs === "on_hold" && <span className="ml-1 opacity-70">· {t.agentWorkspace.callStateHold}</span>}
                 </button>
               );
             }
@@ -2509,12 +2508,17 @@ function CommunicationCanvas({
               return (
                 <button
                   data-testid="btn-call-from-canvas"
-                  className="flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold text-white animate-pulse"
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold text-white animate-pulse"
                   style={{ background: "#0891B2", animationDuration: "1s" }}
                   disabled
                 >
-                  <Phone className="h-3.5 w-3.5" />
-                  {cs === "ringing" ? `Zvonenie… ${ringDuration ? ringDuration+"s" : ""}` : "Pripájanie…"}
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {cs === "ringing"
+                      ? `${t.agentWorkspace.callStateRinging}${ringDuration ? " " + ringDuration + "s" : ""}`
+                      : t.agentWorkspace.callStateConnecting}
+                  </span>
+                  <span className="opacity-70 font-normal">· {phone}</span>
                 </button>
               );
             }
@@ -2522,13 +2526,13 @@ function CommunicationCanvas({
             return (
               <Button
                 size="sm"
-                onClick={() => isSipRegistered && onMakeCall ? onMakeCall(contact.phone!) : undefined}
+                onClick={() => isSipRegistered && onMakeCall ? onMakeCall(phone) : undefined}
                 disabled={!isSipRegistered || !onMakeCall}
                 data-testid="btn-call-from-canvas"
-                className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Phone className="h-3.5 w-3.5" />
-                {t.agentWorkspace.call}
+                <Phone className="h-3.5 w-3.5 shrink-0" />
+                {phone}
               </Button>
             );
           })()}
