@@ -3102,6 +3102,8 @@ export interface Translations {
     queueSettings: string;
     contactSingular: string; contactFew: string; contactPlural: string;
     contactFinished: string;
+    enterDisposition: string;
+    wrapUpPending: string;
     resultLabel: string;
     emailSent: string;
     emailSentDesc: string;
@@ -9739,6 +9741,8 @@ export const translations: Record<Locale, Translations> = {
       queueSettings: 'Queue settings',
       contactSingular: 'contact', contactFew: 'contacts', contactPlural: 'contacts',
       contactFinished: 'Contact finished',
+      enterDisposition: 'Enter disposition',
+      wrapUpPending: 'Awaiting disposition',
       resultLabel: 'Result',
       emailSent: 'Email sent',
       emailSentDesc: 'Email was successfully sent to',
@@ -15861,6 +15865,8 @@ export const translations: Record<Locale, Translations> = {
       queueSettings: 'Nastavenia fronty',
       contactSingular: 'kontakt', contactFew: 'kontakty', contactPlural: 'kontaktov',
       contactFinished: 'Kontakt ukončený',
+      enterDisposition: 'Zadať dispozíciu',
+      wrapUpPending: 'Čakanie na dispozíciu',
       resultLabel: 'Výsledok',
       emailSent: 'Email odoslaný',
       emailSentDesc: 'Email bol úspešne odoslaný na',
@@ -21962,6 +21968,8 @@ export const translations: Record<Locale, Translations> = {
       queueSettings: 'Nastavení fronty',
       contactSingular: 'kontakt', contactFew: 'kontakty', contactPlural: 'kontaktů',
       contactFinished: 'Kontakt ukončen',
+      enterDisposition: 'Zadat dispozici',
+      wrapUpPending: 'Čekání na dispozici',
       resultLabel: 'Výsledek',
       emailSent: 'Email odeslán',
       emailSentDesc: 'Email byl úspěšně odeslán na',
@@ -28021,6 +28029,8 @@ export const translations: Record<Locale, Translations> = {
       queueSettings: 'Sor beállításai',
       contactSingular: 'kapcsolat', contactFew: 'kapcsolat', contactPlural: 'kapcsolat',
       contactFinished: 'Kapcsolat befejezve',
+      enterDisposition: 'Diszpozíció megadása',
+      wrapUpPending: 'Diszpozícióra vár',
       resultLabel: 'Eredmény',
       emailSent: 'Email elküldve',
       emailSentDesc: 'Az email sikeresen elküldve ide:',
@@ -33975,6 +33985,8 @@ export const translations: Record<Locale, Translations> = {
       queueSettings: 'Setări coadă',
       contactSingular: 'contact', contactFew: 'contacte', contactPlural: 'contacte',
       contactFinished: 'Contact finalizat',
+      enterDisposition: 'Introduceți dispoziția',
+      wrapUpPending: 'Așteptare dispoziție',
       resultLabel: 'Rezultat',
       emailSent: 'Email trimis',
       emailSentDesc: 'Emailul a fost trimis cu succes la',
@@ -39931,6 +39943,8 @@ export const translations: Record<Locale, Translations> = {
       queueSettings: 'Impostazioni coda',
       contactSingular: 'contatto', contactFew: 'contatti', contactPlural: 'contatti',
       contactFinished: 'Contatto terminato',
+      enterDisposition: 'Inserisci disposizione',
+      wrapUpPending: 'In attesa di disposizione',
       resultLabel: 'Risultato',
       emailSent: 'Email inviata',
       emailSentDesc: 'Email inviata con successo a',
@@ -45887,6 +45901,8 @@ export const translations: Record<Locale, Translations> = {
       queueSettings: 'Warteschlangen-Einstellungen',
       contactSingular: 'Kontakt', contactFew: 'Kontakte', contactPlural: 'Kontakte',
       contactFinished: 'Kontakt beendet',
+      enterDisposition: 'Disposition eingeben',
+      wrapUpPending: 'Warte auf Disposition',
       resultLabel: 'Ergebnis',
       emailSent: 'Email gesendet',
       emailSentDesc: 'Email wurde erfolgreich gesendet an',

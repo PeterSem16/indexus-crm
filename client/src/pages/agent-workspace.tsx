@@ -3514,6 +3514,7 @@ function CustomerInfoPanel({
   onEditCustomer,
   onViewCustomer,
   onOpenHistoryDetail,
+  wrapUpElapsed,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -3533,6 +3534,7 @@ function CustomerInfoPanel({
   hungUpBy: "user" | "customer" | null;
   onEndCall: () => void;
   onOpenDispositionFromCall: () => void;
+  wrapUpElapsed?: number;
   isMuted: boolean;
   isOnHold: boolean;
   volume: number;
@@ -3796,16 +3798,40 @@ function CustomerInfoPanel({
           )}
 
           {callState === "ended" && hungUpBy && (
-            <Button
-              size="sm"
-              variant="default"
-              onClick={onOpenDispositionFromCall}
-              className="w-full gap-1.5"
-              data-testid="button-card-disposition"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Zadať dispozíciu
-            </Button>
+            <div className="space-y-1">
+              {(wrapUpElapsed ?? 0) > 0 && (
+                <div
+                  className={`flex items-center justify-center gap-1 text-[11px] font-semibold rounded px-2 py-0.5 transition-colors ${
+                    (wrapUpElapsed ?? 0) >= 10
+                      ? "bg-red-100 text-red-700"
+                      : (wrapUpElapsed ?? 0) >= 5
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-stone-100 text-stone-500"
+                  }`}
+                  data-testid="text-wrapup-elapsed"
+                >
+                  <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {t.agentWorkspace.wrapUpPending}: {String(Math.floor((wrapUpElapsed ?? 0) / 60)).padStart(2, "0")}:{String((wrapUpElapsed ?? 0) % 60).padStart(2, "0")}
+                </div>
+              )}
+              <Button
+                size="sm"
+                onClick={onOpenDispositionFromCall}
+                className={`w-full gap-1.5 text-white transition-all duration-300 ${
+                  (wrapUpElapsed ?? 0) >= 10
+                    ? "bg-red-600 hover:bg-red-500 animate-pulse ring-2 ring-red-400 ring-offset-1"
+                    : (wrapUpElapsed ?? 0) >= 5
+                    ? "bg-amber-600 hover:bg-amber-500 animate-pulse"
+                    : "bg-red-900 hover:bg-red-800"
+                }`}
+                data-testid="button-card-disposition"
+              >
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+                {t.agentWorkspace.enterDisposition}
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -5262,6 +5288,8 @@ export default function AgentWorkspacePage() {
   const [pendingEmailTemplateId, setPendingEmailTemplateId] = useState<string | null>(null);
   const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
   const [callEndTimestamp, setCallEndTimestamp] = useState<number | null>(null);
+  const [wrapUpElapsed, setWrapUpElapsed] = useState(0);
+  const wrapUpTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prevCallStateRef = useRef(callContext.callState);
   const callWasActiveRef = useRef(false);
   const [ringDuration, setRingDuration] = useState(0);
@@ -5563,6 +5591,50 @@ export default function AgentWorkspacePage() {
     }
     prevCallStateRef.current = curr;
   }, [callContext.callState, currentContact, currentCampaignContactId]);
+
+  // Post-call wrap-up timer: count seconds elapsed since call ended, until disposition is submitted
+  useEffect(() => {
+    if (callEndTimestamp !== null && mandatoryDisposition) {
+      const startMs = callEndTimestamp;
+      setWrapUpElapsed(Math.floor((Date.now() - startMs) / 1000));
+      wrapUpTimerRef.current = setInterval(() => {
+        setWrapUpElapsed(Math.floor((Date.now() - startMs) / 1000));
+      }, 1000);
+      return () => {
+        if (wrapUpTimerRef.current) {
+          clearInterval(wrapUpTimerRef.current);
+          wrapUpTimerRef.current = null;
+        }
+      };
+    } else {
+      if (wrapUpTimerRef.current) {
+        clearInterval(wrapUpTimerRef.current);
+        wrapUpTimerRef.current = null;
+      }
+      setWrapUpElapsed(0);
+    }
+  }, [callEndTimestamp, mandatoryDisposition]);
+
+  // Gentle beep alert at exactly 10 seconds of post-call wait
+  useEffect(() => {
+    if (wrapUpElapsed === 10 && mandatoryDisposition) {
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.05);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.6);
+      } catch (_) {}
+    }
+  }, [wrapUpElapsed, mandatoryDisposition]);
 
   const { data: allCampaigns = [] } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -8051,6 +8123,7 @@ export default function AgentWorkspacePage() {
           onEditCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("card"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
           onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
           onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
+          wrapUpElapsed={wrapUpElapsed}
         />
       </div>
 
