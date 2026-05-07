@@ -3573,6 +3573,7 @@ function CustomerInfoPanel({
   const [historyMaximized, setHistoryMaximized] = useState(false);
   const [faqMaximized, setFaqMaximized] = useState(false);
   const [noteExpanded, setNoteExpanded] = useState(false);
+  const [matchesExpanded, setMatchesExpanded] = useState(false);
   const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
@@ -3677,35 +3678,50 @@ function CustomerInfoPanel({
             <div className="text-[11px] text-muted-foreground font-mono">{callerNumber}</div>
           )}
 
-          {inboundMatches && inboundMatches.length > 0 && (
-            <div className="space-y-0.5 pt-0.5">
-              {inboundMatches.map((match) => {
-                const colorMap: Record<string, string> = {
-                  customer: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-                  hospital: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-                  clinic: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300",
-                  collaborator: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-                };
-                const labelMap: Record<string, string> = {
-                  customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník",
-                };
-                return (
-                  <button
-                    key={`${match.entityType}-${match.id}`}
-                    onClick={() => onSelectMatch?.(match, match.entityType === "customer" ? "card" : "open")}
-                    className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-muted/70 transition-colors"
-                    data-testid={`btn-phone-match-${match.entityType}-${match.id}`}
-                  >
-                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${colorMap[match.entityType] || "bg-muted text-muted-foreground"}`}>
-                      {labelMap[match.entityType] || match.entityType}
-                    </span>
-                    <span className="text-[11px] font-medium truncate flex-1 min-w-0">{match.name}</span>
-                    {match.subtype && <span className="text-[10px] text-muted-foreground truncate">{match.subtype}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {inboundMatches && inboundMatches.length > 0 && (() => {
+            const colorMap: Record<string, string> = {
+              customer: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+              hospital: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+              clinic: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300",
+              collaborator: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+            };
+            const labelMap: Record<string, string> = {
+              customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník",
+            };
+            return (
+              <div className="pt-0.5">
+                <button
+                  onClick={() => setMatchesExpanded(p => !p)}
+                  className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-muted/50 transition-colors"
+                  data-testid="btn-toggle-inbound-matches"
+                >
+                  <Users className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="text-[11px] text-muted-foreground flex-1">
+                    {inboundMatches.length} {inboundMatches.length === 1 ? "zhoda" : inboundMatches.length < 5 ? "zhody" : "zhôd"}
+                  </span>
+                  <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${matchesExpanded ? "rotate-180" : ""}`} />
+                </button>
+                {matchesExpanded && (
+                  <div className="space-y-0.5 mt-0.5 max-h-48 overflow-y-auto">
+                    {inboundMatches.map((match) => (
+                      <button
+                        key={`${match.entityType}-${match.id}`}
+                        onClick={() => { onSelectMatch?.(match, match.entityType === "customer" ? "card" : "open"); setMatchesExpanded(false); }}
+                        className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-muted/70 transition-colors"
+                        data-testid={`btn-phone-match-${match.entityType}-${match.id}`}
+                      >
+                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${colorMap[match.entityType] || "bg-muted text-muted-foreground"}`}>
+                          {labelMap[match.entityType] || match.entityType}
+                        </span>
+                        <span className="text-[11px] font-medium truncate flex-1 min-w-0">{match.name}</span>
+                        {match.subtype && <span className="text-[10px] text-muted-foreground truncate">{match.subtype}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {(callState === "active" || callState === "on_hold") && callContext.isRecording && (
             <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50">
@@ -5720,6 +5736,7 @@ export default function AgentWorkspacePage() {
           setCallEndTimestamp(Date.now());
           setDispositionChannelFilter("phone");
           setMandatoryDisposition(true);
+          setDispositionModalOpen(true);
         }
         if (pendingCallbackAbandonedIdRef.current) {
           const abandonedId = pendingCallbackAbandonedIdRef.current;

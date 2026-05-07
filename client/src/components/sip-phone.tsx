@@ -141,6 +141,7 @@ export function SipPhone({
   const { waitingForReg: dialWaiting, elapsedSec: dialElapsed, startWaiting: startDialWaiting } = useRegistrationTimer(isRegistered, isRegistering);
   const callContext = useCall();
   const [localCustomerId, setLocalCustomerId] = useState(customerId);
+  const localCustomerIdRef = useRef<string | undefined>(customerId);
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
   const [localCampaignName, setLocalCampaignName] = useState<string | undefined>(undefined);
   const [localCustomerName, setLocalCustomerName] = useState(customerName);
@@ -742,7 +743,7 @@ export function SipPhone({
 
     const inboundCallLogIdRef = { current: null as number | null };
     // Stores end metadata if call terminates before createCallLogMutation resolves (race condition)
-    const pendingEndMetaRef = { current: null as { duration: number; hungUpBy: string; endedAt: string } | null };
+    const pendingEndMetaRef = { current: null as { duration: number; hungUpBy: string; endedAt: string; customerId?: string } | null };
 
     const onTerminated = (state: any) => {
       const stateStr = String(state);
@@ -762,6 +763,7 @@ export function SipPhone({
       const endedAt = new Date().toISOString();
       if (inboundCallLogIdRef.current) {
         // Call log already created — update duration/status/hungUpBy immediately
+        // Use localCustomerIdRef (not closure) to get the identity the agent currently has open
         updateCallLogMutation.mutate({
           id: inboundCallLogIdRef.current,
           data: {
@@ -769,6 +771,7 @@ export function SipPhone({
             endedAt,
             durationSeconds: duration,
             hungUpBy,
+            ...(localCustomerIdRef.current ? { customerId: localCustomerIdRef.current } : {}),
           },
         });
         if (duration > 0) {
@@ -780,7 +783,7 @@ export function SipPhone({
       } else {
         // Race condition: call log not yet created — store metadata for deferred update
         console.warn("[SIP-INBOUND] Call log not yet created at termination, storing pending end meta");
-        pendingEndMetaRef.current = { duration, hungUpBy, endedAt };
+        pendingEndMetaRef.current = { duration, hungUpBy, endedAt, customerId: localCustomerIdRef.current };
         if (duration > 0) {
           console.log("[SIP-INBOUND] Will stop recording, but cannot upload until call log ID is known");
         } else {
@@ -856,6 +859,7 @@ export function SipPhone({
       const resolvedCustomerId = await resolveInboundCustomerId(callerNumber);
       if (resolvedCustomerId) {
         setLocalCustomerId(resolvedCustomerId);
+        localCustomerIdRef.current = resolvedCustomerId;
       }
 
       updateCallLogMutation.mutate({
@@ -876,8 +880,9 @@ export function SipPhone({
             endedAt: m.endedAt,
             durationSeconds: m.duration,
             hungUpBy: m.hungUpBy,
+            ...(m.customerId ? { customerId: m.customerId } : {}),
           },
-          customerId: resolvedCustomerId,
+          customerId: m.customerId || resolvedCustomerId,
         });
         if (m.duration > 0) {
           stopRecordingAndUpload(callLogData.id, m.duration);
@@ -1226,6 +1231,7 @@ export function SipPhone({
       const callData = pendingCall;
       setPhoneNumber(callData.phoneNumber);
       setLocalCustomerId(callData.customerId?.toString());
+      localCustomerIdRef.current = callData.customerId?.toString();
       setLocalCampaignId(callData.campaignId?.toString());
       setLocalCampaignName(callData.campaignName);
       setLocalCustomerName(callData.customerName);
