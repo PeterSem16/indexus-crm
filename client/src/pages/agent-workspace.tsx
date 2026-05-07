@@ -2419,8 +2419,8 @@ function CommunicationCanvas({
         <div className="absolute top-[55%] right-[20%] w-[350px] h-[350px] rounded-[60%_40%_60%_40%/50%_60%_30%_70%] bg-gradient-to-tl from-pink-300/15 via-rose-200/10 to-orange-200/8 dark:from-pink-700/5 dark:via-rose-700/3 dark:to-orange-700/2 blur-3xl" />
       </div>
       <div className="h-12 border-b bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0 relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="flex items-center gap-2 shrink-0">
             <span className="h-2 w-2 rounded-full bg-green-500" />
             <span className="font-semibold text-sm" data-testid="text-canvas-contact-name">
               {contact.firstName} {contact.lastName}
@@ -2428,54 +2428,34 @@ function CommunicationCanvas({
           </div>
           {campaign && (
             <>
-              <Separator orientation="vertical" className="h-5" />
-              <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Separator orientation="vertical" className="h-5 shrink-0" />
+              <div className="flex items-center gap-1.5 text-muted-foreground shrink-0">
                 <Megaphone className="h-3.5 w-3.5" />
                 <span className="text-xs">{campaign.name}</span>
               </div>
             </>
           )}
+          <StatusBadge status={(contact.status as any) || "pending"} className="text-[10px] h-5 shrink-0" />
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2 shrink-0">
           {contact.phone && (
-            <span className="text-xs text-muted-foreground px-2">{contact.phone}</span>
+            <span className="text-xs text-muted-foreground">{contact.phone}</span>
           )}
-          {isSipRegistered && onMakeCall && contact.phone && (
+          {isSipRegistered && onMakeCall && contact.phone ? (
             <Button
-              size="icon"
-              variant="ghost"
+              size="sm"
               onClick={() => onMakeCall(contact.phone!)}
               data-testid="btn-call-from-canvas"
-              title={t.agentWorkspace.call}
-              className="h-7 w-7"
+              className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5"
             >
-              <Phone className="h-3.5 w-3.5 text-green-600" />
+              <Phone className="h-3.5 w-3.5" />
+              {t.agentWorkspace.call}
             </Button>
-          )}
-          {contact.email && (
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onChannelChange("email")}
-              data-testid="btn-email-from-canvas"
-              title="Email"
-              className="h-7 w-7"
-            >
-              <Mail className="h-3.5 w-3.5 text-indigo-500" />
-            </Button>
-          )}
-          {contact.phone && (
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onChannelChange("sms")}
-              data-testid="btn-sms-from-canvas"
-              title="SMS"
-              className="h-7 w-7"
-            >
-              <MessageSquare className="h-3.5 w-3.5 text-sky-500" />
-            </Button>
-          )}
+          ) : contact.phone ? (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Phone className="h-3.5 w-3.5" />
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -7501,11 +7481,13 @@ export default function AgentWorkspacePage() {
                         </div>
                       </div>
 
-                      {/* 4 KPI bary */}
-                      <KpiBar label={t.agentSession.contactsToday} value={contactsVal} quota={maxContactsQuota} />
-                      <KpiBar label={t.agentSession.callsToday} value={callsVal} quota={maxCallQuota} />
-                      <KpiBar label={t.agentSession.conversionsToday} value={convsVal} quota={convTarget} color="#16A34A" />
-                      <KpiBar label={t.agentSession.conversionRate} value={convRateActual} quota={conversionGoalPct > 0 ? conversionGoalPct : null} suffix="%" color="#7C3AED" />
+                      {/* 4 KPI bary — 2 stĺpce */}
+                      <div className="grid grid-cols-2 gap-x-3">
+                        <KpiBar label={t.agentSession.contactsToday} value={contactsVal} quota={maxContactsQuota} />
+                        <KpiBar label={t.agentSession.callsToday} value={callsVal} quota={maxCallQuota} />
+                        <KpiBar label={t.agentSession.conversionsToday} value={convsVal} quota={convTarget} color="#16A34A" />
+                        <KpiBar label={t.agentSession.conversionRate} value={convRateActual} quota={conversionGoalPct > 0 ? conversionGoalPct : null} suffix="%" color="#7C3AED" />
+                      </div>
 
                       {/* Prestávka */}
                       <div className="mt-2 pt-2 border-t" style={{ borderColor: "#F0EAE5" }}>
