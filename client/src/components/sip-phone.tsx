@@ -741,6 +741,8 @@ export function SipPhone({
     }
 
     const inboundCallLogIdRef = { current: null as number | null };
+    // Stores end metadata if call terminates before createCallLogMutation resolves (race condition)
+    const pendingEndMetaRef = { current: null as { duration: number; hungUpBy: string; endedAt: string } | null };
 
     const onTerminated = (state: any) => {
       const stateStr = String(state);
@@ -757,11 +759,33 @@ export function SipPhone({
       const hungUpBy = userHungUpRef.current ? "user" : "customer";
       userHungUpRef.current = false;
       ctxNow.setCallTiming({ callEndTime: Date.now(), talkDurationSeconds: duration > 0 ? duration : null, hungUpBy });
-      if (duration > 0) {
-        console.log("[SIP-INBOUND] Stopping recording and uploading, callLogId:", inboundCallLogIdRef.current);
-        stopRecordingAndUpload(inboundCallLogIdRef.current || 0, duration);
+      const endedAt = new Date().toISOString();
+      if (inboundCallLogIdRef.current) {
+        // Call log already created — update duration/status/hungUpBy immediately
+        updateCallLogMutation.mutate({
+          id: inboundCallLogIdRef.current,
+          data: {
+            status: duration > 0 ? "completed" : "failed",
+            endedAt,
+            durationSeconds: duration,
+            hungUpBy,
+          },
+        });
+        if (duration > 0) {
+          console.log("[SIP-INBOUND] Stopping recording and uploading, callLogId:", inboundCallLogIdRef.current);
+          stopRecordingAndUpload(inboundCallLogIdRef.current, duration);
+        } else {
+          if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
+        }
       } else {
-        if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
+        // Race condition: call log not yet created — store metadata for deferred update
+        console.warn("[SIP-INBOUND] Call log not yet created at termination, storing pending end meta");
+        pendingEndMetaRef.current = { duration, hungUpBy, endedAt };
+        if (duration > 0) {
+          console.log("[SIP-INBOUND] Will stop recording, but cannot upload until call log ID is known");
+        } else {
+          if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
+        }
       }
       ctxNow.setAutoRecord(true);
       onCallEnd?.(duration, duration > 0 ? "completed" : "failed", inboundCallLogIdRef.current || 0);
@@ -839,6 +863,26 @@ export function SipPhone({
         data: { status: "answered", answeredAt: new Date().toISOString(), ...(resolvedCustomerId ? { customerId: resolvedCustomerId } : {}) },
         customerId: resolvedCustomerId
       });
+
+      // Race condition: call already ended before log was created — apply deferred end metadata
+      if (pendingEndMetaRef.current) {
+        const m = pendingEndMetaRef.current;
+        pendingEndMetaRef.current = null;
+        console.log("[SIP-INBOUND] Applying deferred end meta to call log:", callLogData.id, "duration:", m.duration);
+        updateCallLogMutation.mutate({
+          id: callLogData.id,
+          data: {
+            status: m.duration > 0 ? "completed" : "failed",
+            endedAt: m.endedAt,
+            durationSeconds: m.duration,
+            hungUpBy: m.hungUpBy,
+          },
+          customerId: resolvedCustomerId,
+        });
+        if (m.duration > 0) {
+          stopRecordingAndUpload(callLogData.id, m.duration);
+        }
+      }
 
       onCallStart?.(callerNumber, callLogData.id);
     }).catch((err) => {

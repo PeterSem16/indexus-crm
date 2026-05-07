@@ -5703,7 +5703,9 @@ export default function AgentWorkspacePage() {
       }
       if (curr === "ended") {
         callWasActiveRef.current = false;
-        if (currentContact && currentCampaignContactId) {
+        const activeTask = tasks.find(t => t.id === activeTaskId);
+        const isInboundCall = activeTask?.direction === "inbound";
+        if (currentContact && (currentCampaignContactId || isInboundCall)) {
           dispositionContextRef.current = {
             taskId: activeTaskId,
             contactId: currentContact.id,
@@ -5741,7 +5743,7 @@ export default function AgentWorkspacePage() {
       }
     }
     prevCallStateRef.current = curr;
-  }, [callContext.callState, currentContact, currentCampaignContactId]);
+  }, [callContext.callState, currentContact, currentCampaignContactId, tasks, activeTaskId]);
 
   // Post-call wrap-up timer: count seconds elapsed since call ended, until disposition is submitted
   useEffect(() => {
