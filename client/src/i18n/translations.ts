@@ -3162,6 +3162,10 @@ export interface Translations {
     inboundMissedLabel: string;
     inboundUrgentTitle: string;
     inboundUrgentDesc: string;
+    entityTypeCustomer: string;
+    entityTypeHospital: string;
+    entityTypeClinic: string;
+    entityTypeCollaborator: string;
     inboundBusyCallTitle: string;
     inboundQueueTitle: string;
     inboundQueueWaitingMsg: string;
@@ -9808,6 +9812,7 @@ export const translations: Record<Locale, Translations> = {
       inboundMissedLabel: 'missed',
       inboundUrgentTitle: 'Urgent — repeated caller',
       inboundUrgentDesc: 'This caller has called {n} times today and the last call was not handled. Answer this call as a priority.',
+      entityTypeCustomer: 'Customer', entityTypeHospital: 'Hospital', entityTypeClinic: 'Clinic', entityTypeCollaborator: 'Collaborator',
       inboundBusyCallTitle: 'Incoming call',
       inboundQueueTitle: 'Waiting in queue',
       inboundQueueWaitingMsg: 'Call is waiting in queue. Change status to Available to accept it.',
@@ -15932,6 +15937,7 @@ export const translations: Record<Locale, Translations> = {
       inboundMissedLabel: 'nedvíhal',
       inboundUrgentTitle: 'Súrne — opakovaný volajúci',
       inboundUrgentDesc: 'Tento volajúci dnes volal už {n}× a posledný hovor nebol vybavený. Prijmite hovor prioritne.',
+      entityTypeCustomer: 'Zákazník', entityTypeHospital: 'Nemocnica', entityTypeClinic: 'Klinika', entityTypeCollaborator: 'Spolupracovník',
       inboundBusyCallTitle: 'Prichádzajúci hovor',
       inboundQueueTitle: 'Čaká vo fronte',
       inboundQueueWaitingMsg: 'Hovor čaká vo fronte. Zmeňte stav na Dostupný pre jeho prijatie.',
@@ -22042,6 +22048,7 @@ export const translations: Record<Locale, Translations> = {
       inboundMissedLabel: 'nepřijal',
       inboundUrgentTitle: 'Urgentní — opakovaný volající',
       inboundUrgentDesc: 'Tento volající dnes volal již {n}× a poslední hovor nebyl vyřízen. Přijměte hovor přednostně.',
+      entityTypeCustomer: 'Zákazník', entityTypeHospital: 'Nemocnice', entityTypeClinic: 'Klinika', entityTypeCollaborator: 'Spolupracovník',
       inboundBusyCallTitle: 'Příchozí hovor',
       inboundQueueTitle: 'Čeká ve frontě',
       inboundQueueWaitingMsg: 'Hovor čeká ve frontě. Změňte stav na Dostupný pro jeho přijetí.',
@@ -28110,6 +28117,7 @@ export const translations: Record<Locale, Translations> = {
       inboundMissedLabel: 'nem vette fel',
       inboundUrgentTitle: 'Sürgős — visszatérő hívó',
       inboundUrgentDesc: 'Ez a hívó ma már {n}× hívott és az utolsó hívás nem lett kezelve. Fogadja el prioritásként.',
+      entityTypeCustomer: 'Ügyfél', entityTypeHospital: 'Kórház', entityTypeClinic: 'Klinika', entityTypeCollaborator: 'Együttműködő',
       inboundBusyCallTitle: 'Bejövő hívás',
       inboundQueueTitle: 'Sorban vár',
       inboundQueueWaitingMsg: 'A hívás várakozik a sorban. Váltson Elérhető állapotra a fogadáshoz.',
@@ -34073,6 +34081,7 @@ export const translations: Record<Locale, Translations> = {
       inboundMissedLabel: 'ratat',
       inboundUrgentTitle: 'Urgent — apelant repetat',
       inboundUrgentDesc: 'Acest apelant a sunat de {n} ori azi și ultimul apel nu a fost gestionat. Răspundeți cu prioritate.',
+      entityTypeCustomer: 'Client', entityTypeHospital: 'Spital', entityTypeClinic: 'Clinică', entityTypeCollaborator: 'Colaborator',
       inboundBusyCallTitle: 'Apel primit',
       inboundQueueTitle: 'Așteaptă în coadă',
       inboundQueueWaitingMsg: 'Apelul așteaptă în coadă. Schimbați starea la Disponibil pentru a răspunde.',
@@ -40038,6 +40047,7 @@ export const translations: Record<Locale, Translations> = {
       inboundMissedLabel: 'persa',
       inboundUrgentTitle: 'Urgente — chiamante ripetuto',
       inboundUrgentDesc: "Questo chiamante ha chiamato {n} volte oggi e l'ultima chiamata non è stata gestita. Rispondere con priorità.",
+      entityTypeCustomer: 'Cliente', entityTypeHospital: 'Ospedale', entityTypeClinic: 'Clinica', entityTypeCollaborator: 'Collaboratore',
       inboundBusyCallTitle: 'Chiamata in arrivo',
       inboundQueueTitle: 'In attesa in coda',
       inboundQueueWaitingMsg: 'La chiamata è in attesa in coda. Cambia stato in Disponibile per accettarla.',
@@ -46003,6 +46013,7 @@ export const translations: Record<Locale, Translations> = {
       inboundMissedLabel: 'verpasst',
       inboundUrgentTitle: 'Dringend — wiederholter Anrufer',
       inboundUrgentDesc: 'Dieser Anrufer hat heute bereits {n}× angerufen und der letzte Anruf wurde nicht bearbeitet. Nehmen Sie den Anruf vorrangig entgegen.',
+      entityTypeCustomer: 'Kunde', entityTypeHospital: 'Krankenhaus', entityTypeClinic: 'Klinik', entityTypeCollaborator: 'Mitarbeiter',
       inboundBusyCallTitle: 'Eingehender Anruf',
       inboundQueueTitle: 'Wartet in Warteschlange',
       inboundQueueWaitingMsg: 'Der Anruf wartet in der Warteschlange. Ändern Sie den Status auf Verfügbar, um ihn anzunehmen.',

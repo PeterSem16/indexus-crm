@@ -181,7 +181,10 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
     ? primaryMatch.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : call.callerNumber.slice(-2);
 
-  const canAccept = call.hasSipInvitation === true;
+  // Accept is always enabled: for WebRTC calls the SIP invite is answered automatically;
+  // for external SIP devices (JustCall, hardware phones) the call is already ringing on
+  // the device — clicking Accept here loads CRM context without a browser SIP answer.
+  const canAccept = true;
   const displayName = primaryMatch?.name || call.callerNumber;
   const entityTypeColors: Record<string, string> = {
     customer: "bg-blue-100 text-blue-700",
@@ -190,7 +193,10 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
     collaborator: "bg-amber-100 text-amber-700",
   };
   const entityTypeLabels: Record<string, string> = {
-    customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník",
+    customer: aw.entityTypeCustomer,
+    hospital: aw.entityTypeHospital,
+    clinic: aw.entityTypeClinic,
+    collaborator: aw.entityTypeCollaborator,
   };
 
   return (
@@ -335,8 +341,8 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
           </div>
         </div>
       )}
-      {!canAccept && (
-        <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+      {call.hasSipInvitation === false && !call.isQueueWaiting && (
+        <div className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1">
           <Clock className="h-3 w-3 animate-spin" />
           {aw.inboundConnectingMsg}
         </div>
@@ -413,7 +419,7 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
 
   const pillPrimaryMatch = pillPhoneMatches[0] ?? null;
   const isQueueWaiting = !!firstCall.isQueueWaiting;
-  const canAnswer = !hasActiveCall && !isQueueWaiting && firstCall.hasSipInvitation === true;
+  const canAnswer = !hasActiveCall && !isQueueWaiting;
   const displayName = pillPrimaryMatch?.name || firstCall.callerNumber;
   const pillColor = hasActiveCall ? "#D97706" : isQueueWaiting ? "#7C3AED" : "#16A34A";
   const pillHoverColor = hasActiveCall ? "#B45309" : isQueueWaiting ? "#6D28D9" : "#15803D";
@@ -510,7 +516,7 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${
                       { customer: "bg-blue-100 text-blue-700", hospital: "bg-purple-100 text-purple-700", clinic: "bg-cyan-100 text-cyan-700", collaborator: "bg-amber-100 text-amber-700" }[pillPrimaryMatch.entityType] || "bg-gray-100 text-gray-700"
                     }`}>
-                      {{ customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník" }[pillPrimaryMatch.entityType] || pillPrimaryMatch.entityType}
+                      {({ customer: aw.entityTypeCustomer, hospital: aw.entityTypeHospital, clinic: aw.entityTypeClinic, collaborator: aw.entityTypeCollaborator } as Record<string,string>)[pillPrimaryMatch.entityType] || pillPrimaryMatch.entityType}
                     </span>
                   )}
                   {pillPhoneMatches.length > 1 && (
