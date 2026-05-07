@@ -181,7 +181,16 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
     ? primaryMatch.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : call.callerNumber.slice(-2);
 
-  const canAccept = call.hasSipInvitation === true;
+  // Enable immediately when SIP invite is linked; fall back after 8s for external-phone agents
+  // (Asterisk sends INVITE to browser within 1-3s; if it hasn't arrived after 8s the call
+  // is being handled by an external device and we just load CRM context without WebRTC audio)
+  const [sinceRing, setSinceRing] = useState(Math.floor((Date.now() - call.timestamp) / 1000));
+  useEffect(() => {
+    const t = setInterval(() => setSinceRing(Math.floor((Date.now() - call.timestamp) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [call.timestamp]);
+  const SIP_INVITE_TIMEOUT = 8;
+  const canAccept = call.hasSipInvitation === true || sinceRing >= SIP_INVITE_TIMEOUT;
   const displayName = primaryMatch?.name || call.callerNumber;
   const entityTypeColors: Record<string, string> = {
     customer: "bg-blue-100 text-blue-700",
@@ -412,11 +421,18 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
     staleTime: 30000,
   });
 
+  const [busySinceRing, setBusySinceRing] = useState(firstCall ? Math.floor((Date.now() - firstCall.timestamp) / 1000) : 0);
+  useEffect(() => {
+    if (!firstCall) return;
+    const t = setInterval(() => setBusySinceRing(Math.floor((Date.now() - firstCall.timestamp) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [firstCall?.timestamp]);
+
   if (!firstCall) return null;
 
   const pillPrimaryMatch = pillPhoneMatches[0] ?? null;
   const isQueueWaiting = !!firstCall.isQueueWaiting;
-  const canAnswer = !hasActiveCall && !isQueueWaiting && firstCall.hasSipInvitation === true;
+  const canAnswer = !hasActiveCall && !isQueueWaiting && (firstCall.hasSipInvitation === true || busySinceRing >= 8);
   const displayName = pillPrimaryMatch?.name || firstCall.callerNumber;
   const pillColor = hasActiveCall ? "#D97706" : isQueueWaiting ? "#7C3AED" : "#16A34A";
   const pillHoverColor = hasActiveCall ? "#B45309" : isQueueWaiting ? "#6D28D9" : "#15803D";
