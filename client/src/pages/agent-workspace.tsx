@@ -7453,7 +7453,7 @@ export default function AgentWorkspacePage() {
                 : null;
               const convRateActual = contactsVal > 0 ? (convsVal / contactsVal) * 100 : 0;
 
-              const hasTodayData = shiftData && (contactsVal > 0 || callsVal > 0 || shiftData.totalBreakMinutes > 0 || shiftData.dispositionsToday > 0 || shiftData.totalCallMinutes > 0 || convsVal > 0);
+              const hasTodayData = !!shiftData;
 
               // KPI bar helper
               const KpiBar = ({ label, value, quota, suffix = "", color = "hsl(355 85% 42%)" }: { label: string; value: number; quota: number | null; suffix?: string; color?: string }) => {
@@ -9149,32 +9149,29 @@ export default function AgentWorkspacePage() {
 
             return (
               <>
-                <div className={`px-6 py-4 border-b ${isEmail ? "bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20" : "bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20"}`}>
-                  <div className="flex items-start gap-3">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${isEmail ? "bg-green-100 dark:bg-green-900/40" : "bg-orange-100 dark:bg-orange-900/40"}`}>
+                <div className="px-5 pt-4 pb-3 border-b bg-background">
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isEmail ? "bg-indigo-50 dark:bg-indigo-900/30" : "bg-sky-50 dark:bg-sky-900/30"}`}>
                       {isEmail ? (
                         direction === "outbound"
-                          ? <Send className="h-5 w-5 text-green-600 dark:text-green-400" />
-                          : <Inbox className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          ? <Send className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+                          : <Inbox className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                       ) : (
                         direction === "outbound"
-                          ? <Send className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                          : <Inbox className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          ? <Send className="h-4 w-4 text-sky-500 dark:text-sky-400" />
+                          : <Inbox className="h-4 w-4 text-sky-500 dark:text-sky-400" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h3 className="text-base font-semibold" data-testid="text-history-detail-title">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-semibold leading-snug" data-testid="text-history-detail-title">
                           {isEmail ? (subject || "Email") : t.agentWorkspace.historySmsTitle}
                         </h3>
-                        <Badge variant={direction === "outbound" ? "secondary" : "outline"} className="text-[10px]">
-                          {direction === "outbound" ? t.agentWorkspace.historyOutbound : t.agentWorkspace.historyInbound}
-                        </Badge>
                         {status && (
-                          <Badge variant="outline" className="text-[10px]">{status}</Badge>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{status}</Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap mt-0.5">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {format(timestamp, "d. MMMM yyyy, HH:mm:ss", { locale: sk })}
