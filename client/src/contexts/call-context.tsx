@@ -25,6 +25,7 @@ export interface CallTimingMeta {
 interface CallContextType {
   callState: CallState;
   callInfo: CallInfo | null;
+  callDirection: "inbound" | "outbound" | null;
   callDuration: number;
   isMuted: boolean;
   isOnHold: boolean;
@@ -37,6 +38,7 @@ interface CallContextType {
   setPreventAutoReset: (prevent: boolean) => void;
   setCallState: (state: CallState) => void;
   setCallInfo: (info: CallInfo | null) => void;
+  setCallDirection: (dir: "inbound" | "outbound" | null) => void;
   setCallDuration: (duration: number) => void;
   setIsMuted: (muted: boolean) => void;
   setIsOnHold: (hold: boolean) => void;
@@ -58,6 +60,7 @@ interface CallContextType {
   resumeRecordingFn: React.MutableRefObject<(() => void) | null>;
   startRecordingFn: React.MutableRefObject<(() => void) | null>;
   stopRecordingFn: React.MutableRefObject<(() => void) | null>;
+  updateCallCustomerFn: React.MutableRefObject<((customerId: string) => void) | null>;
   autoRecord: boolean;
   setAutoRecord: (auto: boolean) => void;
   handleInboundAnsweredFn: React.MutableRefObject<((session: any, options: { autoRecord: boolean }) => void) | null>;
@@ -78,6 +81,7 @@ const CallContext = createContext<CallContextType | undefined>(undefined);
 export function CallProvider({ children }: { children: ReactNode }) {
   const [callState, setCallState] = useState<CallState>("idle");
   const [callInfo, setCallInfo] = useState<CallInfo | null>(null);
+  const [callDirection, setCallDirection] = useState<"inbound" | "outbound" | null>(null);
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
@@ -101,6 +105,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const resumeRecordingFn = useRef<(() => void) | null>(null);
   const startRecordingFn = useRef<(() => void) | null>(null);
   const stopRecordingFn = useRef<(() => void) | null>(null);
+  const updateCallCustomerFn = useRef<((customerId: string) => void) | null>(null);
   const handleInboundAnsweredFn = useRef<((session: any, options: { autoRecord: boolean }) => void) | null>(null);
   const queuedInboundSession = useRef<{ session: any; options: { autoRecord: boolean } } | null>(null);
 
@@ -115,6 +120,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const contextValue = useMemo(() => ({
     callState,
     callInfo,
+    callDirection,
     callDuration,
     isMuted,
     isOnHold,
@@ -127,6 +133,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setPreventAutoReset,
     setCallState,
     setCallInfo,
+    setCallDirection,
     setCallDuration,
     setIsMuted,
     setIsOnHold,
@@ -148,11 +155,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     resumeRecordingFn,
     startRecordingFn,
     stopRecordingFn,
+    updateCallCustomerFn,
     autoRecord,
     setAutoRecord,
     handleInboundAnsweredFn,
     queuedInboundSession,
-  }), [callState, callInfo, callDuration, isMuted, isOnHold, isRecording, isRecordingPaused, volume, micVolume, callTiming, preventAutoReset, autoRecord, setCallTiming, resetCallTiming]);
+  }), [callState, callInfo, callDirection, callDuration, isMuted, isOnHold, isRecording, isRecordingPaused, volume, micVolume, callTiming, preventAutoReset, autoRecord, setCallTiming, resetCallTiming]);
 
   return (
     <CallContext.Provider value={contextValue}>

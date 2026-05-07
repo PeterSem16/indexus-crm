@@ -1003,7 +1003,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
   campaign: Campaign; open: boolean; onOpenChange: (open: boolean) => void; contacts: any[];
   allUsers: Array<{ id: string; fullName: string; role: string; roleId: string | null }>;
   assignedAgentIds: string[];
-  onDistribute?: () => void;
+  onDistribute?: (agents: AgentContactFilter[]) => void;
   isDistributing?: boolean;
 }) {
   const { t } = useI18n();
@@ -1493,7 +1493,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
           <AlertDialogFooter>
             <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => { setShowDistributeConfirm(false); onDistribute?.(); }}
+              onClick={() => { setShowDistributeConfirm(false); onDistribute?.(agentFilters); }}
               disabled={isDistributing}
             >
               {isDistributing ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Shuffle className="w-4 h-4 mr-1" />}
@@ -4486,8 +4486,11 @@ export default function CampaignDetailPage() {
     },
   });
 
-  const handleDistributeRandomly = () => {
-    const agents = parsedAgentContactFilters as AgentContactFilter[];
+  const handleDistributeRandomly = (incomingAgents?: AgentContactFilter[]) => {
+    // Use agents passed from SortRulesDialog first, fall back to saved parsedAgentContactFilters
+    const agents = (incomingAgents && incomingAgents.length > 0)
+      ? incomingAgents
+      : (parsedAgentContactFilters as AgentContactFilter[]);
     if (agents.length === 0) return;
     const pool = [...filteredContacts] as any[];
     for (let i = pool.length - 1; i > 0; i--) {

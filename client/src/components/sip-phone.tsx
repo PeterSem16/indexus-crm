@@ -692,10 +692,16 @@ export function SipPhone({
     const callerNumber = session._inboundCallerNumber || "Unknown";
     setPhoneNumber(callerNumber);
     setCallState("active");
+    ctx.setCallDirection("inbound");
     setIsOnHold(false);
     ctx.resetCallTiming();
     callStartTimeRef.current = Date.now();
     ctx.setCallTiming({ callStartTime: Date.now() });
+    // Expose updater so agent-workspace can sync localCustomerIdRef when opening a different identity
+    callContextRef.current.updateCallCustomerFn.current = (cid: string) => {
+      localCustomerIdRef.current = cid;
+      setLocalCustomerId(cid);
+    };
 
     activeInboundMetaRef.current = {
       queueId: session._inboundQueueId,
@@ -756,6 +762,7 @@ export function SipPhone({
       const duration = callStartTimeRef.current ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) : 0;
       console.log("[SIP-INBOUND] Call duration:", duration, "seconds");
       setCallState("ended");
+      ctxNow.setCallDirection(null);
       if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
       const hungUpBy = userHungUpRef.current ? "user" : "customer";
       userHungUpRef.current = false;
