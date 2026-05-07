@@ -169,6 +169,14 @@ type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
 type ChannelType = "phone" | "email" | "sms" | "mixed";
 
+interface PhoneMatch {
+  entityType: "customer" | "hospital" | "clinic" | "collaborator";
+  id: string;
+  name: string;
+  phone: string;
+  subtype?: string;
+}
+
 interface EnrichedCampaignContact extends CampaignContact {
   customer: Customer | null;
   hospital?: Hospital | null;
@@ -3514,6 +3522,8 @@ function CustomerInfoPanel({
   onEditCustomer,
   onViewCustomer,
   onOpenHistoryDetail,
+  inboundMatches,
+  onSelectMatch,
   wrapUpElapsed,
 }: {
   contact: Customer | null;
@@ -3548,6 +3558,8 @@ function CustomerInfoPanel({
   onEditCustomer: () => void;
   onViewCustomer: () => void;
   onOpenHistoryDetail?: (entry: ContactHistory) => void;
+  inboundMatches?: PhoneMatch[];
+  onSelectMatch?: (match: PhoneMatch) => void;
 }) {
   const { t, locale } = useI18n();
   const callContext = useCall();
@@ -3663,6 +3675,36 @@ function CustomerInfoPanel({
 
           {callerNumber && (
             <div className="text-[11px] text-muted-foreground font-mono">{callerNumber}</div>
+          )}
+
+          {inboundMatches && inboundMatches.length > 0 && (
+            <div className="space-y-0.5 pt-0.5">
+              {inboundMatches.map((match) => {
+                const colorMap: Record<string, string> = {
+                  customer: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+                  hospital: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+                  clinic: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300",
+                  collaborator: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+                };
+                const labelMap: Record<string, string> = {
+                  customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník",
+                };
+                return (
+                  <button
+                    key={`${match.entityType}-${match.id}`}
+                    onClick={() => onSelectMatch?.(match)}
+                    className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-muted/70 transition-colors"
+                    data-testid={`btn-phone-match-${match.entityType}-${match.id}`}
+                  >
+                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${colorMap[match.entityType] || "bg-muted text-muted-foreground"}`}>
+                      {labelMap[match.entityType] || match.entityType}
+                    </span>
+                    <span className="text-[11px] font-medium truncate">{match.name}</span>
+                    {match.subtype && <span className="text-[10px] text-muted-foreground truncate">{match.subtype}</span>}
+                  </button>
+                );
+              })}
+            </div>
           )}
 
           {(callState === "active" || callState === "on_hold") && callContext.isRecording && (
@@ -5281,6 +5323,35 @@ export default function AgentWorkspacePage() {
   const [wrapUpElapsed, setWrapUpElapsed] = useState(0);
   const wrapUpTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prevCallStateRef = useRef(callContext.callState);
+
+  const inboundPhone = callContext.callInfo?.direction === "inbound" ? callContext.callInfo?.phoneNumber : null;
+  const { data: inboundPhoneMatches = [] } = useQuery<PhoneMatch[]>({
+    queryKey: ["/api/phone/lookup-all", inboundPhone],
+    queryFn: async () => {
+      if (!inboundPhone || inboundPhone === "Unknown") return [];
+      const res = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(inboundPhone)}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!inboundPhone && inboundPhone !== "Unknown" && callContext.callState !== "idle",
+    staleTime: 60000,
+  });
+
+  const handleSelectInboundMatch = (match: PhoneMatch) => {
+    if (match.entityType === "customer") {
+      setActiveChannel("phone");
+      setPhoneSubTabOverride("details");
+      setTimeout(() => setPhoneSubTabOverride(null), 100);
+    } else {
+      const pathMap: Record<string, string> = {
+        hospital: "/hospitals",
+        clinic: "/clinics",
+        collaborator: "/collaborators",
+      };
+      const base = pathMap[match.entityType];
+      if (base) window.open(`${base}#${match.id}`, "_blank");
+    }
+  };
   const callWasActiveRef = useRef(false);
   const [ringDuration, setRingDuration] = useState(0);
   const ringTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -8117,6 +8188,8 @@ export default function AgentWorkspacePage() {
           onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
           onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
           wrapUpElapsed={wrapUpElapsed}
+          inboundMatches={inboundPhoneMatches}
+          onSelectMatch={handleSelectInboundMatch}
         />
       </div>
 

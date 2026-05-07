@@ -129,19 +129,21 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
     onReject(call);
   }, [call, onReject, isAccepting, isRejecting]);
 
-  const { data: matchedCustomer } = useQuery<any>({
-    queryKey: ["/api/customers/lookup-phone", call.callerNumber],
+  const { data: phoneMatches = [] } = useQuery<Array<{ entityType: string; id: string; name: string; phone: string; subtype?: string }>>({
+    queryKey: ["/api/phone/lookup-all", call.callerNumber],
     queryFn: async () => {
-      if (!call.callerNumber) return null;
-      const res = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(call.callerNumber)}`, {
+      if (!call.callerNumber) return [];
+      const res = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(call.callerNumber)}`, {
         credentials: "include",
       });
-      if (!res.ok) return null;
+      if (!res.ok) return [];
       return res.json();
     },
     enabled: !!call.callerNumber,
     staleTime: 30000,
   });
+
+  const primaryMatch = phoneMatches[0] ?? null;
 
   const { data: todayHistory } = useQuery<{
     total: number;
@@ -175,12 +177,21 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
     }
   }, [isFirst, isUrgentRepeatedCaller]);
 
-  const initials = matchedCustomer?.name
-    ? matchedCustomer.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+  const initials = primaryMatch?.name
+    ? primaryMatch.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : call.callerNumber.slice(-2);
 
   const canAccept = call.hasSipInvitation === true;
-  const displayName = matchedCustomer?.name || call.callerNumber;
+  const displayName = primaryMatch?.name || call.callerNumber;
+  const entityTypeColors: Record<string, string> = {
+    customer: "bg-blue-100 text-blue-700",
+    hospital: "bg-purple-100 text-purple-700",
+    clinic: "bg-cyan-100 text-cyan-700",
+    collaborator: "bg-amber-100 text-amber-700",
+  };
+  const entityTypeLabels: Record<string, string> = {
+    customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník",
+  };
 
   return (
     <div
@@ -220,18 +231,28 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
             >
               {displayName}
             </span>
+            {primaryMatch && (
+              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${entityTypeColors[primaryMatch.entityType] || "bg-muted text-muted-foreground"}`}>
+                {entityTypeLabels[primaryMatch.entityType] || primaryMatch.entityType}
+              </span>
+            )}
+            {phoneMatches.length > 1 && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
+                +{phoneMatches.length - 1}
+              </Badge>
+            )}
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
               {call.queueName}
             </Badge>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-            {matchedCustomer?.name && (
+            {primaryMatch?.name && (
               <span data-testid={`text-caller-number-${call.callId}`}>{call.callerNumber}</span>
             )}
-            {matchedCustomer?.company && (
+            {primaryMatch?.subtype && (
               <span className="flex items-center gap-0.5">
                 <Building2 className="h-3 w-3" />
-                {matchedCustomer.company}
+                {primaryMatch.subtype}
               </span>
             )}
             <span className="flex items-center gap-0.5">
@@ -374,14 +395,14 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isExpanded]);
 
-  const { data: matchedCustomer } = useQuery<any>({
-    queryKey: ["/api/customers/lookup-phone", firstCall?.callerNumber],
+  const { data: pillPhoneMatches = [] } = useQuery<Array<{ entityType: string; id: string; name: string; phone: string; subtype?: string }>>({
+    queryKey: ["/api/phone/lookup-all", firstCall?.callerNumber],
     queryFn: async () => {
-      if (!firstCall?.callerNumber) return null;
-      const res = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(firstCall.callerNumber)}`, {
+      if (!firstCall?.callerNumber) return [];
+      const res = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(firstCall.callerNumber)}`, {
         credentials: "include",
       });
-      if (!res.ok) return null;
+      if (!res.ok) return [];
       return res.json();
     },
     enabled: !!firstCall?.callerNumber,
@@ -390,9 +411,10 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
 
   if (!firstCall) return null;
 
+  const pillPrimaryMatch = pillPhoneMatches[0] ?? null;
   const isQueueWaiting = !!firstCall.isQueueWaiting;
   const canAnswer = !hasActiveCall && !isQueueWaiting && firstCall.hasSipInvitation === true;
-  const displayName = matchedCustomer?.name || firstCall.callerNumber;
+  const displayName = pillPrimaryMatch?.name || firstCall.callerNumber;
   const pillColor = hasActiveCall ? "#D97706" : isQueueWaiting ? "#7C3AED" : "#16A34A";
   const pillHoverColor = hasActiveCall ? "#B45309" : isQueueWaiting ? "#6D28D9" : "#15803D";
 
@@ -482,8 +504,20 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
                 {displayName.slice(0, 2).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate text-slate-800">{displayName}</p>
-                {matchedCustomer?.name && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-sm font-semibold truncate text-slate-800">{displayName}</p>
+                  {pillPrimaryMatch && (
+                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${
+                      { customer: "bg-blue-100 text-blue-700", hospital: "bg-purple-100 text-purple-700", clinic: "bg-cyan-100 text-cyan-700", collaborator: "bg-amber-100 text-amber-700" }[pillPrimaryMatch.entityType] || "bg-gray-100 text-gray-700"
+                    }`}>
+                      {{ customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník" }[pillPrimaryMatch.entityType] || pillPrimaryMatch.entityType}
+                    </span>
+                  )}
+                  {pillPhoneMatches.length > 1 && (
+                    <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-gray-100 text-gray-600">+{pillPhoneMatches.length - 1}</span>
+                  )}
+                </div>
+                {pillPrimaryMatch?.name && (
                   <p className="text-[11px] text-slate-500 truncate">{firstCall.callerNumber}</p>
                 )}
                 <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">

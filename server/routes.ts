@@ -2490,6 +2490,53 @@ export async function registerRoutes(
     }
   });
 
+  // Multi-entity phone lookup — returns ALL matches across customers, hospitals, clinics, collaborators
+  app.get("/api/phone/lookup-all", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const phone = req.query.phone as string;
+      if (!phone) return res.status(400).json({ error: "Phone parameter required" });
+
+      const normalized = phone.replace(/[\s\-\(\)]/g, "");
+      const shortNum = normalized.replace(/^(\+|00)/, "").replace(/^421|^420|^36|^40|^39|^49|^1/, "");
+
+      const matches = (p: string | null | undefined): boolean => {
+        if (!p) return false;
+        const norm = p.replace(/[\s\-\(\)]/g, "");
+        return norm === normalized || norm.endsWith(shortNum) || normalized.endsWith(norm.replace(/^(\+|00)/, "").replace(/^421|^420|^36|^40|^39|^49|^1/, ""));
+      };
+
+      const results: Array<{ entityType: string; id: string; name: string; phone: string; subtype?: string }> = [];
+
+      const [allCustomers, allHospitals, allClinics, allCollaborators] = await Promise.all([
+        storage.getAllCustomers(),
+        storage.getAllHospitals(),
+        storage.getAllClinics(),
+        storage.getAllCollaborators(),
+      ]);
+
+      for (const c of allCustomers) {
+        const hit = [c.phone, c.mobile, (c as any).mobile2, (c as any).otherContact].find(p => matches(p));
+        if (hit) results.push({ entityType: "customer", id: c.id, name: `${c.firstName} ${c.lastName}`, phone: hit });
+      }
+      for (const h of allHospitals) {
+        if (matches(h.phone)) results.push({ entityType: "hospital", id: h.id, name: h.name, phone: h.phone! });
+      }
+      for (const c of allClinics) {
+        const hit = [(c as any).phone, (c as any).phone2, (c as any).phone3].find((p: string | null) => matches(p));
+        if (hit) results.push({ entityType: "clinic", id: c.id, name: c.name, phone: hit, subtype: (c as any).doctorName || undefined });
+      }
+      for (const c of allCollaborators) {
+        const hit = [(c as any).phone, (c as any).mobile, (c as any).mobile2, (c as any).otherContact].find((p: string | null) => matches(p));
+        if (hit) results.push({ entityType: "collaborator", id: c.id, name: `${c.firstName} ${c.lastName}`, phone: hit, subtype: (c as any).collaboratorType || undefined });
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error in phone lookup-all:", error);
+      res.status(500).json({ error: "Failed to lookup phone" });
+    }
+  });
+
   app.get("/api/customers/lookup-phone", requireAuth, async (req, res) => {
     try {
       const phone = req.query.phone as string;
