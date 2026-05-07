@@ -5431,18 +5431,9 @@ export default function AgentWorkspacePage() {
         setTimeout(() => setPhoneSubTabOverride(null), 100);
       }
 
-      // Sync selected identity to sip-phone so call log is attributed correctly
+      // Sync selected identity to sip-phone — sip-phone updates localCustomerIdRef AND PATCHes call log
       if (contact) {
         callContext.updateCallCustomerFn.current?.(String(contact.id));
-        const activeCallLogId = callContext.callInfo?.callLogId;
-        if (activeCallLogId) {
-          fetch(`/api/call-logs/${activeCallLogId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ customerId: contact.id }),
-          }).catch(console.error);
-        }
       }
 
       if (inboundTaskContext && contact) {
@@ -5499,6 +5490,7 @@ export default function AgentWorkspacePage() {
   const cancelledCallIdsRef = useRef<Set<string>>(new Set());
   const filteredCallerNumbersRef = useRef<Map<string, number>>(new Map());
   const acceptingCallRef = useRef(false);
+  const wasInboundCallRef = useRef(false);
   const dialingRef = useRef(false);
   const dispositionContextRef = useRef<{
     taskId: string | null;
@@ -5733,7 +5725,7 @@ export default function AgentWorkspacePage() {
       }
       if (curr === "ended") {
         callWasActiveRef.current = false;
-        const isInboundCall = callContext.callDirection === "inbound";
+        const isInboundCall = wasInboundCallRef.current;
         // Inbound: show disposition regardless of contact match; outbound: require campaignContactId
         if (isInboundCall || (currentContact && currentCampaignContactId)) {
           dispositionContextRef.current = {
@@ -5760,6 +5752,7 @@ export default function AgentWorkspacePage() {
       }
       if (curr === "idle") {
         callWasActiveRef.current = false;
+        wasInboundCallRef.current = false;
         callContext.setCallDirection(null);
         setRingDuration(0);
         if (pendingCallbackAbandonedIdRef.current) {
@@ -5775,7 +5768,7 @@ export default function AgentWorkspacePage() {
       }
     }
     prevCallStateRef.current = curr;
-  }, [callContext.callState, callContext.callDirection, currentContact, currentCampaignContactId]);
+  }, [callContext.callState, currentContact, currentCampaignContactId]);
 
   // Post-call wrap-up timer: count seconds elapsed since call ended, until disposition is submitted
   useEffect(() => {
@@ -7530,6 +7523,7 @@ export default function AgentWorkspacePage() {
       return;
     }
     acceptingCallRef.current = true;
+    wasInboundCallRef.current = true;
 
     const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
     const callerNumber = call.callerNumber;

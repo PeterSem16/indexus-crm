@@ -697,10 +697,17 @@ export function SipPhone({
     ctx.resetCallTiming();
     callStartTimeRef.current = Date.now();
     ctx.setCallTiming({ callStartTime: Date.now() });
-    // Expose updater so agent-workspace can sync localCustomerIdRef when opening a different identity
+    // Expose updater so agent-workspace can sync localCustomerIdRef and DB call log when opening a different identity
     callContextRef.current.updateCallCustomerFn.current = (cid: string) => {
       localCustomerIdRef.current = cid;
       setLocalCustomerId(cid);
+      // Immediately PATCH the call log if it already exists (handles race with async creation)
+      if (inboundCallLogIdRef.current) {
+        updateCallLogMutation.mutate({
+          id: inboundCallLogIdRef.current,
+          data: { customerId: cid },
+        });
+      }
     };
 
     activeInboundMetaRef.current = {

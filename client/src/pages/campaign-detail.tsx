@@ -1003,7 +1003,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
   campaign: Campaign; open: boolean; onOpenChange: (open: boolean) => void; contacts: any[];
   allUsers: Array<{ id: string; fullName: string; role: string; roleId: string | null }>;
   assignedAgentIds: string[];
-  onDistribute?: (agents: AgentContactFilter[]) => void;
+  onDistribute?: (agents: AgentContactFilter[], contactsPool?: any[]) => void;
   isDistributing?: boolean;
 }) {
   const { t } = useI18n();
@@ -1417,7 +1417,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
                             size="sm"
                             className="h-6 px-2 text-xs"
                             disabled={isDistributing}
-                            onClick={() => { setShowDistributeConfirm(false); onDistribute(agentFilters); }}
+                            onClick={() => { setShowDistributeConfirm(false); onDistribute(agentFilters, contacts); }}
                             data-testid="button-distribute-confirm"
                           >
                             {isDistributing ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Áno"}
@@ -4480,13 +4480,14 @@ export default function CampaignDetailPage() {
     },
   });
 
-  const handleDistributeRandomly = (incomingAgents?: AgentContactFilter[]) => {
+  const handleDistributeRandomly = (incomingAgents?: AgentContactFilter[], incomingContacts?: any[]) => {
     // Use agents passed from SortRulesDialog first, fall back to saved parsedAgentContactFilters
     const agents = (incomingAgents && incomingAgents.length > 0)
       ? incomingAgents
       : (parsedAgentContactFilters as AgentContactFilter[]);
     if (agents.length === 0) return;
-    const pool = [...filteredContacts] as any[];
+    // Use full contacts list when called from SortRulesDialog; filtered view otherwise
+    const pool = [...(incomingContacts && incomingContacts.length > 0 ? incomingContacts : filteredContacts)] as any[];
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
