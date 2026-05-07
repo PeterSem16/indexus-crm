@@ -1010,6 +1010,8 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
   const [assignmentMode, setAssignmentMode] = useState<"global" | "per-agent">("global");
   const [agentFilters, setAgentFilters] = useState<AgentContactFilter[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showAddAgentPicker, setShowAddAgentPicker] = useState(false);
+  const [pickerAgentId, setPickerAgentId] = useState<string>("");
 
   useEffect(() => {
     if (!open) return;
@@ -1390,23 +1392,11 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
                   );
                 })}
 
-                {/* Add agent dropdown */}
+                {/* Add agent button */}
                 {availableToAdd.length > 0 && (
-                  <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" data-testid="button-add-agent-filter">
-                        <Plus className="w-4 h-4 mr-1" />{t.campaigns.inboundQueues.addAgent}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      {availableToAdd.map(u => (
-                        <DropdownMenuItem key={u.id} onClick={() => addAgentFilter(u.id)}>
-                          <Avatar className="h-5 w-5 mr-2"><AvatarFallback className="text-[9px]">{u.fullName.split(" ").map((n: string) => n[0]).join("").slice(0,2).toUpperCase()}</AvatarFallback></Avatar>
-                          {u.fullName}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button variant="outline" size="sm" data-testid="button-add-agent-filter" onClick={() => { setPickerAgentId(""); setShowAddAgentPicker(true); }}>
+                    <Plus className="w-4 h-4 mr-1" />{t.campaigns.inboundQueues.addAgent}
+                  </Button>
                 )}
                 {assignedAgentIds.length === 0 && (
                   <p className="text-xs text-muted-foreground italic">Žiadni agenti nie sú priradení ku kampani. Najprv ich pridajte v Nastavenia → Operátori.</p>
@@ -1430,6 +1420,36 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
           </div>
         </div>
       </DialogContent>
+
+      {/* Agent picker — nested Dialog avoids Radix DismissableLayer click-swallow */}
+      <Dialog open={showAddAgentPicker} onOpenChange={(o) => { setShowAddAgentPicker(o); if (!o) setPickerAgentId(""); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t.campaigns.inboundQueues.addAgent}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Select value={pickerAgentId} onValueChange={setPickerAgentId}>
+              <SelectTrigger data-testid="select-add-agent"><SelectValue placeholder={t.campaigns.inboundQueues.agent} /></SelectTrigger>
+              <SelectContent>
+                {availableToAdd.map(u => (
+                  <SelectItem key={u.id} value={u.id}>
+                    <span className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5 shrink-0"><AvatarFallback className="text-[9px]">{u.fullName.split(" ").map((n: string) => n[0]).join("").slice(0,2).toUpperCase()}</AvatarFallback></Avatar>
+                      {u.fullName}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowAddAgentPicker(false)}>{t.common.cancel}</Button>
+            <Button disabled={!pickerAgentId} onClick={() => { if (pickerAgentId) { addAgentFilter(pickerAgentId); setShowAddAgentPicker(false); setPickerAgentId(""); } }} data-testid="button-confirm-add-agent">
+              {t.campaigns.inboundQueues.addAgent}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
