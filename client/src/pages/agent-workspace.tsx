@@ -128,6 +128,8 @@ import {
   Navigation,
   SlidersHorizontal,
   RotateCw,
+  CheckCircle2,
+  Circle,
 } from "lucide-react";
 import {
   Dialog,
@@ -308,6 +310,7 @@ const DISPOSITION_ICON_MAP: Record<string, typeof Phone> = {
   Calendar, MessageSquare, FileText, Info, User, Mail, Star, Zap, CheckCircle,
   Send, Ban, Heart, Bell, Flag, Target, Eye, EyeOff, UserCheck, UserX, Users,
   Home, MapPin, Globe, Briefcase, Gift, Volume2, VolumeX, CircleDot,
+  CheckCircle2, Circle,
 };
 
 const DISPOSITION_COLOR_MAP: Record<string, string> = {
@@ -318,6 +321,16 @@ const DISPOSITION_COLOR_MAP: Record<string, string> = {
   gray: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
   yellow: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
   purple: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+};
+
+const DISPOSITION_HEX_MAP: Record<string, string> = {
+  green: "#10B981",
+  blue: "#3B82F6",
+  orange: "#F97316",
+  red: "#EF4444",
+  gray: "#6B7280",
+  yellow: "#F59E0B",
+  purple: "#8B5CF6",
 };
 
 interface ScriptElement {
@@ -8427,24 +8440,47 @@ export default function AgentWorkspacePage() {
                             send_sms:       { label: t.agentWorkspace.actionLabelSendSms,       cls: "bg-teal-100 text-teal-700" },
                           };
                           const actionInfo = actionLabels[child.actionType];
+                          const accentHex = DISPOSITION_HEX_MAP[child.color || "gray"] || DISPOSITION_HEX_MAP.gray;
                           return (
-                            <label key={child.id} className={`flex items-center gap-3 p-2.5 rounded-md border cursor-pointer transition-colors ${isChecked ? "border-primary bg-primary/5" : "hover:bg-muted/40"}`} data-testid={`checklist-item-${child.code}`}>
-                              <Checkbox
-                                checked={isChecked}
-                                onCheckedChange={(v) => {
-                                  setChecklistSelectedCodes(prev =>
-                                    v ? [...prev, child.code] : prev.filter(c => c !== child.code)
-                                  );
-                                }}
-                              />
-                              <ChildIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              <span className="text-sm flex-1">{getDispName(child)}</span>
-                              {actionInfo && (
-                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${actionInfo.cls}`}>
-                                  {actionInfo.label}
-                                </span>
-                              )}
-                            </label>
+                            <div
+                              key={child.id}
+                              role="checkbox"
+                              aria-checked={isChecked}
+                              tabIndex={0}
+                              onClick={() => setChecklistSelectedCodes(prev => isChecked ? prev.filter(c => c !== child.code) : [...prev, child.code])}
+                              onKeyDown={(e) => e.key === " " && setChecklistSelectedCodes(prev => isChecked ? prev.filter(c => c !== child.code) : [...prev, child.code])}
+                              className="relative flex items-center cursor-pointer rounded-xl overflow-hidden transition-all duration-150 group select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              style={{
+                                border: `1.5px solid ${isChecked ? accentHex : "hsl(var(--border))"}`,
+                                background: isChecked ? `${accentHex}10` : "hsl(var(--card))",
+                                boxShadow: isChecked ? `0 2px 8px ${accentHex}28` : "0 1px 2px rgba(0,0,0,0.04)",
+                              }}
+                              data-testid={`checklist-item-${child.code}`}
+                            >
+                              <div className="w-1 self-stretch shrink-0 transition-all rounded-l-xl" style={{ background: isChecked ? accentHex : "transparent" }} />
+                              <div
+                                className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 my-3 ml-3 transition-all"
+                                style={{ background: isChecked ? `${accentHex}22` : "hsl(var(--muted))" }}
+                              >
+                                <ChildIcon className="h-4 w-4" style={{ color: isChecked ? accentHex : "hsl(var(--muted-foreground))" }} />
+                              </div>
+                              <div className="flex-1 py-3 px-3">
+                                <p className="text-sm font-semibold leading-tight" style={{ color: isChecked ? accentHex : "hsl(var(--foreground))" }}>
+                                  {getDispName(child)}
+                                </p>
+                                {actionInfo && (
+                                  <span className={`inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${actionInfo.cls}`}>
+                                    {actionInfo.label}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="pr-4 shrink-0">
+                                {isChecked
+                                  ? <CheckCircle2 className="h-5 w-5 transition-all" style={{ color: accentHex }} />
+                                  : <Circle className="h-5 w-5 text-muted-foreground/25 group-hover:text-muted-foreground/50 transition-colors" />
+                                }
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
@@ -8607,26 +8643,55 @@ export default function AgentWorkspacePage() {
                     {children.length > 0 && (
                       <div className="space-y-2">
                         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.statusEngine.disp.reasonTitle}</div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-2">
                           {children.map((child) => {
                             const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
-                            const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                            const accentHex2 = DISPOSITION_HEX_MAP[child.color || "gray"] || DISPOSITION_HEX_MAP.gray;
                             const isScheduleType = parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms"
                               || child.actionType === "callback" || child.actionType === "schedule_email" || child.actionType === "schedule_sms";
                             return (
-                              <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 h-auto ${colorClass}`} onClick={() => {
-                                if (child.callbackOffsetDays) {
-                                  const cbDate = addBusinessDays(new Date(), child.callbackOffsetDays);
-                                  cbDate.setHours(9, 0, 0, 0);
-                                  handleDisposition(child.code, parent?.code, cbDate.toISOString(), cbAssignTo, modalCallbackNote || undefined);
-                                } else {
-                                  handleDisposition(child.code, parent?.code, isScheduleType && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, isScheduleType ? cbAssignTo : undefined, isScheduleType ? modalCallbackNote || undefined : undefined);
-                                }
-                              }} data-testid={`modal-disposition-${child.code}`}>
-                                <IconComp className="h-4 w-4 shrink-0" />
-                                <span className="text-sm font-medium text-left flex-1">{getDispName(child)}</span>
-                                {child.callbackOffsetDays && <span className="text-[10px] text-muted-foreground ml-auto">{child.callbackOffsetDays}d</span>}
-                              </Button>
+                              <button
+                                key={child.id}
+                                onClick={() => {
+                                  if (child.callbackOffsetDays) {
+                                    const cbDate = addBusinessDays(new Date(), child.callbackOffsetDays);
+                                    cbDate.setHours(9, 0, 0, 0);
+                                    handleDisposition(child.code, parent?.code, cbDate.toISOString(), cbAssignTo, modalCallbackNote || undefined);
+                                  } else {
+                                    handleDisposition(child.code, parent?.code, isScheduleType && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, isScheduleType ? cbAssignTo : undefined, isScheduleType ? modalCallbackNote || undefined : undefined);
+                                  }
+                                }}
+                                className="relative flex items-center cursor-pointer rounded-xl overflow-hidden transition-all duration-150 group text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:scale-[1.01]"
+                                style={{
+                                  border: `1.5px solid hsl(var(--border))`,
+                                  background: "hsl(var(--card))",
+                                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                                }}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLElement).style.border = `1.5px solid ${accentHex2}`;
+                                  (e.currentTarget as HTMLElement).style.background = `${accentHex2}08`;
+                                  (e.currentTarget as HTMLElement).style.boxShadow = `0 2px 8px ${accentHex2}28`;
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLElement).style.border = `1.5px solid hsl(var(--border))`;
+                                  (e.currentTarget as HTMLElement).style.background = "hsl(var(--card))";
+                                  (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
+                                }}
+                                data-testid={`modal-disposition-${child.code}`}
+                              >
+                                <div className="w-1 self-stretch shrink-0 rounded-l-xl transition-all" style={{ background: accentHex2 }} />
+                                <div
+                                  className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 my-3 ml-3"
+                                  style={{ background: `${accentHex2}20` }}
+                                >
+                                  <IconComp className="h-3.5 w-3.5" style={{ color: accentHex2 }} />
+                                </div>
+                                <span className="text-sm font-semibold flex-1 px-3 py-3" style={{ color: "hsl(var(--foreground))" }}>
+                                  {getDispName(child)}
+                                  {child.callbackOffsetDays && <span className="ml-2 text-[10px] font-normal text-muted-foreground">{child.callbackOffsetDays}d</span>}
+                                </span>
+                                <span className="pr-3 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors">›</span>
+                              </button>
                             );
                           })}
                         </div>
