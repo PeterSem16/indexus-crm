@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -702,25 +702,30 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
 
   return (
     <>
-    <Card className="w-full">
-      <CardHeader className="pb-4">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              {t.wizard?.stepOf?.replace("{current}", String(currentStep + 1)).replace("{total}", String(WIZARD_STEPS.length)) || `Step ${currentStep + 1} of ${WIZARD_STEPS.length}`}
-            </span>
-            <span>{Math.round(progress)}%</span>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="shrink-0 px-5 py-3 border-b bg-muted/30">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Building2 className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold leading-tight">
+                {initialData?.name || (t.hospitals?.addHospital || "Nemocnica")}
+              </h2>
+              <p className="text-xs text-muted-foreground">{getStepTitle(currentStepInfo.id)}</p>
+            </div>
           </div>
-          <Progress value={progress} className="h-2" />
+          <span className="text-[11px] text-muted-foreground">{Math.round(progress)}%</span>
         </div>
-
-        <div className="flex flex-wrap gap-2 pt-4">
+        <Progress value={progress} className="h-1 mb-2" />
+        <div className="flex flex-wrap gap-1.5">
           {WIZARD_STEPS.map((step, index) => {
             const isCompleted = completedSteps.has(index);
             const isCurrent = index === currentStep;
             const isClickable = index < currentStep || isCompleted || completedSteps.has(index - 1);
             const Icon = step.icon;
-            
             return (
               <button
                 key={step.id}
@@ -728,62 +733,51 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
                 onClick={() => handleStepClick(index)}
                 disabled={!isClickable}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors",
                   isCurrent && "bg-primary text-primary-foreground",
                   isCompleted && !isCurrent && "bg-primary/10 text-primary",
                   !isCurrent && !isCompleted && "bg-muted text-muted-foreground",
-                  isClickable && !isCurrent && "hover-elevate cursor-pointer",
+                  isClickable && !isCurrent && "hover:bg-primary/15 cursor-pointer",
                   !isClickable && "cursor-not-allowed opacity-50"
                 )}
                 data-testid={`wizard-step-${step.id}`}
               >
                 <span className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full text-xs",
-                  isCurrent && "bg-primary-foreground text-primary",
+                  "flex h-4 w-4 items-center justify-center rounded-full",
+                  isCurrent && "bg-primary-foreground/20",
                   isCompleted && !isCurrent && "bg-primary text-primary-foreground",
-                  !isCurrent && !isCompleted && "bg-muted-foreground/20"
                 )}>
-                  {isCompleted ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                  {isCompleted ? <Check className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
                 </span>
-                <span className="hidden md:inline">{getStepTitle(step.id)}</span>
+                <span>{getStepTitle(step.id)}</span>
               </button>
             );
           })}
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-6">
-        <div className="border-b pb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <StepIcon className="h-5 w-5" />
-            {getStepTitle(currentStepInfo.id)}
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            {getStepDescription(currentStepInfo.id)}
-          </p>
-        </div>
-        
-        <div className="min-h-[250px]">
-          {renderStepContent()}
-        </div>
-      </CardContent>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+        {renderStepContent()}
+      </div>
 
-      <CardFooter className="flex justify-between gap-2 border-t pt-4">
+      {/* Footer */}
+      <div className="shrink-0 flex justify-between gap-2 border-t px-5 py-3 bg-background">
         <div>
           {onCancel && (
-            <Button variant="ghost" onClick={onCancel} data-testid="wizard-button-cancel">
+            <Button variant="ghost" size="sm" onClick={onCancel} data-testid="wizard-button-cancel">
               {t.common.cancel}
             </Button>
           )}
         </div>
         <div className="flex gap-2">
           {!isFirstStep && (
-            <Button variant="outline" onClick={handlePrevious} data-testid="wizard-button-previous">
+            <Button variant="outline" size="sm" onClick={handlePrevious} data-testid="wizard-button-previous">
               <ChevronLeft className="h-4 w-4 mr-1" />
               {t.wizard?.previous || "Previous"}
             </Button>
           )}
-          <Button onClick={handleNext} disabled={saveMutation.isPending} data-testid="wizard-button-next">
+          <Button size="sm" onClick={handleNext} disabled={saveMutation.isPending} data-testid="wizard-button-next">
             {isLastStep ? (
               saveMutation.isPending ? t.common.loading : (t.wizard?.complete || t.common.save)
             ) : (
@@ -794,8 +788,8 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
             )}
           </Button>
         </div>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
 
     <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
       <DialogContent className="max-w-3xl">

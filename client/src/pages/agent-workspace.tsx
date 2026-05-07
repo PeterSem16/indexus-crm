@@ -2620,16 +2620,18 @@ function CommunicationCanvas({
           )}
 
           {phoneSubTab === "card" && contact && (
-            <ScrollArea className="flex-1 isolate">
-              <div className="px-4 pb-4">
-                {contactType === "hospital" && hospitalData ? (
+            <>
+              {contactType === "hospital" && hospitalData ? (
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   <HospitalFormWizard
                     key={hospitalData.id}
                     initialData={hospitalData}
                     onSuccess={() => setPhoneSubTab("details")}
                     onCancel={() => setPhoneSubTab("details")}
                   />
-                ) : contactType === "clinic" && clinicData ? (
+                </div>
+              ) : contactType === "clinic" && clinicData ? (
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   <ClinicFormSheet
                     key={clinicData.id}
                     open={true}
@@ -2638,25 +2640,31 @@ function CommunicationCanvas({
                     onSuccess={() => setPhoneSubTab("details")}
                     mode="inline"
                   />
-                ) : contactType === "collaborator" && collaboratorData ? (
+                </div>
+              ) : contactType === "collaborator" && collaboratorData ? (
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   <CollaboratorFormWizard
                     key={collaboratorData.id}
                     initialData={collaboratorData}
                     onSuccess={() => setPhoneSubTab("details")}
                     onCancel={() => setPhoneSubTab("details")}
                   />
-                ) : (
-                  <CustomerForm
-                    key={contact.id}
-                    initialData={contact}
-                    onSubmit={(data) => onUpdateContact?.(data)}
-                    isLoading={isUpdatingContact}
-                    onCancel={() => setPhoneSubTab("details")}
-                    useCardLayout
-                  />
-                )}
-              </div>
-            </ScrollArea>
+                </div>
+              ) : (
+                <ScrollArea className="flex-1 isolate">
+                  <div className="px-4 pb-4">
+                    <CustomerForm
+                      key={contact.id}
+                      initialData={contact}
+                      onSubmit={(data) => onUpdateContact?.(data)}
+                      isLoading={isUpdatingContact}
+                      onCancel={() => setPhoneSubTab("details")}
+                      useCardLayout
+                    />
+                  </div>
+                </ScrollArea>
+              )}
+            </>
           )}
 
           {phoneSubTab === "details" && contact && (
