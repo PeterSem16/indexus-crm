@@ -19,7 +19,7 @@ import {
   FolderOpen, Wifi, WifiOff, Smartphone, ShieldAlert, ShieldCheck, Handshake, Hourglass,
   ClipboardCheck, PhoneForwarded, FileQuestion, FileWarning, FileX, MailPlus, MailCheck, MailWarning, MailX,
   MinusCircle, Slash, FolderClosed, TrendingUp, CalendarClock, MessageCircle,
-  UserPlus, UserMinus, PhoneCall, BookMarked, Newspaper, Image, FileSignature, CalendarCheck,
+  UserPlus, UserMinus, PhoneCall, BookMarked, Newspaper, Image, FileSignature, CalendarCheck, Shuffle,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -4125,6 +4125,7 @@ export default function CampaignDetailPage() {
   const [draggingContactId, setDraggingContactId] = useState<string | null>(null);
   const [dragOverAgentId, setDragOverAgentId] = useState<string | null>(null);
   const [selectedAgentViewId, setSelectedAgentViewId] = useState<string | null>(null);
+  const [showDistributeDialog, setShowDistributeDialog] = useState(false);
   const [requeueDispositions, setRequeueDispositions] = useState<Set<string>>(new Set());
   const [requeueStatuses, setRequeueStatuses] = useState<Set<string>>(new Set());
   const [requeueCallbackFrom, setRequeueCallbackFrom] = useState("");
@@ -4414,6 +4415,41 @@ export default function CampaignDetailPage() {
       toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.contactUpdateError, variant: "destructive" });
     },
   });
+
+  const bulkDistributeMutation = useMutation({
+    mutationFn: async (assignments: Array<{ contactId: string; agentId: string }>) => {
+      await Promise.all(
+        assignments.map(({ contactId, agentId }) =>
+          apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}`, { assignedTo: agentId })
+        )
+      );
+    },
+    onSuccess: (_, assignments) => {
+      toast({ title: `${assignments.length} kontaktov rozdelených rovnomerne medzi agentov` });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Niektoré kontakty sa nepodarilo priradiť.", variant: "destructive" });
+    },
+  });
+
+  const handleDistributeRandomly = () => {
+    const agents = parsedAgentContactFilters as AgentContactFilter[];
+    if (agents.length === 0) return;
+    const pool = [...filteredContacts] as any[];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const assignments: Array<{ contactId: string; agentId: string }> = [];
+    pool.forEach((contact, idx) => {
+      const agent = agents[idx % agents.length];
+      assignments.push({ contactId: contact.id, agentId: agent.agentId });
+    });
+    bulkDistributeMutation.mutate(assignments);
+    setShowDistributeDialog(false);
+  };
 
   const updateAgentsMutation = useMutation({
     mutationFn: async (userIds: string[]) => {
@@ -5328,6 +5364,17 @@ export default function CampaignDetailPage() {
               })}
               {draggingContactId && (
                 <span className="text-xs text-muted-foreground self-center italic ml-1">Presuňte kontakt na agenta...</span>
+              )}
+              {!draggingContactId && parsedAgentContactFilters.length > 0 && filteredContacts.length > 0 && (
+                <button
+                  onClick={() => setShowDistributeDialog(true)}
+                  title="Rozdeliť kontakty z filtra náhodne a rovnomerne medzi agentov"
+                  className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-dashed border-muted-foreground/40 text-xs text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+                  data-testid="btn-distribute-randomly"
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                  Rozdeliť náhodne
+                </button>
               )}
             </div>
           )}
@@ -6736,6 +6783,52 @@ export default function CampaignDetailPage() {
       </Dialog>
 
       <SortRulesDialog campaign={campaign} open={showSortRulesDialog} onOpenChange={setShowSortRulesDialog} contacts={contacts} allUsers={allUsers} assignedAgentIds={assignedAgentIds} />
+
+      <AlertDialog open={showDistributeDialog} onOpenChange={setShowDistributeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Shuffle className="w-5 h-5 text-primary" />
+              Rozdeliť kontakty náhodne
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Náhodne a rovnomerne rozdelí <strong className="text-foreground">{filteredContacts.length} kontaktov</strong> z aktuálneho filtra medzi <strong className="text-foreground">{(parsedAgentContactFilters as AgentContactFilter[]).length} agentov</strong>.
+                </p>
+                <div className="rounded-md border bg-muted/40 p-3 space-y-1">
+                  {(parsedAgentContactFilters as AgentContactFilter[]).map((af) => {
+                    const agent = allUsers.find(u => u.id === af.agentId);
+                    if (!agent) return null;
+                    const perAgent = Math.ceil(filteredContacts.length / (parsedAgentContactFilters as AgentContactFilter[]).length);
+                    return (
+                      <div key={af.agentId} className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-foreground">{agent.fullName}</span>
+                        <span className="text-muted-foreground">≈ {perAgent} kontaktov</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-amber-600 dark:text-amber-400 text-xs">
+                  Existujúce priradenia kontaktov z filtra budú prepísané.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Zrušiť</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDistributeRandomly}
+              disabled={bulkDistributeMutation.isPending}
+              className="gap-2"
+              data-testid="btn-confirm-distribute"
+            >
+              {bulkDistributeMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Shuffle className="w-4 h-4" />}
+              Rozdeliť
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={showRequeueDialog} onOpenChange={(open) => { setShowRequeueDialog(open); if (!open) setRequeuePage(0); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
