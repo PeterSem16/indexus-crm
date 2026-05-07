@@ -10853,25 +10853,34 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
-  // Comprehensive Contact History API - combines call logs, messages, campaign interactions
-  app.get("/api/customers/:customerId/contact-history", requireAuth, async (req, res) => {
-    try {
-      const customerId = req.params.customerId;
-      
-      const [callLogsList, messages, campaignHistory, allUsers, inboundLogs] = await Promise.all([
-        storage.getCallLogsByCustomer(customerId),
-        storage.getCommunicationMessagesByCustomer(customerId),
-        storage.getCampaignContactHistoryByCustomer(customerId),
-        storage.getAllUsers(),
-        db.select({
-          log: inboundCallLogs,
-          queueName: inboundQueues.name,
-        }).from(inboundCallLogs)
-          .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
-          .where(eq(inboundCallLogs.customerId, customerId))
-          .orderBy(desc(inboundCallLogs.enteredQueueAt)),
-      ]);
-      
+  // Shared contact-history builder — works for customers, hospitals, clinics, collaborators, persons
+  const buildContactHistory = async (entityId: string, includeAgentLogs = false): Promise<any[]> => {
+    const [fetchedCallLogs, messages, campaignHistory, allUsers, inboundLogs] = await Promise.all([
+      storage.getCallLogsByCustomer(entityId),
+      storage.getCommunicationMessagesByCustomer(entityId),
+      storage.getCampaignContactHistoryByCustomer(entityId),
+      storage.getAllUsers(),
+      db.select({
+        log: inboundCallLogs,
+        queueName: inboundQueues.name,
+      }).from(inboundCallLogs)
+        .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+        .where(eq(inboundCallLogs.customerId, entityId))
+        .orderBy(desc(inboundCallLogs.enteredQueueAt)),
+    ]);
+
+    // For collaborators/persons: also include calls they made as agents
+    const agentCallLogs = includeAgentLogs ? await storage.getCallLogsByUser(entityId) : [];
+
+    // Merge call logs, dedup by id
+    const seenCallIds = new Set<number>();
+    const callLogsList: typeof fetchedCallLogs = [];
+    for (const c of fetchedCallLogs) { if (c.id) { seenCallIds.add(c.id); callLogsList.push(c); } }
+    for (const c of agentCallLogs) { if (c.id && !seenCallIds.has(c.id)) callLogsList.push(c); }
+
+    const customerId = entityId;
+
+    
       const userMap = new Map(allUsers.map(u => [u.id, `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username]));
       
       const statusLabels: Record<string, string> = {
@@ -11076,14 +11085,27 @@ Return ONLY valid JSON, no markdown code blocks.`,
         });
       }
 
-      historyItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      
-      res.json(historyItems);
-    } catch (error) {
-      console.error("Error fetching contact history:", error);
-      res.status(500).json({ error: "Failed to fetch contact history" });
-    }
-  });
+    historyItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return historyItems;
+  };
+
+  // Comprehensive Contact History API — entity-aware routes
+  const _contactHistoryHandler = (includeAgentLogs = false) =>
+    async (req: Request, res: Response) => {
+      try {
+        const id = (req.params as any).customerId || (req.params as any).id;
+        res.json(await buildContactHistory(id, includeAgentLogs));
+      } catch (error) {
+        console.error("Error fetching contact history:", error);
+        res.status(500).json({ error: "Failed to fetch contact history" });
+      }
+    };
+
+  app.get("/api/customers/:customerId/contact-history", requireAuth, _contactHistoryHandler());
+  app.get("/api/hospitals/:id/contact-history", requireAuth, _contactHistoryHandler());
+  app.get("/api/clinics/:id/contact-history", requireAuth, _contactHistoryHandler());
+  app.get("/api/collaborators/:id/contact-history", requireAuth, _contactHistoryHandler(true));
+  app.get("/api/persons/:id/contact-history", requireAuth, _contactHistoryHandler(true));
 
   // Communication Messages API
   app.get("/api/customers/:customerId/messages", requireAuth, async (req, res) => {

@@ -255,7 +255,7 @@ export function SipPhone({
       if (cid) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", cid, "call-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", Number(cid), "call-logs"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/customers", cid, "contact-history"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/entity-history", cid] });
       }
     }
   });

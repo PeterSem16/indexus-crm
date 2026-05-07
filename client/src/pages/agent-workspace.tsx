@@ -6233,9 +6233,14 @@ export default function AgentWorkspacePage() {
   });
 
   const { data: persistentHistory = [] } = useQuery<any[]>({
-    queryKey: ["/api/customers", currentContact?.id, "contact-history"],
+    queryKey: ["/api/entity-history", currentContact?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/customers/${currentContact!.id}/contact-history`, { credentials: "include" });
+      const pathMap: Record<string, string> = {
+        hospital: "hospitals", clinic: "clinics",
+        collaborator: "collaborators", person: "collaborators",
+      };
+      const seg = pathMap[currentContactType || "customer"] || "customers";
+      const res = await fetch(`/api/${seg}/${currentContact!.id}/contact-history`, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
     enabled: !!currentContact?.id,
@@ -6387,7 +6392,7 @@ export default function AgentWorkspacePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "assigned-statuses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"] });
       if (currentContact?.id) {
-        queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "contact-history"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/entity-history", currentContact.id] });
       }
       refetchShiftData();
     },
@@ -6544,7 +6549,7 @@ export default function AgentWorkspacePage() {
       if (variables.customerId) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "contact-history"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/entity-history", variables.customerId] });
       }
       if (currentCampaignContactId && selectedCampaignId) {
         const campaignSettings = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
@@ -6598,7 +6603,7 @@ export default function AgentWorkspacePage() {
       if (variables.customerId) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "contact-history"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/entity-history", variables.customerId] });
       }
       if (currentCampaignContactId) {
         setDispositionChannelFilter("sms");
@@ -6883,7 +6888,7 @@ export default function AgentWorkspacePage() {
       await apiRequest("POST", `/api/customers/${currentContact.id}/notes`, { content: note });
       queryClient.refetchQueries({ queryKey: notesKey });
       queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "activity-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "contact-history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/entity-history", currentContact.id] });
     } catch (err) {
       console.error("Failed to save note:", err);
       queryClient.setQueryData(notesKey, (old: any) => (old || []).filter((n: any) => n.id !== tempNote.id));
