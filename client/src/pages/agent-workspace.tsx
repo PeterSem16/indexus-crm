@@ -5442,6 +5442,7 @@ export default function AgentWorkspacePage() {
     }
   };
   const callWasActiveRef = useRef(false);
+  const currentCallDirectionRef = useRef<"inbound" | "outbound" | null>(null);
   const [ringDuration, setRingDuration] = useState(0);
   const ringTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
@@ -5691,6 +5692,10 @@ export default function AgentWorkspacePage() {
     }
     if (curr === "active" || curr === "on_hold") {
       callWasActiveRef.current = true;
+      // Capture call direction while callInfo is still populated
+      if (curr === "active" && callContext.callInfo?.direction) {
+        currentCallDirectionRef.current = callContext.callInfo.direction;
+      }
       if (ringTimerRef.current) {
         clearInterval(ringTimerRef.current);
         ringTimerRef.current = null;
@@ -5703,12 +5708,12 @@ export default function AgentWorkspacePage() {
       }
       if (curr === "ended") {
         callWasActiveRef.current = false;
-        const activeTask = tasks.find(t => t.id === activeTaskId);
-        const isInboundCall = activeTask?.direction === "inbound";
-        if (currentContact && (currentCampaignContactId || isInboundCall)) {
+        const isInboundCall = currentCallDirectionRef.current === "inbound";
+        // Inbound: show disposition regardless of contact match; outbound: require campaignContactId
+        if (isInboundCall || (currentContact && currentCampaignContactId)) {
           dispositionContextRef.current = {
             taskId: activeTaskId,
-            contactId: currentContact.id,
+            contactId: currentContact?.id ?? null,
             campaignContactId: currentCampaignContactId,
             campaignId: selectedCampaignId,
           };
@@ -5729,6 +5734,7 @@ export default function AgentWorkspacePage() {
       }
       if (curr === "idle") {
         callWasActiveRef.current = false;
+        currentCallDirectionRef.current = null;
         setRingDuration(0);
         if (pendingCallbackAbandonedIdRef.current) {
           const abandonedId = pendingCallbackAbandonedIdRef.current;
@@ -5743,7 +5749,7 @@ export default function AgentWorkspacePage() {
       }
     }
     prevCallStateRef.current = curr;
-  }, [callContext.callState, currentContact, currentCampaignContactId, tasks, activeTaskId]);
+  }, [callContext.callState, callContext.callInfo, currentContact, currentCampaignContactId]);
 
   // Post-call wrap-up timer: count seconds elapsed since call ended, until disposition is submitted
   useEffect(() => {
