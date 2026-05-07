@@ -625,6 +625,9 @@ type ContactSortRule = {
 
 type SortFieldOption = { value: string; entity: string; labelKey?: string; label?: string; group: string };
 
+type AgentFilterCondition = { id: string; field: string; op: string; value: string; };
+type AgentContactFilter = { id: string; agentId: string; conditions: AgentFilterCondition[]; isRemainder: boolean; sortField: string; sortDirection: "asc" | "desc"; };
+
 const SORT_FIELD_OPTIONS: SortFieldOption[] = [
   { value: "createdAt", entity: "contact", labelKey: "sortFieldCreatedAt", group: "Campaign Contact" },
   { value: "status", entity: "contact", labelKey: "sortFieldStatus", group: "Campaign Contact" },
@@ -919,6 +922,49 @@ function getDistinctFieldValues(contacts: any[], fieldPath: string, contactType:
   return arr.length <= 200 ? arr : [];
 }
 
+function needsValue(op: string) { return !["is_empty","is_not_empty","is_true","is_false"].includes(op); }
+
+function contactMatchesAgentFilter(contact: any, filter: AgentContactFilter): boolean {
+  if (filter.conditions.length === 0) return true;
+  return filter.conditions.every(cond => {
+    if (!cond.field || !cond.op) return true;
+    const val = resolveContactFieldValue(contact, cond.field);
+    const strVal = val == null ? "" : String(val).toLowerCase();
+    const condVal = (cond.value || "").toLowerCase();
+    switch (cond.op) {
+      case "equals": return strVal === condVal;
+      case "not_equals": return strVal !== condVal;
+      case "contains": return strVal.includes(condVal);
+      case "starts_with": return strVal.startsWith(condVal);
+      case "ends_with": return strVal.endsWith(condVal);
+      case "greater_than": { const n=parseFloat(strVal),c=parseFloat(condVal); return !isNaN(n)&&!isNaN(c)?n>c:strVal>condVal; }
+      case "less_than": { const n=parseFloat(strVal),c=parseFloat(condVal); return !isNaN(n)&&!isNaN(c)?n<c:strVal<condVal; }
+      case "greater_or_equal": { const n=parseFloat(strVal),c=parseFloat(condVal); return !isNaN(n)&&!isNaN(c)?n>=c:strVal>=condVal; }
+      case "less_or_equal": { const n=parseFloat(strVal),c=parseFloat(condVal); return !isNaN(n)&&!isNaN(c)?n<=c:strVal<=condVal; }
+      case "is_empty": return val==null||strVal==="";
+      case "is_not_empty": return val!=null&&strVal!=="";
+      case "is_true": return val===true||strVal==="true"||strVal==="1";
+      case "is_false": return val===false||strVal==="false"||strVal==="0"||strVal==="";
+      default: return true;
+    }
+  });
+}
+
+function countContactsForAgentFilter(contacts: any[], filter: AgentContactFilter): number {
+  return contacts.filter(c => contactMatchesAgentFilter(c, filter)).length;
+}
+
+function detectFilterOverlaps(contacts: any[], filters: AgentContactFilter[]): Set<string> {
+  const ids = new Set<string>();
+  const explicit = filters.filter(f => !f.isRemainder);
+  for (const c of contacts) {
+    let n = 0;
+    for (const f of explicit) { if (contactMatchesAgentFilter(c, f)) n++; }
+    if (n > 1) ids.add(c.id);
+  }
+  return ids;
+}
+
 function applySortRulesToContacts(contacts: any[], rules: ContactSortRule[]): any[] {
   if (!rules || rules.length === 0) return contacts;
   const sorted = [...contacts];
@@ -953,47 +999,52 @@ function applySortRulesToContacts(contacts: any[], rules: ContactSortRule[]): an
   return sorted;
 }
 
-function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign: Campaign; open: boolean; onOpenChange: (open: boolean) => void; contacts: any[] }) {
+function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, assignedAgentIds }: {
+  campaign: Campaign; open: boolean; onOpenChange: (open: boolean) => void; contacts: any[];
+  allUsers: Array<{ id: string; fullName: string; role: string; roleId: string | null }>;
+  assignedAgentIds: string[];
+}) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [sortRules, setSortRules] = useState<ContactSortRule[]>([]);
+  const [assignmentMode, setAssignmentMode] = useState<"global" | "per-agent">("global");
+  const [agentFilters, setAgentFilters] = useState<AgentContactFilter[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     try {
-      if (campaign.settings) {
-        const s = JSON.parse(campaign.settings);
-        const LEGACY_FIELD_MAP: Record<string, string> = { dateOfBirth: "customer.dateOfBirth", priorityScore: "priorityScore", createdAt: "createdAt" };
-        if (Array.isArray(s.contactSortRules) && s.contactSortRules.length > 0) {
-          setSortRules(s.contactSortRules.map((r: any) => ({ ...newSortRule(), ...r, id: r.id || crypto.randomUUID() })));
-        } else if (s.contactSortField) {
-          const mappedField = LEGACY_FIELD_MAP[s.contactSortField] || s.contactSortField;
-          setSortRules([{ id: crypto.randomUUID(), contactType: "", sortField: mappedField, sortDirection: s.contactSortOrder || "desc", conditionField: "", conditionOp: "", conditionValue: "" }]);
-        } else {
-          setSortRules([]);
-        }
-      } else {
-        setSortRules([]);
-      }
-    } catch {
-      setSortRules([]);
-    }
+      const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+      setAssignmentMode(s.assignmentMode === "per-agent" ? "per-agent" : "global");
+      if (Array.isArray(s.agentContactFilters)) {
+        setAgentFilters(s.agentContactFilters.map((f: any) => ({
+          id: f.id || crypto.randomUUID(), agentId: f.agentId || "",
+          conditions: (f.conditions || []).map((c: any) => ({ id: c.id || crypto.randomUUID(), field: c.field || "", op: c.op || "equals", value: c.value || "" })),
+          isRemainder: !!f.isRemainder, sortField: f.sortField || "createdAt", sortDirection: f.sortDirection || "desc",
+        })));
+      } else { setAgentFilters([]); }
+      const LEGACY_FIELD_MAP: Record<string, string> = { dateOfBirth: "customer.dateOfBirth", priorityScore: "priorityScore", createdAt: "createdAt" };
+      if (Array.isArray(s.contactSortRules) && s.contactSortRules.length > 0) {
+        setSortRules(s.contactSortRules.map((r: any) => ({ ...newSortRule(), ...r, id: r.id || crypto.randomUUID() })));
+      } else if (s.contactSortField) {
+        const mappedField = LEGACY_FIELD_MAP[s.contactSortField] || s.contactSortField;
+        setSortRules([{ id: crypto.randomUUID(), contactType: "", sortField: mappedField, sortDirection: s.contactSortOrder || "desc", conditionField: "", conditionOp: "", conditionValue: "" }]);
+      } else { setSortRules([]); }
+    } catch { setSortRules([]); setAgentFilters([]); }
     setHasChanges(false);
   }, [campaign.settings, open]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       let existing: Record<string, any> = {};
-      try {
-        if (campaign.settings) existing = JSON.parse(campaign.settings);
-      } catch {}
+      try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
       const cleanRules = sortRules.map((r, i) => ({
         id: r.id, contactType: r.contactType, sortField: r.sortField, sortDirection: r.sortDirection,
         conditionField: r.conditionField, conditionOp: r.conditionOp, conditionValue: r.conditionValue, priority: i,
       }));
       const merged = {
-        ...existing,
+        ...existing, assignmentMode,
+        agentContactFilters: agentFilters.map(f => ({ id: f.id, agentId: f.agentId, conditions: f.conditions, isRemainder: f.isRemainder, sortField: f.sortField, sortDirection: f.sortDirection })),
         contactSortRules: cleanRules,
         contactSortField: cleanRules[0]?.sortField || "createdAt",
         contactSortOrder: cleanRules[0]?.sortDirection || "desc",
@@ -1006,11 +1057,10 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign:
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
       onOpenChange(false);
     },
-    onError: () => {
-      toast({ title: t.campaigns.detail.error, variant: "destructive" });
-    },
+    onError: () => { toast({ title: t.campaigns.detail.error, variant: "destructive" }); },
   });
 
+  // Global sort rule CRUD
   const addRule = () => { setSortRules(prev => [...prev, newSortRule()]); setHasChanges(true); };
   const removeRule = (id: string) => { setSortRules(prev => prev.filter(r => r.id !== id)); setHasChanges(true); };
   const updateRule = (id: string, updates: Partial<ContactSortRule>) => { setSortRules(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r)); setHasChanges(true); };
@@ -1025,202 +1075,355 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign:
     setHasChanges(true);
   };
 
-  const filteredFieldOptions = (contactType: string) => {
-    if (!contactType) return SORT_FIELD_OPTIONS;
-    return SORT_FIELD_OPTIONS.filter(f => f.entity === "contact" || f.entity === contactType);
-  };
+  // Per-agent filter CRUD
+  const newAgentFilter = (agentId: string): AgentContactFilter => ({ id: crypto.randomUUID(), agentId, conditions: [], isRemainder: false, sortField: "createdAt", sortDirection: "desc" });
+  const addAgentFilter = (agentId: string) => { setAgentFilters(prev => [...prev, newAgentFilter(agentId)]); setHasChanges(true); };
+  const removeAgentFilter = (id: string) => { setAgentFilters(prev => prev.filter(f => f.id !== id)); setHasChanges(true); };
+  const updateAgentFilter = (id: string, updates: Partial<AgentContactFilter>) => { setAgentFilters(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f)); setHasChanges(true); };
+  const addCondition = (filterId: string) => { setAgentFilters(prev => prev.map(f => f.id === filterId ? { ...f, conditions: [...f.conditions, { id: crypto.randomUUID(), field: "status", op: "equals", value: "" }] } : f)); setHasChanges(true); };
+  const removeCondition = (filterId: string, condId: string) => { setAgentFilters(prev => prev.map(f => f.id === filterId ? { ...f, conditions: f.conditions.filter(c => c.id !== condId) } : f)); setHasChanges(true); };
+  const updateCondition = (filterId: string, condId: string, updates: Partial<AgentFilterCondition>) => { setAgentFilters(prev => prev.map(f => f.id === filterId ? { ...f, conditions: f.conditions.map(c => c.id === condId ? { ...c, ...updates } : c) } : f)); setHasChanges(true); };
+  const toggleRemainder = (filterId: string) => { setAgentFilters(prev => prev.map(f => ({ ...f, isRemainder: f.id === filterId ? !f.isRemainder : false }))); setHasChanges(true); };
 
-  const groupedFieldOptions = (contactType: string) => {
-    const fields = filteredFieldOptions(contactType);
-    const groups: Record<string, SortFieldOption[]> = {};
-    fields.forEach(f => { (groups[f.group] = groups[f.group] || []).push(f); });
-    return groups;
-  };
+  // Helpers
+  const filteredFieldOptions = (ct: string) => ct ? SORT_FIELD_OPTIONS.filter(f => f.entity === "contact" || f.entity === ct) : SORT_FIELD_OPTIONS;
+  const groupedFieldOptions = (ct: string) => { const gs: Record<string, SortFieldOption[]> = {}; filteredFieldOptions(ct).forEach(f => { (gs[f.group] = gs[f.group] || []).push(f); }); return gs; };
+  const allFieldGroups = groupedFieldOptions("");
+  const getAgentInitials = (name: string) => name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 
-  const needsValue = (op: string) => !["is_empty", "is_not_empty", "is_true", "is_false"].includes(op);
+  // Collision detection
+  const overlapContactIds = useMemo(() => detectFilterOverlaps(contacts, agentFilters), [contacts, agentFilters]);
+  const hasOverlapForFilter = (filter: AgentContactFilter) => !filter.isRemainder && filter.conditions.length > 0 && contacts.some(c => overlapContactIds.has(c.id) && contactMatchesAgentFilter(c, filter));
+
+  // Remainder-based match count
+  const remainderFilter = agentFilters.find(f => f.isRemainder);
+  const explicitlyMatchedIds = useMemo(() => {
+    const ids = new Set<string>();
+    agentFilters.filter(f => !f.isRemainder).forEach(f => contacts.forEach(c => { if (contactMatchesAgentFilter(c, f)) ids.add(c.id); }));
+    return ids;
+  }, [contacts, agentFilters]);
+  const getMatchCount = (filter: AgentContactFilter) => filter.isRemainder ? contacts.filter(c => !explicitlyMatchedIds.has(c.id)).length : countContactsForAgentFilter(contacts, filter);
+
+  // Available agents to add
+  const usedAgentIds = new Set(agentFilters.map(f => f.agentId));
+  const availableToAdd = assignedAgentIds.filter(id => !usedAgentIds.has(id)).map(id => allUsers.find(u => u.id === id)).filter((u): u is NonNullable<typeof u> => !!u);
+
+  const renderConditionValuePicker = (filterId: string, cond: AgentFilterCondition) => {
+    const distinctVals = cond.field ? getDistinctFieldValues(contacts, cond.field, "") : [];
+    if (distinctVals.length > 0) {
+      return (
+        <Select value={cond.value || "__none__"} onValueChange={(v) => updateCondition(filterId, cond.id, { value: v === "__none__" ? "" : v })}>
+          <SelectTrigger className="h-7 text-xs flex-1 min-w-[80px]"><SelectValue placeholder="Hodnota" /></SelectTrigger>
+          <SelectContent className="max-h-52">
+            <SelectItem value="__none__" className="text-muted-foreground italic text-xs">—</SelectItem>
+            {distinctVals.map(v => <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      );
+    }
+    return <Input className="h-7 text-xs flex-1 min-w-[80px]" placeholder="Hodnota" value={cond.value} onChange={(e) => updateCondition(filterId, cond.id, { value: e.target.value })} />;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ArrowUpDown className="w-5 h-5" />
-            {t.campaigns.detail.sortRulesTitle}
-          </DialogTitle>
-          <DialogDescription className="text-sm">
-            {t.campaigns.detail.sortRulesDesc}
-          </DialogDescription>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0 p-0">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
+          <DialogTitle className="flex items-center gap-2"><ArrowUpDown className="w-5 h-5" />{t.campaigns.detail.sortRulesTitle}</DialogTitle>
+          <DialogDescription className="text-sm">{t.campaigns.detail.sortRulesDesc}</DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-y-auto -mx-6 px-6" style={{ maxHeight: "calc(85vh - 200px)" }}>
-          <div className="space-y-3 pb-4">
-            {sortRules.length === 0 ? (
-              <div className="text-center py-10 text-muted-foreground border rounded-lg border-dashed">
-                <ArrowUpDown className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm font-medium">{t.campaigns.detail.sortRuleNoRules}</p>
-                <p className="text-xs mt-1 max-w-md mx-auto">{t.campaigns.detail.sortRuleNoRulesDesc}</p>
-                <Button variant="outline" size="sm" className="mt-4" onClick={addRule} data-testid="button-add-first-sort-rule">
-                  <Plus className="w-4 h-4 mr-1" />
-                  {t.campaigns.detail.sortRuleAdd}
-                </Button>
-              </div>
-            ) : (
-              sortRules.map((rule, index) => {
-                const groups = groupedFieldOptions(rule.contactType);
-                const condGroups = groupedFieldOptions(rule.contactType);
-                return (
-                  <div key={rule.id} className="border rounded-lg bg-muted/20" data-testid={`sort-rule-${index}`}>
-                    <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/40 rounded-t-lg">
-                      <div className="flex items-center gap-2">
-                        <GripVertical className="w-4 h-4 text-muted-foreground/50" />
-                        <Badge variant="outline" className="text-xs font-mono">
-                          #{index + 1}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{t.campaigns.detail.sortRulePriority}</span>
-                        <Badge variant="secondary" className="text-xs ml-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" data-testid={`sort-rule-${index}-match-count`}>
-                          {countMatchingContacts(contacts, rule)} / {contacts.length} {t.campaigns.detail.contactsLabel || "kontaktov"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-0.5">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => moveRule(index, "up")} disabled={index === 0} data-testid={`sort-rule-${index}-move-up`}>
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => moveRule(index, "down")} disabled={index === sortRules.length - 1} data-testid={`sort-rule-${index}-move-down`}>
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => removeRule(rule.id)} data-testid={`sort-rule-${index}-remove`}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
+        {/* Mode toggle */}
+        <div className="px-6 py-3 border-b bg-muted/30 shrink-0 flex items-center gap-4">
+          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+            <button onClick={() => { setAssignmentMode("global"); setHasChanges(true); }} data-testid="assignment-mode-global"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${assignmentMode === "global" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              <ArrowUpDown className="w-3.5 h-3.5" />Globálne zoradenie
+            </button>
+            <button onClick={() => { setAssignmentMode("per-agent"); setHasChanges(true); }} data-testid="assignment-mode-per-agent"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${assignmentMode === "per-agent" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              <Users className="w-3.5 h-3.5" />Per-agent priradenie
+            </button>
+          </div>
+          {assignmentMode === "per-agent" && overlapContactIds.size > 0 && (
+            <Badge variant="outline" className="text-xs text-orange-600 border-orange-400 bg-orange-50 dark:bg-orange-900/20">
+              <AlertTriangle className="w-3 h-3 mr-1" />{overlapContactIds.size} kontaktov sa prekrýva
+            </Badge>
+          )}
+        </div>
 
-                    <div className="p-3 space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleContactType}</Label>
-                          <Select value={rule.contactType || "__all__"} onValueChange={(v) => updateRule(rule.id, { contactType: v === "__all__" ? "" : v, sortField: "createdAt", conditionField: "", conditionOp: "", conditionValue: "" })}>
-                            <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-contact-type`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__all__">{t.campaigns.detail.sortRuleAllTypes}</SelectItem>
-                              <SelectItem value="customer">Customer</SelectItem>
-                              <SelectItem value="hospital">Hospital</SelectItem>
-                              <SelectItem value="clinic">Clinic</SelectItem>
-                              <SelectItem value="collaborator">Collaborator</SelectItem>
-                            </SelectContent>
-                          </Select>
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-6 py-4 space-y-3">
+
+            {/* ── Global mode ── */}
+            {assignmentMode === "global" && (
+              <>
+                {sortRules.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground border rounded-lg border-dashed">
+                    <ArrowUpDown className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm font-medium">{t.campaigns.detail.sortRuleNoRules}</p>
+                    <p className="text-xs mt-1 max-w-md mx-auto">{t.campaigns.detail.sortRuleNoRulesDesc}</p>
+                    <Button variant="outline" size="sm" className="mt-4" onClick={addRule} data-testid="button-add-first-sort-rule">
+                      <Plus className="w-4 h-4 mr-1" />{t.campaigns.detail.sortRuleAdd}
+                    </Button>
+                  </div>
+                ) : (
+                  sortRules.map((rule, index) => {
+                    const groups = groupedFieldOptions(rule.contactType);
+                    const condGroups = groupedFieldOptions(rule.contactType);
+                    return (
+                      <div key={rule.id} className="border rounded-lg bg-muted/20" data-testid={`sort-rule-${index}`}>
+                        <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/40 rounded-t-lg">
+                          <div className="flex items-center gap-2">
+                            <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                            <Badge variant="outline" className="text-xs font-mono">#{index + 1}</Badge>
+                            <span className="text-xs text-muted-foreground">{t.campaigns.detail.sortRulePriority}</span>
+                            <Badge variant="secondary" className="text-xs ml-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" data-testid={`sort-rule-${index}-match-count`}>
+                              {countMatchingContacts(contacts, rule)} / {contacts.length} {t.campaigns.detail.contactsLabel || "kontaktov"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-0.5">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => moveRule(index, "up")} disabled={index === 0} data-testid={`sort-rule-${index}-move-up`}><ArrowUp className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => moveRule(index, "down")} disabled={index === sortRules.length - 1} data-testid={`sort-rule-${index}-move-down`}><ArrowDown className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => removeRule(rule.id)} data-testid={`sort-rule-${index}-remove`}><Trash2 className="w-3.5 h-3.5" /></Button>
+                          </div>
                         </div>
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleField}</Label>
-                          <Select value={rule.sortField} onValueChange={(v) => updateRule(rule.id, { sortField: v })}>
-                            <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-sort-field`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-64">
-                              {Object.entries(groups).map(([group, fields]) => (
-                                <div key={group}>
-                                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
-                                  {fields.map(f => (
-                                    <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">
-                                      {getFieldLabel(f, t)}
-                                    </SelectItem>
+                        <div className="p-3 space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleContactType}</Label>
+                              <Select value={rule.contactType || "__all__"} onValueChange={(v) => updateRule(rule.id, { contactType: v === "__all__" ? "" : v, sortField: "createdAt", conditionField: "", conditionOp: "", conditionValue: "" })}>
+                                <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-contact-type`}><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__all__">{t.campaigns.detail.sortRuleAllTypes}</SelectItem>
+                                  <SelectItem value="customer">Customer</SelectItem>
+                                  <SelectItem value="hospital">Hospital</SelectItem>
+                                  <SelectItem value="clinic">Clinic</SelectItem>
+                                  <SelectItem value="collaborator">Collaborator</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1 sm:col-span-2">
+                              <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleField}</Label>
+                              <Select value={rule.sortField} onValueChange={(v) => updateRule(rule.id, { sortField: v })}>
+                                <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-sort-field`}><SelectValue /></SelectTrigger>
+                                <SelectContent className="max-h-64">
+                                  {Object.entries(groups).map(([group, fields]) => (
+                                    <div key={group}><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
+                                      {fields.map(f => <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">{getFieldLabel(f, t)}</SelectItem>)}
+                                    </div>
                                   ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleDirection}</Label>
+                              <Select value={rule.sortDirection} onValueChange={(v) => updateRule(rule.id, { sortDirection: v as "asc" | "desc" })}>
+                                <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-direction`}><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="asc">{t.campaigns.detail.sortRuleAsc}</SelectItem>
+                                  <SelectItem value="desc">{t.campaigns.detail.sortRuleDesc}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="border-t pt-2">
+                            <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1"><Filter className="w-3 h-3" />{t.campaigns.detail.sortRuleCondition}</Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <Select value={rule.conditionField || "__none__"} onValueChange={(v) => updateRule(rule.id, { conditionField: v === "__none__" ? "" : v, conditionOp: v === "__none__" ? "" : (rule.conditionOp || "equals"), conditionValue: v === "__none__" ? "" : rule.conditionValue })}>
+                                <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-field`}><SelectValue placeholder={t.campaigns.detail.sortRuleConditionField} /></SelectTrigger>
+                                <SelectContent className="max-h-64">
+                                  <SelectItem value="__none__">—</SelectItem>
+                                  {Object.entries(condGroups).map(([group, fields]) => (
+                                    <div key={group}><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
+                                      {fields.map(f => <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">{getFieldLabel(f, t)}</SelectItem>)}
+                                    </div>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {rule.conditionField && (
+                                <Select value={rule.conditionOp || "equals"} onValueChange={(v) => updateRule(rule.id, { conditionOp: v })}>
+                                  <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-op`}><SelectValue /></SelectTrigger>
+                                  <SelectContent>{CONDITION_OPS.map(op => <SelectItem key={op.value} value={op.value}>{(t.campaigns.detail as any)[op.labelKey] || op.value}</SelectItem>)}</SelectContent>
+                                </Select>
+                              )}
+                              {rule.conditionField && needsValue(rule.conditionOp) && (() => {
+                                const distinctVals = getDistinctFieldValues(contacts, rule.conditionField, rule.contactType);
+                                if (distinctVals.length > 0) {
+                                  return (
+                                    <Select value={rule.conditionValue || "__custom__"} onValueChange={(v) => updateRule(rule.id, { conditionValue: v === "__custom__" ? "" : v })}>
+                                      <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-value`}><SelectValue placeholder={t.campaigns.detail.sortRuleConditionValue} /></SelectTrigger>
+                                      <SelectContent className="max-h-52">
+                                        <SelectItem value="__custom__" className="text-muted-foreground italic text-xs">— {t.campaigns.detail.sortRuleConditionValue} —</SelectItem>
+                                        {distinctVals.map(v => <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  );
+                                }
+                                return <Input className="h-8 text-xs" placeholder={t.campaigns.detail.sortRuleConditionValue} value={rule.conditionValue} onChange={(e) => updateRule(rule.id, { conditionValue: e.target.value })} data-testid={`sort-rule-${index}-cond-value`} />;
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </>
+            )}
+
+            {/* ── Per-agent mode ── */}
+            {assignmentMode === "per-agent" && (
+              <div className="space-y-3">
+                {agentFilters.length === 0 && (
+                  <div className="text-center py-10 text-muted-foreground border rounded-lg border-dashed">
+                    <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm font-medium">Žiadni agenti</p>
+                    <p className="text-xs mt-1">Pridajte agentov a nastavte im filtre kontaktov.</p>
+                  </div>
+                )}
+                {agentFilters.map((filter) => {
+                  const agent = allUsers.find(u => u.id === filter.agentId);
+                  const matchCount = getMatchCount(filter);
+                  const hasOverlap = hasOverlapForFilter(filter);
+                  return (
+                    <div key={filter.id} className={`border rounded-lg ${hasOverlap ? "border-orange-400 dark:border-orange-600" : ""}`} data-testid={`agent-filter-${filter.agentId}`}>
+                      {/* Agent header */}
+                      <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/40 rounded-t-lg">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarFallback className="text-[10px] bg-primary/10">{getAgentInitials(agent?.fullName || "?")}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium">{agent?.fullName || filter.agentId}</span>
+                          <Badge variant="secondary" className={`text-xs ${filter.isRemainder ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"}`}>
+                            {matchCount} / {contacts.length} kontaktov
+                          </Badge>
+                          {hasOverlap && (
+                            <Badge variant="outline" className="text-xs text-orange-600 border-orange-400 bg-orange-50 dark:bg-orange-900/20">
+                              <AlertTriangle className="w-3 h-3 mr-1" />Prekryv
+                            </Badge>
+                          )}
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0" onClick={() => removeAgentFilter(filter.id)}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+
+                      <div className="p-3 space-y-3">
+                        {/* Conditions */}
+                        <div>
+                          <div className="flex items-center gap-1 mb-2">
+                            <Filter className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground font-medium">Podmienky (AND)</span>
+                          </div>
+                          {filter.isRemainder ? (
+                            <p className="text-xs text-purple-600 dark:text-purple-400 italic flex items-center gap-1">
+                              <Check className="w-3 h-3" />Dostane všetky kontakty, ktoré nezodpovedajú filtrom ostatných agentov.
+                            </p>
+                          ) : (
+                            <>
+                              {filter.conditions.length === 0 && (
+                                <p className="text-xs text-muted-foreground italic">Bez podmienok — agent dostane všetky kontakty.</p>
+                              )}
+                              {filter.conditions.map((cond) => (
+                                <div key={cond.id} className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                                  <Select value={cond.field || "__none__"} onValueChange={(v) => updateCondition(filter.id, cond.id, { field: v === "__none__" ? "" : v, op: "equals", value: "" })}>
+                                    <SelectTrigger className="h-7 text-xs flex-1 min-w-[120px]"><SelectValue placeholder="Pole" /></SelectTrigger>
+                                    <SelectContent className="max-h-64">
+                                      {Object.entries(allFieldGroups).map(([group, fields]) => (
+                                        <div key={group}><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
+                                          {fields.map(f => <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">{getFieldLabel(f, t)}</SelectItem>)}
+                                        </div>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select value={cond.op} onValueChange={(v) => updateCondition(filter.id, cond.id, { op: v })}>
+                                    <SelectTrigger className="h-7 text-xs w-24 shrink-0"><SelectValue /></SelectTrigger>
+                                    <SelectContent>{CONDITION_OPS.map(op => <SelectItem key={op.value} value={op.value}>{(t.campaigns.detail as any)[op.labelKey] || op.value}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                  {needsValue(cond.op) && renderConditionValuePicker(filter.id, cond)}
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removeCondition(filter.id, cond.id)}>
+                                    <X className="w-3 h-3" />
+                                  </Button>
                                 </div>
                               ))}
-                            </SelectContent>
-                          </Select>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs mt-0.5 text-muted-foreground" onClick={() => addCondition(filter.id)}>
+                                <Plus className="w-3 h-3 mr-1" />Pridať podmienku
+                              </Button>
+                            </>
+                          )}
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleDirection}</Label>
-                          <Select value={rule.sortDirection} onValueChange={(v) => updateRule(rule.id, { sortDirection: v as "asc" | "desc" })}>
-                            <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-direction`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="asc">{t.campaigns.detail.sortRuleAsc}</SelectItem>
-                              <SelectItem value="desc">{t.campaigns.detail.sortRuleDesc}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
 
-                      <div className="border-t pt-2">
-                        <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
-                          <Filter className="w-3 h-3" />
-                          {t.campaigns.detail.sortRuleCondition}
-                        </Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <Select value={rule.conditionField || "__none__"} onValueChange={(v) => updateRule(rule.id, { conditionField: v === "__none__" ? "" : v, conditionOp: v === "__none__" ? "" : (rule.conditionOp || "equals"), conditionValue: v === "__none__" ? "" : rule.conditionValue })}>
-                            <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-field`}>
-                              <SelectValue placeholder={t.campaigns.detail.sortRuleConditionField} />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-64">
-                              <SelectItem value="__none__">—</SelectItem>
-                              {Object.entries(condGroups).map(([group, fields]) => (
-                                <div key={group}>
-                                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
-                                  {fields.map(f => (
-                                    <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">
-                                      {getFieldLabel(f, t)}
-                                    </SelectItem>
-                                  ))}
-                                </div>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {rule.conditionField && (
-                            <Select value={rule.conditionOp || "equals"} onValueChange={(v) => updateRule(rule.id, { conditionOp: v })}>
-                              <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-op`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {CONDITION_OPS.map(op => (
-                                  <SelectItem key={op.value} value={op.value}>
-                                    {(t.campaigns.detail as any)[op.labelKey] || op.value}
-                                  </SelectItem>
+                        {/* Sort + Remainder */}
+                        <div className="border-t pt-2 flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <ArrowUpDown className="w-3 h-3 text-muted-foreground shrink-0" />
+                            <span className="text-xs text-muted-foreground">Zoradiť:</span>
+                            <Select value={filter.sortField} onValueChange={(v) => updateAgentFilter(filter.id, { sortField: v })}>
+                              <SelectTrigger className="h-7 text-xs w-36"><SelectValue /></SelectTrigger>
+                              <SelectContent className="max-h-64">
+                                {Object.entries(allFieldGroups).map(([group, fields]) => (
+                                  <div key={group}><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
+                                    {fields.map(f => <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">{getFieldLabel(f, t)}</SelectItem>)}
+                                  </div>
                                 ))}
                               </SelectContent>
                             </Select>
-                          )}
-                          {rule.conditionField && needsValue(rule.conditionOp) && (() => {
-                            const distinctVals = getDistinctFieldValues(contacts, rule.conditionField, rule.contactType);
-                            if (distinctVals.length > 0) {
-                              return (
-                                <Select value={rule.conditionValue || "__custom__"} onValueChange={(v) => updateRule(rule.id, { conditionValue: v === "__custom__" ? "" : v })}>
-                                  <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-value`}>
-                                    <SelectValue placeholder={t.campaigns.detail.sortRuleConditionValue} />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-52">
-                                    <SelectItem value="__custom__" className="text-muted-foreground italic text-xs">— {t.campaigns.detail.sortRuleConditionValue} —</SelectItem>
-                                    {distinctVals.map(v => (
-                                      <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              );
-                            }
-                            return <Input className="h-8 text-xs" placeholder={t.campaigns.detail.sortRuleConditionValue} value={rule.conditionValue} onChange={(e) => updateRule(rule.id, { conditionValue: e.target.value })} data-testid={`sort-rule-${index}-cond-value`} />;
-                          })()}
+                            <Select value={filter.sortDirection} onValueChange={(v) => updateAgentFilter(filter.id, { sortDirection: v as "asc" | "desc" })}>
+                              <SelectTrigger className="h-7 text-xs w-20"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="asc">{t.campaigns.detail.sortRuleAsc}</SelectItem>
+                                <SelectItem value="desc">{t.campaigns.detail.sortRuleDesc}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox id={`remainder-${filter.id}`} checked={filter.isRemainder}
+                              onCheckedChange={() => toggleRemainder(filter.id)}
+                              disabled={!filter.isRemainder && !!remainderFilter && remainderFilter.id !== filter.id} />
+                            <label htmlFor={`remainder-${filter.id}`} className="text-xs text-muted-foreground cursor-pointer select-none">
+                              Dostane zvyšok (nepriradené kontakty)
+                            </label>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+
+                {/* Add agent dropdown */}
+                {availableToAdd.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" data-testid="button-add-agent-filter">
+                        <Plus className="w-4 h-4 mr-1" />Pridať agenta
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {availableToAdd.map(u => (
+                        <DropdownMenuItem key={u.id} onClick={() => addAgentFilter(u.id)}>
+                          <Avatar className="h-5 w-5 mr-2"><AvatarFallback className="text-[9px]">{u.fullName.split(" ").map((n: string) => n[0]).join("").slice(0,2).toUpperCase()}</AvatarFallback></Avatar>
+                          {u.fullName}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {assignedAgentIds.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">Žiadni agenti nie sú priradení ku kampani. Najprv ich pridajte v Nastavenia → Operátori.</p>
+                )}
+              </div>
             )}
           </div>
-        </div>
+        </ScrollArea>
 
-        <div className="flex items-center justify-between pt-4 border-t">
-          <Button variant="outline" size="sm" onClick={addRule} data-testid="button-add-sort-rule">
-            <Plus className="w-4 h-4 mr-1" />
-            {t.campaigns.detail.sortRuleAdd}
-          </Button>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} data-testid="button-cancel-sort-rules">
-              {t.common.cancel}
+        <div className="flex items-center justify-between px-6 py-4 border-t shrink-0">
+          {assignmentMode === "global" ? (
+            <Button variant="outline" size="sm" onClick={addRule} data-testid="button-add-sort-rule">
+              <Plus className="w-4 h-4 mr-1" />{t.campaigns.detail.sortRuleAdd}
             </Button>
+          ) : <div />}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} data-testid="button-cancel-sort-rules">{t.common.cancel}</Button>
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !hasChanges} data-testid="button-save-sort-rules">
               {saveMutation.isPending ? t.campaigns.detail.saving : t.common.save}
             </Button>
@@ -3899,6 +4102,8 @@ export default function CampaignDetailPage() {
   const [updateExisting, setUpdateExisting] = useState(false);
   const [showRequeueDialog, setShowRequeueDialog] = useState(false);
   const [showSortRulesDialog, setShowSortRulesDialog] = useState(false);
+  const [draggingContactId, setDraggingContactId] = useState<string | null>(null);
+  const [dragOverAgentId, setDragOverAgentId] = useState<string | null>(null);
   const [requeueDispositions, setRequeueDispositions] = useState<Set<string>>(new Set());
   const [requeueStatuses, setRequeueStatuses] = useState<Set<string>>(new Set());
   const [requeueCallbackFrom, setRequeueCallbackFrom] = useState("");
@@ -4434,9 +4639,13 @@ export default function CampaignDetailPage() {
 
   const filteredContacts = applyContactFilters(contacts as any, contactFilters);
   let parsedSortRules: ContactSortRule[] = [];
+  let parsedAssignmentMode = "global";
+  let parsedAgentContactFilters: AgentContactFilter[] = [];
   try {
     const s = JSON.parse(campaign?.settings || "{}");
     if (Array.isArray(s.contactSortRules)) parsedSortRules = s.contactSortRules;
+    parsedAssignmentMode = s.assignmentMode === "per-agent" ? "per-agent" : "global";
+    if (Array.isArray(s.agentContactFilters)) parsedAgentContactFilters = s.agentContactFilters;
   } catch {}
   const sortedFilteredContacts = parsedSortRules.length > 0
     ? applySortRulesToContacts(filteredContacts, parsedSortRules)
@@ -4992,6 +5201,59 @@ export default function CampaignDetailPage() {
             </div>
           </div>
 
+          {/* Per-agent drop zones */}
+          {parsedAssignmentMode === "per-agent" && parsedAgentContactFilters.length > 0 && (
+            <div className="flex flex-wrap gap-2 p-3 rounded-lg border bg-muted/20 mb-2" data-testid="agent-drop-zones">
+              <span className="text-xs text-muted-foreground self-center font-medium shrink-0">Priradiť ku agentovi:</span>
+              {/* Unassigned zone */}
+              <div
+                data-testid="drop-zone-unassigned"
+                onDragOver={(e) => { e.preventDefault(); setDragOverAgentId("__unassigned__"); }}
+                onDragLeave={() => setDragOverAgentId(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (draggingContactId) updateContactMutation.mutate({ contactId: draggingContactId, data: { assignedTo: null } });
+                  setDraggingContactId(null); setDragOverAgentId(null);
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border-2 border-dashed text-xs font-medium transition-all cursor-pointer select-none ${dragOverAgentId === "__unassigned__" ? "border-primary bg-primary/10 text-primary scale-105" : "border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/60"}`}
+              >
+                <UserX className="w-3.5 h-3.5" />
+                Nepriradené
+              </div>
+              {parsedAgentContactFilters.map((af) => {
+                const agent = allUsers.find(u => u.id === af.agentId);
+                if (!agent) return null;
+                const initials = agent.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+                const matchCount = countContactsForAgentFilter(filteredContacts as any, af);
+                const isOver = dragOverAgentId === af.agentId;
+                return (
+                  <div
+                    key={af.id}
+                    data-testid={`drop-zone-${af.agentId}`}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverAgentId(af.agentId); }}
+                    onDragLeave={() => setDragOverAgentId(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggingContactId) updateContactMutation.mutate({ contactId: draggingContactId, data: { assignedTo: af.agentId } });
+                      setDraggingContactId(null); setDragOverAgentId(null);
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border-2 text-xs font-medium transition-all cursor-pointer select-none ${isOver ? "border-primary bg-primary/10 text-primary scale-105 shadow-md" : "border-transparent bg-background hover:border-muted-foreground/40"}`}
+                  >
+                    <Avatar className="h-5 w-5 shrink-0">
+                      <AvatarFallback className="text-[9px] bg-primary/10">{initials}</AvatarFallback>
+                    </Avatar>
+                    <span>{agent.fullName.split(" ")[0]}</span>
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">{matchCount}</Badge>
+                    {af.isRemainder && <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 text-purple-600 border-purple-400">zvyšok</Badge>}
+                  </div>
+                );
+              })}
+              {draggingContactId && (
+                <span className="text-xs text-muted-foreground self-center italic ml-1">Presuňte kontakt na agenta...</span>
+              )}
+            </div>
+          )}
+
           {loadingContacts ? (
             <div className="flex items-center justify-center h-32">
               <RefreshCw className="w-6 h-6 animate-spin" />
@@ -5002,12 +5264,15 @@ export default function CampaignDetailPage() {
                 columns={contactColumns}
                 data={paginatedContacts as EnrichedContact[]}
                 getRowKey={(contact) => contact.id}
-                onRowClick={(contact) => setSelectedContact(contact)}
+                onRowClick={(contact) => { if (!draggingContactId) setSelectedContact(contact); }}
                 selectable
                 selectedKeys={selectedContacts}
                 onSelectionChange={setSelectedContacts}
                 sortConfig={sortConfig}
                 onSortChange={setSortConfig}
+                onRowDragStart={(e, key) => { e.dataTransfer.effectAllowed = "move"; setDraggingContactId(key); }}
+                onRowDragEnd={() => { setDraggingContactId(null); setDragOverAgentId(null); }}
+                rowClassName={(key) => draggingContactId === key ? "opacity-50 ring-2 ring-primary/30" : undefined}
               />
               {totalContactPages > 1 && (
                 <div className="flex items-center justify-between pt-3 px-1">
@@ -6392,7 +6657,7 @@ export default function CampaignDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <SortRulesDialog campaign={campaign} open={showSortRulesDialog} onOpenChange={setShowSortRulesDialog} contacts={contacts} />
+      <SortRulesDialog campaign={campaign} open={showSortRulesDialog} onOpenChange={setShowSortRulesDialog} contacts={contacts} allUsers={allUsers} assignedAgentIds={assignedAgentIds} />
 
       <Dialog open={showRequeueDialog} onOpenChange={(open) => { setShowRequeueDialog(open); if (!open) setRequeuePage(0); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">

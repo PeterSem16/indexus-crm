@@ -40,6 +40,9 @@ interface DataTableProps<T> {
   onSelectionChange?: (selectedKeys: Set<string>) => void;
   sortConfig?: SortConfig | null;
   onSortChange?: (config: SortConfig | null) => void;
+  onRowDragStart?: (e: React.DragEvent, key: string) => void;
+  onRowDragEnd?: (e: React.DragEvent) => void;
+  rowClassName?: (key: string) => string | undefined;
 }
 
 export function DataTable<T>({ 
@@ -53,7 +56,10 @@ export function DataTable<T>({
   selectedKeys = new Set(),
   onSelectionChange,
   sortConfig = null,
-  onSortChange
+  onSortChange,
+  onRowDragStart,
+  onRowDragEnd,
+  rowClassName,
 }: DataTableProps<T>) {
   
   const handleSort = (column: Column<T>) => {
@@ -223,9 +229,14 @@ export function DataTable<T>({
               <TableRow 
                 key={key}
                 onClick={() => onRowClick?.(item)}
+                draggable={!!onRowDragStart}
+                onDragStart={onRowDragStart ? (e) => { e.stopPropagation(); onRowDragStart(e, key); } : undefined}
+                onDragEnd={onRowDragEnd}
                 className={cn(
                   onRowClick && "cursor-pointer",
-                  isSelected && "bg-muted/50"
+                  isSelected && "bg-muted/50",
+                  onRowDragStart && "cursor-grab active:cursor-grabbing",
+                  rowClassName?.(key),
                 )}
                 data-testid={`table-row-${key}`}
               >

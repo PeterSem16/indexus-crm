@@ -5768,7 +5768,7 @@ export default function AgentWorkspacePage() {
   }, [campaigns, selectedCampaignId]);
 
   const campaignAutoSettings = useMemo(() => {
-    if (!selectedCampaign?.settings) return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc", contactSortRules: [] as any[] };
+    if (!selectedCampaign?.settings) return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc", contactSortRules: [] as any[], assignmentMode: "global", agentContactFilters: [] as any[] };
     try {
       const s = JSON.parse(selectedCampaign.settings);
       return {
@@ -5777,33 +5777,13 @@ export default function AgentWorkspacePage() {
         contactSortField: s.contactSortField || "createdAt",
         contactSortOrder: s.contactSortOrder || "desc",
         contactSortRules: Array.isArray(s.contactSortRules) ? s.contactSortRules : [],
+        assignmentMode: s.assignmentMode === "per-agent" ? "per-agent" : "global",
+        agentContactFilters: Array.isArray(s.agentContactFilters) ? s.agentContactFilters : [],
       };
-    } catch { return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc", contactSortRules: [] as any[] }; }
+    } catch { return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc", contactSortRules: [] as any[], assignmentMode: "global", agentContactFilters: [] as any[] }; }
   }, [selectedCampaign]);
 
   const sortedPendingContacts = useMemo(() => {
-    const rules = campaignAutoSettings.contactSortRules;
-
-    if (rules.length === 0) {
-      if (!campaignAutoSettings.autoMode) return pendingCampaignContacts;
-      const field = campaignAutoSettings.contactSortField;
-      const order = campaignAutoSettings.contactSortOrder;
-      return [...pendingCampaignContacts].sort((a, b) => {
-        let aVal: any, bVal: any;
-        if (field === "dateOfBirth") {
-          aVal = a.customer?.dateOfBirth ? new Date(a.customer.dateOfBirth).getTime() : 0;
-          bVal = b.customer?.dateOfBirth ? new Date(b.customer.dateOfBirth).getTime() : 0;
-        } else if (field === "priorityScore") {
-          aVal = (a as any).priorityScore || 0;
-          bVal = (b as any).priorityScore || 0;
-        } else {
-          aVal = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          bVal = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        }
-        return order === "desc" ? bVal - aVal : aVal - bVal;
-      });
-    }
-
     const LEGACY_FIELD_MAP: Record<string, string> = { dateOfBirth: "customer.dateOfBirth", country: "customer.countryCode" };
     const resolveFieldValue = (contact: any, fieldPath: string): any => {
       const resolved = LEGACY_FIELD_MAP[fieldPath] || fieldPath;
@@ -5815,35 +5795,26 @@ export default function AgentWorkspacePage() {
       }
       return (contact as any)[resolved] ?? null;
     };
-
-    const checkCondition = (contact: any, rule: any): boolean => {
-      if (!rule.conditionField || !rule.conditionOp) return true;
-      const val = resolveFieldValue(contact, rule.conditionField);
+    const evalOp = (val: any, op: string, condVal: string): boolean => {
       const strVal = val == null ? "" : String(val).toLowerCase();
-      const condVal = (rule.conditionValue || "").toLowerCase();
-      switch (rule.conditionOp) {
-        case "equals": return strVal === condVal;
-        case "not_equals": return strVal !== condVal;
-        case "contains": return strVal.includes(condVal);
-        case "starts_with": return strVal.startsWith(condVal);
-        case "ends_with": return strVal.endsWith(condVal);
-        case "greater_than": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n > c : strVal > condVal; }
-        case "less_than": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n < c : strVal < condVal; }
-        case "greater_or_equal": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n >= c : strVal >= condVal; }
-        case "less_or_equal": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n <= c : strVal <= condVal; }
-        case "is_empty": return val == null || strVal === "";
-        case "is_not_empty": return val != null && strVal !== "";
-        case "is_true": return val === true || strVal === "true" || strVal === "1";
-        case "is_false": return val === false || strVal === "false" || strVal === "0" || strVal === "";
+      const cv = condVal.toLowerCase();
+      switch (op) {
+        case "equals": return strVal === cv;
+        case "not_equals": return strVal !== cv;
+        case "contains": return strVal.includes(cv);
+        case "starts_with": return strVal.startsWith(cv);
+        case "ends_with": return strVal.endsWith(cv);
+        case "greater_than": { const n=parseFloat(strVal),c=parseFloat(cv); return !isNaN(n)&&!isNaN(c)?n>c:strVal>cv; }
+        case "less_than": { const n=parseFloat(strVal),c=parseFloat(cv); return !isNaN(n)&&!isNaN(c)?n<c:strVal<cv; }
+        case "greater_or_equal": { const n=parseFloat(strVal),c=parseFloat(cv); return !isNaN(n)&&!isNaN(c)?n>=c:strVal>=cv; }
+        case "less_or_equal": { const n=parseFloat(strVal),c=parseFloat(cv); return !isNaN(n)&&!isNaN(c)?n<=c:strVal<=cv; }
+        case "is_empty": return val==null||strVal==="";
+        case "is_not_empty": return val!=null&&strVal!=="";
+        case "is_true": return val===true||strVal==="true"||strVal==="1";
+        case "is_false": return val===false||strVal==="false"||strVal==="0"||strVal==="";
         default: return true;
       }
     };
-
-    const matchesContactType = (contact: any, contactType: string): boolean => {
-      if (!contactType) return true;
-      return contact.contactType === contactType;
-    };
-
     const toComparable = (val: any): number | string => {
       if (val == null) return "";
       if (typeof val === "boolean") return val ? 1 : 0;
@@ -5855,32 +5826,73 @@ export default function AgentWorkspacePage() {
       if (!isNaN(n) && str.trim() !== "") return n;
       return str.toLowerCase();
     };
+    const sortByField = (arr: any[], field: string, direction: string) =>
+      [...arr].sort((a, b) => {
+        const av = toComparable(resolveFieldValue(a, field));
+        const bv = toComparable(resolveFieldValue(b, field));
+        let cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+        return direction === "desc" ? -cmp : cmp;
+      });
+
+    // ── Per-agent mode: show only contacts assigned to current user by filter ──
+    if (campaignAutoSettings.assignmentMode === "per-agent") {
+      const filters: any[] = campaignAutoSettings.agentContactFilters;
+      const myFilter = filters.find((f: any) => f.agentId === user?.id);
+      if (!myFilter) return []; // no filter for this agent → show nothing
+
+      let pool: any[];
+      if (myFilter.isRemainder) {
+        // remainder: contacts not matched by any explicit filter
+        const explicitIds = new Set<string>();
+        filters.filter((f: any) => !f.isRemainder).forEach((f: any) => {
+          pendingCampaignContacts.forEach(c => {
+            const matches = (f.conditions || []).every((cond: any) =>
+              !cond.field || !cond.op ? true : evalOp(resolveFieldValue(c, cond.field), cond.op, cond.value || "")
+            );
+            if (matches) explicitIds.add(c.id);
+          });
+        });
+        pool = pendingCampaignContacts.filter(c => !explicitIds.has(c.id));
+      } else {
+        pool = pendingCampaignContacts.filter(c =>
+          (myFilter.conditions || []).length === 0 ||
+          (myFilter.conditions || []).every((cond: any) =>
+            !cond.field || !cond.op ? true : evalOp(resolveFieldValue(c, cond.field), cond.op, cond.value || "")
+          )
+        );
+      }
+      return sortByField(pool, myFilter.sortField || "createdAt", myFilter.sortDirection || "desc");
+    }
+
+    // ── Global sort rules ──
+    const rules = campaignAutoSettings.contactSortRules;
+    if (rules.length === 0) {
+      if (!campaignAutoSettings.autoMode) return pendingCampaignContacts;
+      return sortByField(pendingCampaignContacts, campaignAutoSettings.contactSortField, campaignAutoSettings.contactSortOrder);
+    }
+
+    const checkCondition = (contact: any, rule: any): boolean => {
+      if (!rule.conditionField || !rule.conditionOp) return true;
+      return evalOp(resolveFieldValue(contact, rule.conditionField), rule.conditionOp, rule.conditionValue || "");
+    };
+    const matchesContactType = (contact: any, contactType: string): boolean => !contactType || contact.contactType === contactType;
 
     return [...pendingCampaignContacts].sort((a, b) => {
       for (const rule of rules) {
         const aMatch = matchesContactType(a, rule.contactType) && checkCondition(a, rule);
         const bMatch = matchesContactType(b, rule.contactType) && checkCondition(b, rule);
-
         if (aMatch && !bMatch) return -1;
         if (!aMatch && bMatch) return 1;
-
         if (aMatch && bMatch) {
           const aVal = toComparable(resolveFieldValue(a, rule.sortField));
           const bVal = toComparable(resolveFieldValue(b, rule.sortField));
-          let cmp = 0;
-          if (typeof aVal === "number" && typeof bVal === "number") {
-            cmp = aVal - bVal;
-          } else {
-            cmp = String(aVal).localeCompare(String(bVal));
-          }
-          if (cmp !== 0) {
-            return rule.sortDirection === "desc" ? -cmp : cmp;
-          }
+          let cmp = typeof aVal === "number" && typeof bVal === "number" ? aVal - bVal : String(aVal).localeCompare(String(bVal));
+          if (cmp !== 0) return rule.sortDirection === "desc" ? -cmp : cmp;
         }
       }
       return 0;
     });
-  }, [pendingCampaignContacts, campaignAutoSettings]);
+  }, [pendingCampaignContacts, campaignAutoSettings, user?.id]);
 
   const { data: campaignContactCounts = {} } = useQuery<Record<string, { total: number; pending: number }>>({
     queryKey: ["/api/campaigns/contact-counts"],
