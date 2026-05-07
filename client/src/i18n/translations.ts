@@ -2031,6 +2031,8 @@ export interface Translations {
       sortRulesTitle: string;
       sortRulesDesc: string;
       sortRuleAdd: string;
+      sortModeGlobal: string;
+      sortModePerAgent: string;
       sortRuleField: string;
       sortRuleDirection: string;
       sortRuleCondition: string;
@@ -8666,6 +8668,8 @@ export const translations: Record<Locale, Translations> = {
         sortRulesTitle: 'Contact sorting rules',
         sortRulesDesc: 'Define priority-based sorting rules for the agent workspace contact queue. Rules are applied in order — the first matching rule takes priority.',
         sortRuleAdd: 'Add sorting rule',
+        sortModeGlobal: 'Global sorting',
+        sortModePerAgent: 'Per-agent assignment',
         sortRuleField: 'Sort field',
         sortRuleDirection: 'Direction',
         sortRuleCondition: 'Condition (optional)',
@@ -14834,6 +14838,8 @@ export const translations: Record<Locale, Translations> = {
         sortRulesTitle: 'Pravidlá zoraďovania kontaktov',
         sortRulesDesc: 'Definujte prioritné pravidlá zoraďovania pre frontu kontaktov v pracovnom priestore agenta. Pravidlá sa uplatňujú v poradí — prvé zodpovedajúce pravidlo má prioritu.',
         sortRuleAdd: 'Pridať pravidlo zoradenia',
+        sortModeGlobal: 'Globálne zoradenie',
+        sortModePerAgent: 'Per-agent priradenie',
         sortRuleField: 'Zoradiť podľa poľa',
         sortRuleDirection: 'Smer',
         sortRuleCondition: 'Podmienka (voliteľné)',
@@ -20933,6 +20939,8 @@ export const translations: Record<Locale, Translations> = {
         sortRulesTitle: 'Pravidla řazení kontaktů',
         sortRulesDesc: 'Definujte prioritní pravidla řazení pro frontu kontaktů v pracovním prostoru agenta. Pravidla se uplatňují v pořadí — první odpovídající pravidlo má prioritu.',
         sortRuleAdd: 'Přidat pravidlo řazení',
+        sortModeGlobal: 'Globální řazení',
+        sortModePerAgent: 'Přiřazení na agenta',
         sortRuleField: 'Řadit podle pole',
         sortRuleDirection: 'Směr',
         sortRuleCondition: 'Podmínka (volitelné)',
@@ -26990,6 +26998,8 @@ export const translations: Record<Locale, Translations> = {
         sortRulesTitle: 'Kapcsolat rendezési szabályok',
         sortRulesDesc: 'Határozza meg a prioritáson alapuló rendezési szabályokat az ügynök munkaterület kapcsolat sorához. A szabályok sorrendben érvényesülnek — az első egyező szabály élvez prioritást.',
         sortRuleAdd: 'Rendezési szabály hozzáadása',
+        sortModeGlobal: 'Globális rendezés',
+        sortModePerAgent: 'Ügynönkénti hozzárendelés',
         sortRuleField: 'Rendezési mező',
         sortRuleDirection: 'Irány',
         sortRuleCondition: 'Feltétel (opcionális)',
@@ -32942,6 +32952,8 @@ export const translations: Record<Locale, Translations> = {
         sortRulesTitle: 'Reguli de sortare contacte',
         sortRulesDesc: 'Definiți reguli de sortare bazate pe prioritate pentru coada de contacte din spațiul de lucru al agentului. Regulile se aplică în ordine — prima regulă care se potrivește are prioritate.',
         sortRuleAdd: 'Adaugă regulă de sortare',
+        sortModeGlobal: 'Sortare globală',
+        sortModePerAgent: 'Atribuire per agent',
         sortRuleField: 'Câmp de sortare',
         sortRuleDirection: 'Direcție',
         sortRuleCondition: 'Condiție (opțional)',
@@ -38896,6 +38908,8 @@ export const translations: Record<Locale, Translations> = {
         sortRulesTitle: 'Regole di ordinamento contatti',
         sortRulesDesc: 'Definire regole di ordinamento basate sulla priorità per la coda dei contatti nello spazio di lavoro dell\'agente. Le regole vengono applicate in ordine — la prima regola corrispondente ha la priorità.',
         sortRuleAdd: 'Aggiungi regola di ordinamento',
+        sortModeGlobal: 'Ordinamento globale',
+        sortModePerAgent: 'Assegnazione per agente',
         sortRuleField: 'Campo di ordinamento',
         sortRuleDirection: 'Direzione',
         sortRuleCondition: 'Condizione (opzionale)',
@@ -44850,6 +44864,8 @@ export const translations: Record<Locale, Translations> = {
         sortRulesTitle: 'Kontakt-Sortierregeln',
         sortRulesDesc: 'Definieren Sie prioritätsbasierte Sortierregeln für die Kontaktwarteschlange im Arbeitsbereich des Agenten. Regeln werden in Reihenfolge angewendet — die erste zutreffende Regel hat Priorität.',
         sortRuleAdd: 'Sortierregel hinzufügen',
+        sortModeGlobal: 'Globale Sortierung',
+        sortModePerAgent: 'Agentenzuweisung',
         sortRuleField: 'Sortierfeld',
         sortRuleDirection: 'Richtung',
         sortRuleCondition: 'Bedingung (optional)',

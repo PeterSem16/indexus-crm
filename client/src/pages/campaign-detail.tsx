@@ -1137,11 +1137,11 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
           <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
             <button onClick={() => { setAssignmentMode("global"); setHasChanges(true); }} data-testid="assignment-mode-global"
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${assignmentMode === "global" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-              <ArrowUpDown className="w-3.5 h-3.5" />Globálne zoradenie
+              <ArrowUpDown className="w-3.5 h-3.5" />{t.campaigns.detail.sortModeGlobal}
             </button>
             <button onClick={() => { setAssignmentMode("per-agent"); setHasChanges(true); }} data-testid="assignment-mode-per-agent"
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${assignmentMode === "per-agent" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-              <Users className="w-3.5 h-3.5" />Per-agent priradenie
+              <Users className="w-3.5 h-3.5" />{t.campaigns.detail.sortModePerAgent}
             </button>
           </div>
           {assignmentMode === "per-agent" && overlapContactIds.size > 0 && (
@@ -1392,10 +1392,10 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
 
                 {/* Add agent dropdown */}
                 {availableToAdd.length > 0 && (
-                  <DropdownMenu>
+                  <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" data-testid="button-add-agent-filter">
-                        <Plus className="w-4 h-4 mr-1" />Pridať agenta
+                        <Plus className="w-4 h-4 mr-1" />{t.callCenterQueues.addAgent}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
