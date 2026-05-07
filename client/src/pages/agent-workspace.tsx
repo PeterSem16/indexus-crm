@@ -2441,18 +2441,84 @@ function CommunicationCanvas({
           {contact.phone && (
             <span className="text-xs text-muted-foreground">{contact.phone}</span>
           )}
-          {contact.phone && (
-            <Button
-              size="sm"
-              onClick={() => isSipRegistered && onMakeCall ? onMakeCall(contact.phone!) : undefined}
-              disabled={!isSipRegistered || !onMakeCall}
-              data-testid="btn-call-from-canvas"
-              className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Phone className="h-3.5 w-3.5" />
-              {t.agentWorkspace.call}
-            </Button>
-          )}
+          {contact.phone && (() => {
+            const cs = callState || "idle";
+            const fmtDur = (s?: number) => `${String(Math.floor((s||0)/60)).padStart(2,"0")}:${String((s||0)%60).padStart(2,"0")}`;
+            const isCustomerHungUp = cs === "ended" && hungUpBy === "customer";
+            const isEnded = cs === "ended";
+            const isActive = cs === "active" || cs === "on_hold";
+            const isConnecting = cs === "connecting" || cs === "ringing";
+
+            if (isCustomerHungUp) {
+              return (
+                <button
+                  onClick={() => onEndCall?.()}
+                  data-testid="btn-call-from-canvas"
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-bold text-white animate-pulse"
+                  style={{ background: "#DC2626", boxShadow: "0 0 0 3px rgba(220,38,38,0.35)", animationDuration: "0.6s" }}
+                >
+                  <PhoneOff className="h-3.5 w-3.5" />
+                  Zákazník položil!
+                </button>
+              );
+            }
+
+            if (isEnded) {
+              return (
+                <button
+                  onClick={() => onEndCall?.()}
+                  data-testid="btn-call-from-canvas"
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold text-white"
+                  style={{ background: "#EA580C" }}
+                >
+                  <PhoneOff className="h-3.5 w-3.5" />
+                  Ukončiť
+                </button>
+              );
+            }
+
+            if (isActive) {
+              return (
+                <button
+                  data-testid="btn-call-from-canvas"
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold text-white animate-pulse"
+                  style={{ background: "#2563EB", animationDuration: "2s" }}
+                  disabled
+                >
+                  <PhoneCall className="h-3.5 w-3.5" />
+                  IN Call · {fmtDur(callDuration)}
+                  {cs === "on_hold" && <span className="ml-1 opacity-70">· HOLD</span>}
+                </button>
+              );
+            }
+
+            if (isConnecting) {
+              return (
+                <button
+                  data-testid="btn-call-from-canvas"
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold text-white animate-pulse"
+                  style={{ background: "#0891B2", animationDuration: "1s" }}
+                  disabled
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  {cs === "ringing" ? `Zvonenie… ${ringDuration ? ringDuration+"s" : ""}` : "Pripájanie…"}
+                </button>
+              );
+            }
+
+            return (
+              <Button
+                size="sm"
+                onClick={() => isSipRegistered && onMakeCall ? onMakeCall(contact.phone!) : undefined}
+                disabled={!isSipRegistered || !onMakeCall}
+                data-testid="btn-call-from-canvas"
+                className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                {t.agentWorkspace.call}
+              </Button>
+            );
+          })()}
         </div>
       </div>
 
