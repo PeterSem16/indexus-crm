@@ -85,6 +85,7 @@ class MobileSipEngine {
   private eventCallback: SipEventCallback | null = null;
   private _registrationState: SipRegistrationState = 'unregistered';
   private _callState: SipCallState = 'idle';
+  private _iceServers: any[] = [];
   private _callInfo: SipCallInfo = {
     phoneNumber: '',
     direction: 'outbound',
@@ -217,6 +218,7 @@ class MobileSipEngine {
       if (this.credentials!.turnServers?.length) {
         this.credentials!.turnServers.forEach(t => iceServers.push(t));
       }
+      this._iceServers = iceServers;
       this.emit('debug', `ICE servers: ${JSON.stringify(iceServers.map(s => s.urls))}`);
 
       this.ua = new UserAgent({
@@ -497,6 +499,15 @@ class MobileSipEngine {
           constraints: { audio: true, video: false },
           iceGatheringTimeout: 5000,
         },
+        sessionDescriptionHandlerFactoryOptions: {
+          iceGatheringTimeout: 5000,
+          peerConnectionConfiguration: {
+            iceServers: this._iceServers.length ? this._iceServers : [{ urls: 'stun:stun.l.google.com:19302' }],
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            iceCandidatePoolSize: 4,
+          },
+        },
       });
       this.currentSession = inviter;
 
@@ -558,12 +569,34 @@ class MobileSipEngine {
           constraints: { audio: true, video: false },
           iceGatheringTimeout: 5000,
         },
+        sessionDescriptionHandlerFactoryOptions: {
+          iceGatheringTimeout: 5000,
+          peerConnectionConfiguration: {
+            iceServers: this._iceServers.length ? this._iceServers : [{ urls: 'stun:stun.l.google.com:19302' }],
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            iceCandidatePoolSize: 4,
+          },
+        },
       });
       return true;
     } catch (error) {
       console.error('[MobileSIP] Failed to answer call:', error);
       return false;
     }
+  }
+
+  getPeerConnection(): any | null {
+    try {
+      const sdh = this.currentSession?.sessionDescriptionHandler;
+      return sdh?.peerConnection ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  getSipExtension(): string {
+    return this.credentials?.extension ?? '';
   }
 
   async rejectCall(): Promise<void> {

@@ -16819,7 +16819,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           "stun:stun.l.google.com:19302",
           "stun:stun1.l.google.com:19302",
         ],
-        turnServers: [],
+        turnServers: sipSettings.turnServer
+          ? [
+              {
+                urls: sipSettings.turnServer,
+                username: sipSettings.turnUsername || undefined,
+                credential: sipSettings.turnPassword || undefined,
+              },
+            ]
+          : [],
       });
     } catch (error) {
       console.error("Mobile SIP credentials error:", error);
@@ -16895,6 +16903,94 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Mobile call log duration update error:", error);
       res.status(500).json({ error: "Failed to update call log duration" });
+    }
+  });
+
+  app.post("/api/mobile/call-log/:id/trigger-server-recording", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
+
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileCallRecording) {
+        return res.status(403).json({ error: "Call recording not enabled" });
+      }
+
+      const ext = await storage.getSipExtensionByCollaboratorId(tokenData.collaboratorId);
+      if (!ext) return res.status(404).json({ error: "No SIP extension found" });
+
+      const ariSettingsList = await db.select().from(ariSettings).limit(1);
+      if (!ariSettingsList.length || !ariSettingsList[0].username || !ariSettingsList[0].password) {
+        return res.status(503).json({ error: "ARI credentials not configured" });
+      }
+
+      const { username, password, protocol: ariProtocol = "http" } = ariSettingsList[0];
+      const authHeader = "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
+      const callLogId = req.params.id;
+      const recordingName = `mobile_${callLogId}_${Date.now()}`;
+
+      const servers = [
+        { host: ASTERISK_SK_HOST, port: ASTERISK_SK_PORT },
+        { host: ASTERISK_MEDIAGTW_HOST, port: ASTERISK_MEDIAGTW_PORT },
+      ];
+
+      let recordingStarted = false;
+      let activeChannelId: string | null = null;
+
+      for (const server of servers) {
+        try {
+          const baseUrl = `${ariProtocol}://${server.host}:${server.port}`;
+
+          const channelsResp = await fetch(`${baseUrl}/ari/channels`, {
+            headers: { Authorization: authHeader },
+            signal: AbortSignal.timeout(3000),
+          });
+          if (!channelsResp.ok) continue;
+
+          const channels: any[] = await channelsResp.json();
+          const sipUser = (ext.sipUsername || ext.extension || '').toLowerCase();
+          const channel = channels.find((ch: any) => {
+            const chanName = (ch.name || '').toLowerCase();
+            const endpoint = (ch.caller?.number || ch.connected?.number || '').toLowerCase();
+            return chanName.includes(sipUser) || chanName.includes(ext.extension.toLowerCase()) || endpoint === ext.extension;
+          });
+
+          if (!channel) continue;
+          activeChannelId = channel.id;
+
+          const recordResp = await fetch(
+            `${baseUrl}/ari/channels/${channel.id}/record?name=${encodeURIComponent(recordingName)}&format=wav&beep=false&ifExists=overwrite`,
+            {
+              method: "POST",
+              headers: { Authorization: authHeader, "Content-Type": "application/json" },
+              signal: AbortSignal.timeout(3000),
+            }
+          );
+
+          if (recordResp.ok) {
+            recordingStarted = true;
+            console.log(`[ServerRecording] Started ARI recording '${recordingName}' on channel ${channel.id} at ${server.host}`);
+            break;
+          } else {
+            const txt = await recordResp.text().catch(() => "");
+            console.warn(`[ServerRecording] ARI record failed (${recordResp.status}): ${txt}`);
+          }
+        } catch (e: any) {
+          console.warn(`[ServerRecording] Server ${server.host} error: ${e?.message}`);
+        }
+      }
+
+      res.json({
+        success: recordingStarted,
+        recordingName: recordingStarted ? recordingName : null,
+        channelId: activeChannelId,
+        message: recordingStarted
+          ? "Server-side recording started via Asterisk ARI"
+          : "Active channel not found — mic-only recording will be used",
+      });
+    } catch (error: any) {
+      console.error("Trigger server recording error:", error);
+      res.status(500).json({ error: "Failed to trigger server recording" });
     }
   });
 

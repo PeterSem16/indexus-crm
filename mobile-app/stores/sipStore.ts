@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { mobileSipEngine, SipRegistrationState, SipCallState, SipCallInfo } from '@/lib/sip';
 import { mobileAudioRecorder, RecordingState } from '@/lib/audioRecorder';
+import { api } from '@/lib/api';
 
 interface SipStoreState {
   registrationState: SipRegistrationState;
@@ -23,7 +24,7 @@ interface SipStoreState {
   toggleSpeaker: () => Promise<void>;
   sendDtmf: (tone: string) => void;
   clearError: () => void;
-  startRecording: () => Promise<void>;
+  startRecording: (callLogId?: string) => Promise<void>;
   stopAndUploadRecording: (params: {
     callLogId: string;
     phoneNumber: string;
@@ -143,8 +144,24 @@ export const useSipStore = create<SipStoreState>((set, get) => {
 
     clearError: () => set({ error: null }),
 
-    startRecording: async () => {
+    startRecording: async (callLogId?: string) => {
       await mobileAudioRecorder.startRecording();
+
+      if (callLogId) {
+        try {
+          const result = await api.post<{ success: boolean; message: string }>(
+            `/api/mobile/call-log/${callLogId}/trigger-server-recording`,
+            {}
+          );
+          if (result?.success) {
+            console.log('[SipStore] Server-side ARI recording started:', result.message);
+          } else {
+            console.log('[SipStore] Server-side recording not started, mic-only fallback active. Reason:', result?.message);
+          }
+        } catch (e: any) {
+          console.warn('[SipStore] Server recording trigger failed (mic-only fallback):', e?.message);
+        }
+      }
     },
 
     stopAndUploadRecording: async (params) => {

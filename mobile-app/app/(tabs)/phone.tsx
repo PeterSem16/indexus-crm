@@ -172,7 +172,7 @@ export default function PhoneScreen() {
   useEffect(() => {
     if (callState === 'active' && callRecordingEnabled && !recordingStartedRef.current) {
       recordingStartedRef.current = true;
-      startRecording().catch(() => {});
+      startRecording(currentCallLogId ?? undefined).catch(() => {});
     }
   }, [callState, callRecordingEnabled]);
 
