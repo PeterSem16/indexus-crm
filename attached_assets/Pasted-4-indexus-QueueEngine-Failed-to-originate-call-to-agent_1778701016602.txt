@@ -1,0 +1,22 @@
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778699561.289 failed: 500 {
+4|indexus- | [VirtualAgent] Recording error: Error: ARI POST /channels/1778699561.289/record?name=va-b0741f15-8ef9-4c58-97c5-b3396bed18bc-1-1778699608193&format=wav&ifExists=overwrite&maxDurationSeconds=15&maxSilenceSeconds=1&beep=false&terminateOn=none failed: 404 {
+4|indexus- |     at n.ariRequest (/var/www/indexus-crm/dist/index.cjs:78:8205)
+4|indexus- | [QueueEngine] MOH start failed for 1778700156.299: ARI POST /channels/1778700156.299/play?media=sound%3Acustom%2Fmoh-slow-jazz&playbackId=moh-1778700156.299-1778700161099 failed: 404 {
+seman@CORPCRM01:/var/www/indexus-crm$ sleep 15 && pm2 logs indexus-crm --lines 30 --nostream 2>&1 | grep -i "ari\|connect\|websocket\|auth"
+4|indexus- |     at async S3.connectCallToAgent (/var/www/indexus-crm/dist/index.cjs:139:22462)
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778699561.289 failed: 500 {
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778699561.289 failed: 500 {
+4|indexus- | [VirtualAgent] Recording error: Error: ARI POST /channels/1778699561.289/record?name=va-b0741f15-8ef9-4c58-97c5-b3396bed18bc-1-1778699608193&format=wav&ifExists=overwrite&maxDurationSeconds=15&maxSilenceSeconds=1&beep=false&terminateOn=none failed: 404 {
+4|indexus- |     at n.ariRequest (/var/www/indexus-crm/dist/index.cjs:78:8205)
+4|indexus- | [QueueEngine] MOH start failed for 1778700156.299: ARI POST /channels/1778700156.299/play?media=sound%3Acustom%2Fmoh-slow-jazz&playbackId=moh-1778700156.299-1778700161099 failed: 404 {
+4|indexus- | [REQUEST] POST /api/auth/heartbeat | session: 67467ce3-7a44-4f67-a3d3-6a251e2991e5 | body-keys:
+4|indexus- | 7:36:25 PM [express] POST /api/auth/heartbeat 403 in 4ms :: {"error":"session_terminated","message":"Your session was terminated by an administrator"}
+4|indexus- | [REQUEST] POST /api/auth/logout | session: none | body-keys:
+4|indexus- | 7:36:25 PM [express] POST /api/auth/logout 200 in 2ms :: {"message":"Logged out successfully"}
+4|indexus- | [REQUEST] POST /api/auth/heartbeat | session: none | body-keys:
+4|indexus- | 7:36:25 PM [express] POST /api/auth/heartbeat 401 in 1ms :: {"error":"Not authenticated"}
+4|indexus- | 7:36:25 PM [express] GET /api/sip-settings 401 in 6ms :: {"error":"Unauthorized"}
+4|indexus- | 7:36:25 PM [express] GET /api/auth/me 401 in 12ms :: {"user":null}
+4|indexus- | 7:36:32 PM [express] GET /api/sip-settings 401 in 2ms :: {"error":"Unauthorized"}
+4|indexus- | 7:36:32 PM [express] GET /api/auth/me 401 in 2ms :: {"user":null}
+seman@CORPCRM01:/var/www/indexus-crm$
