@@ -1,0 +1,10 @@
+To restore this content, you can run the 'unminimize' command.
+Last login: Wed May 13 18:50:56 2026 from 10.9.20.83
+seman@CORPCRM01:~$ # Živé logy - sledujte toto počas testovania hovoru:
+pm2 logs indexus-crm | grep -E "ServerRecording|trigger|mobile/call-log|mobileCallRecording|No SIP extension"
+4|indexus-crm  | [REQUEST] POST /api/mobile/call-log | session: none | body-keys: phoneNumber,direction,duration,status,customerId
+4|indexus-crm  | 7:55:19 PM [express] POST /api/mobile/call-log 200 in 13ms :: {"id":"4211d2ea-2351-4d26-964f-b732dfddeb08","userId":"ebd30fe7-2878-424d-a124-93ab53ac4b61","customerId":"personal-4185aa46-4ea0-499d-90e6-a2c7363b9f5a","campaignId":null,"campaignContactId":null,"phoneNumber":"421232399030","direction":"outbound","status":"initiated","startedAt":"2026-05-13T19:55:19.899Z","answeredAt":null,"endedAt":null,"durationSeconds":0,"hungUpBy":null,"sipCallId":null,"notes":null,"metadata":null,"inboundQueueId":null,"inboundQueueName":null,"inboundCallLogId":null,"createdAt":"2026-05-13T19:55:19.899Z"}
+4|indexus-crm  | [REQUEST] POST /api/mobile/call-log | session: none | body-keys: phoneNumber,direction,duration,status,customerId
+4|indexus-crm  | 7:55:22 PM [express] POST /api/mobile/call-log 200 in 5ms :: {"id":"b3998ee3-ae6f-4eb9-9045-12bbb16bd676","userId":"ebd30fe7-2878-424d-a124-93ab53ac4b61","customerId":"personal-4185aa46-4ea0-499d-90e6-a2c7363b9f5a","campaignId":null,"campaignContactId":null,"phoneNumber":"421232399030","direction":"outbound","status":"initiated","startedAt":"2026-05-13T19:55:22.482Z","answeredAt":null,"endedAt":null,"durationSeconds":0,"hungUpBy":null,"sipCallId":null,"notes":null,"metadata":null,"inboundQueueId":null,"inboundQueueName":null,"inboundCallLogId":null,"createdAt":"2026-05-13T19:55:22.482Z"}
+4|indexus-crm  | [REQUEST] POST /api/mobile/call-log/b3998ee3-ae6f-4eb9-9045-12bbb16bd676/duration | session: none | body-keys: duration
+4|indexus-crm  | 7:55:34 PM [express] POST /api/mobile/call-log/b3998ee3-ae6f-4eb9-9045-12bbb16bd676/duration 200 in 9ms :: {"success":true}

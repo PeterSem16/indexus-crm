@@ -16925,7 +16925,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return res.status(403).json({ error: "Call recording not enabled" });
       }
 
-      const ext = await storage.getSipExtensionByCollaboratorId(tokenData.collaboratorId);
+      let ext = await storage.getSipExtensionByCollaboratorId(tokenData.collaboratorId);
+      if (!ext && collaborator.mobileSipExtensionId) {
+        ext = await storage.getSipExtensionById(collaborator.mobileSipExtensionId);
+        if (ext) {
+          await storage.assignSipExtensionToCollaborator(ext.id, collaborator.id).catch(() => {});
+        }
+      }
       if (!ext) return res.status(404).json({ error: "No SIP extension found" });
 
       const ariSettingsList = await db.select().from(ariSettings).limit(1);
