@@ -361,28 +361,34 @@ export default function PhoneScreen() {
     });
     setCurrentCallHistoryId(historyId);
 
-    const success = await makeCall(phoneNumber);
-    if (!success) {
-      await updateCallDuration(historyId, 0, 'failed');
-      setCurrentCallHistoryId(null);
-      setCurrentContactName(undefined);
-      setCurrentCustomerId(undefined);
-    }
-
+    let callLogId: string | null = null;
     try {
       const callLog = await api.post<{ id: string }>('/api/mobile/call-log', {
         phoneNumber,
         direction: 'outbound',
         duration: 0,
-        status: success ? 'initiated' : 'failed',
+        status: 'initiated',
         customerId: contactId,
       });
       if (callLog?.id) {
+        callLogId = callLog.id;
         setCurrentCallLogId(callLog.id);
         await updateCallLogId(historyId, callLog.id);
       }
     } catch (error) {
       console.error('Failed to log call:', error);
+    }
+
+    const success = await makeCall(phoneNumber);
+    if (!success) {
+      await updateCallDuration(historyId, 0, 'failed');
+      if (callLogId) {
+        api.post(`/api/mobile/call-log/${callLogId}/duration`, { duration: 0, status: 'failed' }).catch(() => {});
+      }
+      setCurrentCallHistoryId(null);
+      setCurrentCallLogId(null);
+      setCurrentContactName(undefined);
+      setCurrentCustomerId(undefined);
     }
 
     loadRecentCalls();
