@@ -3408,6 +3408,16 @@ export interface Translations {
       step3Desc: string;
       step4Title: string;
       step4Desc: string;
+      turnTitle: string;
+      turnBadge: string;
+      turnDescription: string;
+      turnServerUrl: string;
+      turnServerUrlPlaceholder: string;
+      turnServerUrlHint: string;
+      turnUsername: string;
+      turnPassword: string;
+      turnConfigured: string;
+      turnNotSet: string;
     };
     sipImport: {
       title: string;
@@ -10089,6 +10099,16 @@ export const translations: Record<Locale, Translations> = {
         step3Desc: 'Users can make calls directly from the CRM using the built-in SIP phone',
         step4Title: 'Call records',
         step4Desc: 'All calls are automatically recorded and linked to customers and campaigns',
+        turnTitle: 'TURN Server',
+        turnBadge: 'Recommended for mobile data',
+        turnDescription: 'TURN server acts as a relay for calls over mobile networks (CGNAT) where STUN is not sufficient. Without it, calls on mobile data may fail. URL format: turn:server.example.com:3478',
+        turnServerUrl: 'TURN Server URL',
+        turnServerUrlPlaceholder: 'turn:turn.example.com:3478',
+        turnServerUrlHint: 'TURN server address. You can use Coturn, Cloudflare TURN, or another TURN provider. Leave empty to disable TURN.',
+        turnUsername: 'TURN Username',
+        turnPassword: 'TURN Password',
+        turnConfigured: 'TURN configured',
+        turnNotSet: 'TURN not configured',
       },
       sipImport: {
         title: 'Import SIP Lines',
@@ -16215,6 +16235,16 @@ export const translations: Record<Locale, Translations> = {
         step3Desc: 'Používatelia môžu telefonovať priamo z CRM pomocou vstavaného SIP telefónu',
         step4Title: 'Záznamy hovorov',
         step4Desc: 'Všetky hovory sa automaticky zaznamenávajú a prepájajú so zákazníkmi a kampaňami',
+        turnTitle: 'TURN Server',
+        turnBadge: 'Odporúčané pre mobilné dáta',
+        turnDescription: 'TURN server slúži ako relay pre hovory cez mobilné siete (CGNAT) kde STUN nestačí. Bez neho môžu hovory na mobilných dátach zlyhávať. Formát URL: turn:server.example.com:3478',
+        turnServerUrl: 'TURN Server URL',
+        turnServerUrlPlaceholder: 'turn:turn.example.com:3478',
+        turnServerUrlHint: 'Adresa TURN servera. Môžete použiť Coturn, Cloudflare TURN, alebo iný TURN provider. Ak pole necháte prázdne, TURN sa nepoužije.',
+        turnUsername: 'TURN Používateľské meno',
+        turnPassword: 'TURN Heslo',
+        turnConfigured: 'TURN nakonfigurovaný',
+        turnNotSet: 'TURN nie je nastavený',
       },
       sipImport: {
         title: 'Import SIP liniek',
@@ -22327,6 +22357,16 @@ export const translations: Record<Locale, Translations> = {
         step3Desc: 'Uživatelé mohou telefonovat přímo z CRM pomocí vestavěného SIP telefonu',
         step4Title: 'Záznamy hovorů',
         step4Desc: 'Všechny hovory se automaticky zaznamenávají a propojují se zákazníky a kampaněmi',
+        turnTitle: 'TURN Server',
+        turnBadge: 'Doporučeno pro mobilní data',
+        turnDescription: 'TURN server slouží jako relay pro hovory přes mobilní sítě (CGNAT) kde STUN nestačí. Bez něj mohou hovory na mobilních datech selhat. Formát URL: turn:server.example.com:3478',
+        turnServerUrl: 'TURN Server URL',
+        turnServerUrlPlaceholder: 'turn:turn.example.com:3478',
+        turnServerUrlHint: 'Adresa TURN serveru. Můžete použít Coturn, Cloudflare TURN nebo jiného TURN providera. Pokud pole necháte prázdné, TURN se nepoužije.',
+        turnUsername: 'TURN Uživatelské jméno',
+        turnPassword: 'TURN Heslo',
+        turnConfigured: 'TURN nakonfigurován',
+        turnNotSet: 'TURN není nastaven',
       },
       sipImport: {
         title: 'Import SIP linek',
@@ -28397,6 +28437,16 @@ export const translations: Record<Locale, Translations> = {
         step3Desc: 'A felhasználók közvetlenül a CRM-ből telefonálhatnak a beépített SIP telefon segítségével',
         step4Title: 'Hívásrekordok',
         step4Desc: 'Minden hívás automatikusan rögzítésre kerül és összekapcsolódik az ügyfelekkel és kampányokkal',
+        turnTitle: 'TURN Szerver',
+        turnBadge: 'Mobiladat-kapcsolathoz ajánlott',
+        turnDescription: 'A TURN szerver közvetítőként működik a mobilhálózatokon (CGNAT) lebonyolított hívásokhoz, ahol a STUN nem elegendő. Nélküle a mobiladaton végzett hívások meghiúsulhatnak. URL formátum: turn:server.example.com:3478',
+        turnServerUrl: 'TURN Szerver URL',
+        turnServerUrlPlaceholder: 'turn:turn.example.com:3478',
+        turnServerUrlHint: 'TURN szerver címe. Használhat Coturn-t, Cloudflare TURN-t vagy más TURN szolgáltatót. Hagyja üresen a TURN letiltásához.',
+        turnUsername: 'TURN Felhasználónév',
+        turnPassword: 'TURN Jelszó',
+        turnConfigured: 'TURN konfigurálva',
+        turnNotSet: 'TURN nincs beállítva',
       },
       sipImport: {
         title: 'SIP vonalak importálása',
@@ -34362,6 +34412,16 @@ export const translations: Record<Locale, Translations> = {
         step3Desc: 'Utilizatorii pot suna direct din CRM folosind telefonul SIP integrat',
         step4Title: 'Înregistrări apeluri',
         step4Desc: 'Toate apelurile sunt înregistrate automat și legate de clienți și campanii',
+        turnTitle: 'Server TURN',
+        turnBadge: 'Recomandat pentru date mobile',
+        turnDescription: 'Serverul TURN acționează ca relay pentru apeluri prin rețele mobile (CGNAT) unde STUN nu este suficient. Fără el, apelurile pe date mobile pot eșua. Format URL: turn:server.example.com:3478',
+        turnServerUrl: 'URL Server TURN',
+        turnServerUrlPlaceholder: 'turn:turn.example.com:3478',
+        turnServerUrlHint: 'Adresa serverului TURN. Puteți folosi Coturn, Cloudflare TURN sau alt provider TURN. Lăsați gol pentru a dezactiva TURN.',
+        turnUsername: 'Utilizator TURN',
+        turnPassword: 'Parolă TURN',
+        turnConfigured: 'TURN configurat',
+        turnNotSet: 'TURN neconfigurat',
       },
       sipImport: {
         title: 'Import linii SIP',
@@ -40329,6 +40389,16 @@ export const translations: Record<Locale, Translations> = {
         step3Desc: 'Gli utenti possono telefonare direttamente dal CRM usando il telefono SIP integrato',
         step4Title: 'Registri chiamate',
         step4Desc: 'Tutte le chiamate vengono registrate automaticamente e collegate a clienti e campagne',
+        turnTitle: 'Server TURN',
+        turnBadge: 'Consigliato per dati mobili',
+        turnDescription: 'Il server TURN funge da relay per le chiamate su reti mobili (CGNAT) dove STUN non è sufficiente. Senza di esso, le chiamate su dati mobili potrebbero fallire. Formato URL: turn:server.example.com:3478',
+        turnServerUrl: 'URL Server TURN',
+        turnServerUrlPlaceholder: 'turn:turn.example.com:3478',
+        turnServerUrlHint: 'Indirizzo del server TURN. Puoi usare Coturn, Cloudflare TURN o un altro provider TURN. Lascia vuoto per disabilitare TURN.',
+        turnUsername: 'Nome utente TURN',
+        turnPassword: 'Password TURN',
+        turnConfigured: 'TURN configurato',
+        turnNotSet: 'TURN non configurato',
       },
       sipImport: {
         title: 'Importa linee SIP',
@@ -46296,6 +46366,16 @@ export const translations: Record<Locale, Translations> = {
         step3Desc: 'Benutzer können direkt aus dem CRM über das integrierte SIP-Telefon telefonieren',
         step4Title: 'Anrufaufzeichnungen',
         step4Desc: 'Alle Anrufe werden automatisch aufgezeichnet und mit Kunden und Kampagnen verknüpft',
+        turnTitle: 'TURN-Server',
+        turnBadge: 'Empfohlen für mobile Daten',
+        turnDescription: 'Der TURN-Server fungiert als Relay für Anrufe über mobile Netzwerke (CGNAT), wo STUN nicht ausreicht. Ohne ihn können Anrufe über mobile Daten fehlschlagen. URL-Format: turn:server.example.com:3478',
+        turnServerUrl: 'TURN-Server-URL',
+        turnServerUrlPlaceholder: 'turn:turn.example.com:3478',
+        turnServerUrlHint: 'TURN-Server-Adresse. Sie können Coturn, Cloudflare TURN oder einen anderen TURN-Anbieter verwenden. Leer lassen, um TURN zu deaktivieren.',
+        turnUsername: 'TURN-Benutzername',
+        turnPassword: 'TURN-Passwort',
+        turnConfigured: 'TURN konfiguriert',
+        turnNotSet: 'TURN nicht konfiguriert',
       },
       sipImport: {
         title: 'SIP-Leitungen importieren',

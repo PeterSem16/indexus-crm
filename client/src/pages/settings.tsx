@@ -992,34 +992,34 @@ function SipSettingsTab() {
 
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold">TURN Server</h3>
+              <h3 className="text-sm font-semibold">{t.settings.sipServer.turnTitle}</h3>
               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                Odporúčané pre mobilné dáta
+                {t.settings.sipServer.turnBadge}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              TURN server slúži ako relay pre hovory cez mobilné siete (CGNAT) kde STUN nestačí. Bez neho môžu hovory na mobile dátach zlyhávať. Formát URL: <code className="rounded bg-muted px-1">turn:server.example.com:3478</code>
+              {t.settings.sipServer.turnDescription}
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2 md:col-span-3">
-              <Label htmlFor="turn-server">TURN Server URL</Label>
+              <Label htmlFor="turn-server">{t.settings.sipServer.turnServerUrl}</Label>
               <Input
                 id="turn-server"
-                placeholder="turn:turn.example.com:3478"
+                placeholder={t.settings.sipServer.turnServerUrlPlaceholder}
                 value={formData.turnServer}
                 onChange={(e) => setFormData({ ...formData, turnServer: e.target.value })}
                 disabled={!isAdmin}
                 data-testid="input-turn-server"
               />
               <p className="text-xs text-muted-foreground">
-                Adresa TURN servera. Môžete použiť Coturn, Cloudflare TURN, alebo iný TURN provider. Ak pole necháte prázdne, TURN sa nepoužije.
+                {t.settings.sipServer.turnServerUrlHint}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="turn-username">TURN Username</Label>
+              <Label htmlFor="turn-username">{t.settings.sipServer.turnUsername}</Label>
               <Input
                 id="turn-username"
                 placeholder="turn_user"
@@ -1031,7 +1031,7 @@ function SipSettingsTab() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="turn-password">TURN Password</Label>
+              <Label htmlFor="turn-password">{t.settings.sipServer.turnPassword}</Label>
               <Input
                 id="turn-password"
                 type="password"
@@ -1047,12 +1047,12 @@ function SipSettingsTab() {
               {formData.turnServer ? (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                   <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                  TURN nakonfigurovaný
+                  {t.settings.sipServer.turnConfigured}
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <div className="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
-                  TURN nie je nastavený
+                  {t.settings.sipServer.turnNotSet}
                 </div>
               )}
             </div>
