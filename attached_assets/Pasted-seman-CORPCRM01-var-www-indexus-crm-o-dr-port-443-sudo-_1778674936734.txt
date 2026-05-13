@@ -1,0 +1,23 @@
+seman@CORPCRM01:/var/www/indexus-crm$ # Čo drží port 443?
+sudo ss -tulpn | grep ':443'
+
+# Čo drží port 3478?
+sudo ss -tulpn | grep ':3478'
+tcp   LISTEN 0      511          0.0.0.0:443        0.0.0.0:*    users:(("nginx",pid=378135,fd=7),("nginx",pid=378134,fd=7),("nginx",pid=378133,fd=7),("nginx",pid=378132,fd=7),("nginx",pid=378131,fd=7),("nginx",pid=378130,fd=7),("nginx",pid=378129,fd=7),("nginx",pid=378128,fd=7),("nginx",pid=378126,fd=7))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=63))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=62))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=61))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=60))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=59))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=58))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=57))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=55))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=56))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=53))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=51))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=50))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=39))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=33))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=32))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=694560,fd=25))
+seman@CORPCRM01:/var/www/indexus-crm$
