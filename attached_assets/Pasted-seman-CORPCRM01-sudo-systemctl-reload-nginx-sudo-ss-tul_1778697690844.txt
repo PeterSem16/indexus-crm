@@ -1,0 +1,22 @@
+seman@CORPCRM01:~$ sudo systemctl reload nginx
+sudo ss -tulpn | grep -E ':443 |:8443 |:5349 |:5350 '
+udp   UNCONN 0      0            0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=87))
+udp   UNCONN 0      0            0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=86))
+udp   UNCONN 0      0            0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=85))
+udp   UNCONN 0      0            0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=84))
+udp   UNCONN 0      0            0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=83))
+udp   UNCONN 0      0            0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=82))
+udp   UNCONN 0      0            0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=81))
+udp   UNCONN 0      0            0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=80))
+tcp   LISTEN 0      511          0.0.0.0:443        0.0.0.0:*    users:(("nginx",pid=700093,fd=7),("nginx",pid=700092,fd=7),("nginx",pid=700091,fd=7),("nginx",pid=700090,fd=7),("nginx",pid=700089,fd=7),("nginx",pid=700088,fd=7),("nginx",pid=700087,fd=7),("nginx",pid=700086,fd=7),("nginx",pid=695259,fd=7),("nginx",pid=695258,fd=7),("nginx",pid=695257,fd=7),("nginx",pid=695256,fd=7),("nginx",pid=695255,fd=7),("nginx",pid=695254,fd=7),("nginx",pid=695253,fd=7),("nginx",pid=695252,fd=7),("nginx",pid=378126,fd=7))
+tcp   LISTEN 0      1024         0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=74))
+tcp   LISTEN 0      1024         0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=72))
+tcp   LISTEN 0      1024         0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=63))
+tcp   LISTEN 0      1024         0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=61))
+tcp   LISTEN 0      1024         0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=59))
+tcp   LISTEN 0      1024         0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=39))
+tcp   LISTEN 0      1024         0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=35))
+tcp   LISTEN 0      1024         0.0.0.0:5350       0.0.0.0:*    users:(("turnserver",pid=700021,fd=29))
+tcp   LISTEN 0      511          0.0.0.0:5349       0.0.0.0:*    users:(("nginx",pid=700093,fd=26),("nginx",pid=700092,fd=26),("nginx",pid=700091,fd=26),("nginx",pid=700090,fd=26),("nginx",pid=700089,fd=26),("nginx",pid=700088,fd=26),("nginx",pid=700087,fd=26),("nginx",pid=700086,fd=26),("nginx",pid=695259,fd=26),("nginx",pid=695258,fd=26),("nginx",pid=695257,fd=26),("nginx",pid=695256,fd=26),("nginx",pid=695255,fd=26),("nginx",pid=695254,fd=26),("nginx",pid=695253,fd=26),("nginx",pid=695252,fd=26),("nginx",pid=378126,fd=26))
+tcp   LISTEN 0      511          0.0.0.0:8443       0.0.0.0:*    users:(("nginx",pid=700093,fd=12),("nginx",pid=700092,fd=12),("nginx",pid=700091,fd=12),("nginx",pid=700090,fd=12),("nginx",pid=700089,fd=12),("nginx",pid=700088,fd=12),("nginx",pid=700087,fd=12),("nginx",pid=700086,fd=12),("nginx",pid=378126,fd=12))
+seman@CORPCRM01:~$
