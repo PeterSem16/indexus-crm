@@ -1,0 +1,22 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 100 --nostream 2>&1 | grep -i "ari\|ARI" | tail -20
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778698524.279 failed: 500 {
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778698524.279 failed: 500 {
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778698524.279 failed: 500 {
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778699216.284 failed: 500 {
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778699216.284 failed: 500 {
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778699216.284 failed: 500 {
+4|indexus- | [VirtualAgent] Recording error: Error: ARI POST /channels/1778699216.284/record?name=va-22dc3a0c-7c21-49ee-8985-8d7b18304ad0-1-1778699239893&format=wav&ifExists=overwrite&maxDurationSeconds=15&maxSilenceSeconds=1&beep=false&terminateOn=none failed: 404 {
+4|indexus- |     at n.ariRequest (/var/www/indexus-crm/dist/index.cjs:78:8205)
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778699561.289 failed: 500 {
+4|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421232393030&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1778699561.289 failed: 500 {
+4|indexus- | [VirtualAgent] Recording error: Error: ARI POST /channels/1778699561.289/record?name=va-b0741f15-8ef9-4c58-97c5-b3396bed18bc-1-1778699608193&format=wav&ifExists=overwrite&maxDurationSeconds=15&maxSilenceSeconds=1&beep=false&terminateOn=none failed: 404 {
+4|indexus- |     at n.ariRequest (/var/www/indexus-crm/dist/index.cjs:78:8205)
+4|indexus- | [QueueEngine] MOH start failed for 1778700156.299: ARI POST /channels/1778700156.299/play?media=sound%3Acustom%2Fmoh-slow-jazz&playbackId=moh-1778700156.299-1778700161099 failed: 404 {
+4|indexus- | [ARI AutoConnect] Connecting to Asterisk at mediagtw.cordbloodcenter.com:8088 (app: indexus-inbound)...
+4|indexus- | [ARI] Testing connection to: http://mediagtw.cordbloodcenter.com:8088
+4|indexus- | [ARI] /httpstatus returned: 200
+4|indexus- | [ARI] Testing ARI endpoint: http://mediagtw.cordbloodcenter.com:8088/ari/asterisk/info
+4|indexus- | [ARI] Basic auth response: 200
+4|indexus- | [ARI] WebSocket connected to Asterisk
+4|indexus- | [ARI AutoConnect] Successfully connected to Asterisk and started queue engine
+seman@CORPCRM01:/var/www/indexus-crm
