@@ -170,11 +170,11 @@ export default function PhoneScreen() {
   }, [callState, callInfo.direction]);
 
   useEffect(() => {
-    if (callState === 'active' && callRecordingEnabled && !recordingStartedRef.current && currentCallLogId) {
+    if (callState === 'active' && callRecordingEnabled && !recordingStartedRef.current) {
       recordingStartedRef.current = true;
-      startRecording(currentCallLogId).catch(() => {});
+      startRecording(currentCallLogId ?? undefined).catch(() => {});
     }
-  }, [callState, callRecordingEnabled, currentCallLogId]);
+  }, [callState, callRecordingEnabled]);
 
   useEffect(() => {
     if (callInfo.duration > 0) {
