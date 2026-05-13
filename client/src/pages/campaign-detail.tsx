@@ -2229,7 +2229,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
         code,
         color: status.color || "gray",
         icon: status.icon || "CircleDot",
-        actionType: status.defaultAction || "none",
+        actionType: mapGlobalActionToDisp(status.defaultAction),
         callbackOffsetDays: status.callbackOffsetDays || null,
         childrenType: "radio",
         channel: "phone",
