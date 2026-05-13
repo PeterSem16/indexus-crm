@@ -1,0 +1,59 @@
+seman@CORPCRM01:/var/www/indexus-crm$ nginx -V 2>&1 | grep -o 'with-stream'
+with-stream
+with-stream
+with-stream
+with-stream
+with-stream
+seman@CORPCRM01:/var/www/indexus-crm$ nginx -T 2>/dev/null | grep -E "^# configuration|include" | head -10
+# alebo
+find /etc /usr/local/etc -name "nginx.conf" 2>/dev/null
+/etc/nginx/nginx.conf
+seman@CORPCRM01:/var/www/indexus-crm$ sudo tee /etc/nginx/conf.d/turn-stream.conf > /dev/null << 'EOF'
+stream {
+    upstream coturn {
+        server 127.0.0.1:3478;
+    }
+
+    server {
+        listen 5349;
+        proxy_pass coturn;
+        proxy_timeout 1h;
+        proxy_connect_timeout 10s;
+    }
+}
+EOF
+seman@CORPCRM01:/var/www/indexus-crm$ sudo ufw allow 5349/tcp comment "TURN TCP via nginx stream"
+sudo nginx -t && sudo systemctl reload nginx
+Rule updated
+Rule updated (v6)
+2026/05/13 12:34:04 [emerg] 694911#694911: unknown directive "stream" in /etc/nginx/conf.d/turn-stream.conf:1
+nginx: configuration file /etc/nginx/nginx.conf test failed
+seman@CORPCRM01:/var/www/indexus-crm$ # Nájdeme nginx.conf
+sudo nginx -t 2>&1 | grep "configuration file"
+nginx: configuration file /etc/nginx/nginx.conf test failed
+seman@CORPCRM01:/var/www/indexus-crm$ # 1. Zmazať nesprávny súbor
+sudo rm /etc/nginx/conf.d/turn-stream.conf
+
+# 2. Overiť že nginx teraz prechádza testom
+sudo nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+seman@CORPCRM01:/var/www/indexus-crm$ # 3. Pridať stream blok na koniec nginx.conf
+sudo bash -c 'echo "
+stream {
+    upstream coturn_tcp {
+        server 127.0.0.1:3478;
+    }
+    server {
+        listen 5349;
+        proxy_pass coturn_tcp;
+        proxy_timeout 1h;
+        proxy_connect_timeout 10s;
+    }
+}" >> /etc/nginx/nginx.conf'
+
+# 4. Test a reload
+sudo nginx -t && sudo systemctl reload nginx
+2026/05/13 12:35:59 [emerg] 694947#694947: unknown directive "stream" in /etc/nginx/nginx.conf:85
+nginx: configuration file /etc/nginx/nginx.conf test failed
+seman@CORPCRM01:/var/www/indexus-crm$
