@@ -3418,6 +3418,8 @@ export interface Translations {
       turnPassword: string;
       turnConfigured: string;
       turnNotSet: string;
+      turnServerAlt: string;
+      turnServerAltHint: string;
     };
     sipImport: {
       title: string;
@@ -10109,6 +10111,8 @@ export const translations: Record<Locale, Translations> = {
         turnPassword: 'TURN Password',
         turnConfigured: 'TURN configured',
         turnNotSet: 'TURN not configured',
+        turnServerAlt: 'Fallback TURN URL (TCP / port 443)',
+        turnServerAltHint: 'Alternative TURN entry for carriers that block UDP port 3478 (e.g. Vodafone). Use TCP transport on port 443: turn:server:443?transport=tcp. Shares the same username and password as the primary TURN server.',
       },
       sipImport: {
         title: 'Import SIP Lines',
@@ -16245,6 +16249,8 @@ export const translations: Record<Locale, Translations> = {
         turnPassword: 'TURN Heslo',
         turnConfigured: 'TURN nakonfigurovaný',
         turnNotSet: 'TURN nie je nastavený',
+        turnServerAlt: 'Záložný TURN URL (TCP / port 443)',
+        turnServerAltHint: 'Alternatívny TURN záznam pre operátorov, ktorí blokujú UDP port 3478 (napr. Vodafone). Použite TCP transport na porte 443: turn:server:443?transport=tcp. Zdieľa rovnaké meno a heslo ako primárny TURN server.',
       },
       sipImport: {
         title: 'Import SIP liniek',
@@ -22367,6 +22373,8 @@ export const translations: Record<Locale, Translations> = {
         turnPassword: 'TURN Heslo',
         turnConfigured: 'TURN nakonfigurován',
         turnNotSet: 'TURN není nastaven',
+        turnServerAlt: 'Záložní TURN URL (TCP / port 443)',
+        turnServerAltHint: 'Alternativní TURN záznam pro operátory, kteří blokují UDP port 3478 (např. Vodafone). Použijte TCP transport na portu 443: turn:server:443?transport=tcp. Sdílí stejné jméno a heslo jako primární TURN server.',
       },
       sipImport: {
         title: 'Import SIP linek',
@@ -28447,6 +28455,8 @@ export const translations: Record<Locale, Translations> = {
         turnPassword: 'TURN Jelszó',
         turnConfigured: 'TURN konfigurálva',
         turnNotSet: 'TURN nincs beállítva',
+        turnServerAlt: 'Tartalék TURN URL (TCP / 443-as port)',
+        turnServerAltHint: 'Alternatív TURN bejegyzés azokhoz az operátorokhoz, amelyek blokkolják az UDP 3478-as portot (pl. Vodafone). Használjon TCP transportot a 443-as porton: turn:server:443?transport=tcp. Megosztja az elsődleges TURN szerver felhasználónevét és jelszavát.',
       },
       sipImport: {
         title: 'SIP vonalak importálása',
@@ -34422,6 +34432,8 @@ export const translations: Record<Locale, Translations> = {
         turnPassword: 'Parolă TURN',
         turnConfigured: 'TURN configurat',
         turnNotSet: 'TURN neconfigurat',
+        turnServerAlt: 'URL TURN de rezervă (TCP / port 443)',
+        turnServerAltHint: 'Intrare TURN alternativă pentru operatorii care blochează portul UDP 3478 (ex. Vodafone). Folosiți transport TCP pe portul 443: turn:server:443?transport=tcp. Partajează același utilizator și parolă cu serverul TURN principal.',
       },
       sipImport: {
         title: 'Import linii SIP',
@@ -40399,6 +40411,8 @@ export const translations: Record<Locale, Translations> = {
         turnPassword: 'Password TURN',
         turnConfigured: 'TURN configurato',
         turnNotSet: 'TURN non configurato',
+        turnServerAlt: 'URL TURN di riserva (TCP / porta 443)',
+        turnServerAltHint: 'Voce TURN alternativa per operatori che bloccano la porta UDP 3478 (es. Vodafone). Usa il trasporto TCP sulla porta 443: turn:server:443?transport=tcp. Condivide lo stesso nome utente e password del server TURN principale.',
       },
       sipImport: {
         title: 'Importa linee SIP',
@@ -46376,6 +46390,8 @@ export const translations: Record<Locale, Translations> = {
         turnPassword: 'TURN-Passwort',
         turnConfigured: 'TURN konfiguriert',
         turnNotSet: 'TURN nicht konfiguriert',
+        turnServerAlt: 'Fallback-TURN-URL (TCP / Port 443)',
+        turnServerAltHint: 'Alternativer TURN-Eintrag für Carrier, die UDP-Port 3478 blockieren (z.B. Vodafone). Verwenden Sie TCP-Transport auf Port 443: turn:server:443?transport=tcp. Teilt denselben Benutzernamen und dasselbe Passwort wie der primäre TURN-Server.',
       },
       sipImport: {
         title: 'SIP-Leitungen importieren',

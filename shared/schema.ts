@@ -3626,6 +3626,7 @@ export const sipSettings = pgTable("sip_settings", {
   turnServer: text("turn_server").default(""),
   turnUsername: text("turn_username").default(""),
   turnPassword: text("turn_password").default(""),
+  turnServerAlt: text("turn_server_alt").default(""),
   isEnabled: boolean("is_enabled").notNull().default(false),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
   updatedBy: varchar("updated_by"),

@@ -756,6 +756,7 @@ interface SipSettingsFormData {
   turnServer: string;
   turnUsername: string;
   turnPassword: string;
+  turnServerAlt: string;
 }
 
 const defaultSipSettings: SipSettingsFormData = {
@@ -768,6 +769,7 @@ const defaultSipSettings: SipSettingsFormData = {
   turnServer: "",
   turnUsername: "",
   turnPassword: "",
+  turnServerAlt: "",
 };
 
 
@@ -781,6 +783,7 @@ interface SipSettingsData {
   turnServer?: string;
   turnUsername?: string;
   turnPassword?: string;
+  turnServerAlt?: string;
 }
 
 function SipSettingsTab() {
@@ -839,6 +842,7 @@ function SipSettingsTab() {
         turnServer: sipSettings.turnServer || "",
         turnUsername: sipSettings.turnUsername || "",
         turnPassword: sipSettings.turnPassword || "",
+        turnServerAlt: sipSettings.turnServerAlt || "",
       });
     }
   }, [sipSettings]);
@@ -1015,6 +1019,21 @@ function SipSettingsTab() {
               />
               <p className="text-xs text-muted-foreground">
                 {t.settings.sipServer.turnServerUrlHint}
+              </p>
+            </div>
+
+            <div className="space-y-2 md:col-span-3">
+              <Label htmlFor="turn-server-alt">{t.settings.sipServer.turnServerAlt}</Label>
+              <Input
+                id="turn-server-alt"
+                placeholder="turn:77.72.181.113:443?transport=tcp"
+                value={formData.turnServerAlt}
+                onChange={(e) => setFormData({ ...formData, turnServerAlt: e.target.value })}
+                disabled={!isAdmin}
+                data-testid="input-turn-server-alt"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t.settings.sipServer.turnServerAltHint}
               </p>
             </div>
 

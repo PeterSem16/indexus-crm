@@ -16826,6 +16826,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 username: sipSettings.turnUsername || undefined,
                 credential: sipSettings.turnPassword || undefined,
               },
+              ...(sipSettings.turnServerAlt
+                ? [
+                    {
+                      urls: sipSettings.turnServerAlt,
+                      username: sipSettings.turnUsername || undefined,
+                      credential: sipSettings.turnPassword || undefined,
+                    },
+                  ]
+                : []),
             ]
           : [],
       });
