@@ -753,6 +753,9 @@ interface SipSettingsFormData {
   realm: string;
   transport: string;
   isEnabled: boolean;
+  turnServer: string;
+  turnUsername: string;
+  turnPassword: string;
 }
 
 const defaultSipSettings: SipSettingsFormData = {
@@ -762,6 +765,9 @@ const defaultSipSettings: SipSettingsFormData = {
   realm: "",
   transport: "wss",
   isEnabled: false,
+  turnServer: "",
+  turnUsername: "",
+  turnPassword: "",
 };
 
 
@@ -772,6 +778,9 @@ interface SipSettingsData {
   realm?: string;
   transport?: string;
   isEnabled?: boolean;
+  turnServer?: string;
+  turnUsername?: string;
+  turnPassword?: string;
 }
 
 function SipSettingsTab() {
@@ -827,6 +836,9 @@ function SipSettingsTab() {
         realm: sipSettings.realm || "",
         transport: sipSettings.transport || "wss",
         isEnabled: sipSettings.isEnabled || false,
+        turnServer: sipSettings.turnServer || "",
+        turnUsername: sipSettings.turnUsername || "",
+        turnPassword: sipSettings.turnPassword || "",
       });
     }
   }, [sipSettings]);
@@ -973,6 +985,76 @@ function SipSettingsTab() {
               <p className="text-xs text-muted-foreground">
                 {t.settings.sipServer.protocolHint}
               </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold">TURN Server</h3>
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                Odporúčané pre mobilné dáta
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              TURN server slúži ako relay pre hovory cez mobilné siete (CGNAT) kde STUN nestačí. Bez neho môžu hovory na mobile dátach zlyhávať. Formát URL: <code className="rounded bg-muted px-1">turn:server.example.com:3478</code>
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2 md:col-span-3">
+              <Label htmlFor="turn-server">TURN Server URL</Label>
+              <Input
+                id="turn-server"
+                placeholder="turn:turn.example.com:3478"
+                value={formData.turnServer}
+                onChange={(e) => setFormData({ ...formData, turnServer: e.target.value })}
+                disabled={!isAdmin}
+                data-testid="input-turn-server"
+              />
+              <p className="text-xs text-muted-foreground">
+                Adresa TURN servera. Môžete použiť Coturn, Cloudflare TURN, alebo iný TURN provider. Ak pole necháte prázdne, TURN sa nepoužije.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="turn-username">TURN Username</Label>
+              <Input
+                id="turn-username"
+                placeholder="turn_user"
+                value={formData.turnUsername}
+                onChange={(e) => setFormData({ ...formData, turnUsername: e.target.value })}
+                disabled={!isAdmin}
+                data-testid="input-turn-username"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="turn-password">TURN Password</Label>
+              <Input
+                id="turn-password"
+                type="password"
+                placeholder="••••••••"
+                value={formData.turnPassword}
+                onChange={(e) => setFormData({ ...formData, turnPassword: e.target.value })}
+                disabled={!isAdmin}
+                data-testid="input-turn-password"
+              />
+            </div>
+
+            <div className="flex items-end pb-0.5">
+              {formData.turnServer ? (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                  TURN nakonfigurovaný
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  TURN nie je nastavený
+                </div>
+              )}
             </div>
           </div>
 
