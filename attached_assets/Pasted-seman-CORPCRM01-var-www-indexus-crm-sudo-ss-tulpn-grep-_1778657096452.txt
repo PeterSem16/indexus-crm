@@ -1,0 +1,31 @@
+seman@CORPCRM01:/var/www/indexus-crm$ sudo ss -tulpn | grep 3478
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=63))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=62))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=61))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=60))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=59))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=58))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=57))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=54))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=56))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=55))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=51))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=42))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=41))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=34))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=27))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=689808,fd=26))
+seman@CORPCRM01:/var/www/indexus-crm$ sudo sed -i 's|^log-file=.*|#log-file=/var/log/coturn.log|' /etc/turnserver.conf
+sudo systemctl restart coturn
+# Logy potom čítate takto:
+sudo journalctl -u coturn -f
+May 13 07:24:05 CORPCRM01 systemd[1]: coturn.service: Deactivated successfully.
+May 13 07:24:05 CORPCRM01 systemd[1]: Stopped coturn.service - coTURN STUN/TURN Server.
+May 13 07:24:05 CORPCRM01 systemd[1]: Starting coturn.service - coTURN STUN/TURN Server...
+May 13 07:24:05 CORPCRM01 turnserver[689808]: ERROR: Cannot open log file for writing: /var/log/coturn_2026-05-13.log
+May 13 07:24:05 CORPCRM01 systemd[1]: Started coturn.service - coTURN STUN/TURN Server.
+May 13 07:24:38 CORPCRM01 systemd[1]: Stopping coturn.service - coTURN STUN/TURN Server...
+May 13 07:24:38 CORPCRM01 systemd[1]: coturn.service: Deactivated successfully.
+May 13 07:24:38 CORPCRM01 systemd[1]: Stopped coturn.service - coTURN STUN/TURN Server.
+May 13 07:24:38 CORPCRM01 systemd[1]: Starting coturn.service - coTURN STUN/TURN Server...
+May 13 07:24:38 CORPCRM01 systemd[1]: Started coturn.service - coTURN STUN/TURN Server.
