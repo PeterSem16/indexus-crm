@@ -969,10 +969,39 @@ class MobileSipEngine {
         // Log negotiated codec from remote SDP
         try {
           const sdp: string = pc.remoteDescription?.sdp || '';
-          const audioSection = sdp.split('\r\n').filter((l: string) =>
+          const sdpLines = sdp.split('\r\n');
+          const audioSection = sdpLines.filter((l: string) =>
             l.startsWith('m=audio') || l.startsWith('a=rtpmap') || l.startsWith('a=fmtp')
           ).slice(0, 8).join(' | ');
           if (audioSection) this.emit('debug', `SDP audio codecs: ${audioSection}`);
+          // Log DTLS setup attribute — tells us who is client/server in handshake
+          const setupLine = sdpLines.find((l: string) => l.startsWith('a=setup:'));
+          const fpLine = sdpLines.find((l: string) => l.startsWith('a=fingerprint:'));
+          this.emit('debug', `DTLS: ${setupLine || 'no a=setup'} | fp=${fpLine ? 'present' : 'MISSING'}`);
+        } catch {}
+        // Check DTLS transport state via getStats — confirms if SRTP is working
+        try {
+          if (pc.getStats) {
+            pc.getStats().then((stats: any) => {
+              let dtlsState = 'unknown';
+              let selectedPair = '';
+              stats.forEach((report: any) => {
+                if (report.type === 'transport') {
+                  dtlsState = report.dtlsState || 'n/a';
+                  this.emit('debug', `DTLS transport: state=${report.dtlsState} selected=${report.selectedCandidatePairId?.slice(0,8) || '?'}`);
+                }
+                if (report.type === 'candidate-pair' && report.selected) {
+                  selectedPair = `local=${report.localCandidateId?.slice(0,8)} remote=${report.remoteCandidateId?.slice(0,8)} state=${report.state}`;
+                }
+              });
+              if (selectedPair) this.emit('debug', `ICE selected pair: ${selectedPair}`);
+              if (dtlsState === 'connected') {
+                this.emit('debug', '★ DTLS connected — SRTP should be flowing');
+              } else if (dtlsState === 'failed' || dtlsState === 'closed') {
+                this.emit('debug', `✗ DTLS ${dtlsState} — SRTP NOT working, no audio despite ICE connected!`);
+              }
+            }).catch(() => {});
+          }
         } catch {}
       }
       if (st === 'disconnected' || st === 'closed') {
@@ -1050,6 +1079,19 @@ class MobileSipEngine {
       if (t) t.enabled = true;
       const streams: any[] = event?.streams || [];
       this.emit('debug', `ontrack: streams=${streams.length}`);
+      // If no stream attached (common with Asterisk — no a=msid in SDP),
+      // create one manually and add the track so react-native-webrtc audio engine activates
+      if (streams.length === 0 && t && t.kind === 'audio') {
+        try {
+          const MS = (globalThis as any).MediaStream;
+          if (MS) {
+            const syntheticStream = new MS([t]);
+            this.emit('debug', `ontrack: created synthetic stream id=${syntheticStream.id?.slice(0, 8)} tracks=${syntheticStream.getTracks?.()?.length}`);
+          }
+        } catch (e: any) {
+          this.emit('debug', `ontrack: synthetic stream error: ${e?.message}`);
+        }
+      }
     };
   }
 
