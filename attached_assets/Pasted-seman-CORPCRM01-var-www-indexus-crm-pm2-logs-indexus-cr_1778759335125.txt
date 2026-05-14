@@ -1,0 +1,104 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 300 | grep -E "ServerRecording|FinalizeRecording"
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED for '/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*' — mobile will upload mic-only fallback
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED for '/var/spool/asterisk/monitor/mobile_92ed92e8-e468-4450-a8fd-6fac40c898a9_1778749569332.*' — mobile will upload mic-only fallback
+4|indexus-crm  | [ServerRecording] Channel not in Stasis, trying AMI MixMonitor on 'PJSIP/2030-00000143' (both sides)
+4|indexus-crm  | [ServerRecording] AMI MixMonitor (via SSH tunnel) started on 'PJSIP/2030-00000143', file: /var/spool/asterisk/monitor/mobile_83c440ba-b61d-403e-ae21-8d5b45d10078_1778752016874.wav — SSH download target: seman@mediagtw.cordbloodcenter.com:22 (both sides)
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=83c440ba-b61d-403e-ae21-8d5b45d10078, activeRecordings=["83c440ba-b61d-403e-ae21-8d5b45d10078"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/monitor/mobile_83c440ba-b61d-403e-ae21-8d5b45d10078_1778752016874.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/monitor/mobile_83c440ba-b61d-403e-ae21-8d5b45d10078_1778752016874.*'
+4|indexus-crm  | [FinalizeRecording] SSH download succeeded on attempt 1: 572844 bytes
+4|indexus-crm  | [FinalizeRecording] Saved via SSH from mediagtw.cordbloodcenter.com: server_20260514_094733_83c440ba.wav (572844 bytes) — BOTH SIDES
+4|indexus-crm  | [FinalizeRecording] Cleaned up Asterisk file: deleted
+4|indexus-crm  | [ServerRecording] Channel not in Stasis, trying AMI MixMonitor on 'PJSIP/4000-00000145' (both sides)
+4|indexus-crm  | [ServerRecording] AMI MixMonitor (via SSH tunnel) started on 'PJSIP/4000-00000145', file: /var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav — SSH download target: seman@mediagtw.cordbloodcenter.com:22 (both sides)
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=384bfb46-7291-4f0e-b14c-0db2ebf72e64, activeRecordings=["384bfb46-7291-4f0e-b14c-0db2ebf72e64"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 1/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 2/6 for '/var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 2/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 3/6 for '/var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 3/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 4/6 for '/var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 4/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 5/6 for '/var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 5/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 6/6 for '/var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 6/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus-crm  | [ServerRecording] Channel not in Stasis, trying AMI MixMonitor on 'PJSIP/4000-00000147' (both sides)
+4|indexus-crm  | [ServerRecording] AMI MixMonitor (via SSH tunnel) started on 'PJSIP/4000-00000147', file: /var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav — SSH download target: seman@mediagtw.cordbloodcenter.com:22 (both sides)
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=da5ae1c1-a8bc-4678-a405-32ed080e4e3f, activeRecordings=["da5ae1c1-a8bc-4678-a405-32ed080e4e3f"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 1/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 2/6 for '/var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 2/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 3/6 for '/var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 3/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 4/6 for '/var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 4/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 5/6 for '/var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 5/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 6/6 for '/var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 6/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus-crm  | [ServerRecording] Channel not in Stasis, trying AMI MixMonitor on 'PJSIP/4000-00000149' (both sides)
+4|indexus-crm  | [ServerRecording] AMI MixMonitor (via SSH tunnel) started on 'PJSIP/4000-00000149', file: /var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.wav — SSH download target: seman@mediagtw.cordbloodcenter.com:22 (both sides)
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=ed9e6b41-6efb-4f7c-84cb-4d003364d2bb, activeRecordings=["ed9e6b41-6efb-4f7c-84cb-4d003364d2bb"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 1/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 2/6 for '/var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 2/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 3/6 for '/var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 3/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 4/6 for '/var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 4/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 5/6 for '/var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 5/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 6/6 for '/var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 6/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus-crm  | [ServerRecording] Channel not in Stasis, trying AMI MixMonitor on 'PJSIP/4000-0000014d' (both sides)
+4|indexus-crm  | [ServerRecording] AMI MixMonitor (via SSH tunnel) started on 'PJSIP/4000-0000014d', file: /var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.wav — SSH download target: seman@mediagtw.cordbloodcenter.com:22 (both sides)
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=eb5467a2-0ce6-4541-80af-d692652c0ff8, activeRecordings=["eb5467a2-0ce6-4541-80af-d692652c0ff8"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 1/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 2/6 for '/var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 2/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 3/6 for '/var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 3/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 4/6 for '/var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 4/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 5/6 for '/var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 5/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 6/6 for '/var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 6/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus-crm  | [ServerRecording] Channel not in Stasis, trying AMI MixMonitor on 'PJSIP/4000-0000014f' (both sides)
+4|indexus-crm  | [ServerRecording] AMI MixMonitor (via SSH tunnel) started on 'PJSIP/4000-0000014f', file: /var/spool/asterisk/monitor/mobile_19b31ca4-2968-4268-bb1f-6e0c655b61af_1778758635637.wav — SSH download target: seman@mediagtw.cordbloodcenter.com:22 (both sides)
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=19b31ca4-2968-4268-bb1f-6e0c655b61af, activeRecordings=["19b31ca4-2968-4268-bb1f-6e0c655b61af"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/monitor/mobile_19b31ca4-2968-4268-bb1f-6e0c655b61af_1778758635637.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/monitor/mobile_19b31ca4-2968-4268-bb1f-6e0c655b61af_1778758635637.*'
+4|indexus-crm  | [FinalizeRecording] SSH download succeeded on attempt 1: 104684 bytes
+4|indexus-crm  | [FinalizeRecording] Saved via SSH from mediagtw.cordbloodcenter.com: server_20260514_113723_19b31ca4.wav (104684 bytes) — BOTH SIDES
+4|indexus-crm  | [FinalizeRecording] Cleaned up Asterisk file: deleted
+4|indexus-crm  | [ServerRecording] Channel not in Stasis, trying AMI MixMonitor on 'PJSIP/4000-00000151' (both sides)
+4|indexus-crm  | [ServerRecording] AMI MixMonitor (via SSH tunnel) started on 'PJSIP/4000-00000151', file: /var/spool/asterisk/monitor/mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.wav — SSH download target: seman@mediagtw.cordbloodcenter.com:22 (both sides)
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=d619ca24-c497-4f65-8073-613e63a1b309, activeRecordings=["d619ca24-c497-4f65-8073-613e63a1b309"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/monitor/mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/monitor/mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 1/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 2/6 for '/var/spool/asterisk/monitor/mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 2/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 3/6 for '/var/spool/asterisk/monitor/mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 3/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 4/6 for '/var/spool/asterisk/monitor/mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 4/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 5/6 for '/var/spool/asterisk/monitor/mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 5/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 6/6 for '/var/spool/asterisk/monitor/mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 6/6 failed — Downloaded file too small (44 bytes) — still recording?
+4|indexus-crm  | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
