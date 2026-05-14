@@ -240,6 +240,10 @@ class MobileSipEngine {
         lastCallAt: new Date().toLocaleTimeString(),
       });
 
+      // iceTransportPolicy intentionally NOT set to 'relay' — relay-only mode blocks calls
+      // when TURN auth fails (error 702) because 0 candidates are gathered.
+      // Using 'all' (default): host+srflx+relay gathered; relay preferred when TURN works.
+      this.emit('debug', `ICE mode: all (host+srflx+relay), hasTurn=${this._hasTurn}`);
       this.ua = new UserAgent({
         uri,
         transportOptions: {
@@ -255,8 +259,7 @@ class MobileSipEngine {
             iceServers,
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
-            iceCandidatePoolSize: 2,
-            ...(this._hasTurn ? { iceTransportPolicy: 'relay' } : {}),
+            iceCandidatePoolSize: 4,
           },
         },
       });
@@ -526,7 +529,6 @@ class MobileSipEngine {
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
             iceCandidatePoolSize: 4,
-            ...(this._hasTurn ? { iceTransportPolicy: 'relay' } : {}),
           },
         },
       });
@@ -597,7 +599,6 @@ class MobileSipEngine {
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
             iceCandidatePoolSize: 4,
-            ...(this._hasTurn ? { iceTransportPolicy: 'relay' } : {}),
           },
         },
       });
