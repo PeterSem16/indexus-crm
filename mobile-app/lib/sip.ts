@@ -111,6 +111,9 @@ class MobileSipEngine {
   private speakerApplyTimer: ReturnType<typeof setTimeout> | null = null;
   private audioEnforceInterval: ReturnType<typeof setInterval> | null = null;
   private audioSessionStarted: boolean = false;
+  // ICE diagnostics — per-call, reset on each new call
+  private _iceCandidateTypes: string[] = [];
+  private _iceHandlersSet: boolean = false;
 
   get registrationState(): SipRegistrationState { return this._registrationState; }
   get callState(): SipCallState { return this._callState; }
@@ -517,6 +520,9 @@ class MobileSipEngine {
         throw new Error('Invalid target URI');
       }
 
+      this._iceCandidateTypes = [];
+      this._iceHandlersSet = false;
+
       const inviter = new Inviter(this.ua, target, {
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false },
@@ -528,10 +534,21 @@ class MobileSipEngine {
             iceServers: this._iceServers.length ? this._iceServers : [{ urls: 'stun:stun.l.google.com:19302' }],
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
-            iceCandidatePoolSize: 4,
+            iceCandidatePoolSize: 0,
           },
         },
       });
+
+      // Hook ICE handlers as early as possible — fires when SDH/peerConnection is created
+      // BEFORE ICE starts gathering, so we catch all candidates and connection events
+      inviter.delegate = {
+        onSessionDescriptionHandler: (sdh: any) => {
+          if (sdh?.peerConnection) {
+            this.setupIceHandlers(sdh.peerConnection);
+          }
+        },
+      };
+
       this.currentSession = inviter;
 
       this.updateCallInfo({
@@ -561,6 +578,8 @@ class MobileSipEngine {
 
   private handleIncomingCall(invitation: any) {
     this.currentSession = invitation;
+    this._iceCandidateTypes = [];
+    this._iceHandlersSet = false;
 
     const fromUri = invitation.remoteIdentity?.uri?.toString() || 'Unknown';
     const phoneNumber = fromUri.replace('sip:', '').split('@')[0];
@@ -574,6 +593,16 @@ class MobileSipEngine {
       isOnHold: false,
       isSpeaker: false,
     });
+
+    // Hook ICE handlers as early as possible — fires when SDH/peerConnection is created
+    invitation.delegate = {
+      ...(invitation.delegate || {}),
+      onSessionDescriptionHandler: (sdh: any) => {
+        if (sdh?.peerConnection) {
+          this.setupIceHandlers(sdh.peerConnection);
+        }
+      },
+    };
 
     this.setCallState('ringing');
     this.setupSessionListeners(invitation);
@@ -902,6 +931,113 @@ class MobileSipEngine {
     }
   }
 
+  // Called from session.delegate.onSessionDescriptionHandler — runs as soon as
+  // the peerConnection is created, BEFORE ICE starts gathering. This ensures
+  // we catch every candidate event and connection state change.
+  private setupIceHandlers(pc: any) {
+    if (this._iceHandlersSet) return;
+    this._iceHandlersSet = true;
+    const _relayCandidates: string[] = [];
+    this.emit('debug', `★ setupIceHandlers: ICE state=${pc.iceConnectionState} gathering=${pc.iceGatheringState}`);
+
+    pc.oniceconnectionstatechange = () => {
+      const st = pc.iceConnectionState as string;
+      this.emit('debug', `ICE connection state changed: ${st}`);
+      this.emit('ice-stats', { connectionState: st });
+      if (st === 'failed') {
+        this.emit('debug', 'ICE FAILED — no relay candidates found, TURN may be blocked');
+        this.emit('ice-stats', { error: 'ICE FAILED — TURN pravdepodobne blokovaný mobilným operátorom' });
+      }
+      if (st === 'connected' || st === 'completed') {
+        const hasRelay = this._iceCandidateTypes.includes('relay');
+        this.emit('debug', `★ ICE connected via: ${hasRelay ? 'TURN RELAY ✓' : 'direct/STUN (no relay)'} — re-enabling audio tracks`);
+        this.emit('ice-stats', { usedRelay: hasRelay, error: null });
+        // Re-enable all tracks after ICE connects to handle any timing races
+        try {
+          const rcv = pc.getReceivers ? pc.getReceivers() : [];
+          rcv.forEach((r: any) => { if (r?.track) r.track.enabled = true; });
+          const snd = pc.getSenders ? pc.getSenders() : [];
+          snd.forEach((s: any) => { if (s?.track) s.track.enabled = true; });
+          this.emit('debug', `Audio tracks re-enabled: rx=${rcv.length} tx=${snd.length}`);
+        } catch {}
+        // Log negotiated codec from remote SDP
+        try {
+          const sdp: string = pc.remoteDescription?.sdp || '';
+          const audioSection = sdp.split('\r\n').filter((l: string) =>
+            l.startsWith('m=audio') || l.startsWith('a=rtpmap') || l.startsWith('a=fmtp')
+          ).slice(0, 8).join(' | ');
+          if (audioSection) this.emit('debug', `SDP audio codecs: ${audioSection}`);
+        } catch {}
+      }
+      if (st === 'disconnected' || st === 'closed') {
+        this.emit('ice-stats', { connectionState: st });
+      }
+    };
+
+    pc.onicegatheringstatechange = () => {
+      this.emit('debug', `ICE gathering state changed: ${pc.iceGatheringState}`);
+      if (pc.iceGatheringState === 'complete') {
+        const counts = this._iceCandidateTypes.reduce(
+          (acc: Record<string, number>, t) => { acc[t] = (acc[t] || 0) + 1; return acc; },
+          {}
+        );
+        const relayCount = counts['relay'] || 0;
+        const hasTurnRelay = relayCount > 0;
+        this.emit('debug', `ICE gathering complete — candidates: ${JSON.stringify(counts)} ${hasTurnRelay ? '✓ TURN relay OK' : '⚠ NO relay — TURN unreachable!'}`);
+        this.emit('ice-stats', {
+          gatheringComplete: true,
+          candidateCounts: {
+            host: counts['host'] || 0,
+            srflx: counts['srflx'] || 0,
+            relay: relayCount,
+          },
+        });
+      }
+    };
+
+    pc.onicecandidate = (event: any) => {
+      if (event?.candidate) {
+        const t = event.candidate.type;
+        this._iceCandidateTypes.push(t);
+        if (t === 'relay') {
+          const addr = `${event.candidate.protocol?.toUpperCase() || '?'} ${event.candidate.address || '?'}:${event.candidate.port || '?'}`;
+          const via = `${event.candidate.relatedAddress || '?'}:${event.candidate.relatedPort || '?'}`;
+          _relayCandidates.push(`${addr} via ${via}`);
+          this.emit('debug', `✓ RELAY candidate: ${addr} (relayed via ${via})`);
+          this.emit('ice-stats', { relayAddr: _relayCandidates[0] });
+        } else if (t === 'srflx') {
+          this.emit('debug', `ICE srflx: ${event.candidate.address || '?'}:${event.candidate.port || '?'}`);
+        }
+      } else if (event?.candidate === null) {
+        this.emit('debug', 'ICE gathering finished (null candidate)');
+      }
+    };
+
+    // TURN error handler — 701=unreachable 702=bad credentials 703=timeout 704=protocol error
+    pc.onicecandidateerror = (e: any) => {
+      const code = e?.errorCode as number;
+      const url = (e?.url || '?').replace(/credential=[^&]+/, 'credential=***').replace(/password=[^&]+/, 'password=***');
+      const text = e?.errorText || '';
+      const meaning =
+        code === 701 ? 'SERVER NEDOSTUPNÝ (sieť/firewall blokuje port)' :
+        code === 702 ? '⚠ NESPRÁVNÉ CREDENTIALS' :
+        code === 703 ? 'TIMEOUT — coturn neodpovedá' :
+        code === 704 ? 'CHYBA PROTOKOLU' :
+        code >= 400 && code < 700 ? `STUN/TURN ${code}: ${text}` :
+        `ICE err ${code}: ${text}`;
+      this.emit('debug', `⚠ TURN ERR [${code}] ${meaning} | ${url}`);
+      this.emit('ice-stats', { turnError: `[${code}] ${meaning}` });
+    };
+
+    pc.ontrack = (event: any) => {
+      const t = event?.track;
+      this.emit('debug', `ontrack: kind=${t?.kind} readyState=${t?.readyState} enabled=${t?.enabled} id=${t?.id?.slice(0, 8)}`);
+      if (t) t.enabled = true;
+      const streams: any[] = event?.streams || [];
+      this.emit('debug', `ontrack: streams=${streams.length}`);
+    };
+  }
+
   private setupRemoteAudio(session: any) {
     try {
       this.startAudioSession(this._callInfo.isSpeaker);
@@ -918,103 +1054,15 @@ class MobileSipEngine {
 
       const pc = sdh.peerConnection as any;
 
-      this.emit('debug', `ICE connection state: ${pc.iceConnectionState}`);
-      this.emit('debug', `ICE gathering state: ${pc.iceGatheringState}`);
-      const _iceCandidateTypes: string[] = [];
-      const _relayCandidates: string[] = [];
+      // ICE handlers should already be set up via setupIceHandlers(). Log current state.
+      this.emit('debug', `setupRemoteAudio: ICE=${pc.iceConnectionState} gathering=${pc.iceGatheringState}`);
+      if (!this._iceHandlersSet) {
+        // Fallback: delegate callback did not fire (sip.js version mismatch?)
+        this.emit('debug', 'WARNING: ICE handlers were not set early — setting now (may miss events)');
+        this.setupIceHandlers(pc);
+      }
 
-      pc.oniceconnectionstatechange = () => {
-        const st = pc.iceConnectionState as string;
-        this.emit('debug', `ICE connection state changed: ${st}`);
-        this.emit('ice-stats', { connectionState: st });
-        if (st === 'failed') {
-          this.emit('debug', 'ICE FAILED — no relay candidates found, TURN may be blocked');
-          this.emit('ice-stats', { error: 'ICE FAILED — TURN pravdepodobne blokovaný mobilným operátorom' });
-        }
-        if (st === 'connected' || st === 'completed') {
-          const hasRelay = _iceCandidateTypes.includes('relay');
-          this.emit('debug', `★ ICE connected via: ${hasRelay ? 'TURN RELAY ✓' : 'direct/STUN (no relay)'} — re-enabling audio tracks`);
-          this.emit('ice-stats', { usedRelay: hasRelay, error: null });
-          // Re-enable tracks after ICE connects — ensures audio flows even if track
-          // was received before ICE finished (timing race on some devices)
-          try {
-            const rcv = pc.getReceivers ? pc.getReceivers() : [];
-            rcv.forEach((r: any) => { if (r?.track) r.track.enabled = true; });
-            const snd = pc.getSenders ? pc.getSenders() : [];
-            snd.forEach((s: any) => { if (s?.track) s.track.enabled = true; });
-            this.emit('debug', `Audio tracks re-enabled: rx=${rcv.length} tx=${snd.length}`);
-          } catch {}
-          // Log negotiated codec from remote SDP
-          try {
-            const sdp: string = pc.remoteDescription?.sdp || '';
-            const audioSection = sdp.split('\r\n').filter((l: string) =>
-              l.startsWith('m=audio') || l.startsWith('a=rtpmap') || l.startsWith('a=fmtp')
-            ).slice(0, 6).join(' | ');
-            if (audioSection) this.emit('debug', `SDP audio: ${audioSection}`);
-          } catch {}
-        }
-        if (st === 'disconnected' || st === 'closed') {
-          this.emit('ice-stats', { connectionState: st });
-        }
-      };
-
-      pc.onicegatheringstatechange = () => {
-        this.emit('debug', `ICE gathering state changed: ${pc.iceGatheringState}`);
-        if (pc.iceGatheringState === 'complete') {
-          const counts = _iceCandidateTypes.reduce(
-            (acc: Record<string, number>, t) => { acc[t] = (acc[t] || 0) + 1; return acc; },
-            {}
-          );
-          const relayCount = counts['relay'] || 0;
-          const hasTurnRelay = relayCount > 0;
-          this.emit('debug', `ICE gathering complete — candidates: ${JSON.stringify(counts)} ${hasTurnRelay ? '✓ TURN relay OK' : '⚠ NO relay candidates — TURN unreachable on mobile data!'}`);
-          this.emit('ice-stats', {
-            gatheringComplete: true,
-            candidateCounts: {
-              host: counts['host'] || 0,
-              srflx: counts['srflx'] || 0,
-              relay: relayCount,
-            },
-          });
-        }
-      };
-
-      pc.onicecandidate = (event: any) => {
-        if (event?.candidate) {
-          const t = event.candidate.type;
-          _iceCandidateTypes.push(t);
-          if (t === 'relay') {
-            const addr = `${event.candidate.protocol?.toUpperCase() || '?'} ${event.candidate.address || '?'}:${event.candidate.port || '?'}`;
-            const via = `${event.candidate.relatedAddress || '?'}:${event.candidate.relatedPort || '?'}`;
-            _relayCandidates.push(`${addr} via ${via}`);
-            this.emit('debug', `✓ RELAY candidate: ${addr} (relayed via ${via})`);
-            this.emit('ice-stats', { relayAddr: _relayCandidates[0] });
-          } else if (t === 'srflx') {
-            this.emit('debug', `ICE srflx: ${event.candidate.address || '?'}:${event.candidate.port || '?'}`);
-          }
-          // host candidates not logged to reduce noise
-        } else if (event?.candidate === null) {
-          this.emit('debug', 'ICE gathering finished (null candidate)');
-        }
-      };
-
-      // TURN error handler — critical for diagnosing why relay candidates are missing
-      // errorCode 701=network unreachable, 702=bad credentials, 703=timeout, 704=protocol error
-      pc.onicecandidateerror = (e: any) => {
-        const code = e?.errorCode as number;
-        const url = (e?.url || '?').replace(/credential=[^&]+/, 'credential=***').replace(/password=[^&]+/, 'password=***');
-        const text = e?.errorText || '';
-        const meaning =
-          code === 701 ? 'SERVER NEDOSTUPNÝ (sieť/firewall blokuje port)' :
-          code === 702 ? '⚠ NESPRÁVNÉ CREDENTIALS — skontroluj TURN username/password v nastaveniach!' :
-          code === 703 ? 'TIMEOUT — coturn neodpovedá' :
-          code === 704 ? 'CHYBA PROTOKOLU' :
-          code >= 400 && code < 700 ? `STUN/TURN odpoveď ${code}: ${text}` :
-          `ICE chyba ${code}: ${text}`;
-        this.emit('debug', `⚠ TURN ERR [${code}] ${meaning} | ${url}`);
-        this.emit('ice-stats', { turnError: `[${code}] ${meaning}` });
-      };
-
+      // Enable any already-received audio tracks
       const receivers = pc.getReceivers ? pc.getReceivers() : [];
       this.emit('debug', `Remote receivers: ${receivers.length}`);
       receivers.forEach((receiver: any) => {
@@ -1033,25 +1081,10 @@ class MobileSipEngine {
         }
       });
 
-      pc.ontrack = (event: any) => {
-        const t = event?.track;
-        this.emit('debug', `ontrack fired: kind=${t?.kind} readyState=${t?.readyState} enabled=${t?.enabled} id=${t?.id?.slice(0,8)}`);
-        if (t) {
-          t.enabled = true;
-          this.emit('debug', `ontrack: track enabled=true`);
-        }
-        // Log streams attached to this track
-        const streams: any[] = event?.streams || [];
-        this.emit('debug', `ontrack: streams=${streams.length}`);
-      };
-
       const remoteStreams = pc.getRemoteStreams ? pc.getRemoteStreams() : [];
       this.emit('debug', `Remote streams: ${remoteStreams.length}`);
       remoteStreams.forEach((stream: any) => {
-        this.emit('debug', `Stream tracks: ${stream?.getTracks()?.length}`);
-        stream?.getTracks()?.forEach((track: any) => {
-          track.enabled = true;
-        });
+        stream?.getTracks()?.forEach((track: any) => { track.enabled = true; });
       });
 
     } catch (error: any) {
