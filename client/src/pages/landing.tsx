@@ -422,8 +422,7 @@ export default function LandingPage() {
                       variant="outline"
                       className="w-full gap-2"
                       onClick={() => {
-                        const timestamp = Date.now();
-                        window.open(`/data/mobil-app/indexus-connect-latest.apk?v=${timestamp}`, '_blank');
+                        window.open(`/download/indexus-connect.apk`, '_blank');
                       }}
                       data-testid="button-download-android"
                     >

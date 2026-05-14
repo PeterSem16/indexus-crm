@@ -1569,6 +1569,22 @@ export async function registerRoutes(
     seedSystemAutomationRules().catch((err) => console.error("[Automation] seed error:", err));
   }
 
+  // Dedicated APK download route — no-cache, forces fresh download, follows symlinks explicitly
+  app.get("/download/indexus-connect.apk", (req, res) => {
+    const apkPath = path.join(DATA_ROOT, "mobil-app", "indexus-connect-latest.apk");
+    try {
+      const realPath = fs.realpathSync(apkPath);
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Content-Type", "application/vnd.android.package-archive");
+      res.setHeader("Content-Disposition", `attachment; filename="indexus-connect-latest.apk"`);
+      res.sendFile(realPath);
+    } catch (e: any) {
+      res.status(404).json({ error: "APK not found" });
+    }
+  });
+
   // Serve uploaded files statically from DATA_ROOT
   // On Ubuntu: /data -> /var/www/indexus-crm/data
   // On Replit: /uploads -> ./uploads
