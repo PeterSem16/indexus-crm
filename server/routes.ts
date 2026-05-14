@@ -82,12 +82,20 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as mailchimpApi from "./lib/mailchimp";
-import { sendAmiActionViaSshTunnel } from "./lib/ami-client";
+import { sendAmiActionViaSshTunnel, downloadFileViaSsh } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 
-// Tracks active server-side AMI recordings for mobile calls: callLogId → recordingName
-const mobileActiveRecordings = new Map<string, string>();
+interface MobileRecordingInfo {
+  recordingName: string;
+  amiFilePath: string;   // base path without extension on Asterisk server
+  sshHost: string;
+  sshPort: number;
+  sshUser: string;
+  sshPass: string;
+}
+// Tracks active server-side AMI recordings for mobile calls: callLogId → info
+const mobileActiveRecordings = new Map<string, MobileRecordingInfo>();
 
 // Initialize all storage directories
 ensureAllDirectoriesExist();
@@ -17022,8 +17030,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               if (amiResult.success) {
                 recordingStarted = true;
                 amiRecorded = true;
-                mobileActiveRecordings.set(callLogId, recordingName);
-                console.log(`[ServerRecording] AMI MixMonitor (via SSH tunnel) started on '${channel.name}', file: ${amiRecordingPath}.wav (both sides)`);
+                mobileActiveRecordings.set(callLogId, {
+                  recordingName,
+                  amiFilePath: amiRecordingPath,
+                  sshHost: server.host,
+                  sshPort,
+                  sshUser,
+                  sshPass,
+                });
+                console.log(`[ServerRecording] AMI MixMonitor (via SSH tunnel) started on '${channel.name}', file: ${amiRecordingPath}.* (both sides)`);
                 break;
               } else {
                 console.warn(`[ServerRecording] AMI MixMonitor via SSH tunnel failed: ${amiResult.response}`);
@@ -17093,64 +17108,40 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
-  // Called by mobile when call ends — downloads AMI MixMonitor recording from Asterisk and saves to DB
+  // Called by mobile when call ends — downloads AMI MixMonitor recording via SSH and saves to DB
   app.post("/api/mobile/call-log/:id/finalize-server-recording", async (req, res) => {
     try {
       const tokenData = await getMobileCollaboratorFromToken(req);
       if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
 
       const callLogId = req.params.id;
-      const recordingName = mobileActiveRecordings.get(callLogId);
-      if (!recordingName) {
-        return res.json({ success: false, message: "No active AMI recording found for this call" });
+      const recInfo = mobileActiveRecordings.get(callLogId);
+      if (!recInfo) {
+        return res.json({ success: false, message: "No active server recording found for this call" });
       }
-
-      const ariSettingsList = await db.select().from(ariSettings).limit(1);
-      if (!ariSettingsList.length) return res.json({ success: false, message: "ARI not configured" });
-
-      const { username, password, protocol: ariProtocol = "http" } = ariSettingsList[0];
-      const authHeader = "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
-
-      const servers = [
-        { host: ASTERISK_SK_HOST, port: ASTERISK_SK_PORT },
-        { host: ASTERISK_MEDIAGTW_HOST, port: ASTERISK_MEDIAGTW_PORT },
-      ];
 
       let audioBuffer: Buffer | null = null;
-      let usedServer = "";
 
-      // Retry up to 5 times with 2s delay — file may not be flushed immediately after hangup
-      for (let attempt = 1; attempt <= 5; attempt++) {
-        if (attempt > 1) await new Promise(r => setTimeout(r, 2000));
-
-        for (const server of servers) {
-          try {
-            const baseUrl = `${ariProtocol}://${server.host}:${server.port}`;
-            const fileResp = await fetch(
-              `${baseUrl}/ari/recordings/stored/${encodeURIComponent(recordingName)}/file`,
-              { headers: { Authorization: authHeader }, signal: AbortSignal.timeout(5000) }
-            );
-            if (fileResp.ok) {
-              const ab = await fileResp.arrayBuffer();
-              if (ab.byteLength > 500) {
-                audioBuffer = Buffer.from(ab);
-                usedServer = server.host;
-                break;
-              }
-            }
-          } catch {}
+      // Retry up to 6 times with 3s delay — MixMonitor flushes the file after hangup (may take a few seconds)
+      for (let attempt = 1; attempt <= 6; attempt++) {
+        if (attempt > 1) await new Promise(r => setTimeout(r, 3000));
+        try {
+          audioBuffer = await downloadFileViaSsh(
+            recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
+            recInfo.amiFilePath
+          );
+          break;
+        } catch (e: any) {
+          console.log(`[FinalizeRecording] Attempt ${attempt}/6 — ${e?.message}`);
         }
-        if (audioBuffer) break;
-        console.log(`[FinalizeRecording] Attempt ${attempt}/5 — file not ready yet for '${recordingName}'`);
-      }
-
-      if (!audioBuffer) {
-        mobileActiveRecordings.delete(callLogId);
-        console.warn(`[FinalizeRecording] Could not download AMI recording '${recordingName}' after retries`);
-        return res.json({ success: false, message: "Recording file not available — may still be processing" });
       }
 
       mobileActiveRecordings.delete(callLogId);
+
+      if (!audioBuffer) {
+        console.warn(`[FinalizeRecording] Could not download recording '${recInfo.amiFilePath}.*' after retries`);
+        return res.json({ success: false, message: "Recording file not available via SSH — mic recording will be used" });
+      }
 
       const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
       const now = new Date();
@@ -17178,7 +17169,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         analysisStatus: "pending",
       });
 
-      console.log(`[FinalizeRecording] Saved AMI recording from ${usedServer}: ${filename} (${audioBuffer.length} bytes) — both sides captured`);
+      console.log(`[FinalizeRecording] Saved via SSH from ${recInfo.sshHost}: ${filename} (${audioBuffer.length} bytes) — BOTH SIDES`);
       return res.json({ success: true, filename, bytes: audioBuffer.length });
     } catch (error: any) {
       console.error("Finalize server recording error:", error);

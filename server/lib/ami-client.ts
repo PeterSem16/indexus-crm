@@ -1,5 +1,4 @@
 import { Client as SshClient } from "ssh2";
-import * as net from "net";
 
 export interface AmiActionResult {
   success: boolean;
@@ -8,8 +7,7 @@ export interface AmiActionResult {
 
 /**
  * Sends an AMI action to Asterisk by tunneling through SSH.
- * Used when AMI port 5038 is not directly reachable from the CRM server
- * (firewall blocks external access, but AMI runs on localhost on Asterisk server).
+ * AMI port 5038 may be blocked externally but always listens on localhost on the Asterisk server.
  */
 export function sendAmiActionViaSshTunnel(
   host: string,
@@ -29,7 +27,6 @@ export function sendAmiActionViaSshTunnel(
     }, 15000);
 
     conn.on("ready", () => {
-      // Forward a connection to AMI port on the remote host (localhost:5038 on Asterisk server)
       conn.forwardOut("127.0.0.1", 0, "127.0.0.1", 5038, (err, stream) => {
         if (err) {
           clearTimeout(timer);
@@ -74,7 +71,7 @@ export function sendAmiActionViaSshTunnel(
             buffer = buffer.slice(idx + 4);
 
             // Skip unsolicited events (e.g. FullyBooted) — wait only for Response: packets
-            if (packet.startsWith("Event:") || (packet.includes("\r\nEvent:") && !packet.includes("Response:"))) {
+            if (!packet.includes("Response:")) {
               continue;
             }
 
@@ -126,6 +123,97 @@ export function sendAmiActionViaSshTunnel(
       port: sshPort,
       username: sshUsername,
       password: sshPassword,
+      readyTimeout: 8000,
+      hostVerifier: () => true,
+    });
+  });
+}
+
+/**
+ * Downloads a file from a remote server via SSH exec (cat).
+ * Used to retrieve MixMonitor recordings which ARI cannot serve.
+ * Tries multiple extensions (.wav, .WAV, .ulaw, .gsm) if basePath has no extension.
+ */
+export function downloadFileViaSsh(
+  host: string,
+  sshPort: number,
+  username: string,
+  password: string,
+  basePath: string
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const conn = new SshClient();
+
+    const timer = setTimeout(() => {
+      conn.end();
+      reject(new Error(`SSH download timeout for ${basePath}`));
+    }, 20000);
+
+    conn.on("ready", () => {
+      // Find the actual file (Asterisk adds extension based on codec)
+      const findCmd = `ls ${basePath}.wav ${basePath}.WAV ${basePath}.ulaw ${basePath}.gsm ${basePath}.sln 2>/dev/null | head -1`;
+      let foundPath = "";
+
+      conn.exec(findCmd, (err, findStream) => {
+        if (err) {
+          clearTimeout(timer);
+          conn.end();
+          reject(err);
+          return;
+        }
+
+        let findOutput = "";
+        findStream.on("data", (d: Buffer) => { findOutput += d.toString(); });
+        findStream.on("close", () => {
+          foundPath = findOutput.trim();
+          if (!foundPath) {
+            clearTimeout(timer);
+            conn.end();
+            reject(new Error(`Recording file not found at ${basePath}.*`));
+            return;
+          }
+
+          // Download the file via cat
+          conn.exec(`cat "${foundPath}"`, (err2, catStream) => {
+            if (err2) {
+              clearTimeout(timer);
+              conn.end();
+              reject(err2);
+              return;
+            }
+
+            const chunks: Buffer[] = [];
+            catStream.on("data", (chunk: Buffer) => { chunks.push(chunk); });
+            catStream.on("close", () => {
+              clearTimeout(timer);
+              conn.end();
+              const buf = Buffer.concat(chunks);
+              if (buf.length < 100) {
+                reject(new Error(`Downloaded file too small (${buf.length} bytes) — still recording?`));
+              } else {
+                resolve(buf);
+              }
+            });
+            catStream.on("error", (e: Error) => {
+              clearTimeout(timer);
+              conn.end();
+              reject(e);
+            });
+          });
+        });
+      });
+    });
+
+    conn.on("error", (err) => {
+      clearTimeout(timer);
+      reject(new Error(`SSH connection error: ${err.message}`));
+    });
+
+    conn.connect({
+      host,
+      port: sshPort,
+      username,
+      password,
       readyTimeout: 8000,
       hostVerifier: () => true,
     });
