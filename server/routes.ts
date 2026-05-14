@@ -16987,43 +16987,86 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             console.log(`[ServerRecording] Started ARI recording '${recordingName}' on channel ${channel.id} at ${server.host}`);
             break;
           } else if (recordResp.status === 409) {
-            // Channel not in Stasis - use snoop to capture both sides
-            console.log(`[ServerRecording] Channel not in Stasis, trying snoop on ${channel.id}`);
-            const snoopId = `snoop-${recordingName}`;
-            const snoopResp = await fetch(
-              `${baseUrl}/ari/channels/${channel.id}/snoop?spy=both&whisper=none&app=indexus-inbound&snoopId=${encodeURIComponent(snoopId)}`,
-              {
-                method: "POST",
-                headers: { Authorization: authHeader, "Content-Type": "application/json" },
+            // Channel is in dialplan (native bridge) - record the bridge to capture both sides
+            console.log(`[ServerRecording] Channel not in Stasis, looking for bridge containing ${channel.id}`);
+
+            let bridgeRecorded = false;
+
+            // Step 1: find which bridge this channel is in
+            try {
+              const bridgesResp = await fetch(`${baseUrl}/ari/bridges`, {
+                headers: { Authorization: authHeader },
                 signal: AbortSignal.timeout(3000),
-              }
-            );
-            if (snoopResp.ok) {
-              const snoopChannel = await snoopResp.json();
-              const snoopChanId = snoopChannel?.id;
-              if (snoopChanId) {
-                // Small delay for snoop channel to be ready
-                await new Promise(r => setTimeout(r, 500));
-                const snoopRecResp = await fetch(
-                  `${baseUrl}/ari/channels/${snoopChanId}/record?name=${encodeURIComponent(recordingName)}&format=wav&beep=false&ifExists=overwrite`,
-                  {
-                    method: "POST",
-                    headers: { Authorization: authHeader, "Content-Type": "application/json" },
-                    signal: AbortSignal.timeout(3000),
-                  }
+              });
+              if (bridgesResp.ok) {
+                const bridges: any[] = await bridgesResp.json();
+                const targetBridge = bridges.find((b: any) =>
+                  Array.isArray(b.channels) && b.channels.includes(channel.id)
                 );
-                if (snoopRecResp.ok) {
-                  recordingStarted = true;
-                  console.log(`[ServerRecording] Started snoop recording '${recordingName}' on snoop channel ${snoopChanId} (original: ${channel.id}) at ${server.host}`);
-                  break;
+                if (targetBridge) {
+                  console.log(`[ServerRecording] Found bridge ${targetBridge.id} for channel ${channel.id}, recording bridge (both sides)`);
+                  const bridgeRecResp = await fetch(
+                    `${baseUrl}/ari/bridges/${targetBridge.id}/record?name=${encodeURIComponent(recordingName)}&format=wav&beep=false&ifExists=overwrite`,
+                    {
+                      method: "POST",
+                      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+                      signal: AbortSignal.timeout(3000),
+                    }
+                  );
+                  if (bridgeRecResp.ok) {
+                    recordingStarted = true;
+                    bridgeRecorded = true;
+                    console.log(`[ServerRecording] Started BRIDGE recording '${recordingName}' on bridge ${targetBridge.id} (both sides captured)`);
+                    break;
+                  } else {
+                    const txt = await bridgeRecResp.text().catch(() => "");
+                    console.warn(`[ServerRecording] Bridge record failed (${bridgeRecResp.status}): ${txt} — falling back to snoop`);
+                  }
                 } else {
-                  const txt = await snoopRecResp.text().catch(() => "");
-                  console.warn(`[ServerRecording] Snoop record failed (${snoopRecResp.status}): ${txt}`);
+                  console.warn(`[ServerRecording] No bridge found containing channel ${channel.id} — falling back to snoop`);
                 }
               }
-            } else {
-              const txt = await snoopResp.text().catch(() => "");
-              console.warn(`[ServerRecording] Snoop creation failed (${snoopResp.status}): ${txt}`);
+            } catch (bridgeErr: any) {
+              console.warn(`[ServerRecording] Bridge lookup error: ${bridgeErr?.message} — falling back to snoop`);
+            }
+
+            // Step 2: fallback — snoop the channel (captures mic side at minimum)
+            if (!bridgeRecorded) {
+              const snoopId = `snoop-${recordingName}`;
+              const snoopResp = await fetch(
+                `${baseUrl}/ari/channels/${channel.id}/snoop?spy=both&whisper=none&app=indexus-inbound&snoopId=${encodeURIComponent(snoopId)}`,
+                {
+                  method: "POST",
+                  headers: { Authorization: authHeader, "Content-Type": "application/json" },
+                  signal: AbortSignal.timeout(3000),
+                }
+              );
+              if (snoopResp.ok) {
+                const snoopChannel = await snoopResp.json();
+                const snoopChanId = snoopChannel?.id;
+                if (snoopChanId) {
+                  await new Promise(r => setTimeout(r, 500));
+                  const snoopRecResp = await fetch(
+                    `${baseUrl}/ari/channels/${snoopChanId}/record?name=${encodeURIComponent(recordingName)}&format=wav&beep=false&ifExists=overwrite`,
+                    {
+                      method: "POST",
+                      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+                      signal: AbortSignal.timeout(3000),
+                    }
+                  );
+                  if (snoopRecResp.ok) {
+                    recordingStarted = true;
+                    console.log(`[ServerRecording] Started snoop fallback recording '${recordingName}' on snoop channel ${snoopChanId}`);
+                    break;
+                  } else {
+                    const txt = await snoopRecResp.text().catch(() => "");
+                    console.warn(`[ServerRecording] Snoop record failed (${snoopRecResp.status}): ${txt}`);
+                  }
+                }
+              } else {
+                const txt = await snoopResp.text().catch(() => "");
+                console.warn(`[ServerRecording] Snoop creation failed (${snoopResp.status}): ${txt}`);
+              }
             }
           } else {
             const txt = await recordResp.text().catch(() => "");
