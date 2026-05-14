@@ -225,7 +225,20 @@ class MobileSipEngine {
         this.credentials!.turnServers.forEach(t => iceServers.push(t));
       }
       this._iceServers = iceServers;
+      const allUrls = iceServers.flatMap(s => Array.isArray(s.urls) ? s.urls : [s.urls]);
+      const hasTurn = allUrls.some(u => u && u.startsWith('turn'));
       this.emit('debug', `ICE servers: ${JSON.stringify(iceServers.map(s => s.urls))}`);
+      this.emit('ice-stats', {
+        configuredUrls: allUrls,
+        hasTurn,
+        gatheringComplete: false,
+        candidateCounts: { host: 0, srflx: 0, relay: 0 },
+        connectionState: 'new',
+        usedRelay: false,
+        relayAddr: '',
+        error: null,
+        lastCallAt: new Date().toLocaleTimeString(),
+      });
 
       this.ua = new UserAgent({
         uri,
@@ -906,35 +919,63 @@ class MobileSipEngine {
       this.emit('debug', `ICE connection state: ${pc.iceConnectionState}`);
       this.emit('debug', `ICE gathering state: ${pc.iceGatheringState}`);
       const _iceCandidateTypes: string[] = [];
+      const _relayCandidates: string[] = [];
+
       pc.oniceconnectionstatechange = () => {
-        this.emit('debug', `ICE connection state changed: ${pc.iceConnectionState}`);
-        if (pc.iceConnectionState === 'failed') {
+        const st = pc.iceConnectionState as string;
+        this.emit('debug', `ICE connection state changed: ${st}`);
+        this.emit('ice-stats', { connectionState: st });
+        if (st === 'failed') {
           this.emit('debug', 'ICE FAILED — no relay candidates found, TURN may be blocked');
+          this.emit('ice-stats', { error: 'ICE FAILED — TURN pravdepodobne blokovaný mobilným operátorom' });
         }
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        if (st === 'connected' || st === 'completed') {
           const hasRelay = _iceCandidateTypes.includes('relay');
           this.emit('debug', `ICE connected via: ${hasRelay ? 'TURN RELAY ✓' : 'direct/STUN (no TURN relay used)'}`);
+          this.emit('ice-stats', { usedRelay: hasRelay, error: null });
+        }
+        if (st === 'disconnected' || st === 'closed') {
+          this.emit('ice-stats', { connectionState: st });
         }
       };
+
       pc.onicegatheringstatechange = () => {
         this.emit('debug', `ICE gathering state changed: ${pc.iceGatheringState}`);
         if (pc.iceGatheringState === 'complete') {
-          const counts = _iceCandidateTypes.reduce((acc: Record<string, number>, t) => { acc[t] = (acc[t] || 0) + 1; return acc; }, {});
-          const hasTurn = counts['relay'] > 0;
-          this.emit('debug', `ICE gathering complete — candidates: ${JSON.stringify(counts)} ${hasTurn ? '✓ TURN relay OK' : '⚠ NO relay candidates — TURN unreachable on mobile data!'}`);
+          const counts = _iceCandidateTypes.reduce(
+            (acc: Record<string, number>, t) => { acc[t] = (acc[t] || 0) + 1; return acc; },
+            {}
+          );
+          const relayCount = counts['relay'] || 0;
+          const hasTurnRelay = relayCount > 0;
+          this.emit('debug', `ICE gathering complete — candidates: ${JSON.stringify(counts)} ${hasTurnRelay ? '✓ TURN relay OK' : '⚠ NO relay candidates — TURN unreachable on mobile data!'}`);
+          this.emit('ice-stats', {
+            gatheringComplete: true,
+            candidateCounts: {
+              host: counts['host'] || 0,
+              srflx: counts['srflx'] || 0,
+              relay: relayCount,
+            },
+          });
         }
       };
+
       pc.onicecandidate = (event: any) => {
         if (event?.candidate) {
           const t = event.candidate.type;
           _iceCandidateTypes.push(t);
           if (t === 'relay') {
-            // Relay candidate = TURN is working. Log prominently with relay address.
-            this.emit('debug', `✓ RELAY candidate: ${event.candidate.protocol} ${event.candidate.address || '?'}:${event.candidate.port || '?'} (relayed via ${event.candidate.relatedAddress || '?'}:${event.candidate.relatedPort || '?'})`);
+            const addr = `${event.candidate.protocol?.toUpperCase() || '?'} ${event.candidate.address || '?'}:${event.candidate.port || '?'}`;
+            const via = `${event.candidate.relatedAddress || '?'}:${event.candidate.relatedPort || '?'}`;
+            _relayCandidates.push(`${addr} via ${via}`);
+            this.emit('debug', `✓ RELAY candidate: ${addr} (relayed via ${via})`);
+            this.emit('ice-stats', { relayAddr: _relayCandidates[0] });
           } else if (t === 'srflx') {
             this.emit('debug', `ICE srflx: ${event.candidate.address || '?'}:${event.candidate.port || '?'}`);
           }
           // host candidates not logged to reduce noise
+        } else if (event?.candidate === null) {
+          this.emit('debug', 'ICE gathering finished (null candidate)');
         }
       };
 

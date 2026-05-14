@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
-import { useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard } from 'react-native';
+import { useState, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,26 +22,11 @@ export default function ProfileScreen() {
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
   const { lastSyncAt, pendingCount, isOnline } = useSyncStore();
-  const { registrationState, debugMessages } = useSipStore();
+  const { registrationState, debugMessages, iceStats, clearDebugMessages } = useSipStore();
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showPhoneLog, setShowPhoneLog] = useState(false);
+  const [logTab, setLogTab] = useState<'turn' | 'log'>('turn');
   const phoneLogScrollRef = useRef<ScrollView>(null);
-  const isAtBottomRef = useRef(true);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-
-  const handlePhoneLogScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
-    const distFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-    const atBottom = distFromBottom < 80;
-    isAtBottomRef.current = atBottom;
-    setShowScrollToBottom(!atBottom);
-  }, []);
-
-  const scrollToBottom = useCallback(() => {
-    phoneLogScrollRef.current?.scrollToEnd({ animated: true });
-    isAtBottomRef.current = true;
-    setShowScrollToBottom(false);
-  }, []);
 
   const handleLogout = () => {
     Alert.alert(
@@ -280,66 +265,207 @@ export default function ProfileScreen() {
         onRequestClose={() => setShowPhoneLog(false)}
       >
         <SafeAreaView edges={['top', 'bottom']} style={styles.phoneLogScreen}>
+
+          {/* ── Header ── */}
           <View style={styles.phoneLogScreenHeader}>
             <View style={styles.phoneLogScreenStatus}>
               <View style={[styles.onlineIndicator, { backgroundColor: registrationState === 'registered' ? Colors.success : Colors.warning }]} />
               <Text style={styles.phoneLogScreenStatusText}>SIP: {registrationState}</Text>
-              <Text style={styles.phoneLogScreenCount}>{debugMessages.length} lines</Text>
             </View>
-            <Text style={styles.phoneLogScreenTitle}>Phone Log</Text>
+            <Text style={styles.phoneLogScreenTitle}>Diagnostika</Text>
             <View style={styles.modalHeaderActions}>
-              <TouchableOpacity
-                onPress={copyPhoneLog}
-                style={styles.phoneLogActionBtn}
-                testID="button-copy-phone-log"
-              >
+              <TouchableOpacity onPress={copyPhoneLog} style={styles.phoneLogActionBtn} testID="button-copy-phone-log">
                 <Ionicons name="copy-outline" size={20} color="#ffaa00" />
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={sharePhoneLog}
-                style={styles.phoneLogActionBtn}
-                testID="button-share-phone-log"
-              >
+              <TouchableOpacity onPress={sharePhoneLog} style={styles.phoneLogActionBtn} testID="button-share-phone-log">
                 <Ionicons name="share-outline" size={20} color="#ffaa00" />
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setShowPhoneLog(false)}
-                style={styles.phoneLogActionBtn}
-                testID="button-close-phone-log"
-              >
+              <TouchableOpacity onPress={() => setShowPhoneLog(false)} style={styles.phoneLogActionBtn} testID="button-close-phone-log">
                 <Ionicons name="close" size={22} color="#ffffff" />
               </TouchableOpacity>
             </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <ScrollView
-              ref={phoneLogScrollRef}
-              style={styles.phoneLogFullContainer}
-              contentContainerStyle={styles.phoneLogFullContent}
-              onScroll={handlePhoneLogScroll}
-              scrollEventThrottle={100}
-              onContentSizeChange={() => {
-                if (isAtBottomRef.current) {
-                  phoneLogScrollRef.current?.scrollToEnd({ animated: false });
-                }
-              }}
-              showsVerticalScrollIndicator={true}
+
+          {/* ── Tabs ── */}
+          <View style={styles.logTabs}>
+            <TouchableOpacity
+              style={[styles.logTab, logTab === 'turn' && styles.logTabActive]}
+              onPress={() => setLogTab('turn')}
+              testID="button-tab-turn"
             >
-              {debugMessages.length === 0 ? (
-                <Text style={styles.phoneLogEmpty}>No SIP log entries yet{'\n\n'}SIP stav: {registrationState}</Text>
-              ) : (
-                debugMessages.map((line, i) => (
-                  <Text key={`log-${i}`} style={styles.phoneLogLine} selectable>{line}</Text>
-                ))
-              )}
-            </ScrollView>
-            {showScrollToBottom && (
-              <TouchableOpacity style={styles.scrollToBottomBtn} onPress={scrollToBottom} testID="button-scroll-bottom">
-                <Ionicons name="arrow-down-circle" size={32} color="#ffaa00" />
-                <Text style={styles.scrollToBottomText}>{debugMessages.length} riadkov</Text>
-              </TouchableOpacity>
-            )}
+              <Ionicons name="wifi" size={14} color={logTab === 'turn' ? '#00e5ff' : '#666688'} />
+              <Text style={[styles.logTabText, logTab === 'turn' && styles.logTabTextActive]}>TURN / ICE</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.logTab, logTab === 'log' && styles.logTabActive]}
+              onPress={() => setLogTab('log')}
+              testID="button-tab-log"
+            >
+              <Ionicons name="terminal" size={14} color={logTab === 'log' ? '#ffaa00' : '#666688'} />
+              <Text style={[styles.logTabText, logTab === 'log' && { color: '#ffaa00' }]}>
+                Phone Log ({debugMessages.length})
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* ── TURN / ICE Tab ── */}
+          {logTab === 'turn' && (
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+
+              {/* ICE servers block */}
+              <Text style={styles.diagSectionTitle}>ICE SERVERY</Text>
+              {iceStats.configuredUrls.length === 0 ? (
+                <Text style={styles.diagEmpty}>Žiadne ICE servery — zatiaľ nebol inicializovaný hovor</Text>
+              ) : (
+                iceStats.configuredUrls.map((url, i) => {
+                  const isRelay = url.startsWith('turns:') || url.startsWith('turn:');
+                  const isTLS443 = url.includes(':443');
+                  const isTLS5350 = url.includes(':5350');
+                  const isUDP3478 = url.includes(':3478') && !url.includes('tcp');
+                  const dotColor = isTLS443 ? '#00e5ff' : isTLS5350 ? '#4caf50' : isUDP3478 ? '#ff9800' : '#aaaacc';
+                  const badge = isTLS443 ? '443/TLS ✓ nikdy blokovaný' : isTLS5350 ? '5350/TLS' : isUDP3478 ? '3478/UDP ⚠ môže byť blokovaný' : isRelay ? 'TURN/TCP' : 'STUN';
+                  return (
+                    <View key={i} style={styles.diagRow}>
+                      <View style={[styles.diagDot, { backgroundColor: dotColor }]} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.diagUrlText} selectable>{url}</Text>
+                        <Text style={[styles.diagBadge, { color: dotColor }]}>{badge}</Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+
+              {/* ICE gathering result */}
+              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>VÝSLEDOK ICE GATHERING</Text>
+              {!iceStats.lastCallAt ? (
+                <Text style={styles.diagEmpty}>Zatiaľ nebol uskutočnený hovor</Text>
+              ) : (
+                <>
+                  <Text style={styles.diagTimestamp}>Posledný hovor: {iceStats.lastCallAt}</Text>
+
+                  <View style={styles.diagCandRow}>
+                    <View style={styles.diagCandBox}>
+                      <Text style={styles.diagCandNum}>{iceStats.candidateCounts.host}</Text>
+                      <Text style={styles.diagCandLabel}>host</Text>
+                    </View>
+                    <View style={styles.diagCandBox}>
+                      <Text style={styles.diagCandNum}>{iceStats.candidateCounts.srflx}</Text>
+                      <Text style={styles.diagCandLabel}>srflx</Text>
+                    </View>
+                    <View style={[styles.diagCandBox, { borderColor: iceStats.candidateCounts.relay > 0 ? '#00e5ff' : '#ff4444' }]}>
+                      <Text style={[styles.diagCandNum, { color: iceStats.candidateCounts.relay > 0 ? '#00e5ff' : '#ff4444' }]}>
+                        {iceStats.candidateCounts.relay}
+                      </Text>
+                      <Text style={[styles.diagCandLabel, { color: iceStats.candidateCounts.relay > 0 ? '#00e5ff' : '#ff9800' }]}>
+                        relay (TURN)
+                      </Text>
+                    </View>
+                  </View>
+
+                  {iceStats.gatheringComplete && iceStats.candidateCounts.relay === 0 && (
+                    <View style={styles.diagAlert}>
+                      <Ionicons name="alert-circle" size={18} color="#ff4444" />
+                      <Text style={styles.diagAlertText}>
+                        {'ŽIADNE RELAY candidates!\nTURN server je pravdepodobne blokovaný mobilným operátorom.\nSkúste: turns:turn.cordbloodcenter.com:443?transport=tcp'}
+                      </Text>
+                    </View>
+                  )}
+                  {iceStats.candidateCounts.relay > 0 && (
+                    <View style={styles.diagOk}>
+                      <Ionicons name="checkmark-circle" size={18} color="#00e5ff" />
+                      <Text style={styles.diagOkText}>TURN relay funguje! Adresa: {iceStats.relayAddr || '?'}</Text>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* ICE connection state */}
+              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>ICE SPOJENIE</Text>
+              {(() => {
+                const st = iceStats.connectionState;
+                const color = st === 'connected' || st === 'completed' ? '#00e5ff'
+                  : st === 'failed' ? '#ff4444'
+                  : st === 'checking' ? '#ffaa00'
+                  : st === 'disconnected' || st === 'closed' ? '#ff9800'
+                  : '#666688';
+                return (
+                  <View style={styles.diagRow}>
+                    <View style={[styles.diagDot, { backgroundColor: color, width: 12, height: 12, borderRadius: 6 }]} />
+                    <Text style={[styles.diagUrlText, { color }]}>{st}</Text>
+                    {iceStats.usedRelay && (
+                      <Text style={styles.diagRelayBadge}>cez TURN RELAY</Text>
+                    )}
+                  </View>
+                );
+              })()}
+
+              {iceStats.error && (
+                <View style={[styles.diagAlert, { marginTop: 10 }]}>
+                  <Ionicons name="warning" size={18} color="#ff4444" />
+                  <Text style={styles.diagAlertText}>{iceStats.error}</Text>
+                </View>
+              )}
+
+            </ScrollView>
+          )}
+
+          {/* ── Phone Log Tab ── */}
+          {logTab === 'log' && (
+            <View style={{ flex: 1 }}>
+              {/* Toolbar */}
+              <View style={styles.logToolbar}>
+                <Text style={styles.logToolbarCount}>{debugMessages.length} riadkov</Text>
+                <TouchableOpacity
+                  style={styles.logToolbarBtn}
+                  onPress={() => phoneLogScrollRef.current?.scrollToEnd({ animated: true })}
+                  testID="button-scroll-bottom"
+                >
+                  <Ionicons name="arrow-down" size={14} color="#aaaacc" />
+                  <Text style={styles.logToolbarBtnText}>Koniec</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.logToolbarBtn, { borderColor: '#ff444450' }]}
+                  onPress={() => {
+                    Alert.alert('Vymazať log', 'Vymazať všetky záznamy a ICE štatistiky?', [
+                      { text: 'Zrušiť', style: 'cancel' },
+                      { text: 'Vymazať', style: 'destructive', onPress: clearDebugMessages },
+                    ]);
+                  }}
+                  testID="button-clear-log"
+                >
+                  <Ionicons name="trash-outline" size={14} color="#ff6666" />
+                  <Text style={[styles.logToolbarBtnText, { color: '#ff6666' }]}>Vymazať</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                ref={phoneLogScrollRef}
+                style={styles.phoneLogFullContainer}
+                contentContainerStyle={styles.phoneLogFullContent}
+                showsVerticalScrollIndicator={true}
+              >
+                {debugMessages.length === 0 ? (
+                  <Text style={styles.phoneLogEmpty}>
+                    {'Žiadne záznamy.\n\nSIP stav: ' + registrationState + '\n\nZaregistruj sa a skús hovor — tu sa objavia všetky udalosti.'}
+                  </Text>
+                ) : (
+                  debugMessages.map((line, i) => {
+                    const isRelay = line.includes('RELAY') || line.includes('relay');
+                    const isError = line.includes('FAILED') || line.includes('Error') || line.includes('error') || line.includes('failed');
+                    const isOk = line.includes('✓') || line.includes('connected') || line.includes('CONNECTED');
+                    const lineColor = isRelay ? '#00e5ff' : isError ? '#ff6666' : isOk ? '#66ff99' : '#ffaa00';
+                    return (
+                      <Text key={`log-${i}`} style={[styles.phoneLogLine, { color: lineColor }]} selectable>
+                        {line}
+                      </Text>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </View>
+          )}
+
         </SafeAreaView>
       </Modal>
 
@@ -823,22 +949,187 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
     lineHeight: 22,
   },
-  scrollToBottomBtn: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    alignItems: 'center',
-    backgroundColor: 'rgba(13,13,26,0.9)',
-    borderRadius: 24,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    gap: 2,
-    borderWidth: 1,
-    borderColor: '#ffaa0050',
+  /* ── Tabs ── */
+  logTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#0d0d1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a4a',
   },
-  scrollToBottomText: {
-    fontSize: 10,
-    color: '#ffaa00',
+  logTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  logTabActive: {
+    borderBottomColor: '#00e5ff',
+    backgroundColor: 'rgba(0,229,255,0.06)',
+  },
+  logTabText: {
+    fontSize: FontSizes.sm,
     fontWeight: '600',
+    color: '#666688',
+  },
+  logTabTextActive: {
+    color: '#00e5ff',
+  },
+
+  /* ── Log toolbar ── */
+  logToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#16213e',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a4a',
+  },
+  logToolbarCount: {
+    flex: 1,
+    fontSize: FontSizes.xs,
+    color: '#666688',
+  },
+  logToolbarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2a2a4a',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  logToolbarBtnText: {
+    fontSize: FontSizes.xs,
+    color: '#aaaacc',
+    fontWeight: '600',
+  },
+
+  /* ── TURN diagnostic panel ── */
+  diagSectionTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#444466',
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  diagEmpty: {
+    fontSize: FontSizes.sm,
+    color: '#666688',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  diagTimestamp: {
+    fontSize: FontSizes.xs,
+    color: '#666688',
+    marginBottom: 10,
+  },
+  diagRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#2a2a4a',
+  },
+  diagDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
+    flexShrink: 0,
+  },
+  diagUrlText: {
+    fontSize: 11,
+    fontFamily: 'monospace',
+    color: '#aaaacc',
+    lineHeight: 16,
+  },
+  diagBadge: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
+  diagCandRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  diagCandBox: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2a2a4a',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  diagCandNum: {
+    fontSize: FontSizes.xl,
+    fontWeight: '800',
+    color: '#aaaacc',
+    lineHeight: 26,
+  },
+  diagCandLabel: {
+    fontSize: 10,
+    color: '#666688',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  diagAlert: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255,68,68,0.08)',
+    borderWidth: 1,
+    borderColor: '#ff444440',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  diagAlertText: {
+    flex: 1,
+    fontSize: FontSizes.sm,
+    color: '#ff8888',
+    lineHeight: 20,
+  },
+  diagOk: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,229,255,0.07)',
+    borderWidth: 1,
+    borderColor: '#00e5ff40',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  diagOkText: {
+    flex: 1,
+    fontSize: FontSizes.sm,
+    color: '#00e5ff',
+    fontWeight: '600',
+  },
+  diagRelayBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#00e5ff',
+    backgroundColor: 'rgba(0,229,255,0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 8,
+    overflow: 'hidden',
   },
 });

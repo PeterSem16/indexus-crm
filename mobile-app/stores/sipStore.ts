@@ -3,6 +3,30 @@ import { mobileSipEngine, SipRegistrationState, SipCallState, SipCallInfo } from
 import { mobileAudioRecorder, RecordingState } from '@/lib/audioRecorder';
 import { api } from '@/lib/api';
 
+export interface IceStats {
+  configuredUrls: string[];
+  hasTurn: boolean;
+  lastCallAt: string | null;
+  gatheringComplete: boolean;
+  candidateCounts: { host: number; srflx: number; relay: number };
+  connectionState: string;
+  usedRelay: boolean;
+  relayAddr: string;
+  error: string | null;
+}
+
+const defaultIceStats: IceStats = {
+  configuredUrls: [],
+  hasTurn: false,
+  lastCallAt: null,
+  gatheringComplete: false,
+  candidateCounts: { host: 0, srflx: 0, relay: 0 },
+  connectionState: 'new',
+  usedRelay: false,
+  relayAddr: '',
+  error: null,
+};
+
 interface SipStoreState {
   registrationState: SipRegistrationState;
   callState: SipCallState;
@@ -12,6 +36,7 @@ interface SipStoreState {
   recordingState: RecordingState;
   callRecordingEnabled: boolean;
   debugMessages: string[];
+  iceStats: IceStats;
 
   connect: () => Promise<boolean>;
   disconnect: () => Promise<void>;
@@ -24,6 +49,7 @@ interface SipStoreState {
   toggleSpeaker: () => Promise<void>;
   sendDtmf: (tone: string) => void;
   clearError: () => void;
+  clearDebugMessages: () => void;
   startRecording: (callLogId?: string) => Promise<void>;
   stopAndUploadRecording: (params: {
     callLogId: string;
@@ -68,7 +94,12 @@ export const useSipStore = create<SipStoreState>((set, get) => {
         break;
       case 'debug':
         set(state => ({
-          debugMessages: [...state.debugMessages.slice(-19), `${new Date().toLocaleTimeString()}: ${data}`],
+          debugMessages: [...state.debugMessages.slice(-499), `${new Date().toLocaleTimeString()}: ${data}`],
+        }));
+        break;
+      case 'ice-stats':
+        set(state => ({
+          iceStats: { ...state.iceStats, ...(data as Partial<IceStats>) },
         }));
         break;
     }
@@ -91,6 +122,7 @@ export const useSipStore = create<SipStoreState>((set, get) => {
     recordingState: 'idle',
     callRecordingEnabled: false,
     debugMessages: [],
+    iceStats: { ...defaultIceStats },
 
     connect: async () => {
       set({ isConnecting: true, error: null });
@@ -143,6 +175,8 @@ export const useSipStore = create<SipStoreState>((set, get) => {
     },
 
     clearError: () => set({ error: null }),
+
+    clearDebugMessages: () => set({ debugMessages: [], iceStats: { ...defaultIceStats } }),
 
     startRecording: async (callLogId?: string) => {
       await mobileAudioRecorder.startRecording();
