@@ -87,8 +87,8 @@ Preferred communication style: Simple, everyday language.
 
 ### CORPCRM01 (77.72.181.113)
 - **SSH user**: seman
-- **PostgreSQL**: `PGPASSWORD=HanyurIfKisck psql -U postgres -d indexus`
-  - Host: localhost (na CORPCRM01), user: `postgres`, db: `indexus`, pwd: `HanyurIfKisck`
+- **PostgreSQL**: `PGPASSWORD=HanyurIfKisck psql -U postgres -d indexus-crm`
+  - Host: localhost (na CORPCRM01), user: `postgres`, db: `indexus-crm`, pwd: `HanyurIfKisck`
 
 ### mediagateway
 - **SSH**: `ssh seman@mediagtw.cordbloodcenter.com`
