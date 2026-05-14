@@ -521,6 +521,23 @@ export default function ProfileScreen() {
                 </View>
               )}
 
+              {/* ─ Config sanity check: warn about turns:...:3478 misconfiguration ─ */}
+              {iceStats.configuredUrls.some(u => /^turns:[^?]+:3478(\?|$)/.test(u)) && (
+                <View style={[styles.diagAlert, { marginTop: 8, backgroundColor: '#2a1500', borderColor: '#ff8c00' }]}>
+                  <Ionicons name="construct" size={20} color="#ff8c00" />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={[styles.diagAlertText, { fontWeight: 'bold', color: '#ff8c00', fontSize: 13 }]}>
+                      CHYBNÁ KONFIGURÁCIA TURN URL
+                    </Text>
+                    <Text style={[styles.diagAlertText, { color: '#ffd580', marginTop: 2, fontSize: 11 }]}>
+                      {'"turns:...:3478"'} — port 3478 nepodporuje TLS!{'\n'}
+                      Oprav v INDEXUS → Nastavenia → SIP → TURN Server{'\n'}
+                      Správne: {"turn:turn.cordbloodcenter.com:3478"}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {/* ─ Configured ICE servers (reference) ─ */}
               {iceStats.configuredUrls.length > 0 && (
                 <>
@@ -529,8 +546,9 @@ export default function ProfileScreen() {
                     const isTLS443 = url.includes(':443');
                     const isTLS5350 = url.includes(':5350');
                     const isUDP3478 = url.includes(':3478') && !url.includes('tcp');
-                    const dotColor = isTLS443 ? '#00e5ff' : isTLS5350 ? '#4caf50' : isUDP3478 ? '#ff9800' : '#aaaacc';
-                    const badge = isTLS443 ? '443/TLS — nikdy blokovaný' : isTLS5350 ? '5350/TLS' : isUDP3478 ? '3478/UDP ⚠' : url.startsWith('turn') ? 'TURN/TCP' : 'STUN';
+                    const isBadTls3478 = /^turns:[^?]+:3478(\?|$)/.test(url);
+                    const dotColor = isBadTls3478 ? '#ff4444' : isTLS443 ? '#00e5ff' : isTLS5350 ? '#4caf50' : isUDP3478 ? '#ff9800' : '#aaaacc';
+                    const badge = isBadTls3478 ? '⚠ CHYBNÝ URL — turns: na 3478 nefunguje!' : isTLS443 ? '443/TLS — nikdy blokovaný' : isTLS5350 ? '5350/TLS' : isUDP3478 ? '3478/UDP ⚠' : url.startsWith('turn') ? 'TURN/TCP' : 'STUN';
                     return (
                       <View key={i} style={styles.diagRow}>
                         <View style={[styles.diagDot, { backgroundColor: dotColor }]} />

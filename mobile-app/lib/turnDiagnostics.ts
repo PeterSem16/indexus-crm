@@ -126,26 +126,7 @@ export async function runDiagnostics(
 
   emit();
 
-  // 0. Server-side health check — tests coturn TCP from CORPCRM01 itself
-  set('srv_health', { status: 'running', detail: 'Pýtam sa servera...' });
-  try {
-    const health = await api.get<any>('/api/mobile/sip/turn-health');
-    const portLines = Object.entries(health?.ports || {}).map(([port, r]: [string, any]) => {
-      const ok = r?.ok;
-      const ms = r?.ms != null ? `${r.ms}ms` : '?';
-      return `${ok ? '✓' : '✗'} ${port} (${ms})${!ok && r?.error ? ': ' + r.error : ''}`;
-    }).join(' | ');
-    const allOpen = Object.values(health?.ports || {}).every((r: any) => r?.ok);
-    const credStatus = health?.credsConfigured ? `user=${health.turnUsername}` : '⚠ credentials CHÝBAJÚ!';
-    set('srv_health', {
-      status: allOpen ? 'ok' : (Object.values(health?.ports || {}).some((r: any) => r?.ok) ? 'warn' : 'fail'),
-      detail: `${credStatus} | ${portLines || 'žiadne dáta'}`,
-    });
-  } catch (e: any) {
-    set('srv_health', { status: 'warn', detail: `Endpoint nedostupný: ${e?.message || '?'}` });
-  }
-
-  // Fetch TURN credentials
+  // Fetch TURN credentials first — needed for health check and all TURN tests
   let turnHost = 'turn.cordbloodcenter.com';
   let turnUser: string | undefined;
   let turnPass: string | undefined;
@@ -164,7 +145,29 @@ export async function runDiagnostics(
       } catch {}
     }
   } catch (e: any) {
-    set('internet', { status: 'warn', detail: `Nepodarilo sa načítať TURN konfigu: ${e?.message || '?'}` });
+    set('srv_health', { status: 'warn', detail: `Nepodarilo sa načítať TURN konfigu: ${e?.message || '?'}` });
+  }
+
+  // 0. Server-side health check — tests coturn TCP from CORPCRM01 itself
+  set('srv_health', { status: 'running', detail: 'Pýtam sa servera...' });
+  try {
+    const health = await api.get<any>('/api/mobile/sip/turn-health');
+    const portLines = Object.entries(health?.ports || {}).map(([port, r]: [string, any]) => {
+      const ok = r?.ok;
+      const ms = r?.ms != null ? `${r.ms}ms` : '?';
+      return `${ok ? '✓' : '✗'} ${port} (${ms})${!ok && r?.error ? ': ' + r.error : ''}`;
+    }).join(' | ');
+    const allOpen = Object.values(health?.ports || {}).every((r: any) => r?.ok);
+    const credStatus = health?.credsConfigured ? `user=${health.turnUsername}` : '⚠ credentials CHÝBAJÚ!';
+    // Warn about misconfigured turns:...:3478
+    const rawTurnUrl = (health as any)?.turnServer || '';
+    const badUrl = /^turns:[^?]+:3478(\?|$)/.test(rawTurnUrl);
+    set('srv_health', {
+      status: badUrl ? 'warn' : (allOpen ? 'ok' : (Object.values(health?.ports || {}).some((r: any) => r?.ok) ? 'warn' : 'fail')),
+      detail: `${credStatus} | ${portLines || 'žiadne dáta'}${badUrl ? ` | ⚠ ZLÝ URL v DB: "${rawTurnUrl}" — port 3478 nepodporuje TLS (turns:)! Oprav na turn:...:3478` : ''}`,
+    });
+  } catch (e: any) {
+    set('srv_health', { status: 'warn', detail: `Endpoint nedostupný (nasaď nový kód na server): ${e?.message || '?'}` });
   }
 
   // 1. Internet

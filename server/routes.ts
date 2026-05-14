@@ -16994,12 +16994,26 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 { urls: `turn:${turnHost}:3478`, username: user, credential: cred },
               ];
 
-              // Also add the raw configured URL in case it differs from the above
-              if (
-                sipSettings.turnServer &&
-                !servers.some(s => s.urls === sipSettings.turnServer)
-              ) {
-                servers.unshift({ urls: sipSettings.turnServer, username: user, credential: cred });
+              // Add the raw configured URL ONLY if it uses a different host than already covered.
+              // Do NOT add if it's turns:host:3478 (wrong — port 3478 does not serve TLS),
+              // and do NOT add if it's a duplicate of what we already built above.
+              if (sipSettings.turnServer) {
+                const rawUrl = sipSettings.turnServer;
+                const alreadyCovered = servers.some(s => s.urls === rawUrl);
+                // Detect common misconfiguration: turns: on port 3478 (should be turn:)
+                const isBadTlsOn3478 = /^turns:[^?]+:3478(\?|$)/.test(rawUrl);
+                if (!alreadyCovered && !isBadTlsOn3478) {
+                  // Different host or valid custom URL — add it at start as explicit preference
+                  servers.unshift({ urls: rawUrl, username: user, credential: cred });
+                } else if (isBadTlsOn3478) {
+                  // Sanitize: strip the 's' → plain TURN TCP, add only if not already present
+                  const fixed = rawUrl.replace(/^turns:/, 'turn:');
+                  if (!servers.some(s => s.urls === fixed)) {
+                    // insert after the TLS variants, before the UDP fallback
+                    servers.splice(2, 0, { urls: fixed, username: user, credential: cred });
+                  }
+                  console.warn(`[SIP] Sanitized misconfigured TURN URL: ${rawUrl} → ${fixed}`);
+                }
               }
 
               // Alt server if configured
@@ -17062,9 +17076,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         testTcpPort(turnHost, 3478),
       ]);
 
+      const isBadTlsOn3478 = /^turns:[^?]+:3478(\?|$)/.test(turnServer);
       res.json({
         turnHost,
         turnServer,
+        isBadTlsOn3478,
         credsConfigured,
         turnUsername: sipSettings?.turnUsername ? `${String(sipSettings.turnUsername).slice(0, 3)}***` : null,
         ports: {
