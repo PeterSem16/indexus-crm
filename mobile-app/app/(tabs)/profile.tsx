@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard } from 'react-native';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,8 +12,6 @@ import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { SUPPORTED_LANGUAGES, SupportedLanguage } from '@/constants/config';
 import { API_BASE_URL } from '@/constants/config';
 import Constants from 'expo-constants';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 
 const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
 
@@ -44,33 +42,33 @@ export default function ProfileScreen() {
     setShowLanguagePicker(false);
   };
 
-  const downloadPhoneLog = async () => {
+  const buildLogContent = () => {
+    const now = new Date();
+    const header = [
+      `INDEXUS Connect — Phone Log`,
+      `Version: ${APP_VERSION}`,
+      `Exported: ${now.toLocaleString()}`,
+      `SIP: ${registrationState}`,
+      `----------------------------------------`,
+      '',
+    ].join('\n');
+    const body = debugMessages.length > 0 ? debugMessages.join('\n') : 'No SIP log entries.';
+    return header + body;
+  };
+
+  const sharePhoneLog = async () => {
     try {
-      const now = new Date();
-      const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const header = [
-        `INDEXUS Connect — Phone Log`,
-        `Version: ${APP_VERSION}`,
-        `Exported: ${now.toLocaleString()}`,
-        `SIP: ${registrationState}`,
-        `----------------------------------------`,
-        '',
-      ].join('\n');
-      const body = debugMessages.length > 0
-        ? debugMessages.join('\n')
-        : 'No SIP log entries.';
-      const content = header + body;
-      const fileUri = `${FileSystem.cacheDirectory}phone-log-${ts}.txt`;
-      await FileSystem.writeAsStringAsync(fileUri, content, { encoding: FileSystem.EncodingType.UTF8 });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(fileUri, { mimeType: 'text/plain', dialogTitle: `Phone Log ${ts}` });
-      } else {
-        Alert.alert('Zdieľanie nie je dostupné', 'Súbor bol uložený do: ' + fileUri);
-      }
+      const content = buildLogContent();
+      await Share.share({ message: content, title: 'INDEXUS Phone Log' });
     } catch (err: any) {
-      Alert.alert('Chyba', err?.message || 'Nepodarilo sa uložiť log');
+      Alert.alert('Chyba', err?.message || 'Nepodarilo sa zdieľať log');
     }
+  };
+
+  const copyPhoneLog = () => {
+    const content = buildLogContent();
+    Clipboard.setString(content);
+    Alert.alert('Skopírované', 'Phone Log bol skopírovaný do schránky');
   };
 
   const formatLastSync = () => {
@@ -269,11 +267,18 @@ export default function ProfileScreen() {
               <Text style={styles.modalTitle}>Phone Log</Text>
               <View style={styles.modalHeaderActions}>
                 <TouchableOpacity
-                  onPress={downloadPhoneLog}
+                  onPress={copyPhoneLog}
                   style={styles.modalActionButton}
-                  testID="button-download-phone-log"
+                  testID="button-copy-phone-log"
                 >
-                  <Ionicons name="download-outline" size={22} color={Colors.primary} />
+                  <Ionicons name="copy-outline" size={21} color={Colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={sharePhoneLog}
+                  style={styles.modalActionButton}
+                  testID="button-share-phone-log"
+                >
+                  <Ionicons name="share-outline" size={22} color={Colors.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setShowPhoneLog(false)}
