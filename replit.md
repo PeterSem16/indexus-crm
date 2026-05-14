@@ -3,13 +3,44 @@
 INDEXUS is a multi-country CRM system for cord blood banking companies, streamlining operations and enhancing customer engagement with tools for sales, collections, and communication.
 
 ## Run & Operate
-- **Server deploy (CORPCRM01)**: `cd /var/www/indexus-crm && git pull origin main && npm run build && pm2 restart indexus-crm`
-- **Mobile app build (Ubuntu CLI)**:
-  ```bash
-  cd mobile-app && npm install
-  cd android && ./gradlew assembleDebug
-  adb install -r app/build/outputs/apk/debug/app-debug.apk
-  ```
+
+### Server deploy (CORPCRM01)
+```bash
+cd /var/www/indexus-crm && git pull origin main && npm run build && pm2 restart indexus-crm
+```
+
+### Mobilná aplikácia — build + deploy (Ubuntu CLI)
+
+**Krok 1 — Stiahnuť kód a nainštalovať závislosti:**
+```bash
+cd /var/www/indexus-crm
+git pull origin main
+cd mobile-app && npm install
+```
+
+**Krok 2 — Skompilovať APK:**
+```bash
+cd android
+./gradlew assembleRelease
+# APK je na: android/app/build/outputs/apk/release/app-release.apk
+```
+
+**Krok 3 — Nasadiť APK na server (sprístupniť na stiahnutie v INDEXUS):**
+```bash
+cd /var/www/indexus-crm/mobile-app
+./deploy-apk.sh
+# Skript skopíruje APK do /var/www/indexus-crm/data/mobil-app/
+# a vytvorí symlink indexus-connect-latest.apk
+# → dostupné na stiahnutie cez INDEXUS landing page
+```
+
+**Krok 4 — Nainštalovať priamo na telefón (voliteľné, cez USB):**
+```bash
+adb install -r android/app/build/outputs/apk/release/app-release.apk
+```
+
+> APK na stiahnutie v INDEXUS: `/data/mobil-app/indexus-connect-latest.apk`
+> Verzia sa číta automaticky z `mobile-app/app.json`
 
 ## Stack
 - **Frontend**: React 18, TypeScript, Wouter, TanStack React Query, Tailwind CSS, shadcn/ui, Vite
