@@ -7,6 +7,7 @@ function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RT
   const lines = description.sdp.split(/\r?\n/);
   const filtered = lines.filter(line => {
     if (!line.startsWith("a=candidate:")) return true;
+    if (line.includes("typ relay")) return true;
     const ipMatch = line.match(/a=candidate:\S+ \d+ \S+ \d+ (\S+)/);
     if (!ipMatch) return true;
     const ip = ipMatch[1];
@@ -30,6 +31,10 @@ interface SipSettingsData {
   realm?: string;
   transport?: string;
   isEnabled?: boolean;
+  turnServer?: string;
+  turnServerAlt?: string;
+  turnUsername?: string;
+  turnPassword?: string;
 }
 
 export interface PendingCall {
@@ -136,6 +141,13 @@ export function SipProvider({ children }: { children: ReactNode }) {
       const callerNumber = currentIncoming.callerNumber;
       const callerName = currentIncoming.callerName;
       const invitation = currentIncoming.invitation;
+      const answerTurnServers: RTCIceServer[] = [];
+      if (sipSettings?.turnServer) {
+        answerTurnServers.push({ urls: sipSettings.turnServer, username: sipSettings.turnUsername || undefined, credential: sipSettings.turnPassword || undefined });
+      }
+      if (sipSettings?.turnServerAlt) {
+        answerTurnServers.push({ urls: sipSettings.turnServerAlt, username: sipSettings.turnUsername || undefined, credential: sipSettings.turnPassword || undefined });
+      }
       await invitation.accept({
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false },
@@ -148,6 +160,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
             iceServers: [
               { urls: "stun:stun.l.google.com:19302" },
               { urls: "stun:stun1.l.google.com:19302" },
+              ...answerTurnServers,
             ],
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
@@ -368,6 +381,22 @@ export function SipProvider({ children }: { children: ReactNode }) {
         traceSip: false,
       };
 
+      const turnIceServers: RTCIceServer[] = [];
+      if (sipSettings?.turnServer) {
+        turnIceServers.push({
+          urls: sipSettings.turnServer,
+          username: sipSettings.turnUsername || undefined,
+          credential: sipSettings.turnPassword || undefined,
+        });
+      }
+      if (sipSettings?.turnServerAlt) {
+        turnIceServers.push({
+          urls: sipSettings.turnServerAlt,
+          username: sipSettings.turnUsername || undefined,
+          credential: sipSettings.turnPassword || undefined,
+        });
+      }
+
       const userAgentOptions = {
         authorizationPassword: sipPassword,
         authorizationUsername: sipExtension,
@@ -385,6 +414,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
             iceServers: [
               { urls: "stun:stun.l.google.com:19302" },
               { urls: "stun:stun1.l.google.com:19302" },
+              ...turnIceServers,
             ],
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",

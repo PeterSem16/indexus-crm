@@ -42,6 +42,7 @@ function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RT
   const lines = description.sdp.split(/\r?\n/);
   const filtered = lines.filter(line => {
     if (!line.startsWith("a=candidate:")) return true;
+    if (line.includes("typ relay")) return true;
     const ipMatch = line.match(/a=candidate:\S+ \d+ \S+ \d+ (\S+)/);
     if (!ipMatch) return true;
     const ip = ipMatch[1];
@@ -1058,7 +1059,20 @@ export function SipPhone({
         sessionDescriptionHandlerFactoryOptions: {
           iceGatheringTimeout: 1500,
           peerConnectionConfiguration: {
-            iceServers: [],
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+              ...(globalSipSettings?.turnServer ? [{
+                urls: globalSipSettings.turnServer,
+                username: (globalSipSettings as any).turnUsername || undefined,
+                credential: (globalSipSettings as any).turnPassword || undefined,
+              }] : []),
+              ...(globalSipSettings?.turnServerAlt ? [{
+                urls: (globalSipSettings as any).turnServerAlt,
+                username: (globalSipSettings as any).turnUsername || undefined,
+                credential: (globalSipSettings as any).turnPassword || undefined,
+              }] : []),
+            ],
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
           },
