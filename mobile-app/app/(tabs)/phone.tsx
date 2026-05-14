@@ -197,15 +197,39 @@ export default function PhoneScreen() {
 
       if (recordingStartedRef.current && currentCallLogId) {
         recordingStartedRef.current = false;
-        stopAndUploadRecording({
-          callLogId: currentCallLogId,
-          phoneNumber: callInfo.phoneNumber || '',
-          direction: callInfo.direction || 'outbound',
-          durationSeconds: finalDuration,
-          collaboratorName: 'Mobile Agent',
-          customerName: currentContactName,
-          customerId: currentCustomerId,
-        }).catch(() => {});
+        const logIdForRecording = currentCallLogId;
+
+        // First: try to finalize the server-side AMI recording (both sides)
+        api.post(`/api/mobile/call-log/${logIdForRecording}/finalize-server-recording`, {})
+          .then((result: any) => {
+            if (result?.success) {
+              console.log('[Phone] Server-side recording saved (both sides):', result.filename);
+            } else {
+              // Fallback: upload mic-only recording
+              console.log('[Phone] Server recording unavailable, uploading mic recording:', result?.message);
+              stopAndUploadRecording({
+                callLogId: logIdForRecording,
+                phoneNumber: callInfo.phoneNumber || '',
+                direction: callInfo.direction || 'outbound',
+                durationSeconds: finalDuration,
+                collaboratorName: 'Mobile Agent',
+                customerName: currentContactName,
+                customerId: currentCustomerId,
+              }).catch(() => {});
+            }
+          })
+          .catch(() => {
+            // On error, upload mic recording as fallback
+            stopAndUploadRecording({
+              callLogId: logIdForRecording,
+              phoneNumber: callInfo.phoneNumber || '',
+              direction: callInfo.direction || 'outbound',
+              durationSeconds: finalDuration,
+              collaboratorName: 'Mobile Agent',
+              customerName: currentContactName,
+              customerId: currentCustomerId,
+            }).catch(() => {});
+          });
       } else {
         recordingStartedRef.current = false;
       }

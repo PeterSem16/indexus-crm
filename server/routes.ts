@@ -82,8 +82,12 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as mailchimpApi from "./lib/mailchimp";
+import { sendAmiAction } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
+
+// Tracks active server-side AMI recordings for mobile calls: callLogId → recordingName
+const mobileActiveRecordings = new Map<string, string>();
 
 // Initialize all storage directories
 ensureAllDirectoriesExist();
@@ -16987,51 +16991,41 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             console.log(`[ServerRecording] Started ARI recording '${recordingName}' on channel ${channel.id} at ${server.host}`);
             break;
           } else if (recordResp.status === 409) {
-            // Channel is in dialplan (native bridge) - record the bridge to capture both sides
-            console.log(`[ServerRecording] Channel not in Stasis, looking for bridge containing ${channel.id}`);
+            // Channel is in dialplan (native bridge) — ARI can't record it directly.
+            // Primary: AMI MixMonitor with bridge mode ('b') captures BOTH sides reliably.
+            console.log(`[ServerRecording] Channel not in Stasis, trying AMI MixMonitor on '${channel.name}' (both sides)`);
 
-            let bridgeRecorded = false;
+            let amiRecorded = false;
+            const amiRecordingPath = `/var/spool/asterisk/recording/${recordingName}`;
 
-            // Step 1: find which bridge this channel is in
             try {
-              const bridgesResp = await fetch(`${baseUrl}/ari/bridges`, {
-                headers: { Authorization: authHeader },
-                signal: AbortSignal.timeout(3000),
-              });
-              if (bridgesResp.ok) {
-                const bridges: any[] = await bridgesResp.json();
-                const targetBridge = bridges.find((b: any) =>
-                  Array.isArray(b.channels) && b.channels.includes(channel.id)
-                );
-                if (targetBridge) {
-                  console.log(`[ServerRecording] Found bridge ${targetBridge.id} for channel ${channel.id}, recording bridge (both sides)`);
-                  const bridgeRecResp = await fetch(
-                    `${baseUrl}/ari/bridges/${targetBridge.id}/record?name=${encodeURIComponent(recordingName)}&format=wav&beep=false&ifExists=overwrite`,
-                    {
-                      method: "POST",
-                      headers: { Authorization: authHeader, "Content-Type": "application/json" },
-                      signal: AbortSignal.timeout(3000),
-                    }
-                  );
-                  if (bridgeRecResp.ok) {
-                    recordingStarted = true;
-                    bridgeRecorded = true;
-                    console.log(`[ServerRecording] Started BRIDGE recording '${recordingName}' on bridge ${targetBridge.id} (both sides captured)`);
-                    break;
-                  } else {
-                    const txt = await bridgeRecResp.text().catch(() => "");
-                    console.warn(`[ServerRecording] Bridge record failed (${bridgeRecResp.status}): ${txt} — falling back to snoop`);
-                  }
-                } else {
-                  console.warn(`[ServerRecording] No bridge found containing channel ${channel.id} — falling back to snoop`);
+              const amiResult = await sendAmiAction(
+                server.host,
+                5038,
+                username,
+                password,
+                {
+                  Action: "MixMonitor",
+                  Channel: channel.name,
+                  File: `${amiRecordingPath}^wav`,
+                  Options: "b",
                 }
+              );
+              if (amiResult.success) {
+                recordingStarted = true;
+                amiRecorded = true;
+                mobileActiveRecordings.set(callLogId, recordingName);
+                console.log(`[ServerRecording] AMI MixMonitor started on '${channel.name}', file: ${amiRecordingPath}.wav (both sides via bridge mode)`);
+                break;
+              } else {
+                console.warn(`[ServerRecording] AMI MixMonitor failed: ${amiResult.response}`);
               }
-            } catch (bridgeErr: any) {
-              console.warn(`[ServerRecording] Bridge lookup error: ${bridgeErr?.message} — falling back to snoop`);
+            } catch (amiErr: any) {
+              console.warn(`[ServerRecording] AMI MixMonitor error: ${amiErr?.message} — falling back to ARI snoop`);
             }
 
-            // Step 2: fallback — snoop the channel (captures mic side at minimum)
-            if (!bridgeRecorded) {
+            // Fallback: ARI snoop (captures at least one side via Stasis)
+            if (!amiRecorded) {
               const snoopId = `snoop-${recordingName}`;
               const snoopResp = await fetch(
                 `${baseUrl}/ari/channels/${channel.id}/snoop?spy=both&whisper=none&app=indexus-inbound&snoopId=${encodeURIComponent(snoopId)}`,
@@ -17056,7 +17050,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                   );
                   if (snoopRecResp.ok) {
                     recordingStarted = true;
-                    console.log(`[ServerRecording] Started snoop fallback recording '${recordingName}' on snoop channel ${snoopChanId}`);
+                    console.log(`[ServerRecording] Snoop fallback recording started on snoop channel ${snoopChanId}`);
                     break;
                   } else {
                     const txt = await snoopRecResp.text().catch(() => "");
@@ -17088,6 +17082,99 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error: any) {
       console.error("Trigger server recording error:", error);
       res.status(500).json({ error: "Failed to trigger server recording" });
+    }
+  });
+
+  // Called by mobile when call ends — downloads AMI MixMonitor recording from Asterisk and saves to DB
+  app.post("/api/mobile/call-log/:id/finalize-server-recording", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
+
+      const callLogId = req.params.id;
+      const recordingName = mobileActiveRecordings.get(callLogId);
+      if (!recordingName) {
+        return res.json({ success: false, message: "No active AMI recording found for this call" });
+      }
+
+      const ariSettingsList = await db.select().from(ariSettings).limit(1);
+      if (!ariSettingsList.length) return res.json({ success: false, message: "ARI not configured" });
+
+      const { username, password, protocol: ariProtocol = "http" } = ariSettingsList[0];
+      const authHeader = "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
+
+      const servers = [
+        { host: ASTERISK_SK_HOST, port: ASTERISK_SK_PORT },
+        { host: ASTERISK_MEDIAGTW_HOST, port: ASTERISK_MEDIAGTW_PORT },
+      ];
+
+      let audioBuffer: Buffer | null = null;
+      let usedServer = "";
+
+      // Retry up to 5 times with 2s delay — file may not be flushed immediately after hangup
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        if (attempt > 1) await new Promise(r => setTimeout(r, 2000));
+
+        for (const server of servers) {
+          try {
+            const baseUrl = `${ariProtocol}://${server.host}:${server.port}`;
+            const fileResp = await fetch(
+              `${baseUrl}/ari/recordings/stored/${encodeURIComponent(recordingName)}/file`,
+              { headers: { Authorization: authHeader }, signal: AbortSignal.timeout(5000) }
+            );
+            if (fileResp.ok) {
+              const ab = await fileResp.arrayBuffer();
+              if (ab.byteLength > 500) {
+                audioBuffer = Buffer.from(ab);
+                usedServer = server.host;
+                break;
+              }
+            }
+          } catch {}
+        }
+        if (audioBuffer) break;
+        console.log(`[FinalizeRecording] Attempt ${attempt}/5 — file not ready yet for '${recordingName}'`);
+      }
+
+      if (!audioBuffer) {
+        mobileActiveRecordings.delete(callLogId);
+        console.warn(`[FinalizeRecording] Could not download AMI recording '${recordingName}' after retries`);
+        return res.json({ success: false, message: "Recording file not available — may still be processing" });
+      }
+
+      mobileActiveRecordings.delete(callLogId);
+
+      const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+      const filename = `server_${dateStr}_${timeStr}_${callLogId.substring(0, 8)}.wav`;
+      const filePath = path.join(STORAGE_PATHS.callRecordings, filename);
+
+      fs.mkdirSync(STORAGE_PATHS.callRecordings, { recursive: true });
+      fs.writeFileSync(filePath, audioBuffer);
+
+      await db.insert(callRecordings).values({
+        callLogId,
+        userId: callLog?.userId || tokenData.collaboratorId,
+        customerId: callLog?.customerId || null,
+        campaignId: callLog?.campaignId || null,
+        filename,
+        filePath,
+        mimeType: "audio/wav",
+        fileSizeBytes: audioBuffer.length,
+        durationSeconds: callLog?.durationSeconds || null,
+        phoneNumber: callLog?.phoneNumber || null,
+        agentName: "Mobile Agent",
+        direction: callLog?.direction || "outbound",
+        analysisStatus: "pending",
+      });
+
+      console.log(`[FinalizeRecording] Saved AMI recording from ${usedServer}: ${filename} (${audioBuffer.length} bytes) — both sides captured`);
+      return res.json({ success: true, filename, bytes: audioBuffer.length });
+    } catch (error: any) {
+      console.error("Finalize server recording error:", error);
+      res.status(500).json({ error: "Failed to finalize server recording" });
     }
   });
 
