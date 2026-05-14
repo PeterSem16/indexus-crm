@@ -16973,7 +16973,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           if (!channel) continue;
           activeChannelId = channel.id;
 
-          const recordResp = await fetch(
+          let recordResp = await fetch(
             `${baseUrl}/ari/channels/${channel.id}/record?name=${encodeURIComponent(recordingName)}&format=wav&beep=false&ifExists=overwrite`,
             {
               method: "POST",
@@ -16986,6 +16986,45 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             recordingStarted = true;
             console.log(`[ServerRecording] Started ARI recording '${recordingName}' on channel ${channel.id} at ${server.host}`);
             break;
+          } else if (recordResp.status === 409) {
+            // Channel not in Stasis - use snoop to capture both sides
+            console.log(`[ServerRecording] Channel not in Stasis, trying snoop on ${channel.id}`);
+            const snoopId = `snoop-${recordingName}`;
+            const snoopResp = await fetch(
+              `${baseUrl}/ari/channels/${channel.id}/snoop?spy=both&whisper=none&app=indexus-inbound&snoopId=${encodeURIComponent(snoopId)}`,
+              {
+                method: "POST",
+                headers: { Authorization: authHeader, "Content-Type": "application/json" },
+                signal: AbortSignal.timeout(3000),
+              }
+            );
+            if (snoopResp.ok) {
+              const snoopChannel = await snoopResp.json();
+              const snoopChanId = snoopChannel?.id;
+              if (snoopChanId) {
+                // Small delay for snoop channel to be ready
+                await new Promise(r => setTimeout(r, 500));
+                const snoopRecResp = await fetch(
+                  `${baseUrl}/ari/channels/${snoopChanId}/record?name=${encodeURIComponent(recordingName)}&format=wav&beep=false&ifExists=overwrite`,
+                  {
+                    method: "POST",
+                    headers: { Authorization: authHeader, "Content-Type": "application/json" },
+                    signal: AbortSignal.timeout(3000),
+                  }
+                );
+                if (snoopRecResp.ok) {
+                  recordingStarted = true;
+                  console.log(`[ServerRecording] Started snoop recording '${recordingName}' on snoop channel ${snoopChanId} (original: ${channel.id}) at ${server.host}`);
+                  break;
+                } else {
+                  const txt = await snoopRecResp.text().catch(() => "");
+                  console.warn(`[ServerRecording] Snoop record failed (${snoopRecResp.status}): ${txt}`);
+                }
+              }
+            } else {
+              const txt = await snoopResp.text().catch(() => "");
+              console.warn(`[ServerRecording] Snoop creation failed (${snoopResp.status}): ${txt}`);
+            }
           } else {
             const txt = await recordResp.text().catch(() => "");
             console.warn(`[ServerRecording] ARI record failed (${recordResp.status}): ${txt}`);
