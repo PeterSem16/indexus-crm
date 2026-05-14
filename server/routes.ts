@@ -17044,43 +17044,43 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 amiRecorded = true;
 
                 // Try to also attach MixMonitor to the TRUNK peer channel as a fallback.
-                // When the mobile app uses DTLS-SRTP (WebRTC), the DTLS handshake may not
-                // complete before the call ends, leaving the PJSIP/4000 leg with zero audio.
-                // The trunk leg (PJSIP/trunk-ro-endpoint / trunk-sk-endpoint) uses standard
-                // SRTP without WebRTC DTLS complications and will always have audio if the
-                // remote party answered. We record it in parallel and use it as fallback.
+                // When the mobile app uses DTLS-SRTP + OPUS (WebRTC), Asterisk may fail to
+                // write audio to MixMonitor on the mobile leg without logging any error.
+                // The trunk leg (PJSIP/trunk-ro-endpoint / trunk-sk-endpoint) uses plain
+                // RTP with ulaw/alaw — no DTLS/OPUS complications — and will always have
+                // audio if the remote party answered.
+                // NOTE: BRIDGEPEER via AMI Getvar is unreliable in a native bridge context
+                // (returns empty). Instead, we scan the ARI channels list (already fetched)
+                // for a trunk channel, then attach MixMonitor directly via AMI.
                 let amiTrunkFilePath: string | undefined;
                 try {
-                  const getvarResult = await sendAmiActionViaSshTunnel(
-                    server.host, sshPort, sshUser, sshPass,
-                    username, password,
-                    { Action: "Getvar", Channel: channel.name, Variable: "BRIDGEPEER" }
-                  );
-                  const peerMatch = getvarResult.response.match(/Value:\s*(\S+)/i);
-                  const peerChannel = peerMatch?.[1];
-                  if (peerChannel && /trunk/i.test(peerChannel)) {
+                  const trunkChannel = channels.find((ch: any) => {
+                    const name = (ch.name || '').toLowerCase();
+                    return name.includes('trunk') && ch.id !== channel.id;
+                  });
+                  if (trunkChannel) {
                     amiTrunkFilePath = `${amiRecordingPath}_trunk`;
                     const trunkResult = await sendAmiActionViaSshTunnel(
                       server.host, sshPort, sshUser, sshPass,
                       username, password,
                       {
                         Action: "MixMonitor",
-                        Channel: peerChannel,
+                        Channel: trunkChannel.name,
                         File: `${amiTrunkFilePath}.wav`,
                         Options: "v(1)V(1)",
                       }
                     );
                     if (trunkResult.success) {
-                      console.log(`[ServerRecording] Also started MixMonitor on trunk peer '${peerChannel}' → ${amiTrunkFilePath}.wav (DTLS fallback)`);
+                      console.log(`[ServerRecording] Also started MixMonitor on trunk peer '${trunkChannel.name}' → ${amiTrunkFilePath}.wav (DTLS fallback)`);
                     } else {
                       console.warn(`[ServerRecording] Trunk peer MixMonitor failed: ${trunkResult.response}`);
                       amiTrunkFilePath = undefined;
                     }
                   } else {
-                    console.log(`[ServerRecording] BRIDGEPEER='${peerChannel ?? "none"}' — no trunk peer to record separately`);
+                    console.log(`[ServerRecording] No trunk channel found in ARI list (${channels.length} channels) — no fallback recording`);
                   }
                 } catch (bridgePeerErr: any) {
-                  console.warn(`[ServerRecording] Bridge peer detection non-fatal: ${bridgePeerErr.message}`);
+                  console.warn(`[ServerRecording] Trunk peer detection non-fatal: ${(bridgePeerErr as any).message}`);
                 }
 
                 mobileActiveRecordings.set(callLogId, {
