@@ -17199,9 +17199,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       // Delete the source file from Asterisk to free space (best-effort)
       runSshCommand(recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
-        `rm -f "${recInfo.amiFilePath}.wav" "${recInfo.amiFilePath}^wav.raw" "${recInfo.amiFilePath}.raw" "${recInfo.amiFilePath}.ulaw" "${recInfo.amiFilePath}.gsm" 2>/dev/null; echo deleted`
+        `sudo rm -f "${recInfo.amiFilePath}.wav" "${recInfo.amiFilePath}^wav.raw" "${recInfo.amiFilePath}.raw" "${recInfo.amiFilePath}.ulaw" "${recInfo.amiFilePath}.gsm" 2>/dev/null; echo deleted`
       ).then(out => console.log(`[FinalizeRecording] Cleaned up Asterisk file: ${out.trim()}`))
-       .catch(() => {});
+       .catch(err => console.warn(`[FinalizeRecording] Cleanup failed: ${err?.message}`));
 
       // Trigger AI analysis + transcription in background (same as mic-upload path)
       if (savedRecording && process.env.OPENAI_API_KEY) {
