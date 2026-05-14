@@ -82,7 +82,7 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as mailchimpApi from "./lib/mailchimp";
-import { sendAmiActionViaSshTunnel, downloadFileViaSsh } from "./lib/ami-client";
+import { sendAmiActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 
@@ -17015,6 +17015,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 throw new Error("SSH credentials not configured in ARI settings");
               }
 
+              // Ensure recording directory exists on Asterisk server (silently created if missing)
+              try {
+                await runSshCommand(server.host, sshPort, sshUser, sshPass,
+                  `mkdir -p /var/spool/asterisk/monitor && chown -R asterisk:asterisk /var/spool/asterisk/monitor 2>/dev/null; echo ok`
+                );
+              } catch (mkdirErr: any) {
+                console.warn(`[ServerRecording] mkdir on Asterisk failed (non-fatal): ${mkdirErr?.message}`);
+              }
+
               // SSH tunnel to AMI on localhost:5038 of Asterisk server — bypasses external firewall
               // NOTE: No 'b' option — without it MixMonitor immediately forces a software (mixing) bridge,
               // which guarantees both channel directions (read+write) are captured even when direct_media is negotiated.
@@ -17147,7 +17156,16 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       mobileActiveRecordings.delete(callLogId);
 
       if (!audioBuffer) {
-        console.warn(`[FinalizeRecording] ALL ATTEMPTS FAILED for '${recInfo.amiFilePath}.*' — mobile will upload mic-only fallback`);
+        // Diagnostic: list what's actually in the asterisk spool to understand where file ended up
+        try {
+          const listing = await runSshCommand(
+            recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
+            `find /var/spool/asterisk/ -name "mobile_*" -newer /tmp 2>/dev/null | head -20; echo "---"; ls -la /var/spool/asterisk/monitor/ 2>/dev/null | tail -10`
+          );
+          console.warn(`[FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:\n${listing}`);
+        } catch {
+          console.warn(`[FinalizeRecording] ALL ATTEMPTS FAILED for '${recInfo.amiFilePath}.*' — diagnostic SSH also failed`);
+        }
         return res.json({ success: false, message: "Recording file not available via SSH — mic recording will be used" });
       }
 

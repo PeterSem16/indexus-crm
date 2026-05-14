@@ -130,6 +130,35 @@ export function sendAmiActionViaSshTunnel(
 }
 
 /**
+ * Runs a single shell command on a remote server via SSH exec.
+ * Used for setup tasks (e.g. mkdir) before recording starts.
+ */
+export function runSshCommand(
+  host: string,
+  sshPort: number,
+  username: string,
+  password: string,
+  command: string
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const conn = new SshClient();
+    const timer = setTimeout(() => { conn.end(); reject(new Error(`SSH command timeout: ${command}`)); }, 10000);
+
+    conn.on("ready", () => {
+      conn.exec(command, (err, stream) => {
+        if (err) { clearTimeout(timer); conn.end(); reject(err); return; }
+        let out = "";
+        stream.on("data", (d: Buffer) => { out += d.toString(); });
+        stream.stderr.on("data", (d: Buffer) => { out += d.toString(); });
+        stream.on("close", () => { clearTimeout(timer); conn.end(); resolve(out.trim()); });
+      });
+    });
+    conn.on("error", (err) => { clearTimeout(timer); reject(err); });
+    conn.connect({ host, port: sshPort, username, password, readyTimeout: 8000, hostVerifier: () => true });
+  });
+}
+
+/**
  * Downloads a file from a remote server via SSH exec (cat).
  * Used to retrieve MixMonitor recordings which ARI cannot serve.
  * Tries multiple extensions (.wav, .WAV, .ulaw, .gsm) if basePath has no extension.
@@ -150,8 +179,13 @@ export function downloadFileViaSsh(
     }, 20000);
 
     conn.on("ready", () => {
-      // Find the actual file (Asterisk adds extension based on codec)
-      const findCmd = `ls ${basePath}.wav ${basePath}.WAV ${basePath}.ulaw ${basePath}.gsm ${basePath}.sln 2>/dev/null | head -1`;
+      // Find the actual file — first try known extensions at the specified path,
+      // then fall back to a recursive find across the whole Asterisk spool (catches wrong-dir cases)
+      const baseName = basePath.split("/").pop() || "";
+      const findCmd = [
+        `ls ${basePath}.wav ${basePath}.WAV ${basePath}.ulaw ${basePath}.gsm ${basePath}.sln 2>/dev/null | head -1`,
+        `find /var/spool/asterisk/ -name "${baseName}*" 2>/dev/null | head -1`,
+      ].join(" || ");
       let foundPath = "";
 
       conn.exec(findCmd, (err, findStream) => {
@@ -165,13 +199,14 @@ export function downloadFileViaSsh(
         let findOutput = "";
         findStream.on("data", (d: Buffer) => { findOutput += d.toString(); });
         findStream.on("close", () => {
-          foundPath = findOutput.trim();
+          foundPath = findOutput.trim().split("\n")[0].trim();
           if (!foundPath) {
             clearTimeout(timer);
             conn.end();
-            reject(new Error(`Recording file not found at ${basePath}.*`));
+            reject(new Error(`Recording file not found at ${basePath}.* (also searched /var/spool/asterisk/ recursively)`));
             return;
           }
+          console.log(`[SSH-Download] Found recording at: ${foundPath}`);
 
           // Download the file via cat
           conn.exec(`cat "${foundPath}"`, (err2, catStream) => {
