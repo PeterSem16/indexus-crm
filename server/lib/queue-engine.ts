@@ -113,6 +113,10 @@ export class QueueEngine extends EventEmitter {
   private setupAriHandlers(): void {
     this.ariClient.on("stasis-start", (event: AriEvent) => {
       if (event.channel) {
+        // Ignore snoop channels created for mobile call recording
+        if (event.channel.id && event.channel.id.startsWith("snoop-")) {
+          return;
+        }
         const args = event.args || [];
         if (args[0] === "agent-call" || args[0] === "transfer") {
           console.log(`[QueueEngine] StasisStart for originated channel ${event.channel.id} (args: ${args.join(',')})`);
