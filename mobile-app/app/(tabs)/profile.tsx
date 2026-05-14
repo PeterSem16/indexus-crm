@@ -1,8 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard, ActivityIndicator } from 'react-native';
 import { useState, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as FileSystem from 'expo-file-system';
+// expo-sharing loaded lazily to avoid missing-types TS error
+const getSharingModule = (): { shareAsync: (uri: string, opts?: any) => Promise<void>; isAvailableAsync: () => Promise<boolean> } =>
+  require('expo-sharing');
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -12,6 +16,7 @@ import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { SUPPORTED_LANGUAGES, SupportedLanguage } from '@/constants/config';
 import { API_BASE_URL } from '@/constants/config';
 import Constants from 'expo-constants';
+import { runDiagnostics, formatDiagReport, DiagTest, DiagStatus } from '@/lib/turnDiagnostics';
 
 const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
 
@@ -22,11 +27,14 @@ export default function ProfileScreen() {
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
   const { lastSyncAt, pendingCount, isOnline } = useSyncStore();
-  const { registrationState, debugMessages, iceStats, clearDebugMessages } = useSipStore();
+  const { registrationState, debugMessages, iceStats, clearDebugMessages, forceReconnect, connect, isConnecting } = useSipStore();
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showPhoneLog, setShowPhoneLog] = useState(false);
   const [logTab, setLogTab] = useState<'turn' | 'log'>('turn');
   const phoneLogScrollRef = useRef<ScrollView>(null);
+  const [diagResults, setDiagResults] = useState<DiagTest[] | null>(null);
+  const [diagRunning, setDiagRunning] = useState(false);
+  const [reregistering, setReregistering] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -71,6 +79,48 @@ export default function ProfileScreen() {
     const content = buildLogContent();
     Clipboard.setString(content);
     Alert.alert('Skopírované', 'Phone Log bol skopírovaný do schránky');
+  };
+
+  const exportLogAsFile = async () => {
+    try {
+      const diagSection = diagResults
+        ? '\n\n' + formatDiagReport(diagResults, `SIP: ${registrationState}`)
+        : '';
+      const content = buildLogContent() + diagSection;
+      const filename = `indexus-diag-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.txt`;
+      const path = `${FileSystem.cacheDirectory}${filename}`;
+      await FileSystem.writeAsStringAsync(path, content, { encoding: FileSystem.EncodingType.UTF8 });
+      const Sharing = getSharingModule();
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(path, { mimeType: 'text/plain', dialogTitle: 'Odoslať diagnostiku', UTI: 'public.plain-text' });
+      } else {
+        Alert.alert('Uložené', `Súbor: ${path}`);
+      }
+    } catch (err: any) {
+      Alert.alert('Chyba exportu', err?.message || String(err));
+    }
+  };
+
+  const handleRunDiag = async () => {
+    if (diagRunning) return;
+    setDiagRunning(true);
+    setDiagResults(null);
+    try {
+      await runDiagnostics((results) => setDiagResults([...results]));
+    } finally {
+      setDiagRunning(false);
+    }
+  };
+
+  const handleReregister = async () => {
+    if (reregistering || isConnecting) return;
+    setReregistering(true);
+    try {
+      await forceReconnect();
+    } finally {
+      setReregistering(false);
+    }
   };
 
   const formatLastSync = () => {
@@ -310,40 +360,82 @@ export default function ProfileScreen() {
 
           {/* ── TURN / ICE Tab ── */}
           {logTab === 'turn' && (
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 50 }}>
 
-              {/* ICE servers block */}
-              <Text style={styles.diagSectionTitle}>ICE SERVERY</Text>
-              {iceStats.configuredUrls.length === 0 ? (
-                <Text style={styles.diagEmpty}>Žiadne ICE servery — zatiaľ nebol inicializovaný hovor</Text>
-              ) : (
-                iceStats.configuredUrls.map((url, i) => {
-                  const isRelay = url.startsWith('turns:') || url.startsWith('turn:');
-                  const isTLS443 = url.includes(':443');
-                  const isTLS5350 = url.includes(':5350');
-                  const isUDP3478 = url.includes(':3478') && !url.includes('tcp');
-                  const dotColor = isTLS443 ? '#00e5ff' : isTLS5350 ? '#4caf50' : isUDP3478 ? '#ff9800' : '#aaaacc';
-                  const badge = isTLS443 ? '443/TLS ✓ nikdy blokovaný' : isTLS5350 ? '5350/TLS' : isUDP3478 ? '3478/UDP ⚠ môže byť blokovaný' : isRelay ? 'TURN/TCP' : 'STUN';
-                  return (
-                    <View key={i} style={styles.diagRow}>
-                      <View style={[styles.diagDot, { backgroundColor: dotColor }]} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.diagUrlText} selectable>{url}</Text>
-                        <Text style={[styles.diagBadge, { color: dotColor }]}>{badge}</Text>
+              {/* Action buttons */}
+              <View style={styles.diagActionRow}>
+                <TouchableOpacity
+                  style={[styles.diagActionBtn, diagRunning && { opacity: 0.6 }]}
+                  onPress={handleRunDiag}
+                  disabled={diagRunning}
+                  testID="button-run-diag"
+                >
+                  {diagRunning
+                    ? <ActivityIndicator size="small" color="#00e5ff" />
+                    : <Ionicons name="pulse" size={16} color="#00e5ff" />
+                  }
+                  <Text style={styles.diagActionBtnText}>
+                    {diagRunning ? 'Prebieha test...' : 'Spustiť diagnostiku'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.diagActionBtn, { borderColor: '#44ff8850' }, (reregistering || isConnecting) && { opacity: 0.6 }]}
+                  onPress={handleReregister}
+                  disabled={reregistering || isConnecting}
+                  testID="button-reregister"
+                >
+                  {(reregistering || isConnecting)
+                    ? <ActivityIndicator size="small" color="#44ff88" />
+                    : <Ionicons name="refresh" size={16} color="#44ff88" />
+                  }
+                  <Text style={[styles.diagActionBtnText, { color: '#44ff88' }]}>
+                    {reregistering || isConnecting ? 'Registrujem...' : 'Re-registrovať SIP'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Export button */}
+              <TouchableOpacity style={styles.diagExportBtn} onPress={exportLogAsFile} testID="button-export-log">
+                <Ionicons name="mail-outline" size={15} color="#ffaa00" />
+                <Text style={styles.diagExportBtnText}>Exportovať / poslať emailom</Text>
+              </TouchableOpacity>
+
+              {/* ─ Active diagnostics results ─ */}
+              {diagResults && diagResults.length > 0 && (
+                <>
+                  <Text style={[styles.diagSectionTitle, { marginTop: 18 }]}>VÝSLEDKY TESTU PORTOV</Text>
+                  {diagResults.map((t) => {
+                    const icon: any = t.status === 'ok' ? 'checkmark-circle' : t.status === 'fail' ? 'close-circle' : t.status === 'warn' ? 'warning' : t.status === 'running' ? 'ellipsis-horizontal-circle' : 'radio-button-off';
+                    const color = t.status === 'ok' ? '#44ff88' : t.status === 'fail' ? '#ff4444' : t.status === 'warn' ? '#ffaa00' : t.status === 'running' ? '#00e5ff' : '#444466';
+                    return (
+                      <View key={t.id} style={[styles.diagTestRow, { borderColor: color + '30' }]}>
+                        <View style={{ width: 22, alignItems: 'center' }}>
+                          {t.status === 'running'
+                            ? <ActivityIndicator size="small" color="#00e5ff" />
+                            : <Ionicons name={icon} size={18} color={color} />
+                          }
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.diagTestName, { color }]}>{t.name}</Text>
+                          <Text style={styles.diagTestDetail}>{t.detail}</Text>
+                        </View>
+                        {t.ms != null && t.status !== 'running' && (
+                          <Text style={styles.diagTestMs}>{t.ms}ms</Text>
+                        )}
                       </View>
-                    </View>
-                  );
-                })
+                    );
+                  })}
+                </>
               )}
 
-              {/* ICE gathering result */}
-              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>VÝSLEDOK ICE GATHERING</Text>
+              {/* ─ Last call ICE gathering ─ */}
+              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>POSLEDNÝ HOVOR — ICE</Text>
               {!iceStats.lastCallAt ? (
-                <Text style={styles.diagEmpty}>Zatiaľ nebol uskutočnený hovor</Text>
+                <Text style={styles.diagEmpty}>Zatiaľ nebol uskutočnený hovor — zavolaj a výsledky sa tu zobrazia</Text>
               ) : (
                 <>
-                  <Text style={styles.diagTimestamp}>Posledný hovor: {iceStats.lastCallAt}</Text>
-
+                  <Text style={styles.diagTimestamp}>Čas: {iceStats.lastCallAt}</Text>
                   <View style={styles.diagCandRow}>
                     <View style={styles.diagCandBox}>
                       <Text style={styles.diagCandNum}>{iceStats.candidateCounts.host}</Text>
@@ -353,13 +445,11 @@ export default function ProfileScreen() {
                       <Text style={styles.diagCandNum}>{iceStats.candidateCounts.srflx}</Text>
                       <Text style={styles.diagCandLabel}>srflx</Text>
                     </View>
-                    <View style={[styles.diagCandBox, { borderColor: iceStats.candidateCounts.relay > 0 ? '#00e5ff' : '#ff4444' }]}>
-                      <Text style={[styles.diagCandNum, { color: iceStats.candidateCounts.relay > 0 ? '#00e5ff' : '#ff4444' }]}>
+                    <View style={[styles.diagCandBox, { borderColor: iceStats.candidateCounts.relay > 0 ? '#44ff88' : '#ff4444' }]}>
+                      <Text style={[styles.diagCandNum, { color: iceStats.candidateCounts.relay > 0 ? '#44ff88' : '#ff4444' }]}>
                         {iceStats.candidateCounts.relay}
                       </Text>
-                      <Text style={[styles.diagCandLabel, { color: iceStats.candidateCounts.relay > 0 ? '#00e5ff' : '#ff9800' }]}>
-                        relay (TURN)
-                      </Text>
+                      <Text style={[styles.diagCandLabel, { color: iceStats.candidateCounts.relay > 0 ? '#44ff88' : '#ff9800' }]}>relay (TURN)</Text>
                     </View>
                   </View>
 
@@ -367,24 +457,24 @@ export default function ProfileScreen() {
                     <View style={styles.diagAlert}>
                       <Ionicons name="alert-circle" size={18} color="#ff4444" />
                       <Text style={styles.diagAlertText}>
-                        {'ŽIADNE RELAY candidates!\nTURN server je pravdepodobne blokovaný mobilným operátorom.\nSkúste: turns:turn.cordbloodcenter.com:443?transport=tcp'}
+                        {'ŽIADNE RELAY candidates!\nTURN server nedostupný na mobilných dátach.\nSpusti diagnostiku hore → zistí ktorý port funguje.'}
                       </Text>
                     </View>
                   )}
                   {iceStats.candidateCounts.relay > 0 && (
                     <View style={styles.diagOk}>
-                      <Ionicons name="checkmark-circle" size={18} color="#00e5ff" />
-                      <Text style={styles.diagOkText}>TURN relay funguje! Adresa: {iceStats.relayAddr || '?'}</Text>
+                      <Ionicons name="checkmark-circle" size={18} color="#44ff88" />
+                      <Text style={styles.diagOkText}>TURN relay funguje! {iceStats.relayAddr ? `Adresa: ${iceStats.relayAddr}` : ''}</Text>
                     </View>
                   )}
                 </>
               )}
 
-              {/* ICE connection state */}
-              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>ICE SPOJENIE</Text>
+              {/* ─ ICE connection state ─ */}
+              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>ICE STAV SPOJENIA</Text>
               {(() => {
                 const st = iceStats.connectionState;
-                const color = st === 'connected' || st === 'completed' ? '#00e5ff'
+                const color = st === 'connected' || st === 'completed' ? '#44ff88'
                   : st === 'failed' ? '#ff4444'
                   : st === 'checking' ? '#ffaa00'
                   : st === 'disconnected' || st === 'closed' ? '#ff9800'
@@ -392,19 +482,39 @@ export default function ProfileScreen() {
                 return (
                   <View style={styles.diagRow}>
                     <View style={[styles.diagDot, { backgroundColor: color, width: 12, height: 12, borderRadius: 6 }]} />
-                    <Text style={[styles.diagUrlText, { color }]}>{st}</Text>
-                    {iceStats.usedRelay && (
-                      <Text style={styles.diagRelayBadge}>cez TURN RELAY</Text>
-                    )}
+                    <Text style={[styles.diagUrlText, { color, fontSize: 13, fontWeight: '700' }]}>{st}</Text>
+                    {iceStats.usedRelay && <Text style={styles.diagRelayBadge}>cez TURN RELAY</Text>}
                   </View>
                 );
               })()}
-
               {iceStats.error && (
-                <View style={[styles.diagAlert, { marginTop: 10 }]}>
+                <View style={[styles.diagAlert, { marginTop: 8 }]}>
                   <Ionicons name="warning" size={18} color="#ff4444" />
                   <Text style={styles.diagAlertText}>{iceStats.error}</Text>
                 </View>
+              )}
+
+              {/* ─ Configured ICE servers (reference) ─ */}
+              {iceStats.configuredUrls.length > 0 && (
+                <>
+                  <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>NAKONFIGUROVANÉ ICE SERVERY</Text>
+                  {iceStats.configuredUrls.map((url, i) => {
+                    const isTLS443 = url.includes(':443');
+                    const isTLS5350 = url.includes(':5350');
+                    const isUDP3478 = url.includes(':3478') && !url.includes('tcp');
+                    const dotColor = isTLS443 ? '#00e5ff' : isTLS5350 ? '#4caf50' : isUDP3478 ? '#ff9800' : '#aaaacc';
+                    const badge = isTLS443 ? '443/TLS — nikdy blokovaný' : isTLS5350 ? '5350/TLS' : isUDP3478 ? '3478/UDP ⚠' : url.startsWith('turn') ? 'TURN/TCP' : 'STUN';
+                    return (
+                      <View key={i} style={styles.diagRow}>
+                        <View style={[styles.diagDot, { backgroundColor: dotColor }]} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.diagUrlText} selectable>{url}</Text>
+                          <Text style={[styles.diagBadge, { color: dotColor }]}>{badge}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </>
               )}
 
             </ScrollView>
@@ -1010,6 +1120,78 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xs,
     color: '#aaaacc',
     fontWeight: '600',
+  },
+
+  /* ── Diag action buttons ── */
+  diagActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  diagActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#00e5ff50',
+    backgroundColor: 'rgba(0,229,255,0.06)',
+  },
+  diagActionBtnText: {
+    fontSize: FontSizes.sm,
+    fontWeight: '700',
+    color: '#00e5ff',
+  },
+  diagExportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ffaa0040',
+    backgroundColor: 'rgba(255,170,0,0.05)',
+    marginBottom: 4,
+  },
+  diagExportBtnText: {
+    fontSize: FontSizes.sm,
+    fontWeight: '600',
+    color: '#ffaa00',
+  },
+  diagTestRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    marginBottom: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  diagTestName: {
+    fontSize: FontSizes.sm,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  diagTestDetail: {
+    fontSize: 11,
+    color: '#888899',
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  diagTestMs: {
+    fontSize: 10,
+    color: '#555577',
+    fontWeight: '600',
+    marginTop: 2,
+    minWidth: 45,
+    textAlign: 'right',
   },
 
   /* ── TURN diagnostic panel ── */

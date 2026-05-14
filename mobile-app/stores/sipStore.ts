@@ -50,6 +50,7 @@ interface SipStoreState {
   sendDtmf: (tone: string) => void;
   clearError: () => void;
   clearDebugMessages: () => void;
+  forceReconnect: () => Promise<boolean>;
   startRecording: (callLogId?: string) => Promise<void>;
   stopAndUploadRecording: (params: {
     callLogId: string;
@@ -177,6 +178,16 @@ export const useSipStore = create<SipStoreState>((set, get) => {
     clearError: () => set({ error: null }),
 
     clearDebugMessages: () => set({ debugMessages: [], iceStats: { ...defaultIceStats } }),
+
+    forceReconnect: async () => {
+      await mobileSipEngine.disconnect();
+      await new Promise(r => setTimeout(r, 1200));
+      const success = await mobileSipEngine.connect();
+      if (!success) set({ error: 'SIP re-connect failed' });
+      const creds = mobileSipEngine.getCredentials();
+      if (creds) set({ callRecordingEnabled: creds.callRecording });
+      return success;
+    },
 
     startRecording: async (callLogId?: string) => {
       await mobileAudioRecorder.startRecording();
