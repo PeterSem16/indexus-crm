@@ -1,0 +1,47 @@
+seman@CORPCRM01:/var/www/indexus-crm/mobile-app$ pm2 logs indexus-crm --lines 50 | grep -E "ICE|TURN|ServerRecording|FinalizeRecording|CallAnalysis|Transcription"
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED — likely cause: unknown — call was 6s, DTLS/RTP issue on Asterisk side?. File on Asterisk: -rw-r--r-- 1 asterisk asterisk 44 May 14 11:59 /var/spool/asterisk/monitor/mobile_d062d026-a402-4037-be07-942d64eb812d_1778759970062.wav
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED — likely cause: call was too short (0s) — MixMonitor likely started after audio ended. File on Asterisk: -rw-r--r-- 1 asterisk asterisk 44 May 14 12:01 /var/spool/asterisk/monitor/mobile_f4dbecdb-8a90-43d5-be98-c862b891b87b_1778760094359.wav
+4|indexus- | [CallAnalysis] Whisper transcription failed for 5bed1cf9-a19f-4da3-9c40-102c2d28a627 (attempt 1/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper HTTP status: 400
+4|indexus- | [CallAnalysis] Whisper error details: {"message":"Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']","type":"invalid_request_error","param":null,"code":null}
+4|indexus- | [CallAnalysis] Whisper transcription failed for 5bed1cf9-a19f-4da3-9c40-102c2d28a627 (attempt 2/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper HTTP status: 400
+4|indexus- | [CallAnalysis] Whisper error details: {"message":"Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']","type":"invalid_request_error","param":null,"code":null}
+4|indexus- | [CallAnalysis] Whisper transcription failed for 5bed1cf9-a19f-4da3-9c40-102c2d28a627 (attempt 3/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper HTTP status: 400
+4|indexus- | [CallAnalysis] Whisper error details: {"message":"Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']","type":"invalid_request_error","param":null,"code":null}
+4|indexus- | [CallAnalysis] Whisper transcription failed for 078cdff0-4736-4563-b9c4-7a0326e3e108 (attempt 1/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper HTTP status: 400
+4|indexus- | [CallAnalysis] Whisper error details: {"message":"Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']","type":"invalid_request_error","param":null,"code":null}
+4|indexus- | [CallAnalysis] Whisper transcription failed for 078cdff0-4736-4563-b9c4-7a0326e3e108 (attempt 2/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper HTTP status: 400
+4|indexus- | [CallAnalysis] Whisper error details: {"message":"Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']","type":"invalid_request_error","param":null,"code":null}
+4|indexus- | [CallAnalysis] Whisper transcription failed for 078cdff0-4736-4563-b9c4-7a0326e3e108 (attempt 3/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper HTTP status: 400
+4|indexus- | [CallAnalysis] Whisper error details: {"message":"Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']","type":"invalid_request_error","param":null,"code":null}
+4|indexus- | [CallAnalysis] Whisper transcription failed for eb4182ec-0137-43fa-9e75-efc177561079 (attempt 1/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper HTTP status: 400
+4|indexus- | [CallAnalysis] Whisper error details: {"message":"Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']","type":"invalid_request_error","param":null,"code":null}
+4|indexus- | [CallAnalysis] Whisper transcription failed for eb4182ec-0137-43fa-9e75-efc177561079 (attempt 2/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper HTTP status: 400
+4|indexus- | [CallAnalysis] Whisper error details: {"message":"Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']","type":"invalid_request_error","param":null,"code":null}
+4|indexus- | [CallAnalysis] Whisper transcription failed for eb4182ec-0137-43fa-9e75-efc177561079 (attempt 3/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper HTTP status: 400
+4|indexus- | [CallAnalysis] Whisper error details: {"message":"Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']","type":"invalid_request_error","param":null,"code":null}
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=75e71cbf-8a16-42ed-8670-e45ff5d012a2, activeRecordings=["75e71cbf-8a16-42ed-8670-e45ff5d012a2"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/monitor/mobile_75e71cbf-8a16-42ed-8670-e45ff5d012a2_1778768368723.* (call duration: 18s)
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/monitor/mobile_75e71cbf-8a16-42ed-8670-e45ff5d012a2_1778768368723.*'
+4|indexus-crm  | [FinalizeRecording] SSH download succeeded on attempt 1: 251884 bytes
+4|indexus-crm  | [CallAnalysis] Starting transcription for recording 0e439dcc-c4a5-49cf-a7db-2e5e24e03417
+4|indexus-crm  | [FinalizeRecording] Saved via SSH from mediagtw.cordbloodcenter.com: server_20260514_141946_75e71cbf.wav (251884 bytes) — BOTH SIDES
+4|indexus-crm  | [CallAnalysis] User language for 0e439dcc-c4a5-49cf-a7db-2e5e24e03417: sk (slovenčina)
+4|indexus-crm  | [CallAnalysis] File size for 0e439dcc-c4a5-49cf-a7db-2e5e24e03417: 251884 bytes, path: /var/www/indexus-crm/data/call-recordings/server_20260514_141946_75e71cbf.wav
+4|indexus-crm  | [FinalizeRecording] Cleaned up Asterisk file(s): deleted
+4|indexus-crm  | [CallAnalysis] Transcription complete for 0e439dcc-c4a5-49cf-a7db-2e5e24e03417: 94 chars (attempt 1)
+4|indexus-crm  | [CallAnalysis] No campaign script available for 0e439dcc-c4a5-49cf-a7db-2e5e24e03417
+4|indexus-crm  | [CallAnalysis] Starting GPT-4o analysis for 0e439dcc-c4a5-49cf-a7db-2e5e24e03417, language: sk, transcript: 94 chars, hasScript: false
+4|indexus-crm  | [CallAnalysis] GPT-4o raw response for 0e439dcc-c4a5-49cf-a7db-2e5e24e03417: {
+4|indexus-crm  | [CallAnalysis] Parsed GPT response for 0e439dcc-c4a5-49cf-a7db-2e5e24e03417: sentiment=neutral, quality=5, scriptScore=null, hasScriptDetails=false, topics=1, actions=1
+4|indexus-crm  | [CallAnalysis] Stored analysis metadata in call_log 75e71cbf-8a16-42ed-8670-e45ff5d012a2
+4|indexus-crm  | [CallAnalysis] Analysis complete for 0e439dcc-c4a5-49cf-a7db-2e5e24e03417: sentiment=neutral, score=5, scriptScore=N/A, alerts=0
+tail -50 /var/log/coturn.log
