@@ -1077,6 +1077,44 @@ class MobileSipEngine {
         this.setupIceHandlers(pc);
       }
 
+      // Log Asterisk's SDP answer — specifically its ICE candidates and audio codec
+      // This tells us if Asterisk is sending ICE candidates at all and what IP it uses
+      try {
+        const remoteSdp: string = pc.remoteDescription?.sdp || '';
+        if (remoteSdp) {
+          const lines = remoteSdp.split('\r\n');
+          const iceCands = lines.filter((l: string) => l.startsWith('a=candidate'));
+          const cLine = lines.find((l: string) => l.startsWith('c=IN IP4'));
+          const mLine = lines.find((l: string) => l.startsWith('m=audio'));
+          const ufrag = lines.find((l: string) => l.startsWith('a=ice-ufrag'));
+          this.emit('debug', `Asterisk SDP: ${mLine || 'no m=audio'} | ${cLine || 'no c='}`);
+          this.emit('debug', `Asterisk ICE: ufrag=${ufrag ? 'YES' : 'NONE'} candidates=${iceCands.length}`);
+          if (iceCands.length > 0) {
+            iceCands.slice(0, 4).forEach((c: string) => this.emit('debug', `  Ast cand: ${c}`));
+          } else {
+            this.emit('debug', '⚠ Asterisk sent NO ICE candidates — plain SDP, no ICE support!');
+          }
+          const codecs = lines.filter((l: string) => l.startsWith('a=rtpmap')).slice(0, 4);
+          if (codecs.length) this.emit('debug', `Asterisk codecs: ${codecs.join(' | ')}`);
+        }
+      } catch {}
+
+      // Periodic ICE state poll — shows if ICE transitions to connected/failed after checking
+      let _pollCount = 0;
+      const _pollTimer = setInterval(() => {
+        _pollCount++;
+        const st = pc.iceConnectionState;
+        this.emit('debug', `ICE poll #${_pollCount}: state=${st}`);
+        if (st === 'connected' || st === 'completed' || st === 'failed' || st === 'closed' || _pollCount >= 15) {
+          clearInterval(_pollTimer);
+          if (st === 'connected' || st === 'completed') {
+            this.emit('debug', '★ ICE CONNECTED (from poll) — audio should flow');
+          } else if (st === 'failed') {
+            this.emit('debug', '✗ ICE FAILED — no common candidate pair with Asterisk');
+          }
+        }
+      }, 2000);
+
       // Enable any already-received audio tracks
       const receivers = pc.getReceivers ? pc.getReceivers() : [];
       this.emit('debug', `Remote receivers: ${receivers.length}`);
