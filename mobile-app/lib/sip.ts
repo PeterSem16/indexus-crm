@@ -231,7 +231,7 @@ class MobileSipEngine {
         authorizationPassword: this.credentials!.password,
         logLevel: 'debug',
         sessionDescriptionHandlerFactoryOptions: {
-          iceGatheringTimeout: 5000,
+          iceGatheringTimeout: 8000,
           peerConnectionConfiguration: {
             iceServers,
             bundlePolicy: 'max-bundle',
@@ -497,10 +497,10 @@ class MobileSipEngine {
       const inviter = new Inviter(this.ua, target, {
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false },
-          iceGatheringTimeout: 5000,
+          iceGatheringTimeout: 8000,
         },
         sessionDescriptionHandlerFactoryOptions: {
-          iceGatheringTimeout: 5000,
+          iceGatheringTimeout: 8000,
           peerConnectionConfiguration: {
             iceServers: this._iceServers.length ? this._iceServers : [{ urls: 'stun:stun.l.google.com:19302' }],
             bundlePolicy: 'max-bundle',
@@ -567,10 +567,10 @@ class MobileSipEngine {
       await this.currentSession.accept({
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false },
-          iceGatheringTimeout: 5000,
+          iceGatheringTimeout: 8000,
         },
         sessionDescriptionHandlerFactoryOptions: {
-          iceGatheringTimeout: 5000,
+          iceGatheringTimeout: 8000,
           peerConnectionConfiguration: {
             iceServers: this._iceServers.length ? this._iceServers : [{ urls: 'stun:stun.l.google.com:19302' }],
             bundlePolicy: 'max-bundle',
@@ -896,18 +896,31 @@ class MobileSipEngine {
 
       this.emit('debug', `ICE connection state: ${pc.iceConnectionState}`);
       this.emit('debug', `ICE gathering state: ${pc.iceGatheringState}`);
+      const _iceCandidateTypes: string[] = [];
       pc.oniceconnectionstatechange = () => {
         this.emit('debug', `ICE connection state changed: ${pc.iceConnectionState}`);
         if (pc.iceConnectionState === 'failed') {
-          this.emit('debug', 'ICE connection FAILED - likely NAT traversal issue');
+          this.emit('debug', 'ICE FAILED — no relay candidates found, TURN may be blocked');
+        }
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          const hasRelay = _iceCandidateTypes.includes('relay');
+          this.emit('debug', `ICE connected via: ${hasRelay ? 'TURN RELAY ✓' : 'direct/STUN (no TURN relay used)'}`);
         }
       };
       pc.onicegatheringstatechange = () => {
         this.emit('debug', `ICE gathering state changed: ${pc.iceGatheringState}`);
+        if (pc.iceGatheringState === 'complete') {
+          const counts = _iceCandidateTypes.reduce((acc: Record<string, number>, t) => { acc[t] = (acc[t] || 0) + 1; return acc; }, {});
+          const hasTurn = counts['relay'] > 0;
+          this.emit('debug', `ICE gathering complete — candidates: ${JSON.stringify(counts)} ${hasTurn ? '✓ TURN relay OK' : '⚠ NO relay candidates — TURN unreachable on mobile data!'}`);
+        }
       };
       pc.onicecandidate = (event: any) => {
         if (event?.candidate) {
-          this.emit('debug', `ICE candidate: ${event.candidate.type} ${event.candidate.protocol} ${event.candidate.address || ''}`);
+          const t = event.candidate.type;
+          _iceCandidateTypes.push(t);
+          const relatedAddr = event.candidate.relatedAddress ? ` via ${event.candidate.relatedAddress}` : '';
+          this.emit('debug', `ICE candidate [${t}] ${event.candidate.protocol} ${event.candidate.address || ''}:${event.candidate.port || ''}${relatedAddr}`);
         }
       };
 

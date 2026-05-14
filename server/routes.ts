@@ -16839,6 +16839,28 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 username: sipSettings.turnUsername || undefined,
                 credential: sipSettings.turnPassword || undefined,
               },
+              // Always add plain-TURN on standard port 3478 as fallback.
+              // Mobile carriers (Vodafone, O2, T-Mobile) frequently block non-standard
+              // ports like 5350. Port 3478 (IANA-registered TURN/STUN) is almost never
+              // blocked. This ensures ICE relay candidates are gathered even when the
+              // TLS TURN port is unreachable.
+              ...(sipSettings.turnUsername
+                ? [
+                    {
+                      urls: (() => {
+                        try {
+                          const u = new URL(sipSettings.turnServer.replace(/^turns?:/, 'turn:'));
+                          const host = u.hostname || sipSettings.turnServer.split(':')[1]?.replace(/\/\//g, '') || sipSettings.turnServer;
+                          return `turn:${host}:3478`;
+                        } catch {
+                          return sipSettings.turnServer;
+                        }
+                      })(),
+                      username: sipSettings.turnUsername,
+                      credential: sipSettings.turnPassword || undefined,
+                    },
+                  ]
+                : []),
               ...(sipSettings.turnServerAlt
                 ? [
                     {
