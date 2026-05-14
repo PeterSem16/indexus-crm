@@ -42,3 +42,9 @@ id = "9SV16N8rbA-pRZlk3RmvO"
 uri = "file://docs/UBUNTU_DEPLOY.md"
 type = "text"
 title = "INDEXUS CRM — nasadenie na Ubuntu server"
+
+[[outputs]]
+id = "etxGeOmpojG-qU5oo5xHP"
+uri = "file://attached_assets/healthcare_network_documentation.md"
+type = "text"
+title = "INDEXUS — Healthcare Network Dokumentácia"
