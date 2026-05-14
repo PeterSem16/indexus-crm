@@ -1,0 +1,41 @@
+seman@mediagtw:/var/spool/asterisk/monitor$ vz2zKO3WzG5wt9afx^C
+seman@mediagtw:/var/spool/asterisk/monitor$ sudo asterisk -rx "pjsip show endpoint 4000" | grep -iE "direct|media|force"
+ bind_rtp_to_media_address          : false
+ direct_media                       : false
+ direct_media_glare_mitigation      : none
+ direct_media_method                : invite
+ disable_direct_media_on_nat        : false
+ follow_early_media_fork            : true
+ follow_redirect_methods            :
+ force_avp                          : false
+ force_rport                        : true
+ media_address                      :
+ media_encryption                   : dtls
+ media_encryption_optimistic        : false
+ media_use_received_transport       : true
+ redirect_method                    : user
+ rpid_immediate                     : false
+ t38_bind_udptl_to_media_address    : false
+seman@mediagtw:/var/spool/asterisk/monitor$ ssh seman@mediagtw.cordbloodcenter.com \
+  "ls -lh /var/spool/asterisk/monitor/ | grep -E '384bfb46|da5ae1c1|ed9e6b41|eb5467a2'"
+seman@mediagtw.cordbloodcenter.com's password:
+-rw-r--r-- 1 asterisk asterisk   44 May 14 11:08 mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+-rw-r--r-- 1 asterisk asterisk   44 May 14 11:09 mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav
+-rw-r--r-- 1 asterisk asterisk   44 May 14 11:22 mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.wav
+-rw-r--r-- 1 asterisk asterisk   44 May 14 11:13 mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.wav
+seman@mediagtw:/var/spool/asterisk/monitor$ ssh seman@mediagtw.cordbloodcenter.com \
+  "grep -E '4000-00000145|4000-00000147|4000-00000149|4000-0000014d' /var/log/asterisk/full | tail -80"
+seman@mediagtw.cordbloodcenter.com's password:
+grep: /var/log/asterisk/full: No such file or directory
+seman@mediagtw:/var/spool/asterisk/monitor$ ssh seman@mediagtw.cordbloodcenter.com \
+  "sudo asterisk -rx 'pjsip show aors' | grep -A5 '4000'"
+seman@mediagtw.cordbloodcenter.com's password:
+
+seman@mediagtw:/var/spool/asterisk/monitor$ sudo asterisk -rx 'pjsip show aors' | grep -A5 '4000'
+      Aor:  4000                                                 1
+
+      Aor:  4001                                                 1
+
+      Aor:  4002                                                 1
+
+seman@med

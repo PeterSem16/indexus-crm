@@ -1,0 +1,70 @@
+seman@mediagtw:/var/spool/asterisk/monitor$ ls -la /var/log/asterisk/
+total 1216
+drwxr-xr-x  5 asterisk asterisk    4096 Mar 11 21:12 .
+drwxrwxr-x 11 root     syslog      4096 May 14 00:00 ..
+drwxr-xr-x  2 asterisk asterisk    4096 Mar 12 13:19 cdr-csv
+drwxr-xr-x  2 asterisk asterisk    4096 Mar 11 21:10 cdr-custom
+drwxr-xr-x  2 asterisk asterisk    4096 Mar 11 21:10 cel-custom
+-rw-r--r--  1 asterisk asterisk 1215262 May 14 11:40 messages.log
+-rw-r--r--  1 asterisk asterisk    1994 May  6 06:25 queue_log
+seman@mediagtw:/var/spool/asterisk/monitor$ sudo asterisk -rx "cdr show status"
+# ak existuje CSV:
+ls -la /var/log/asterisk/cdr-csv/
+tail -30 /var/log/asterisk/cdr-csv/Master.csv
+
+Call Detail Record (CDR) settings
+----------------------------------
+  Logging:                    Enabled
+  Mode:                       Simple
+  Log calls by default:       Yes
+  Log unanswered calls:       No
+  Log congestion:             No
+
+  Ignore bridging changes:    No
+
+  Ignore dial state changes:  No
+
+  Cancel disposition enabled: No
+
+* Registered Backends
+  -------------------
+    cdr_manager (suspended)
+    cdr-custom
+    Adaptive ODBC
+    csv
+
+total 140
+drwxr-xr-x 2 asterisk asterisk   4096 Mar 12 13:19 .
+drwxr-xr-x 5 asterisk asterisk   4096 Mar 11 21:12 ..
+-rw-r--r-- 1 asterisk asterisk 129444 May 14 11:40 Master.csv
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-00000120","","Stasis","indexus-inbound","2026-05-14 07:59:52","2026-05-14 07:59:52","2026-05-14 08:00:03",10,10,"ANSWERED","DOCUMENTATION","1778745592.486",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-00000121","PJSIP/trunk-sk-endpoint-00000122","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 08:02:24","2026-05-14 08:02:25","2026-05-14 08:02:35",10,9,"ANSWERED","DOCUMENTATION","1778745744.491",""
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-00000123","","Stasis","indexus-inbound","2026-05-14 08:02:25","2026-05-14 08:02:25","2026-05-14 08:02:35",10,10,"ANSWERED","DOCUMENTATION","1778745745.493",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-00000124","PJSIP/trunk-sk-endpoint-00000125","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 08:08:47","2026-05-14 08:08:48","2026-05-14 08:08:56",8,8,"ANSWERED","DOCUMENTATION","1778746127.496",""
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-00000126","","Stasis","indexus-inbound","2026-05-14 08:08:47","2026-05-14 08:08:47","2026-05-14 08:08:56",8,8,"ANSWERED","DOCUMENTATION","1778746127.498",""
+"","0232393030","421948519438","route-sk",""""" <0232393030>","PJSIP/2030-00000127","PJSIP/trunk-sk-endpoint-00000128","Dial","PJSIP/0948519438@trunk-sk-endpoint,60","2026-05-14 08:09:45","2026-05-14 08:09:49","2026-05-14 08:10:05",20,16,"ANSWERED","DOCUMENTATION","1778746185.501",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-00000129","PJSIP/trunk-sk-endpoint-0000012a","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 08:33:42","2026-05-14 08:33:43","2026-05-14 08:33:53",11,10,"ANSWERED","DOCUMENTATION","1778747622.504",""
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-0000012b","","Stasis","indexus-inbound","2026-05-14 08:33:42","2026-05-14 08:33:42","2026-05-14 08:33:54",11,11,"ANSWERED","DOCUMENTATION","1778747622.506",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-0000012c","PJSIP/trunk-sk-endpoint-0000012d","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 08:48:59","2026-05-14 08:49:00","2026-05-14 08:49:12",13,12,"ANSWERED","DOCUMENTATION","1778748539.509",""
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-0000012e","","Stasis","indexus-inbound","2026-05-14 08:48:59","2026-05-14 08:48:59","2026-05-14 08:49:13",13,13,"ANSWERED","DOCUMENTATION","1778748539.511",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-0000012f","PJSIP/trunk-sk-endpoint-00000130","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 09:03:34","2026-05-14 09:03:35","2026-05-14 09:03:46",11,10,"ANSWERED","DOCUMENTATION","1778749414.514",""
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-00000131","","Stasis","indexus-inbound","2026-05-14 09:03:35","2026-05-14 09:03:35","2026-05-14 09:03:46",11,11,"ANSWERED","DOCUMENTATION","1778749415.516",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-00000132","PJSIP/trunk-sk-endpoint-00000133","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 09:05:59",,"2026-05-14 09:05:59",0,0,"NO ANSWER","DOCUMENTATION","1778749559.519",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-00000135","PJSIP/trunk-sk-endpoint-00000136","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 09:06:06","2026-05-14 09:06:07","2026-05-14 09:06:16",9,9,"ANSWERED","DOCUMENTATION","1778749566.523",""
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-00000137","","Stasis","indexus-inbound","2026-05-14 09:06:06","2026-05-14 09:06:06","2026-05-14 09:06:16",9,9,"ANSWERED","DOCUMENTATION","1778749566.525",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-00000138","PJSIP/trunk-sk-endpoint-00000139","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 09:12:47","2026-05-14 09:12:48","2026-05-14 09:13:00",12,12,"ANSWERED","DOCUMENTATION","1778749967.528",""
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-0000013a","","Stasis","indexus-inbound","2026-05-14 09:12:47","2026-05-14 09:12:47","2026-05-14 09:13:00",12,12,"ANSWERED","DOCUMENTATION","1778749967.530",""
+"","0232393030","421948519438","route-sk",""""" <0232393030>","PJSIP/2030-0000013b","PJSIP/trunk-sk-endpoint-0000013c","Dial","PJSIP/0948519438@trunk-sk-endpoint,60","2026-05-14 09:15:00","2026-05-14 09:15:04","2026-05-14 09:15:18",17,13,"ANSWERED","DOCUMENTATION","1778750100.533",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-0000013d","PJSIP/trunk-sk-endpoint-0000013e","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 09:20:43","2026-05-14 09:20:44","2026-05-14 09:21:00",16,16,"ANSWERED","DOCUMENTATION","1778750443.536",""
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-0000013f","","Stasis","indexus-inbound","2026-05-14 09:20:44","2026-05-14 09:20:44","2026-05-14 09:21:01",16,16,"ANSWERED","DOCUMENTATION","1778750444.538",""
+"","0232393030","421232399030","route-sk",""""" <0232393030>","PJSIP/2030-00000140","PJSIP/trunk-sk-endpoint-00000141","Dial","PJSIP/0232399030@trunk-sk-endpoint,60","2026-05-14 09:27:27","2026-05-14 09:27:28","2026-05-14 09:27:41",13,12,"ANSWERED","DOCUMENTATION","1778750847.541",""
+"","0421232393030","0232399030","from-sk-trunk",""""" <0421232393030>","PJSIP/trunk-sk-endpoint-00000142","","Stasis","indexus-inbound","2026-05-14 09:27:28","2026-05-14 09:27:28","2026-05-14 09:27:41",13,13,"ANSWERED","DOCUMENTATION","1778750848.543",""
+"","0232393030","421948519438","route-sk",""""" <0232393030>","PJSIP/2030-00000143","PJSIP/trunk-sk-endpoint-00000144","Dial","PJSIP/0948519438@trunk-sk-endpoint,60","2026-05-14 09:46:50","2026-05-14 09:46:55","2026-05-14 09:47:32",42,36,"ANSWERED","DOCUMENTATION","1778752010.546",""
+"","4000","0743476518","route-ro",""""" <4000>","PJSIP/4000-00000145","PJSIP/trunk-ro-endpoint-00000146","Dial","PJSIP/0743476518@trunk-ro-endpoint,60","2026-05-14 11:08:12","2026-05-14 11:08:18","2026-05-14 11:08:27",15,8,"ANSWERED","DOCUMENTATION","1778756892.549",""
+"","4000","0743476518","route-ro",""""" <4000>","PJSIP/4000-00000147","PJSIP/trunk-ro-endpoint-00000148","Dial","PJSIP/0743476518@trunk-ro-endpoint,60","2026-05-14 11:09:42","2026-05-14 11:09:47","2026-05-14 11:09:59",17,12,"ANSWERED","DOCUMENTATION","1778756982.552",""
+"","4000","0743476518","route-ro",""""" <4000>","PJSIP/4000-00000149","PJSIP/trunk-ro-endpoint-0000014a","Dial","PJSIP/0743476518@trunk-ro-endpoint,60","2026-05-14 11:12:38","2026-05-14 11:12:46","2026-05-14 11:13:02",23,15,"ANSWERED","DOCUMENTATION","1778757158.555",""
+"","4000","0734880994","route-ro",""""" <4000>","PJSIP/4000-0000014b","PJSIP/trunk-ro-endpoint-0000014c","Dial","PJSIP/0734880994@trunk-ro-endpoint,60","2026-05-14 11:21:06",,"2026-05-14 11:22:05",59,0,"NO ANSWER","DOCUMENTATION","1778757666.558",""
+"","4000","0734880994","route-ro",""""" <4000>","PJSIP/4000-0000014d","PJSIP/trunk-ro-endpoint-0000014e","Dial","PJSIP/0734880994@trunk-ro-endpoint,60","2026-05-14 11:22:39","2026-05-14 11:22:49","2026-05-14 11:22:59",19,9,"ANSWERED","DOCUMENTATION","1778757759.561",""
+"","4000","0728889150","route-ro",""""" <4000>","PJSIP/4000-0000014f","PJSIP/trunk-ro-endpoint-00000150","Dial","PJSIP/0728889150@trunk-ro-endpoint,60","2026-05-14 11:37:10","2026-05-14 11:37:15","2026-05-14 11:37:22",12,7,"ANSWERED","DOCUMENTATION","1778758630.564",""
+"","4000","0743476518","route-ro",""""" <4000>","PJSIP/4000-00000151","PJSIP/trunk-ro-endpoint-00000152","Dial","PJSIP/0743476518@trunk-ro-endpoint,60","2026-05-14 11:39:50","2026-05-14 11:39:58","2026-05-14 11:40:04",13,5,"ANSWERED","DOCUMENTATION","1778758790.567",""
+seman@medi

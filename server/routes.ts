@@ -17133,9 +17133,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return res.json({ success: false, message: "No active server recording found for this call" });
       }
 
+      // Fetch call log early so we can log duration on failure
+      const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
+      const callDurationSec = callLog?.durationSeconds ?? null;
+
       let audioBuffer: Buffer | null = null;
 
-      console.log(`[FinalizeRecording] Starting SSH download: ${recInfo.sshUser}@${recInfo.sshHost}:${recInfo.sshPort} path=${recInfo.amiFilePath}.*`);
+      console.log(`[FinalizeRecording] Starting SSH download: ${recInfo.sshUser}@${recInfo.sshHost}:${recInfo.sshPort} path=${recInfo.amiFilePath}.* (call duration: ${callDurationSec ?? "unknown"}s)`);
 
       // Retry up to 6 times with 3s delay — MixMonitor flushes the file after hangup (may take a few seconds)
       for (let attempt = 1; attempt <= 6; attempt++) {
@@ -17156,20 +17160,22 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       mobileActiveRecordings.delete(callLogId);
 
       if (!audioBuffer) {
-        // Diagnostic: list what's actually in the asterisk spool to understand where file ended up
+        const likelyCause = callDurationSec !== null && callDurationSec < 4
+          ? `call was too short (${callDurationSec}s) — MixMonitor likely started after audio ended`
+          : callDurationSec !== null
+            ? `unknown — call was ${callDurationSec}s, DTLS/RTP issue on Asterisk side?`
+            : "unknown — call duration not recorded";
         try {
           const listing = await runSshCommand(
             recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
-            `find /var/spool/asterisk/ -name "mobile_*" -newer /tmp 2>/dev/null | head -20; echo "---"; ls -la /var/spool/asterisk/monitor/ 2>/dev/null | tail -10`
+            `ls -la "${recInfo.amiFilePath}.wav" "${recInfo.amiFilePath}^wav.raw" 2>/dev/null; echo "---size check done"`,
           );
-          console.warn(`[FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:\n${listing}`);
+          console.warn(`[FinalizeRecording] ALL ATTEMPTS FAILED — likely cause: ${likelyCause}. File on Asterisk: ${listing.trim()}`);
         } catch {
-          console.warn(`[FinalizeRecording] ALL ATTEMPTS FAILED for '${recInfo.amiFilePath}.*' — diagnostic SSH also failed`);
+          console.warn(`[FinalizeRecording] ALL ATTEMPTS FAILED — likely cause: ${likelyCause} (SSH diagnostic also failed)`);
         }
         return res.json({ success: false, message: "Recording file not available via SSH — mic recording will be used" });
       }
-
-      const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
       const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
