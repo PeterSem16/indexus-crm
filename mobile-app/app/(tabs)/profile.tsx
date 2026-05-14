@@ -12,6 +12,8 @@ import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { SUPPORTED_LANGUAGES, SupportedLanguage } from '@/constants/config';
 import { API_BASE_URL } from '@/constants/config';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
 
@@ -40,6 +42,35 @@ export default function ProfileScreen() {
   const handleLanguageSelect = (lang: SupportedLanguage) => {
     setLanguage(lang);
     setShowLanguagePicker(false);
+  };
+
+  const downloadPhoneLog = async () => {
+    try {
+      const now = new Date();
+      const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const header = [
+        `INDEXUS Connect — Phone Log`,
+        `Version: ${APP_VERSION}`,
+        `Exported: ${now.toLocaleString()}`,
+        `SIP: ${registrationState}`,
+        `----------------------------------------`,
+        '',
+      ].join('\n');
+      const body = debugMessages.length > 0
+        ? debugMessages.join('\n')
+        : 'No SIP log entries.';
+      const content = header + body;
+      const fileUri = `${FileSystem.cacheDirectory}phone-log-${ts}.txt`;
+      await FileSystem.writeAsStringAsync(fileUri, content, { encoding: FileSystem.EncodingType.UTF8 });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/plain', dialogTitle: `Phone Log ${ts}` });
+      } else {
+        Alert.alert('Zdieľanie nie je dostupné', 'Súbor bol uložený do: ' + fileUri);
+      }
+    } catch (err: any) {
+      Alert.alert('Chyba', err?.message || 'Nepodarilo sa uložiť log');
+    }
   };
 
   const formatLastSync = () => {
@@ -236,13 +267,22 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Phone Log</Text>
-              <TouchableOpacity
-                onPress={() => setShowPhoneLog(false)}
-                style={styles.modalCloseButton}
-                testID="button-close-phone-log"
-              >
-                <Ionicons name="close" size={24} color={Colors.text} />
-              </TouchableOpacity>
+              <View style={styles.modalHeaderActions}>
+                <TouchableOpacity
+                  onPress={downloadPhoneLog}
+                  style={styles.modalActionButton}
+                  testID="button-download-phone-log"
+                >
+                  <Ionicons name="download-outline" size={22} color={Colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowPhoneLog(false)}
+                  style={styles.modalCloseButton}
+                  testID="button-close-phone-log"
+                >
+                  <Ionicons name="close" size={24} color={Colors.text} />
+                </TouchableOpacity>
+              </View>
             </View>
             <View style={styles.phoneLogStatus}>
               <View style={[styles.onlineIndicator, { backgroundColor: registrationState === 'registered' ? Colors.success : Colors.warning }]} />
@@ -577,6 +617,19 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.lg,
     fontWeight: '700',
     color: Colors.text,
+  },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  modalActionButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(107, 28, 59, 0.08)',
   },
   modalCloseButton: {
     width: 40,
