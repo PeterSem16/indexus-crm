@@ -26,7 +26,7 @@ export function runAsteriskCliViaSsh(
     }, 10000);
 
     conn.on("ready", () => {
-      conn.exec(`asterisk -rx "${cliCommand.replace(/"/g, '\\"')}"`, (err, stream) => {
+      conn.exec(`sudo asterisk -rx "${cliCommand.replace(/"/g, '\\"')}"`, (err, stream) => {
         if (err) {
           clearTimeout(timer);
           conn.end();
