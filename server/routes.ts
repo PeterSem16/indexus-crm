@@ -17117,8 +17117,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
 
       const callLogId = req.params.id;
+      console.log(`[FinalizeRecording] Called for callLogId=${callLogId}, activeRecordings=${JSON.stringify([...mobileActiveRecordings.keys()])}`);
       const recInfo = mobileActiveRecordings.get(callLogId);
       if (!recInfo) {
+        console.warn(`[FinalizeRecording] No recording found in Map for callLogId=${callLogId} — map has ${mobileActiveRecordings.size} entries`);
         return res.json({ success: false, message: "No active server recording found for this call" });
       }
 
