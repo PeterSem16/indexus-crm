@@ -1,0 +1,18 @@
+seman@CORPCRM01:/var/www/indexus-crm/mobile-app$ pm2 logs indexus-crm --lines 300 | grep -E "ServerRecording|FinalizeRecording"
+4|indexus-crm  | [ServerRecording] Channel not in Stasis, trying AMI MixMonitor on 'PJSIP/2030-0000012f' (both sides)
+4|indexus-crm  | [ServerRecording] AMI MixMonitor (via SSH tunnel) started on 'PJSIP/2030-0000012f', file: /var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.wav — SSH download target: seman@mediagtw.cordbloodcenter.com:22 (both sides)
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=7bdcee40-bb7d-4289-aabc-b9b9e31fece5, activeRecordings=["dadd65da-db63-49c9-9bf6-12b210d7fe90","7bdcee40-bb7d-4289-aabc-b9b9e31fece5"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 1/6 failed — Recording file not found at /var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 2/6 for '/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 2/6 failed — Recording file not found at /var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 3/6 for '/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 3/6 failed — Recording file not found at /var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 4/6 for '/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 4/6 failed — Recording file not found at /var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 5/6 for '/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 5/6 failed — Recording file not found at /var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 6/6 for '/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*'
+4|indexus-crm  | [FinalizeRecording] Attempt 6/6 failed — Recording file not found at /var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*
+4|indexus-crm  | [FinalizeRecording] ALL ATTEMPTS FAILED for '/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*' — mobile will upload mic-only fallback

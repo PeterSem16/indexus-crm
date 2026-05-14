@@ -17004,7 +17004,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             console.log(`[ServerRecording] Channel not in Stasis, trying AMI MixMonitor on '${channel.name}' (both sides)`);
 
             let amiRecorded = false;
-            const amiRecordingPath = `/var/spool/asterisk/recording/${recordingName}`;
+            const amiRecordingPath = `/var/spool/asterisk/monitor/${recordingName}`;
 
             try {
               const sshPort = ariSettingsList[0].sshPort || 22;
