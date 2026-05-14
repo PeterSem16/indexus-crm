@@ -119,6 +119,8 @@ export default function PhoneScreen() {
   const [analysisModal, setAnalysisModal] = useState<CallAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const recordingStartedRef = useRef(false);
+  // Holds IDs captured when call goes active — safe from React 18 batch-clearing of state
+  const pendingFinalizeRef = useRef<{ historyId: string; logId: string } | null>(null);
 
   const [hospitalContacts, setHospitalContacts] = useState<HospitalContact[]>([]);
   const [clinicContacts, setClinicContacts] = useState<ClinicContact[]>([]);
@@ -172,6 +174,11 @@ export default function PhoneScreen() {
   useEffect(() => {
     if (callState === 'active' && callRecordingEnabled && !recordingStartedRef.current) {
       recordingStartedRef.current = true;
+      // Capture IDs into a ref NOW while they're guaranteed to be set.
+      // React 18 batching can clear state vars by the time the idle effect runs.
+      if (currentCallHistoryId && currentCallLogId) {
+        pendingFinalizeRef.current = { historyId: currentCallHistoryId, logId: currentCallLogId };
+      }
       startRecording(currentCallLogId ?? undefined).catch(() => {});
     }
   }, [callState, callRecordingEnabled]);
@@ -183,23 +190,36 @@ export default function PhoneScreen() {
   }, [callInfo.duration]);
 
   useEffect(() => {
-    if (callState === 'idle' && currentCallHistoryId) {
+    if (callState === 'idle') {
       const finalDuration = lastDurationRef.current || callInfo.duration;
-      updateCallDuration(currentCallHistoryId, finalDuration, 'completed').catch(() => {});
+      // Read from ref — React 18 batching may have already cleared the state vars
+      const finalize = pendingFinalizeRef.current;
 
-      if (currentCallLogId) {
-        api.post(`/api/mobile/call-log/${currentCallLogId}/duration`, {
+      if (finalize) {
+        updateCallDuration(finalize.historyId, finalDuration, 'completed').catch(() => {});
+        api.post(`/api/mobile/call-log/${finalize.logId}/duration`, {
           duration: finalDuration,
         }).catch(() => {});
+      } else if (currentCallHistoryId) {
+        // Fallback: state vars still available (non-batched update)
+        updateCallDuration(currentCallHistoryId, finalDuration, 'completed').catch(() => {});
+        if (currentCallLogId) {
+          api.post(`/api/mobile/call-log/${currentCallLogId}/duration`, {
+            duration: finalDuration,
+          }).catch(() => {});
+        }
       }
 
       lastDurationRef.current = 0;
 
-      if (recordingStartedRef.current && currentCallLogId) {
+      const logIdForRecording = finalize?.logId ?? currentCallLogId;
+
+      if (recordingStartedRef.current && logIdForRecording) {
         recordingStartedRef.current = false;
-        const logIdForRecording = currentCallLogId;
+        pendingFinalizeRef.current = null;
 
         // First: try to finalize the server-side AMI recording (both sides)
+        console.log('[Phone] Finalizing server recording for callLogId:', logIdForRecording);
         api.post(`/api/mobile/call-log/${logIdForRecording}/finalize-server-recording`, {})
           .then((result: any) => {
             if (result?.success) {
@@ -218,8 +238,8 @@ export default function PhoneScreen() {
               }).catch(() => {});
             }
           })
-          .catch(() => {
-            // On error, upload mic recording as fallback
+          .catch((err: any) => {
+            console.warn('[Phone] finalize-server-recording error, uploading mic fallback:', err?.message);
             stopAndUploadRecording({
               callLogId: logIdForRecording,
               phoneNumber: callInfo.phoneNumber || '',
@@ -232,6 +252,7 @@ export default function PhoneScreen() {
           });
       } else {
         recordingStartedRef.current = false;
+        pendingFinalizeRef.current = null;
       }
 
       setCurrentCallHistoryId(null);
