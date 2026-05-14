@@ -60,7 +60,7 @@ import PDFDocument from "pdfkit";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import {
   extractPdfFormFields,
   extractDocxPlaceholders,
@@ -25906,9 +25906,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         try {
           const fs2 = await import("fs");
           const fileStream = fs2.createReadStream(filePath);
+          const fileName = path.basename(filePath);
+          const audioFile = await toFile(fileStream, fileName);
 
           const transcriptionResult = await openai.audio.transcriptions.create({
-            file: fileStream,
+            file: audioFile,
             model: "whisper-1",
             response_format: "text",
           });

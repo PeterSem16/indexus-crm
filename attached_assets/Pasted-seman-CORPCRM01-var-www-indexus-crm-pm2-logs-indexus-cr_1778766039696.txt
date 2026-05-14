@@ -1,0 +1,94 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 50 | grep -iE "ServerRecording|trunk|FinalizeRecording"
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED — likely cause: unknown — call was 6s, DTLS/RTP issue on Asterisk side?. File on Asterisk: -rw-r--r-- 1 asterisk asterisk 44 May 14 11:59 /var/spool/asterisk/monitor/mobile_d062d026-a402-4037-be07-942d64eb812d_1778759970062.wav
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED — likely cause: call was too short (0s) — MixMonitor likely started after audio ended. File on Asterisk: -rw-r--r-- 1 asterisk asterisk 44 May 14 12:01 /var/spool/asterisk/monitor/mobile_f4dbecdb-8a90-43d5-be98-c862b891b87b_1778760094359.wav
+4|indexus-crm  | [QueueEngine]   Dialplan: {"context":"from-sk-trunk","exten":"0232399030","priority":6,"app_name":"Stasis","app_data":"indexus-inbound"}
+4|indexus-crm  | [QueueEngine]   Dialplan: {"context":"from-sk-trunk","exten":"0232399030","priority":6,"app_name":"Stasis","app_data":"indexus-inbound"}
+4|indexus-crm  | [ServerRecording] Channel not in Stasis, trying AMI MixMonitor on 'PJSIP/2030-0000016e' (both sides)
+4|indexus-crm  | [ServerRecording] Also started MixMonitor on trunk peer 'PJSIP/trunk-sk-endpoint-0000016f' → /var/spool/asterisk/monitor/mobile_7e1e9067-4c0e-4715-b6b6-927f5b823a3f_1778765874263_trunk.wav (DTLS fallback)
+4|indexus-crm  | [ServerRecording] AMI MixMonitor (via SSH tunnel) started on 'PJSIP/2030-0000016e', file: /var/spool/asterisk/monitor/mobile_7e1e9067-4c0e-4715-b6b6-927f5b823a3f_1778765874263.wav — SSH download target: seman@mediagtw.cordbloodcenter.com:22 (both sides)
+4|indexus-crm  | [FinalizeRecording] Called for callLogId=7e1e9067-4c0e-4715-b6b6-927f5b823a3f, activeRecordings=["7e1e9067-4c0e-4715-b6b6-927f5b823a3f"]
+4|indexus-crm  | [FinalizeRecording] Starting SSH download: seman@mediagtw.cordbloodcenter.com:22 path=/var/spool/asterisk/monitor/mobile_7e1e9067-4c0e-4715-b6b6-927f5b823a3f_1778765874263.* (call duration: 0s)
+4|indexus-crm  | [FinalizeRecording] SSH download attempt 1/6 for '/var/spool/asterisk/monitor/mobile_7e1e9067-4c0e-4715-b6b6-927f5b823a3f_1778765874263.*'
+4|indexus-crm  | [FinalizeRecording] SSH download succeeded on attempt 1: 135404 bytes
+4|indexus-crm  | [FinalizeRecording] Saved via SSH from mediagtw.cordbloodcenter.com: server_20260514_133804_7e1e9067.wav (135404 bytes) — BOTH SIDES
+4|indexus-crm  | [FinalizeRecording] Cleaned up Asterisk file(s): deleted
+4|indexus-crm  | [QueueEngine]   Dialplan: {"context":"from-sk-trunk","exten":"0232399030","priority":6,"app_name":"Stasis","app_data":"indexus-inbound"}
+^C
+seman@CORPCRM01:/var/www/indexus-crm$ sudo tail -f /var/log/coturn.log
+^C
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 200 | grep -iE "ServerRecording|FinalizeRecording|trunk|MixMonitor|ATTEMPT|fallback|Asterisk"
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED for '/var/spool/asterisk/recording/mobile_7bdcee40-bb7d-4289-aabc-b9b9e31fece5_1778749417697.*' — mobile will upload mic-only fallback
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED for '/var/spool/asterisk/monitor/mobile_92ed92e8-e468-4450-a8fd-6fac40c898a9_1778749569332.*' — mobile will upload mic-only fallback
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus- | /var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | drwxr-xr-x  2 asterisk asterisk   4096 May 14 11:08 .
+4|indexus- | drwxr-xr-x 10 asterisk asterisk   4096 Mar 11 21:12 ..
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:08 mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 220524 May 14 09:21 mobile_610671d0-4ba0-49bd-9d78-131f48a4eaef_1778750446450.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 191724 May 14 09:15 mobile_63b07bbe-153c-4ba6-b69c-95f32dfea0b9_1778750105878.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 107200 May 14 09:06 mobile_92ed92e8-e468-4450-a8fd-6fac40c898a9_1778749569332^wav.raw
+4|indexus- | -rw-r--r--  1 asterisk asterisk 149484 May 14 09:13 mobile_eaf4ed0d-130e-425a-87a6-4a1f8a9e99b2_1778749970443.wav
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus- | /var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav
+4|indexus- | drwxr-xr-x  2 asterisk asterisk   4096 May 14 11:09 .
+4|indexus- | drwxr-xr-x 10 asterisk asterisk   4096 Mar 11 21:12 ..
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:08 mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 220524 May 14 09:21 mobile_610671d0-4ba0-49bd-9d78-131f48a4eaef_1778750446450.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 191724 May 14 09:15 mobile_63b07bbe-153c-4ba6-b69c-95f32dfea0b9_1778750105878.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 107200 May 14 09:06 mobile_92ed92e8-e468-4450-a8fd-6fac40c898a9_1778749569332^wav.raw
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:09 mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 149484 May 14 09:13 mobile_eaf4ed0d-130e-425a-87a6-4a1f8a9e99b2_1778749970443.wav
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus- | /var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav
+4|indexus- | drwxr-xr-x  2 asterisk asterisk   4096 May 14 11:12 .
+4|indexus- | drwxr-xr-x 10 asterisk asterisk   4096 Mar 11 21:12 ..
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:08 mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 220524 May 14 09:21 mobile_610671d0-4ba0-49bd-9d78-131f48a4eaef_1778750446450.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 191724 May 14 09:15 mobile_63b07bbe-153c-4ba6-b69c-95f32dfea0b9_1778750105878.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 107200 May 14 09:06 mobile_92ed92e8-e468-4450-a8fd-6fac40c898a9_1778749569332^wav.raw
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:09 mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 149484 May 14 09:13 mobile_eaf4ed0d-130e-425a-87a6-4a1f8a9e99b2_1778749970443.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:13 mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.wav
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus- | /var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.wav
+4|indexus- | drwxr-xr-x  2 asterisk asterisk   4096 May 14 11:22 .
+4|indexus- | drwxr-xr-x 10 asterisk asterisk   4096 Mar 11 21:12 ..
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:08 mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 220524 May 14 09:21 mobile_610671d0-4ba0-49bd-9d78-131f48a4eaef_1778750446450.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 191724 May 14 09:15 mobile_63b07bbe-153c-4ba6-b69c-95f32dfea0b9_1778750105878.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 107200 May 14 09:06 mobile_92ed92e8-e468-4450-a8fd-6fac40c898a9_1778749569332^wav.raw
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:09 mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 149484 May 14 09:13 mobile_eaf4ed0d-130e-425a-87a6-4a1f8a9e99b2_1778749970443.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:22 mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:13 mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.wav
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED. Asterisk spool diagnostic:
+4|indexus- | /var/spool/asterisk/monitor/mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav
+4|indexus- | /var/spool/asterisk/monitor/mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.wav
+4|indexus- | drwxr-xr-x 10 asterisk asterisk   4096 Mar 11 21:12 ..
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:08 mobile_384bfb46-7291-4f0e-b14c-0db2ebf72e64_1778756899844.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 220524 May 14 09:21 mobile_610671d0-4ba0-49bd-9d78-131f48a4eaef_1778750446450.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 191724 May 14 09:15 mobile_63b07bbe-153c-4ba6-b69c-95f32dfea0b9_1778750105878.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 107200 May 14 09:06 mobile_92ed92e8-e468-4450-a8fd-6fac40c898a9_1778749569332^wav.raw
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:40 mobile_d619ca24-c497-4f65-8073-613e63a1b309_1778758799287.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:09 mobile_da5ae1c1-a8bc-4678-a405-32ed080e4e3f_1778756988269.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk 149484 May 14 09:13 mobile_eaf4ed0d-130e-425a-87a6-4a1f8a9e99b2_1778749970443.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:22 mobile_eb5467a2-0ce6-4541-80af-d692652c0ff8_1778757770517.wav
+4|indexus- | -rw-r--r--  1 asterisk asterisk     44 May 14 11:13 mobile_ed9e6b41-6efb-4f7c-84cb-4d003364d2bb_1778757167167.wav
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED — likely cause: unknown — call was 6s, DTLS/RTP issue on Asterisk side?. File on Asterisk: -rw-r--r-- 1 asterisk asterisk 44 May 14 11:59 /var/spool/asterisk/monitor/mobile_d062d026-a402-4037-be07-942d64eb812d_1778759970062.wav
+4|indexus- | [FinalizeRecording] ALL ATTEMPTS FAILED — likely cause: call was too short (0s) — MixMonitor likely started after audio ended. File on Asterisk: -rw-r--r-- 1 asterisk asterisk 44 May 14 12:01 /var/spool/asterisk/monitor/mobile_f4dbecdb-8a90-43d5-be98-c862b891b87b_1778760094359.wav
+4|indexus- | [CallAnalysis] Whisper transcription failed for 5bed1cf9-a19f-4da3-9c40-102c2d28a627 (attempt 1/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper transcription failed for 5bed1cf9-a19f-4da3-9c40-102c2d28a627 (attempt 2/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper transcription failed for 5bed1cf9-a19f-4da3-9c40-102c2d28a627 (attempt 3/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper transcription failed for 078cdff0-4736-4563-b9c4-7a0326e3e108 (attempt 1/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper transcription failed for 078cdff0-4736-4563-b9c4-7a0326e3e108 (attempt 2/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+4|indexus- | [CallAnalysis] Whisper transcription failed for 078cdff0-4736-4563-b9c4-7a0326e3e108 (attempt 3/3): 400 Invalid file format. Supported formats: ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
