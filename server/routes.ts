@@ -82,7 +82,7 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as mailchimpApi from "./lib/mailchimp";
-import { sendAmiAction } from "./lib/ami-client";
+import { runAsteriskCliViaSsh } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 
@@ -16999,29 +16999,29 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             const amiRecordingPath = `/var/spool/asterisk/recording/${recordingName}`;
 
             try {
-              const amiResult = await sendAmiAction(
-                server.host,
-                5038,
-                username,
-                password,
-                {
-                  Action: "MixMonitor",
-                  Channel: channel.name,
-                  File: `${amiRecordingPath}^wav`,
-                  Options: "b",
-                }
-              );
-              if (amiResult.success) {
+              const sshPort = ariSettingsList[0].sshPort || 22;
+              const sshUser = ariSettingsList[0].sshUsername;
+              const sshPass = ariSettingsList[0].sshPassword;
+
+              if (!sshUser || !sshPass) {
+                throw new Error("SSH credentials not configured in ARI settings");
+              }
+
+              // mixmonitor start <channel> <file>[^format] [<options>]
+              const cliCmd = `mixmonitor start ${channel.name} ${amiRecordingPath}^wav b`;
+              const sshResult = await runAsteriskCliViaSsh(server.host, sshPort, sshUser, sshPass, cliCmd);
+
+              if (sshResult.success) {
                 recordingStarted = true;
                 amiRecorded = true;
                 mobileActiveRecordings.set(callLogId, recordingName);
-                console.log(`[ServerRecording] AMI MixMonitor started on '${channel.name}', file: ${amiRecordingPath}.wav (both sides via bridge mode)`);
+                console.log(`[ServerRecording] SSH MixMonitor started on '${channel.name}', file: ${amiRecordingPath}.wav — output: ${sshResult.output}`);
                 break;
               } else {
-                console.warn(`[ServerRecording] AMI MixMonitor failed: ${amiResult.response}`);
+                console.warn(`[ServerRecording] SSH MixMonitor failed: ${sshResult.output}`);
               }
             } catch (amiErr: any) {
-              console.warn(`[ServerRecording] AMI MixMonitor error: ${amiErr?.message} — falling back to ARI snoop`);
+              console.warn(`[ServerRecording] SSH MixMonitor error: ${amiErr?.message} — falling back to ARI snoop`);
             }
 
             // Fallback: ARI snoop (captures at least one side via Stasis)
