@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard } from 'react-native';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,6 +25,7 @@ export default function ProfileScreen() {
   const { registrationState, debugMessages } = useSipStore();
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showPhoneLog, setShowPhoneLog] = useState(false);
+  const phoneLogScrollRef = useRef<ScrollView>(null);
 
   const handleLogout = () => {
     Alert.alert(
@@ -258,52 +259,57 @@ export default function ProfileScreen() {
       <Modal
         visible={showPhoneLog}
         animationType="slide"
-        transparent={true}
+        transparent={false}
+        statusBarTranslucent
         onRequestClose={() => setShowPhoneLog(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Phone Log</Text>
-              <View style={styles.modalHeaderActions}>
-                <TouchableOpacity
-                  onPress={copyPhoneLog}
-                  style={styles.modalActionButton}
-                  testID="button-copy-phone-log"
-                >
-                  <Ionicons name="copy-outline" size={21} color={Colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={sharePhoneLog}
-                  style={styles.modalActionButton}
-                  testID="button-share-phone-log"
-                >
-                  <Ionicons name="share-outline" size={22} color={Colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setShowPhoneLog(false)}
-                  style={styles.modalCloseButton}
-                  testID="button-close-phone-log"
-                >
-                  <Ionicons name="close" size={24} color={Colors.text} />
-                </TouchableOpacity>
-              </View>
-            </View>
-            <View style={styles.phoneLogStatus}>
+        <SafeAreaView edges={['top', 'bottom']} style={styles.phoneLogScreen}>
+          <View style={styles.phoneLogScreenHeader}>
+            <View style={styles.phoneLogScreenStatus}>
               <View style={[styles.onlineIndicator, { backgroundColor: registrationState === 'registered' ? Colors.success : Colors.warning }]} />
-              <Text style={styles.phoneLogStatusText}>SIP: {registrationState}</Text>
+              <Text style={styles.phoneLogScreenStatusText}>SIP: {registrationState}</Text>
+              <Text style={styles.phoneLogScreenCount}>{debugMessages.length} lines</Text>
             </View>
-            <ScrollView style={styles.phoneLogContainer} contentContainerStyle={styles.phoneLogContent}>
-              {debugMessages.length === 0 ? (
-                <Text style={styles.phoneLogEmpty}>No SIP log entries yet</Text>
-              ) : (
-                debugMessages.map((line, i) => (
-                  <Text key={`log-${i}`} style={styles.phoneLogLine} selectable>{line}</Text>
-                ))
-              )}
-            </ScrollView>
+            <Text style={styles.phoneLogScreenTitle}>Phone Log</Text>
+            <View style={styles.modalHeaderActions}>
+              <TouchableOpacity
+                onPress={copyPhoneLog}
+                style={styles.phoneLogActionBtn}
+                testID="button-copy-phone-log"
+              >
+                <Ionicons name="copy-outline" size={20} color="#ffaa00" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={sharePhoneLog}
+                style={styles.phoneLogActionBtn}
+                testID="button-share-phone-log"
+              >
+                <Ionicons name="share-outline" size={20} color="#ffaa00" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowPhoneLog(false)}
+                style={styles.phoneLogActionBtn}
+                testID="button-close-phone-log"
+              >
+                <Ionicons name="close" size={22} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+          <ScrollView
+            ref={phoneLogScrollRef}
+            style={styles.phoneLogFullContainer}
+            contentContainerStyle={styles.phoneLogFullContent}
+            onContentSizeChange={() => phoneLogScrollRef.current?.scrollToEnd({ animated: false })}
+          >
+            {debugMessages.length === 0 ? (
+              <Text style={styles.phoneLogEmpty}>No SIP log entries yet</Text>
+            ) : (
+              debugMessages.map((line, i) => (
+                <Text key={`log-${i}`} style={styles.phoneLogLine} selectable>{line}</Text>
+              ))
+            )}
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
 
       <Modal
@@ -717,18 +723,71 @@ const styles = StyleSheet.create({
   phoneLogContent: {
     padding: Spacing.md,
   },
+  phoneLogScreen: {
+    flex: 1,
+    backgroundColor: '#0d0d1a',
+  },
+  phoneLogScreenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: '#16213e',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a4a',
+  },
+  phoneLogScreenTitle: {
+    fontSize: FontSizes.md,
+    fontWeight: '700',
+    color: '#ffffff',
+    flex: 1,
+    textAlign: 'center',
+  },
+  phoneLogScreenStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  phoneLogScreenStatusText: {
+    fontSize: FontSizes.xs,
+    color: '#aaaacc',
+    fontWeight: '600',
+  },
+  phoneLogScreenCount: {
+    fontSize: FontSizes.xs,
+    color: '#666688',
+  },
+  phoneLogActionBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  phoneLogFullContainer: {
+    flex: 1,
+    backgroundColor: '#0d0d1a',
+  },
+  phoneLogFullContent: {
+    padding: 10,
+    paddingBottom: 40,
+  },
   phoneLogLine: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'monospace',
     color: '#ffaa00',
-    backgroundColor: '#1a1a2e',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
+    backgroundColor: '#0d0d1a',
+    paddingVertical: 3,
+    paddingHorizontal: 4,
     marginBottom: 1,
+    lineHeight: 18,
   },
   phoneLogEmpty: {
     fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
+    color: '#666688',
     textAlign: 'center',
     marginTop: Spacing.xl,
   },
