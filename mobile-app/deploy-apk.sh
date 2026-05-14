@@ -54,8 +54,8 @@ mkdir -p "$DEST_DIR"
 # Copy with versioned name
 cp -f "$SOURCE_APK" "$DEST_FILE"
 
-# Also create a "latest" symlink for convenience
-ln -sf "indexus-connect-v${VERSION}.apk" "$DEST_DIR/indexus-connect-latest.apk"
+# Create "latest" symlink using absolute path to avoid relative-path resolution issues
+ln -sf "$DEST_FILE" "$DEST_DIR/indexus-connect-latest.apk"
 
 echo ""
 echo "Done!"
