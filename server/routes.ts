@@ -1569,16 +1569,36 @@ export async function registerRoutes(
     seedSystemAutomationRules().catch((err) => console.error("[Automation] seed error:", err));
   }
 
+  // APK info endpoint — returns real filename, size, modification date
+  app.get("/download/apk-info", (req, res) => {
+    const apkPath = path.join(DATA_ROOT, "mobil-app", "indexus-connect-latest.apk");
+    try {
+      const realPath = fs.realpathSync(apkPath);
+      const stat = fs.statSync(realPath);
+      const realFilename = path.basename(realPath);
+      res.json({
+        symlink: apkPath,
+        realFile: realPath,
+        filename: realFilename,
+        sizeMB: (stat.size / 1024 / 1024).toFixed(2) + " MB",
+        modified: stat.mtime.toISOString(),
+      });
+    } catch (e: any) {
+      res.status(404).json({ error: "APK not found", detail: e.message });
+    }
+  });
+
   // Dedicated APK download route — no-cache, forces fresh download, follows symlinks explicitly
   app.get("/download/indexus-connect.apk", (req, res) => {
     const apkPath = path.join(DATA_ROOT, "mobil-app", "indexus-connect-latest.apk");
     try {
       const realPath = fs.realpathSync(apkPath);
+      const realFilename = path.basename(realPath);
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
       res.setHeader("Content-Type", "application/vnd.android.package-archive");
-      res.setHeader("Content-Disposition", `attachment; filename="indexus-connect-latest.apk"`);
+      res.setHeader("Content-Disposition", `attachment; filename="${realFilename}"`);
       res.sendFile(realPath);
     } catch (e: any) {
       res.status(404).json({ error: "APK not found" });
