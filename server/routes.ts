@@ -16964,44 +16964,51 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           "stun:stun1.l.google.com:19302",
         ],
         turnServers: sipSettings.turnServer
-          ? [
-              {
-                urls: sipSettings.turnServer,
-                username: sipSettings.turnUsername || undefined,
-                credential: sipSettings.turnPassword || undefined,
-              },
-              // Always add plain-TURN on standard port 3478 as fallback.
-              // Mobile carriers (Vodafone, O2, T-Mobile) frequently block non-standard
-              // ports like 5350. Port 3478 (IANA-registered TURN/STUN) is almost never
-              // blocked. This ensures ICE relay candidates are gathered even when the
-              // TLS TURN port is unreachable.
-              ...(sipSettings.turnUsername
-                ? [
-                    {
-                      urls: (() => {
-                        try {
-                          const u = new URL(sipSettings.turnServer.replace(/^turns?:/, 'turn:'));
-                          const host = u.hostname || sipSettings.turnServer.split(':')[1]?.replace(/\/\//g, '') || sipSettings.turnServer;
-                          return `turn:${host}:3478`;
-                        } catch {
-                          return sipSettings.turnServer;
-                        }
-                      })(),
-                      username: sipSettings.turnUsername,
-                      credential: sipSettings.turnPassword || undefined,
-                    },
-                  ]
-                : []),
-              ...(sipSettings.turnServerAlt
-                ? [
-                    {
-                      urls: sipSettings.turnServerAlt,
-                      username: sipSettings.turnUsername || undefined,
-                      credential: sipSettings.turnPassword || undefined,
-                    },
-                  ]
-                : []),
-            ]
+          ? (() => {
+              const user = sipSettings.turnUsername || undefined;
+              const cred = sipSettings.turnPassword || undefined;
+
+              // Extract hostname from the configured TURN URL (e.g. "turns:turn.example.com:5350")
+              let turnHost = 'turn.cordbloodcenter.com';
+              try {
+                const u = new URL(sipSettings.turnServer.replace(/^turns?:/, 'https:'));
+                if (u.hostname) turnHost = u.hostname;
+              } catch {
+                const m = sipSettings.turnServer.match(/(?:turn[s]?:\/?\/?)?([^:/?]+)/);
+                if (m?.[1]) turnHost = m[1];
+              }
+
+              const servers: { urls: string; username?: string; credential?: string }[] = [
+                // 1. TURNS over TCP port 443 — goes through nginx SNI routing → coturn:5350 (TLS).
+                //    Port 443 TCP is NEVER blocked by mobile carriers (Vodafone, O2, T-Mobile).
+                //    This is the most reliable path for mobile data connections.
+                { urls: `turns:${turnHost}:443?transport=tcp`, username: user, credential: cred },
+
+                // 2. TURNS over TCP port 5350 — direct coturn TLS port, works if not firewalled.
+                { urls: `turns:${turnHost}:5350?transport=tcp`, username: user, credential: cred },
+
+                // 3. Plain TURN TCP on 3478 — TCP bypasses UDP-blocking carrier firewalls.
+                { urls: `turn:${turnHost}:3478?transport=tcp`, username: user, credential: cred },
+
+                // 4. Plain TURN UDP on 3478 — standard port, blocked by some mobile carriers.
+                { urls: `turn:${turnHost}:3478`, username: user, credential: cred },
+              ];
+
+              // Also add the raw configured URL in case it differs from the above
+              if (
+                sipSettings.turnServer &&
+                !servers.some(s => s.urls === sipSettings.turnServer)
+              ) {
+                servers.unshift({ urls: sipSettings.turnServer, username: user, credential: cred });
+              }
+
+              // Alt server if configured
+              if (sipSettings.turnServerAlt) {
+                servers.push({ urls: sipSettings.turnServerAlt, username: user, credential: cred });
+              }
+
+              return servers;
+            })()
           : [],
       });
     } catch (error) {

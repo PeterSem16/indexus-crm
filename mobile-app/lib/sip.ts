@@ -928,8 +928,13 @@ class MobileSipEngine {
         if (event?.candidate) {
           const t = event.candidate.type;
           _iceCandidateTypes.push(t);
-          const relatedAddr = event.candidate.relatedAddress ? ` via ${event.candidate.relatedAddress}` : '';
-          this.emit('debug', `ICE candidate [${t}] ${event.candidate.protocol} ${event.candidate.address || ''}:${event.candidate.port || ''}${relatedAddr}`);
+          if (t === 'relay') {
+            // Relay candidate = TURN is working. Log prominently with relay address.
+            this.emit('debug', `✓ RELAY candidate: ${event.candidate.protocol} ${event.candidate.address || '?'}:${event.candidate.port || '?'} (relayed via ${event.candidate.relatedAddress || '?'}:${event.candidate.relatedPort || '?'})`);
+          } else if (t === 'srflx') {
+            this.emit('debug', `ICE srflx: ${event.candidate.address || '?'}:${event.candidate.port || '?'}`);
+          }
+          // host candidates not logged to reduce noise
         }
       };
 
