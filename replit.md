@@ -3,7 +3,8 @@
 INDEXUS is a multi-country CRM system for cord blood banking companies, streamlining operations and enhancing customer engagement with tools for sales, collections, and communication.
 
 ## Run & Operate
-_Populate as you build_
+- **Server deploy (CORPCRM01)**: `cd /var/www/indexus-crm && git pull origin main && npm run build && pm2 restart indexus-crm`
+- **Mobile app build**: vždy cez **Android Studio** — otvoriť `mobile-app/android/` projekt, build a nainštalovať na zariadenie
 
 ## Stack
 - **Frontend**: React 18, TypeScript, Wouter, TanStack React Query, Tailwind CSS, shadcn/ui, Vite
