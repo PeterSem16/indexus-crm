@@ -68,9 +68,11 @@ async function testIceServer(
 
     pc.onicecandidate = (e: any) => {
       if (e?.candidate) {
-        if (!types.includes(e.candidate.type)) {
-          types.push(e.candidate.type);
-        }
+        // react-native-webrtc 118: e.candidate.type is undefined — parse from SDP string
+        const candStr: string = e.candidate.candidate || '';
+        const typeMatch = candStr.match(/ typ (\w+)/);
+        const type: string = e.candidate.type || (typeMatch ? typeMatch[1] : 'unknown');
+        if (!types.includes(type)) types.push(type);
       } else {
         clearTimeout(timer);
         done();
@@ -193,7 +195,7 @@ export async function runDiagnostics(
   // 3. STUN Google UDP
   set('stun_google', { status: 'running', detail: 'Testujem UDP STUN...' });
   const r3 = await testIceServer('stun:stun.l.google.com:19302', undefined, undefined, 7000);
-  const hasSrflx = r3.types.includes('srflx');
+  const hasSrflx = r3.types.some(t => t === 'srflx');
   set('stun_google', {
     status: hasSrflx ? 'ok' : 'warn', ms: r3.ms,
     detail: hasSrflx

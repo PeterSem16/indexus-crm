@@ -230,7 +230,13 @@ class MobileSipEngine {
       this._iceServers = iceServers;
       const allUrls = iceServers.flatMap(s => Array.isArray(s.urls) ? s.urls : [s.urls]);
       const hasTurn = allUrls.some(u => u && u.startsWith('turn'));
-      this.emit('debug', `ICE servers: ${JSON.stringify(iceServers.map(s => s.urls))}`);
+      // Log ICE servers WITH credential presence (not the actual password)
+      const iceDebug = iceServers.map(s => {
+        const urls = Array.isArray(s.urls) ? s.urls.join(',') : s.urls;
+        const hasCred = s.username ? `user=${s.username?.substring(0, 8)}... cred=${s.credential ? 'YES' : 'MISSING'}` : 'no-auth(STUN)';
+        return `${urls} [${hasCred}]`;
+      }).join(' | ');
+      this.emit('debug', `ICE servers (${iceServers.length}): ${iceDebug}`);
       this.emit('ice-stats', {
         configuredUrls: allUrls,
         hasTurn,
@@ -997,16 +1003,25 @@ class MobileSipEngine {
 
     pc.onicecandidate = (event: any) => {
       if (event?.candidate) {
-        const t = event.candidate.type;
+        // react-native-webrtc 118: event.candidate.type is undefined — parse from SDP string
+        const candStr: string = event.candidate.candidate || '';
+        const typeMatch = candStr.match(/ typ (\w+)/);
+        const t: string = event.candidate.type || (typeMatch ? typeMatch[1] : 'unknown');
         this._iceCandidateTypes.push(t);
         if (t === 'relay') {
-          const addr = `${event.candidate.protocol?.toUpperCase() || '?'} ${event.candidate.address || '?'}:${event.candidate.port || '?'}`;
-          const via = `${event.candidate.relatedAddress || '?'}:${event.candidate.relatedPort || '?'}`;
+          // Parse relay address from SDP string: "... IP port typ relay raddr RADDR rport RPORT"
+          const addrMatch = candStr.match(/(\S+) (\d+) typ relay/);
+          const raddrMatch = candStr.match(/raddr (\S+) rport (\d+)/);
+          const addr = addrMatch ? `${event.candidate.protocol?.toUpperCase() || '?'} ${addrMatch[1]}:${addrMatch[2]}` : `${event.candidate.address || '?'}:${event.candidate.port || '?'}`;
+          const via = raddrMatch ? `${raddrMatch[1]}:${raddrMatch[2]}` : `${event.candidate.relatedAddress || '?'}:${event.candidate.relatedPort || '?'}`;
           _relayCandidates.push(`${addr} via ${via}`);
           this.emit('debug', `✓ RELAY candidate: ${addr} (relayed via ${via})`);
           this.emit('ice-stats', { relayAddr: _relayCandidates[0] });
         } else if (t === 'srflx') {
-          this.emit('debug', `ICE srflx: ${event.candidate.address || '?'}:${event.candidate.port || '?'}`);
+          const addrMatch = candStr.match(/(\S+) (\d+) typ srflx/);
+          const ip = addrMatch?.[1] || event.candidate.address || '?';
+          const port = addrMatch?.[2] || event.candidate.port || '?';
+          this.emit('debug', `ICE srflx: ${ip}:${port}`);
         }
       } else if (event?.candidate === null) {
         this.emit('debug', 'ICE gathering finished (null candidate)');
