@@ -17869,15 +17869,120 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         id: c.id,
         name: c.name,
         doctorName: c.doctorName,
+        doctorTitle: c.doctorTitle,
+        doctorFirstName: c.doctorFirstName,
+        doctorLastName: c.doctorLastName,
+        pzsCode: c.pzsCode,
+        ico: c.ico,
         phone: c.phone,
+        phone2: c.phone2,
+        phone3: c.phone3,
         email: c.email,
+        email2: c.email2,
+        email3: c.email3,
+        website: c.website,
         address: c.address,
+        street: c.street,
+        streetNumber: c.streetNumber,
+        orientationNumber: c.orientationNumber,
         city: c.city,
+        postalCode: c.postalCode,
         countryCode: c.countryCode,
+        region: c.region,
+        district: c.district,
+        latitude: c.latitude,
+        longitude: c.longitude,
+        isActive: c.isActive,
+        notes: c.notes,
+        contractStatus: c.contractStatus,
+        lastCallResult: c.lastCallResult,
+        lastCallNote: c.lastCallNote,
+        interestCooperation: c.interestCooperation,
+        interestContract: c.interestContract,
+        hasFlyers: c.hasFlyers,
       })));
     } catch (error) {
       console.error("Mobile clinics error:", error);
       res.status(500).json({ error: "Failed to fetch clinics" });
+    }
+  });
+
+  app.get("/api/mobile/clinics/:id", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
+
+      const clinic = await storage.getClinic(req.params.id);
+      if (!clinic) return res.status(404).json({ error: "Clinic not found" });
+
+      res.json({
+        id: clinic.id,
+        name: clinic.name,
+        doctorName: clinic.doctorName,
+        doctorTitle: clinic.doctorTitle,
+        doctorFirstName: clinic.doctorFirstName,
+        doctorLastName: clinic.doctorLastName,
+        pzsCode: clinic.pzsCode,
+        ico: clinic.ico,
+        phone: clinic.phone,
+        phone2: clinic.phone2,
+        phone3: clinic.phone3,
+        email: clinic.email,
+        email2: clinic.email2,
+        email3: clinic.email3,
+        website: clinic.website,
+        address: clinic.address,
+        street: clinic.street,
+        streetNumber: clinic.streetNumber,
+        orientationNumber: clinic.orientationNumber,
+        city: clinic.city,
+        postalCode: clinic.postalCode,
+        countryCode: clinic.countryCode,
+        region: clinic.region,
+        district: clinic.district,
+        latitude: clinic.latitude,
+        longitude: clinic.longitude,
+        isActive: clinic.isActive,
+        notes: clinic.notes,
+        contractStatus: clinic.contractStatus,
+        lastCallResult: clinic.lastCallResult,
+        lastCallNote: clinic.lastCallNote,
+        interestCooperation: clinic.interestCooperation,
+        interestContract: clinic.interestContract,
+        hasFlyers: clinic.hasFlyers,
+      });
+    } catch (error) {
+      console.error("Mobile clinic detail error:", error);
+      res.status(500).json({ error: "Failed to fetch clinic" });
+    }
+  });
+
+  app.patch("/api/mobile/clinics/:id", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
+
+      const clinic = await storage.getClinic(req.params.id);
+      if (!clinic) return res.status(404).json({ error: "Clinic not found" });
+
+      const allowedFields = [
+        'name', 'doctorName', 'doctorTitle', 'doctorFirstName', 'doctorLastName',
+        'phone', 'phone2', 'phone3', 'email', 'email2', 'email3', 'website',
+        'address', 'street', 'streetNumber', 'orientationNumber',
+        'city', 'postalCode', 'region', 'district',
+        'isActive', 'notes', 'contractStatus', 'lastCallResult', 'lastCallNote',
+        'interestCooperation', 'interestContract', 'hasFlyers',
+      ];
+      const updates: Record<string, any> = {};
+      for (const field of allowedFields) {
+        if (field in req.body) updates[field] = req.body[field];
+      }
+
+      const updated = await storage.updateClinic(req.params.id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Mobile clinic update error:", error);
+      res.status(500).json({ error: "Failed to update clinic" });
     }
   });
 

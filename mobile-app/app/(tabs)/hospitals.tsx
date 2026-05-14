@@ -129,6 +129,8 @@ export default function HospitalsScreen() {
   const navigateToDetail = (itemId: string) => {
     if (activeTab === 'hospitals') {
       router.push(`/hospital/${itemId}`);
+    } else {
+      router.push(`/clinic/${itemId}`);
     }
   };
 
@@ -175,9 +177,7 @@ export default function HospitalsScreen() {
               <Ionicons name="navigate" size={18} color={Colors.primary} />
             </TouchableOpacity>
           )}
-          {item.type === 'hospital' && (
-            <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
-          )}
+          <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
         </View>
       </Card>
     </Pressable>
