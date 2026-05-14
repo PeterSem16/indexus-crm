@@ -1,5 +1,26 @@
 import { Client as SshClient } from "ssh2";
 
+/** Wraps raw signed-linear PCM bytes in a RIFF/WAV header so it plays in any media player. */
+function wrapRawPcmAsWav(pcm: Buffer, sampleRate: number, channels: number, bitDepth: number): Buffer {
+  const byteRate = sampleRate * channels * (bitDepth / 8);
+  const blockAlign = channels * (bitDepth / 8);
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);           // PCM chunk size
+  header.writeUInt16LE(1, 20);            // PCM format
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitDepth, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+
 export interface AmiActionResult {
   success: boolean;
   response: string;
@@ -183,8 +204,8 @@ export function downloadFileViaSsh(
       // then fall back to a recursive find across the whole Asterisk spool (catches wrong-dir cases)
       const baseName = basePath.split("/").pop() || "";
       const findCmd = [
-        `ls ${basePath}.wav ${basePath}.WAV ${basePath}.ulaw ${basePath}.gsm ${basePath}.sln 2>/dev/null | head -1`,
-        `find /var/spool/asterisk/ -name "${baseName}*" 2>/dev/null | head -1`,
+        `ls "${basePath}.wav" "${basePath}.WAV" "${basePath}.ulaw" "${basePath}.gsm" "${basePath}.sln" "${basePath}.raw" "${basePath}^wav.raw" 2>/dev/null | head -1`,
+        `find /var/spool/asterisk/ -name "${baseName}*" -not -empty 2>/dev/null | head -1`,
       ].join(" || ");
       let foundPath = "";
 
@@ -222,12 +243,16 @@ export function downloadFileViaSsh(
             catStream.on("close", () => {
               clearTimeout(timer);
               conn.end();
-              const buf = Buffer.concat(chunks);
+              let buf = Buffer.concat(chunks);
               if (buf.length < 100) {
                 reject(new Error(`Downloaded file too small (${buf.length} bytes) — still recording?`));
-              } else {
-                resolve(buf);
+                return;
               }
+              // If raw PCM (Asterisk slin 8kHz mono 16-bit), wrap with a proper WAV header
+              if (foundPath.endsWith(".raw")) {
+                buf = wrapRawPcmAsWav(buf, 8000, 1, 16);
+              }
+              resolve(buf);
             });
             catStream.on("error", (e: Error) => {
               clearTimeout(timer);

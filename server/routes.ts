@@ -17033,7 +17033,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 {
                   Action: "MixMonitor",
                   Channel: channel.name,
-                  File: `${amiRecordingPath}^wav`,
+                  File: `${amiRecordingPath}.wav`,
                   Options: "v(1)V(1)",
                 }
               );
