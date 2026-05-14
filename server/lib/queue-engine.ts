@@ -19,10 +19,12 @@ import {
   ivrMenuOptions,
   collaborators,
   sipExtensions,
+  callRecordings,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
 } from "@shared/schema";
+import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 
 export interface QueuedCall {
@@ -164,6 +166,14 @@ export class QueueEngine extends EventEmitter {
       if (event.channel) {
         this.handleCallerHangup(event.channel.id);
       }
+    });
+
+    this.ariClient.on("recording-finished", (event: AriEvent) => {
+      const recName: string = event.recording?.name || "";
+      if (!recName.startsWith("mobile_")) return;
+      this.handleMobileRecordingFinished(recName).catch(err => {
+        console.error("[MobileRecording] Auto-save error:", err instanceof Error ? err.message : err);
+      });
     });
 
     this.ariClient.on("stasis-end", (event: AriEvent) => {
@@ -485,6 +495,62 @@ export class QueueEngine extends EventEmitter {
       console.log(`[QueueEngine] Loaded ${this.agentStates.size} agent states total`);
     } catch (err) {
       console.error("[QueueEngine] Failed to load agent states:", err);
+    }
+  }
+
+  async handleMobileRecordingFinished(recordingName: string): Promise<void> {
+    // Format: mobile_${callLogId}_${timestamp}
+    const parts = recordingName.split("_");
+    if (parts.length < 3) return;
+    const callLogId = parts[1];
+    if (!callLogId) return;
+
+    console.log(`[MobileRecording] Recording finished: ${recordingName}, callLogId: ${callLogId}`);
+
+    try {
+      const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
+      if (!callLog) {
+        console.warn(`[MobileRecording] Call log not found: ${callLogId}`);
+        return;
+      }
+
+      const audioBuffer = await this.ariClient.downloadStoredRecording(recordingName);
+      if (!audioBuffer || audioBuffer.length < 100) {
+        console.warn(`[MobileRecording] Empty or too small recording: ${audioBuffer?.length} bytes`);
+        return;
+      }
+
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+      const filename = `server_${dateStr}_${timeStr}_${callLogId.substring(0, 8)}.wav`;
+      const filePath = path.join(STORAGE_PATHS.callRecordings, filename);
+
+      fs.mkdirSync(STORAGE_PATHS.callRecordings, { recursive: true });
+      fs.writeFileSync(filePath, audioBuffer);
+
+      await db.insert(callRecordings).values({
+        callLogId,
+        userId: callLog.userId,
+        customerId: callLog.customerId || null,
+        campaignId: callLog.campaignId || null,
+        filename,
+        filePath,
+        mimeType: "audio/wav",
+        fileSizeBytes: audioBuffer.length,
+        durationSeconds: callLog.durationSeconds || null,
+        phoneNumber: callLog.phoneNumber || null,
+        agentName: "Mobile Agent",
+        direction: callLog.direction || "outbound",
+        analysisStatus: "pending",
+      });
+
+      console.log(`[MobileRecording] Saved server-side recording: ${filename} (${audioBuffer.length} bytes)`);
+
+      // Clean up from Asterisk
+      this.ariClient.deleteStoredRecording(recordingName).catch(() => {});
+    } catch (err) {
+      console.error(`[MobileRecording] Failed to save recording ${recordingName}:`, err instanceof Error ? err.message : err);
     }
   }
 
