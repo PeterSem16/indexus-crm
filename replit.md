@@ -83,6 +83,18 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 ## User preferences
 Preferred communication style: Simple, everyday language.
 
+## Server credentials
+
+### CORPCRM01 (77.72.181.113)
+- **SSH user**: seman
+- **PostgreSQL**: `PGPASSWORD=HanyurIfKisck psql -U postgres -d indexus`
+  - Host: localhost (na CORPCRM01), user: `postgres`, db: `indexus`, pwd: `HanyurIfKisck`
+
+### mediagateway
+- **SSH**: `ssh seman@mediagtw.cordbloodcenter.com`
+- Asterisk monitor: `/var/spool/asterisk/monitor/`
+- Asterisk logs: `/var/log/asterisk/messages.log`, `/var/log/asterisk/cdr-csv/Master.csv`
+
 ## Gotchas
 - **INDEXUS Gyn CSV Import**: `--dry-run` is default; use `--commit` for actual writes. Replit shell kills background processes after ~60s, requiring temporary workflow configuration for long runs.
 - **Pagination**: Endpoints for customers, invoices, hospitals, clinics, collaborators return plain arrays if no pagination parameters are sent (backwards compatible).
