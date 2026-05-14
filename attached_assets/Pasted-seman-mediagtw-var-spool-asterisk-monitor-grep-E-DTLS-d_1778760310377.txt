@@ -1,0 +1,44 @@
+seman@mediagtw:/var/spool/asterisk/monitor$ grep -E "DTLS|dtls|SRTP|srtp|4000-00000145|4000-00000147|4000-00000149|4000-0000014d" \
+  /var/log/asterisk/messages.log | head -80
+seman@mediagtw:/var/spool/asterisk/monitor$ sudo asterisk -rx "pjsip show endpoint trunk-ro-endpoint" | \
+  grep -iE "encrypt|srtp|dtls|media|direct|codec|allow"
+ allow                              : (ulaw|alaw)
+ allow_overlap                      : true
+ allow_subscribe                    : true
+ allow_transfer                     : true
+ allow_unauthenticated_options      : false
+ asymmetric_rtp_codec               : false
+ bind_rtp_to_media_address          : false
+ callerid_privacy                   : allowed_not_screened
+ codec_prefs_incoming_answer        : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_incoming_offer         : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_outgoing_answer        : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_outgoing_offer         : prefer:pending, operation:union, keep:all, transcode:allow
+ direct_media                       : false
+ direct_media_glare_mitigation      : none
+ direct_media_method                : invite
+ disable_direct_media_on_nat        : false
+ dtls_auto_generate_cert            : No
+ dtls_ca_file                       :
+ dtls_ca_path                       :
+ dtls_cert_file                     :
+ dtls_cipher                        :
+ dtls_fingerprint                   : SHA-256
+ dtls_private_key                   :
+ dtls_rekey                         : 0
+ dtls_setup                         : active
+ dtls_verify                        : No
+ follow_early_media_fork            : true
+ follow_redirect_methods            :
+ media_address                      :
+ media_encryption                   : no
+ media_encryption_optimistic        : false
+ media_use_received_transport       : false
+ preferred_codec_only               : false
+ redirect_method                    : user
+ rpid_immediate                     : false
+ srtp_tag_32                        : false
+ t38_bind_udptl_to_media_address    : false
+seman@mediagtw:/var/spool/asterisk/monitor$ grep -E "4000-00000145|4000-00000147|4000-00000149|4000-0000014d" \
+  /var/log/asterisk/messages.log | grep -iE "rtp|ice|stun|dtls|bridge|native"
+seman@mediagtw:/var/spool/asterisk/monitor$

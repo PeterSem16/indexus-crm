@@ -88,7 +88,8 @@ import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath
 
 interface MobileRecordingInfo {
   recordingName: string;
-  amiFilePath: string;   // base path without extension on Asterisk server
+  amiFilePath: string;        // base path without extension on Asterisk server (mobile leg)
+  amiTrunkFilePath?: string;  // base path for trunk-leg fallback recording
   sshHost: string;
   sshPort: number;
   sshUser: string;
@@ -17041,9 +17042,51 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               if (amiResult.success) {
                 recordingStarted = true;
                 amiRecorded = true;
+
+                // Try to also attach MixMonitor to the TRUNK peer channel as a fallback.
+                // When the mobile app uses DTLS-SRTP (WebRTC), the DTLS handshake may not
+                // complete before the call ends, leaving the PJSIP/4000 leg with zero audio.
+                // The trunk leg (PJSIP/trunk-ro-endpoint / trunk-sk-endpoint) uses standard
+                // SRTP without WebRTC DTLS complications and will always have audio if the
+                // remote party answered. We record it in parallel and use it as fallback.
+                let amiTrunkFilePath: string | undefined;
+                try {
+                  const getvarResult = await sendAmiActionViaSshTunnel(
+                    server.host, sshPort, sshUser, sshPass,
+                    username, password,
+                    { Action: "Getvar", Channel: channel.name, Variable: "BRIDGEPEER" }
+                  );
+                  const peerMatch = getvarResult.response.match(/Value:\s*(\S+)/i);
+                  const peerChannel = peerMatch?.[1];
+                  if (peerChannel && /trunk/i.test(peerChannel)) {
+                    amiTrunkFilePath = `${amiRecordingPath}_trunk`;
+                    const trunkResult = await sendAmiActionViaSshTunnel(
+                      server.host, sshPort, sshUser, sshPass,
+                      username, password,
+                      {
+                        Action: "MixMonitor",
+                        Channel: peerChannel,
+                        File: `${amiTrunkFilePath}.wav`,
+                        Options: "v(1)V(1)",
+                      }
+                    );
+                    if (trunkResult.success) {
+                      console.log(`[ServerRecording] Also started MixMonitor on trunk peer '${peerChannel}' → ${amiTrunkFilePath}.wav (DTLS fallback)`);
+                    } else {
+                      console.warn(`[ServerRecording] Trunk peer MixMonitor failed: ${trunkResult.response}`);
+                      amiTrunkFilePath = undefined;
+                    }
+                  } else {
+                    console.log(`[ServerRecording] BRIDGEPEER='${peerChannel ?? "none"}' — no trunk peer to record separately`);
+                  }
+                } catch (bridgePeerErr: any) {
+                  console.warn(`[ServerRecording] Bridge peer detection non-fatal: ${bridgePeerErr.message}`);
+                }
+
                 mobileActiveRecordings.set(callLogId, {
                   recordingName,
                   amiFilePath: amiRecordingPath,
+                  amiTrunkFilePath,
                   sshHost: server.host,
                   sshPort,
                   sshUser,
@@ -17159,11 +17202,34 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       mobileActiveRecordings.delete(callLogId);
 
+      // If primary (mobile DTLS leg) recording failed, attempt trunk-leg fallback.
+      // The trunk channel uses standard SRTP and always captures audio if the remote answered.
+      if (!audioBuffer && recInfo.amiTrunkFilePath) {
+        console.log(`[FinalizeRecording] Primary failed — trying trunk fallback: ${recInfo.amiTrunkFilePath}.*`);
+        for (let attempt = 1; attempt <= 4; attempt++) {
+          if (attempt > 1) await new Promise(r => setTimeout(r, 2000));
+          try {
+            audioBuffer = await downloadFileViaSsh(
+              recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
+              recInfo.amiTrunkFilePath
+            );
+            console.log(`[FinalizeRecording] Trunk fallback succeeded on attempt ${attempt}: ${audioBuffer.length} bytes`);
+            break;
+          } catch (e: any) {
+            console.log(`[FinalizeRecording] Trunk fallback attempt ${attempt}/4 failed — ${e?.message}`);
+          }
+        }
+        // Clean up trunk file regardless of success
+        runSshCommand(recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
+          `sudo rm -f "${recInfo.amiTrunkFilePath}.wav" "${recInfo.amiTrunkFilePath}^wav.raw" 2>/dev/null; echo ok`
+        ).catch(() => {});
+      }
+
       if (!audioBuffer) {
         const likelyCause = callDurationSec !== null && callDurationSec < 4
           ? `call was too short (${callDurationSec}s) — MixMonitor likely started after audio ended`
           : callDurationSec !== null
-            ? `unknown — call was ${callDurationSec}s, DTLS/RTP issue on Asterisk side?`
+            ? `unknown — call was ${callDurationSec}s, likely DTLS/RTP issue on mobile leg (trunk fallback also unavailable)`
             : "unknown — call duration not recorded";
         try {
           const listing = await runSshCommand(
@@ -17203,10 +17269,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       const [savedRecording] = await db.select().from(callRecordings).where(eq(callRecordings.callLogId, callLogId)).orderBy(desc(callRecordings.createdAt)).limit(1);
 
-      // Delete the source file from Asterisk to free space (best-effort)
+      // Delete source files from Asterisk to free space (best-effort)
+      const cleanupPaths = [recInfo.amiFilePath, ...(recInfo.amiTrunkFilePath ? [recInfo.amiTrunkFilePath] : [])];
+      const cleanupCmd = cleanupPaths.flatMap(p =>
+        [`"${p}.wav"`, `"${p}^wav.raw"`, `"${p}.raw"`, `"${p}.ulaw"`, `"${p}.gsm"`]
+      ).join(" ");
       runSshCommand(recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
-        `sudo rm -f "${recInfo.amiFilePath}.wav" "${recInfo.amiFilePath}^wav.raw" "${recInfo.amiFilePath}.raw" "${recInfo.amiFilePath}.ulaw" "${recInfo.amiFilePath}.gsm" 2>/dev/null; echo deleted`
-      ).then(out => console.log(`[FinalizeRecording] Cleaned up Asterisk file: ${out.trim()}`))
+        `sudo rm -f ${cleanupCmd} 2>/dev/null; echo deleted`
+      ).then(out => console.log(`[FinalizeRecording] Cleaned up Asterisk file(s): ${out.trim()}`))
        .catch(err => console.warn(`[FinalizeRecording] Cleanup failed: ${err?.message}`));
 
       // Trigger AI analysis + transcription in background (same as mic-upload path)
