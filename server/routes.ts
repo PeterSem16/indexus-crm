@@ -17017,6 +17017,67 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // TURN / coturn server-side health check
+  // Tests TCP reachability from THIS server to coturn ports
+  // Useful to verify coturn is actually running (separate from mobile-side port blocks)
+  app.get("/api/mobile/sip/turn-health", async (req, res) => {
+    try {
+      const net = await import('net');
+      const sipSettings = await storage.getSipSettings();
+
+      const credsConfigured = !!(sipSettings?.turnUsername && sipSettings?.turnPassword);
+      const turnServer = sipSettings?.turnServer || '';
+
+      // Extract hostname from turn URL (e.g. "turns:turn.cordbloodcenter.com:443?transport=tcp")
+      let turnHost = '';
+      try {
+        const m = turnServer.match(/(?:turns?:[/]{0,2})([^:/?]+)/);
+        turnHost = m ? m[1] : '';
+      } catch { /* ignore */ }
+
+      const testTcpPort = (host: string, port: number, timeoutMs = 3000): Promise<{ ok: boolean; ms: number; error?: string }> => {
+        return new Promise(resolve => {
+          const t0 = Date.now();
+          if (!host) return resolve({ ok: false, ms: 0, error: 'no host' });
+          const sock = net.createConnection({ host, port });
+          const timer = setTimeout(() => {
+            sock.destroy();
+            resolve({ ok: false, ms: Date.now() - t0, error: 'timeout' });
+          }, timeoutMs);
+          sock.on('connect', () => {
+            clearTimeout(timer);
+            sock.destroy();
+            resolve({ ok: true, ms: Date.now() - t0 });
+          });
+          sock.on('error', (err: any) => {
+            clearTimeout(timer);
+            resolve({ ok: false, ms: Date.now() - t0, error: err?.message || String(err) });
+          });
+        });
+      };
+
+      const [p443, p5350, p3478] = await Promise.all([
+        testTcpPort(turnHost, 443),
+        testTcpPort(turnHost, 5350),
+        testTcpPort(turnHost, 3478),
+      ]);
+
+      res.json({
+        turnHost,
+        turnServer,
+        credsConfigured,
+        turnUsername: sipSettings?.turnUsername ? `${String(sipSettings.turnUsername).slice(0, 3)}***` : null,
+        ports: {
+          '443/tcp':  { ...p443,  note: 'nginx SNI → coturn TLS' },
+          '5350/tcp': { ...p5350, note: 'coturn TLS direct' },
+          '3478/tcp': { ...p3478, note: 'coturn plain TCP/UDP' },
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || String(err) });
+    }
+  });
+
   app.post("/api/mobile/call-log", async (req, res) => {
     try {
       const tokenData = await getMobileCollaboratorFromToken(req);

@@ -13,6 +13,8 @@ export interface IceStats {
   usedRelay: boolean;
   relayAddr: string;
   error: string | null;
+  /** TURN error from onicecandidateerror — code 702=bad creds, 701=network, 703=timeout */
+  turnError: string | null;
 }
 
 const defaultIceStats: IceStats = {
@@ -25,6 +27,7 @@ const defaultIceStats: IceStats = {
   usedRelay: false,
   relayAddr: '',
   error: null,
+  turnError: null,
 };
 
 interface SipStoreState {

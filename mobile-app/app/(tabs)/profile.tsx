@@ -487,6 +487,33 @@ export default function ProfileScreen() {
                   </View>
                 );
               })()}
+              {iceStats.turnError && (
+                <View style={[styles.diagAlert, { marginTop: 8, backgroundColor: '#3a0000', borderColor: '#ff2222' }]}>
+                  <Ionicons name="alert-circle" size={20} color="#ff2222" />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={[styles.diagAlertText, { fontWeight: 'bold', color: '#ff4444', fontSize: 13 }]}>
+                      TURN ERROR (z posledného hovoru):
+                    </Text>
+                    <Text style={[styles.diagAlertText, { color: '#ffaaaa', marginTop: 2 }]}>{iceStats.turnError}</Text>
+                    {iceStats.turnError.includes('702') && (
+                      <Text style={{ color: '#ff9800', fontSize: 11, marginTop: 4 }}>
+                        → Pravdepodobná príčina: TURN username alebo password v nastaveniach nie je správny.
+                        {'\n'}Skontroluj: INDEXUS → Nastavenia → SIP → TURN credentials
+                      </Text>
+                    )}
+                    {iceStats.turnError.includes('701') && (
+                      <Text style={{ color: '#ff9800', fontSize: 11, marginTop: 4 }}>
+                        → Server nedostupný: coturn na 77.72.181.116 nie beží alebo je port blokovaný.
+                      </Text>
+                    )}
+                    {iceStats.turnError.includes('703') && (
+                      <Text style={{ color: '#ff9800', fontSize: 11, marginTop: 4 }}>
+                        → Timeout: coturn neodpovedá dostatočne rýchlo (zaťaženie alebo firewall).
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
               {iceStats.error && (
                 <View style={[styles.diagAlert, { marginTop: 8 }]}>
                   <Ionicons name="warning" size={18} color="#ff4444" />

@@ -979,6 +979,23 @@ class MobileSipEngine {
         }
       };
 
+      // TURN error handler — critical for diagnosing why relay candidates are missing
+      // errorCode 701=network unreachable, 702=bad credentials, 703=timeout, 704=protocol error
+      pc.onicecandidateerror = (e: any) => {
+        const code = e?.errorCode as number;
+        const url = (e?.url || '?').replace(/credential=[^&]+/, 'credential=***').replace(/password=[^&]+/, 'password=***');
+        const text = e?.errorText || '';
+        const meaning =
+          code === 701 ? 'SERVER NEDOSTUPNÝ (sieť/firewall blokuje port)' :
+          code === 702 ? '⚠ NESPRÁVNÉ CREDENTIALS — skontroluj TURN username/password v nastaveniach!' :
+          code === 703 ? 'TIMEOUT — coturn neodpovedá' :
+          code === 704 ? 'CHYBA PROTOKOLU' :
+          code >= 400 && code < 700 ? `STUN/TURN odpoveď ${code}: ${text}` :
+          `ICE chyba ${code}: ${text}`;
+        this.emit('debug', `⚠ TURN ERR [${code}] ${meaning} | ${url}`);
+        this.emit('ice-stats', { turnError: `[${code}] ${meaning}` });
+      };
+
       const receivers = pc.getReceivers ? pc.getReceivers() : [];
       this.emit('debug', `Remote receivers: ${receivers.length}`);
       receivers.forEach((receiver: any) => {
