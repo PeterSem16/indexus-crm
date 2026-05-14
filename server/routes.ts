@@ -43444,24 +43444,6 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
           nameHu: "Szülészeti osztály nővérei", nameRo: "Asistente secția de obstetrică", nameIt: "Infermiere del reparto di ostetricia", nameDe: "Schwestern der Geburtshilfeabteilung",
         },
         {
-          code: "neonatology_head", sortOrder: 7, entityScope: "hospital", isDefault: true, isActive: true,
-          name: "Primár neonatologického oddelenia",
-          nameSk: "Primár neonatologického oddelenia", nameCs: "Primář neonatologického oddělení", nameEn: "Head of Neonatology Department",
-          nameHu: "Neonatológiai osztályvezető", nameRo: "Șeful secției de neonatologie", nameIt: "Responsabile del reparto di neonatologia", nameDe: "Leiter der Neonatologieabteilung",
-        },
-        {
-          code: "neonatology_doctor", sortOrder: 8, entityScope: "hospital", isDefault: true, isActive: true,
-          name: "Lekári neonatologického oddelenia",
-          nameSk: "Lekári neonatologického oddelenia", nameCs: "Lékaři neonatologického oddělení", nameEn: "Neonatology Department Doctors",
-          nameHu: "Neonatológiai osztály orvosai", nameRo: "Medici secția de neonatologie", nameIt: "Medici del reparto di neonatologia", nameDe: "Ärzte der Neonatologieabteilung",
-        },
-        {
-          code: "neonatology_nurse", sortOrder: 9, entityScope: "hospital", isDefault: true, isActive: true,
-          name: "Sestry neonatologického oddelenia",
-          nameSk: "Sestry neonatologického oddelenia", nameCs: "Sestry neonatologického oddělení", nameEn: "Neonatology Department Nurses",
-          nameHu: "Neonatológiai osztály nővérei", nameRo: "Asistente secția de neonatologie", nameIt: "Infermiere del reparto di neonatologia", nameDe: "Schwestern der Neonatologieabteilung",
-        },
-        {
           code: "gynecologist_private", sortOrder: 10, entityScope: "clinic", isDefault: true, isActive: true,
           name: "Súkromný gynekológ",
           nameSk: "Súkromný gynekológ", nameCs: "Soukromý gynekolog", nameEn: "Private Gynecologist",

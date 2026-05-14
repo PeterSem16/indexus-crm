@@ -10,7 +10,7 @@
 2. [Module: Hospitals](#2-module-hospitals)
 3. [Module: Clinics](#3-module-clinics)
 4. [Module: Persons / Collaborators](#4-module-persons--collaborators)
-5. [Referral System](#5-referral-system)
+5. [Referral System — with a Real Example](#5-referral-system--with-a-real-example)
 6. [Working with Institution Personnel](#6-working-with-institution-personnel)
 7. [Pipeline — Cooperation Status with a Clinic](#7-pipeline--cooperation-status-with-a-clinic)
 8. [Tips for Daily Work](#8-tips-for-daily-work)
@@ -93,7 +93,7 @@ Core information about the hospital that you can directly edit.
 | **District** | District within the region |
 | **GPS coordinates** | Latitude and longitude — enter manually or use the *Get Location* button (uses device GPS) |
 | **Responsible person** | INDEXUS user responsible for this hospital |
-| **Contact person** | Name of an internal contact at the hospital (not from the Persons module) |
+| **Contact person** | Name of an internal contact at the hospital |
 | **Laboratory** | Assigned collection laboratory for the respective country |
 | **Active** | Toggle — inactive hospitals do not appear in campaigns and filters |
 | **Auto-recruiting** | If enabled, the system may automatically include the hospital in recruiting |
@@ -120,7 +120,7 @@ Personnel management (adding, editing assignments) is done directly in the Perso
 
 #### Tab: Campaigns
 
-Displays the history and current status of all campaigns this hospital has been included in. You can track how outreach to this institution is progressing across individual campaigns.
+Displays the history and current status of all campaigns this hospital has been included in.
 
 ---
 
@@ -161,7 +161,7 @@ The table shows:
 | Section | Fields |
 |---------|--------|
 | **Identification** | Clinic name, Doctor's title, First name, Last name |
-| **Codes** | Healthcare facility ID, PZS code, PZS name, Company registration number (IČO) |
+| **Codes** | Healthcare facility ID, PZS code, PZS name, Company registration number |
 | **Address** | Street, building number, orientation number, city, postal code, country, region, district |
 | **Contacts** | Phone 1/2/3, Email 1/2/3, Website |
 | **GPS** | Coordinates — manual entry or GPS capture |
@@ -206,47 +206,31 @@ This tab is the heart of the sales process for a clinic. The entire relationship
 
 #### Tab: Contact History
 
-A chronological list of all interactions with the clinic — calls, emails, visits. Each record contains date, contact type, result, and note.
+A chronological list of all interactions with the clinic — calls, emails, visits.
 
 ---
 
 #### Tab: Communication (Email)
 
-Send an email directly to the clinic without leaving INDEXUS. Supports:
-- Sender selection (personal MS365 account or shared mailbox)
-- Template selection by category and language
-- CC recipient
-- Attachments
+Send an email directly to the clinic without leaving INDEXUS. Supports sender selection, templates, CC, and attachments.
 
 ---
 
 #### Tab: Personnel
 
-Displays all workers assigned to this clinic — same view as for hospitals. The clinic's primary doctor (practice owner) is highlighted at the top.
+Displays all workers assigned to this clinic. The clinic's primary doctor (practice owner) is highlighted at the top.
 
 ---
 
-#### Tab: Campaigns
+#### Tab: Campaigns / Network / Referrals
 
-History of the clinic's involvement in campaigns.
-
----
-
-#### Tab: Network
-
-Shows which healthcare network the clinic belongs to (if it is part of a clinic group or hospital network).
-
----
-
-#### Tab: Referrals
-
-Displays a list of referrals — who referred this clinic and which other clinics this clinic has referred. More in the [Referral System](#5-referral-system) chapter.
+Campaigns — history of involvement. Network — healthcare network membership. Referrals — who referred this clinic and which clinics it has referred. More in chapter [5 — Referral System](#5-referral-system--with-a-real-example).
 
 ---
 
 ### Adding a new clinic
 
-Click **+ Add Clinic**. A side panel opens with a form. When you enter the city, the system automatically suggests the region and district. The postal code can be automatically looked up via AI search (button next to the postal code field).
+Click **+ Add Clinic**. When you enter the city, the system automatically suggests the region and district. The postal code can be automatically looked up via AI search.
 
 **After saving, we recommend:**
 1. Setting the pipeline status (at least *Not contacted*)
@@ -259,7 +243,7 @@ Click **+ Add Clinic**. A side panel opens with a form. When you enter the city,
 
 ### What we track here
 
-The Persons module (also called Collaborators in the navigation) contains all healthcare workers — doctors, midwives, nurses, and other staff. Each person can be assigned to one or more hospitals and clinics. Some persons are also active collaborators with a signed contract and receive fees.
+The Persons module contains all healthcare workers — doctors, midwives, nurses, and other staff. Each person can be assigned to one or more hospitals and clinics. Some persons are also active collaborators with a signed contract and receive fees.
 
 ### Person types
 
@@ -274,25 +258,9 @@ The Persons module (also called Collaborators in the navigation) contains all he
 | **External** | External collaborator outside healthcare |
 | **Other** | Other categories |
 
-### Professional classifications (detailed)
-
-For more precise tracking, a professional classification is used:
-- Gynecology specialists
-- General practitioners
-- Chief physicians (Primár)
-- Medical directors
-- Specialized midwives
-- Charge midwives (leading midwives)
-- Midwives without specialization
-- Head nurses
-- Operating room nurses
-- General nurses
-- Healthcare assistants
-- ...and others
-
 ### Person card — tabs (Wizard)
 
-The person's card is organized into steps / tabs:
+The person's card is organized into 9 steps / tabs:
 
 ---
 
@@ -301,17 +269,14 @@ The person's card is organized into steps / tabs:
 | Field | Description |
 |-------|-------------|
 | **Title before name** | e.g. MUDr., Mgr., doc. |
-| **First name** | Given name |
-| **Middle name** | Optional |
-| **Last name** | Surname |
+| **First / Middle / Last name** | Full name |
 | **Maiden name** | Birth surname (if different) |
 | **Title after name** | e.g. PhD., MPH |
 | **Birth number** | National identification number |
-| **Date of birth** | Day, month, year |
-| **Place of birth** | Birth city |
+| **Date and place of birth** | Day, month, year, city |
 | **Health insurance** | Insurance company |
 | **Marital status** | Single, Married, Divorced, Widowed |
-| **Professional classification** | Detailed category (see above) |
+| **Professional classification** | Detailed healthcare worker category |
 | **Highest education** | From primary school to doctorate |
 | **Workplace name** | Name of primary workplace |
 | **Is manager** | Toggle — marks leadership positions |
@@ -319,75 +284,39 @@ The person's card is organized into steps / tabs:
 | **Partner category** | Precise position in the network (Chief Physician, KOL, Gynecologist...) |
 | **CBC activities** | Activities in the cord blood banking area |
 | **Countries** | May operate in multiple countries |
-| **Active** | Person's status in the system |
-| **Svet zdravia** | Membership in a hospital network |
-| **Client contact** | Person is a direct contact for clients |
+| **Active / Svet zdravia / Client contact** | Status and flags |
 
 ---
 
 #### Tab 2: Contact Details
 
-| Field | Description |
-|-------|-------------|
-| **Phone** | Work phone |
-| **Mobile 1 / Mobile 2** | Mobile numbers |
-| **Other contact** | e.g. WhatsApp, Viber |
-| **Email** | Email address |
-
-> Each phone number has a direct call button to dial via INDEXUS.
+Phone, Mobile 1 / Mobile 2, Other contact, Email. Each phone number has a direct call button to dial via INDEXUS.
 
 ---
 
 #### Tab 3: Banking Details
 
-Filled in for collaborators who receive fees.
-
-| Field | Description |
-|-------|-------------|
-| **IBAN** | Personal bank account |
-| **SWIFT / BIC** | Bank code |
-| **Company name** | If the person invoices through a company or sole trader |
-| **Company reg. no. / Tax no. / VAT no.** | Company identification numbers |
-| **Company IBAN / SWIFT** | Company bank account |
+Filled in for collaborators who receive fees: IBAN, SWIFT/BIC, Company name, Company registration / tax / VAT numbers, Company IBAN and SWIFT.
 
 ---
 
 #### Tab 4: Contracts and Fees
 
-Records of the collaborator's contractual relationships.
-
 | Field | Description |
 |-------|-------------|
-| **Contract type** | Form of agreement (DPP, DPČ, cooperation agreement...) |
-| **Contract number** | Internal contract number |
-| **Agreement form** | Legal form |
+| **Contract type / number / form** | Type and identification of the agreement |
 | **Valid from / to** | Date range of contract validity |
 | **Contract sent / returned** | Tracking physical circulation of the contract |
-| **Social insurance registration** | Date of registration with the Social Insurance Agency |
-| **Social insurance cancellation** | Date of deregistration |
+| **Social insurance registration / cancellation** | Dates for the Social Insurance Agency |
 | **Monthly fees** | Whether the collaborator receives regular monthly fees |
 | **Fee type** | Fixed amount or percentage-based |
-| **Fixed fee amount** | Amount in the relevant currency |
-| **Percentage fee** | Share of value by country |
-| **Contract note** | Internal notes |
+| **Fixed fee amount / Percentage fee** | Amount or share by country |
 
 ---
 
-#### Tab 5: Documents
+#### Tab 5–7: Documents, Activities, History
 
-Storage of documents assigned to the person — scanned contracts, attachments, certificates. Documents can be uploaded and viewed directly in INDEXUS.
-
----
-
-#### Tab 6: Activities and Actions
-
-Overview of the collaborator's activities — visits, calls, actions. The complete history of interactions recorded for this person is displayed here.
-
----
-
-#### Tab 7: History
-
-Complete chronological overview of all changes and events recorded for this person.
+Documents — upload and view scanned contracts and attachments. Activities — interaction history (visits, calls). History — complete chronological log of all changes.
 
 ---
 
@@ -398,13 +327,12 @@ A key tab — shows which hospitals and clinics this person is assigned to.
 For each assignment you see:
 - **Institution** (hospital or clinic) with a link to its card
 - **Department** — e.g. *Gynecology and Obstetrics Department*
-- **Position** — e.g. *Chief Physician*, *Attending Physician*, *Midwife*
+- **Position** — e.g. *Chief Physician*, *Attending Physician*, *Delivery Midwives*
 - **Role** — specific role within the position
 - **Category** — from the MPN category list
-- **Date from / to** — time range of the assignment
-- **Primary assignment** — designation of the main workplace
+- **Date from / to** and **Primary assignment**
 - **Active / Inactive** — assignment status
-- **Note** — optional note for the assignment
+- **Who recommended this person** — purple badge with recommender's name
 
 > **Important:** An assignment to an institution is added via the **Personnel** tab in the hospital or clinic card — not directly here. This tab only serves to view and edit existing assignments.
 
@@ -412,26 +340,71 @@ For each assignment you see:
 
 #### Tab 9: Mobile Application
 
-Management of the collaborator's access to INDEXUS Connect (mobile application). Shows connection status, QR code for login, and mobile access settings.
+Management of the collaborator's access to INDEXUS Connect. QR code for login, connection status.
 
 ---
 
-### Lead source and referrals for persons
-
-Just like for clinics, the following is tracked for persons:
-- **Lead source** — how the person entered the database
-- **Is referred by a doctor** — toggle (if yes, it is visible next to the person in the personnel list)
-- **From a conference** — whether the contact was made at a conference
-
----
-
-## 5. Referral System
+## 5. Referral System — with a Real Example
 
 ### Why referrals are key
 
 In cord blood banking, trust is fundamental. Most new collaborators come through recommendations from another doctor or midwife. INDEXUS therefore tracks these relationships precisely — we know who referred whom, and we can strategically develop the referral network.
 
-### How referrals work
+---
+
+### Real example from the database: Referral chain — Feráková → Korčok → Trnava
+
+> **This is a real example from the INDEXUS database, recorded on 15 April 2026. Names and dates are real.**
+
+#### The situation
+
+A sales representative visited **MUDr. Nataša Feráková** from *Ambulancia detskej gynekológie* (Pediatric Gynecology Practice) in **Nové Mesto**. Dr. Feráková is a long-standing collaborator who mentioned a colleague worth contacting.
+
+#### Step 1 — Dr. Feráková refers Dr. Korčok
+
+MUDr. Feráková recommended reaching out to her colleague **MUDr. Martin Korčok**, who runs the *4D Ultrazvuk* practice in **Štúrovo**.
+
+**What to do in INDEXUS:**
+1. Open the clinic card for **4D Ultrazvuk** (Štúrovo)
+2. In the **Pipeline** tab, set:
+   - Lead source = **Doctor referral**
+   - Check the **Is referred by a doctor** toggle
+3. In the **Referrals** tab, add a link to *Ambulancia detskej gynekológie* (MUDr. Feráková, Nové Mesto)
+
+**Result in the system:**
+```
+4D Ultrazvuk — MUDr. Martin Korčok, Štúrovo
+  └─ [Referral] ← Ambulancia detskej gynekológie — MUDr. Nataša Feráková, Nové Mesto
+       Type: Doctor referral  |  Recorded: 15 Apr 2026
+```
+
+#### Step 2 — Dr. Korčok refers another clinic
+
+After successfully establishing cooperation with Dr. Korčok, he in turn referred another clinic — the **Gynecological and Obstetric Practice** in **Trnava**.
+
+**Final referral chain in INDEXUS:**
+
+```
+MUDr. Nataša Feráková
+Ambulancia detskej gynekológie, Nové Mesto
+        │
+        └──► MUDr. Martin Korčok
+             4D Ultrazvuk, Štúrovo               [15 Apr 2026]
+                     │
+                     └──► Gynekologicko-pôrodnícka ambulancia
+                          Trnava                 [15 Apr 2026]
+```
+
+#### What this visibility gives a manager
+
+- **Dr. Feráková is a key referrer** — one visit generated 2 new clinics in the network
+- **Professional trust transfers**: Korčok trusts Feráková, Trnava trusts Korčok
+- When planning **referral fees**, the entire chain is clearly documented and auditable
+- You can strategically **deepen the relationship with Dr. Feráková** — she can refer further contacts
+
+---
+
+### How referrals work in general
 
 #### For clinics
 
@@ -439,9 +412,7 @@ In cord blood banking, trust is fundamental. Most new collaborators come through
 2. Check the **Is referred by a doctor** toggle
 3. In the **Referrals** tab, a link to the referring doctor appears
 
-The system tracks:
-- Who referred this clinic
-- Which other clinics this clinic has referred
+The system tracks both directions — who referred this clinic and which clinics this clinic has referred.
 
 #### For persons (institution personnel)
 
@@ -451,18 +422,18 @@ When assigning a person to a hospital or clinic via the Personnel tab, you can f
 After saving, a purple badge appears next to the worker's name in the personnel list:
 > *"Recommended by John Smith"*
 
-The system correctly handles gendered language based on the surname.
+INDEXUS automatically detects gender from the last name suffix.
 
-### How to keep referrals up to date — best practices
+### Best practices for maintaining the referral network
 
 | Situation | What to do |
 |-----------|-----------|
-| A doctor recommended a new colleague | When creating the person, set Lead Source = *Doctor referral* and record the referrer's name in the institution assignment |
-| A midwife recommended a clinic | For the clinic, set Lead Source = *Doctor referral* and in the Referrals tab, link to the referring person |
-| An active collaborator referred colleagues | Lead Source = *Current collaborator* — allows measuring the productivity of existing collaborators |
-| Conference contact | Lead Source = *Conference*, add the conference name and date |
+| A doctor recommended a new clinic | Set Lead Source = *Doctor referral*, link via the Referrals tab |
+| A midwife recommended a colleague | When creating the person, fill in *Recommended by* in the institution assignment |
+| An active collaborator referred colleagues | Lead Source = *Current collaborator* — allows measuring referrer productivity |
+| Conference contact | Lead Source = *Conference*, add conference name and date |
 
-> **Why this matters:** Based on lead sources, you can measure which channels bring the most collaborators and set outreach priorities. Correctly filled-in referral history is also the basis for referral fees.
+> **Why this matters:** Based on lead sources, you can measure which channels bring the most collaborators. Correctly filled-in referral history is also the basis for referral fees.
 
 ---
 
@@ -473,48 +444,41 @@ The system correctly handles gendered language based on the surname.
 1. Open the **hospital** or **clinic** card
 2. Go to the **Personnel** tab
 3. Click **+ Add person**
-4. Search for an existing person in the database or create a new one
-5. Fill in:
-   - **Department** — e.g. *Gynecology and Obstetrics Dept.*
-   - **Position** — e.g. *Midwife*
-   - **Category** — from the MPN category list
-   - **Primary assignment** — if this is the person's main workplace
-   - **Recommended by** — who recommended this person (for referral tracking)
-   - **Active** — whether the assignment is currently active
+4. Search for an existing person or create a new one
+5. Fill in: Department, Position, Category, Primary assignment, Recommended by, Active
 6. Save
 
-### Categorical classification of personnel
+### Current MPN position list
 
-INDEXUS uses an **MPN category** list for precise personnel classification. Categories apply to both hospitals and clinics and are divided by scope:
+INDEXUS uses an **MPN category** list for precise personnel classification.
 
-**Categories for hospitals:**
-- Hospital Director
-- Department Head
-- Chief Physician (Primár)
-- Attending Physician (Sekundár)
-- Gynecologist
-- Obstetrician
-- Neonatologist
-- Pediatrician
-- Head Nurse
-- Nurse
-- Delivery Midwife
-- Midwife
-- Anesthesiologist, Surgeon, Hematologist, Oncologist...
+#### Categories for hospitals
 
-**Categories for clinics:**
-- Ambulatory Gynecologist
-- General Practitioner
-- KOL (Key Opinion Leader) — doctors with significant influence in the field
-- Strategic Partner
-- Referral Source
+| Code | Slovak name | English name |
+|------|------------|--------------|
+| `hospital_director` | Riaditeľ nemocnice | Hospital Director |
+| `department_head` | Vedúci pôrodníckeho oddelenia | Head of Obstetrics Department |
+| `head_nurse` | Hlavná/vrchná sestra pôrodníckeho oddelenia | Head Nurse of Obstetrics Department |
+| `delivery_midwife` | Pôrodné asistentky/hebamme | Delivery Midwives |
+| `department_doctor` | Lekári pôrodníckeho oddelenia | Obstetrics Department Doctors |
+| `department_nurse` | Sestry pôrodníckeho oddelenia | Obstetrics Department Nurses |
 
-**Special categories:**
-- Prenatal Instructor
-- Doula
-- Lactation Consultant
-- Pharmacist
-- Laboratory Specialist
+#### Categories for clinics
+
+| Code | Slovak name | English name |
+|------|------------|--------------|
+| `gynecologist_private` | Súkromný gynekológ | Private Gynecologist |
+| `pediatrician_private` | Súkromný pediater | Private Pediatrician |
+
+#### Categories for independent workers
+
+| Code | Slovak name | English name |
+|------|------------|--------------|
+| `prenatal_instructor` | Lektorka predpôrodnej prípravy | Prenatal Preparation Instructor |
+| `doula` | Dula | Doula |
+| `lactation_consultant` | Laktačná poradkyňa | Lactation Consultant |
+
+> **Note:** This list is definitive. Categories such as Head of Neonatology / Neonatology Doctors / Neonatology Nurses have been intentionally removed and will not be re-added by automatic updates.
 
 ---
 
@@ -522,7 +486,7 @@ INDEXUS uses an **MPN category** list for precise personnel classification. Cate
 
 ### Visual progress of cooperation
 
-For each clinic, INDEXUS shows a **5-step progress bar** indicating the current stage of the relationship:
+For each clinic, INDEXUS shows a **5-step progress bar**:
 
 ```
 [Contact] → [Referral] → [Cooperation Interest] → [Contract Interest] → [Partner]
@@ -530,18 +494,18 @@ For each clinic, INDEXUS shows a **5-step progress bar** indicating the current 
 
 | Step | When it is completed |
 |------|---------------------|
-| **Contact** | A lead source has been set (the clinic is in the database with an assigned origin) |
+| **Contact** | A lead source has been set (the clinic has an assigned origin) |
 | **Referral** | The clinic was referred by another doctor / collaborator |
-| **Cooperation interest** | The doctor confirmed interest in cooperation (pipeline = *coop:interested*) |
+| **Cooperation interest** | The doctor confirmed interest (pipeline = *coop:interested*) |
 | **Contract interest** | The doctor is willing to sign a contract (pipeline = *contract_int:interested*) |
 | **Partner** | The contract is signed and active (pipeline = *contract:active*) |
 
-Steps marked in red signal rejection at a given phase — e.g. the doctor declined cooperation or refused to sign a contract.
+Steps marked in red signal rejection at a given phase.
 
 ### Recommended pipeline workflow
 
-1. **At first contact** — set the Lead Source and Pipeline = *Not contacted* or *Cooperation interest*
-2. **After the first call** — record the result (Last call result field) and set the Next contact date
+1. **At first contact** — set the Lead Source and Pipeline = *Not contacted*
+2. **After the first call** — record the result and set the Next contact date
 3. **On a positive response** — advance the pipeline: *Cooperation interest* → *Contract interest*
 4. **When sending the contract** — fill in the Contract sent date
 5. **After signing** — set Pipeline = *Active contract* and add the Contract returned date
@@ -554,24 +518,21 @@ Steps marked in red signal rejection at a given phase — e.g. the doctor declin
 
 Every module has a search field at the top — it searches by name, city, postal code, and codes. The global search (magnifying glass icon in the navigation) searches hospitals, clinics, and persons simultaneously.
 
-### Filtering
+### Filtering and presets
 
 The **Filter** button allows combining multiple criteria at once — country, region, pipeline status, person type, activity status, etc. Filters can be saved as **presets** for repeated use.
 
 ### Export
 
-The hospital, clinic, and person list pages all have an **Export** button (table icon) — exports the currently displayed and filtered dataset to an Excel/CSV file.
+Every list page has an **Export** button (table icon) — exports the currently displayed and filtered dataset to Excel/CSV.
 
 ### Web enrichment
 
-For clinics, a **Enrich from web** feature is available — the system attempts to automatically find missing contact details (phone, email, website) based on the clinic name and address.
+For clinics, an **Enrich from web** feature is available — the system automatically finds missing contact details (phone, email, website) based on the clinic name and address.
 
 ### GPS and map
 
-Every hospital, clinic, and person address can have GPS coordinates. Coordinates can be:
-- Entered manually
-- Captured from the device's GPS (*Get Location* button)
-- Displayed on a map after entry (*Show on Map* button)
+Coordinates can be entered manually, captured from the device GPS (*Get Location*), or displayed on a map after entry (*Show on Map*). Available for hospitals, clinics, and person addresses.
 
 ### Multi-language environment
 

@@ -66,3 +66,27 @@ id = "woBJMG8SJlIRrIbUreI_R"
 uri = "file://attached_assets/healthcare_network_documentation_EN.docx"
 type = "word_document"
 title = "Healthcare Network Documentation (English — DOCX)"
+
+[[outputs]]
+id = "k_Km3mBxMCcEgs9sk95Xh"
+uri = "file://attached_assets/user-manuals/healthcare_network_documentation.md"
+type = "text"
+title = "Healthcare Network Dokumentácia SK (aktualizovaná)"
+
+[[outputs]]
+id = "WSz9mZGh1qGGY7cQWqH9F"
+uri = "file://attached_assets/user-manuals/healthcare_network_documentation_EN.md"
+type = "text"
+title = "Healthcare Network Documentation EN (updated)"
+
+[[outputs]]
+id = "hpdv2iq6Hks-ld5aHq41J"
+uri = "file://attached_assets/user-manuals/healthcare_network_documentation_SK.docx"
+type = "word_document"
+title = "Healthcare Network SK — DOCX (aktualizovaný)"
+
+[[outputs]]
+id = "_I1pNXqhwKvreIjfyHZ7-"
+uri = "file://attached_assets/user-manuals/healthcare_network_documentation_EN.docx"
+type = "word_document"
+title = "Healthcare Network EN — DOCX (updated)"
