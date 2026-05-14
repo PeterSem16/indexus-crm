@@ -82,7 +82,7 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as mailchimpApi from "./lib/mailchimp";
-import { runAsteriskCliViaSsh } from "./lib/ami-client";
+import { sendAmiActionViaSshTunnel } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 
@@ -17007,21 +17007,29 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 throw new Error("SSH credentials not configured in ARI settings");
               }
 
-              // mixmonitor start <channel> <file>[^format] [<options>]
-              const cliCmd = `mixmonitor start ${channel.name} ${amiRecordingPath}^wav b`;
-              const sshResult = await runAsteriskCliViaSsh(server.host, sshPort, sshUser, sshPass, cliCmd);
+              // SSH tunnel to AMI on localhost:5038 of Asterisk server — bypasses external firewall
+              const amiResult = await sendAmiActionViaSshTunnel(
+                server.host, sshPort, sshUser, sshPass,
+                username, password,
+                {
+                  Action: "MixMonitor",
+                  Channel: channel.name,
+                  File: `${amiRecordingPath}^wav`,
+                  Options: "b",
+                }
+              );
 
-              if (sshResult.success) {
+              if (amiResult.success) {
                 recordingStarted = true;
                 amiRecorded = true;
                 mobileActiveRecordings.set(callLogId, recordingName);
-                console.log(`[ServerRecording] SSH MixMonitor started on '${channel.name}', file: ${amiRecordingPath}.wav — output: ${sshResult.output}`);
+                console.log(`[ServerRecording] AMI MixMonitor (via SSH tunnel) started on '${channel.name}', file: ${amiRecordingPath}.wav (both sides)`);
                 break;
               } else {
-                console.warn(`[ServerRecording] SSH MixMonitor failed: ${sshResult.output}`);
+                console.warn(`[ServerRecording] AMI MixMonitor via SSH tunnel failed: ${amiResult.response}`);
               }
             } catch (amiErr: any) {
-              console.warn(`[ServerRecording] SSH MixMonitor error: ${amiErr?.message} — falling back to ARI snoop`);
+              console.warn(`[ServerRecording] AMI SSH tunnel error: ${amiErr?.message} — falling back to ARI snoop`);
             }
 
             // Fallback: ARI snoop (captures at least one side via Stasis)
