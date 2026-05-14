@@ -1,0 +1,26 @@
+# A ako sa volá pm2 proces
+pm2 list
+                                                    List of databases
+    Name     |  Owner   | Encoding | Locale Provider | Collate |  Ctype  | ICU Locale | ICU Rules |   Access privileges
+-------------+----------+----------+-----------------+---------+---------+------------+-----------+-----------------------
+ indexus_crm | indexus  | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           | =Tc/indexus          +
+             |          |          |                 |         |         |            |           | indexus=CTc/indexus
+ postgres    | postgres | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           |
+ template0   | postgres | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           | =c/postgres          +
+             |          |          |                 |         |         |            |           | postgres=CTc/postgres
+ template1   | postgres | UTF8     | libc            | C.UTF-8 | C.UTF-8 |            |           | =c/postgres          +
+             |          |          |                 |         |         |            |           | postgres=CTc/postgres
+(4 rows)
+
+┌────┬──────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name             │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 4  │ indexus-crm      │ default     │ 1.0.0   │ fork    │ 727764   │ 14m    │ 196  │ online    │ 0%       │ 232.2mb  │ seman    │ disabled │
+└────┴──────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Module
+┌────┬──────────────────────────────┬───────────────┬──────────┬──────────┬──────┬──────────┬──────────┬──────────┐
+│ id │ module                       │ version       │ pid      │ status   │ ↺    │ cpu      │ mem      │ user     │
+├────┼──────────────────────────────┼───────────────┼──────────┼──────────┼──────┼──────────┼──────────┼──────────┤
+│ 1  │ pm2-logrotate                │ 3.0.0         │ 27605    │ online   │ 3    │ 0%       │ 67.4mb   │ seman    │
+└────┴──────────────────────────────┴───────────────┴──────────┴──────────┴──────┴──────────┴──────────┴──────────┘
+seman@CORPCRM01:/var/www/indexus-crm$
