@@ -86,6 +86,12 @@ class MobileSipEngine {
   private _registrationState: SipRegistrationState = 'unregistered';
   private _callState: SipCallState = 'idle';
   private _iceServers: any[] = [];
+  private get _hasTurn(): boolean {
+    return this._iceServers.some(s => {
+      const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+      return urls.some((u: string) => u && u.startsWith('turn'));
+    });
+  }
   private _callInfo: SipCallInfo = {
     phoneNumber: '',
     direction: 'outbound',
@@ -237,6 +243,7 @@ class MobileSipEngine {
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
             iceCandidatePoolSize: 2,
+            ...(this._hasTurn ? { iceTransportPolicy: 'relay' } : {}),
           },
         },
       });
@@ -506,6 +513,7 @@ class MobileSipEngine {
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
             iceCandidatePoolSize: 4,
+            ...(this._hasTurn ? { iceTransportPolicy: 'relay' } : {}),
           },
         },
       });
@@ -576,6 +584,7 @@ class MobileSipEngine {
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
             iceCandidatePoolSize: 4,
+            ...(this._hasTurn ? { iceTransportPolicy: 'relay' } : {}),
           },
         },
       });
