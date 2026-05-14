@@ -17195,6 +17195,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         analysisStatus: "pending",
       });
 
+      const [savedRecording] = await db.select().from(callRecordings).where(eq(callRecordings.callLogId, callLogId)).orderBy(desc(callRecordings.createdAt)).limit(1);
+
+      // Delete the source file from Asterisk to free space (best-effort)
+      runSshCommand(recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
+        `rm -f "${recInfo.amiFilePath}.wav" "${recInfo.amiFilePath}^wav.raw" "${recInfo.amiFilePath}.raw" "${recInfo.amiFilePath}.ulaw" "${recInfo.amiFilePath}.gsm" 2>/dev/null; echo deleted`
+      ).then(out => console.log(`[FinalizeRecording] Cleaned up Asterisk file: ${out.trim()}`))
+       .catch(() => {});
+
+      // Trigger AI analysis + transcription in background (same as mic-upload path)
+      if (savedRecording && process.env.OPENAI_API_KEY) {
+        processCallRecordingAnalysis(savedRecording.id, filePath).catch(err => {
+          console.error(`[FinalizeRecording] Background analysis failed:`, err.message);
+        });
+      }
+
       console.log(`[FinalizeRecording] Saved via SSH from ${recInfo.sshHost}: ${filename} (${audioBuffer.length} bytes) — BOTH SIDES`);
       return res.json({ success: true, filename, bytes: audioBuffer.length });
     } catch (error: any) {
