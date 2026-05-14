@@ -853,9 +853,10 @@ class MobileSipEngine {
       const InCallManager = await this.getInCallManager();
 
       if (!this.audioSessionStarted) {
-        InCallManager.start({ media: 'audio', auto: false, ringback: '' });
+        // auto:true = InCallManager manages audio focus + proximity on Android/iOS
+        InCallManager.start({ media: 'audio', auto: true, ringback: '' });
         this.audioSessionStarted = true;
-        this.emit('debug', 'InCallManager.start() called');
+        this.emit('debug', 'InCallManager.start() called (auto:true)');
       }
 
       this.updateCallInfo({ isSpeaker: speaker });
@@ -932,8 +933,25 @@ class MobileSipEngine {
         }
         if (st === 'connected' || st === 'completed') {
           const hasRelay = _iceCandidateTypes.includes('relay');
-          this.emit('debug', `ICE connected via: ${hasRelay ? 'TURN RELAY ✓' : 'direct/STUN (no TURN relay used)'}`);
+          this.emit('debug', `★ ICE connected via: ${hasRelay ? 'TURN RELAY ✓' : 'direct/STUN (no relay)'} — re-enabling audio tracks`);
           this.emit('ice-stats', { usedRelay: hasRelay, error: null });
+          // Re-enable tracks after ICE connects — ensures audio flows even if track
+          // was received before ICE finished (timing race on some devices)
+          try {
+            const rcv = pc.getReceivers ? pc.getReceivers() : [];
+            rcv.forEach((r: any) => { if (r?.track) r.track.enabled = true; });
+            const snd = pc.getSenders ? pc.getSenders() : [];
+            snd.forEach((s: any) => { if (s?.track) s.track.enabled = true; });
+            this.emit('debug', `Audio tracks re-enabled: rx=${rcv.length} tx=${snd.length}`);
+          } catch {}
+          // Log negotiated codec from remote SDP
+          try {
+            const sdp: string = pc.remoteDescription?.sdp || '';
+            const audioSection = sdp.split('\r\n').filter((l: string) =>
+              l.startsWith('m=audio') || l.startsWith('a=rtpmap') || l.startsWith('a=fmtp')
+            ).slice(0, 6).join(' | ');
+            if (audioSection) this.emit('debug', `SDP audio: ${audioSection}`);
+          } catch {}
         }
         if (st === 'disconnected' || st === 'closed') {
           this.emit('ice-stats', { connectionState: st });
@@ -1016,10 +1034,15 @@ class MobileSipEngine {
       });
 
       pc.ontrack = (event: any) => {
-        this.emit('debug', `ontrack fired: ${event?.track?.kind}`);
-        if (event?.track) {
-          event.track.enabled = true;
+        const t = event?.track;
+        this.emit('debug', `ontrack fired: kind=${t?.kind} readyState=${t?.readyState} enabled=${t?.enabled} id=${t?.id?.slice(0,8)}`);
+        if (t) {
+          t.enabled = true;
+          this.emit('debug', `ontrack: track enabled=true`);
         }
+        // Log streams attached to this track
+        const streams: any[] = event?.streams || [];
+        this.emit('debug', `ontrack: streams=${streams.length}`);
       };
 
       const remoteStreams = pc.getRemoteStreams ? pc.getRemoteStreams() : [];
