@@ -73,6 +73,11 @@ export function sendAmiActionViaSshTunnel(
             const packet = buffer.slice(0, idx);
             buffer = buffer.slice(idx + 4);
 
+            // Skip unsolicited events (e.g. FullyBooted) — wait only for Response: packets
+            if (packet.startsWith("Event:") || (packet.includes("\r\nEvent:") && !packet.includes("Response:"))) {
+              continue;
+            }
+
             if (phase === "login") {
               if (packet.includes("Response: Success")) {
                 sendAction();
