@@ -1,31 +1,133 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform, ActivityIndicator } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  Linking, Platform, ActivityIndicator, TextInput, Alert, Switch
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useHospitals } from '@/hooks/useHospitals';
+import { useHospitals, useUpdateHospital, Hospital } from '@/hooks/useHospitals';
 import { useSipStore } from '@/stores/sipStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
+
+function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <View style={styles.infoRow}>
+      <View style={styles.infoLabel}>
+        <Ionicons name={icon} size={16} color={Colors.textSecondary} />
+        <Text style={styles.infoLabelText}>{label}</Text>
+      </View>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+function InfoDivider() {
+  return <View style={styles.infoDivider} />;
+}
+
+function EditField({
+  label, value, onChangeText, multiline, keyboardType,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  multiline?: boolean;
+  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+}) {
+  return (
+    <View style={styles.editField}>
+      <Text style={styles.editLabel}>{label}</Text>
+      <TextInput
+        style={[styles.editInput, multiline && styles.editInputMulti]}
+        value={value}
+        onChangeText={onChangeText}
+        multiline={multiline}
+        keyboardType={keyboardType || 'default'}
+        placeholderTextColor={Colors.textSecondary}
+      />
+    </View>
+  );
+}
+
+function BoolRow({ label, value, onToggle }: { label: string; value: boolean; onToggle: (v: boolean) => void }) {
+  return (
+    <View style={styles.boolRow}>
+      <Text style={styles.boolLabel}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{ false: '#D1D5DB', true: `${Colors.primary}80` }}
+        thumbColor={value ? Colors.primary : '#9CA3AF'}
+      />
+    </View>
+  );
+}
 
 export default function HospitalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { translations } = useTranslation();
   const { data: hospitals = [], isLoading } = useHospitals();
-  
+  const updateHospital = useUpdateHospital();
+  const { registrationState, makeCall } = useSipStore();
+
   const hospital = hospitals.find(h => String(h.id) === id);
+
+  const [editMode, setEditMode] = useState(false);
+  const [form, setForm] = useState<Partial<Hospital>>({});
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = () => {
+    if (!hospital) return;
+    setForm({
+      name: hospital.name || '',
+      fullName: hospital.fullName || '',
+      contactPerson: hospital.contactPerson || '',
+      phone: hospital.phone || '',
+      email: hospital.email || '',
+      city: hospital.city || '',
+      streetNumber: hospital.streetNumber || '',
+      postalCode: hospital.postalCode || '',
+      region: hospital.region || '',
+      countryCode: hospital.countryCode || '',
+      isActive: hospital.isActive !== false,
+      svetZdravia: hospital.svetZdravia || false,
+      autoRecruiting: hospital.autoRecruiting || false,
+    });
+    setEditMode(true);
+  };
+
+  const cancelEdit = () => {
+    setEditMode(false);
+    setForm({});
+  };
+
+  const saveEdit = async () => {
+    if (!hospital) return;
+    setSaving(true);
+    try {
+      await updateHospital.mutateAsync({ id: hospital.id, ...form });
+      setEditMode(false);
+      setForm({});
+      Alert.alert('Uložené', 'Zmeny boli úspešne uložené.');
+    } catch (e: any) {
+      Alert.alert('Chyba', e?.message || 'Nepodarilo sa uložiť');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const openMap = () => {
     if (!hospital) return;
-    
     if (hospital.latitude && hospital.longitude) {
-      const lat = hospital.latitude;
-      const lng = hospital.longitude;
       const label = encodeURIComponent(hospital.name);
       const url = Platform.select({
-        ios: `maps:0,0?q=${label}@${lat},${lng}`,
-        android: `geo:${lat},${lng}?q=${lat},${lng}(${label})`,
+        ios: `maps:0,0?q=${label}@${hospital.latitude},${hospital.longitude}`,
+        android: `geo:${hospital.latitude},${hospital.longitude}?q=${hospital.latitude},${hospital.longitude}(${label})`,
       });
       if (url) Linking.openURL(url);
     } else if (hospital.streetNumber && hospital.city) {
@@ -38,22 +140,14 @@ export default function HospitalDetailScreen() {
     }
   };
 
-  const { registrationState, makeCall } = useSipStore();
-
   const callHospital = () => {
-    if (hospital?.phone) {
-      if (registrationState === 'registered') {
-        makeCall(hospital.phone);
-      } else {
-        Linking.openURL(`tel:${hospital.phone}`);
-      }
-    }
+    if (!hospital?.phone) return;
+    if (registrationState === 'registered') makeCall(hospital.phone);
+    else Linking.openURL(`tel:${hospital.phone}`);
   };
 
   const sendEmail = () => {
-    if (hospital?.email) {
-      Linking.openURL(`mailto:${hospital.email}`);
-    }
+    if (hospital?.email) Linking.openURL(`mailto:${hospital.email}`);
   };
 
   if (isLoading) {
@@ -70,10 +164,7 @@ export default function HospitalDetailScreen() {
         <SafeAreaView style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={Colors.error} />
           <Text style={styles.errorText}>{translations.hospitals.noResults}</Text>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>{translations.common.back}</Text>
           </TouchableOpacity>
         </SafeAreaView>
@@ -81,218 +172,261 @@ export default function HospitalDetailScreen() {
     );
   }
 
-  const formatAddress = () => {
-    const parts = [
-      hospital.streetNumber,
-      hospital.postalCode,
-      hospital.city,
-      hospital.region,
-    ].filter(Boolean);
-    return parts.join(', ') || translations.hospitals.noData;
-  };
+  const isActive = hospital.isActive !== false;
+
+  const h = editMode
+    ? { ...hospital, ...form }
+    : hospital;
 
   return (
     <View style={styles.container}>
       <LinearGradient
         colors={[Colors.primary, Colors.primaryDark]}
         style={styles.headerGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
       >
         <SafeAreaView edges={['top']}>
           <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => router.back()} 
-              style={styles.headerButton}
-              testID="button-back"
-            >
-              <Ionicons name="arrow-back" size={24} color={Colors.white} />
+            <TouchableOpacity onPress={editMode ? cancelEdit : () => router.back()} style={styles.headerBtn} testID="button-back">
+              <Ionicons name={editMode ? 'close' : 'arrow-back'} size={24} color={Colors.white} />
             </TouchableOpacity>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {translations.hospitals.details}
+              {editMode ? 'Upraviť nemocnicu' : translations.hospitals.details}
             </Text>
-            <View style={styles.headerButton} />
+            {editMode ? (
+              <TouchableOpacity onPress={saveEdit} style={styles.headerBtn} testID="button-save-hospital" disabled={saving}>
+                {saving ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Ionicons name="checkmark" size={26} color={Colors.white} />
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={startEdit} style={styles.headerBtn} testID="button-edit-hospital">
+                <Ionicons name="create-outline" size={22} color={Colors.white} />
+              </TouchableOpacity>
+            )}
           </View>
         </SafeAreaView>
       </LinearGradient>
 
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+
+        {/* Header card */}
         <View style={styles.hospitalHeader}>
-          <View style={styles.hospitalIconContainer}>
-            <Ionicons name="business" size={32} color={Colors.primary} />
+          <View style={[styles.hospitalIcon, { backgroundColor: isActive ? `${Colors.primary}15` : '#F0F0F0' }]}>
+            <Ionicons name="business" size={32} color={isActive ? Colors.primary : Colors.textSecondary} />
           </View>
           <View style={styles.hospitalTitleSection}>
-            <Text style={styles.hospitalName} numberOfLines={2}>{hospital.name}</Text>
-            {hospital.fullName && hospital.fullName !== hospital.name && (
-              <Text style={styles.hospitalFullName} numberOfLines={2}>{hospital.fullName}</Text>
+            <Text style={styles.hospitalName}>{h.name}</Text>
+            {h.fullName && h.fullName !== h.name && (
+              <Text style={styles.hospitalFullName}>{h.fullName}</Text>
             )}
-            <View style={[
-              styles.statusBadge,
-              { backgroundColor: hospital.isActive !== false ? 'rgba(76, 175, 80, 0.15)' : 'rgba(244, 67, 54, 0.15)' }
-            ]}>
-              <Ionicons 
-                name={hospital.isActive !== false ? "checkmark-circle" : "close-circle"} 
-                size={14} 
-                color={hospital.isActive !== false ? Colors.success : Colors.error} 
-              />
-              <Text style={[
-                styles.statusText,
-                { color: hospital.isActive !== false ? Colors.success : Colors.error }
-              ]}>
-                {hospital.isActive !== false ? translations.hospitals.activeHospital : translations.hospitals.inactiveHospital}
-              </Text>
+            <View style={styles.badgeRow}>
+              <View style={[styles.badge, { backgroundColor: isActive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }]}>
+                <Ionicons name={isActive ? 'checkmark-circle' : 'close-circle'} size={13} color={isActive ? Colors.success : Colors.error} />
+                <Text style={[styles.badgeText, { color: isActive ? Colors.success : Colors.error }]}>
+                  {isActive ? translations.hospitals.activeHospital : translations.hospitals.inactiveHospital}
+                </Text>
+              </View>
+              {h.svetZdravia && (
+                <View style={[styles.badge, { backgroundColor: 'rgba(14,165,233,0.12)' }]}>
+                  <Ionicons name="heart" size={13} color="#0EA5E9" />
+                  <Text style={[styles.badgeText, { color: '#0EA5E9' }]}>Svet zdravia</Text>
+                </View>
+              )}
+              {h.autoRecruiting && (
+                <View style={[styles.badge, { backgroundColor: 'rgba(245,158,11,0.12)' }]}>
+                  <Ionicons name="person-add" size={13} color="#F59E0B" />
+                  <Text style={[styles.badgeText, { color: '#F59E0B' }]}>Auto recruiting</Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
 
-        <View style={styles.actionButtons}>
-          {hospital.phone && (
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={callHospital}
-              testID="button-call"
-            >
-              <LinearGradient
-                colors={[Colors.primary, Colors.primaryDark]}
-                style={styles.actionButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Ionicons name="call" size={20} color={Colors.white} />
-                <Text style={styles.actionButtonText}>{translations.hospitals.callHospital}</Text>
+        {/* Quick actions */}
+        {!editMode && (
+          <View style={styles.actionRow}>
+            {hospital.phone && (
+              <TouchableOpacity style={styles.actionBtn} onPress={callHospital} testID="button-call">
+                <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.actionBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <Ionicons name="call" size={18} color={Colors.white} />
+                  <Text style={styles.actionBtnText}>{translations.hospitals.callHospital}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+            {hospital.email && (
+              <TouchableOpacity style={styles.actionBtn} onPress={sendEmail} testID="button-email">
+                <View style={styles.actionBtnOutline}>
+                  <Ionicons name="mail" size={18} color={Colors.primary} />
+                  <Text style={styles.actionBtnTextOutline}>{translations.hospitals.sendEmail}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.actionBtnSmall} onPress={openMap} testID="button-navigate">
+              <View style={styles.actionBtnOutline}>
+                <Ionicons name="navigate" size={18} color={Colors.primary} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Edit mode */}
+        {editMode ? (
+          <>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Základné údaje</Text>
+              <EditField label="Názov" value={form.name || ''} onChangeText={v => setForm(f => ({ ...f, name: v }))} />
+              <EditField label="Plný názov" value={form.fullName || ''} onChangeText={v => setForm(f => ({ ...f, fullName: v }))} />
+              <EditField label="Krajina" value={form.countryCode || ''} onChangeText={v => setForm(f => ({ ...f, countryCode: v }))} />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Adresa</Text>
+              <EditField label="Ulica a číslo" value={form.streetNumber || ''} onChangeText={v => setForm(f => ({ ...f, streetNumber: v }))} />
+              <EditField label="PSČ" value={form.postalCode || ''} onChangeText={v => setForm(f => ({ ...f, postalCode: v }))} />
+              <EditField label="Mesto" value={form.city || ''} onChangeText={v => setForm(f => ({ ...f, city: v }))} />
+              <EditField label="Kraj" value={form.region || ''} onChangeText={v => setForm(f => ({ ...f, region: v }))} />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Kontakt</Text>
+              <EditField label="Kontaktná osoba" value={form.contactPerson || ''} onChangeText={v => setForm(f => ({ ...f, contactPerson: v }))} />
+              <EditField label="Telefón" value={form.phone || ''} onChangeText={v => setForm(f => ({ ...f, phone: v }))} keyboardType="phone-pad" />
+              <EditField label="Email" value={form.email || ''} onChangeText={v => setForm(f => ({ ...f, email: v }))} keyboardType="email-address" />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Nastavenia</Text>
+              <BoolRow label="Aktívna" value={form.isActive !== false} onToggle={v => setForm(f => ({ ...f, isActive: v }))} />
+              <View style={styles.infoDivider} />
+              <BoolRow label="Svet zdravia" value={!!form.svetZdravia} onToggle={v => setForm(f => ({ ...f, svetZdravia: v }))} />
+              <View style={styles.infoDivider} />
+              <BoolRow label="Auto recruiting" value={!!form.autoRecruiting} onToggle={v => setForm(f => ({ ...f, autoRecruiting: v }))} />
+            </View>
+
+            <TouchableOpacity style={styles.saveBtn} onPress={saveEdit} disabled={saving} testID="button-save-bottom">
+              {saving ? <ActivityIndicator size="small" color={Colors.white} /> : (
+                <>
+                  <Ionicons name="save-outline" size={20} color={Colors.white} />
+                  <Text style={styles.saveBtnText}>Uložiť zmeny</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            {/* Basic info */}
+            <Text style={styles.sectionTitle}>{translations.hospitals.basicInfo}</Text>
+            <View style={styles.card}>
+              <InfoRow icon="business-outline" label={translations.hospitals.name} value={h.name} />
+              {h.fullName && h.fullName !== h.name && (
+                <>
+                  <InfoDivider />
+                  <InfoRow icon="document-text-outline" label={translations.hospitals.fullName} value={h.fullName} />
+                </>
+              )}
+              <InfoDivider />
+              <InfoRow icon="flag-outline" label={translations.hospitals.country} value={h.countryCode} />
+              {h.region && (
+                <>
+                  <InfoDivider />
+                  <InfoRow icon="map-outline" label={translations.hospitals.region} value={h.region} />
+                </>
+              )}
+            </View>
+
+            {/* Location */}
+            <Text style={styles.sectionTitle}>{translations.hospitals.locationInfo}</Text>
+            <View style={styles.card}>
+              <InfoRow icon="location-outline" label="Ulica" value={h.streetNumber} />
+              {h.streetNumber && h.postalCode && <InfoDivider />}
+              <InfoRow icon="mail-outline" label="PSČ" value={h.postalCode} />
+              {(h.streetNumber || h.postalCode) && h.city && <InfoDivider />}
+              <InfoRow icon="business-outline" label="Mesto" value={h.city} />
+              {h.city && h.region && <InfoDivider />}
+              <InfoRow icon="map-outline" label="Kraj" value={h.region} />
+              {h.latitude && h.longitude && (
+                <>
+                  <InfoDivider />
+                  <InfoRow icon="navigate-outline" label={translations.hospitals.coordinates} value={`${h.latitude}, ${h.longitude}`} />
+                </>
+              )}
+              <TouchableOpacity style={styles.mapBtn} onPress={openMap} testID="button-navigate">
+                <Ionicons name="navigate" size={16} color={Colors.primary} />
+                <Text style={styles.mapBtnText}>{translations.hospitals.navigateToHospital}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Contact */}
+            <Text style={styles.sectionTitle}>{translations.hospitals.contactInfo}</Text>
+            <View style={styles.card}>
+              {h.contactPerson && (
+                <>
+                  <InfoRow icon="person-outline" label={translations.hospitals.contactPerson} value={h.contactPerson} />
+                  <InfoDivider />
+                </>
+              )}
+              <InfoRow icon="call-outline" label={translations.hospitals.phone} value={h.phone || translations.hospitals.noData} />
+              <InfoDivider />
+              <InfoRow icon="mail-outline" label={translations.hospitals.email} value={h.email || translations.hospitals.noData} />
+              {h.phone && (
+                <TouchableOpacity style={styles.mapBtn} onPress={callHospital} testID="button-call-card">
+                  <Ionicons name="call" size={16} color={Colors.primary} />
+                  <Text style={styles.mapBtnText}>{translations.hospitals.callHospital}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Additional info */}
+            <Text style={styles.sectionTitle}>Ďalšie údaje</Text>
+            <View style={styles.card}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabel}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={Colors.textSecondary} />
+                  <Text style={styles.infoLabelText}>Aktívna</Text>
+                </View>
+                <View style={[styles.badge, { backgroundColor: isActive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }]}>
+                  <Text style={[styles.badgeText, { color: isActive ? Colors.success : Colors.error }]}>
+                    {isActive ? 'Áno' : 'Nie'}
+                  </Text>
+                </View>
+              </View>
+              <InfoDivider />
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabel}>
+                  <Ionicons name="heart-outline" size={16} color={Colors.textSecondary} />
+                  <Text style={styles.infoLabelText}>Svet zdravia</Text>
+                </View>
+                <View style={[styles.badge, { backgroundColor: h.svetZdravia ? 'rgba(14,165,233,0.12)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Text style={[styles.badgeText, { color: h.svetZdravia ? '#0EA5E9' : Colors.textSecondary }]}>
+                    {h.svetZdravia ? 'Áno' : 'Nie'}
+                  </Text>
+                </View>
+              </View>
+              <InfoDivider />
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabel}>
+                  <Ionicons name="person-add-outline" size={16} color={Colors.textSecondary} />
+                  <Text style={styles.infoLabelText}>Auto recruiting</Text>
+                </View>
+                <View style={[styles.badge, { backgroundColor: h.autoRecruiting ? 'rgba(245,158,11,0.12)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Text style={[styles.badgeText, { color: h.autoRecruiting ? '#F59E0B' : Colors.textSecondary }]}>
+                    {h.autoRecruiting ? 'Áno' : 'Nie'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.editFab} onPress={startEdit} testID="button-edit-fab">
+              <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.editFabGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                <Ionicons name="create-outline" size={22} color={Colors.white} />
+                <Text style={styles.editFabText}>Upraviť</Text>
               </LinearGradient>
             </TouchableOpacity>
-          )}
-          {hospital.email && (
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={sendEmail}
-              testID="button-email"
-            >
-              <View style={styles.actionButtonOutline}>
-                <Ionicons name="mail" size={20} color={Colors.primary} />
-                <Text style={styles.actionButtonTextOutline}>{translations.hospitals.sendEmail}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <Text style={styles.sectionTitle}>{translations.hospitals.basicInfo}</Text>
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoLabel}>
-              <Ionicons name="business-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.infoLabelText}>{translations.hospitals.name}</Text>
-            </View>
-            <Text style={styles.infoValue}>{hospital.name}</Text>
-          </View>
-          
-          {hospital.fullName && (
-            <>
-              <View style={styles.infoDivider} />
-              <View style={styles.infoRow}>
-                <View style={styles.infoLabel}>
-                  <Ionicons name="document-text-outline" size={18} color={Colors.textSecondary} />
-                  <Text style={styles.infoLabelText}>{translations.hospitals.fullName}</Text>
-                </View>
-                <Text style={styles.infoValue}>{hospital.fullName}</Text>
-              </View>
-            </>
-          )}
-
-          <View style={styles.infoDivider} />
-          <View style={styles.infoRow}>
-            <View style={styles.infoLabel}>
-              <Ionicons name="flag-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.infoLabelText}>{translations.hospitals.country}</Text>
-            </View>
-            <Text style={styles.infoValue}>{hospital.countryCode || translations.hospitals.noData}</Text>
-          </View>
-
-          {hospital.region && (
-            <>
-              <View style={styles.infoDivider} />
-              <View style={styles.infoRow}>
-                <View style={styles.infoLabel}>
-                  <Ionicons name="map-outline" size={18} color={Colors.textSecondary} />
-                  <Text style={styles.infoLabelText}>{translations.hospitals.region}</Text>
-                </View>
-                <Text style={styles.infoValue}>{hospital.region}</Text>
-              </View>
-            </>
-          )}
-        </View>
-
-        <Text style={styles.sectionTitle}>{translations.hospitals.locationInfo}</Text>
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoLabel}>
-              <Ionicons name="location-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.infoLabelText}>{translations.hospitals.address}</Text>
-            </View>
-            <Text style={styles.infoValue}>{formatAddress()}</Text>
-          </View>
-
-          {(hospital.latitude && hospital.longitude) && (
-            <>
-              <View style={styles.infoDivider} />
-              <View style={styles.infoRow}>
-                <View style={styles.infoLabel}>
-                  <Ionicons name="navigate-outline" size={18} color={Colors.textSecondary} />
-                  <Text style={styles.infoLabelText}>{translations.hospitals.coordinates}</Text>
-                </View>
-                <Text style={styles.infoValue}>{hospital.latitude}, {hospital.longitude}</Text>
-              </View>
-            </>
-          )}
-
-          <TouchableOpacity 
-            style={styles.mapButton}
-            onPress={openMap}
-            testID="button-navigate"
-          >
-            <Ionicons name="navigate" size={18} color={Colors.primary} />
-            <Text style={styles.mapButtonText}>{translations.hospitals.navigateToHospital}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.sectionTitle}>{translations.hospitals.contactInfo}</Text>
-        <View style={styles.infoCard}>
-          {hospital.contactPerson && (
-            <>
-              <View style={styles.infoRow}>
-                <View style={styles.infoLabel}>
-                  <Ionicons name="person-outline" size={18} color={Colors.textSecondary} />
-                  <Text style={styles.infoLabelText}>{translations.hospitals.contactPerson}</Text>
-                </View>
-                <Text style={styles.infoValue}>{hospital.contactPerson}</Text>
-              </View>
-              <View style={styles.infoDivider} />
-            </>
-          )}
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoLabel}>
-              <Ionicons name="call-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.infoLabelText}>{translations.hospitals.phone}</Text>
-            </View>
-            <Text style={styles.infoValue}>{hospital.phone || translations.hospitals.noData}</Text>
-          </View>
-
-          <View style={styles.infoDivider} />
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoLabel}>
-              <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.infoLabelText}>{translations.hospitals.email}</Text>
-            </View>
-            <Text style={styles.infoValue}>{hospital.email || translations.hospitals.noData}</Text>
-          </View>
-        </View>
+          </>
+        )}
 
         <View style={styles.footerSpace} />
       </ScrollView>
@@ -301,204 +435,52 @@ export default function HospitalDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.xl,
-  },
-  errorText: {
-    fontSize: FontSizes.lg,
-    color: Colors.textSecondary,
-    marginTop: Spacing.md,
-    textAlign: 'center',
-  },
-  backButton: {
-    marginTop: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xl,
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: Colors.white,
-    fontSize: FontSizes.md,
-    fontWeight: '600',
-  },
-  headerGradient: {
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: FontSizes.lg,
-    fontWeight: '600',
-    color: Colors.white,
-    textAlign: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: Spacing.lg,
-  },
-  hospitalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.lg,
-  },
-  hospitalIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(107, 28, 59, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Spacing.md,
-  },
-  hospitalTitleSection: {
-    flex: 1,
-  },
-  hospitalName: {
-    fontSize: FontSizes.xl,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: Spacing.xs,
-  },
-  hospitalFullName: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  statusText: {
-    fontSize: FontSizes.xs,
-    fontWeight: '600',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  actionButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.md,
-    gap: Spacing.sm,
-  },
-  actionButtonText: {
-    fontSize: FontSizes.sm,
-    fontWeight: '600',
-    color: Colors.white,
-  },
-  actionButtonOutline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.md,
-    gap: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    borderRadius: 12,
-    backgroundColor: Colors.white,
-  },
-  actionButtonTextOutline: {
-    fontSize: FontSizes.sm,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  sectionTitle: {
-    fontSize: FontSizes.md,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  infoCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: Spacing.md,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-    marginBottom: Spacing.md,
-  },
-  infoRow: {
-    paddingVertical: Spacing.sm,
-  },
-  infoLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: 4,
-  },
-  infoLabelText: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
-  },
-  infoValue: {
-    fontSize: FontSizes.md,
-    color: Colors.text,
-    fontWeight: '500',
-    marginLeft: 26,
-  },
-  infoDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  mapButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: 'rgba(107, 28, 59, 0.1)',
-    borderRadius: 8,
-    gap: Spacing.sm,
-  },
-  mapButtonText: {
-    fontSize: FontSizes.sm,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  footerSpace: {
-    height: Spacing.xxl,
-  },
+  container: { flex: 1, backgroundColor: '#F4F6FA' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6FA' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
+  errorText: { fontSize: FontSizes.lg, color: Colors.textSecondary, marginTop: Spacing.md, textAlign: 'center' },
+  backButton: { marginTop: Spacing.lg, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl, backgroundColor: Colors.primary, borderRadius: 8 },
+  backButtonText: { color: Colors.white, fontSize: FontSizes.md, fontWeight: '600' },
+  headerGradient: {},
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
+  headerBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { flex: 1, fontSize: FontSizes.lg, fontWeight: '600', color: Colors.white, textAlign: 'center' },
+  content: { flex: 1 },
+  contentContainer: { padding: Spacing.md, paddingBottom: 40 },
+  hospitalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: Spacing.md, backgroundColor: Colors.white, borderRadius: 16, padding: Spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
+  hospitalIcon: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md },
+  hospitalTitleSection: { flex: 1 },
+  hospitalName: { fontSize: FontSizes.xl, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+  hospitalFullName: { fontSize: FontSizes.sm, color: Colors.textSecondary, marginBottom: 6 },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  badgeText: { fontSize: 11, fontWeight: '600' },
+  actionRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  actionBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  actionBtnSmall: { width: 50, borderRadius: 12, overflow: 'hidden' },
+  actionBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.md, gap: 6 },
+  actionBtnOutline: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.md, gap: 6, borderWidth: 1, borderColor: Colors.primary, borderRadius: 12, backgroundColor: Colors.white, height: '100%' },
+  actionBtnText: { fontSize: FontSizes.sm, fontWeight: '600', color: Colors.white },
+  actionBtnTextOutline: { fontSize: FontSizes.sm, fontWeight: '600', color: Colors.primary },
+  sectionTitle: { fontSize: FontSizes.sm, fontWeight: '700', color: Colors.textSecondary, marginBottom: Spacing.xs, marginTop: Spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  card: { backgroundColor: Colors.white, borderRadius: 16, padding: Spacing.md, marginBottom: Spacing.sm, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
+  infoRow: { paddingVertical: 8 },
+  infoLabel: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
+  infoLabelText: { fontSize: FontSizes.xs, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
+  infoValue: { fontSize: FontSizes.md, color: Colors.text, fontWeight: '500', marginLeft: 24 },
+  infoDivider: { height: 1, backgroundColor: '#F0F2F6' },
+  mapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: Spacing.sm, paddingVertical: Spacing.sm, backgroundColor: `${Colors.primary}10`, borderRadius: 8, gap: 6 },
+  mapBtnText: { fontSize: FontSizes.sm, fontWeight: '600', color: Colors.primary },
+  editField: { marginBottom: 12 },
+  editLabel: { fontSize: FontSizes.xs, color: Colors.textSecondary, fontWeight: '600', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 },
+  editInput: { borderWidth: 1.5, borderColor: '#E0E5EF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: FontSizes.md, color: Colors.text, backgroundColor: '#FAFBFC' },
+  editInputMulti: { height: 80, textAlignVertical: 'top' },
+  boolRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
+  boolLabel: { fontSize: FontSizes.md, color: Colors.text, fontWeight: '500' },
+  saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, gap: 8, marginTop: Spacing.md },
+  saveBtnText: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.white },
+  editFab: { borderRadius: 14, overflow: 'hidden', marginTop: Spacing.md },
+  editFabGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8 },
+  editFabText: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.white },
+  footerSpace: { height: Spacing.xxl },
 });

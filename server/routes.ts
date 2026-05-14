@@ -16803,6 +16803,101 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Reports stats endpoint — returns JSON for donut charts
+  app.get("/api/mobile/reports/stats", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
+
+      const { period = 'this_month' } = req.query;
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+      switch (period) {
+        case 'last_month':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+          break;
+        case 'last_3_months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+
+      // Visit stats
+      const visitEvents = await storage.getVisitEventsByCollaborator(tokenData.collaboratorId);
+      const filtered = visitEvents.filter(e => {
+        const d = e.actualStart ? new Date(e.actualStart) : (e.startTime ? new Date(e.startTime) : null);
+        return d && d >= startDate && d <= endDate;
+      });
+
+      const completed = filtered.filter(e => e.status === 'completed' || (!e.isCancelled && !e.isNotRealized && e.actualEnd)).length;
+      const cancelled = filtered.filter(e => e.isCancelled || e.status === 'cancelled').length;
+
+      // Unique hospitals
+      const uniqueHospIds = new Set(filtered.map(e => e.hospitalId).filter(Boolean));
+      const hospitalList = await storage.getAllHospitals();
+      const hospMap = new Map(hospitalList.map((h: any) => [h.id, h.name]));
+      const topHospitals = Array.from(
+        filtered.reduce((acc, e) => {
+          if (e.hospitalId) acc.set(e.hospitalId, (acc.get(e.hospitalId) || 0) + 1);
+          return acc;
+        }, new Map<string, number>())
+      )
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([id, count]) => ({ name: hospMap.get(id) || id, count }));
+
+      // Worked hours
+      let totalHoursMs = 0;
+      const workDays = new Set<string>();
+      for (const e of filtered) {
+        if (e.actualStart && e.actualEnd) {
+          totalHoursMs += new Date(e.actualEnd).getTime() - new Date(e.actualStart).getTime();
+          workDays.add(new Date(e.actualStart).toISOString().split('T')[0]);
+        }
+      }
+      const totalHours = totalHoursMs / 3600000;
+
+      // Call time
+      let totalCallMs = 0;
+      let callCount = 0;
+      let inbound = 0;
+      let outbound = 0;
+      try {
+        const calls = await db.select({
+          durationSeconds: callLogs.durationSeconds,
+          direction: callLogs.direction,
+          startedAt: callLogs.startedAt,
+        }).from(callLogs).where(eq(callLogs.userId, tokenData.collaboratorId));
+
+        for (const c of calls) {
+          const d = c.startedAt ? new Date(c.startedAt) : null;
+          if (d && d >= startDate && d <= endDate && c.durationSeconds) {
+            totalCallMs += c.durationSeconds * 1000;
+            callCount++;
+            if (c.direction === 'inbound') inbound++;
+            else outbound++;
+          }
+        }
+      } catch (_) {}
+
+      res.json({
+        period,
+        dateRange: { from: startDate.toISOString().split('T')[0], to: endDate.toISOString().split('T')[0] },
+        visits: { total: filtered.length, completed, cancelled, scheduled: filtered.length - completed - cancelled },
+        hospitals: { unique: uniqueHospIds.size, topHospitals },
+        workedHours: { totalHours: Math.round(totalHours * 10) / 10, days: workDays.size },
+        callTime: { totalMinutes: Math.round(totalCallMs / 60000), totalCalls: callCount, inbound, outbound },
+      });
+    } catch (err) {
+      console.error("Reports stats error:", err);
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
   app.get("/api/mobile/sip/credentials", async (req, res) => {
     try {
       const tokenData = await getMobileCollaboratorFromToken(req);
