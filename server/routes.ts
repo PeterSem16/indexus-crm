@@ -17016,6 +17016,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               }
 
               // SSH tunnel to AMI on localhost:5038 of Asterisk server — bypasses external firewall
+              // NOTE: No 'b' option — without it MixMonitor immediately forces a software (mixing) bridge,
+              // which guarantees both channel directions (read+write) are captured even when direct_media is negotiated.
               const amiResult = await sendAmiActionViaSshTunnel(
                 server.host, sshPort, sshUser, sshPass,
                 username, password,
@@ -17023,7 +17025,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                   Action: "MixMonitor",
                   Channel: channel.name,
                   File: `${amiRecordingPath}^wav`,
-                  Options: "b",
+                  Options: "v(1)V(1)",
                 }
               );
 
@@ -17038,7 +17040,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                   sshUser,
                   sshPass,
                 });
-                console.log(`[ServerRecording] AMI MixMonitor (via SSH tunnel) started on '${channel.name}', file: ${amiRecordingPath}.* (both sides)`);
+                console.log(`[ServerRecording] AMI MixMonitor (via SSH tunnel) started on '${channel.name}', file: ${amiRecordingPath}.wav — SSH download target: ${sshUser}@${server.host}:${sshPort} (both sides)`);
                 break;
               } else {
                 console.warn(`[ServerRecording] AMI MixMonitor via SSH tunnel failed: ${amiResult.response}`);
@@ -17122,24 +17124,28 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       let audioBuffer: Buffer | null = null;
 
+      console.log(`[FinalizeRecording] Starting SSH download: ${recInfo.sshUser}@${recInfo.sshHost}:${recInfo.sshPort} path=${recInfo.amiFilePath}.*`);
+
       // Retry up to 6 times with 3s delay — MixMonitor flushes the file after hangup (may take a few seconds)
       for (let attempt = 1; attempt <= 6; attempt++) {
         if (attempt > 1) await new Promise(r => setTimeout(r, 3000));
         try {
+          console.log(`[FinalizeRecording] SSH download attempt ${attempt}/6 for '${recInfo.amiFilePath}.*'`);
           audioBuffer = await downloadFileViaSsh(
             recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
             recInfo.amiFilePath
           );
+          console.log(`[FinalizeRecording] SSH download succeeded on attempt ${attempt}: ${audioBuffer.length} bytes`);
           break;
         } catch (e: any) {
-          console.log(`[FinalizeRecording] Attempt ${attempt}/6 — ${e?.message}`);
+          console.log(`[FinalizeRecording] Attempt ${attempt}/6 failed — ${e?.message}`);
         }
       }
 
       mobileActiveRecordings.delete(callLogId);
 
       if (!audioBuffer) {
-        console.warn(`[FinalizeRecording] Could not download recording '${recInfo.amiFilePath}.*' after retries`);
+        console.warn(`[FinalizeRecording] ALL ATTEMPTS FAILED for '${recInfo.amiFilePath}.*' — mobile will upload mic-only fallback`);
         return res.json({ success: false, message: "Recording file not available via SSH — mic recording will be used" });
       }
 
