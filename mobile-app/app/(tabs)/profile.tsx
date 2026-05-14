@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard } from 'react-native';
-import { useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { useState, useRef, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +26,22 @@ export default function ProfileScreen() {
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showPhoneLog, setShowPhoneLog] = useState(false);
   const phoneLogScrollRef = useRef<ScrollView>(null);
+  const isAtBottomRef = useRef(true);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
+  const handlePhoneLogScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    const distFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    const atBottom = distFromBottom < 80;
+    isAtBottomRef.current = atBottom;
+    setShowScrollToBottom(!atBottom);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    phoneLogScrollRef.current?.scrollToEnd({ animated: true });
+    isAtBottomRef.current = true;
+    setShowScrollToBottom(false);
+  }, []);
 
   const handleLogout = () => {
     Alert.alert(
@@ -295,20 +311,35 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
           </View>
-          <ScrollView
-            ref={phoneLogScrollRef}
-            style={styles.phoneLogFullContainer}
-            contentContainerStyle={styles.phoneLogFullContent}
-            onContentSizeChange={() => phoneLogScrollRef.current?.scrollToEnd({ animated: false })}
-          >
-            {debugMessages.length === 0 ? (
-              <Text style={styles.phoneLogEmpty}>No SIP log entries yet</Text>
-            ) : (
-              debugMessages.map((line, i) => (
-                <Text key={`log-${i}`} style={styles.phoneLogLine} selectable>{line}</Text>
-              ))
+          <View style={{ flex: 1 }}>
+            <ScrollView
+              ref={phoneLogScrollRef}
+              style={styles.phoneLogFullContainer}
+              contentContainerStyle={styles.phoneLogFullContent}
+              onScroll={handlePhoneLogScroll}
+              scrollEventThrottle={100}
+              onContentSizeChange={() => {
+                if (isAtBottomRef.current) {
+                  phoneLogScrollRef.current?.scrollToEnd({ animated: false });
+                }
+              }}
+              showsVerticalScrollIndicator={true}
+            >
+              {debugMessages.length === 0 ? (
+                <Text style={styles.phoneLogEmpty}>No SIP log entries yet{'\n\n'}SIP stav: {registrationState}</Text>
+              ) : (
+                debugMessages.map((line, i) => (
+                  <Text key={`log-${i}`} style={styles.phoneLogLine} selectable>{line}</Text>
+                ))
+              )}
+            </ScrollView>
+            {showScrollToBottom && (
+              <TouchableOpacity style={styles.scrollToBottomBtn} onPress={scrollToBottom} testID="button-scroll-bottom">
+                <Ionicons name="arrow-down-circle" size={32} color="#ffaa00" />
+                <Text style={styles.scrollToBottomText}>{debugMessages.length} riadkov</Text>
+              </TouchableOpacity>
             )}
-          </ScrollView>
+          </View>
         </SafeAreaView>
       </Modal>
 
@@ -790,5 +821,24 @@ const styles = StyleSheet.create({
     color: '#666688',
     textAlign: 'center',
     marginTop: Spacing.xl,
+    lineHeight: 22,
+  },
+  scrollToBottomBtn: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    alignItems: 'center',
+    backgroundColor: 'rgba(13,13,26,0.9)',
+    borderRadius: 24,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    gap: 2,
+    borderWidth: 1,
+    borderColor: '#ffaa0050',
+  },
+  scrollToBottomText: {
+    fontSize: 10,
+    color: '#ffaa00',
+    fontWeight: '600',
   },
 });

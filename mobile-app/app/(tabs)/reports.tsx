@@ -108,9 +108,10 @@ export default function ReportsScreen() {
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  const { data: stats, isLoading, error } = useQuery<ReportStats>({
+  const { data: stats, isLoading, error, refetch } = useQuery<ReportStats>({
     queryKey: ['/api/mobile/reports/stats', period],
     queryFn: () => api.get<ReportStats>(`/api/mobile/reports/stats?period=${period}`),
+    retry: 1,
   });
 
   const periods: { key: PeriodType; label: string }[] = [
@@ -190,8 +191,11 @@ export default function ReportsScreen() {
           </View>
         ) : error ? (
           <View style={styles.loadingBox}>
-            <Ionicons name="cloud-offline-outline" size={40} color={Colors.textSecondary} />
-            <Text style={styles.loadingText}>Štatistiky nedostupné offline</Text>
+            <Ionicons name="alert-circle-outline" size={40} color={Colors.error} />
+            <Text style={styles.loadingText}>Chyba: {(error as any)?.message || 'Nepodarilo sa načítať'}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
+              <Text style={styles.retryBtnText}>Skúsiť znova</Text>
+            </TouchableOpacity>
           </View>
         ) : stats ? (
           <>
@@ -360,4 +364,6 @@ const styles = StyleSheet.create({
   },
   downloadBtnText: { fontSize: FontSizes.xs, fontWeight: '600', color: Colors.text, textAlign: 'center' },
   spacer: { height: 100 },
+  retryBtn: { marginTop: 12, backgroundColor: Colors.primary, paddingVertical: 10, paddingHorizontal: 28, borderRadius: 10 },
+  retryBtnText: { color: Colors.white, fontSize: FontSizes.md, fontWeight: '700' },
 });
