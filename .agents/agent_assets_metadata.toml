@@ -48,3 +48,21 @@ id = "etxGeOmpojG-qU5oo5xHP"
 uri = "file://attached_assets/healthcare_network_documentation.md"
 type = "text"
 title = "INDEXUS — Healthcare Network Dokumentácia"
+
+[[outputs]]
+id = "Pat2i3rjaOMgBg5k9_T7t"
+uri = "file://attached_assets/healthcare_network_documentation_EN.md"
+type = "text"
+title = "Healthcare Network Documentation (English — Markdown)"
+
+[[outputs]]
+id = "2K5O3r4gQCPa3QM3_2x0p"
+uri = "file://attached_assets/healthcare_network_documentation_SK.docx"
+type = "word_document"
+title = "Healthcare Network Dokumentácia (Slovensky — DOCX)"
+
+[[outputs]]
+id = "woBJMG8SJlIRrIbUreI_R"
+uri = "file://attached_assets/healthcare_network_documentation_EN.docx"
+type = "word_document"
+title = "Healthcare Network Documentation (English — DOCX)"
