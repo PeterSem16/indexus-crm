@@ -82,6 +82,7 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 
 ## User preferences
 Preferred communication style: Simple, everyday language.
+- Always bump `mobile-app/app.json` version (patch + versionCode +1) when making any mobile app changes.
 
 ## Server credentials
 
