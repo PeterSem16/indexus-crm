@@ -173,13 +173,13 @@ export default function HospitalsScreen() {
         {/* Labeled fields */}
         <View style={styles.cardFields}>
           {isClinic && item.doctorName ? (
-            <FieldRow label="LEKÁR" value={item.doctorName} />
+            <FieldRow label={translations.hospitals.doctorLabel.toUpperCase()} value={item.doctorName} />
           ) : item.contactPerson ? (
-            <FieldRow label="KONTAKT" value={item.contactPerson} />
+            <FieldRow label={translations.hospitals.contact.toUpperCase()} value={item.contactPerson} />
           ) : null}
-          <FieldRow label="TELEFÓN" value={item.phone} color={accentColor} />
-          <FieldRow label="EMAIL" value={item.email} />
-          {address ? <FieldRow label="ADRESA" value={address} /> : null}
+          <FieldRow label={translations.hospitals.phone.toUpperCase()} value={item.phone} color={accentColor} />
+          <FieldRow label={translations.hospitals.email.toUpperCase()} value={item.email} />
+          {address ? <FieldRow label={translations.hospitals.address.toUpperCase()} value={address} /> : null}
         </View>
 
         {/* Action buttons */}
@@ -192,7 +192,7 @@ export default function HospitalsScreen() {
                 testID={`button-call-${item.type}-${item.id}`}
               >
                 <Ionicons name="call" size={14} color={accentColor} />
-                <Text style={[styles.cardActionText, { color: accentColor }]}>Zavolať</Text>
+                <Text style={[styles.cardActionText, { color: accentColor }]}>{translations.hospitals.callAction}</Text>
               </TouchableOpacity>
             )}
             {(item.city || item.streetNumber) && (
@@ -202,7 +202,7 @@ export default function HospitalsScreen() {
                 testID={`button-map-${item.type}-${item.id}`}
               >
                 <Ionicons name="navigate" size={14} color={Colors.textSecondary} />
-                <Text style={[styles.cardActionText, { color: Colors.textSecondary }]}>Navigovať</Text>
+                <Text style={[styles.cardActionText, { color: Colors.textSecondary }]}>{translations.hospitals.navigateAction}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -275,14 +275,14 @@ export default function HospitalsScreen() {
       {isLoading ? (
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Načítavam...</Text>
+          <Text style={styles.loadingText}>{translations.hospitals.loadingHospitals}</Text>
         </View>
       ) : error ? (
         <View style={styles.loadingState}>
           <Ionicons name="cloud-offline-outline" size={48} color={Colors.textSecondary} />
-          <Text style={styles.loadingText}>Chyba pri načítaní</Text>
+          <Text style={styles.loadingText}>{translations.hospitals.loadError}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => activeTab === 'hospitals' ? refetchHospitals() : refetchClinics()}>
-            <Text style={styles.retryText}>Skúsiť znova</Text>
+            <Text style={styles.retryText}>{translations.hospitals.retryText}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -293,17 +293,17 @@ export default function HospitalsScreen() {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[accentColor]} tintColor={accentColor} />}
           ListHeaderComponent={filteredItems.length > 0 ? (
-            <Text style={styles.countText}>{filteredItems.length} záznamov{searchQuery ? ` (filter: "${searchQuery}")` : ''}</Text>
+            <Text style={styles.countText}>{filteredItems.length} {translations.hospitals.recordsCount}{searchQuery ? ` (filter: "${searchQuery}")` : ''}</Text>
           ) : null}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name={isClinic ? 'medkit-outline' : 'business-outline'} size={56} color={Colors.textSecondary} />
               <Text style={styles.emptyText}>
-                {searchQuery ? 'Žiadne výsledky' : (isClinic ? 'Žiadne ambulancie' : 'Žiadne nemocnice')}
+                {searchQuery ? translations.hospitals.noResults : (isClinic ? translations.hospitals.noClinics : translations.hospitals.noHospitals)}
               </Text>
               {searchQuery ? (
                 <TouchableOpacity style={styles.clearSearchButton} onPress={() => setSearchQuery('')}>
-                  <Text style={styles.clearSearchText}>Zrušiť filter</Text>
+                  <Text style={styles.clearSearchText}>{translations.hospitals.clearFilter}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>

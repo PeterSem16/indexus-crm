@@ -16715,10 +16715,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       const uniqueHospIds = new Set(filtered.map(e => e.hospitalId).filter(Boolean));
       const hospitalList = await storage.getAllHospitals();
-      const hospMap = new Map(hospitalList.map((h: any) => [h.id, h.name]));
+      const hospMap = new Map(hospitalList.map((h: any) => [String(h.id), h.name]));
       const topHospitals = Array.from(
         filtered.reduce((acc, e) => {
-          if (e.hospitalId) acc.set(e.hospitalId, (acc.get(e.hospitalId) || 0) + 1);
+          if (e.hospitalId) acc.set(String(e.hospitalId), (acc.get(String(e.hospitalId)) || 0) + 1);
           return acc;
         }, new Map<string, number>())
       )
@@ -18057,6 +18057,118 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Mobile clinic update error:", error);
       res.status(500).json({ error: "Failed to update clinic" });
+    }
+  });
+
+  // Mobile: Get personnel for hospital or clinic
+  app.get("/api/mobile/institutions/:entityType/:entityId/personnel", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
+
+      const { entityType, entityId } = req.params;
+      if (!["hospital", "clinic"].includes(entityType)) {
+        return res.status(400).json({ error: "Invalid entity type" });
+      }
+
+      // 1. Assigned via contact_assignments
+      const assignmentRows = await db.execute(sql`
+        SELECT
+          ca.id as assignment_id, ca.department, ca.position, ca.role, ca.subcategory,
+          ca.is_primary, ca.is_active, ca.notes,
+          ca.category_id,
+          pc.code as category_code, pc.name as category_name,
+          c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
+          c.email, c.phone, c.mobile, c.collaborator_type, c.is_active as person_active,
+          c.country_code, c.partner_category, c.cbc_activities
+        FROM contact_assignments ca
+        JOIN collaborators c ON c.id = ca.person_id
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        ORDER BY ca.is_primary DESC, c.last_name, c.first_name
+      `);
+
+      // 2. Legacy-linked (hospital_id / hospital_ids) for hospitals only
+      const assignedPersonIds = new Set((assignmentRows.rows || []).map((r: any) => r.person_id));
+      let legacyRows: any[] = [];
+      if (entityType === "hospital") {
+        const allCollabs = await db.select({
+          id: collaborators.id,
+          titleBefore: collaborators.titleBefore,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          titleAfter: collaborators.titleAfter,
+          phone: collaborators.phone,
+          mobile: collaborators.mobile,
+          email: collaborators.email,
+          isActive: collaborators.isActive,
+          collaboratorType: collaborators.collaboratorType,
+          partnerCategory: collaborators.partnerCategory,
+          hospitalId: collaborators.hospitalId,
+          hospitalIds: collaborators.hospitalIds,
+        }).from(collaborators);
+        for (const col of allCollabs) {
+          if (assignedPersonIds.has(col.id)) continue;
+          const linkedIds: string[] = [];
+          if (col.hospitalId) linkedIds.push(col.hospitalId);
+          if (col.hospitalIds && Array.isArray(col.hospitalIds)) linkedIds.push(...col.hospitalIds);
+          if (linkedIds.includes(entityId)) {
+            legacyRows.push({
+              person_id: col.id,
+              first_name: col.firstName,
+              last_name: col.lastName,
+              title_before: col.titleBefore,
+              title_after: col.titleAfter,
+              email: col.email,
+              phone: col.phone,
+              mobile: col.mobile,
+              collaborator_type: col.collaboratorType,
+              partner_category: col.partnerCategory,
+              person_active: col.isActive,
+              is_primary: false,
+              assignment_id: null,
+              category_name: null,
+              role: null,
+              position: null,
+            });
+          }
+        }
+      }
+
+      // 3. For clinics, include embedded clinic doctor
+      let clinicDoctor: any = null;
+      if (entityType === "clinic") {
+        const [clinic] = await db.select().from(clinics).where(eq(clinics.id, entityId));
+        if (clinic) {
+          const doctorName = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean).join(' ') || (clinic as any).doctorName;
+          if (doctorName) {
+            clinicDoctor = {
+              person_id: `clinic-doctor-${entityId}`,
+              first_name: (clinic as any).doctorFirstName || doctorName,
+              last_name: (clinic as any).doctorLastName || '',
+              title_before: (clinic as any).doctorTitle || '',
+              title_after: '',
+              phone: clinic.phone,
+              mobile: null,
+              email: clinic.email,
+              collaborator_type: 'doctor',
+              category_name: null,
+              role: 'doctor',
+              is_primary: true,
+              person_active: clinic.isActive,
+            };
+          }
+        }
+      }
+
+      res.json({
+        assigned: assignmentRows.rows || [],
+        legacy: legacyRows,
+        clinicDoctor,
+      });
+    } catch (e: any) {
+      console.error("[Mobile Personnel]", e.message);
+      res.status(500).json({ error: e.message });
     }
   });
 

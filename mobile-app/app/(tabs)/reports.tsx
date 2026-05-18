@@ -108,6 +108,8 @@ export default function ReportsScreen() {
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [downloading, setDownloading] = useState<string | null>(null);
 
+  const t = translations.reports;
+
   const { data: stats, isLoading, error, refetch } = useQuery<ReportStats>({
     queryKey: ['/api/mobile/reports/stats', period],
     queryFn: () => api.get<ReportStats>(`/api/mobile/reports/stats?period=${period}`),
@@ -115,9 +117,9 @@ export default function ReportsScreen() {
   });
 
   const periods: { key: PeriodType; label: string }[] = [
-    { key: 'this_month', label: translations.reports?.thisMonth || 'Tento mes.' },
-    { key: 'last_month', label: translations.reports?.lastMonth || 'Min. mes.' },
-    { key: 'last_3_months', label: translations.reports?.last3Months || 'Pos. 3 mes.' },
+    { key: 'this_month', label: t?.thisMonth || 'This month' },
+    { key: 'last_month', label: t?.lastMonth || 'Last month' },
+    { key: 'last_3_months', label: t?.last3Months || 'Last 3 months' },
   ];
 
   const handleDownload = async (reportType: 'monthly_summary' | 'hospital_activity' | 'visit_hours' | 'call_history') => {
@@ -152,6 +154,13 @@ export default function ReportsScreen() {
   const formatHours = (h: number) => h >= 1 ? `${Math.floor(h)}h ${Math.round((h % 1) * 60)}m` : `${Math.round(h * 60)}m`;
   const formatMins = (m: number) => m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
 
+  const downloadItems = [
+    { key: 'monthly_summary' as const, label: t?.visitSummaryReport || 'Visit summary', icon: 'calendar-outline' as const },
+    { key: 'hospital_activity' as const, label: t?.hospitalActivityReport || 'Hospital activity', icon: 'business-outline' as const },
+    { key: 'visit_hours' as const, label: t?.workHoursReport || 'Working hours', icon: 'time-outline' as const },
+    { key: 'call_history' as const, label: t?.callHistoryReport || 'Call history', icon: 'call-outline' as const },
+  ];
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -161,7 +170,7 @@ export default function ReportsScreen() {
       >
         <SafeAreaView edges={['top']}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>{translations.reports?.title || 'Reporty'}</Text>
+            <Text style={styles.headerTitle}>{t?.title || 'Reports'}</Text>
             <View style={styles.periodRow}>
               {periods.map(p => (
                 <TouchableOpacity
@@ -187,47 +196,47 @@ export default function ReportsScreen() {
         {isLoading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Načítavam štatistiky...</Text>
+            <Text style={styles.loadingText}>{t?.loadingStats || 'Loading...'}</Text>
           </View>
         ) : error ? (
           <View style={styles.loadingBox}>
             <Ionicons name="alert-circle-outline" size={40} color={Colors.error} />
-            <Text style={styles.loadingText}>Chyba: {(error as any)?.message || 'Nepodarilo sa načítať'}</Text>
+            <Text style={styles.loadingText}>{translations.common.error}: {(error as any)?.message || ''}</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
-              <Text style={styles.retryBtnText}>Skúsiť znova</Text>
+              <Text style={styles.retryBtnText}>{translations.common.retry}</Text>
             </TouchableOpacity>
           </View>
         ) : stats ? (
           <>
             <View style={styles.donutGrid}>
               <DonutCard
-                label="Návštevy"
+                label={t?.visitsLabel || 'Visits'}
                 value={stats.visits.total}
-                subLabel={`${stats.visits.completed} splnených`}
+                subLabel={`${stats.visits.completed} ${t?.completedOf || ''}`}
                 percentage={visitsPct}
                 color="#6B1C3B"
                 icon="calendar"
               />
               <DonutCard
-                label="Nemocnice"
+                label={t?.hospitalsLabel || 'Hospitals'}
                 value={stats.hospitals.unique}
-                subLabel="unikátnych"
+                subLabel={t?.uniqueLabel || 'unique'}
                 percentage={hospPct}
                 color="#0EA5E9"
                 icon="business"
               />
               <DonutCard
-                label="Prac. hodiny"
+                label={t?.workHoursLabel || 'Work hours'}
                 value={formatHours(stats.workedHours.totalHours)}
-                subLabel={`${stats.workedHours.days} dní`}
+                subLabel={`${stats.workedHours.days} ${t?.daysLabel || 'days'}`}
                 percentage={hoursPct}
                 color="#10B981"
                 icon="time"
               />
               <DonutCard
-                label="Čas hovorov"
+                label={t?.callTimeLabel || 'Call time'}
                 value={formatMins(stats.callTime.totalMinutes)}
-                subLabel={`${stats.callTime.totalCalls} hovorov`}
+                subLabel={`${stats.callTime.totalCalls} ${t?.callsLabel || 'calls'}`}
                 percentage={callPct}
                 color="#F59E0B"
                 icon="call"
@@ -235,17 +244,17 @@ export default function ReportsScreen() {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Rozdelenie návštev</Text>
+              <Text style={styles.sectionTitle}>{t?.visitBreakdown || 'Visit Breakdown'}</Text>
               <SegmentBar segments={[
-                { color: '#10B981', value: stats.visits.completed, label: 'Splnené' },
-                { color: '#F59E0B', value: stats.visits.scheduled, label: 'Plánované' },
-                { color: '#EF4444', value: stats.visits.cancelled, label: 'Zrušené' },
+                { color: '#10B981', value: stats.visits.completed, label: t?.completedVisits || 'Completed' },
+                { color: '#F59E0B', value: stats.visits.scheduled, label: t?.plannedVisits || 'Planned' },
+                { color: '#EF4444', value: stats.visits.cancelled, label: t?.cancelledVisits || 'Cancelled' },
               ]} />
             </View>
 
             {stats.hospitals.topHospitals.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Top nemocnice</Text>
+                <Text style={styles.sectionTitle}>{t?.topHospitals || 'Top Hospitals'}</Text>
                 {stats.hospitals.topHospitals.map((h, i) => (
                   <View key={i} style={styles.topHospRow}>
                     <View style={[styles.topHospRank, { backgroundColor: i === 0 ? Colors.primary : Colors.background }]}>
@@ -266,14 +275,9 @@ export default function ReportsScreen() {
             )}
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Stiahnuť CSV report</Text>
+              <Text style={styles.sectionTitle}>{t?.downloadCsv || 'Download CSV'}</Text>
               <View style={styles.downloadGrid}>
-                {([
-                  { key: 'monthly_summary', label: 'Súhrn návštev', icon: 'calendar-outline' },
-                  { key: 'hospital_activity', label: 'Aktivita nemocníc', icon: 'business-outline' },
-                  { key: 'visit_hours', label: 'Pracovné hodiny', icon: 'time-outline' },
-                  { key: 'call_history', label: 'Historia hovorov', icon: 'call-outline' },
-                ] as const).map(r => (
+                {downloadItems.map(r => (
                   <TouchableOpacity
                     key={r.key}
                     style={styles.downloadBtn}
