@@ -54,6 +54,7 @@ interface SipStoreState {
   clearError: () => void;
   clearDebugMessages: () => void;
   forceReconnect: () => Promise<boolean>;
+  prepareRecording: () => Promise<void>;
   startRecording: (callLogId?: string) => Promise<void>;
   stopAndUploadRecording: (params: {
     callLogId: string;
@@ -190,6 +191,10 @@ export const useSipStore = create<SipStoreState>((set, get) => {
       const creds = mobileSipEngine.getCredentials();
       if (creds) set({ callRecordingEnabled: creds.callRecording });
       return success;
+    },
+
+    prepareRecording: async () => {
+      await mobileAudioRecorder.prepare();
     },
 
     startRecording: async (callLogId?: string) => {

@@ -4,11 +4,22 @@ import * as FileSystem from 'expo-file-system';
 
 export type RecordingState = 'idle' | 'recording' | 'uploading' | 'completed' | 'failed';
 
+const AUDIO_MODE_RECORDING = {
+  allowsRecordingIOS: true,
+  playsInSilentModeIOS: true,
+  staysActiveInBackground: true,
+  interruptionModeIOS: 1,
+  shouldDuckAndroid: false,
+  interruptionModeAndroid: 1,
+  playThroughEarpieceAndroid: false,
+} as const;
+
 class MobileAudioRecorder {
   private recording: Audio.Recording | null = null;
   private _state: RecordingState = 'idle';
   private _uri: string | null = null;
   private onStateChange: ((state: RecordingState) => void) | null = null;
+  private _prepared: boolean = false;
 
   get state(): RecordingState { return this._state; }
   get isRecording(): boolean { return this._state === 'recording'; }
@@ -22,6 +33,25 @@ class MobileAudioRecorder {
     this.onStateChange?.(state);
   }
 
+  // Pre-warm audio permissions + audio mode BEFORE the call goes active.
+  // Call this as soon as the user taps "Answer" or an outbound call starts connecting
+  // so that startRecording() can start capturing audio immediately when needed.
+  async prepare(): Promise<void> {
+    if (this._prepared || this._state === 'recording') return;
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) {
+        console.warn('[AudioRecorder] prepare(): microphone permission not granted');
+        return;
+      }
+      await Audio.setAudioModeAsync(AUDIO_MODE_RECORDING);
+      this._prepared = true;
+      console.log('[AudioRecorder] Audio session pre-warmed for recording');
+    } catch (error) {
+      console.warn('[AudioRecorder] prepare() failed (non-fatal):', error);
+    }
+  }
+
   async startRecording(): Promise<boolean> {
     try {
       const permission = await Audio.requestPermissionsAsync();
@@ -30,15 +60,11 @@ class MobileAudioRecorder {
         return false;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        interruptionModeIOS: 1,
-        shouldDuckAndroid: false,
-        interruptionModeAndroid: 1,
-        playThroughEarpieceAndroid: false,
-      });
+      // Skip setAudioModeAsync if prepare() already ran — saves ~200-400ms on call start
+      if (!this._prepared) {
+        await Audio.setAudioModeAsync(AUDIO_MODE_RECORDING);
+      }
+      this._prepared = false;
 
       const { recording } = await Audio.Recording.createAsync(
         {

@@ -620,6 +620,10 @@ class MobileSipEngine {
       return false;
     }
 
+    // Immediately leave 'ringing' state — on mobile data, audio arrives before
+    // SessionState.Established fires, so UI must not show ringing once user answers
+    this.setCallState('connecting');
+
     try {
       await this.startAudioSession(false);
       await this.currentSession.accept({
@@ -640,6 +644,7 @@ class MobileSipEngine {
       return true;
     } catch (error) {
       console.error('[MobileSIP] Failed to answer call:', error);
+      this.setCallState('idle');
       return false;
     }
   }
@@ -796,8 +801,13 @@ class MobileSipEngine {
           break;
         case SessionState.Established:
           this.setCallState('active');
-          this.updateCallInfo({ startTime: new Date() });
-          this.startCallTimer();
+          // Only set startTime / timer if not already started by the ICE-connected fast path
+          if (!this._callInfo.startTime) {
+            this.updateCallInfo({ startTime: new Date() });
+          }
+          if (!this.callTimer) {
+            this.startCallTimer();
+          }
           this.setupRemoteAudio(session);
           break;
         case SessionState.Terminating:
@@ -958,6 +968,22 @@ class MobileSipEngine {
         const hasRelay = this._iceCandidateTypes.includes('relay');
         this.emit('debug', `★ ICE connected via: ${hasRelay ? 'TURN RELAY ✓' : 'direct/STUN (no relay)'} — re-enabling audio tracks`);
         this.emit('ice-stats', { usedRelay: hasRelay, error: null });
+
+        // On mobile data, audio (RTP) flows as soon as ICE connects — but
+        // SessionState.Established may fire later due to SIP signaling latency.
+        // Force the call active NOW so the UI stops showing "ringing/connecting"
+        // and so recording starts immediately when audio is actually flowing.
+        if (this._callState === 'connecting') {
+          this.emit('debug', `ICE connected while callState=${this._callState} — forcing active state (SIP Established may lag on mobile data)`);
+          this.setCallState('active');
+          if (!this._callInfo.startTime) {
+            this.updateCallInfo({ startTime: new Date() });
+          }
+          if (!this.callTimer) {
+            this.startCallTimer();
+          }
+          this.setupRemoteAudio(this.currentSession);
+        }
         // Re-enable all tracks after ICE connects to handle any timing races
         try {
           const rcv = pc.getReceivers ? pc.getReceivers() : [];

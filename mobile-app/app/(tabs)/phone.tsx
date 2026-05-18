@@ -147,7 +147,7 @@ export default function PhoneScreen() {
     recordingState, callRecordingEnabled, debugMessages,
     connect, disconnect, makeCall, answerCall, rejectCall,
     hangup, toggleMute, toggleHold, toggleSpeaker, sendDtmf,
-    startRecording, stopAndUploadRecording,
+    prepareRecording, startRecording, stopAndUploadRecording,
   } = useSipStore();
 
   useEffect(() => {
@@ -170,6 +170,15 @@ export default function PhoneScreen() {
       Vibration.vibrate([0, 500, 200, 500], true);
     }
   }, [callState, callInfo.direction]);
+
+  // Pre-warm the audio session as early as possible — when call starts connecting
+  // (outbound) or when an inbound call rings. This makes startRecording() near-instant
+  // because setAudioModeAsync is already done by the time we reach 'active' state.
+  useEffect(() => {
+    if (callRecordingEnabled && (callState === 'connecting' || callState === 'ringing')) {
+      prepareRecording().catch(() => {});
+    }
+  }, [callState, callRecordingEnabled]);
 
   useEffect(() => {
     if (callState === 'active' && callRecordingEnabled && !recordingStartedRef.current) {
@@ -461,9 +470,38 @@ export default function PhoneScreen() {
     setShowInCallDialpad(false);
   };
 
-  const handleAnswer = () => {
-    answerCall();
+  const handleAnswer = async () => {
     Vibration.cancel();
+    // Pre-warm recording immediately (fire-and-forget) — runs in parallel with call setup
+    if (callRecordingEnabled) {
+      prepareRecording().catch(() => {});
+    }
+    // Create a server-side call log for inbound calls so server recording has a valid ID
+    try {
+      const historyId = await saveCallToHistory({
+        phoneNumber: callInfo.phoneNumber,
+        direction: 'inbound',
+        duration: 0,
+        status: 'initiated',
+        contactName: null,
+        contactId: null,
+      });
+      setCurrentCallHistoryId(historyId);
+
+      const callLog = await api.post<{ id: string }>('/api/mobile/call-log', {
+        phoneNumber: callInfo.phoneNumber,
+        direction: 'inbound',
+        duration: 0,
+        status: 'initiated',
+      });
+      if (callLog?.id) {
+        setCurrentCallLogId(callLog.id);
+        pendingFinalizeRef.current = { historyId, logId: callLog.id };
+      }
+    } catch (err) {
+      console.warn('[Phone] Failed to create inbound call log (non-fatal):', err);
+    }
+    answerCall();
   };
 
   const handleReject = () => {
