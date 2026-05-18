@@ -267,6 +267,8 @@ type TranslationKeys = {
     no: string;
     personnelTab: string;
     noPersonnel: string;
+    midwivesTab: string;
+    noMidwives: string;
     editHospital: string;
     editClinic: string;
     clinicDetails: string;
@@ -648,6 +650,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       no: 'Nie',
       personnelTab: 'Personal',
       noPersonnel: 'Ziadny personal',
+      midwivesTab: 'Porodne asistentky',
+      noMidwives: 'Ziadne porodne asistentky',
       editHospital: 'Upravit nemocnicu',
       editClinic: 'Upravit ambulanciu',
       clinicDetails: 'Detail ambulancie',
@@ -1027,6 +1031,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       no: 'Ne',
       personnelTab: 'Personal',
       noPersonnel: 'Zadny personal',
+      midwivesTab: 'Porodní asistentky',
+      noMidwives: 'Zadné porodní asistentky',
       editHospital: 'Upravit nemocnici',
       editClinic: 'Upravit ambulanci',
       clinicDetails: 'Detail ambulance',
@@ -1406,6 +1412,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       no: 'Nem',
       personnelTab: 'Szemelyzet',
       noPersonnel: 'Nincs szemelyzet',
+      midwivesTab: 'Szulesznok',
+      noMidwives: 'Nincs szulesz',
       editHospital: 'Korhaz szerkesztese',
       editClinic: 'Klinika szerkesztese',
       clinicDetails: 'Rendelo reszletei',
@@ -1785,6 +1793,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       no: 'Nein',
       personnelTab: 'Personal',
       noPersonnel: 'Kein Personal',
+      midwivesTab: 'Hebammen',
+      noMidwives: 'Keine Hebammen',
       editHospital: 'Krankenhaus bearbeiten',
       editClinic: 'Ambulanz bearbeiten',
       clinicDetails: 'Ambulanzdetails',
@@ -2164,6 +2174,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       no: 'No',
       personnelTab: 'Personale',
       noPersonnel: 'Nessun personale',
+      midwivesTab: 'Ostetriche',
+      noMidwives: 'Nessuna ostetrica',
       editHospital: 'Modifica ospedale',
       editClinic: 'Modifica clinica',
       clinicDetails: 'Dettagli clinica',
@@ -2543,6 +2555,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       no: 'Nu',
       personnelTab: 'Personal',
       noPersonnel: 'Niciun personal',
+      midwivesTab: 'Moase',
+      noMidwives: 'Nicio moasa',
       editHospital: 'Editare spital',
       editClinic: 'Editare cabinet',
       clinicDetails: 'Detalii cabinet',
@@ -2922,6 +2936,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       no: 'No',
       personnelTab: 'Personnel',
       noPersonnel: 'No personnel',
+      midwivesTab: 'Midwives',
+      noMidwives: 'No midwives',
       editHospital: 'Edit Hospital',
       editClinic: 'Edit Clinic',
       clinicDetails: 'Clinic Details',

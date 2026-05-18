@@ -14,7 +14,7 @@ import { useSipStore } from '@/stores/sipStore';
 import { api } from '@/lib/api';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 
-type DetailTab = 'info' | 'personnel';
+type DetailTab = 'info' | 'personnel' | 'midwives';
 
 interface PersonnelPerson {
   person_id: string;
@@ -155,11 +155,12 @@ export default function ClinicDetailScreen() {
   const { data: personnelData, isLoading: personnelLoading } = useQuery<{
     assigned: PersonnelPerson[];
     legacy: PersonnelPerson[];
+    midwives: PersonnelPerson[];
     clinicDoctor: any;
   }>({
     queryKey: ['/api/mobile/institutions/clinic', id, 'personnel'],
     queryFn: () => api.get(`/api/mobile/institutions/clinic/${id}/personnel`),
-    enabled: !!id && activeTab === 'personnel',
+    enabled: !!id && (activeTab === 'personnel' || activeTab === 'midwives'),
     retry: 1,
   });
 
@@ -170,6 +171,7 @@ export default function ClinicDetailScreen() {
   if (personnelData?.clinicDoctor) {
     allPersonnel.push(personnelData.clinicDoctor as PersonnelPerson);
   }
+  const allMidwives: PersonnelPerson[] = personnelData?.midwives || [];
 
   const startEdit = () => {
     if (!clinic) return;
@@ -326,6 +328,15 @@ export default function ClinicDetailScreen() {
               >
                 <Text style={[styles.detailTabText, activeTab === 'personnel' && styles.detailTabTextActive]}>
                   {th.personnelTab}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.detailTab, activeTab === 'midwives' && styles.detailTabActive]}
+                onPress={() => setActiveTab('midwives')}
+                testID="tab-midwives"
+              >
+                <Text style={[styles.detailTabText, activeTab === 'midwives' && styles.detailTabTextActive]}>
+                  {th.midwivesTab}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -561,7 +572,7 @@ export default function ClinicDetailScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </>
-        ) : (
+        ) : activeTab === 'personnel' ? (
           /* Personnel tab */
           personnelLoading ? (
             <View style={styles.centeredBox}>
@@ -576,6 +587,27 @@ export default function ClinicDetailScreen() {
             allPersonnel.map((person, i) => (
               <PersonnelCard
                 key={`${person.person_id}-${i}`}
+                person={person}
+                onCall={callClinic}
+                onEmail={openEmail}
+              />
+            ))
+          )
+        ) : (
+          /* Midwives tab */
+          personnelLoading ? (
+            <View style={styles.centeredBox}>
+              <ActivityIndicator size="large" color={CLINIC_GREEN} />
+            </View>
+          ) : allMidwives.length === 0 ? (
+            <View style={styles.centeredBox}>
+              <Ionicons name="people-outline" size={56} color={Colors.textSecondary} />
+              <Text style={styles.emptyText}>{th.noMidwives}</Text>
+            </View>
+          ) : (
+            allMidwives.map((person, i) => (
+              <PersonnelCard
+                key={`${person.person_id}-mw-${i}`}
                 person={person}
                 onCall={callClinic}
                 onEmail={openEmail}

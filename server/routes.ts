@@ -18071,99 +18071,104 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return res.status(400).json({ error: "Invalid entity type" });
       }
 
-      // 1. Assigned via contact_assignments
-      const assignmentRows = await db.execute(sql`
-        SELECT
-          ca.id as assignment_id, ca.department, ca.position, ca.role, ca.subcategory,
-          ca.is_primary, ca.is_active, ca.notes,
-          ca.category_id,
-          pc.code as category_code, pc.name as category_name,
-          c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
-          c.email, c.phone, c.mobile, c.collaborator_type, c.is_active as person_active,
-          c.country_code, c.partner_category, c.cbc_activities
-        FROM contact_assignments ca
-        JOIN collaborators c ON c.id = ca.person_id
-        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
-        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
-        ORDER BY ca.is_primary DESC, c.last_name, c.first_name
-      `);
+      // 1. Assigned via contact_assignments (with optional partner_categories join)
+      let assignedRows: any[] = [];
+      try {
+        const result = await db.execute(sql`
+          SELECT
+            ca.id as assignment_id, ca.position, ca.role,
+            ca.is_primary, ca.notes,
+            c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
+            c.email, c.phone, c.mobile, c.collaborator_type, c.is_active as person_active,
+            c.partner_category,
+            COALESCE(pc.name, ca.role) as category_name
+          FROM contact_assignments ca
+          JOIN collaborators c ON c.id = ca.person_id
+          LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+          WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+          ORDER BY ca.is_primary DESC, c.last_name, c.first_name
+        `);
+        assignedRows = result.rows || [];
+      } catch (e: any) {
+        console.warn("[Mobile Personnel] assigned query failed:", e.message);
+      }
 
-      // 2. Legacy-linked (hospital_id / hospital_ids) for hospitals only
-      const assignedPersonIds = new Set((assignmentRows.rows || []).map((r: any) => r.person_id));
+      // Split assigned into midwives vs general personnel
+      const isMidwife = (r: any) =>
+        (r.collaborator_type || '').toLowerCase().includes('midwif') ||
+        (r.collaborator_type || '').toLowerCase().includes('babic') ||
+        (r.category_name || '').toLowerCase().includes('midwif') ||
+        (r.category_name || '').toLowerCase().includes('babic') ||
+        (r.role || '').toLowerCase().includes('midwif');
+
+      const assignedMidwives = assignedRows.filter(isMidwife);
+      const assignedPersonnel = assignedRows.filter((r: any) => !isMidwife(r));
+
+      // 2. Legacy-linked via hospital_id / hospital_ids — direct SQL
       let legacyRows: any[] = [];
+      let legacyMidwives: any[] = [];
       if (entityType === "hospital") {
-        const allCollabs = await db.select({
-          id: collaborators.id,
-          titleBefore: collaborators.titleBefore,
-          firstName: collaborators.firstName,
-          lastName: collaborators.lastName,
-          titleAfter: collaborators.titleAfter,
-          phone: collaborators.phone,
-          mobile: collaborators.mobile,
-          email: collaborators.email,
-          isActive: collaborators.isActive,
-          collaboratorType: collaborators.collaboratorType,
-          partnerCategory: collaborators.partnerCategory,
-          hospitalId: collaborators.hospitalId,
-          hospitalIds: collaborators.hospitalIds,
-        }).from(collaborators);
-        for (const col of allCollabs) {
-          if (assignedPersonIds.has(col.id)) continue;
-          const linkedIds: string[] = [];
-          if (col.hospitalId) linkedIds.push(col.hospitalId);
-          if (col.hospitalIds && Array.isArray(col.hospitalIds)) linkedIds.push(...col.hospitalIds);
-          if (linkedIds.includes(entityId)) {
-            legacyRows.push({
-              person_id: col.id,
-              first_name: col.firstName,
-              last_name: col.lastName,
-              title_before: col.titleBefore,
-              title_after: col.titleAfter,
-              email: col.email,
-              phone: col.phone,
-              mobile: col.mobile,
-              collaborator_type: col.collaboratorType,
-              partner_category: col.partnerCategory,
-              person_active: col.isActive,
-              is_primary: false,
-              assignment_id: null,
-              category_name: null,
-              role: null,
-              position: null,
-            });
-          }
+        try {
+          const legacyResult = await db.execute(sql`
+            SELECT
+              c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
+              c.email, c.phone, c.mobile, c.collaborator_type, c.is_active as person_active,
+              c.partner_category,
+              false as is_primary, null::text as category_name,
+              null::text as role, null::text as position, null::text as assignment_id
+            FROM collaborators c
+            WHERE (c.hospital_id = ${entityId} OR ${entityId} = ANY(c.hospital_ids))
+              AND c.id NOT IN (
+                SELECT ca2.person_id FROM contact_assignments ca2
+                WHERE ca2.entity_type = 'hospital' AND ca2.entity_id = ${entityId}
+              )
+            ORDER BY c.last_name, c.first_name
+          `);
+          const legacyAll = legacyResult.rows || [];
+          legacyRows = legacyAll.filter((r: any) => !isMidwife(r));
+          legacyMidwives = legacyAll.filter(isMidwife);
+        } catch (e: any) {
+          console.warn("[Mobile Personnel] legacy query failed:", e.message);
         }
       }
 
       // 3. For clinics, include embedded clinic doctor
       let clinicDoctor: any = null;
       if (entityType === "clinic") {
-        const [clinic] = await db.select().from(clinics).where(eq(clinics.id, entityId));
-        if (clinic) {
-          const doctorName = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean).join(' ') || (clinic as any).doctorName;
-          if (doctorName) {
-            clinicDoctor = {
-              person_id: `clinic-doctor-${entityId}`,
-              first_name: (clinic as any).doctorFirstName || doctorName,
-              last_name: (clinic as any).doctorLastName || '',
-              title_before: (clinic as any).doctorTitle || '',
-              title_after: '',
-              phone: clinic.phone,
-              mobile: null,
-              email: clinic.email,
-              collaborator_type: 'doctor',
-              category_name: null,
-              role: 'doctor',
-              is_primary: true,
-              person_active: clinic.isActive,
-            };
+        try {
+          const [clinic] = await db.select().from(clinics).where(eq(clinics.id, entityId));
+          if (clinic) {
+            const firstName = (clinic as any).doctorFirstName || '';
+            const lastName = (clinic as any).doctorLastName || '';
+            const titleBefore = (clinic as any).doctorTitle || '';
+            const fallbackName = (clinic as any).doctorName || '';
+            if (firstName || lastName || fallbackName) {
+              clinicDoctor = {
+                person_id: `clinic-doctor-${entityId}`,
+                first_name: firstName || fallbackName,
+                last_name: lastName,
+                title_before: titleBefore,
+                title_after: '',
+                phone: clinic.phone,
+                mobile: null,
+                email: clinic.email,
+                collaborator_type: 'doctor',
+                category_name: null,
+                role: 'doctor',
+                is_primary: true,
+                person_active: clinic.isActive,
+              };
+            }
           }
+        } catch (e: any) {
+          console.warn("[Mobile Personnel] clinic doctor query failed:", e.message);
         }
       }
 
       res.json({
-        assigned: assignmentRows.rows || [],
+        assigned: assignedPersonnel,
         legacy: legacyRows,
+        midwives: [...assignedMidwives, ...legacyMidwives],
         clinicDoctor,
       });
     } catch (e: any) {
