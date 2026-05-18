@@ -17130,6 +17130,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         sipCallId: null,
         callerIdName: `${collaborator.firstName} ${collaborator.lastName}`,
         callerIdNumber: ext?.extension || null,
+        metadata: JSON.stringify({ source: "mobile" }),
       });
       res.json(callLog);
     } catch (error) {
@@ -26158,6 +26159,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         durationSeconds: callLogs.durationSeconds,
         notes: callLogs.notes,
         createdAt: callLogs.createdAt,
+        metadata: callLogs.metadata,
       }).from(callLogs)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(callLogs.createdAt))
@@ -26217,6 +26219,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         campaignName: campaignMap[log.campaignId || ""] || recordingMap[log.id]?.campaignName || null,
         hasRecording: !!recordingMap[log.id],
         recording: recordingMap[log.id] || null,
+        isMobile: (() => { try { return JSON.parse(log.metadata || "{}").source === "mobile"; } catch { return false; } })(),
       }));
 
       res.json(result);

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Phone, Megaphone, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, Calendar, UserCircle, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, CheckCircle2, ShieldAlert, ClipboardCheck, Sparkles, Star } from "lucide-react";
+import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Phone, Megaphone, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, Calendar, UserCircle, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, CheckCircle2, ShieldAlert, ClipboardCheck, Sparkles, Star, Smartphone } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
 import { CallRecordingPlayer, type PlaybackState } from "@/components/call-recording-player";
@@ -27,7 +27,7 @@ interface CallLogEntry {
   id: string; userId: string; customerId: string | null; campaignId: string | null;
   phoneNumber: string; direction: string; status: string; startedAt: string;
   durationSeconds: number | null; notes: string | null; createdAt: string;
-  customerName: string | null; campaignName: string | null; hasRecording: boolean;
+  customerName: string | null; campaignName: string | null; hasRecording: boolean; isMobile: boolean;
   recording: {
     id: string; analysisStatus: string | null; transcriptionText: string | null;
     sentiment: string | null; qualityScore: number | null; scriptComplianceScore: number | null;
@@ -198,6 +198,7 @@ function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEnt
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
         {log.status === "no_answer" && <span className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{ca.statusNoAnswer}</span>}
         {log.status === "failed" && <span className="text-[9px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full">{ca.statusFailed}</span>}
+        {log.isMobile && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Smartphone className="h-2 w-2" />Mobile</span>}
         {log.hasRecording && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Mic className="h-2 w-2" /></span>}
         {rec?.qualityScore != null && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">★ {rec.qualityScore}</span>}
         {log.campaignName && <span className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full truncate max-w-[90px]">{log.campaignName}</span>}
@@ -237,6 +238,11 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
                 </Badge>
                 {log.campaignName && <Badge variant="outline" className="text-[10px]"><Megaphone className="h-2.5 w-2.5 mr-1" />{log.campaignName}</Badge>}
                 {rec?.agentName && <Badge variant="outline" className="text-[10px]"><UserCircle className="h-2.5 w-2.5 mr-1" />{rec.agentName}</Badge>}
+                {log.isMobile && (
+                  <Badge className="text-[10px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700 hover:bg-violet-100">
+                    <Smartphone className="h-2.5 w-2.5 mr-1" />INDEXUS Connect
+                  </Badge>
+                )}
                 <span className="text-[10px] text-muted-foreground">{dateStr} · {formatDuration(log.durationSeconds)}</span>
               </div>
             </div>
@@ -541,6 +547,7 @@ export function TranscriptSearchContent() {
   const [browseSentimentFilter, setBrowseSentimentFilter] = useState("");
   const [browseAgentFilter, setBrowseAgentFilter] = useState("");
   const [browseHasAlertsFilter, setBrowseHasAlertsFilter] = useState(false);
+  const [browseMobileFilter, setBrowseMobileFilter] = useState(false);
   const [browseMinQuality, setBrowseMinQuality] = useState("");
   const [browseQueueFilter, setBrowseQueueFilter] = useState("");
   const [selectedCallLogId, setSelectedCallLogId] = useState<string | null>(null);
@@ -614,9 +621,10 @@ export function TranscriptSearchContent() {
     if (browseSentimentFilter) f = f.filter(l => l.recording?.sentiment === browseSentimentFilter);
     if (browseAgentFilter) f = f.filter(l => l.recording?.agentName === browseAgentFilter);
     if (browseHasAlertsFilter) f = f.filter(l => l.recording?.alertKeywords && l.recording.alertKeywords.length > 0);
+    if (browseMobileFilter) f = f.filter(l => l.isMobile);
     if (browseMinQuality) { const minQ = parseInt(browseMinQuality); if (!isNaN(minQ)) f = f.filter(l => l.recording?.qualityScore != null && l.recording.qualityScore >= minQ); }
     return f;
-  }, [callLogs, selectedDate, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseQueueFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter, browseMinQuality]);
+  }, [callLogs, selectedDate, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseQueueFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter, browseMobileFilter, browseMinQuality]);
 
   const stats = useMemo(() => {
     const all = filteredCallLogs;
@@ -627,9 +635,9 @@ export function TranscriptSearchContent() {
     return { total: all.length, completed, withAlerts, avgQ };
   }, [filteredCallLogs]);
 
-  const activeFilterCount = [browseCampaignFilter, browseDirectionFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter ? "y" : "", browseMinQuality, browseQueueFilter].filter(Boolean).length;
+  const activeFilterCount = [browseCampaignFilter, browseDirectionFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter ? "y" : "", browseMobileFilter ? "y" : "", browseMinQuality, browseQueueFilter].filter(Boolean).length;
 
-  const clearFilters = () => { setBrowseCampaignFilter(""); setBrowseDirectionFilter(""); setBrowseStatusFilter(""); setBrowseRecordingFilter(""); setBrowseSentimentFilter(""); setBrowseAgentFilter(""); setBrowseHasAlertsFilter(false); setBrowseMinQuality(""); setBrowseQueueFilter(""); };
+  const clearFilters = () => { setBrowseCampaignFilter(""); setBrowseDirectionFilter(""); setBrowseStatusFilter(""); setBrowseRecordingFilter(""); setBrowseSentimentFilter(""); setBrowseAgentFilter(""); setBrowseHasAlertsFilter(false); setBrowseMobileFilter(false); setBrowseMinQuality(""); setBrowseQueueFilter(""); };
 
   useEffect(() => {
     if (filteredCallLogs.length > 0 && (!selectedCallLogId || !filteredCallLogs.find(l => l.id === selectedCallLogId))) {
@@ -810,10 +818,17 @@ export function TranscriptSearchContent() {
                     </Select>
                   )}
                   <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer">
-                      <input type="checkbox" checked={browseHasAlertsFilter} onChange={e => setBrowseHasAlertsFilter(e.target.checked)} className="h-3 w-3" data-testid="checkbox-has-alerts" />
-                      {ca.withAlerts}
-                    </label>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer">
+                        <input type="checkbox" checked={browseHasAlertsFilter} onChange={e => setBrowseHasAlertsFilter(e.target.checked)} className="h-3 w-3" data-testid="checkbox-has-alerts" />
+                        {ca.withAlerts}
+                      </label>
+                      <label className="flex items-center gap-1.5 text-[10px] text-violet-600 dark:text-violet-400 cursor-pointer font-medium">
+                        <input type="checkbox" checked={browseMobileFilter} onChange={e => setBrowseMobileFilter(e.target.checked)} className="h-3 w-3 accent-violet-600" data-testid="checkbox-mobile-filter" />
+                        <Smartphone className="h-3 w-3" />
+                        INDEXUS Connect
+                      </label>
+                    </div>
                     {activeFilterCount > 0 && (
                       <button onClick={clearFilters} className="text-[10px] text-primary hover:underline" data-testid="btn-clear-browse-filters">
                         {ca.clearFilters}
