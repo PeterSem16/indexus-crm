@@ -114,6 +114,10 @@ class MobileSipEngine {
   // ICE diagnostics — per-call, reset on each new call
   private _iceCandidateTypes: string[] = [];
   private _iceHandlersSet: boolean = false;
+  // RTP silence detection — per-call
+  private rtpMonitorTimer: ReturnType<typeof setInterval> | null = null;
+  private lastRtpPackets: number = 0;
+  private rtpSilenceCount: number = 0;
 
   get registrationState(): SipRegistrationState { return this._registrationState; }
   get callState(): SipCallState { return this._callState; }
@@ -532,15 +536,15 @@ class MobileSipEngine {
       const inviter = new Inviter(this.ua, target, {
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false },
-          iceGatheringTimeout: 8000,
+          iceGatheringTimeout: 12000,
         },
         sessionDescriptionHandlerFactoryOptions: {
-          iceGatheringTimeout: 8000,
+          iceGatheringTimeout: 12000,
           peerConnectionConfiguration: {
             iceServers: this._iceServers.length ? this._iceServers : [{ urls: 'stun:stun.l.google.com:19302' }],
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
-            iceCandidatePoolSize: 0,
+            iceCandidatePoolSize: 4,
           },
         },
       });
@@ -829,9 +833,13 @@ class MobileSipEngine {
     if (this.isRingbackPlaying) return;
     try {
       const InCallManager = await this.getInCallManager();
+      // Force earpiece BEFORE starting ringback — prevents speaker routing on Android
+      // mobile data where InCallManager audio mode may not be fully initialized yet
+      InCallManager.setForceSpeakerphoneOn(false);
+      InCallManager.setSpeakerphoneOn(false);
       InCallManager.startRingback('_BUNDLE_');
       this.isRingbackPlaying = true;
-      this.emit('debug', 'Ringback tone started');
+      this.emit('debug', 'Ringback tone started (earpiece enforced)');
     } catch (e: any) {
       this.emit('debug', `Ringback start error: ${e?.message}`);
     }
@@ -902,6 +910,13 @@ class MobileSipEngine {
         InCallManager.start({ media: 'audio', auto: true, ringback: '' });
         this.audioSessionStarted = true;
         this.emit('debug', 'InCallManager.start() called (auto:true)');
+        // Explicitly force earpiece immediately after start — on Android mobile data
+        // InCallManager may default to speaker before audio route is confirmed
+        if (!speaker) {
+          InCallManager.setForceSpeakerphoneOn(false);
+          InCallManager.setSpeakerphoneOn(false);
+          this.emit('debug', 'Audio route forced to EARPIECE after session start');
+        }
       }
 
       this.updateCallInfo({ isSpeaker: speaker });
@@ -992,6 +1007,9 @@ class MobileSipEngine {
           snd.forEach((s: any) => { if (s?.track) s.track.enabled = true; });
           this.emit('debug', `Audio tracks re-enabled: rx=${rcv.length} tx=${snd.length}`);
         } catch {}
+        // Start RTP silence monitor — detects when ICE is up but no audio flows
+        // (common on mobile carrier NAT). Waits 4 s for RTP to stabilize first.
+        setTimeout(() => { if (this._callState === 'active') this.startRtpMonitor(pc); }, 4000);
         // Log negotiated codec from remote SDP
         try {
           const sdp: string = pc.remoteDescription?.sdp || '';
@@ -1230,8 +1248,85 @@ class MobileSipEngine {
     }
   }
 
+  // ── RTP silence detection ────────────────────────────────────────────────
+  // Detects when ICE is connected but no audio packets are flowing (silent
+  // call). Common on mobile data behind carrier-grade NAT when the TURN relay
+  // path or symmetric RTP mapping breaks after a few seconds.
+  // Strategy: poll getStats() every 3 s; if packetsReceived is still 0 after
+  // two consecutive checks (≥ 6 s into the call) attempt an ICE restart.
+
+  private stopRtpMonitor() {
+    if (this.rtpMonitorTimer) {
+      clearInterval(this.rtpMonitorTimer);
+      this.rtpMonitorTimer = null;
+    }
+    this.lastRtpPackets = 0;
+    this.rtpSilenceCount = 0;
+  }
+
+  private startRtpMonitor(pc: any) {
+    this.stopRtpMonitor();
+    this.emit('debug', 'RTP monitor started');
+
+    this.rtpMonitorTimer = setInterval(async () => {
+      if (this._callState !== 'active') {
+        this.stopRtpMonitor();
+        return;
+      }
+      if (!pc || !pc.getStats) return;
+      try {
+        const stats = await pc.getStats();
+        let totalReceived = 0;
+        stats.forEach((report: any) => {
+          if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+            totalReceived += report.packetsReceived || 0;
+          }
+        });
+        const delta = totalReceived - this.lastRtpPackets;
+        this.emit('debug', `RTP monitor: total=${totalReceived} Δ=${delta}`);
+
+        if (delta === 0 && this._callInfo.duration > 5) {
+          this.rtpSilenceCount++;
+          this.emit('debug', `⚠ RTP silence #${this.rtpSilenceCount} — no inbound audio packets`);
+          if (this.rtpSilenceCount === 2) {
+            this.emit('debug', '⚠ Silent call detected — attempting ICE restart to recover RTP path');
+            this.attemptIceRestart(pc);
+          }
+        } else if (delta > 0 && this.rtpSilenceCount > 0) {
+          this.emit('debug', `RTP recovered (Δ=${delta})`);
+          this.rtpSilenceCount = 0;
+        }
+        this.lastRtpPackets = totalReceived;
+      } catch (e: any) {
+        this.emit('debug', `RTP monitor error: ${e?.message}`);
+      }
+    }, 3000);
+  }
+
+  private async attemptIceRestart(pc: any) {
+    try {
+      if (typeof pc.restartIce === 'function') {
+        pc.restartIce();
+        this.emit('debug', 'ICE restart: pc.restartIce() called — waiting 3 s for gathering...');
+        await new Promise(r => setTimeout(r, 3000));
+        // Send re-INVITE with new ICE credentials
+        if (this.currentSession && typeof (this.currentSession as any).invite === 'function') {
+          await (this.currentSession as any).invite({
+            sessionDescriptionHandlerOptions: { iceRestart: true },
+          });
+          this.emit('debug', 'ICE restart: re-INVITE sent');
+        }
+      } else {
+        this.emit('debug', 'ICE restart: pc.restartIce() not available on this platform — skipped');
+      }
+    } catch (e: any) {
+      this.emit('debug', `ICE restart failed: ${e?.message}`);
+    }
+  }
+
   private cleanupSession() {
     this.stopCallTimer();
+    this.stopRtpMonitor();
     this.stopRingback();
     this.stopAudioSession();
     const finalDuration = this._callInfo.duration;
