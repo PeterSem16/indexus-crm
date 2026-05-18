@@ -378,6 +378,30 @@ export async function addGpsTrack(visitEventId: string, latitude: number, longit
   });
 }
 
+export async function updateHospitalIdInVisits(oldHospitalId: string, newHospitalId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const database = getDatabase();
+    database.transaction(
+      (tx) => {
+        tx.executeSql(
+          `UPDATE visit_events SET hospital_id = ?, synced = 0, updated_at = datetime('now') WHERE hospital_id = ?`,
+          [newHospitalId, oldHospitalId]
+        );
+        tx.executeSql(
+          `UPDATE sync_queue SET payload = replace(payload, ?, ?) WHERE entity_type = 'visit' AND payload LIKE ?`,
+          [
+            `"hospitalId":"${oldHospitalId}"`,
+            `"hospitalId":"${newHospitalId}"`,
+            `%"hospitalId":"${oldHospitalId}"%`,
+          ]
+        );
+      },
+      (error) => reject(error),
+      () => resolve()
+    );
+  });
+}
+
 export async function addToSyncQueue(entityType: string, entityId: string, action: string, payload: any): Promise<void> {
   return new Promise((resolve, reject) => {
     const database = getDatabase();

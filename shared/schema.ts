@@ -2366,6 +2366,7 @@ export const visitEvents = pgTable("visit_events", {
   
   // Hospital reference
   hospitalId: varchar("hospital_id"),
+  hospitalName: text("hospital_name"),
   
   // Remark - can be text or voice transcription
   remark: text("remark"),

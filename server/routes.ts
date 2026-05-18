@@ -16724,7 +16724,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       )
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
-        .map(([id, count]) => ({ name: hospMap.get(id) || id, count }));
+        .map(([id, count]) => {
+          const mappedName = hospMap.get(id);
+          if (mappedName) return { name: mappedName, count };
+          const eventWithName = filtered.find(e => String(e.hospitalId) === id && (e as any).hospitalName);
+          return { name: (eventWithName as any)?.hospitalName || 'Neznáma nemocnica', count };
+        });
 
       let totalHoursMs = 0;
       const workDays = new Set<string>();

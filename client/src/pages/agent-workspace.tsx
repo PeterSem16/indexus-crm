@@ -2662,7 +2662,7 @@ function CommunicationCanvas({
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
           </button>
-          {internalChecklistConfig.enabled && internalChecklistConfig.items.length > 0 && (
+          {internalChecklistConfig.enabled && internalChecklistConfig.sections.length > 0 && (
             <button
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
                 activeChannel === "checklist"

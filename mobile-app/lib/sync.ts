@@ -89,9 +89,13 @@ async function syncVisit(action: string, entityId: string, payload: any): Promis
 
 async function syncHospital(action: string, entityId: string, payload: any): Promise<void> {
   switch (action) {
-    case 'create':
-      await api.post('/api/mobile/hospitals', payload);
+    case 'create': {
+      const result = await api.post<{ id: string }>('/api/mobile/hospitals', payload);
+      if (result?.id && result.id !== entityId) {
+        await db.updateHospitalIdInVisits(entityId, result.id);
+      }
       break;
+    }
     case 'update':
       await api.put(`/api/mobile/hospitals/${entityId}`, payload);
       break;
