@@ -24485,6 +24485,28 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  app.post("/api/campaigns/:campaignId/contacts/:contactId/checklist-response", requireAuth, async (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: "items must be an array" });
+      }
+      const record = await storage.createCampaignContactHistory({
+        campaignContactId: req.params.contactId,
+        userId: (req.session as any).user?.id || "",
+        action: "checklist_response",
+        previousStatus: null,
+        newStatus: null,
+        notes: null,
+        metadata: { items, savedAt: new Date().toISOString() },
+      });
+      res.json(record);
+    } catch (error) {
+      console.error("Failed to save checklist response:", error);
+      res.status(500).json({ error: "Failed to save checklist response" });
+    }
+  });
+
   // Entity Campaign Timeline endpoints
   app.get("/api/entity-campaign-timeline/:entityType/:entityId", requireAuth, async (req, res) => {
     try {

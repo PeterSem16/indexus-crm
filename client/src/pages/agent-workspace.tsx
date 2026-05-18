@@ -229,6 +229,7 @@ interface ContactHistory {
   dispositionColor?: string | null;
   dispositionIcon?: string | null;
   dispositionChecklistNames?: string[] | null;
+  metadata?: any;
 }
 
 interface TimelineEntry {
@@ -1978,6 +1979,9 @@ function CommunicationCanvas({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
   const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
+  const [clChecked, setClChecked] = useState<Set<string>>(new Set());
+  const [clNotes, setClNotes] = useState<Record<string, string>>({});
+  const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   
   useEffect(() => {
@@ -2019,6 +2023,19 @@ function CommunicationCanvas({
   }, [activeChannel, contact?.id]);
 
   const timelineEndRef = useRef<HTMLDivElement>(null);
+
+  const internalChecklistConfig = useMemo(() => {
+    try {
+      const s = JSON.parse(campaign?.settings || "{}");
+      return { enabled: s.internalChecklist?.enabled === true, items: (s.internalChecklist?.items || []) as Array<{ id: string; label: string; hasNotes: boolean }> };
+    } catch { return { enabled: false, items: [] as Array<{ id: string; label: string; hasNotes: boolean }> }; }
+  }, [campaign?.settings]);
+
+  useEffect(() => {
+    setClChecked(new Set());
+    setClNotes({});
+  }, [contact?.id]);
+
 
   const getCustomerLanguage = (customer: Customer | null): string => {
     if (!customer?.country) return "sk";
@@ -2597,6 +2614,20 @@ function CommunicationCanvas({
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
           </button>
+          {internalChecklistConfig.enabled && internalChecklistConfig.items.length > 0 && (
+            <button
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                activeChannel === "checklist"
+                  ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => onChannelChange("checklist")}
+              data-testid="tab-checklist"
+            >
+              <ListChecks className="h-3.5 w-3.5" />
+              CHECKLIST
+            </button>
+          )}
           <div className="ml-auto flex items-center pr-2">
           </div>
         </div>
@@ -3238,6 +3269,116 @@ function CommunicationCanvas({
           </div>
         </div>
       )}
+
+      {activeChannel === "checklist" && (() => {
+        const clItems = internalChecklistConfig.items;
+        if (!internalChecklistConfig.enabled || clItems.length === 0) {
+          return (
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-16">
+              <ListChecks className="h-10 w-10 mb-3 opacity-20" />
+              <p className="text-sm font-medium">Checklist nie je nakonfigurovaný</p>
+              <p className="text-xs mt-1">Nakonfigurujte ho v Nastaveniach kampane</p>
+            </div>
+          );
+        }
+        const clHistoryEntries = (contactHistory || []).filter(h => h.action === "checklist_response");
+        return (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-3">Položky checklistu ({clItems.length})</p>
+              {clItems.map((item) => {
+                const isChecked = clChecked.has(item.id);
+                return (
+                  <div key={item.id} className={`rounded-lg border p-3 transition-all ${isChecked ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-900/10" : "border-border bg-card/50"}`}>
+                    <div
+                      className="flex items-center gap-3 cursor-pointer select-none"
+                      onClick={() => setClChecked(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })}
+                      data-testid={`cl-check-${item.id}`}
+                    >
+                      <div className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isChecked ? "border-emerald-500 bg-emerald-500" : "border-muted-foreground/40"}`}>
+                        {isChecked && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <span className={`text-sm flex-1 ${isChecked ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
+                    </div>
+                    {item.hasNotes && (
+                      <textarea
+                        className="mt-2.5 w-full text-xs rounded-md border border-border bg-background p-2 resize-none min-h-[52px] focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
+                        placeholder="Poznámka k tejto položke..."
+                        value={clNotes[item.id] || ""}
+                        onChange={e => setClNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                        data-testid={`cl-note-${item.id}`}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+              {clHistoryEntries.length > 0 && (
+                <div className="pt-4 mt-2 border-t">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Predchádzajúce záznamy</p>
+                  <div className="space-y-2">
+                    {clHistoryEntries.slice(0, 5).map(entry => {
+                      const prevItems = entry.metadata?.items || [];
+                      const checkedCount = prevItems.filter((i: any) => i.checked).length;
+                      return (
+                        <div key={entry.id} className="rounded-md border border-border/50 p-2.5 bg-muted/30">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <CheckSquare className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                              <span className="text-xs font-medium">Checklist</span>
+                              <span className="text-xs text-muted-foreground">({checkedCount}/{prevItems.length || clItems.length} zaškrtnutých)</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">{format(new Date(entry.date), "d.M.yyyy HH:mm", { locale: sk })}</span>
+                          </div>
+                          {prevItems.filter((i: any) => i.checked).length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {prevItems.filter((i: any) => i.checked).map((i: any) => (
+                                <span key={i.id} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">{i.label}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-3 border-t bg-card/80 shrink-0">
+              <Button
+                className="w-full gap-2"
+                disabled={clChecked.size === 0 || isSavingChecklist || !campaignContactId || !campaign?.id}
+                onClick={async () => {
+                  if (!campaign?.id || !campaignContactId) return;
+                  setIsSavingChecklist(true);
+                  const payload = {
+                    items: clItems.map((item) => ({
+                      id: item.id,
+                      label: item.label,
+                      checked: clChecked.has(item.id),
+                      note: clNotes[item.id] || "",
+                    })),
+                  };
+                  try {
+                    await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/checklist-response`, payload);
+                    queryClient.invalidateQueries({ queryKey: ["/api/entity-history", contact?.id] });
+                    setClChecked(new Set());
+                    setClNotes({});
+                    toast({ title: "Checklist uložený" });
+                  } catch {
+                    toast({ title: "Chyba pri ukladaní checklistu", variant: "destructive" });
+                  } finally {
+                    setIsSavingChecklist(false);
+                  }
+                }}
+                data-testid="btn-save-checklist"
+              >
+                {isSavingChecklist ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckSquare className="h-4 w-4" />}
+                Uložiť checklist{clChecked.size > 0 ? ` (${clChecked.size}/${clItems.length})` : ""}
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
 
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
@@ -6273,6 +6414,7 @@ export default function AgentWorkspacePage() {
       dispositionColor: item.dispositionColor || null,
       dispositionIcon: item.dispositionIcon || null,
       dispositionChecklistNames: item.dispositionChecklistNames || null,
+      metadata: item.metadata || null,
     }));
   }, [persistentHistory]);
 

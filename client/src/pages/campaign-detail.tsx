@@ -443,6 +443,114 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
   );
 }
 
+function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
+  const { toast } = useToast();
+  const [newLabel, setNewLabel] = useState("");
+
+  const checklistConfig = useMemo(() => {
+    try {
+      const s = JSON.parse((campaign as any).settings || "{}");
+      const ic = s.internalChecklist || {};
+      return {
+        enabled: ic.enabled === true,
+        items: (ic.items || []) as Array<{ id: string; label: string; hasNotes: boolean }>,
+      };
+    } catch { return { enabled: false, items: [] as Array<{ id: string; label: string; hasNotes: boolean }> }; }
+  }, [(campaign as any).settings]);
+
+  const patchSettings = async (update: Record<string, any>) => {
+    let existing: any = {};
+    try { if ((campaign as any).settings) existing = JSON.parse((campaign as any).settings); } catch {}
+    const internalChecklist = { ...(existing.internalChecklist || {}), ...update };
+    const merged = { ...existing, internalChecklist };
+    await apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) });
+    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+  };
+
+  const handleToggle = async (checked: boolean) => {
+    try {
+      await patchSettings({ enabled: checked });
+      toast({ title: "Nastavenia uložené" });
+    } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
+  };
+
+  const handleAddItem = async () => {
+    if (!newLabel.trim()) return;
+    const newItem = { id: crypto.randomUUID(), label: newLabel.trim(), hasNotes: false };
+    const newItems = [...checklistConfig.items, newItem];
+    setNewLabel("");
+    try {
+      await patchSettings({ items: newItems });
+    } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
+  };
+
+  const handleRemoveItem = async (id: string) => {
+    const newItems = checklistConfig.items.filter(i => i.id !== id);
+    try {
+      await patchSettings({ items: newItems });
+    } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
+  };
+
+  const handleToggleNotes = async (id: string) => {
+    const newItems = checklistConfig.items.map(i => i.id === id ? { ...i, hasNotes: !i.hasNotes } : i);
+    try {
+      await patchSettings({ items: newItems });
+    } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <ListChecks className="h-5 w-5" />
+              Interný checklist
+            </CardTitle>
+            <CardDescription>Konfigurovateľný checklist pre agentov počas hovoru</CardDescription>
+          </div>
+          <Switch checked={checklistConfig.enabled} onCheckedChange={handleToggle} data-testid="toggle-internal-checklist" />
+        </div>
+      </CardHeader>
+      {checklistConfig.enabled && (
+        <CardContent className="space-y-2.5">
+          {checklistConfig.items.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic py-2">Žiadne položky — pridajte prvú nižšie</p>
+          ) : (
+            checklistConfig.items.map((item, idx) => (
+              <div key={item.id} className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/30 group">
+                <span className="text-xs text-muted-foreground w-5 text-right shrink-0">{idx + 1}.</span>
+                <span className="flex-1 text-sm">{item.label}</span>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span>Poznámka</span>
+                  <Switch checked={item.hasNotes} onCheckedChange={() => handleToggleNotes(item.id)} className="scale-75" data-testid={`cl-item-notes-toggle-${item.id}`} />
+                </div>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0" onClick={() => handleRemoveItem(item.id)} data-testid={`cl-item-remove-${item.id}`}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))
+          )}
+          <div className="flex gap-2 pt-1">
+            <Input
+              placeholder="Nová položka checklistu..."
+              value={newLabel}
+              onChange={e => setNewLabel(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleAddItem(); }}
+              className="text-sm h-9"
+              data-testid="input-new-checklist-item"
+            />
+            <Button onClick={handleAddItem} size="sm" disabled={!newLabel.trim()} className="shrink-0" data-testid="btn-add-checklist-item">
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Pridať
+            </Button>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -5631,6 +5739,7 @@ export default function CampaignDetailPage() {
                           </Select>
                         </CardContent>
                       </Card>
+                      <InternalChecklistSettingsCard campaign={campaign} />
                       <CampaignSopSettingsCard campaignId={campaign.id} />
                       <AutoModeCard campaign={campaign} />
                       <CriteriaCard campaign={campaign} />
