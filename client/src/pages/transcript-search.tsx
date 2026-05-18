@@ -602,7 +602,7 @@ export function TranscriptSearchContent() {
 
   const handleSearch = useCallback(() => { if (searchInput.trim().length >= 2) setSearchQuery(searchInput.trim()); }, [searchInput]);
 
-  const uniqueAgents = useMemo(() => { const s = new Set<string>(); callLogs.forEach(l => { if (l.recording?.agentName) s.add(l.recording.agentName); }); return Array.from(s).sort(); }, [callLogs]);
+  const uniqueAgents = useMemo(() => { const s = new Set<string>(); callLogs.forEach(l => { if (l.recording?.agentName) s.add(l.recording.agentName); if (l.mobileAgentName) s.add(l.mobileAgentName); }); return Array.from(s).sort(); }, [callLogs]);
   const uniqueCampaigns = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { if (l.campaignId && l.campaignName) m.set(l.campaignId, l.campaignName); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })); }, [callLogs]);
   const uniqueQueues = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { const qId = (l as any).inboundQueueId, qName = (l as any).inboundQueueName; if (qId && qName) m.set(qId, qName); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })); }, [callLogs]);
 
@@ -614,7 +614,7 @@ export function TranscriptSearchContent() {
     }
     if (browseSearchText) {
       const q = browseSearchText.toLowerCase();
-      f = f.filter(l => l.phoneNumber?.toLowerCase().includes(q) || l.customerName?.toLowerCase().includes(q) || l.campaignName?.toLowerCase().includes(q) || l.recording?.agentName?.toLowerCase().includes(q) || l.recording?.summary?.toLowerCase().includes(q));
+      f = f.filter(l => l.phoneNumber?.toLowerCase().includes(q) || l.customerName?.toLowerCase().includes(q) || l.campaignName?.toLowerCase().includes(q) || l.recording?.agentName?.toLowerCase().includes(q) || l.mobileAgentName?.toLowerCase().includes(q) || l.recording?.summary?.toLowerCase().includes(q));
     }
     if (browseCampaignFilter) f = browseCampaignFilter === "__none__" ? f.filter(l => !l.campaignId) : f.filter(l => l.campaignId === browseCampaignFilter);
     if (browseDirectionFilter) f = f.filter(l => l.direction === browseDirectionFilter);
@@ -625,7 +625,7 @@ export function TranscriptSearchContent() {
     else if (browseRecordingFilter === "analyzed") f = f.filter(l => l.recording?.analysisStatus === "completed");
     else if (browseRecordingFilter === "transcribed") f = f.filter(l => l.recording?.transcriptionText);
     if (browseSentimentFilter) f = f.filter(l => l.recording?.sentiment === browseSentimentFilter);
-    if (browseAgentFilter) f = f.filter(l => l.recording?.agentName === browseAgentFilter);
+    if (browseAgentFilter) f = f.filter(l => l.recording?.agentName === browseAgentFilter || l.mobileAgentName === browseAgentFilter);
     if (browseHasAlertsFilter) f = f.filter(l => l.recording?.alertKeywords && l.recording.alertKeywords.length > 0);
     if (browseMobileFilter) f = f.filter(l => l.isMobile);
     if (browseMinQuality) { const minQ = parseInt(browseMinQuality); if (!isNaN(minQ)) f = f.filter(l => l.recording?.qualityScore != null && l.recording.qualityScore >= minQ); }
