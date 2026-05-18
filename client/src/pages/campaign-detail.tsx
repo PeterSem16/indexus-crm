@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link, useLocation } from "wouter";
 import { useI18n } from "@/i18n";
@@ -445,36 +446,49 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
 
 type ClItemType = "checkbox" | "yes_no" | "text";
 type ClAutomationAction = "none" | "openDisposition" | "switchEmail" | "switchSms";
-interface ClItem { id: string; label: string; type: ClItemType; required: boolean; hasNotes: boolean; automationAction: ClAutomationAction; }
-interface ClSubsection { id: string; title: string; icon?: string; bold?: boolean; color?: string; items: ClItem[]; }
-interface ClSection { id: string; title: string; icon?: string; bold?: boolean; color?: string; subsections: ClSubsection[]; items: ClItem[]; }
+type ClItemSize = "sm" | "base" | "lg";
+interface ClItem { id: string; label: string; type: ClItemType; required: boolean; hasNotes: boolean; automationAction: ClAutomationAction; bold?: boolean; italic?: boolean; size?: ClItemSize; }
+interface ClSubsection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; items: ClItem[]; }
+interface ClSection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; subsections: ClSubsection[]; items: ClItem[]; }
 interface InternalChecklistCfg { enabled: boolean; sections: ClSection[]; }
 
-const CL_QUICK_ICONS = ["📋","✅","📞","💊","🏥","📝","💡","⚠️","🔑","📌","🎯","💬","📊","🔔","👤","🏠","📅","📬"];
+const CL_ICON_MAP: Record<string, LucideIcon> = {
+  CheckCircle2, Phone, Mail, User, Calendar, Heart, Shield, FileText, Star, Flag, Target, Home, MapPin, Bell, Send, Briefcase, Stethoscope, ClipboardCheck, AlertCircle, Info, DollarSign, TrendingUp, BookOpen, MessageCircle, ListChecks, Zap, Eye, UserCheck, Building2, CalendarCheck, PhoneCall, Pencil, Archive, Package, Tag, Layers, Globe, Handshake, CheckSquare, UserPlus,
+};
+const CL_ICON_LIST = Object.keys(CL_ICON_MAP);
 const CL_COLORS = [
-  { v: "", cls: "bg-foreground/10 border border-border" },
-  { v: "#3b82f6", cls: "bg-blue-500" },
-  { v: "#10b981", cls: "bg-emerald-500" },
-  { v: "#f59e0b", cls: "bg-amber-500" },
-  { v: "#ef4444", cls: "bg-red-500" },
-  { v: "#8b5cf6", cls: "bg-violet-500" },
-  { v: "#ec4899", cls: "bg-pink-500" },
-  { v: "#14b8a6", cls: "bg-teal-500" },
+  { v: "", label: "Auto", cls: "bg-foreground/10 border border-border" },
+  { v: "#3b82f6", label: "Modrá", cls: "bg-blue-500" },
+  { v: "#10b981", label: "Zelená", cls: "bg-emerald-500" },
+  { v: "#f59e0b", label: "Žltá", cls: "bg-amber-500" },
+  { v: "#ef4444", label: "Červená", cls: "bg-red-500" },
+  { v: "#8b5cf6", label: "Fialová", cls: "bg-violet-500" },
+  { v: "#ec4899", label: "Ružová", cls: "bg-pink-500" },
+  { v: "#14b8a6", label: "Tyrkys", cls: "bg-teal-500" },
+  { v: "#f97316", label: "Oranžová", cls: "bg-orange-500" },
+  { v: "#64748b", label: "Šedá", cls: "bg-slate-500" },
 ];
+
+function ClIcon({ name, className, style }: { name?: string; className?: string; style?: CSSProperties }) {
+  if (!name) return null;
+  const Icon = CL_ICON_MAP[name];
+  if (Icon) return <Icon className={className || "h-4 w-4"} style={style} />;
+  return <span className={`leading-none select-none ${className || ""}`} style={style}>{name}</span>;
+}
 
 function parseInternalChecklist(settings: string | null | undefined): InternalChecklistCfg {
   try {
     const s = JSON.parse(settings || "{}");
     const ic = s.internalChecklist || {};
-    const mapItem = (i: any): ClItem => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as ClItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as ClAutomationAction });
+    const mapItem = (i: any): ClItem => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as ClItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as ClAutomationAction, bold: !!i.bold, italic: !!i.italic, size: (i.size || "base") as ClItemSize });
     if (ic.items && !ic.sections) {
-      return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Hlavný checklist", icon: "", bold: false, color: "", subsections: [], items: ic.items.map(mapItem) }] : [] };
+      return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Hlavný checklist", icon: "", bold: false, italic: false, color: "", subsections: [], items: ic.items.map(mapItem) }] : [] };
     }
     return {
       enabled: ic.enabled === true,
       sections: (ic.sections || []).map((sec: any) => ({
-        id: sec.id || crypto.randomUUID(), title: sec.title || "Sekcia", icon: sec.icon || "", bold: !!sec.bold, color: sec.color || "",
-        subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id || crypto.randomUUID(), title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, color: sub.color || "", items: (sub.items || []).map(mapItem) })),
+        id: sec.id || crypto.randomUUID(), title: sec.title || "Sekcia", icon: sec.icon || "", bold: !!sec.bold, italic: !!sec.italic, color: sec.color || "",
+        subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id || crypto.randomUUID(), title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, italic: !!sub.italic, color: sub.color || "", items: (sub.items || []).map(mapItem) })),
         items: (sec.items || []).map(mapItem),
       })),
     };
@@ -482,17 +496,18 @@ function parseInternalChecklist(settings: string | null | undefined): InternalCh
 }
 
 function ClPreviewItem({ item }: { item: ClItem }) {
+  const sizeClass = item.size === "sm" ? "text-[10px]" : item.size === "lg" ? "text-sm" : "text-xs";
   return (
-    <div className="rounded-md border border-border p-2 bg-background">
+    <div className="rounded-lg border border-border p-2.5 bg-background shadow-sm">
       <div className="flex items-center gap-2">
-        {item.required && <span className="text-[10px] text-rose-500 font-bold shrink-0">*</span>}
-        {item.type === "checkbox" && <div className="h-4 w-4 rounded border-2 border-muted-foreground/40 shrink-0" />}
-        <span className="text-xs flex-1">{item.label || "(bez textu)"}</span>
-        {item.type === "yes_no" && <div className="flex gap-1 shrink-0"><span className="text-[10px] px-2 py-0.5 rounded border border-emerald-400 text-emerald-600">Áno</span><span className="text-[10px] px-2 py-0.5 rounded border border-rose-400 text-rose-600">Nie</span></div>}
-        {item.automationAction !== "none" && <span className="text-[10px] text-amber-500 shrink-0">⚡</span>}
+        {item.required && <span className="text-[9px] text-rose-500 font-bold shrink-0 bg-rose-50 dark:bg-rose-950/40 px-1 rounded">*</span>}
+        {item.type === "checkbox" && <div className="h-4 w-4 rounded border-2 border-muted-foreground/30 shrink-0" />}
+        <span className={`flex-1 ${sizeClass} ${item.bold ? "font-bold" : ""} ${item.italic ? "italic" : ""}`}>{item.label || "(bez textu)"}</span>
+        {item.type === "yes_no" && <div className="flex gap-1 shrink-0"><span className="text-[10px] px-2 py-0.5 rounded-full border border-emerald-400 text-emerald-600 font-medium">Áno</span><span className="text-[10px] px-2 py-0.5 rounded-full border border-rose-400 text-rose-600 font-medium">Nie</span></div>}
+        {item.automationAction !== "none" && <Zap className="h-3 w-3 text-amber-500 shrink-0" />}
       </div>
-      {item.type === "text" && <div className="mt-1.5 h-6 rounded bg-muted/40 border border-border/50 text-[10px] px-2 flex items-center text-muted-foreground/40">Textová odpoveď...</div>}
-      {item.hasNotes && <div className="mt-1 h-5 rounded bg-muted/30 border border-border/40 text-[10px] px-2 flex items-center text-muted-foreground/40">Poznámka...</div>}
+      {item.type === "text" && <div className="mt-1.5 h-6 rounded-md bg-muted/40 border border-border/50 text-[10px] px-2 flex items-center text-muted-foreground/40">Textová odpoveď...</div>}
+      {item.hasNotes && <div className="mt-1 h-5 rounded-md bg-muted/30 border border-border/40 text-[10px] px-2 flex items-center text-muted-foreground/40">Poznámka...</div>}
     </div>
   );
 }
@@ -556,29 +571,47 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
 
   const toggleStyle = (key: string) => setShowStylePanels(p => ({ ...p, [key]: !p[key] }));
 
-  const renderStylePanel = (key: string, icon: string | undefined, bold: boolean | undefined, color: string | undefined, onUpdate: (u: Partial<ClSection | ClSubsection>) => void) => !showStylePanels[key] ? null : (
-    <div className="px-3 pb-3 pt-2 space-y-2.5 border-b border-border/40 bg-muted/10">
-      <div className="space-y-1.5">
-        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Ikona / Emoji</p>
-        <div className="flex flex-wrap gap-1">
-          {CL_QUICK_ICONS.map(ic => (
-            <button key={ic} type="button" className={`text-sm px-1 py-0.5 rounded hover:bg-muted transition-colors ${icon === ic ? "bg-muted ring-1 ring-primary" : ""}`} onClick={() => onUpdate({ icon: icon === ic ? "" : ic })}>{ic}</button>
-          ))}
+  const renderStylePanel = (key: string, icon: string | undefined, bold: boolean | undefined, italic: boolean | undefined, color: string | undefined, onUpdate: (u: Partial<ClSection | ClSubsection>) => void) => !showStylePanels[key] ? null : (
+    <div className="px-3 pb-3 pt-2.5 space-y-3 border-b border-border/40 bg-gradient-to-b from-muted/20 to-transparent">
+      <div className="space-y-2">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Ikona</p>
+        <div className="grid grid-cols-8 gap-1">
+          {CL_ICON_LIST.map(name => {
+            const Ic = CL_ICON_MAP[name];
+            return (
+              <button key={name} type="button" title={name}
+                className={`h-8 w-full flex items-center justify-center rounded-lg border transition-all hover:scale-110 ${icon === name ? "bg-primary/10 border-primary/50 text-primary shadow-sm" : "border-transparent hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+                onClick={() => onUpdate({ icon: icon === name ? "" : name })}>
+                <Ic className="h-4 w-4" />
+              </button>
+            );
+          })}
         </div>
-        <input className="w-full h-7 text-sm border rounded-md px-2 bg-transparent focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Vlastné emoji (max 4 znaky)..." value={icon || ""} onChange={e => onUpdate({ icon: e.target.value.slice(0, 4) })} />
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground shrink-0">Vlastné emoji:</span>
+          <input className="flex-1 h-7 text-sm border rounded-lg px-2 bg-background focus:outline-none focus:ring-1 focus:ring-ring" placeholder="napr. 💊 alebo ✓" value={CL_ICON_MAP[icon || ""] ? "" : (icon || "")} onChange={e => onUpdate({ icon: e.target.value.slice(0, 4) })} />
+          {icon && <button type="button" className="text-[10px] text-muted-foreground hover:text-destructive px-1.5 py-1 rounded border border-border hover:border-destructive/50" onClick={() => onUpdate({ icon: "" })}>Vymazať</button>}
+        </div>
       </div>
-      <div className="flex items-center gap-4">
-        <div className="flex-1 space-y-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Farba nadpisu</p>
-          <div className="flex gap-2">
+      <div className="flex items-start gap-4">
+        <div className="flex-1 space-y-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Farba</p>
+          <div className="flex flex-wrap gap-1.5">
             {CL_COLORS.map(c => (
-              <button key={c.v} type="button" title={c.v || "Základná"} className={`h-5 w-5 rounded-full transition-all ${c.cls} ${color === c.v ? "ring-2 ring-offset-1 ring-foreground scale-110" : ""}`} onClick={() => onUpdate({ color: c.v })} />
+              <button key={c.v} type="button" title={c.label}
+                className={`h-6 w-6 rounded-full transition-all border-2 ${c.cls} ${color === c.v ? "ring-2 ring-offset-2 ring-primary scale-110 border-white/50" : "border-transparent"}`}
+                onClick={() => onUpdate({ color: c.v })} />
             ))}
           </div>
         </div>
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tučné</p>
-          <Switch checked={!!bold} onCheckedChange={v => onUpdate({ bold: v })} className="scale-75 origin-left" />
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Štýl</p>
+          <div className="flex gap-1.5">
+            <button type="button" onClick={() => onUpdate({ bold: !bold })}
+              className={`h-7 w-7 flex items-center justify-center rounded-lg border text-sm font-bold transition-colors ${bold ? "bg-primary/10 border-primary/50 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>B</button>
+            <button type="button" onClick={() => onUpdate({ italic: !italic })}
+              className={`h-7 w-7 flex items-center justify-center rounded-lg border text-sm italic font-serif transition-colors ${italic ? "bg-primary/10 border-primary/50 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>I</button>
+          </div>
         </div>
       </div>
     </div>
@@ -586,58 +619,78 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
 
   const renderItemList = (secId: string, subId: string | null, items: ClItem[]) => {
     const k = subId ? `sub:${subId}` : `sec:${secId}`;
+    const sizeLabel = (sz?: ClItemSize) => sz === "sm" ? "S" : sz === "lg" ? "L" : "M";
+    const nextSize = (sz?: ClItemSize): ClItemSize => sz === "sm" ? "base" : sz === "base" ? "lg" : "sm";
     return (
-      <div className="p-2 space-y-1.5">
-        {items.map((item, iIdx) => (
-          <div key={item.id} className="flex items-start gap-1.5 p-2 rounded-md bg-background border border-border/40 group">
-            <GripVertical className="h-4 w-4 text-muted-foreground/20 mt-0.5 shrink-0" />
-            <div className="flex-1 min-w-0 space-y-1.5">
-              <input
-                className="w-full text-sm bg-transparent border-none outline-none focus:ring-0 placeholder:text-muted-foreground/40"
-                value={editItemLabels[item.id] ?? item.label}
-                onChange={e => setEditItemLabels(p => ({ ...p, [item.id]: e.target.value }))}
-                onBlur={() => { const v = editItemLabels[item.id]; if (v !== undefined && v !== item.label) updateItem(secId, subId, item.id, { label: v }); setEditItemLabels(p => { const n = { ...p }; delete n[item.id]; return n; }); }}
-                placeholder="Text položky..."
-                data-testid={`cl-item-label-${item.id}`}
-              />
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <Select value={item.type} onValueChange={v => updateItem(secId, subId, item.id, { type: v as ClItemType })}>
-                  <SelectTrigger className="h-6 text-[10px] w-[140px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="checkbox">☑ Zaškrtávacie</SelectItem>
-                    <SelectItem value="yes_no">● Áno / Nie</SelectItem>
-                    <SelectItem value="text">✎ Textová odpoveď</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={item.automationAction} onValueChange={v => updateItem(secId, subId, item.id, { automationAction: v as ClAutomationAction })}>
-                  <SelectTrigger className="h-6 text-[10px] w-[160px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— Bez akcie</SelectItem>
-                    <SelectItem value="openDisposition">⚡ Otvoriť Disposíciu</SelectItem>
-                    <SelectItem value="switchEmail">⚡ Prepnúť na Email</SelectItem>
-                    <SelectItem value="switchSms">⚡ Prepnúť na SMS</SelectItem>
-                  </SelectContent>
-                </Select>
-                <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                  <Switch checked={item.required} onCheckedChange={c => updateItem(secId, subId, item.id, { required: c })} className="scale-[0.6] origin-left" data-testid={`cl-item-req-${item.id}`} /><span>Povinné</span>
-                </label>
-                <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                  <Switch checked={item.hasNotes} onCheckedChange={c => updateItem(secId, subId, item.id, { hasNotes: c })} className="scale-[0.6] origin-left" data-testid={`cl-item-notes-${item.id}`} /><span>Poznámka</span>
-                </label>
+      <div className="px-2 pb-2 pt-1.5 space-y-1.5">
+        {items.map((item, iIdx) => {
+          const sizeClass = item.size === "sm" ? "text-[11px]" : item.size === "lg" ? "text-sm" : "text-xs";
+          return (
+            <div key={item.id} className="group flex items-stretch gap-0 rounded-xl border border-border/60 bg-background hover:border-border hover:shadow-sm transition-all overflow-hidden">
+              <div className="w-1 shrink-0 rounded-l-xl bg-border/30 group-hover:bg-border/60 transition-colors" />
+              <div className="flex items-start gap-2 flex-1 min-w-0 p-2.5">
+                <GripVertical className="h-4 w-4 text-muted-foreground/20 mt-0.5 shrink-0 cursor-grab" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      className={`flex-1 min-w-0 bg-transparent border-none outline-none focus:ring-0 placeholder:text-muted-foreground/30 ${sizeClass} ${item.bold ? "font-bold" : ""} ${item.italic ? "italic" : ""}`}
+                      value={editItemLabels[item.id] ?? item.label}
+                      onChange={e => setEditItemLabels(p => ({ ...p, [item.id]: e.target.value }))}
+                      onBlur={() => { const v = editItemLabels[item.id]; if (v !== undefined && v !== item.label) updateItem(secId, subId, item.id, { label: v }); setEditItemLabels(p => { const n = { ...p }; delete n[item.id]; return n; }); }}
+                      placeholder="Text položky..."
+                      data-testid={`cl-item-label-${item.id}`}
+                    />
+                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button type="button" title="Tučné" onClick={() => updateItem(secId, subId, item.id, { bold: !item.bold })}
+                        className={`h-5 w-5 flex items-center justify-center rounded text-[10px] font-bold transition-colors ${item.bold ? "bg-primary/15 text-primary" : "hover:bg-muted text-muted-foreground"}`}>B</button>
+                      <button type="button" title="Kurzíva" onClick={() => updateItem(secId, subId, item.id, { italic: !item.italic })}
+                        className={`h-5 w-5 flex items-center justify-center rounded text-[10px] italic font-serif transition-colors ${item.italic ? "bg-primary/15 text-primary" : "hover:bg-muted text-muted-foreground"}`}>I</button>
+                      <button type="button" title={`Veľkosť: ${item.size || 'base'}`} onClick={() => updateItem(secId, subId, item.id, { size: nextSize(item.size) })}
+                        className="h-5 w-6 flex items-center justify-center rounded text-[9px] font-medium hover:bg-muted text-muted-foreground transition-colors border border-border/50">
+                        {sizeLabel(item.size)}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <Select value={item.type} onValueChange={v => updateItem(secId, subId, item.id, { type: v as ClItemType })}>
+                      <SelectTrigger className="h-6 text-[10px] w-[130px] rounded-lg"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="checkbox"><span className="flex items-center gap-1.5"><CheckSquare className="h-3 w-3" />Zaškrtávacie</span></SelectItem>
+                        <SelectItem value="yes_no"><span className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" />Áno / Nie</span></SelectItem>
+                        <SelectItem value="text"><span className="flex items-center gap-1.5"><Pencil className="h-3 w-3" />Textová odpoveď</span></SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={item.automationAction} onValueChange={v => updateItem(secId, subId, item.id, { automationAction: v as ClAutomationAction })}>
+                      <SelectTrigger className="h-6 text-[10px] w-[150px] rounded-lg"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— Bez akcie</SelectItem>
+                        <SelectItem value="openDisposition"><span className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-500" />Otvoriť Disposíciu</span></SelectItem>
+                        <SelectItem value="switchEmail"><span className="flex items-center gap-1.5"><Mail className="h-3 w-3 text-blue-500" />Prepnúť na Email</span></SelectItem>
+                        <SelectItem value="switchSms"><span className="flex items-center gap-1.5"><MessageCircle className="h-3 w-3 text-green-500" />Prepnúť na SMS</span></SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer select-none">
+                      <Switch checked={item.required} onCheckedChange={c => updateItem(secId, subId, item.id, { required: c })} className="scale-[0.55] origin-left" data-testid={`cl-item-req-${item.id}`} /><span>Povinné</span>
+                    </label>
+                    <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer select-none">
+                      <Switch checked={item.hasNotes} onCheckedChange={c => updateItem(secId, subId, item.id, { hasNotes: c })} className="scale-[0.55] origin-left" data-testid={`cl-item-notes-${item.id}`} /><span>Poznámka</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col items-center justify-center gap-0.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 border-l border-border/30">
+                <Button variant="ghost" size="icon" className="h-5 w-5 rounded" disabled={iIdx === 0} onClick={() => moveItem(secId, subId, iIdx, -1)}><ArrowUp className="h-2.5 w-2.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-5 w-5 rounded" disabled={iIdx >= items.length - 1} onClick={() => moveItem(secId, subId, iIdx, 1)}><ArrowDown className="h-2.5 w-2.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-5 w-5 rounded hover:text-destructive" onClick={() => removeItem(secId, subId, item.id)}><X className="h-3 w-3" /></Button>
               </div>
             </div>
-            <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
-              <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx === 0} onClick={() => moveItem(secId, subId, iIdx, -1)}><ArrowUp className="h-2.5 w-2.5" /></Button>
-              <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx >= items.length - 1} onClick={() => moveItem(secId, subId, iIdx, 1)}><ArrowDown className="h-2.5 w-2.5" /></Button>
-              <Button variant="ghost" size="icon" className="h-5 w-5 hover:text-destructive" onClick={() => removeItem(secId, subId, item.id)}><X className="h-3 w-3" /></Button>
-            </div>
-          </div>
-        ))}
-        <div className="flex gap-2 pt-0.5">
+          );
+        })}
+        <div className="flex gap-2 pt-1">
           <Input placeholder={subId ? "Nová položka podsekcie..." : "Nová položka sekcie..."} value={newItemLabels[k] || ""} onChange={e => setNewItemLabels(p => ({ ...p, [k]: e.target.value }))}
             onKeyDown={e => { if (e.key === "Enter" && newItemLabels[k]?.trim()) { addItem(secId, subId, newItemLabels[k]); setNewItemLabels(p => ({ ...p, [k]: "" })); } }}
-            className="h-7 text-xs" data-testid={`cl-new-item-${k}`} />
-          <Button size="sm" className="h-7 px-2 text-xs shrink-0" disabled={!newItemLabels[k]?.trim()} onClick={() => { addItem(secId, subId, newItemLabels[k] || ""); setNewItemLabels(p => ({ ...p, [k]: "" })); }} data-testid={`cl-add-item-${k}`}>
+            className="h-8 text-xs rounded-lg" data-testid={`cl-new-item-${k}`} />
+          <Button size="sm" className="h-8 px-3 text-xs shrink-0 rounded-lg" disabled={!newItemLabels[k]?.trim()} onClick={() => { addItem(secId, subId, newItemLabels[k] || ""); setNewItemLabels(p => ({ ...p, [k]: "" })); }} data-testid={`cl-add-item-${k}`}>
             <Plus className="h-3.5 w-3.5 mr-1" />Pridať
           </Button>
         </div>
@@ -681,54 +734,70 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
 
           {cfg.sections.map((sec, sIdx) => {
             const secItemCount = sec.items.length + sec.subsections.reduce((a, s) => a + s.items.length, 0);
+            const accent = sec.color || "";
             return (
-              <div key={sec.id} className="rounded-lg border border-border bg-muted/20">
-                <div className="flex items-center gap-2 p-2.5 border-b border-border/50 bg-muted/30 rounded-t-lg">
-                  <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0" />
-                  {sec.icon && <span className="text-base leading-none shrink-0 select-none">{sec.icon}</span>}
+              <div key={sec.id} className="rounded-xl border bg-card shadow-sm overflow-hidden transition-shadow hover:shadow-md"
+                style={{ borderColor: accent ? accent + "55" : undefined, borderLeftColor: accent || undefined, borderLeftWidth: accent ? "3px" : undefined }}>
+                {/* Section header */}
+                <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-border/40"
+                  style={accent ? { background: `linear-gradient(to right, ${accent}12, transparent)` } : { background: "hsl(var(--muted)/0.3)" }}>
+                  <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                    style={accent ? { backgroundColor: accent + "25", color: accent } : { backgroundColor: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                    {sec.icon ? <ClIcon name={sec.icon} className="h-4 w-4" style={accent ? { color: accent } : undefined} /> : <ListChecks className="h-4 w-4" style={accent ? { color: accent } : undefined} />}
+                  </div>
+                  <GripVertical className="h-4 w-4 text-muted-foreground/25 shrink-0 cursor-grab" />
                   <input
-                    className={`flex-1 text-sm bg-transparent border-none outline-none focus:ring-0 min-w-0 placeholder:text-muted-foreground/50 ${sec.bold ? "font-black" : "font-semibold"}`}
-                    style={sec.color ? { color: sec.color } : undefined}
+                    className={`flex-1 text-sm bg-transparent border-none outline-none focus:ring-0 min-w-0 placeholder:text-muted-foreground/40 ${sec.bold ? "font-bold" : "font-semibold"} ${sec.italic ? "italic" : ""}`}
+                    style={accent ? { color: accent } : undefined}
                     value={editSectionTitles[sec.id] ?? sec.title}
                     onChange={e => setEditSectionTitles(p => ({ ...p, [sec.id]: e.target.value }))}
                     onBlur={() => { const v = editSectionTitles[sec.id]; if (v !== undefined && v !== sec.title) updateSec(sec.id, { title: v || "Sekcia" }); setEditSectionTitles(p => { const n = { ...p }; delete n[sec.id]; return n; }); }}
                     placeholder="Nadpis sekcie..."
                     data-testid={`cl-sec-title-${sec.id}`}
                   />
-                  <span className="text-[10px] text-muted-foreground shrink-0">{secItemCount} pol. · {sec.subsections.length} podsekc.</span>
-                  <Button variant="ghost" size="icon" className={`h-6 w-6 shrink-0 transition-colors ${showStylePanels[`sec:${sec.id}`] ? "text-primary bg-primary/10" : ""}`} onClick={() => toggleStyle(`sec:${sec.id}`)} title="Štýl sekcie" data-testid={`cl-sec-style-${sec.id}`}><Wand2 className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={sIdx === 0} onClick={() => moveSecUp(sIdx)}><ArrowUp className="h-3 w-3" /></Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={sIdx >= cfg.sections.length - 1} onClick={() => moveSecDown(sIdx)}><ArrowDown className="h-3 w-3" /></Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 hover:text-destructive" onClick={() => removeSec(sec.id)}><X className="h-3.5 w-3.5" /></Button>
+                  <Badge variant="secondary" className="text-[10px] shrink-0 tabular-nums">{secItemCount} pol.</Badge>
+                  {sec.subsections.length > 0 && <Badge variant="outline" className="text-[10px] shrink-0">{sec.subsections.length} sub</Badge>}
+                  <Button variant="ghost" size="icon" className={`h-6 w-6 shrink-0 rounded-lg transition-colors ${showStylePanels[`sec:${sec.id}`] ? "bg-primary/10 text-primary" : ""}`} onClick={() => toggleStyle(`sec:${sec.id}`)} title="Štýl sekcie" data-testid={`cl-sec-style-${sec.id}`}><Wand2 className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 rounded-lg" disabled={sIdx === 0} onClick={() => moveSecUp(sIdx)}><ArrowUp className="h-3 w-3" /></Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 rounded-lg" disabled={sIdx >= cfg.sections.length - 1} onClick={() => moveSecDown(sIdx)}><ArrowDown className="h-3 w-3" /></Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 rounded-lg hover:text-destructive hover:bg-destructive/10" onClick={() => removeSec(sec.id)}><X className="h-3.5 w-3.5" /></Button>
                 </div>
-                {renderStylePanel(`sec:${sec.id}`, sec.icon, sec.bold, sec.color, u => updateSec(sec.id, u))}
+                {renderStylePanel(`sec:${sec.id}`, sec.icon, sec.bold, sec.italic, sec.color, u => updateSec(sec.id, u))}
                 {renderItemList(sec.id, null, sec.items)}
-                {sec.subsections.map((sub, subIdx) => (
-                  <div key={sub.id} className="mx-2 mb-1 rounded-md border border-border/60 bg-background">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b border-border/40 bg-muted/20 rounded-t-md">
-                      <div className="w-2.5 shrink-0"><div className="h-3.5 w-0.5 rounded-full bg-muted-foreground/20 mx-auto" /></div>
-                      {sub.icon && <span className="text-sm leading-none shrink-0 select-none">{sub.icon}</span>}
-                      <input
-                        className={`flex-1 text-xs bg-transparent border-none outline-none focus:ring-0 min-w-0 placeholder:text-muted-foreground/40 ${sub.bold ? "font-bold" : "font-medium"}`}
-                        style={sub.color ? { color: sub.color } : undefined}
-                        value={editSubsecTitles[sub.id] ?? sub.title}
-                        onChange={e => setEditSubsecTitles(p => ({ ...p, [sub.id]: e.target.value }))}
-                        onBlur={() => { const v = editSubsecTitles[sub.id]; if (v !== undefined && v !== sub.title) updateSubsec(sec.id, sub.id, { title: v || "Podsekcia" }); setEditSubsecTitles(p => { const n = { ...p }; delete n[sub.id]; return n; }); }}
-                        placeholder="Nadpis podsekcie..."
-                        data-testid={`cl-sub-title-${sub.id}`}
-                      />
-                      <span className="text-[10px] text-muted-foreground shrink-0">{sub.items.length} pol.</span>
-                      <Button variant="ghost" size="icon" className={`h-5 w-5 shrink-0 ${showStylePanels[`sub:${sub.id}`] ? "text-primary bg-primary/10" : ""}`} onClick={() => toggleStyle(`sub:${sub.id}`)} title="Štýl podsekcie"><Wand2 className="h-3 w-3" /></Button>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" disabled={subIdx === 0} onClick={() => moveSubsecUp(sec.id, subIdx)}><ArrowUp className="h-2.5 w-2.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" disabled={subIdx >= sec.subsections.length - 1} onClick={() => moveSubsecDown(sec.id, subIdx)}><ArrowDown className="h-2.5 w-2.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 hover:text-destructive" onClick={() => removeSubsec(sec.id, sub.id)}><X className="h-3 w-3" /></Button>
+                {/* Subsections */}
+                {sec.subsections.map((sub, subIdx) => {
+                  const subAccent = sub.color || accent;
+                  return (
+                    <div key={sub.id} className="mx-2 mb-1.5 rounded-lg border border-border/50 bg-muted/10 overflow-hidden"
+                      style={subAccent ? { borderLeftColor: subAccent, borderLeftWidth: "2px" } : undefined}>
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 border-b border-border/30"
+                        style={subAccent ? { background: `linear-gradient(to right, ${subAccent}0A, transparent)` } : undefined}>
+                        <div className="h-6 w-6 rounded-md flex items-center justify-center shrink-0"
+                          style={subAccent ? { backgroundColor: subAccent + "20", color: subAccent } : { backgroundColor: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
+                          {sub.icon ? <ClIcon name={sub.icon} className="h-3.5 w-3.5" style={subAccent ? { color: subAccent } : undefined} /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        </div>
+                        <input
+                          className={`flex-1 text-xs bg-transparent border-none outline-none focus:ring-0 min-w-0 placeholder:text-muted-foreground/35 ${sub.bold ? "font-bold" : "font-medium"} ${sub.italic ? "italic" : ""}`}
+                          style={sub.color ? { color: sub.color } : undefined}
+                          value={editSubsecTitles[sub.id] ?? sub.title}
+                          onChange={e => setEditSubsecTitles(p => ({ ...p, [sub.id]: e.target.value }))}
+                          onBlur={() => { const v = editSubsecTitles[sub.id]; if (v !== undefined && v !== sub.title) updateSubsec(sec.id, sub.id, { title: v || "Podsekcia" }); setEditSubsecTitles(p => { const n = { ...p }; delete n[sub.id]; return n; }); }}
+                          placeholder="Nadpis podsekcie..."
+                          data-testid={`cl-sub-title-${sub.id}`}
+                        />
+                        <Badge variant="secondary" className="text-[9px] shrink-0 h-4 px-1">{sub.items.length}</Badge>
+                        <Button variant="ghost" size="icon" className={`h-5 w-5 shrink-0 rounded ${showStylePanels[`sub:${sub.id}`] ? "bg-primary/10 text-primary" : ""}`} onClick={() => toggleStyle(`sub:${sub.id}`)} title="Štýl"><Wand2 className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 rounded" disabled={subIdx === 0} onClick={() => moveSubsecUp(sec.id, subIdx)}><ArrowUp className="h-2.5 w-2.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 rounded" disabled={subIdx >= sec.subsections.length - 1} onClick={() => moveSubsecDown(sec.id, subIdx)}><ArrowDown className="h-2.5 w-2.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 rounded hover:text-destructive hover:bg-destructive/10" onClick={() => removeSubsec(sec.id, sub.id)}><X className="h-3 w-3" /></Button>
+                      </div>
+                      {renderStylePanel(`sub:${sub.id}`, sub.icon, sub.bold, sub.italic, sub.color, u => updateSubsec(sec.id, sub.id, u))}
+                      {renderItemList(sec.id, sub.id, sub.items)}
                     </div>
-                    {renderStylePanel(`sub:${sub.id}`, sub.icon, sub.bold, sub.color, u => updateSubsec(sec.id, sub.id, u))}
-                    {renderItemList(sec.id, sub.id, sub.items)}
-                  </div>
-                ))}
-                <div className="px-2 pb-2 pt-0.5">
-                  <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 h-7 border-dashed" onClick={() => addSubsec(sec.id)} data-testid={`cl-add-subsec-${sec.id}`}>
+                  );
+                })}
+                <div className="px-2 pb-2.5 pt-1">
+                  <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 h-7 border-dashed rounded-lg hover:border-primary/50 hover:text-primary hover:bg-primary/5" onClick={() => addSubsec(sec.id)} data-testid={`cl-add-subsec-${sec.id}`}>
                     <Plus className="h-3 w-3" />Pridať podsekciu
                   </Button>
                 </div>
@@ -747,24 +816,31 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
                 <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Náhľad agenta — NexusPulse CHECKLIST záložka</span>
               </div>
               <div className="p-3 space-y-3 max-h-80 overflow-y-auto">
-                {cfg.sections.map(sec => (
-                  <div key={sec.id}>
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      {sec.icon && <span className="text-sm">{sec.icon}</span>}
-                      <p className={`text-[10px] uppercase tracking-wide ${sec.bold ? "font-black" : "font-semibold"} ${!sec.color ? "text-muted-foreground" : ""}`} style={sec.color ? { color: sec.color } : undefined}>{sec.title || "Sekcia"}</p>
-                    </div>
-                    {sec.items.length > 0 && <div className="space-y-1.5 mb-2">{sec.items.map(item => <ClPreviewItem key={item.id} item={item} />)}</div>}
-                    {sec.subsections.map(sub => (
-                      <div key={sub.id} className="ml-3 mb-2">
-                        <div className="flex items-center gap-1 mb-1">
-                          {sub.icon && <span className="text-xs">{sub.icon}</span>}
-                          <p className={`text-[10px] uppercase tracking-wide ${sub.bold ? "font-bold" : "font-medium"} ${!sub.color ? "text-muted-foreground/70" : ""}`} style={sub.color ? { color: sub.color } : undefined}>↳ {sub.title}</p>
+                {cfg.sections.map(sec => {
+                  const accent = sec.color || "";
+                  return (
+                    <div key={sec.id} className="rounded-lg overflow-hidden border" style={accent ? { borderLeftColor: accent, borderLeftWidth: "3px", borderColor: accent + "40" } : undefined}>
+                      <div className="flex items-center gap-2 px-2.5 py-2" style={accent ? { background: `linear-gradient(to right, ${accent}15, transparent)` } : { background: "hsl(var(--muted)/0.3)" }}>
+                        <div className="h-6 w-6 rounded-md flex items-center justify-center shrink-0" style={accent ? { backgroundColor: accent + "25", color: accent } : { backgroundColor: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                          {sec.icon ? <ClIcon name={sec.icon} className="h-3.5 w-3.5" style={accent ? { color: accent } : undefined} /> : <ListChecks className="h-3.5 w-3.5" style={accent ? { color: accent } : undefined} />}
                         </div>
-                        <div className="space-y-1">{sub.items.map(item => <ClPreviewItem key={item.id} item={item} />)}</div>
+                        <p className={`text-xs flex-1 ${sec.bold ? "font-bold" : "font-semibold"} ${sec.italic ? "italic" : ""}`} style={accent ? { color: accent } : undefined}>{sec.title || "Sekcia"}</p>
                       </div>
-                    ))}
-                  </div>
-                ))}
+                      <div className="p-1.5 space-y-1">
+                        {sec.items.map(item => <ClPreviewItem key={item.id} item={item} />)}
+                        {sec.subsections.map(sub => (
+                          <div key={sub.id} className="ml-2">
+                            <div className="flex items-center gap-1.5 mb-1 px-1">
+                              {sub.icon && <ClIcon name={sub.icon} className="h-3 w-3 text-muted-foreground/60" style={sub.color ? { color: sub.color } : undefined} />}
+                              <p className={`text-[10px] ${sub.bold ? "font-bold" : "font-medium"} ${sub.italic ? "italic" : ""} ${!sub.color ? "text-muted-foreground/70" : ""}`} style={sub.color ? { color: sub.color } : undefined}>↳ {sub.title}</p>
+                            </div>
+                            <div className="space-y-1 pl-1">{sub.items.map(item => <ClPreviewItem key={item.id} item={item} />)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -2886,7 +2962,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                                 checked={isChecked}
                                 onCheckedChange={v=>setPreviewChecked(prev=>v?[...prev,child.code]:prev.filter((x:string)=>x!==child.code))}
                                 className="shrink-0"
-                                onClick={(e:React.MouseEvent)=>e.stopPropagation()}
+                                onClick={(e:ReactMouseEvent)=>e.stopPropagation()}
                               />
                             )}
                             {isSimulating && !isChecklist && (

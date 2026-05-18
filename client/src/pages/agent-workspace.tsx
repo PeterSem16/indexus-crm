@@ -132,7 +132,19 @@ import {
   CheckCircle2,
   Circle,
   GripVertical,
+  Shield,
+  ClipboardCheck,
+  DollarSign,
+  TrendingUp,
+  MessageCircle,
+  CalendarCheck,
+  Archive,
+  Package,
+  Tag,
+  Layers,
+  type LucideIcon,
 } from "lucide-react";
+import type { CSSProperties } from "react";
 import {
   Dialog,
   DialogContent,
@@ -2030,24 +2042,35 @@ function CommunicationCanvas({
 
   type WsCLItemType = "checkbox" | "yes_no" | "text";
   type WsCLAutomation = "none" | "openDisposition" | "switchEmail" | "switchSms";
-  interface WsCLItem { id: string; label: string; type: WsCLItemType; required: boolean; hasNotes: boolean; automationAction: WsCLAutomation; }
-  interface WsCLSubsection { id: string; title: string; icon?: string; bold?: boolean; color?: string; items: WsCLItem[]; }
-  interface WsCLSection { id: string; title: string; icon?: string; bold?: boolean; color?: string; subsections: WsCLSubsection[]; items: WsCLItem[]; }
+  type WsCLItemSize = "sm" | "base" | "lg";
+  interface WsCLItem { id: string; label: string; type: WsCLItemType; required: boolean; hasNotes: boolean; automationAction: WsCLAutomation; bold?: boolean; italic?: boolean; size?: WsCLItemSize; }
+  interface WsCLSubsection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; items: WsCLItem[]; }
+  interface WsCLSection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; subsections: WsCLSubsection[]; items: WsCLItem[]; }
   interface WsCLConfig { enabled: boolean; sections: WsCLSection[]; }
+
+  const WS_CL_ICON_MAP: Record<string, LucideIcon> = {
+    CheckCircle2, Phone, Mail, User, Calendar, Heart, Shield, FileText, Star, Flag, Target, Home, MapPin, Bell, Send, Briefcase, Stethoscope, ClipboardCheck, AlertCircle, Info, DollarSign, TrendingUp, BookOpen, MessageCircle, ListChecks, Zap, Eye, UserCheck, Building2, CalendarCheck, PhoneCall,
+  };
+  const WsClIcon = ({ name, className, style }: { name?: string; className?: string; style?: CSSProperties }) => {
+    if (!name) return null;
+    const Ic = WS_CL_ICON_MAP[name];
+    if (Ic) return <Ic className={className || "h-4 w-4"} style={style} />;
+    return <span className={`leading-none select-none ${className || ""}`} style={style}>{name}</span>;
+  };
 
   const internalChecklistConfig = useMemo((): WsCLConfig => {
     try {
       const s = JSON.parse(campaign?.settings || "{}");
       const ic = s.internalChecklist || {};
-      const mi = (i: any): WsCLItem => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as WsCLItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as WsCLAutomation });
+      const mi = (i: any): WsCLItem => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as WsCLItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as WsCLAutomation, bold: !!i.bold, italic: !!i.italic, size: (i.size || "base") as WsCLItemSize });
       if (ic.items && !ic.sections) {
-        return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Checklist", icon: "", bold: false, color: "", subsections: [], items: ic.items.map(mi) }] : [] };
+        return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Checklist", icon: "", bold: false, italic: false, color: "", subsections: [], items: ic.items.map(mi) }] : [] };
       }
       return {
         enabled: ic.enabled === true,
         sections: (ic.sections || []).map((sec: any) => ({
-          id: sec.id, title: sec.title || "Sekcia", icon: sec.icon || "", bold: !!sec.bold, color: sec.color || "",
-          subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id, title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, color: sub.color || "", items: (sub.items || []).map(mi) })),
+          id: sec.id, title: sec.title || "Sekcia", icon: sec.icon || "", bold: !!sec.bold, italic: !!sec.italic, color: sec.color || "",
+          subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id, title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, italic: !!sub.italic, color: sub.color || "", items: (sub.items || []).map(mi) })),
           items: (sec.items || []).map(mi),
         })),
       };
@@ -3345,16 +3368,22 @@ function CommunicationCanvas({
             )}
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {clSections.map(sec => (
-                <div key={sec.id}>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    {sec.icon && <span className="text-sm leading-none">{sec.icon}</span>}
-                    <p className={`text-[10px] uppercase tracking-wide ${sec.bold ? "font-black" : "font-semibold"} ${!sec.color ? "text-muted-foreground" : ""}`} style={sec.color ? { color: sec.color } : undefined}>{sec.title}</p>
+              {clSections.map(sec => {
+                const sAccent = sec.color || "";
+                return (
+                <div key={sec.id} className="rounded-xl border overflow-hidden shadow-sm" style={sAccent ? { borderLeftColor: sAccent, borderLeftWidth: "3px", borderColor: sAccent + "50" } : undefined}>
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30" style={sAccent ? { background: `linear-gradient(to right, ${sAccent}15, transparent)` } : { background: "hsl(var(--muted)/0.25)" }}>
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={sAccent ? { backgroundColor: sAccent + "25", color: sAccent } : { backgroundColor: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                      <WsClIcon name={sec.icon || ""} className="h-3.5 w-3.5" style={sAccent ? { color: sAccent } : undefined} />
+                      {!sec.icon && <ListChecks className="h-3.5 w-3.5" style={sAccent ? { color: sAccent } : undefined} />}
+                    </div>
+                    <p className={`text-xs flex-1 ${sec.bold ? "font-bold" : "font-semibold"} ${sec.italic ? "italic" : ""}`} style={sAccent ? { color: sAccent } : { color: "hsl(var(--muted-foreground))" }}>{sec.title}</p>
                   </div>
                   {sec.items.length > 0 && (
-                  <div className="space-y-1.5 mb-3">
+                  <div className="space-y-1.5 p-2.5 pb-1">
                     {sec.items.map(item => {
                       const answered = isItemAnswered(item);
+                      const szCls = item.size === "sm" ? "text-xs" : item.size === "lg" ? "text-base" : "text-sm";
                       return (
                         <div key={item.id} className={`rounded-lg border p-3 transition-all ${answered ? "border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-900/10" : "border-border bg-card/50"}`}>
                           <div className="flex items-start gap-2.5">
@@ -3374,7 +3403,7 @@ function CommunicationCanvas({
                             )}
 
                             <div className="flex-1 min-w-0">
-                              <span className={`text-sm block mb-1.5 ${item.type === "checkbox" && clChecked.has(item.id) ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
+                              <span className={`${szCls} block mb-1.5 ${item.bold ? "font-bold" : ""} ${item.italic ? "italic" : ""} ${item.type === "checkbox" && clChecked.has(item.id) ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
 
                               {item.type === "yes_no" && (
                                 <div className="flex gap-2">
@@ -3437,15 +3466,21 @@ function CommunicationCanvas({
                     })}
                   </div>
                   )}
-                  {sec.subsections.map(sub => (
-                    <div key={sub.id} className="mb-3">
-                      <div className="flex items-center gap-1 mb-1.5 ml-1">
-                        {sub.icon && <span className="text-xs leading-none">{sub.icon}</span>}
-                        <p className={`text-[10px] uppercase tracking-wide ${sub.bold ? "font-bold" : "font-medium"} ${!sub.color ? "text-muted-foreground/70" : ""}`} style={sub.color ? { color: sub.color } : undefined}>↳ {sub.title}</p>
+                  {sec.subsections.map(sub => {
+                    const subAccent = sub.color || sAccent;
+                    return (
+                    <div key={sub.id} className="mx-2.5 mb-2 rounded-lg border border-border/50 overflow-hidden" style={subAccent ? { borderLeftColor: subAccent, borderLeftWidth: "2px" } : undefined}>
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 border-b border-border/20" style={subAccent ? { background: `linear-gradient(to right, ${subAccent}0D, transparent)` } : { background: "hsl(var(--muted)/0.15)" }}>
+                        <div className="h-5 w-5 rounded flex items-center justify-center shrink-0" style={subAccent ? { backgroundColor: subAccent + "20", color: subAccent } : { color: "hsl(var(--muted-foreground))" }}>
+                          <WsClIcon name={sub.icon || ""} className="h-3 w-3" style={subAccent ? { color: subAccent } : undefined} />
+                          {!sub.icon && <ChevronRight className="h-3 w-3" />}
+                        </div>
+                        <p className={`text-[11px] flex-1 ${sub.bold ? "font-bold" : "font-medium"} ${sub.italic ? "italic" : ""}`} style={sub.color ? { color: sub.color } : { color: "hsl(var(--muted-foreground))" }}>↳ {sub.title}</p>
                       </div>
-                      <div className="space-y-1.5 ml-1">
+                      <div className="space-y-1.5 p-2">
                         {sub.items.map(item => {
                           const answered = isItemAnswered(item);
+                          const szCls = item.size === "sm" ? "text-xs" : item.size === "lg" ? "text-base" : "text-sm";
                           return (
                             <div key={item.id} className={`rounded-lg border p-3 transition-all ${answered ? "border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-900/10" : "border-border bg-card/50"}`}>
                               <div className="flex items-start gap-2.5">
@@ -3458,7 +3493,7 @@ function CommunicationCanvas({
                                   </button>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <span className={`text-sm block mb-1.5 ${item.type === "checkbox" && clChecked.has(item.id) ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
+                                  <span className={`${szCls} block mb-1.5 ${item.bold ? "font-bold" : ""} ${item.italic ? "italic" : ""} ${item.type === "checkbox" && clChecked.has(item.id) ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
                                   {item.type === "yes_no" && (
                                     <div className="flex gap-2">
                                       <button className={`text-xs px-3 py-1 rounded-md border transition-colors ${clYesNo[item.id] === "yes" ? "border-emerald-500 bg-emerald-500 text-white" : "border-emerald-400 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`} onClick={() => { const was = clYesNo[item.id] === "yes"; setClYesNo(p => ({ ...p, [item.id]: "yes" })); if (!was && item.automationAction !== "none") triggerAutomation(item.automationAction); }} data-testid={`cl-yes-${item.id}`}>Áno</button>
@@ -3476,9 +3511,11 @@ function CommunicationCanvas({
                         })}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              ))}
+                );
+              })}
 
               {clHistoryEntries.length > 0 && (
                 <div className="pt-3 border-t">
