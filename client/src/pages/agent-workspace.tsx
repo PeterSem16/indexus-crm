@@ -2031,17 +2031,26 @@ function CommunicationCanvas({
   type WsCLItemType = "checkbox" | "yes_no" | "text";
   type WsCLAutomation = "none" | "openDisposition" | "switchEmail" | "switchSms";
   interface WsCLItem { id: string; label: string; type: WsCLItemType; required: boolean; hasNotes: boolean; automationAction: WsCLAutomation; }
-  interface WsCLSection { id: string; title: string; items: WsCLItem[]; }
+  interface WsCLSubsection { id: string; title: string; icon?: string; bold?: boolean; color?: string; items: WsCLItem[]; }
+  interface WsCLSection { id: string; title: string; icon?: string; bold?: boolean; color?: string; subsections: WsCLSubsection[]; items: WsCLItem[]; }
   interface WsCLConfig { enabled: boolean; sections: WsCLSection[]; }
 
   const internalChecklistConfig = useMemo((): WsCLConfig => {
     try {
       const s = JSON.parse(campaign?.settings || "{}");
       const ic = s.internalChecklist || {};
+      const mi = (i: any): WsCLItem => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as WsCLItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as WsCLAutomation });
       if (ic.items && !ic.sections) {
-        return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Checklist", items: ic.items.map((i: any) => ({ id: i.id, label: i.label || "", type: "checkbox" as WsCLItemType, required: false, hasNotes: i.hasNotes || false, automationAction: "none" as WsCLAutomation })) }] : [] };
+        return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Checklist", icon: "", bold: false, color: "", subsections: [], items: ic.items.map(mi) }] : [] };
       }
-      return { enabled: ic.enabled === true, sections: (ic.sections || []).map((sec: any) => ({ id: sec.id, title: sec.title || "Sekcia", items: (sec.items || []).map((i: any) => ({ id: i.id, label: i.label || "", type: (i.type || "checkbox") as WsCLItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as WsCLAutomation })) })) };
+      return {
+        enabled: ic.enabled === true,
+        sections: (ic.sections || []).map((sec: any) => ({
+          id: sec.id, title: sec.title || "Sekcia", icon: sec.icon || "", bold: !!sec.bold, color: sec.color || "",
+          subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id, title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, color: sub.color || "", items: (sub.items || []).map(mi) })),
+          items: (sec.items || []).map(mi),
+        })),
+      };
     } catch { return { enabled: false, sections: [] }; }
   }, [campaign?.settings]);
 
@@ -3288,7 +3297,7 @@ function CommunicationCanvas({
 
       {activeChannel === "checklist" && (() => {
         const clSections = internalChecklistConfig.sections;
-        const allClItems = clSections.flatMap(s => s.items);
+        const allClItems = clSections.flatMap(s => [...s.items, ...s.subsections.flatMap(sub => sub.items)]);
         const totalClItems = allClItems.length;
 
         const isItemAnswered = (item: { id: string; type: string }) => {
@@ -3338,8 +3347,12 @@ function CommunicationCanvas({
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {clSections.map(sec => (
                 <div key={sec.id}>
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">{sec.title}</p>
-                  <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    {sec.icon && <span className="text-sm leading-none">{sec.icon}</span>}
+                    <p className={`text-[10px] uppercase tracking-wide ${sec.bold ? "font-black" : "font-semibold"} ${!sec.color ? "text-muted-foreground" : ""}`} style={sec.color ? { color: sec.color } : undefined}>{sec.title}</p>
+                  </div>
+                  {sec.items.length > 0 && (
+                  <div className="space-y-1.5 mb-3">
                     {sec.items.map(item => {
                       const answered = isItemAnswered(item);
                       return (
@@ -3423,6 +3436,47 @@ function CommunicationCanvas({
                       );
                     })}
                   </div>
+                  )}
+                  {sec.subsections.map(sub => (
+                    <div key={sub.id} className="mb-3">
+                      <div className="flex items-center gap-1 mb-1.5 ml-1">
+                        {sub.icon && <span className="text-xs leading-none">{sub.icon}</span>}
+                        <p className={`text-[10px] uppercase tracking-wide ${sub.bold ? "font-bold" : "font-medium"} ${!sub.color ? "text-muted-foreground/70" : ""}`} style={sub.color ? { color: sub.color } : undefined}>↳ {sub.title}</p>
+                      </div>
+                      <div className="space-y-1.5 ml-1">
+                        {sub.items.map(item => {
+                          const answered = isItemAnswered(item);
+                          return (
+                            <div key={item.id} className={`rounded-lg border p-3 transition-all ${answered ? "border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-900/10" : "border-border bg-card/50"}`}>
+                              <div className="flex items-start gap-2.5">
+                                {item.required && <span className="text-[10px] text-rose-500 font-bold mt-0.5 shrink-0">*</span>}
+                                {item.type === "checkbox" && (
+                                  <button className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${clChecked.has(item.id) ? "border-emerald-500 bg-emerald-500" : "border-muted-foreground/40 hover:border-emerald-400"}`}
+                                    onClick={() => { setClChecked(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; }); if (item.automationAction !== "none" && !clChecked.has(item.id)) triggerAutomation(item.automationAction); }}
+                                    data-testid={`cl-check-${item.id}`}>
+                                    {clChecked.has(item.id) && <Check className="h-3 w-3 text-white" />}
+                                  </button>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <span className={`text-sm block mb-1.5 ${item.type === "checkbox" && clChecked.has(item.id) ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
+                                  {item.type === "yes_no" && (
+                                    <div className="flex gap-2">
+                                      <button className={`text-xs px-3 py-1 rounded-md border transition-colors ${clYesNo[item.id] === "yes" ? "border-emerald-500 bg-emerald-500 text-white" : "border-emerald-400 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`} onClick={() => { const was = clYesNo[item.id] === "yes"; setClYesNo(p => ({ ...p, [item.id]: "yes" })); if (!was && item.automationAction !== "none") triggerAutomation(item.automationAction); }} data-testid={`cl-yes-${item.id}`}>Áno</button>
+                                      <button className={`text-xs px-3 py-1 rounded-md border transition-colors ${clYesNo[item.id] === "no" ? "border-rose-500 bg-rose-500 text-white" : "border-rose-400 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"}`} onClick={() => setClYesNo(p => ({ ...p, [item.id]: "no" }))} data-testid={`cl-no-${item.id}`}>Nie</button>
+                                      {clYesNo[item.id] && <button className="text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setClYesNo(p => { const n = { ...p }; delete n[item.id]; return n; })}>✕ zrušiť</button>}
+                                    </div>
+                                  )}
+                                  {item.type === "text" && <input className="w-full text-xs rounded-md border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/40" placeholder="Zadajte odpoveď..." value={clTextValues[item.id] || ""} onChange={e => setClTextValues(p => ({ ...p, [item.id]: e.target.value }))} data-testid={`cl-text-${item.id}`} />}
+                                  {item.hasNotes && <textarea className="mt-1.5 w-full text-xs rounded-md border border-border bg-background p-2 resize-none min-h-[44px] focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/40" placeholder="Poznámka..." value={clNotes[item.id] || ""} onChange={e => setClNotes(p => ({ ...p, [item.id]: e.target.value }))} data-testid={`cl-note-${item.id}`} />}
+                                  {item.automationAction !== "none" && answered && <button className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline" onClick={() => triggerAutomation(item.automationAction)}>⚡ {item.automationAction === "openDisposition" ? "Otvoriť Disposíciu" : item.automationAction === "switchEmail" ? "Prejsť na Email" : "Prejsť na SMS"}</button>}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
 
@@ -3469,18 +3523,18 @@ function CommunicationCanvas({
                 onClick={async () => {
                   if (!campaign?.id || !campaignContactId) return;
                   setIsSavingChecklist(true);
+                  const mapItemPayload = (item: WsCLItem) => ({ id: item.id, label: item.label, type: item.type, checked: item.type === "checkbox" ? clChecked.has(item.id) : false, answer: item.type === "yes_no" ? (clYesNo[item.id] || null) : null, value: item.type === "text" ? (clTextValues[item.id] || "") : null, note: clNotes[item.id] || "" });
                   const payload = {
                     sections: clSections.map(sec => ({
                       id: sec.id,
                       title: sec.title,
-                      items: sec.items.map(item => ({
-                        id: item.id,
-                        label: item.label,
-                        type: item.type,
-                        checked: item.type === "checkbox" ? clChecked.has(item.id) : false,
-                        answer: item.type === "yes_no" ? (clYesNo[item.id] || null) : null,
-                        value: item.type === "text" ? (clTextValues[item.id] || "") : null,
-                        note: clNotes[item.id] || "",
+                      icon: sec.icon || "",
+                      items: sec.items.map(mapItemPayload),
+                      subsections: sec.subsections.map(sub => ({
+                        id: sub.id,
+                        title: sub.title,
+                        icon: sub.icon || "",
+                        items: sub.items.map(mapItemPayload),
                       })),
                     })),
                   };

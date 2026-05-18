@@ -446,18 +446,55 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
 type ClItemType = "checkbox" | "yes_no" | "text";
 type ClAutomationAction = "none" | "openDisposition" | "switchEmail" | "switchSms";
 interface ClItem { id: string; label: string; type: ClItemType; required: boolean; hasNotes: boolean; automationAction: ClAutomationAction; }
-interface ClSection { id: string; title: string; items: ClItem[]; }
+interface ClSubsection { id: string; title: string; icon?: string; bold?: boolean; color?: string; items: ClItem[]; }
+interface ClSection { id: string; title: string; icon?: string; bold?: boolean; color?: string; subsections: ClSubsection[]; items: ClItem[]; }
 interface InternalChecklistCfg { enabled: boolean; sections: ClSection[]; }
+
+const CL_QUICK_ICONS = ["📋","✅","📞","💊","🏥","📝","💡","⚠️","🔑","📌","🎯","💬","📊","🔔","👤","🏠","📅","📬"];
+const CL_COLORS = [
+  { v: "", cls: "bg-foreground/10 border border-border" },
+  { v: "#3b82f6", cls: "bg-blue-500" },
+  { v: "#10b981", cls: "bg-emerald-500" },
+  { v: "#f59e0b", cls: "bg-amber-500" },
+  { v: "#ef4444", cls: "bg-red-500" },
+  { v: "#8b5cf6", cls: "bg-violet-500" },
+  { v: "#ec4899", cls: "bg-pink-500" },
+  { v: "#14b8a6", cls: "bg-teal-500" },
+];
 
 function parseInternalChecklist(settings: string | null | undefined): InternalChecklistCfg {
   try {
     const s = JSON.parse(settings || "{}");
     const ic = s.internalChecklist || {};
+    const mapItem = (i: any): ClItem => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as ClItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as ClAutomationAction });
     if (ic.items && !ic.sections) {
-      return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Hlavný checklist", items: ic.items.map((i: any) => ({ id: i.id, label: i.label || "", type: "checkbox" as ClItemType, required: false, hasNotes: i.hasNotes || false, automationAction: "none" as ClAutomationAction })) }] : [] };
+      return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Hlavný checklist", icon: "", bold: false, color: "", subsections: [], items: ic.items.map(mapItem) }] : [] };
     }
-    return { enabled: ic.enabled === true, sections: (ic.sections || []).map((sec: any) => ({ id: sec.id || crypto.randomUUID(), title: sec.title || "Sekcia", items: (sec.items || []).map((i: any) => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as ClItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as ClAutomationAction })) })) };
+    return {
+      enabled: ic.enabled === true,
+      sections: (ic.sections || []).map((sec: any) => ({
+        id: sec.id || crypto.randomUUID(), title: sec.title || "Sekcia", icon: sec.icon || "", bold: !!sec.bold, color: sec.color || "",
+        subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id || crypto.randomUUID(), title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, color: sub.color || "", items: (sub.items || []).map(mapItem) })),
+        items: (sec.items || []).map(mapItem),
+      })),
+    };
   } catch { return { enabled: false, sections: [] }; }
+}
+
+function ClPreviewItem({ item }: { item: ClItem }) {
+  return (
+    <div className="rounded-md border border-border p-2 bg-background">
+      <div className="flex items-center gap-2">
+        {item.required && <span className="text-[10px] text-rose-500 font-bold shrink-0">*</span>}
+        {item.type === "checkbox" && <div className="h-4 w-4 rounded border-2 border-muted-foreground/40 shrink-0" />}
+        <span className="text-xs flex-1">{item.label || "(bez textu)"}</span>
+        {item.type === "yes_no" && <div className="flex gap-1 shrink-0"><span className="text-[10px] px-2 py-0.5 rounded border border-emerald-400 text-emerald-600">Áno</span><span className="text-[10px] px-2 py-0.5 rounded border border-rose-400 text-rose-600">Nie</span></div>}
+        {item.automationAction !== "none" && <span className="text-[10px] text-amber-500 shrink-0">⚡</span>}
+      </div>
+      {item.type === "text" && <div className="mt-1.5 h-6 rounded bg-muted/40 border border-border/50 text-[10px] px-2 flex items-center text-muted-foreground/40">Textová odpoveď...</div>}
+      {item.hasNotes && <div className="mt-1 h-5 rounded bg-muted/30 border border-border/40 text-[10px] px-2 flex items-center text-muted-foreground/40">Poznámka...</div>}
+    </div>
+  );
 }
 
 function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
@@ -465,10 +502,12 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
   const [showPreview, setShowPreview] = useState(false);
   const [newItemLabels, setNewItemLabels] = useState<Record<string, string>>({});
   const [editSectionTitles, setEditSectionTitles] = useState<Record<string, string>>({});
+  const [editSubsecTitles, setEditSubsecTitles] = useState<Record<string, string>>({});
   const [editItemLabels, setEditItemLabels] = useState<Record<string, string>>({});
+  const [showStylePanels, setShowStylePanels] = useState<Record<string, boolean>>({});
 
   const cfg = useMemo(() => parseInternalChecklist((campaign as any).settings), [(campaign as any).settings]);
-  const totalItems = cfg.sections.reduce((a, s) => a + s.items.length, 0);
+  const totalItems = cfg.sections.reduce((a, s) => a + s.items.length + s.subsections.reduce((b, sub) => b + sub.items.length, 0), 0);
 
   const patchChecklist = async (updated: InternalChecklistCfg) => {
     try {
@@ -479,16 +518,132 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
     } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
   };
 
-  const addSec = () => patchChecklist({ ...cfg, sections: [...cfg.sections, { id: crypto.randomUUID(), title: "Nová sekcia", items: [] }] });
+  const addSec = () => patchChecklist({ ...cfg, sections: [...cfg.sections, { id: crypto.randomUUID(), title: "Nová sekcia", icon: "", bold: false, color: "", subsections: [], items: [] }] });
   const removeSec = (sid: string) => patchChecklist({ ...cfg, sections: cfg.sections.filter(s => s.id !== sid) });
-  const moveSecUp = (idx: number) => { const secs = [...cfg.sections]; [secs[idx-1], secs[idx]] = [secs[idx], secs[idx-1]]; patchChecklist({ ...cfg, sections: secs }); };
-  const moveSecDown = (idx: number) => { const secs = [...cfg.sections]; [secs[idx], secs[idx+1]] = [secs[idx+1], secs[idx]]; patchChecklist({ ...cfg, sections: secs }); };
+  const moveSecUp = (idx: number) => { const ss = [...cfg.sections]; [ss[idx-1], ss[idx]] = [ss[idx], ss[idx-1]]; patchChecklist({ ...cfg, sections: ss }); };
+  const moveSecDown = (idx: number) => { const ss = [...cfg.sections]; [ss[idx], ss[idx+1]] = [ss[idx+1], ss[idx]]; patchChecklist({ ...cfg, sections: ss }); };
   const updateSec = (sid: string, u: Partial<ClSection>) => patchChecklist({ ...cfg, sections: cfg.sections.map(s => s.id === sid ? { ...s, ...u } : s) });
-  const addItem = (sid: string, label: string) => { if (!label.trim()) return; updateSec(sid, { items: [...cfg.sections.find(s => s.id === sid)!.items, { id: crypto.randomUUID(), label: label.trim(), type: "checkbox", required: false, hasNotes: false, automationAction: "none" }] }); };
-  const removeItem = (sid: string, iid: string) => updateSec(sid, { items: cfg.sections.find(s => s.id === sid)!.items.filter(i => i.id !== iid) });
-  const updateItem = (sid: string, iid: string, u: Partial<ClItem>) => updateSec(sid, { items: cfg.sections.find(s => s.id === sid)!.items.map(i => i.id === iid ? { ...i, ...u } : i) });
-  const moveItemUp = (sid: string, idx: number) => { const items = [...cfg.sections.find(s => s.id === sid)!.items]; [items[idx-1], items[idx]] = [items[idx], items[idx-1]]; updateSec(sid, { items }); };
-  const moveItemDown = (sid: string, idx: number) => { const items = [...cfg.sections.find(s => s.id === sid)!.items]; [items[idx], items[idx+1]] = [items[idx+1], items[idx]]; updateSec(sid, { items }); };
+
+  const addSubsec = (sid: string) => { const sec = cfg.sections.find(s => s.id === sid)!; updateSec(sid, { subsections: [...sec.subsections, { id: crypto.randomUUID(), title: "Nová podsekcia", icon: "", bold: false, color: "", items: [] }] }); };
+  const removeSubsec = (sid: string, subId: string) => { const sec = cfg.sections.find(s => s.id === sid)!; updateSec(sid, { subsections: sec.subsections.filter(sub => sub.id !== subId) }); };
+  const moveSubsecUp = (sid: string, idx: number) => { const sec = cfg.sections.find(s => s.id === sid)!; const ss = [...sec.subsections]; [ss[idx-1], ss[idx]] = [ss[idx], ss[idx-1]]; updateSec(sid, { subsections: ss }); };
+  const moveSubsecDown = (sid: string, idx: number) => { const sec = cfg.sections.find(s => s.id === sid)!; const ss = [...sec.subsections]; [ss[idx], ss[idx+1]] = [ss[idx+1], ss[idx]]; updateSec(sid, { subsections: ss }); };
+  const updateSubsec = (sid: string, subId: string, u: Partial<ClSubsection>) => { const sec = cfg.sections.find(s => s.id === sid)!; updateSec(sid, { subsections: sec.subsections.map(sub => sub.id === subId ? { ...sub, ...u } : sub) }); };
+
+  const addItem = (secId: string, subId: string | null, label: string) => {
+    if (!label.trim()) return;
+    const ni: ClItem = { id: crypto.randomUUID(), label: label.trim(), type: "checkbox", required: false, hasNotes: false, automationAction: "none" };
+    const sec = cfg.sections.find(s => s.id === secId)!;
+    if (subId) updateSubsec(secId, subId, { items: [...(sec.subsections.find(s => s.id === subId)?.items || []), ni] });
+    else updateSec(secId, { items: [...sec.items, ni] });
+  };
+  const removeItem = (secId: string, subId: string | null, itemId: string) => {
+    const sec = cfg.sections.find(s => s.id === secId)!;
+    if (subId) updateSubsec(secId, subId, { items: (sec.subsections.find(s => s.id === subId)?.items || []).filter(i => i.id !== itemId) });
+    else updateSec(secId, { items: sec.items.filter(i => i.id !== itemId) });
+  };
+  const updateItem = (secId: string, subId: string | null, itemId: string, u: Partial<ClItem>) => {
+    const sec = cfg.sections.find(s => s.id === secId)!;
+    if (subId) updateSubsec(secId, subId, { items: (sec.subsections.find(s => s.id === subId)?.items || []).map(i => i.id === itemId ? { ...i, ...u } : i) });
+    else updateSec(secId, { items: sec.items.map(i => i.id === itemId ? { ...i, ...u } : i) });
+  };
+  const moveItem = (secId: string, subId: string | null, idx: number, dir: 1 | -1) => {
+    const sec = cfg.sections.find(s => s.id === secId)!;
+    const items = subId ? [...(sec.subsections.find(s => s.id === subId)?.items || [])] : [...sec.items];
+    [items[idx + dir], items[idx]] = [items[idx], items[idx + dir]];
+    if (subId) updateSubsec(secId, subId, { items }); else updateSec(secId, { items });
+  };
+
+  const toggleStyle = (key: string) => setShowStylePanels(p => ({ ...p, [key]: !p[key] }));
+
+  const renderStylePanel = (key: string, icon: string | undefined, bold: boolean | undefined, color: string | undefined, onUpdate: (u: Partial<ClSection | ClSubsection>) => void) => !showStylePanels[key] ? null : (
+    <div className="px-3 pb-3 pt-2 space-y-2.5 border-b border-border/40 bg-muted/10">
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Ikona / Emoji</p>
+        <div className="flex flex-wrap gap-1">
+          {CL_QUICK_ICONS.map(ic => (
+            <button key={ic} type="button" className={`text-sm px-1 py-0.5 rounded hover:bg-muted transition-colors ${icon === ic ? "bg-muted ring-1 ring-primary" : ""}`} onClick={() => onUpdate({ icon: icon === ic ? "" : ic })}>{ic}</button>
+          ))}
+        </div>
+        <input className="w-full h-7 text-sm border rounded-md px-2 bg-transparent focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Vlastné emoji (max 4 znaky)..." value={icon || ""} onChange={e => onUpdate({ icon: e.target.value.slice(0, 4) })} />
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="flex-1 space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Farba nadpisu</p>
+          <div className="flex gap-2">
+            {CL_COLORS.map(c => (
+              <button key={c.v} type="button" title={c.v || "Základná"} className={`h-5 w-5 rounded-full transition-all ${c.cls} ${color === c.v ? "ring-2 ring-offset-1 ring-foreground scale-110" : ""}`} onClick={() => onUpdate({ color: c.v })} />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Tučné</p>
+          <Switch checked={!!bold} onCheckedChange={v => onUpdate({ bold: v })} className="scale-75 origin-left" />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderItemList = (secId: string, subId: string | null, items: ClItem[]) => {
+    const k = subId ? `sub:${subId}` : `sec:${secId}`;
+    return (
+      <div className="p-2 space-y-1.5">
+        {items.map((item, iIdx) => (
+          <div key={item.id} className="flex items-start gap-1.5 p-2 rounded-md bg-background border border-border/40 group">
+            <GripVertical className="h-4 w-4 text-muted-foreground/20 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <input
+                className="w-full text-sm bg-transparent border-none outline-none focus:ring-0 placeholder:text-muted-foreground/40"
+                value={editItemLabels[item.id] ?? item.label}
+                onChange={e => setEditItemLabels(p => ({ ...p, [item.id]: e.target.value }))}
+                onBlur={() => { const v = editItemLabels[item.id]; if (v !== undefined && v !== item.label) updateItem(secId, subId, item.id, { label: v }); setEditItemLabels(p => { const n = { ...p }; delete n[item.id]; return n; }); }}
+                placeholder="Text položky..."
+                data-testid={`cl-item-label-${item.id}`}
+              />
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <Select value={item.type} onValueChange={v => updateItem(secId, subId, item.id, { type: v as ClItemType })}>
+                  <SelectTrigger className="h-6 text-[10px] w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="checkbox">☑ Zaškrtávacie</SelectItem>
+                    <SelectItem value="yes_no">● Áno / Nie</SelectItem>
+                    <SelectItem value="text">✎ Textová odpoveď</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={item.automationAction} onValueChange={v => updateItem(secId, subId, item.id, { automationAction: v as ClAutomationAction })}>
+                  <SelectTrigger className="h-6 text-[10px] w-[160px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Bez akcie</SelectItem>
+                    <SelectItem value="openDisposition">⚡ Otvoriť Disposíciu</SelectItem>
+                    <SelectItem value="switchEmail">⚡ Prepnúť na Email</SelectItem>
+                    <SelectItem value="switchSms">⚡ Prepnúť na SMS</SelectItem>
+                  </SelectContent>
+                </Select>
+                <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                  <Switch checked={item.required} onCheckedChange={c => updateItem(secId, subId, item.id, { required: c })} className="scale-[0.6] origin-left" data-testid={`cl-item-req-${item.id}`} /><span>Povinné</span>
+                </label>
+                <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                  <Switch checked={item.hasNotes} onCheckedChange={c => updateItem(secId, subId, item.id, { hasNotes: c })} className="scale-[0.6] origin-left" data-testid={`cl-item-notes-${item.id}`} /><span>Poznámka</span>
+                </label>
+              </div>
+            </div>
+            <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
+              <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx === 0} onClick={() => moveItem(secId, subId, iIdx, -1)}><ArrowUp className="h-2.5 w-2.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx >= items.length - 1} onClick={() => moveItem(secId, subId, iIdx, 1)}><ArrowDown className="h-2.5 w-2.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-5 w-5 hover:text-destructive" onClick={() => removeItem(secId, subId, item.id)}><X className="h-3 w-3" /></Button>
+            </div>
+          </div>
+        ))}
+        <div className="flex gap-2 pt-0.5">
+          <Input placeholder={subId ? "Nová položka podsekcie..." : "Nová položka sekcie..."} value={newItemLabels[k] || ""} onChange={e => setNewItemLabels(p => ({ ...p, [k]: e.target.value }))}
+            onKeyDown={e => { if (e.key === "Enter" && newItemLabels[k]?.trim()) { addItem(secId, subId, newItemLabels[k]); setNewItemLabels(p => ({ ...p, [k]: "" })); } }}
+            className="h-7 text-xs" data-testid={`cl-new-item-${k}`} />
+          <Button size="sm" className="h-7 px-2 text-xs shrink-0" disabled={!newItemLabels[k]?.trim()} onClick={() => { addItem(secId, subId, newItemLabels[k] || ""); setNewItemLabels(p => ({ ...p, [k]: "" })); }} data-testid={`cl-add-item-${k}`}>
+            <Plus className="h-3.5 w-3.5 mr-1" />Pridať
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Card>
@@ -524,96 +679,62 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
             </div>
           )}
 
-          {cfg.sections.map((sec, sIdx) => (
-            <div key={sec.id} className="rounded-lg border border-border bg-muted/20">
-              <div className="flex items-center gap-2 p-2.5 border-b border-border/50 bg-muted/30 rounded-t-lg">
-                <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0" />
-                <input
-                  className="flex-1 text-sm font-semibold bg-transparent border-none outline-none focus:ring-0 min-w-0 placeholder:text-muted-foreground/50"
-                  value={editSectionTitles[sec.id] ?? sec.title}
-                  onChange={e => setEditSectionTitles(p => ({ ...p, [sec.id]: e.target.value }))}
-                  onBlur={() => {
-                    const v = editSectionTitles[sec.id];
-                    if (v !== undefined && v !== sec.title) updateSec(sec.id, { title: v || "Sekcia" });
-                    setEditSectionTitles(p => { const n = { ...p }; delete n[sec.id]; return n; });
-                  }}
-                  placeholder="Nadpis skupiny..."
-                  data-testid={`cl-sec-title-${sec.id}`}
-                />
-                <span className="text-[10px] text-muted-foreground shrink-0">{sec.items.length} pol.</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={sIdx === 0} onClick={() => moveSecUp(sIdx)}><ArrowUp className="h-3 w-3" /></Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={sIdx >= cfg.sections.length - 1} onClick={() => moveSecDown(sIdx)}><ArrowDown className="h-3 w-3" /></Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 hover:text-destructive" onClick={() => removeSec(sec.id)}><X className="h-3.5 w-3.5" /></Button>
-              </div>
-
-              <div className="p-2 space-y-1.5">
-                {sec.items.map((item, iIdx) => (
-                  <div key={item.id} className="flex items-start gap-1.5 p-2 rounded-md bg-background border border-border/40 group">
-                    <GripVertical className="h-4 w-4 text-muted-foreground/20 mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0 space-y-1.5">
+          {cfg.sections.map((sec, sIdx) => {
+            const secItemCount = sec.items.length + sec.subsections.reduce((a, s) => a + s.items.length, 0);
+            return (
+              <div key={sec.id} className="rounded-lg border border-border bg-muted/20">
+                <div className="flex items-center gap-2 p-2.5 border-b border-border/50 bg-muted/30 rounded-t-lg">
+                  <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+                  {sec.icon && <span className="text-base leading-none shrink-0 select-none">{sec.icon}</span>}
+                  <input
+                    className={`flex-1 text-sm bg-transparent border-none outline-none focus:ring-0 min-w-0 placeholder:text-muted-foreground/50 ${sec.bold ? "font-black" : "font-semibold"}`}
+                    style={sec.color ? { color: sec.color } : undefined}
+                    value={editSectionTitles[sec.id] ?? sec.title}
+                    onChange={e => setEditSectionTitles(p => ({ ...p, [sec.id]: e.target.value }))}
+                    onBlur={() => { const v = editSectionTitles[sec.id]; if (v !== undefined && v !== sec.title) updateSec(sec.id, { title: v || "Sekcia" }); setEditSectionTitles(p => { const n = { ...p }; delete n[sec.id]; return n; }); }}
+                    placeholder="Nadpis sekcie..."
+                    data-testid={`cl-sec-title-${sec.id}`}
+                  />
+                  <span className="text-[10px] text-muted-foreground shrink-0">{secItemCount} pol. · {sec.subsections.length} podsekc.</span>
+                  <Button variant="ghost" size="icon" className={`h-6 w-6 shrink-0 transition-colors ${showStylePanels[`sec:${sec.id}`] ? "text-primary bg-primary/10" : ""}`} onClick={() => toggleStyle(`sec:${sec.id}`)} title="Štýl sekcie" data-testid={`cl-sec-style-${sec.id}`}><Wand2 className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={sIdx === 0} onClick={() => moveSecUp(sIdx)}><ArrowUp className="h-3 w-3" /></Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={sIdx >= cfg.sections.length - 1} onClick={() => moveSecDown(sIdx)}><ArrowDown className="h-3 w-3" /></Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 hover:text-destructive" onClick={() => removeSec(sec.id)}><X className="h-3.5 w-3.5" /></Button>
+                </div>
+                {renderStylePanel(`sec:${sec.id}`, sec.icon, sec.bold, sec.color, u => updateSec(sec.id, u))}
+                {renderItemList(sec.id, null, sec.items)}
+                {sec.subsections.map((sub, subIdx) => (
+                  <div key={sub.id} className="mx-2 mb-1 rounded-md border border-border/60 bg-background">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b border-border/40 bg-muted/20 rounded-t-md">
+                      <div className="w-2.5 shrink-0"><div className="h-3.5 w-0.5 rounded-full bg-muted-foreground/20 mx-auto" /></div>
+                      {sub.icon && <span className="text-sm leading-none shrink-0 select-none">{sub.icon}</span>}
                       <input
-                        className="w-full text-sm bg-transparent border-none outline-none focus:ring-0 placeholder:text-muted-foreground/40"
-                        value={editItemLabels[item.id] ?? item.label}
-                        onChange={e => setEditItemLabels(p => ({ ...p, [item.id]: e.target.value }))}
-                        onBlur={() => {
-                          const v = editItemLabels[item.id];
-                          if (v !== undefined && v !== item.label) updateItem(sec.id, item.id, { label: v });
-                          setEditItemLabels(p => { const n = { ...p }; delete n[item.id]; return n; });
-                        }}
-                        placeholder="Text položky..."
-                        data-testid={`cl-item-label-${item.id}`}
+                        className={`flex-1 text-xs bg-transparent border-none outline-none focus:ring-0 min-w-0 placeholder:text-muted-foreground/40 ${sub.bold ? "font-bold" : "font-medium"}`}
+                        style={sub.color ? { color: sub.color } : undefined}
+                        value={editSubsecTitles[sub.id] ?? sub.title}
+                        onChange={e => setEditSubsecTitles(p => ({ ...p, [sub.id]: e.target.value }))}
+                        onBlur={() => { const v = editSubsecTitles[sub.id]; if (v !== undefined && v !== sub.title) updateSubsec(sec.id, sub.id, { title: v || "Podsekcia" }); setEditSubsecTitles(p => { const n = { ...p }; delete n[sub.id]; return n; }); }}
+                        placeholder="Nadpis podsekcie..."
+                        data-testid={`cl-sub-title-${sub.id}`}
                       />
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <Select value={item.type} onValueChange={v => updateItem(sec.id, item.id, { type: v as ClItemType })}>
-                          <SelectTrigger className="h-6 text-[10px] w-[140px]" data-testid={`cl-item-type-${item.id}`}><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="checkbox">☑ Zaškrtávacie</SelectItem>
-                            <SelectItem value="yes_no">● Áno / Nie</SelectItem>
-                            <SelectItem value="text">✎ Textová odpoveď</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={item.automationAction} onValueChange={v => updateItem(sec.id, item.id, { automationAction: v as ClAutomationAction })}>
-                          <SelectTrigger className="h-6 text-[10px] w-[170px]" data-testid={`cl-item-auto-${item.id}`}><SelectValue placeholder="Automatizácia" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Žiadna automatizácia</SelectItem>
-                            <SelectItem value="openDisposition">⚡ Otvoriť Disposíciu</SelectItem>
-                            <SelectItem value="switchEmail">⚡ Prepnúť na Email</SelectItem>
-                            <SelectItem value="switchSms">⚡ Prepnúť na SMS</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                          <Switch checked={item.required} onCheckedChange={c => updateItem(sec.id, item.id, { required: c })} className="scale-[0.6] origin-left" data-testid={`cl-item-req-${item.id}`} />
-                          <span>Povinné</span>
-                        </label>
-                        <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                          <Switch checked={item.hasNotes} onCheckedChange={c => updateItem(sec.id, item.id, { hasNotes: c })} className="scale-[0.6] origin-left" data-testid={`cl-item-notes-${item.id}`} />
-                          <span>Poznámka</span>
-                        </label>
-                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{sub.items.length} pol.</span>
+                      <Button variant="ghost" size="icon" className={`h-5 w-5 shrink-0 ${showStylePanels[`sub:${sub.id}`] ? "text-primary bg-primary/10" : ""}`} onClick={() => toggleStyle(`sub:${sub.id}`)} title="Štýl podsekcie"><Wand2 className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" disabled={subIdx === 0} onClick={() => moveSubsecUp(sec.id, subIdx)}><ArrowUp className="h-2.5 w-2.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" disabled={subIdx >= sec.subsections.length - 1} onClick={() => moveSubsecDown(sec.id, subIdx)}><ArrowDown className="h-2.5 w-2.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 hover:text-destructive" onClick={() => removeSubsec(sec.id, sub.id)}><X className="h-3 w-3" /></Button>
                     </div>
-                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
-                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx === 0} onClick={() => moveItemUp(sec.id, iIdx)}><ArrowUp className="h-2.5 w-2.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx >= sec.items.length - 1} onClick={() => moveItemDown(sec.id, iIdx)}><ArrowDown className="h-2.5 w-2.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 hover:text-destructive" onClick={() => removeItem(sec.id, item.id)}><X className="h-3 w-3" /></Button>
-                    </div>
+                    {renderStylePanel(`sub:${sub.id}`, sub.icon, sub.bold, sub.color, u => updateSubsec(sec.id, sub.id, u))}
+                    {renderItemList(sec.id, sub.id, sub.items)}
                   </div>
                 ))}
-                <div className="flex gap-2 pt-1 px-1">
-                  <Input
-                    placeholder="Nová položka..."
-                    value={newItemLabels[sec.id] || ""}
-                    onChange={e => setNewItemLabels(p => ({ ...p, [sec.id]: e.target.value }))}
-                    onKeyDown={e => { if (e.key === "Enter" && newItemLabels[sec.id]?.trim()) { addItem(sec.id, newItemLabels[sec.id]); setNewItemLabels(p => ({ ...p, [sec.id]: "" })); } }}
-                    className="h-7 text-xs"
-                    data-testid={`cl-new-item-${sec.id}`}
-                  />
-                  <Button size="sm" className="h-7 px-2 text-xs shrink-0" disabled={!newItemLabels[sec.id]?.trim()} onClick={() => { addItem(sec.id, newItemLabels[sec.id] || ""); setNewItemLabels(p => ({ ...p, [sec.id]: "" })); }} data-testid={`cl-add-item-${sec.id}`}>
-                    <Plus className="h-3.5 w-3.5 mr-1" />Pridať
+                <div className="px-2 pb-2 pt-0.5">
+                  <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 h-7 border-dashed" onClick={() => addSubsec(sec.id)} data-testid={`cl-add-subsec-${sec.id}`}>
+                    <Plus className="h-3 w-3" />Pridať podsekciu
                   </Button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 h-8" onClick={addSec} data-testid="cl-add-section">
             <Plus className="h-3.5 w-3.5" />Pridať sekciu
@@ -628,27 +749,20 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
               <div className="p-3 space-y-3 max-h-80 overflow-y-auto">
                 {cfg.sections.map(sec => (
                   <div key={sec.id}>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{sec.title || "Sekcia"}</p>
-                    <div className="space-y-1.5">
-                      {sec.items.map(item => (
-                        <div key={item.id} className="rounded-md border border-border p-2.5 bg-background">
-                          <div className="flex items-center gap-2">
-                            {item.required && <span className="text-[10px] text-rose-500 font-bold shrink-0">*</span>}
-                            {item.type === "checkbox" && <div className="h-4 w-4 rounded border-2 border-muted-foreground/40 shrink-0" />}
-                            <span className="text-xs flex-1">{item.label || "(bez textu)"}</span>
-                            {item.type === "yes_no" && (
-                              <div className="flex gap-1 shrink-0">
-                                <span className="text-[10px] px-2 py-0.5 rounded border border-emerald-400 text-emerald-600">Áno</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded border border-rose-400 text-rose-600">Nie</span>
-                              </div>
-                            )}
-                            {item.automationAction !== "none" && <span className="text-[10px] text-amber-500 shrink-0">⚡</span>}
-                          </div>
-                          {item.type === "text" && <div className="mt-1.5 h-6 rounded bg-muted/40 border border-border/50 text-[10px] px-2 flex items-center text-muted-foreground/40">Textová odpoveď...</div>}
-                          {item.hasNotes && <div className="mt-1 h-5 rounded bg-muted/30 border border-border/40 text-[10px] px-2 flex items-center text-muted-foreground/40">Poznámka...</div>}
-                        </div>
-                      ))}
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      {sec.icon && <span className="text-sm">{sec.icon}</span>}
+                      <p className={`text-[10px] uppercase tracking-wide ${sec.bold ? "font-black" : "font-semibold"} ${!sec.color ? "text-muted-foreground" : ""}`} style={sec.color ? { color: sec.color } : undefined}>{sec.title || "Sekcia"}</p>
                     </div>
+                    {sec.items.length > 0 && <div className="space-y-1.5 mb-2">{sec.items.map(item => <ClPreviewItem key={item.id} item={item} />)}</div>}
+                    {sec.subsections.map(sub => (
+                      <div key={sub.id} className="ml-3 mb-2">
+                        <div className="flex items-center gap-1 mb-1">
+                          {sub.icon && <span className="text-xs">{sub.icon}</span>}
+                          <p className={`text-[10px] uppercase tracking-wide ${sub.bold ? "font-bold" : "font-medium"} ${!sub.color ? "text-muted-foreground/70" : ""}`} style={sub.color ? { color: sub.color } : undefined}>↳ {sub.title}</p>
+                        </div>
+                        <div className="space-y-1">{sub.items.map(item => <ClPreviewItem key={item.id} item={item} />)}</div>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -5848,7 +5962,6 @@ export default function CampaignDetailPage() {
                           </Select>
                         </CardContent>
                       </Card>
-                      <InternalChecklistSettingsCard campaign={campaign} />
                       <CampaignSopSettingsCard campaignId={campaign.id} />
                       <AutoModeCard campaign={campaign} />
                       <CriteriaCard campaign={campaign} />
@@ -5940,6 +6053,7 @@ export default function CampaignDetailPage() {
                   {settingsSubTab === "dispositions" && (
                     <div className="space-y-4">
                       <DispositionsTab campaignId={campaignId} embedded />
+                      <InternalChecklistSettingsCard campaign={campaign} />
                     </div>
                   )}
 
