@@ -17130,7 +17130,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         sipCallId: null,
         callerIdName: `${collaborator.firstName} ${collaborator.lastName}`,
         callerIdNumber: ext?.extension || null,
-        metadata: JSON.stringify({ source: "mobile" }),
+        metadata: JSON.stringify({ source: "mobile", agentName: `${collaborator.firstName} ${collaborator.lastName}`, outboundCallerId: collaborator.outboundCallerId || null }),
       });
       res.json(callLog);
     } catch (error) {
@@ -26220,6 +26220,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         hasRecording: !!recordingMap[log.id],
         recording: recordingMap[log.id] || null,
         isMobile: (() => { try { return JSON.parse(log.metadata || "{}").source === "mobile"; } catch { return false; } })(),
+        mobileAgentName: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.agentName || null) : null; } catch { return null; } })(),
+        mobileOutboundCallerId: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.outboundCallerId || null) : null; } catch { return null; } })(),
       }));
 
       res.json(result);

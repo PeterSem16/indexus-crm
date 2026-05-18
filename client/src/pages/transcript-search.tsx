@@ -28,6 +28,7 @@ interface CallLogEntry {
   phoneNumber: string; direction: string; status: string; startedAt: string;
   durationSeconds: number | null; notes: string | null; createdAt: string;
   customerName: string | null; campaignName: string | null; hasRecording: boolean; isMobile: boolean;
+  mobileAgentName: string | null; mobileOutboundCallerId: string | null;
   recording: {
     id: string; analysisStatus: string | null; transcriptionText: string | null;
     sentiment: string | null; qualityScore: number | null; scriptComplianceScore: number | null;
@@ -198,7 +199,7 @@ function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEnt
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
         {log.status === "no_answer" && <span className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{ca.statusNoAnswer}</span>}
         {log.status === "failed" && <span className="text-[9px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full">{ca.statusFailed}</span>}
-        {log.isMobile && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Smartphone className="h-2 w-2" />Mobile</span>}
+        {log.isMobile && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Smartphone className="h-2 w-2" />{log.mobileAgentName || "Mobile"}</span>}
         {log.hasRecording && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Mic className="h-2 w-2" /></span>}
         {rec?.qualityScore != null && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">★ {rec.qualityScore}</span>}
         {log.campaignName && <span className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full truncate max-w-[90px]">{log.campaignName}</span>}
@@ -240,7 +241,12 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
                 {rec?.agentName && <Badge variant="outline" className="text-[10px]"><UserCircle className="h-2.5 w-2.5 mr-1" />{rec.agentName}</Badge>}
                 {log.isMobile && (
                   <Badge className="text-[10px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700 hover:bg-violet-100">
-                    <Smartphone className="h-2.5 w-2.5 mr-1" />INDEXUS Connect
+                    <Smartphone className="h-2.5 w-2.5 mr-1" />INDEXUS Connect{log.mobileAgentName ? ` · ${log.mobileAgentName}` : ""}
+                  </Badge>
+                )}
+                {log.isMobile && log.mobileOutboundCallerId && (
+                  <Badge variant="outline" className="text-[10px] text-violet-600 dark:text-violet-400 border-violet-300 dark:border-violet-700">
+                    <Phone className="h-2.5 w-2.5 mr-1" />{log.mobileOutboundCallerId}
                   </Badge>
                 )}
                 <span className="text-[10px] text-muted-foreground">{dateStr} · {formatDuration(log.durationSeconds)}</span>
