@@ -26439,10 +26439,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           const transcriptionResult = await openai.audio.transcriptions.create({
             file: audioFile,
             model: "whisper-1",
+            language: userLanguage,
             response_format: "text",
           });
           transcriptionText = transcriptionResult as unknown as string;
-          console.log(`[CallAnalysis] Transcription complete for ${recordingId}: ${transcriptionText.length} chars (attempt ${attempt + 1})`);
+          console.log(`[CallAnalysis] Transcription complete for ${recordingId}: ${transcriptionText.length} chars, language hint: ${userLanguage} (attempt ${attempt + 1})`);
           break;
         } catch (whisperErr: any) {
           console.error(`[CallAnalysis] Whisper transcription failed for ${recordingId} (attempt ${attempt + 1}/${maxRetries + 1}):`, whisperErr.message);
