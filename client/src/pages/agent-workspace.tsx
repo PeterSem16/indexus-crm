@@ -125,11 +125,13 @@ import {
   Download,
   ChevronsUpDown,
   Check,
+  CheckSquare,
   Navigation,
   SlidersHorizontal,
   RotateCw,
   CheckCircle2,
   Circle,
+  GripVertical,
 } from "lucide-react";
 import {
   Dialog,
@@ -1980,6 +1982,8 @@ function CommunicationCanvas({
   const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
   const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
   const [clChecked, setClChecked] = useState<Set<string>>(new Set());
+  const [clYesNo, setClYesNo] = useState<Record<string, "yes" | "no">>({});
+  const [clTextValues, setClTextValues] = useState<Record<string, string>>({});
   const [clNotes, setClNotes] = useState<Record<string, string>>({});
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
@@ -2024,15 +2028,27 @@ function CommunicationCanvas({
 
   const timelineEndRef = useRef<HTMLDivElement>(null);
 
-  const internalChecklistConfig = useMemo(() => {
+  type WsCLItemType = "checkbox" | "yes_no" | "text";
+  type WsCLAutomation = "none" | "openDisposition" | "switchEmail" | "switchSms";
+  interface WsCLItem { id: string; label: string; type: WsCLItemType; required: boolean; hasNotes: boolean; automationAction: WsCLAutomation; }
+  interface WsCLSection { id: string; title: string; items: WsCLItem[]; }
+  interface WsCLConfig { enabled: boolean; sections: WsCLSection[]; }
+
+  const internalChecklistConfig = useMemo((): WsCLConfig => {
     try {
       const s = JSON.parse(campaign?.settings || "{}");
-      return { enabled: s.internalChecklist?.enabled === true, items: (s.internalChecklist?.items || []) as Array<{ id: string; label: string; hasNotes: boolean }> };
-    } catch { return { enabled: false, items: [] as Array<{ id: string; label: string; hasNotes: boolean }> }; }
+      const ic = s.internalChecklist || {};
+      if (ic.items && !ic.sections) {
+        return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Checklist", items: ic.items.map((i: any) => ({ id: i.id, label: i.label || "", type: "checkbox" as WsCLItemType, required: false, hasNotes: i.hasNotes || false, automationAction: "none" as WsCLAutomation })) }] : [] };
+      }
+      return { enabled: ic.enabled === true, sections: (ic.sections || []).map((sec: any) => ({ id: sec.id, title: sec.title || "Sekcia", items: (sec.items || []).map((i: any) => ({ id: i.id, label: i.label || "", type: (i.type || "checkbox") as WsCLItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as WsCLAutomation })) })) };
+    } catch { return { enabled: false, sections: [] }; }
   }, [campaign?.settings]);
 
   useEffect(() => {
     setClChecked(new Set());
+    setClYesNo({});
+    setClTextValues({});
     setClNotes({});
   }, [contact?.id]);
 
@@ -3271,8 +3287,21 @@ function CommunicationCanvas({
       )}
 
       {activeChannel === "checklist" && (() => {
-        const clItems = internalChecklistConfig.items;
-        if (!internalChecklistConfig.enabled || clItems.length === 0) {
+        const clSections = internalChecklistConfig.sections;
+        const allClItems = clSections.flatMap(s => s.items);
+        const totalClItems = allClItems.length;
+
+        const isItemAnswered = (item: { id: string; type: string }) => {
+          if (item.type === "checkbox") return clChecked.has(item.id);
+          if (item.type === "yes_no") return !!clYesNo[item.id];
+          if (item.type === "text") return !!clTextValues[item.id]?.trim();
+          return false;
+        };
+
+        const answeredCount = allClItems.filter(isItemAnswered).length;
+        const requiredUnanswered = allClItems.filter(i => i.required && !isItemAnswered(i));
+
+        if (!internalChecklistConfig.enabled || totalClItems === 0) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-16">
               <ListChecks className="h-10 w-10 mb-3 opacity-20" />
@@ -3281,61 +3310,147 @@ function CommunicationCanvas({
             </div>
           );
         }
+
         const clHistoryEntries = (contactHistory || []).filter(h => h.action === "checklist_response");
+
+        const triggerAutomation = (action: string) => {
+          if (action === "openDisposition") onOpenDisposition?.();
+          else if (action === "switchEmail") onChannelChange("email");
+          else if (action === "switchSms") onChannelChange("sms");
+        };
+
         return (
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-3">Položky checklistu ({clItems.length})</p>
-              {clItems.map((item) => {
-                const isChecked = clChecked.has(item.id);
-                return (
-                  <div key={item.id} className={`rounded-lg border p-3 transition-all ${isChecked ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-900/10" : "border-border bg-card/50"}`}>
-                    <div
-                      className="flex items-center gap-3 cursor-pointer select-none"
-                      onClick={() => setClChecked(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })}
-                      data-testid={`cl-check-${item.id}`}
-                    >
-                      <div className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isChecked ? "border-emerald-500 bg-emerald-500" : "border-muted-foreground/40"}`}>
-                        {isChecked && <Check className="h-3 w-3 text-white" />}
-                      </div>
-                      <span className={`text-sm flex-1 ${isChecked ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
-                    </div>
-                    {item.hasNotes && (
-                      <textarea
-                        className="mt-2.5 w-full text-xs rounded-md border border-border bg-background p-2 resize-none min-h-[52px] focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
-                        placeholder="Poznámka k tejto položke..."
-                        value={clNotes[item.id] || ""}
-                        onChange={e => setClNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
-                        data-testid={`cl-note-${item.id}`}
-                      />
-                    )}
+            {totalClItems > 0 && (
+              <div className="px-4 pt-3 pb-1 shrink-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-muted-foreground">Zodpovedané: {answeredCount}/{totalClItems}</span>
+                  {requiredUnanswered.length > 0 && (
+                    <span className="text-[10px] text-rose-500">* {requiredUnanswered.length} povinné nezodpovedané</span>
+                  )}
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${totalClItems > 0 ? (answeredCount / totalClItems) * 100 : 0}%` }} />
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {clSections.map(sec => (
+                <div key={sec.id}>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">{sec.title}</p>
+                  <div className="space-y-1.5">
+                    {sec.items.map(item => {
+                      const answered = isItemAnswered(item);
+                      return (
+                        <div key={item.id} className={`rounded-lg border p-3 transition-all ${answered ? "border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-900/10" : "border-border bg-card/50"}`}>
+                          <div className="flex items-start gap-2.5">
+                            {item.required && <span className="text-[10px] text-rose-500 font-bold mt-0.5 shrink-0">*</span>}
+
+                            {item.type === "checkbox" && (
+                              <button
+                                className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${clChecked.has(item.id) ? "border-emerald-500 bg-emerald-500" : "border-muted-foreground/40 hover:border-emerald-400"}`}
+                                onClick={() => {
+                                  setClChecked(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; });
+                                  if (item.automationAction !== "none" && !clChecked.has(item.id)) triggerAutomation(item.automationAction);
+                                }}
+                                data-testid={`cl-check-${item.id}`}
+                              >
+                                {clChecked.has(item.id) && <Check className="h-3 w-3 text-white" />}
+                              </button>
+                            )}
+
+                            <div className="flex-1 min-w-0">
+                              <span className={`text-sm block mb-1.5 ${item.type === "checkbox" && clChecked.has(item.id) ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
+
+                              {item.type === "yes_no" && (
+                                <div className="flex gap-2">
+                                  <button
+                                    className={`text-xs px-3 py-1 rounded-md border transition-colors ${clYesNo[item.id] === "yes" ? "border-emerald-500 bg-emerald-500 text-white" : "border-emerald-400 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}
+                                    onClick={() => {
+                                      const wasYes = clYesNo[item.id] === "yes";
+                                      setClYesNo(prev => ({ ...prev, [item.id]: "yes" }));
+                                      if (!wasYes && item.automationAction !== "none") triggerAutomation(item.automationAction);
+                                    }}
+                                    data-testid={`cl-yes-${item.id}`}
+                                  >Áno</button>
+                                  <button
+                                    className={`text-xs px-3 py-1 rounded-md border transition-colors ${clYesNo[item.id] === "no" ? "border-rose-500 bg-rose-500 text-white" : "border-rose-400 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"}`}
+                                    onClick={() => {
+                                      setClYesNo(prev => ({ ...prev, [item.id]: "no" }));
+                                    }}
+                                    data-testid={`cl-no-${item.id}`}
+                                  >Nie</button>
+                                  {clYesNo[item.id] && (
+                                    <button className="text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setClYesNo(prev => { const n = { ...prev }; delete n[item.id]; return n; })}>
+                                      ✕ zrušiť
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {item.type === "text" && (
+                                <input
+                                  className="w-full text-xs rounded-md border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/40"
+                                  placeholder="Zadajte odpoveď..."
+                                  value={clTextValues[item.id] || ""}
+                                  onChange={e => setClTextValues(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                  data-testid={`cl-text-${item.id}`}
+                                />
+                              )}
+
+                              {item.hasNotes && (
+                                <textarea
+                                  className="mt-1.5 w-full text-xs rounded-md border border-border bg-background p-2 resize-none min-h-[44px] focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/40"
+                                  placeholder="Poznámka..."
+                                  value={clNotes[item.id] || ""}
+                                  onChange={e => setClNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                  data-testid={`cl-note-${item.id}`}
+                                />
+                              )}
+
+                              {item.automationAction !== "none" && answered && (
+                                <button
+                                  className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline"
+                                  onClick={() => triggerAutomation(item.automationAction)}
+                                >
+                                  ⚡ {item.automationAction === "openDisposition" ? "Otvoriť Disposíciu" : item.automationAction === "switchEmail" ? "Prejsť na Email" : "Prejsť na SMS"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
+
               {clHistoryEntries.length > 0 && (
-                <div className="pt-4 mt-2 border-t">
+                <div className="pt-3 border-t">
                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Predchádzajúce záznamy</p>
                   <div className="space-y-2">
                     {clHistoryEntries.slice(0, 5).map(entry => {
-                      const prevItems = entry.metadata?.items || [];
-                      const checkedCount = prevItems.filter((i: any) => i.checked).length;
+                      const prevSections = entry.metadata?.sections || [];
+                      const prevItemsFlat = prevSections.flatMap ? prevSections.flatMap((s: any) => s.items || []) : (entry.metadata?.items || []);
+                      const doneCount = prevItemsFlat.filter((i: any) => i.checked || i.answer === "yes" || i.value?.trim()).length;
                       return (
                         <div key={entry.id} className="rounded-md border border-border/50 p-2.5 bg-muted/30">
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-1.5">
                               <CheckSquare className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                               <span className="text-xs font-medium">Checklist</span>
-                              <span className="text-xs text-muted-foreground">({checkedCount}/{prevItems.length || clItems.length} zaškrtnutých)</span>
+                              <span className="text-xs text-muted-foreground">({doneCount}/{prevItemsFlat.length || totalClItems} zodp.)</span>
                             </div>
                             <span className="text-[10px] text-muted-foreground">{format(new Date(entry.date), "d.M.yyyy HH:mm", { locale: sk })}</span>
                           </div>
-                          {prevItems.filter((i: any) => i.checked).length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {prevItems.filter((i: any) => i.checked).map((i: any) => (
+                          {prevSections.map((s: any) => s.items?.filter((i: any) => i.checked || i.answer === "yes" || i.value?.trim()).length > 0 && (
+                            <div key={s.id} className="flex flex-wrap gap-1 mt-0.5">
+                              {s.items.filter((i: any) => i.checked || i.answer === "yes" || i.value?.trim()).map((i: any) => (
                                 <span key={i.id} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">{i.label}</span>
                               ))}
                             </div>
-                          )}
+                          ))}
                         </div>
                       );
                     })}
@@ -3343,25 +3458,38 @@ function CommunicationCanvas({
                 </div>
               )}
             </div>
+
             <div className="p-3 border-t bg-card/80 shrink-0">
+              {requiredUnanswered.length > 0 && (
+                <p className="text-[10px] text-rose-500 mb-2 text-center">Vyplňte povinné položky: {requiredUnanswered.map(i => i.label).join(", ")}</p>
+              )}
               <Button
                 className="w-full gap-2"
-                disabled={clChecked.size === 0 || isSavingChecklist || !campaignContactId || !campaign?.id}
+                disabled={answeredCount === 0 || requiredUnanswered.length > 0 || isSavingChecklist || !campaignContactId || !campaign?.id}
                 onClick={async () => {
                   if (!campaign?.id || !campaignContactId) return;
                   setIsSavingChecklist(true);
                   const payload = {
-                    items: clItems.map((item) => ({
-                      id: item.id,
-                      label: item.label,
-                      checked: clChecked.has(item.id),
-                      note: clNotes[item.id] || "",
+                    sections: clSections.map(sec => ({
+                      id: sec.id,
+                      title: sec.title,
+                      items: sec.items.map(item => ({
+                        id: item.id,
+                        label: item.label,
+                        type: item.type,
+                        checked: item.type === "checkbox" ? clChecked.has(item.id) : false,
+                        answer: item.type === "yes_no" ? (clYesNo[item.id] || null) : null,
+                        value: item.type === "text" ? (clTextValues[item.id] || "") : null,
+                        note: clNotes[item.id] || "",
+                      })),
                     })),
                   };
                   try {
                     await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/checklist-response`, payload);
                     queryClient.invalidateQueries({ queryKey: ["/api/entity-history", contact?.id] });
                     setClChecked(new Set());
+                    setClYesNo({});
+                    setClTextValues({});
                     setClNotes({});
                     toast({ title: "Checklist uložený" });
                   } catch {
@@ -3373,7 +3501,7 @@ function CommunicationCanvas({
                 data-testid="btn-save-checklist"
               >
                 {isSavingChecklist ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckSquare className="h-4 w-4" />}
-                Uložiť checklist{clChecked.size > 0 ? ` (${clChecked.size}/${clItems.length})` : ""}
+                Uložiť checklist{answeredCount > 0 ? ` (${answeredCount}/${totalClItems})` : ""}
               </Button>
             </div>
           </div>

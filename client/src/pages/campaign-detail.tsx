@@ -443,108 +443,217 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
   );
 }
 
+type ClItemType = "checkbox" | "yes_no" | "text";
+type ClAutomationAction = "none" | "openDisposition" | "switchEmail" | "switchSms";
+interface ClItem { id: string; label: string; type: ClItemType; required: boolean; hasNotes: boolean; automationAction: ClAutomationAction; }
+interface ClSection { id: string; title: string; items: ClItem[]; }
+interface InternalChecklistCfg { enabled: boolean; sections: ClSection[]; }
+
+function parseInternalChecklist(settings: string | null | undefined): InternalChecklistCfg {
+  try {
+    const s = JSON.parse(settings || "{}");
+    const ic = s.internalChecklist || {};
+    if (ic.items && !ic.sections) {
+      return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Hlavný checklist", items: ic.items.map((i: any) => ({ id: i.id, label: i.label || "", type: "checkbox" as ClItemType, required: false, hasNotes: i.hasNotes || false, automationAction: "none" as ClAutomationAction })) }] : [] };
+    }
+    return { enabled: ic.enabled === true, sections: (ic.sections || []).map((sec: any) => ({ id: sec.id || crypto.randomUUID(), title: sec.title || "Sekcia", items: (sec.items || []).map((i: any) => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as ClItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as ClAutomationAction })) })) };
+  } catch { return { enabled: false, sections: [] }; }
+}
+
 function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
   const { toast } = useToast();
-  const [newLabel, setNewLabel] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [newItemLabels, setNewItemLabels] = useState<Record<string, string>>({});
+  const [editSectionTitles, setEditSectionTitles] = useState<Record<string, string>>({});
+  const [editItemLabels, setEditItemLabels] = useState<Record<string, string>>({});
 
-  const checklistConfig = useMemo(() => {
+  const cfg = useMemo(() => parseInternalChecklist((campaign as any).settings), [(campaign as any).settings]);
+  const totalItems = cfg.sections.reduce((a, s) => a + s.items.length, 0);
+
+  const patchChecklist = async (updated: InternalChecklistCfg) => {
     try {
-      const s = JSON.parse((campaign as any).settings || "{}");
-      const ic = s.internalChecklist || {};
-      return {
-        enabled: ic.enabled === true,
-        items: (ic.items || []) as Array<{ id: string; label: string; hasNotes: boolean }>,
-      };
-    } catch { return { enabled: false, items: [] as Array<{ id: string; label: string; hasNotes: boolean }> }; }
-  }, [(campaign as any).settings]);
-
-  const patchSettings = async (update: Record<string, any>) => {
-    let existing: any = {};
-    try { if ((campaign as any).settings) existing = JSON.parse((campaign as any).settings); } catch {}
-    const internalChecklist = { ...(existing.internalChecklist || {}), ...update };
-    const merged = { ...existing, internalChecklist };
-    await apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) });
-    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
-  };
-
-  const handleToggle = async (checked: boolean) => {
-    try {
-      await patchSettings({ enabled: checked });
-      toast({ title: "Nastavenia uložené" });
+      let existing: any = {};
+      try { if ((campaign as any).settings) existing = JSON.parse((campaign as any).settings); } catch {}
+      await apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify({ ...existing, internalChecklist: updated }) });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
   };
 
-  const handleAddItem = async () => {
-    if (!newLabel.trim()) return;
-    const newItem = { id: crypto.randomUUID(), label: newLabel.trim(), hasNotes: false };
-    const newItems = [...checklistConfig.items, newItem];
-    setNewLabel("");
-    try {
-      await patchSettings({ items: newItems });
-    } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
-  };
-
-  const handleRemoveItem = async (id: string) => {
-    const newItems = checklistConfig.items.filter(i => i.id !== id);
-    try {
-      await patchSettings({ items: newItems });
-    } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
-  };
-
-  const handleToggleNotes = async (id: string) => {
-    const newItems = checklistConfig.items.map(i => i.id === id ? { ...i, hasNotes: !i.hasNotes } : i);
-    try {
-      await patchSettings({ items: newItems });
-    } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
-  };
+  const addSec = () => patchChecklist({ ...cfg, sections: [...cfg.sections, { id: crypto.randomUUID(), title: "Nová sekcia", items: [] }] });
+  const removeSec = (sid: string) => patchChecklist({ ...cfg, sections: cfg.sections.filter(s => s.id !== sid) });
+  const moveSecUp = (idx: number) => { const secs = [...cfg.sections]; [secs[idx-1], secs[idx]] = [secs[idx], secs[idx-1]]; patchChecklist({ ...cfg, sections: secs }); };
+  const moveSecDown = (idx: number) => { const secs = [...cfg.sections]; [secs[idx], secs[idx+1]] = [secs[idx+1], secs[idx]]; patchChecklist({ ...cfg, sections: secs }); };
+  const updateSec = (sid: string, u: Partial<ClSection>) => patchChecklist({ ...cfg, sections: cfg.sections.map(s => s.id === sid ? { ...s, ...u } : s) });
+  const addItem = (sid: string, label: string) => { if (!label.trim()) return; updateSec(sid, { items: [...cfg.sections.find(s => s.id === sid)!.items, { id: crypto.randomUUID(), label: label.trim(), type: "checkbox", required: false, hasNotes: false, automationAction: "none" }] }); };
+  const removeItem = (sid: string, iid: string) => updateSec(sid, { items: cfg.sections.find(s => s.id === sid)!.items.filter(i => i.id !== iid) });
+  const updateItem = (sid: string, iid: string, u: Partial<ClItem>) => updateSec(sid, { items: cfg.sections.find(s => s.id === sid)!.items.map(i => i.id === iid ? { ...i, ...u } : i) });
+  const moveItemUp = (sid: string, idx: number) => { const items = [...cfg.sections.find(s => s.id === sid)!.items]; [items[idx-1], items[idx]] = [items[idx], items[idx-1]]; updateSec(sid, { items }); };
+  const moveItemDown = (sid: string, idx: number) => { const items = [...cfg.sections.find(s => s.id === sid)!.items]; [items[idx], items[idx+1]] = [items[idx+1], items[idx]]; updateSec(sid, { items }); };
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <ListChecks className="h-5 w-5" />
+              <ListChecks className="h-5 w-5 text-emerald-500" />
               Interný checklist
+              {cfg.enabled && totalItems > 0 && (
+                <Badge variant="secondary" className="text-[10px] ml-1">{cfg.sections.length} sekc. · {totalItems} pol.</Badge>
+              )}
             </CardTitle>
-            <CardDescription>Konfigurovateľný checklist pre agentov počas hovoru</CardDescription>
+            <CardDescription>Konfigurovateľný checklist pre agentov počas hovoru v NexusPulse</CardDescription>
           </div>
-          <Switch checked={checklistConfig.enabled} onCheckedChange={handleToggle} data-testid="toggle-internal-checklist" />
+          <div className="flex items-center gap-2">
+            {cfg.enabled && totalItems > 0 && (
+              <Button variant="outline" size="sm" className="text-xs h-7 gap-1.5" onClick={() => setShowPreview(p => !p)} data-testid="cl-toggle-preview">
+                <Eye className="h-3.5 w-3.5" />
+                {showPreview ? "Zavrieť náhľad" : "Náhľad agenta"}
+              </Button>
+            )}
+            <Switch checked={cfg.enabled} onCheckedChange={c => patchChecklist({ ...cfg, enabled: c })} data-testid="toggle-internal-checklist" />
+          </div>
         </div>
       </CardHeader>
-      {checklistConfig.enabled && (
-        <CardContent className="space-y-2.5">
-          {checklistConfig.items.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic py-2">Žiadne položky — pridajte prvú nižšie</p>
-          ) : (
-            checklistConfig.items.map((item, idx) => (
-              <div key={item.id} className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/30 group">
-                <span className="text-xs text-muted-foreground w-5 text-right shrink-0">{idx + 1}.</span>
-                <span className="flex-1 text-sm">{item.label}</span>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span>Poznámka</span>
-                  <Switch checked={item.hasNotes} onCheckedChange={() => handleToggleNotes(item.id)} className="scale-75" data-testid={`cl-item-notes-toggle-${item.id}`} />
-                </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0" onClick={() => handleRemoveItem(item.id)} data-testid={`cl-item-remove-${item.id}`}>
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))
+      {cfg.enabled && (
+        <CardContent className="space-y-3 pt-0">
+          {cfg.sections.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg">
+              <ListChecks className="h-8 w-8 mx-auto mb-2 opacity-20" />
+              <p className="text-sm">Žiadne sekcie — kliknite nižšie na "Pridať sekciu"</p>
+            </div>
           )}
-          <div className="flex gap-2 pt-1">
-            <Input
-              placeholder="Nová položka checklistu..."
-              value={newLabel}
-              onChange={e => setNewLabel(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") handleAddItem(); }}
-              className="text-sm h-9"
-              data-testid="input-new-checklist-item"
-            />
-            <Button onClick={handleAddItem} size="sm" disabled={!newLabel.trim()} className="shrink-0" data-testid="btn-add-checklist-item">
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Pridať
-            </Button>
-          </div>
+
+          {cfg.sections.map((sec, sIdx) => (
+            <div key={sec.id} className="rounded-lg border border-border bg-muted/20">
+              <div className="flex items-center gap-2 p-2.5 border-b border-border/50 bg-muted/30 rounded-t-lg">
+                <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+                <input
+                  className="flex-1 text-sm font-semibold bg-transparent border-none outline-none focus:ring-0 min-w-0 placeholder:text-muted-foreground/50"
+                  value={editSectionTitles[sec.id] ?? sec.title}
+                  onChange={e => setEditSectionTitles(p => ({ ...p, [sec.id]: e.target.value }))}
+                  onBlur={() => {
+                    const v = editSectionTitles[sec.id];
+                    if (v !== undefined && v !== sec.title) updateSec(sec.id, { title: v || "Sekcia" });
+                    setEditSectionTitles(p => { const n = { ...p }; delete n[sec.id]; return n; });
+                  }}
+                  placeholder="Nadpis skupiny..."
+                  data-testid={`cl-sec-title-${sec.id}`}
+                />
+                <span className="text-[10px] text-muted-foreground shrink-0">{sec.items.length} pol.</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={sIdx === 0} onClick={() => moveSecUp(sIdx)}><ArrowUp className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={sIdx >= cfg.sections.length - 1} onClick={() => moveSecDown(sIdx)}><ArrowDown className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 hover:text-destructive" onClick={() => removeSec(sec.id)}><X className="h-3.5 w-3.5" /></Button>
+              </div>
+
+              <div className="p-2 space-y-1.5">
+                {sec.items.map((item, iIdx) => (
+                  <div key={item.id} className="flex items-start gap-1.5 p-2 rounded-md bg-background border border-border/40 group">
+                    <GripVertical className="h-4 w-4 text-muted-foreground/20 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <input
+                        className="w-full text-sm bg-transparent border-none outline-none focus:ring-0 placeholder:text-muted-foreground/40"
+                        value={editItemLabels[item.id] ?? item.label}
+                        onChange={e => setEditItemLabels(p => ({ ...p, [item.id]: e.target.value }))}
+                        onBlur={() => {
+                          const v = editItemLabels[item.id];
+                          if (v !== undefined && v !== item.label) updateItem(sec.id, item.id, { label: v });
+                          setEditItemLabels(p => { const n = { ...p }; delete n[item.id]; return n; });
+                        }}
+                        placeholder="Text položky..."
+                        data-testid={`cl-item-label-${item.id}`}
+                      />
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <Select value={item.type} onValueChange={v => updateItem(sec.id, item.id, { type: v as ClItemType })}>
+                          <SelectTrigger className="h-6 text-[10px] w-[140px]" data-testid={`cl-item-type-${item.id}`}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="checkbox">☑ Zaškrtávacie</SelectItem>
+                            <SelectItem value="yes_no">● Áno / Nie</SelectItem>
+                            <SelectItem value="text">✎ Textová odpoveď</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={item.automationAction} onValueChange={v => updateItem(sec.id, item.id, { automationAction: v as ClAutomationAction })}>
+                          <SelectTrigger className="h-6 text-[10px] w-[170px]" data-testid={`cl-item-auto-${item.id}`}><SelectValue placeholder="Automatizácia" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Žiadna automatizácia</SelectItem>
+                            <SelectItem value="openDisposition">⚡ Otvoriť Disposíciu</SelectItem>
+                            <SelectItem value="switchEmail">⚡ Prepnúť na Email</SelectItem>
+                            <SelectItem value="switchSms">⚡ Prepnúť na SMS</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                          <Switch checked={item.required} onCheckedChange={c => updateItem(sec.id, item.id, { required: c })} className="scale-[0.6] origin-left" data-testid={`cl-item-req-${item.id}`} />
+                          <span>Povinné</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                          <Switch checked={item.hasNotes} onCheckedChange={c => updateItem(sec.id, item.id, { hasNotes: c })} className="scale-[0.6] origin-left" data-testid={`cl-item-notes-${item.id}`} />
+                          <span>Poznámka</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
+                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx === 0} onClick={() => moveItemUp(sec.id, iIdx)}><ArrowUp className="h-2.5 w-2.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx >= sec.items.length - 1} onClick={() => moveItemDown(sec.id, iIdx)}><ArrowDown className="h-2.5 w-2.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 hover:text-destructive" onClick={() => removeItem(sec.id, item.id)}><X className="h-3 w-3" /></Button>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex gap-2 pt-1 px-1">
+                  <Input
+                    placeholder="Nová položka..."
+                    value={newItemLabels[sec.id] || ""}
+                    onChange={e => setNewItemLabels(p => ({ ...p, [sec.id]: e.target.value }))}
+                    onKeyDown={e => { if (e.key === "Enter" && newItemLabels[sec.id]?.trim()) { addItem(sec.id, newItemLabels[sec.id]); setNewItemLabels(p => ({ ...p, [sec.id]: "" })); } }}
+                    className="h-7 text-xs"
+                    data-testid={`cl-new-item-${sec.id}`}
+                  />
+                  <Button size="sm" className="h-7 px-2 text-xs shrink-0" disabled={!newItemLabels[sec.id]?.trim()} onClick={() => { addItem(sec.id, newItemLabels[sec.id] || ""); setNewItemLabels(p => ({ ...p, [sec.id]: "" })); }} data-testid={`cl-add-item-${sec.id}`}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />Pridať
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 h-8" onClick={addSec} data-testid="cl-add-section">
+            <Plus className="h-3.5 w-3.5" />Pridať sekciu
+          </Button>
+
+          {showPreview && totalItems > 0 && (
+            <div className="rounded-lg border-2 border-emerald-500/30 bg-emerald-50/30 dark:bg-emerald-900/10 overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-500/20 bg-emerald-500/10">
+                <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Náhľad agenta — NexusPulse CHECKLIST záložka</span>
+              </div>
+              <div className="p-3 space-y-3 max-h-80 overflow-y-auto">
+                {cfg.sections.map(sec => (
+                  <div key={sec.id}>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{sec.title || "Sekcia"}</p>
+                    <div className="space-y-1.5">
+                      {sec.items.map(item => (
+                        <div key={item.id} className="rounded-md border border-border p-2.5 bg-background">
+                          <div className="flex items-center gap-2">
+                            {item.required && <span className="text-[10px] text-rose-500 font-bold shrink-0">*</span>}
+                            {item.type === "checkbox" && <div className="h-4 w-4 rounded border-2 border-muted-foreground/40 shrink-0" />}
+                            <span className="text-xs flex-1">{item.label || "(bez textu)"}</span>
+                            {item.type === "yes_no" && (
+                              <div className="flex gap-1 shrink-0">
+                                <span className="text-[10px] px-2 py-0.5 rounded border border-emerald-400 text-emerald-600">Áno</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded border border-rose-400 text-rose-600">Nie</span>
+                              </div>
+                            )}
+                            {item.automationAction !== "none" && <span className="text-[10px] text-amber-500 shrink-0">⚡</span>}
+                          </div>
+                          {item.type === "text" && <div className="mt-1.5 h-6 rounded bg-muted/40 border border-border/50 text-[10px] px-2 flex items-center text-muted-foreground/40">Textová odpoveď...</div>}
+                          {item.hasNotes && <div className="mt-1 h-5 rounded bg-muted/30 border border-border/40 text-[10px] px-2 flex items-center text-muted-foreground/40">Poznámka...</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       )}
     </Card>
