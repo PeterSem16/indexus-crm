@@ -269,6 +269,9 @@ type TranslationKeys = {
     noPersonnel: string;
     midwivesTab: string;
     noMidwives: string;
+    midwivesTabTop: string;
+    noMidwivesAll: string;
+    searchMidwivesPlaceholder: string;
     editHospital: string;
     editClinic: string;
     clinicDetails: string;
@@ -317,6 +320,25 @@ type TranslationKeys = {
     status: string;
     accountActive: string;
     logoutConfirm: string;
+    phoneLog: string;
+    diagnosticsTitle: string;
+    runDiag: string;
+    runningDiag: string;
+    reregisterSip: string;
+    reregistering: string;
+    exportLog: string;
+    portTestResults: string;
+    lastCallIce: string;
+    noCallYet: string;
+    iceState: string;
+    configuredIce: string;
+    sipLogLines: string;
+    scrollBottom: string;
+    clearLog: string;
+    clearLogTitle: string;
+    clearLogMsg: string;
+    cancelBtn: string;
+    noSipLog: string;
   };
   languages: {
     sk: string;
@@ -444,7 +466,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     navigation: {
       home: 'Domov',
       visits: 'Navstevy',
-      hospitals: 'Nemocnice',
+      hospitals: 'Poskytovatelia',
       map: 'Mapa',
       reports: 'Reporty',
       profile: 'Profil',
@@ -598,8 +620,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       enterCancelReason: 'Zadajte dovod...',
     },
     hospitals: {
-      title: 'Nemocnice',
-      subtitle: 'Nemocnice vo vasej krajine',
+      title: 'Poskytovatelia zdrav. starostlivosti',
+      subtitle: 'Nemocnice a ambulancie vo vasej krajine',
       addHospital: 'Pridat nemocnicu',
       noHospitals: 'Ziadne nemocnice',
       noResults: 'Ziadne vysledky',
@@ -652,6 +674,9 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       noPersonnel: 'Ziadny personal',
       midwivesTab: 'Porodne asistentky',
       noMidwives: 'Ziadne porodne asistentky',
+      midwivesTabTop: 'Babice',
+      noMidwivesAll: 'Ziadne porodne asistentky',
+      searchMidwivesPlaceholder: 'Hladat babice...',
       editHospital: 'Upravit nemocnicu',
       editClinic: 'Upravit ambulanciu',
       clinicDetails: 'Detail ambulancie',
@@ -700,6 +725,25 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       status: 'Stav',
       accountActive: 'Ucet je aktivny',
       logoutConfirm: 'Naozaj sa chcete odhlasit?',
+      phoneLog: 'Telefonny log',
+      diagnosticsTitle: 'Diagnostika',
+      runDiag: 'Spustit diagnostiku',
+      runningDiag: 'Prebieha test...',
+      reregisterSip: 'Re-registrovat SIP',
+      reregistering: 'Registrujem...',
+      exportLog: 'Exportovat / poslat emailom',
+      portTestResults: 'VYSLEDKY TESTU PORTOV',
+      lastCallIce: 'POSLEDNY HOVOR — ICE',
+      noCallYet: 'Zatial nebol uskutocneny hovor — zavolaj a vysledky sa tu zobrazia',
+      iceState: 'ICE STAV SPOJENIA',
+      configuredIce: 'NAKONFIGUROVANE ICE SERVERY',
+      sipLogLines: 'riadkov',
+      scrollBottom: 'Koniec',
+      clearLog: 'Vymazat',
+      clearLogTitle: 'Vymazat log',
+      clearLogMsg: 'Vymazat vsetky zaznamy a ICE statistiky?',
+      cancelBtn: 'Zrusit',
+      noSipLog: 'Ziadne zaznamy.',
     },
     languages: {
       sk: 'Slovencina',
@@ -825,7 +869,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     navigation: {
       home: 'Domu',
       visits: 'Navstevy',
-      hospitals: 'Nemocnice',
+      hospitals: 'Poskytovatele',
       map: 'Mapa',
       reports: 'Reporty',
       profile: 'Profil',
@@ -980,7 +1024,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     },
     hospitals: {
       title: 'Nemocnice',
-      subtitle: 'Nemocnice ve vasi zemi',
+      subtitle: 'Nemocnice a ambulance ve vasi zemi',
       addHospital: 'Pridat nemocnici',
       noHospitals: 'Zadne nemocnice',
       noResults: 'Zadne vysledky',
@@ -1033,6 +1077,9 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       noPersonnel: 'Zadny personal',
       midwivesTab: 'Porodní asistentky',
       noMidwives: 'Zadné porodní asistentky',
+      midwivesTabTop: 'Porodní asistentky',
+      noMidwivesAll: 'Zadné porodní asistentky',
+      searchMidwivesPlaceholder: 'Hledat porodní asistentky...',
       editHospital: 'Upravit nemocnici',
       editClinic: 'Upravit ambulanci',
       clinicDetails: 'Detail ambulance',
@@ -1081,6 +1128,25 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       status: 'Stav',
       accountActive: 'Ucet je aktivni',
       logoutConfirm: 'Opravdu se chcete odhlasit?',
+      phoneLog: 'Telefonni log',
+      diagnosticsTitle: 'Diagnostika',
+      runDiag: 'Spustit diagnostiku',
+      runningDiag: 'Test probiha...',
+      reregisterSip: 'Znovu registrovat SIP',
+      reregistering: 'Registruji...',
+      exportLog: 'Exportovat / odeslat emailem',
+      portTestResults: 'VYSLEDKY TESTU PORTU',
+      lastCallIce: 'POSLEDNI HOVOR — ICE',
+      noCallYet: 'Zatim nebyl uskutecnen hovor — zavolejte a vysledky se zobrazi',
+      iceState: 'ICE STAV SPOJENI',
+      configuredIce: 'NAKONFIGUROVANE ICE SERVERY',
+      sipLogLines: 'radku',
+      scrollBottom: 'Konec',
+      clearLog: 'Vymazat',
+      clearLogTitle: 'Vymazat log',
+      clearLogMsg: 'Vymazat vsechny zaznamy a ICE statistiky?',
+      cancelBtn: 'Zrusit',
+      noSipLog: 'Zadne zaznamy.',
     },
     languages: {
       sk: 'Slovencina',
@@ -1206,7 +1272,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     navigation: {
       home: 'Kezdolap',
       visits: 'Latogatasok',
-      hospitals: 'Korhazak',
+      hospitals: 'Egeszsegugyi',
       map: 'Terkep',
       reports: 'Jelentes',
       profile: 'Profil',
@@ -1361,7 +1427,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     },
     hospitals: {
       title: 'Korhazak',
-      subtitle: 'Korhazak az on orszagaban',
+      subtitle: 'Korhazak es rendelok az on orszagaban',
       addHospital: 'Korhaz hozzaadasa',
       noHospitals: 'Nincs korhaz',
       noResults: 'Nincs talalat',
@@ -1414,6 +1480,9 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       noPersonnel: 'Nincs szemelyzet',
       midwivesTab: 'Szulesznok',
       noMidwives: 'Nincs szulesz',
+      midwivesTabTop: 'Szulesznok',
+      noMidwivesAll: 'Nincs szulesz',
+      searchMidwivesPlaceholder: 'Szulesznok keresese...',
       editHospital: 'Korhaz szerkesztese',
       editClinic: 'Klinika szerkesztese',
       clinicDetails: 'Rendelo reszletei',
@@ -1462,6 +1531,25 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       status: 'Allapot',
       accountActive: 'Fiok aktiv',
       logoutConfirm: 'Biztosan ki szeretne jelentkezni?',
+      phoneLog: 'Telefon naplo',
+      diagnosticsTitle: 'Diagnosztika',
+      runDiag: 'Diagnosztika inditasa',
+      runningDiag: 'Teszt folyamatban...',
+      reregisterSip: 'SIP ujraregisztracio',
+      reregistering: 'Regisztralok...',
+      exportLog: 'Exportalas / email kuldese',
+      portTestResults: 'PORT TESZT EREDMENYEK',
+      lastCallIce: 'UTOLSO HIVAS — ICE',
+      noCallYet: 'Meg nem volt hivas — hivjon es az eredmenyek itt jelennek meg',
+      iceState: 'ICE KAPCSOLAT ALLAPOTA',
+      configuredIce: 'KONFIGURALT ICE SZERVEREK',
+      sipLogLines: 'sor',
+      scrollBottom: 'Vege',
+      clearLog: 'Torles',
+      clearLogTitle: 'Log torles',
+      clearLogMsg: 'Torli az osszes bejegyzest es ICE statistikat?',
+      cancelBtn: 'Megse',
+      noSipLog: 'Nincsenek bejegyzesek.',
     },
     languages: {
       sk: 'Szlovak',
@@ -1587,7 +1675,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     navigation: {
       home: 'Startseite',
       visits: 'Besuche',
-      hospitals: 'Krankenhauser',
+      hospitals: 'Gesundheit',
       map: 'Karte',
       reports: 'Berichte',
       profile: 'Profil',
@@ -1742,7 +1830,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     },
     hospitals: {
       title: 'Krankenhauser',
-      subtitle: 'Krankenhauser in Ihrem Land',
+      subtitle: 'Krankenhauser und Praxen in Ihrem Land',
       addHospital: 'Krankenhaus hinzufugen',
       noHospitals: 'Keine Krankenhauser',
       noResults: 'Keine Ergebnisse',
@@ -1795,6 +1883,9 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       noPersonnel: 'Kein Personal',
       midwivesTab: 'Hebammen',
       noMidwives: 'Keine Hebammen',
+      midwivesTabTop: 'Hebammen',
+      noMidwivesAll: 'Keine Hebammen',
+      searchMidwivesPlaceholder: 'Hebammen suchen...',
       editHospital: 'Krankenhaus bearbeiten',
       editClinic: 'Ambulanz bearbeiten',
       clinicDetails: 'Ambulanzdetails',
@@ -1843,6 +1934,25 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       status: 'Status',
       accountActive: 'Konto ist aktiv',
       logoutConfirm: 'Mochten Sie sich wirklich abmelden?',
+      phoneLog: 'Telefonprotokoll',
+      diagnosticsTitle: 'Diagnose',
+      runDiag: 'Diagnose starten',
+      runningDiag: 'Test lauft...',
+      reregisterSip: 'SIP neu registrieren',
+      reregistering: 'Registriere...',
+      exportLog: 'Exportieren / per E-Mail senden',
+      portTestResults: 'PORT-TESTERGEBNISSE',
+      lastCallIce: 'LETZTER ANRUF — ICE',
+      noCallYet: 'Noch kein Anruf — rufen Sie an und die Ergebnisse erscheinen hier',
+      iceState: 'ICE-VERBINDUNGSSTATUS',
+      configuredIce: 'KONFIGURIERTE ICE-SERVER',
+      sipLogLines: 'Zeilen',
+      scrollBottom: 'Ende',
+      clearLog: 'Loschen',
+      clearLogTitle: 'Protokoll loschen',
+      clearLogMsg: 'Alle Eintrage und ICE-Statistiken loschen?',
+      cancelBtn: 'Abbrechen',
+      noSipLog: 'Keine Eintrage.',
     },
     languages: {
       sk: 'Slowakisch',
@@ -1968,7 +2078,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     navigation: {
       home: 'Home',
       visits: 'Visite',
-      hospitals: 'Ospedali',
+      hospitals: 'Sanitari',
       map: 'Mappa',
       reports: 'Report',
       profile: 'Profilo',
@@ -2123,7 +2233,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     },
     hospitals: {
       title: 'Ospedali',
-      subtitle: 'Ospedali nel tuo paese',
+      subtitle: 'Ospedali e cliniche nel tuo paese',
       addHospital: 'Aggiungi ospedale',
       noHospitals: 'Nessun ospedale',
       noResults: 'Nessun risultato',
@@ -2176,6 +2286,9 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       noPersonnel: 'Nessun personale',
       midwivesTab: 'Ostetriche',
       noMidwives: 'Nessuna ostetrica',
+      midwivesTabTop: 'Ostetriche',
+      noMidwivesAll: 'Nessuna ostetrica',
+      searchMidwivesPlaceholder: 'Cerca ostetriche...',
       editHospital: 'Modifica ospedale',
       editClinic: 'Modifica clinica',
       clinicDetails: 'Dettagli clinica',
@@ -2224,6 +2337,25 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       status: 'Stato',
       accountActive: 'Account attivo',
       logoutConfirm: 'Sei sicuro di voler uscire?',
+      phoneLog: 'Log telefono',
+      diagnosticsTitle: 'Diagnostica',
+      runDiag: 'Avvia diagnostica',
+      runningDiag: 'Test in corso...',
+      reregisterSip: 'Re-registra SIP',
+      reregistering: 'Registrazione...',
+      exportLog: 'Esporta / invia via email',
+      portTestResults: 'RISULTATI TEST PORTE',
+      lastCallIce: 'ULTIMA CHIAMATA — ICE',
+      noCallYet: 'Nessuna chiamata ancora — chiama e i risultati appariranno qui',
+      iceState: 'STATO CONNESSIONE ICE',
+      configuredIce: 'SERVER ICE CONFIGURATI',
+      sipLogLines: 'righe',
+      scrollBottom: 'Fine',
+      clearLog: 'Cancella',
+      clearLogTitle: 'Cancella log',
+      clearLogMsg: 'Cancellare tutti i record e le statistiche ICE?',
+      cancelBtn: 'Annulla',
+      noSipLog: 'Nessun record.',
     },
     languages: {
       sk: 'Slovacco',
@@ -2349,7 +2481,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     navigation: {
       home: 'Acasa',
       visits: 'Vizite',
-      hospitals: 'Spitale',
+      hospitals: 'Sanatate',
       map: 'Harta',
       reports: 'Rapoarte',
       profile: 'Profil',
@@ -2504,7 +2636,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     },
     hospitals: {
       title: 'Spitale',
-      subtitle: 'Spitale din tara dvs',
+      subtitle: 'Spitale si cabinete din tara dvs',
       addHospital: 'Adauga spital',
       noHospitals: 'Niciun spital',
       noResults: 'Niciun rezultat',
@@ -2557,6 +2689,9 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       noPersonnel: 'Niciun personal',
       midwivesTab: 'Moase',
       noMidwives: 'Nicio moasa',
+      midwivesTabTop: 'Moase',
+      noMidwivesAll: 'Nicio moasa',
+      searchMidwivesPlaceholder: 'Cauta moase...',
       editHospital: 'Editare spital',
       editClinic: 'Editare cabinet',
       clinicDetails: 'Detalii cabinet',
@@ -2605,6 +2740,25 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       status: 'Stare',
       accountActive: 'Contul este activ',
       logoutConfirm: 'Sigur doriti sa va deconectati?',
+      phoneLog: 'Jurnal telefon',
+      diagnosticsTitle: 'Diagnosticare',
+      runDiag: 'Porneste diagnosticare',
+      runningDiag: 'Test in curs...',
+      reregisterSip: 'Re-inregistrare SIP',
+      reregistering: 'Inregistrare...',
+      exportLog: 'Exporta / trimite email',
+      portTestResults: 'REZULTATE TEST PORTURI',
+      lastCallIce: 'ULTIMUL APEL — ICE',
+      noCallYet: 'Niciun apel inca — sunati si rezultatele vor aparea aici',
+      iceState: 'STARE CONEXIUNE ICE',
+      configuredIce: 'SERVERE ICE CONFIGURATE',
+      sipLogLines: 'linii',
+      scrollBottom: 'Sfarsit',
+      clearLog: 'Sterge',
+      clearLogTitle: 'Sterge jurnal',
+      clearLogMsg: 'Sterge toate inregistrarile si statisticile ICE?',
+      cancelBtn: 'Anulare',
+      noSipLog: 'Nicio inregistrare.',
     },
     languages: {
       sk: 'Slovaca',
@@ -2730,7 +2884,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     navigation: {
       home: 'Home',
       visits: 'Visits',
-      hospitals: 'Hospitals',
+      hospitals: 'Healthcare',
       map: 'Map',
       reports: 'Reports',
       profile: 'Profile',
@@ -2885,7 +3039,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
     },
     hospitals: {
       title: 'Hospitals',
-      subtitle: 'Hospitals in your country',
+      subtitle: 'Hospitals and clinics in your country',
       addHospital: 'Add Hospital',
       noHospitals: 'No hospitals',
       noResults: 'No results',
@@ -2938,6 +3092,9 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       noPersonnel: 'No personnel',
       midwivesTab: 'Midwives',
       noMidwives: 'No midwives',
+      midwivesTabTop: 'Midwives',
+      noMidwivesAll: 'No midwives found',
+      searchMidwivesPlaceholder: 'Search midwives...',
       editHospital: 'Edit Hospital',
       editClinic: 'Edit Clinic',
       clinicDetails: 'Clinic Details',
@@ -2986,6 +3143,25 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       status: 'Status',
       accountActive: 'Account is active',
       logoutConfirm: 'Are you sure you want to logout?',
+      phoneLog: 'Phone Log',
+      diagnosticsTitle: 'Diagnostics',
+      runDiag: 'Run diagnostics',
+      runningDiag: 'Running test...',
+      reregisterSip: 'Re-register SIP',
+      reregistering: 'Registering...',
+      exportLog: 'Export / send by email',
+      portTestResults: 'PORT TEST RESULTS',
+      lastCallIce: 'LAST CALL — ICE',
+      noCallYet: 'No call yet — make a call and results will appear here',
+      iceState: 'ICE CONNECTION STATE',
+      configuredIce: 'CONFIGURED ICE SERVERS',
+      sipLogLines: 'lines',
+      scrollBottom: 'Bottom',
+      clearLog: 'Clear',
+      clearLogTitle: 'Clear log',
+      clearLogMsg: 'Clear all records and ICE statistics?',
+      cancelBtn: 'Cancel',
+      noSipLog: 'No records.',
     },
     languages: {
       sk: 'Slovak',

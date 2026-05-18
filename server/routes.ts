@@ -17981,6 +17981,48 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Midwives – list for current user's country
+  app.get("/api/mobile/midwives", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
+      const countryCode = (tokenData as any).countryCode || (tokenData as any).country_code || null;
+      let rows: any[] = [];
+      try {
+        const result = await db.execute(sql`
+          SELECT id, first_name, last_name, email, phone, position,
+                 collaborator_type, hospital_id, hospital_ids, country_code
+          FROM collaborators
+          WHERE (collaborator_type ILIKE '%midwif%' OR collaborator_type ILIKE '%babic%'
+                 OR collaborator_type ILIKE '%porodn%' OR collaborator_type ILIKE '%szulész%'
+                 OR collaborator_type ILIKE '%hebamm%' OR collaborator_type ILIKE '%ostetric%'
+                 OR collaborator_type ILIKE '%moaș%' OR collaborator_type ILIKE '%moasa%')
+          ${countryCode ? sql`AND (country_code = ${countryCode} OR country_code IS NULL)` : sql``}
+          ORDER BY last_name, first_name
+        `);
+        rows = result.rows || [];
+      } catch (e: any) {
+        console.error("Mobile midwives query error:", e.message);
+      }
+      res.json(rows.map((r: any) => ({
+        id: r.id,
+        firstName: r.first_name,
+        lastName: r.last_name,
+        fullName: [r.first_name, r.last_name].filter(Boolean).join(' '),
+        email: r.email,
+        phone: r.phone,
+        position: r.position,
+        collaboratorType: r.collaborator_type,
+        hospitalId: r.hospital_id,
+        hospitalIds: r.hospital_ids,
+        countryCode: r.country_code,
+      })));
+    } catch (error) {
+      console.error("Mobile midwives error:", error);
+      res.status(500).json({ error: "Failed to fetch midwives" });
+    }
+  });
+
   app.get("/api/mobile/clinics/:id", async (req, res) => {
     try {
       const tokenData = await getMobileCollaboratorFromToken(req);
@@ -18070,6 +18112,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!["hospital", "clinic"].includes(entityType)) {
         return res.status(400).json({ error: "Invalid entity type" });
       }
+      const entityIdNum = parseInt(entityId, 10);
+      if (isNaN(entityIdNum)) return res.status(400).json({ error: "Invalid entity id" });
 
       // 1. Assigned via contact_assignments (with optional partner_categories join)
       let assignedRows: any[] = [];
@@ -18085,7 +18129,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           FROM contact_assignments ca
           JOIN collaborators c ON c.id = ca.person_id
           LEFT JOIN partner_categories pc ON pc.id = ca.category_id
-          WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+          WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${String(entityIdNum)}
           ORDER BY ca.is_primary DESC, c.last_name, c.first_name
         `);
         assignedRows = result.rows || [];
@@ -18117,10 +18161,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               false as is_primary, null::text as category_name,
               null::text as role, null::text as position, null::text as assignment_id
             FROM collaborators c
-            WHERE (c.hospital_id = ${entityId} OR ${entityId} = ANY(c.hospital_ids))
+            WHERE (c.hospital_id = ${entityIdNum} OR ${entityIdNum} = ANY(c.hospital_ids))
               AND c.id NOT IN (
                 SELECT ca2.person_id FROM contact_assignments ca2
-                WHERE ca2.entity_type = 'hospital' AND ca2.entity_id = ${entityId}
+                WHERE ca2.entity_type = 'hospital' AND ca2.entity_id = ${String(entityIdNum)}
               )
             ORDER BY c.last_name, c.first_name
           `);

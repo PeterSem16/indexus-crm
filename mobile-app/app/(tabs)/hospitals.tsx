@@ -9,12 +9,14 @@ import { useHospitals, Hospital } from '@/hooks/useHospitals';
 import { useClinics, Clinic } from '@/hooks/useClinics';
 import { useSipStore } from '@/stores/sipStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 
-type ViewTab = 'hospitals' | 'clinics';
+type ViewTab = 'hospitals' | 'clinics' | 'midwives';
 
 interface ListItem {
   id: string;
-  type: 'hospital' | 'clinic';
+  type: 'hospital' | 'clinic' | 'midwife';
   name: string;
   fullName?: string;
   doctorName?: string;
@@ -26,6 +28,19 @@ interface ListItem {
   postalCode?: string;
   latitude?: string;
   longitude?: string;
+  position?: string;
+  collaboratorType?: string;
+}
+
+interface Midwife {
+  id: number;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  collaboratorType?: string;
 }
 
 function FieldRow({ label, value, color }: { label: string; value?: string | null; color?: string }) {
@@ -38,6 +53,13 @@ function FieldRow({ label, value, color }: { label: string; value?: string | nul
   );
 }
 
+function useMidwives() {
+  return useQuery<Midwife[]>({
+    queryKey: ['midwives'],
+    queryFn: () => api.get<Midwife[]>('/api/mobile/midwives'),
+  });
+}
+
 export default function HospitalsScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,15 +67,17 @@ export default function HospitalsScreen() {
   const { translations } = useTranslation();
   const { data: hospitals = [], isLoading: hospitalsLoading, error: hospitalsError, refetch: refetchHospitals } = useHospitals();
   const { data: clinics = [], isLoading: clinicsLoading, error: clinicsError, refetch: refetchClinics } = useClinics();
+  const { data: midwives = [], isLoading: midwivesLoading, error: midwivesError, refetch: refetchMidwives } = useMidwives();
   const [refreshing, setRefreshing] = useState(false);
   const { registrationState, makeCall } = useSipStore();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (activeTab === 'hospitals') await refetchHospitals();
-    else await refetchClinics();
+    else if (activeTab === 'clinics') await refetchClinics();
+    else await refetchMidwives();
     setRefreshing(false);
-  }, [refetchHospitals, refetchClinics, activeTab]);
+  }, [refetchHospitals, refetchClinics, refetchMidwives, activeTab]);
 
   const openMap = (item: ListItem) => {
     if (item.latitude && item.longitude) {
@@ -113,9 +137,19 @@ export default function HospitalsScreen() {
     longitude: c.longitude ?? undefined,
   })), [clinics]);
 
-  const currentItems = activeTab === 'hospitals' ? hospitalItems : clinicItems;
-  const isLoading = activeTab === 'hospitals' ? hospitalsLoading : clinicsLoading;
-  const error = activeTab === 'hospitals' ? hospitalsError : clinicsError;
+  const midwifeItems: ListItem[] = useMemo(() => midwives.map((m: Midwife) => ({
+    id: String(m.id),
+    type: 'midwife' as const,
+    name: m.fullName || [m.firstName, m.lastName].filter(Boolean).join(' ') || `#${m.id}`,
+    phone: m.phone,
+    email: m.email,
+    position: m.position,
+    collaboratorType: m.collaboratorType,
+  })), [midwives]);
+
+  const currentItems = activeTab === 'hospitals' ? hospitalItems : activeTab === 'clinics' ? clinicItems : midwifeItems;
+  const isLoading = activeTab === 'hospitals' ? hospitalsLoading : activeTab === 'clinics' ? clinicsLoading : midwivesLoading;
+  const error = activeTab === 'hospitals' ? hospitalsError : activeTab === 'clinics' ? clinicsError : midwivesError;
 
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return currentItems;
@@ -126,34 +160,39 @@ export default function HospitalsScreen() {
       (item.contactPerson?.toLowerCase() || '').includes(q) ||
       (item.city?.toLowerCase() || '').includes(q) ||
       (item.phone?.toLowerCase() || '').includes(q) ||
-      (item.email?.toLowerCase() || '').includes(q)
+      (item.email?.toLowerCase() || '').includes(q) ||
+      (item.position?.toLowerCase() || '').includes(q)
     );
   }, [currentItems, searchQuery]);
 
-  const navigateToDetail = (itemId: string) => {
-    if (activeTab === 'hospitals') router.push(`/hospital/${itemId}`);
-    else router.push(`/clinic/${itemId}`);
+  const navigateToDetail = (item: ListItem) => {
+    if (activeTab === 'hospitals') router.push(`/hospital/${item.id}`);
+    else if (activeTab === 'clinics') router.push(`/clinic/${item.id}`);
   };
 
+  const isMidwiveTab = activeTab === 'midwives';
   const isClinic = activeTab === 'clinics';
-  const accentColor = isClinic ? '#10b981' : Colors.primary;
+  const accentColor = isMidwiveTab ? '#8b5cf6' : isClinic ? '#10b981' : Colors.primary;
+
+  const getSearchPlaceholder = () => {
+    if (activeTab === 'midwives') return translations.hospitals.searchMidwivesPlaceholder || 'Hľadať pôrodnú asistentku...';
+    if (activeTab === 'clinics') return translations.hospitals.searchClinicsPlaceholder || 'Hľadať ambulanciu...';
+    return translations.hospitals.searchPlaceholder;
+  };
 
   const renderItem = ({ item }: { item: ListItem }) => {
     const addressParts = [item.streetNumber, item.postalCode ? `${item.postalCode} ${item.city || ''}`.trim() : item.city].filter(Boolean);
     const address = addressParts.join(', ');
+    const isTappable = item.type !== 'midwife';
 
-    return (
-      <TouchableOpacity
-        onPress={() => navigateToDetail(item.id)}
-        activeOpacity={0.7}
-        testID={`${item.type}-card-${item.id}`}
-        style={styles.card}
-      >
-        {/* Header row */}
+    const cardContent = (
+      <>
         <View style={styles.cardHeader}>
-          <View style={[styles.cardIconBadge, { backgroundColor: isClinic ? 'rgba(16,185,129,0.1)' : `${Colors.primary}12` }]}>
+          <View style={[styles.cardIconBadge, {
+            backgroundColor: isMidwiveTab ? 'rgba(139,92,246,0.1)' : isClinic ? 'rgba(16,185,129,0.1)' : `${Colors.primary}12`
+          }]}>
             <Ionicons
-              name={isClinic ? 'medkit' : 'business'}
+              name={isMidwiveTab ? 'person' : isClinic ? 'medkit' : 'business'}
               size={18}
               color={accentColor}
             />
@@ -163,14 +202,15 @@ export default function HospitalsScreen() {
             {item.fullName && item.fullName !== item.name && (
               <Text style={styles.cardFullName} numberOfLines={1}>{item.fullName}</Text>
             )}
+            {item.position && (
+              <Text style={styles.cardFullName} numberOfLines={1}>{item.position}</Text>
+            )}
           </View>
-          <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+          {isTappable && <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />}
         </View>
 
-        {/* Separator */}
         <View style={styles.cardDivider} />
 
-        {/* Labeled fields */}
         <View style={styles.cardFields}>
           {isClinic && item.doctorName ? (
             <FieldRow label={translations.hospitals.doctorLabel.toUpperCase()} value={item.doctorName} />
@@ -182,7 +222,6 @@ export default function HospitalsScreen() {
           {address ? <FieldRow label={translations.hospitals.address.toUpperCase()} value={address} /> : null}
         </View>
 
-        {/* Action buttons */}
         {(item.phone || item.city || item.streetNumber) && (
           <View style={styles.cardActions}>
             {item.phone && (
@@ -195,7 +234,7 @@ export default function HospitalsScreen() {
                 <Text style={[styles.cardActionText, { color: accentColor }]}>{translations.hospitals.callAction}</Text>
               </TouchableOpacity>
             )}
-            {(item.city || item.streetNumber) && (
+            {isTappable && (item.city || item.streetNumber) && (
               <TouchableOpacity
                 style={[styles.cardActionBtn, { borderColor: '#94A3B8' }]}
                 onPress={(e) => { e.stopPropagation(); openMap(item); }}
@@ -207,6 +246,21 @@ export default function HospitalsScreen() {
             )}
           </View>
         )}
+      </>
+    );
+
+    if (!isTappable) {
+      return <View style={styles.card} testID={`midwife-card-${item.id}`}>{cardContent}</View>;
+    }
+
+    return (
+      <TouchableOpacity
+        onPress={() => navigateToDetail(item)}
+        activeOpacity={0.7}
+        testID={`${item.type}-card-${item.id}`}
+        style={styles.card}
+      >
+        {cardContent}
       </TouchableOpacity>
     );
   };
@@ -252,14 +306,29 @@ export default function HospitalsScreen() {
             </Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'midwives' && styles.tabActiveMidwife]}
+          onPress={() => { setActiveTab('midwives'); setSearchQuery(''); }}
+          activeOpacity={0.7}
+          testID="tab-midwives"
+        >
+          <Ionicons name="person" size={16} color={activeTab === 'midwives' ? '#8b5cf6' : Colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'midwives' && styles.tabTextMidwife]}>
+            {translations.hospitals.midwivesTabTop || 'Midwives'}
+          </Text>
+          <View style={[styles.tabBadge, activeTab === 'midwives' && styles.tabBadgeMidwife]}>
+            <Text style={[styles.tabBadgeText, activeTab === 'midwives' && styles.tabBadgeTextActive]}>
+              {midwives.length}
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={18} color={Colors.textSecondary} style={styles.searchIcon} />
         <Input
-          placeholder={activeTab === 'hospitals'
-            ? (translations.hospitals.searchPlaceholder)
-            : (translations.hospitals.searchClinicsPlaceholder || 'Hľadať ambulanciu...')}
+          placeholder={getSearchPlaceholder()}
           value={searchQuery}
           onChangeText={setSearchQuery}
           style={styles.searchInput}
@@ -274,14 +343,18 @@ export default function HospitalsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={accentColor} />
           <Text style={styles.loadingText}>{translations.hospitals.loadingHospitals}</Text>
         </View>
       ) : error ? (
         <View style={styles.loadingState}>
           <Ionicons name="cloud-offline-outline" size={48} color={Colors.textSecondary} />
           <Text style={styles.loadingText}>{translations.hospitals.loadError}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => activeTab === 'hospitals' ? refetchHospitals() : refetchClinics()}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => {
+            if (activeTab === 'hospitals') refetchHospitals();
+            else if (activeTab === 'clinics') refetchClinics();
+            else refetchMidwives();
+          }}>
             <Text style={styles.retryText}>{translations.hospitals.retryText}</Text>
           </TouchableOpacity>
         </View>
@@ -297,9 +370,20 @@ export default function HospitalsScreen() {
           ) : null}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name={isClinic ? 'medkit-outline' : 'business-outline'} size={56} color={Colors.textSecondary} />
+              <Ionicons
+                name={isMidwiveTab ? 'people-outline' : isClinic ? 'medkit-outline' : 'business-outline'}
+                size={56}
+                color={Colors.textSecondary}
+              />
               <Text style={styles.emptyText}>
-                {searchQuery ? translations.hospitals.noResults : (isClinic ? translations.hospitals.noClinics : translations.hospitals.noHospitals)}
+                {searchQuery
+                  ? translations.hospitals.noResults
+                  : isMidwiveTab
+                    ? (translations.hospitals.noMidwivesAll || 'No midwives')
+                    : isClinic
+                      ? translations.hospitals.noClinics
+                      : translations.hospitals.noHospitals
+                }
               </Text>
               {searchQuery ? (
                 <TouchableOpacity style={styles.clearSearchButton} onPress={() => setSearchQuery('')}>
@@ -321,16 +405,19 @@ const styles = StyleSheet.create({
   title: { fontSize: FontSizes.xxl, fontWeight: '700', color: Colors.text },
   subtitle: { fontSize: FontSizes.sm, color: Colors.textSecondary, marginTop: 2 },
 
-  tabContainer: { flexDirection: 'row', backgroundColor: Colors.white, paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.sm },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: Spacing.sm, borderRadius: 10, backgroundColor: '#F4F6FA' },
+  tabContainer: { flexDirection: 'row', backgroundColor: Colors.white, paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, gap: 6 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 10, backgroundColor: '#F4F6FA' },
   tabActive: { backgroundColor: `${Colors.primary}15`, borderWidth: 1, borderColor: `${Colors.primary}30` },
   tabActiveClinic: { backgroundColor: 'rgba(16,185,129,0.1)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)' },
-  tabText: { fontSize: FontSizes.sm, fontWeight: '500', color: Colors.textSecondary },
+  tabActiveMidwife: { backgroundColor: 'rgba(139,92,246,0.1)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.25)' },
+  tabText: { fontSize: 11, fontWeight: '500', color: Colors.textSecondary },
   tabTextActive: { color: Colors.primary, fontWeight: '600' },
   tabTextClinic: { color: '#10b981', fontWeight: '600' },
-  tabBadge: { backgroundColor: Colors.border, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1, minWidth: 22, alignItems: 'center' },
+  tabTextMidwife: { color: '#8b5cf6', fontWeight: '600' },
+  tabBadge: { backgroundColor: Colors.border, borderRadius: 10, paddingHorizontal: 5, paddingVertical: 1, minWidth: 20, alignItems: 'center' },
   tabBadgeActive: { backgroundColor: Colors.primary },
   tabBadgeClinic: { backgroundColor: '#10b981' },
+  tabBadgeMidwife: { backgroundColor: '#8b5cf6' },
   tabBadgeText: { fontSize: 10, fontWeight: '600', color: Colors.textSecondary },
   tabBadgeTextActive: { color: Colors.white },
 
@@ -342,7 +429,6 @@ const styles = StyleSheet.create({
   listContent: { padding: Spacing.md, paddingBottom: 80 },
   countText: { fontSize: FontSizes.xs, color: Colors.textSecondary, marginBottom: Spacing.sm },
 
-  /* Card */
   card: {
     backgroundColor: Colors.white, borderRadius: 14, marginBottom: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,

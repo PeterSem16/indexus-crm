@@ -278,7 +278,7 @@ export default function ProfileScreen() {
               <Ionicons name="call" size={20} color={Colors.primary} />
             </View>
             <View style={styles.settingsContent}>
-              <Text style={styles.settingsLabel}>Phone Log</Text>
+              <Text style={styles.settingsLabel}>{translations.profile.phoneLog}</Text>
               <Text style={styles.settingsDescription}>SIP: {registrationState}</Text>
             </View>
             <View style={styles.settingsValueContainer}>
@@ -322,7 +322,7 @@ export default function ProfileScreen() {
               <View style={[styles.onlineIndicator, { backgroundColor: registrationState === 'registered' ? Colors.success : Colors.warning }]} />
               <Text style={styles.phoneLogScreenStatusText}>SIP: {registrationState}</Text>
             </View>
-            <Text style={styles.phoneLogScreenTitle}>Diagnostika</Text>
+            <Text style={styles.phoneLogScreenTitle}>{translations.profile.diagnosticsTitle}</Text>
             <View style={styles.modalHeaderActions}>
               <TouchableOpacity onPress={copyPhoneLog} style={styles.phoneLogActionBtn} testID="button-copy-phone-log">
                 <Ionicons name="copy-outline" size={20} color="#ffaa00" />
@@ -353,7 +353,7 @@ export default function ProfileScreen() {
             >
               <Ionicons name="terminal" size={14} color={logTab === 'log' ? '#ffaa00' : '#666688'} />
               <Text style={[styles.logTabText, logTab === 'log' && { color: '#ffaa00' }]}>
-                Phone Log ({debugMessages.length})
+                {translations.profile.phoneLog} ({debugMessages.length})
               </Text>
             </TouchableOpacity>
           </View>
@@ -375,7 +375,7 @@ export default function ProfileScreen() {
                     : <Ionicons name="pulse" size={16} color="#00e5ff" />
                   }
                   <Text style={styles.diagActionBtnText}>
-                    {diagRunning ? 'Prebieha test...' : 'Spustiť diagnostiku'}
+                    {diagRunning ? translations.profile.runningDiag : translations.profile.runDiag}
                   </Text>
                 </TouchableOpacity>
 
@@ -390,7 +390,7 @@ export default function ProfileScreen() {
                     : <Ionicons name="refresh" size={16} color="#44ff88" />
                   }
                   <Text style={[styles.diagActionBtnText, { color: '#44ff88' }]}>
-                    {reregistering || isConnecting ? 'Registrujem...' : 'Re-registrovať SIP'}
+                    {reregistering || isConnecting ? translations.profile.reregistering : translations.profile.reregisterSip}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -398,13 +398,13 @@ export default function ProfileScreen() {
               {/* Export button */}
               <TouchableOpacity style={styles.diagExportBtn} onPress={exportLogAsFile} testID="button-export-log">
                 <Ionicons name="mail-outline" size={15} color="#ffaa00" />
-                <Text style={styles.diagExportBtnText}>Exportovať / poslať emailom</Text>
+                <Text style={styles.diagExportBtnText}>{translations.profile.exportLog}</Text>
               </TouchableOpacity>
 
               {/* ─ Active diagnostics results ─ */}
               {diagResults && diagResults.length > 0 && (
                 <>
-                  <Text style={[styles.diagSectionTitle, { marginTop: 18 }]}>VÝSLEDKY TESTU PORTOV</Text>
+                  <Text style={[styles.diagSectionTitle, { marginTop: 18 }]}>{translations.profile.portTestResults}</Text>
                   {diagResults.map((t) => {
                     const icon: any = t.status === 'ok' ? 'checkmark-circle' : t.status === 'fail' ? 'close-circle' : t.status === 'warn' ? 'warning' : t.status === 'running' ? 'ellipsis-horizontal-circle' : 'radio-button-off';
                     const color = t.status === 'ok' ? '#44ff88' : t.status === 'fail' ? '#ff4444' : t.status === 'warn' ? '#ffaa00' : t.status === 'running' ? '#00e5ff' : '#444466';
@@ -430,9 +430,9 @@ export default function ProfileScreen() {
               )}
 
               {/* ─ Last call ICE gathering ─ */}
-              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>POSLEDNÝ HOVOR — ICE</Text>
+              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>{translations.profile.lastCallIce}</Text>
               {!iceStats.lastCallAt ? (
-                <Text style={styles.diagEmpty}>Zatiaľ nebol uskutočnený hovor — zavolaj a výsledky sa tu zobrazia</Text>
+                <Text style={styles.diagEmpty}>{translations.profile.noCallYet}</Text>
               ) : (
                 <>
                   <Text style={styles.diagTimestamp}>Čas: {iceStats.lastCallAt}</Text>
@@ -471,7 +471,7 @@ export default function ProfileScreen() {
               )}
 
               {/* ─ ICE connection state ─ */}
-              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>ICE STAV SPOJENIA</Text>
+              <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>{translations.profile.iceState}</Text>
               {(() => {
                 const st = iceStats.connectionState;
                 const color = st === 'connected' || st === 'completed' ? '#44ff88'
@@ -541,7 +541,7 @@ export default function ProfileScreen() {
               {/* ─ Configured ICE servers (reference) ─ */}
               {iceStats.configuredUrls.length > 0 && (
                 <>
-                  <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>NAKONFIGUROVANÉ ICE SERVERY</Text>
+                  <Text style={[styles.diagSectionTitle, { marginTop: 20 }]}>{translations.profile.configuredIce}</Text>
                   {iceStats.configuredUrls.map((url, i) => {
                     const isTLS443 = url.includes(':443');
                     const isTLS5350 = url.includes(':5350');
@@ -570,27 +570,27 @@ export default function ProfileScreen() {
             <View style={{ flex: 1 }}>
               {/* Toolbar */}
               <View style={styles.logToolbar}>
-                <Text style={styles.logToolbarCount}>{debugMessages.length} riadkov</Text>
+                <Text style={styles.logToolbarCount}>{debugMessages.length} {translations.profile.sipLogLines}</Text>
                 <TouchableOpacity
                   style={styles.logToolbarBtn}
                   onPress={() => phoneLogScrollRef.current?.scrollToEnd({ animated: true })}
                   testID="button-scroll-bottom"
                 >
                   <Ionicons name="arrow-down" size={14} color="#aaaacc" />
-                  <Text style={styles.logToolbarBtnText}>Koniec</Text>
+                  <Text style={styles.logToolbarBtnText}>{translations.profile.scrollBottom}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.logToolbarBtn, { borderColor: '#ff444450' }]}
                   onPress={() => {
-                    Alert.alert('Vymazať log', 'Vymazať všetky záznamy a ICE štatistiky?', [
-                      { text: 'Zrušiť', style: 'cancel' },
-                      { text: 'Vymazať', style: 'destructive', onPress: clearDebugMessages },
+                    Alert.alert(translations.profile.clearLogTitle, translations.profile.clearLogMsg, [
+                      { text: translations.profile.cancelBtn, style: 'cancel' },
+                      { text: translations.profile.clearLog, style: 'destructive', onPress: clearDebugMessages },
                     ]);
                   }}
                   testID="button-clear-log"
                 >
                   <Ionicons name="trash-outline" size={14} color="#ff6666" />
-                  <Text style={[styles.logToolbarBtnText, { color: '#ff6666' }]}>Vymazať</Text>
+                  <Text style={[styles.logToolbarBtnText, { color: '#ff6666' }]}>{translations.profile.clearLog}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -602,7 +602,7 @@ export default function ProfileScreen() {
               >
                 {debugMessages.length === 0 ? (
                   <Text style={styles.phoneLogEmpty}>
-                    {'Žiadne záznamy.\n\nSIP stav: ' + registrationState + '\n\nZaregistruj sa a skús hovor — tu sa objavia všetky udalosti.'}
+                    {translations.profile.noSipLog + '\n\nSIP: ' + registrationState}
                   </Text>
                 ) : (
                   debugMessages.map((line, i) => {
