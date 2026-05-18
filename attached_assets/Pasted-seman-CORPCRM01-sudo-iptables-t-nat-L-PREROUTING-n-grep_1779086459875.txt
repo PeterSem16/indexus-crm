@@ -1,0 +1,33 @@
+seman@CORPCRM01:~$ sudo iptables -t nat -L PREROUTING -n | grep DNAT
+sudo ufw status
+DNAT       17   --  77.72.181.116        0.0.0.0/0            udp dpts:10000:20000 to:10.1.2.112
+DNAT       17   --  77.72.181.116        0.0.0.0/0            udp dpts:10000:20000 to:10.1.2.112
+Status: active
+
+To                         Action      From
+--                         ------      ----
+80                         ALLOW       Anywhere
+443                        ALLOW       Anywhere
+22/tcp                     ALLOW       10.0.0.0/8
+19111/tcp                  ALLOW       Anywhere
+3478/tcp                   ALLOW       Anywhere                   # TURN TCP
+3478/udp                   ALLOW       Anywhere                   # TURN UDP
+5349/tcp                   ALLOW       Anywhere                   # TURN TCP via nginx stream
+5349/udp                   ALLOW       Anywhere                   # TURN TLS UDP
+49152:65535/udp            ALLOW       Anywhere                   # TURN relay ports
+443/tcp                    ALLOW       Anywhere                   # TURN TCP fallback
+443/udp                    ALLOW       Anywhere                   # TURN UDP alt
+5350/tcp                   ALLOW       Anywhere
+5350/udp                   ALLOW       Anywhere
+80 (v6)                    ALLOW       Anywhere (v6)
+443 (v6)                   ALLOW       Anywhere (v6)
+19111/tcp (v6)             ALLOW       Anywhere (v6)
+3478/tcp (v6)              ALLOW       Anywhere (v6)              # TURN TCP
+3478/udp (v6)              ALLOW       Anywhere (v6)              # TURN UDP
+5349/tcp (v6)              ALLOW       Anywhere (v6)              # TURN TCP via nginx stream
+5349/udp (v6)              ALLOW       Anywhere (v6)              # TURN TLS UDP
+49152:65535/udp (v6)       ALLOW       Anywhere (v6)              # TURN relay ports
+443/tcp (v6)               ALLOW       Anywhere (v6)              # TURN TCP fallback
+443/udp (v6)               ALLOW       Anywhere (v6)              # TURN UDP alt
+5350/tcp (v6)              ALLOW       Anywhere (v6)
+5350/udp (v6)              ALLOW       Anywhere (v6)
