@@ -2,7 +2,7 @@
   "expo": {
     "name": "INDEXUS Connect",
     "slug": "indexus-connect",
-    "version": "1.2.26",
+    "version": "1.2.27",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "indexus",
@@ -26,7 +26,7 @@
       }
     },
     "android": {
-      "versionCode": 41,
+      "versionCode": 42,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#6B1C3B"
