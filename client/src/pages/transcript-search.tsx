@@ -376,10 +376,6 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
       <div className="px-5 pt-4 pb-3 border-b bg-background shrink-0 space-y-3">
         {/* Row 1: Identity + sentiment + star */}
         <div className="flex items-start gap-3">
-          {/* Avatar */}
-          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-base shrink-0 shadow-sm ${log.direction === "inbound" ? "bg-gradient-to-br from-emerald-400 to-emerald-600" : "bg-gradient-to-br from-sky-400 to-sky-600"}`}>
-            {log.entityName ? <Tag className="h-5 w-5" /> : (log.customerName || log.phoneNumber)[0]?.toUpperCase()}
-          </div>
           <div className="flex-1 min-w-0">
             {/* Name + phone */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -553,16 +549,11 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
         )}
 
         {/* ── Checklist (shown regardless of analysis status) ── */}
-        {checklistData?.sections && checklistData.sections.length > 0 ? (
+        {checklistData?.sections && checklistData.sections.length > 0 && (
           <div className="pt-3">
             <ChecklistResponsePanel sections={checklistData.sections} ca={ca} />
           </div>
-        ) : checklistData === null && (log.campaignContactId || (log.campaignId && log.customerId)) ? (
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg border border-dashed border-border px-3 py-2">
-            <ClipboardCheck className="h-3.5 w-3.5 shrink-0 opacity-40" />
-            <span>{ca.checklistNotFilled || 'Checklist nebol vyplnený'}</span>
-          </div>
-        ) : null}
+        )}
       </div>
 
       {/* ── Tabs + content ── */}
