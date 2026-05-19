@@ -508,9 +508,11 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
         )}
       </div>
 
-        {/* ── Player strip (Variant B style) ── */}
+      {/* ── Player strip + Checklist (below header) ── */}
+      <div className="px-5 pt-3 pb-2 border-b border-border shrink-0">
+        {/* Player strip (Variant B style) */}
         {log.hasRecording ? (
-          <div className="mt-3 rounded-xl border border-border overflow-hidden" data-testid={`player-${log.id}`}>
+          <div className="rounded-xl border border-border overflow-hidden" data-testid={`player-${log.id}`}>
             <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
@@ -543,7 +545,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
 
         {/* ── SOP Checklist (shown regardless of analysis status) ── */}
         {checklistData?.sections && checklistData.sections.length > 0 && (
-          <div className="px-5 pt-3">
+          <div className="pt-3">
             <ChecklistResponsePanel sections={checklistData.sections} ca={ca} />
           </div>
         )}

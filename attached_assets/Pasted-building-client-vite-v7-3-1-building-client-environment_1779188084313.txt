@@ -1,0 +1,171 @@
+building client...
+vite v7.3.1 building client environment for production...
+transforming (1) src/main.tsxBrowserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+✓ 3685 modules transformed.
+✗ Build failed in 8.43s
+[vite:esbuild] Transform failed with 1 error:
+/var/www/indexus-crm/client/src/pages/transcript-search.tsx:552:6: ERROR: Expected ")" but found "{"
+file: /var/www/indexus-crm/client/src/pages/transcript-search.tsx:552:6
+
+Expected ")" but found "{"
+550 |        </div>
+551 |
+552 |        {/* ── Tabs + content ── */}
+    |        ^
+553 |        {rec && rec.analysisStatus === "completed" ? (
+554 |          <>
+
+    at failureErrorWithLog (/var/www/indexus-crm/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+    at /var/www/indexus-crm/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+    at responseCallbacks.<computed> (/var/www/indexus-crm/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+    at handleIncomingPacket (/var/www/indexus-crm/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+    at Socket.readFromStdout (/var/www/indexus-crm/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23) {
+  errors: [Getter/Setter],
+  warnings: [Getter/Setter],
+  frame: '\n' +
+    '\x1B[33mExpected ")" but found "{"\x1B[39m\n' +
+    '550 |        </div>\n' +
+    '551 |  \n' +
+    '552 |        {/* ── Tabs + content ── */}\n' +
+    '    |        ^\n' +
+    '553 |        {rec && rec.analysisStatus === "completed" ? (\n' +
+    '554 |          <>\n',
+  loc: {
+    column: 6,
+    file: '/var/www/indexus-crm/client/src/pages/transcript-search.tsx',
+    length: 1,
+    line: 552,
+    lineText: '      {/* ── Tabs + content ── */}',
+    namespace: '',
+    suggestion: ')'
+  },
+  code: 'PLUGIN_ERROR',
+  plugin: 'vite:esbuild',
+  hook: 'transform',
+  id: '/var/www/indexus-crm/client/src/pages/transcript-search.tsx',
+  watchFiles: [
+    '/var/www/indexus-crm/client/index.html',
+    '/var/www/indexus-crm/client/src/main.tsx',
+    '/var/www/indexus-crm/package.json',
+    '/var/www/indexus-crm/node_modules/react/jsx-runtime.js',
+    '/var/www/indexus-crm/node_modules/react-dom/client.js',
+    '/var/www/indexus-crm/client/src/App.tsx',
+    '/var/www/indexus-crm/client/src/index.css',
+    '/var/www/indexus-crm/node_modules/react-dom/index.js',
+    '/var/www/indexus-crm/node_modules/react/cjs/react-jsx-runtime.production.min.js',
+    '/var/www/indexus-crm/node_modules/react/index.js',
+    '/var/www/indexus-crm/node_modules/@tanstack/react-query/build/modern/index.js',
+    '/var/www/indexus-crm/node_modules/wouter/esm/index.js',
+    '/var/www/indexus-crm/client/src/components/ui/toaster.tsx',
+    '/var/www/indexus-crm/client/src/lib/queryClient.ts',
+    '/var/www/indexus-crm/node_modules/lucide-react/dist/esm/lucide-react.js',
+    '/var/www/indexus-crm/client/src/components/theme-provider.tsx',
+    '/var/www/indexus-crm/client/src/components/ui/tooltip.tsx',
+    '/var/www/indexus-crm/client/src/components/theme-toggle.tsx',
+    '/var/www/indexus-crm/client/src/contexts/permissions-context.tsx',
+    '/var/www/indexus-crm/client/src/components/global-search.tsx',
+    '/var/www/indexus-crm/client/src/contexts/country-filter-context.tsx',
+    '/var/www/indexus-crm/client/src/contexts/auth-context.tsx',
+    '/var/www/indexus-crm/client/src/contexts/sip-context.tsx',
+    '/var/www/indexus-crm/client/src/i18n/index.ts',
+    '/var/www/indexus-crm/client/src/components/ui/sidebar.tsx',
+    '/var/www/indexus-crm/client/src/components/app-sidebar.tsx',
+    '/var/www/indexus-crm/client/src/components/tour-provider.tsx',
+    '/var/www/indexus-crm/client/src/components/quick-create.tsx',
+    '/var/www/indexus-crm/client/src/components/email-notifications.tsx',
+    '/var/www/indexus-crm/client/src/components/sip-phone.tsx',
+    '/var/www/indexus-crm/client/src/contexts/call-context.tsx',
+    '/var/www/indexus-crm/client/src/contexts/chat-context.tsx',
+    '/var/www/indexus-crm/client/src/components/notification-center.tsx',
+    '/var/www/indexus-crm/client/src/components/chat-container.tsx',
+    '/var/www/indexus-crm/client/src/hooks/use-session-heartbeat.ts',
+    '/var/www/indexus-crm/client/src/components/nexus/nexus-button.tsx',
+    '/var/www/indexus-crm/client/src/pages/public-signing.tsx',
+    '/var/www/indexus-crm/client/src/pages/audit-timeline-public.tsx',
+    '/var/www/indexus-crm/client/src/pages/users.tsx',
+    '/var/www/indexus-crm/client/src/pages/products.tsx',
+    '/var/www/indexus-crm/client/src/pages/dashboard.tsx',
+    '/var/www/indexus-crm/client/src/pages/customers.tsx',
+    '/var/www/indexus-crm/client/src/pages/visit-events.tsx',
+    '/var/www/indexus-crm/client/src/pages/invoices.tsx',
+    '/var/www/indexus-crm/client/src/pages/collaborators.tsx',
+    '/var/www/indexus-crm/client/src/pages/collaborator-reports.tsx',
+    '/var/www/indexus-crm/client/src/pages/settings.tsx',
+    '/var/www/indexus-crm/client/src/pages/campaigns.tsx',
+    '/var/www/indexus-crm/client/src/pages/hospitals.tsx',
+    '/var/www/indexus-crm/client/src/pages/template-editor.tsx',
+    '/var/www/indexus-crm/client/src/pages/contract-detail.tsx',
+    '/var/www/indexus-crm/client/src/pages/contracts.tsx',
+    '/var/www/indexus-crm/client/src/pages/campaign-detail.tsx',
+    '/var/www/indexus-crm/client/src/pages/ms365-integration.tsx',
+    '/var/www/indexus-crm/client/src/pages/pipeline.tsx',
+    '/var/www/indexus-crm/client/src/pages/landing.tsx',
+    '/var/www/indexus-crm/client/src/pages/mobile-preview.tsx',
+    '/var/www/indexus-crm/client/src/pages/email-client.tsx',
+    '/var/www/indexus-crm/client/src/pages/campaign-reports.tsx',
+    '/var/www/indexus-crm/client/src/pages/customer-invoices.tsx',
+    '/var/www/indexus-crm/client/src/pages/medical-partner-network.tsx',
+    '/var/www/indexus-crm/client/src/pages/collections.tsx',
+    '/var/www/indexus-crm/client/src/pages/reports.tsx',
+    '/var/www/indexus-crm/client/src/pages/status-management.tsx',
+    '/var/www/indexus-crm/client/src/pages/scraping.tsx',
+    '/var/www/indexus-crm/client/src/pages/training-room.tsx',
+    '/var/www/indexus-crm/client/src/pages/automations.tsx',
+    '/var/www/indexus-crm/client/src/pages/public-form.tsx',
+    '/var/www/indexus-crm/client/src/pages/not-found.tsx',
+    '/var/www/indexus-crm/client/src/pages/sop-management.tsx',
+    '/var/www/indexus-crm/client/src/pages/tasks.tsx',
+    '/var/www/indexus-crm/client/src/contexts/agent-session-context.tsx',
+    '/var/www/indexus-crm/node_modules/react-dom/cjs/react-dom.production.min.js',
+    '/var/www/indexus-crm/client/src/pages/agent-workspace.tsx',
+    '/var/www/indexus-crm/client/src/pages/configurator.tsx',
+    '/var/www/indexus-crm/client/src/components/nexus/nexus-types.ts',
+    '/var/www/indexus-crm/client/src/hooks/use-heartbeat-sound.ts',
+    '/var/www/indexus-crm/client/src/hooks/use-notifications.ts',
+    '/var/www/indexus-crm/client/src/hooks/use-toast.ts',
+    '/var/www/indexus-crm/client/src/i18n/translations.ts',
+    '/var/www/indexus-crm/client/src/lib/chart-colors.ts',
+    '/var/www/indexus-crm/client/src/lib/countries.ts',
+    '/var/www/indexus-crm/client/src/lib/document-status.ts',
+    '/var/www/indexus-crm/client/src/lib/inbound-ringtones.ts',
+    '/var/www/indexus-crm/client/src/lib/regions.ts',
+    '/var/www/indexus-crm/client/src/lib/sip-hold.ts',
+    '/var/www/indexus-crm/client/src/lib/utils.ts',
+    '/var/www/indexus-crm/client/src/components/advanced-filters.tsx',
+    '/var/www/indexus-crm/client/src/components/agent/InboundCallPopup.tsx',
+    '/var/www/indexus-crm/client/src/components/agent/SopPanel.tsx',
+    '/var/www/indexus-crm/client/src/components/agent/VoicemailNotifications.tsx',
+    '/var/www/indexus-crm/client/src/components/bulk-geo-mapping.tsx',
+    '/var/www/indexus-crm/client/src/components/call-bar.tsx',
+    '/var/www/indexus-crm/client/src/components/call-recording-player.tsx',
+    '/var/www/indexus-crm/client/src/components/campaign-contacts-filter.tsx',
+    '/var/www/indexus-crm/client/src/components/campaigns/BreakTypesTab.tsx',
+    '/var/www/indexus-crm/client/src/components/campaigns/CampaignPhasesTab.tsx',
+    '/var/www/indexus-crm/client/src/components/campaigns/CampaignReportingPhases.tsx',
+    '/var/www/indexus-crm/client/src/components/campaigns/DidRoutesTab.tsx',
+    '/var/www/indexus-crm/client/src/components/campaigns/EntityCampaignTimeline.tsx',
+    ... 3697 more items
+  ]
+}
+
+> rest-express@1.0.0 db:push
+> drizzle-kit push
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/var/www/indexus-crm/drizzle.config.ts'
+Using 'pg' driver for database querying
+[✓] Pulling schema from database...
+[✓] Changes applied
+Use --update-env to update environment variables
+[PM2] Applying action reloadProcessId on app [indexus-crm](ids: [ 4 ])
+[PM2] [indexus-crm](4) ✓
+seman@CORPCRM01:/var/www/indexus-crm$
