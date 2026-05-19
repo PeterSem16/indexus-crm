@@ -399,7 +399,8 @@ function WaveformSeekBar({
   );
 }
 
-export function CallRecordingPlayer({ callLogId, compact = false, onTimeUpdate, agentLabel: agLbl, customerLabel: csLbl }: CallRecordingPlayerProps) {
+export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
+  const { callLogId, compact = false, onTimeUpdate } = props;
   const { data: recordings = [], isLoading } = useQuery<CallRecording[]>({
     queryKey: ["/api/call-recordings", { callLogId: String(callLogId) }],
     queryFn: async () => {
@@ -413,16 +414,18 @@ export function CallRecordingPlayer({ callLogId, compact = false, onTimeUpdate, 
   if (isLoading) return null;
   if (!recordings.length) return null;
 
+  const waveNames: string[] = [props.agentLabel ?? "", props.customerLabel ?? ""];
+
   return (
     <div className="space-y-1.5 mt-2">
       {recordings.map((rec) => (
-        <RecordingItem key={rec.id} recording={rec} compact={compact} onTimeUpdate={onTimeUpdate} />
+        <RecordingItem key={rec.id} recording={rec} compact={compact} onTimeUpdate={onTimeUpdate} waveNames={waveNames} />
       ))}
     </div>
   );
 }
 
-function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRecording; compact: boolean; onTimeUpdate?: (state: PlaybackState) => void }) {
+function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { recording: CallRecording; compact: boolean; onTimeUpdate?: (state: PlaybackState) => void; waveNames?: string[] }) {
   const { user } = useAuth();
   const canReanalyze = user && ["admin", "manager"].includes(user.role);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -573,7 +576,7 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
             currentTime={currentTime}
             duration={duration}
             onSeek={handleWaveformSeek}
-            trackNames={[agLbl || (recording as any).agentName || "", csLbl || ""]}
+            trackNames={[waveNames?.[0] || (recording as any).agentName || "", waveNames?.[1] || ""]}
           />
         </div>
 
