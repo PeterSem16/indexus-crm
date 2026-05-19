@@ -459,16 +459,6 @@ export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
     enabled: !!callLogId,
   });
 
-  const { data: disposition } = useQuery<CallLogDisposition | null>({
-    queryKey: ["/api/call-logs", String(callLogId), "disposition"],
-    queryFn: async () => {
-      const res = await fetch(`/api/call-logs/${callLogId}/disposition`, { credentials: "include" });
-      if (!res.ok) return null;
-      return res.json();
-    },
-    enabled: !!callLogId,
-  });
-
   if (isLoading) return null;
   if (!recordings.length) return null;
 
@@ -479,7 +469,6 @@ export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
       {recordings.map((rec) => (
         <RecordingItem key={rec.id} recording={rec} compact={compact} onTimeUpdate={onTimeUpdate} waveNames={waveNames} />
       ))}
-      {disposition && <DispositionPanel disposition={disposition} />}
     </div>
   );
 }
@@ -497,6 +486,16 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
   const animationRef = useRef<number | null>(null);
 
   const audioSrc = `/api/call-recordings/${recording.id}/stream`;
+
+  const { data: disposition } = useQuery<CallLogDisposition | null>({
+    queryKey: ["/api/call-logs", String(recording.callLogId), "disposition"],
+    queryFn: async () => {
+      const res = await fetch(`/api/call-logs/${recording.callLogId}/disposition`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!recording.callLogId,
+  });
 
   const { data: analysis, isLoading: analysisLoading } = useQuery<RecordingAnalysis>({
     queryKey: ["/api/call-recordings", recording.id, "analysis"],
@@ -571,10 +570,11 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
 
   const handleDownload = useCallback(() => {
     const a = document.createElement("a");
-    a.href = audioSrc;
-    a.download = recording.filename;
+    a.href = `/api/call-recordings/${recording.id}/download-wav`;
+    const safeName = (recording.customerName || recording.filename.replace(/\.[^.]+$/, "")).replace(/[^a-zA-Z0-9_\- ]/g, "_").substring(0, 50);
+    a.download = `${safeName}.wav`;
     a.click();
-  }, [audioSrc, recording.filename]);
+  }, [recording.id, recording.customerName, recording.filename]);
 
   const hasAnalysisData = recording.analysisStatus === "completed" || recording.analysisStatus === "processing";
   const isAnalyzing = recording.analysisStatus === "processing" || recording.analysisStatus === "pending";
@@ -602,6 +602,20 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
     return (
       <div className="space-y-1" data-testid={`recording-player-${recording.id}`}>
         <div className="rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/60 to-slate-50/40 dark:from-indigo-950/20 dark:to-slate-900/20 px-3 py-2.5">
+          {/* Customer / Campaign info bar */}
+          {(recording.customerName || recording.campaignName) && (
+            <div className="flex items-center gap-1.5 mb-2 flex-wrap" data-testid="recording-info-bar">
+              {recording.customerName && (
+                <span className="text-[11px] font-semibold text-foreground leading-none">{recording.customerName}</span>
+              )}
+              {recording.customerName && recording.campaignName && (
+                <span className="text-[10px] text-muted-foreground">·</span>
+              )}
+              {recording.campaignName && (
+                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium truncate max-w-[160px]" data-testid="recording-campaign-name">{recording.campaignName}</span>
+              )}
+            </div>
+          )}
           {/* Controls row */}
           <div className="flex items-center gap-2 mb-2">
             <button
@@ -621,7 +635,7 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
             <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-indigo-500" onClick={() => handleSkip(10)} data-testid={`btn-skip-forward-${recording.id}`}>
               <SkipForward className="h-2.5 w-2.5" />
             </Button>
-            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground" onClick={handleDownload} data-testid={`btn-download-recording-${recording.id}`}>
+            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground" onClick={handleDownload} title="Stiahnuť ako WAV" data-testid={`btn-download-recording-${recording.id}`}>
               <Download className="h-3 w-3" />
             </Button>
             <Button size="icon" variant="ghost" className={`h-5 w-5 shrink-0 ${showAnalysis ? "text-indigo-500" : "text-muted-foreground hover:text-indigo-500"}`} onClick={() => setShowAnalysis(!showAnalysis)} data-testid={`btn-toggle-analysis-${recording.id}`}>
@@ -637,6 +651,27 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
             onSeek={handleWaveformSeek}
             trackNames={[waveNames?.[0] || (recording as any).agentName || "", waveNames?.[1] || ""]}
           />
+
+          {/* Disposition + Checklist */}
+          {disposition && (
+            <div className="flex items-start gap-1.5 flex-wrap mt-2 pt-2 border-t border-indigo-100/60 dark:border-indigo-900/30" data-testid="disposition-section">
+              <Tag className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+              <Badge
+                variant="secondary"
+                className="text-[10px] h-4 font-medium"
+                style={disposition.dispositionColor ? { backgroundColor: disposition.dispositionColor + "22", color: disposition.dispositionColor } : {}}
+                data-testid="badge-disposition"
+              >
+                {disposition.dispositionIcon && <span className="mr-0.5">{disposition.dispositionIcon}</span>}
+                {disposition.dispositionName}
+              </Badge>
+              {disposition.checklistItems.map(item => (
+                <Badge key={item.code} variant="outline" className="text-[10px] h-4" style={item.color ? { borderColor: item.color + "55", color: item.color } : {}} data-testid={`badge-checklist-${item.code}`}>
+                  <CheckCircle2 className="h-2 w-2 mr-0.5" />{item.name}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
 
         {(recording as any).sentiment && !showAnalysis && (
@@ -662,6 +697,21 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
 
   return (
     <div className="rounded-lg border border-border/50 bg-muted/30 p-3" data-testid={`recording-player-${recording.id}`}>
+      {/* Customer / Campaign info */}
+      {(recording.customerName || recording.campaignName) && (
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap" data-testid="recording-info-bar">
+          {recording.customerName && (
+            <span className="text-[12px] font-semibold text-foreground">{recording.customerName}</span>
+          )}
+          {recording.customerName && recording.campaignName && (
+            <span className="text-[11px] text-muted-foreground">·</span>
+          )}
+          {recording.campaignName && (
+            <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium truncate max-w-[200px]" data-testid="recording-campaign-name">{recording.campaignName}</span>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center gap-2 mb-2">
         <Mic className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         <span className="text-[11px] font-medium truncate flex-1">{recording.filename}</span>
@@ -706,7 +756,7 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
         <span className="text-[10px] text-muted-foreground font-mono w-10 text-right">
           -{formatTime(remainingTime)}
         </span>
-        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={handleDownload} data-testid={`btn-download-recording-${recording.id}`}>
+        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={handleDownload} title="Stiahnuť ako WAV" data-testid={`btn-download-recording-${recording.id}`}>
           <Download className="h-3.5 w-3.5" />
         </Button>
         <Button
@@ -729,6 +779,29 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
           reanalyzing={reanalyzeMutation.isPending}
           canReanalyze={!!canReanalyze}
         />
+      )}
+
+      {/* Disposition + Checklist — always visible below player */}
+      {disposition && (
+        <div className="flex items-start gap-1.5 flex-wrap mt-2 pt-2 border-t border-border/40" data-testid="disposition-section">
+          <Tag className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+          <div className="flex flex-wrap gap-1">
+            <Badge
+              variant="secondary"
+              className="text-[11px] h-5 font-medium"
+              style={disposition.dispositionColor ? { backgroundColor: disposition.dispositionColor + "22", color: disposition.dispositionColor, borderColor: disposition.dispositionColor + "44" } : {}}
+              data-testid="badge-disposition"
+            >
+              {disposition.dispositionIcon && <span className="mr-1">{disposition.dispositionIcon}</span>}
+              {disposition.dispositionName}
+            </Badge>
+            {disposition.checklistItems.map(item => (
+              <Badge key={item.code} variant="outline" className="text-[10px] h-5" style={item.color ? { borderColor: item.color + "55", color: item.color } : {}} data-testid={`badge-checklist-${item.code}`}>
+                <CheckCircle2 className="h-2.5 w-2.5 mr-1" />{item.name}
+              </Badge>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

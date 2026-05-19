@@ -27046,6 +27046,82 @@ Rules:
     }
   });
 
+  // Download a single recording as WAV (with voice stamp prepended)
+  app.get("/api/call-recordings/:id/download-wav", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+      const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, req.params.id));
+      if (!recording) return res.status(404).json({ error: "Recording not found" });
+
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      if (!isPrivileged && recording.userId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const filePath = recording.filePath;
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Recording file not found on disk" });
+      }
+
+      const stampPath = path.join(DATA_ROOT, "recordings-stamp.wav");
+      if (!fs.existsSync(stampPath)) {
+        try {
+          const stampResp = await openai.audio.speech.create({
+            model: "tts-1", voice: "alloy",
+            input: "Recorded via Indexus for training purposes.",
+            response_format: "wav",
+          } as any);
+          fs.writeFileSync(stampPath, Buffer.from(await (stampResp as any).arrayBuffer()));
+          console.log("[WAVDownload] Generated voice stamp:", stampPath);
+        } catch (e) { console.warn("[WAVDownload] Could not generate stamp:", e); }
+      }
+
+      const ffmpeg = getBulkFfmpeg();
+      const dateStr = new Date(recording.createdAt).toISOString().slice(0, 10);
+      const safeName = (recording.customerName || "hovor").replace(/[^a-zA-Z0-9áčďéíľĺňóôŕšťúýžÁČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ]/g, "_").substring(0, 40);
+      const outFilename = `${dateStr}_${safeName}.wav`;
+
+      if (!ffmpeg) {
+        res.set({ "Content-Type": recording.mimeType || "audio/webm", "Content-Disposition": `attachment; filename="${recording.filename}"` });
+        return fs.createReadStream(filePath).pipe(res);
+      }
+
+      const os = await import("os");
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "indexus-wav-"));
+      const convertedPath = path.join(tmpDir, "conv.wav");
+      const finalPath = path.join(tmpDir, "final.wav");
+      const hasStamp = fs.existsSync(stampPath);
+      const cleanupTmp = () => {
+        try { if (fs.existsSync(convertedPath)) fs.unlinkSync(convertedPath); } catch {}
+        try { if (fs.existsSync(finalPath)) fs.unlinkSync(finalPath); } catch {}
+        try { fs.rmdirSync(tmpDir); } catch {}
+      };
+
+      try {
+        execSync(`${JSON.stringify(ffmpeg)} -y -i ${JSON.stringify(filePath)} -ar 16000 -ac 1 -f wav ${JSON.stringify(convertedPath)}`, { timeout: 120000, stdio: "pipe" });
+        const serveFile = hasStamp ? (() => {
+          execSync(`${JSON.stringify(ffmpeg)} -y -i ${JSON.stringify(stampPath)} -i ${JSON.stringify(convertedPath)} -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" -map "[out]" -ar 16000 -ac 1 ${JSON.stringify(finalPath)}`, { timeout: 120000, stdio: "pipe" });
+          return finalPath;
+        })() : convertedPath;
+        const stat = fs.statSync(serveFile);
+        res.set({ "Content-Type": "audio/wav", "Content-Disposition": `attachment; filename="${outFilename}"`, "Content-Length": stat.size.toString() });
+        const stream = fs.createReadStream(serveFile);
+        stream.pipe(res);
+        stream.on("close", cleanupTmp);
+      } catch (convErr) {
+        cleanupTmp();
+        console.warn("[WAVDownload] ffmpeg failed, sending original:", (convErr as Error).message);
+        res.set({ "Content-Type": recording.mimeType || "audio/webm", "Content-Disposition": `attachment; filename="${recording.filename}"` });
+        fs.createReadStream(filePath).pipe(res);
+      }
+    } catch (error) {
+      console.error("Failed to download recording as WAV:", error);
+      res.status(500).json({ error: "Download failed" });
+    }
+  });
+
   app.get("/api/call-recordings/:id/stream", requireAuth, async (req, res) => {
     try {
       const user = req.session.user;
