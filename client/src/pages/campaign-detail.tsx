@@ -853,6 +853,7 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
 function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
   const { data: categories = [] } = useQuery<any[]>({ queryKey: ["/api/sop/categories"] });
   const { data: articles = [] } = useQuery<any[]>({ queryKey: ["/api/sop/articles"] });
   const { data: linkedArticleIds = [], isLoading } = useQuery<string[]>({
@@ -864,6 +865,14 @@ function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
       return arts.map((a: any) => a.id);
     },
   });
+
+  const toggleExpand = (catId: string) => {
+    setExpandedCats(prev => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId); else next.add(catId);
+      return next;
+    });
+  };
 
   const linkMutation = useMutation({
     mutationFn: async ({ articleId, link }: { articleId: string; link: boolean }) => {
@@ -909,23 +918,30 @@ function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
               const catArticles = publishedArticles.filter((a: any) => a.categoryId === cat.id);
               const linkedCount = catArticles.filter((a: any) => linkedArticleIds.includes(a.id)).length;
               const allLinked = catArticles.length > 0 && linkedCount === catArticles.length;
+              const isExpanded = expandedCats.has(cat.id);
               return (
-                <div key={cat.id} className="border rounded-lg p-3" data-testid={`sop-settings-cat-${cat.id}`}>
-                  <div className="flex items-center justify-between mb-2">
+                <div key={cat.id} className="border rounded-lg overflow-hidden" data-testid={`sop-settings-cat-${cat.id}`}>
+                  <div
+                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/40 transition-colors select-none"
+                    onClick={() => toggleExpand(cat.id)}
+                  >
                     <div className="flex items-center gap-2">
+                      <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} />
                       <BookOpen className="h-4 w-4 text-primary" />
                       <span className="font-medium text-sm">{cat.name}</span>
                       {cat.countryCode && <span className="text-xs" title={cat.countryCode}>{{"SK":"🇸🇰","CZ":"🇨🇿","AT":"🇦🇹","US":"🇬🇧","HU":"🇭🇺","RO":"🇷🇴","IT":"🇮🇹","DE":"🇩🇪","GB":"🇬🇧"}[cat.countryCode] || cat.countryCode}</span>}
                       <Badge variant="outline" className="text-[10px] h-4">{linkedCount}/{catArticles.length}</Badge>
+                      {linkedCount > 0 && !allLinked && <Badge className="text-[10px] h-4 bg-blue-500">{linkedCount} linked</Badge>}
+                      {allLinked && <Badge className="text-[10px] h-4 bg-emerald-500">All linked</Badge>}
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                       <Button variant={allLinked ? "destructive" : "outline"} size="sm" className="h-7 text-xs" onClick={() => toggleCategory(cat.id, !allLinked)} data-testid={`sop-toggle-cat-${cat.id}`}>
                         {allLinked ? t.sop.unlinkCampaign : t.sop.linkCampaign} {t.sop.all}
                       </Button>
                     </div>
                   </div>
-                  {catArticles.length > 0 && (
-                    <div className="space-y-1 ml-7">
+                  {isExpanded && catArticles.length > 0 && (
+                    <div className="border-t px-3 py-2 space-y-1 bg-muted/20">
                       {catArticles.map((art: any) => {
                         const isLinked = linkedArticleIds.includes(art.id);
                         return (
@@ -943,6 +959,11 @@ function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
                           </label>
                         );
                       })}
+                    </div>
+                  )}
+                  {isExpanded && catArticles.length === 0 && (
+                    <div className="border-t px-3 py-3 text-xs text-muted-foreground bg-muted/20">
+                      {t.sop.noArticles || "Žiadne dokumenty v tejto kategórii"}
                     </div>
                   )}
                 </div>
