@@ -11131,6 +11131,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           action: h.action,
           previousStatus: h.previousStatus,
           newStatus: h.newStatus,
+          metadata: (h.metadata as any) || null,
         });
       }
 

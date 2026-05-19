@@ -422,6 +422,13 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
             <MicOff className="h-3.5 w-3.5" />{ca.withoutRecording}
           </div>
         )}
+
+        {/* ── SOP Checklist (shown regardless of analysis status) ── */}
+        {checklistData?.sections && checklistData.sections.length > 0 && (
+          <div className="px-5 pt-3">
+            <ChecklistResponsePanel sections={checklistData.sections} ca={ca} />
+          </div>
+        )}
       </div>
 
       {/* ── Tabs + content ── */}
@@ -567,11 +574,6 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
                         ))}
                       </ul>
                     </div>
-                  )}
-
-                  {/* ── SOP Checklist response ── */}
-                  {checklistData?.sections && checklistData.sections.length > 0 && (
-                    <ChecklistResponsePanel sections={checklistData.sections} ca={ca} />
                   )}
 
                   {/* ── Compliance notes ── */}
