@@ -26224,11 +26224,20 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       // Lookup campaign contacts for disposition + entity info
       const ccIds = [...new Set(logs.filter(l => l.campaignContactId).map(l => l.campaignContactId!))];
-      let ccMap: Record<string, { dispositionCode: string | null; contactType: string | null; clinicId: string | null; hospitalId: string | null }> = {};
+      let ccMap: Record<string, { dispositionCode: string | null; dispositionChecklistCodes: string[] | null; contactType: string | null; clinicId: string | null; hospitalId: string | null }> = {};
       if (ccIds.length > 0) {
-        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId })
+        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId })
           .from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
-        for (const cc of ccRows) ccMap[cc.id] = { dispositionCode: cc.dispositionCode, contactType: cc.contactType, clinicId: cc.clinicId, hospitalId: cc.hospitalId };
+        for (const cc of ccRows) ccMap[cc.id] = { dispositionCode: cc.dispositionCode, dispositionChecklistCodes: cc.dispositionChecklistCodes, contactType: cc.contactType, clinicId: cc.clinicId, hospitalId: cc.hospitalId };
+      }
+
+      // Lookup disposition names from campaignDispositions
+      const allCampaignIdsForDisp2 = [...new Set(logs.filter(l => l.campaignId).map(l => l.campaignId!))];
+      let dispNameMap: Record<string, string> = {};
+      if (allCampaignIdsForDisp2.length > 0) {
+        const dispRows = await db.select({ campaignId: campaignDispositions.campaignId, code: campaignDispositions.code, name: campaignDispositions.name })
+          .from(campaignDispositions).where(inArray(campaignDispositions.campaignId, allCampaignIdsForDisp2));
+        for (const d of dispRows) dispNameMap[`${d.campaignId}::${d.code}`] = d.name;
       }
 
       // Lookup clinic/hospital names for entity contacts
@@ -26261,6 +26270,16 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           mobileAgentName: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.agentName || null) : null; } catch { return null; } })(),
           mobileOutboundCallerId: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.outboundCallerId || null) : null; } catch { return null; } })(),
           dispositionCode: cc?.dispositionCode || null,
+          dispositionName: (() => {
+            const code = cc?.dispositionCode;
+            if (!code || !log.campaignId) return null;
+            return dispNameMap[`${log.campaignId}::${code}`] || null;
+          })(),
+          dispositionSubstatuses: (() => {
+            const codes = cc?.dispositionChecklistCodes;
+            if (!codes || codes.length === 0 || !log.campaignId) return [];
+            return codes.map(sc => dispNameMap[`${log.campaignId}::${sc}`] || sc);
+          })(),
           contactType: entityType,
           entityName,
         };

@@ -31,7 +31,7 @@ interface CallLogEntry {
   mobileAgentName: string | null; mobileOutboundCallerId: string | null; isImportant: boolean;
   campaignContactId: string | null; answeredAt: string | null; endedAt: string | null;
   hungUpBy: string | null; inboundQueueId: string | null; inboundQueueName: string | null;
-  dispositionCode: string | null; contactType: string | null; entityName: string | null;
+  dispositionCode: string | null; dispositionName: string | null; dispositionSubstatuses: string[] | null; contactType: string | null; entityName: string | null;
   recording: {
     id: string; analysisStatus: string | null; transcriptionText: string | null;
     sentiment: string | null; qualityScore: number | null; scriptComplianceScore: number | null;
@@ -495,15 +495,24 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
         })()}
 
         {/* Row 4: Disposition */}
-        {log.dispositionCode && (
-          <div className="flex items-center gap-2">
+        {(log.dispositionCode || log.dispositionName) && (
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-2 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg px-3 py-1.5">
               <ClipboardCheck className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
               <div>
-                <div className="text-[9px] text-violet-500 dark:text-violet-400 leading-none">Výsledok hovoru</div>
-                <div className="text-[11px] font-bold text-violet-700 dark:text-violet-300 leading-tight">{log.dispositionCode}</div>
+                <div className="text-[9px] text-violet-500 dark:text-violet-400 leading-none">{ca.callResult || 'Výsledok hovoru'}</div>
+                <div className="text-[11px] font-bold text-violet-700 dark:text-violet-300 leading-tight">{log.dispositionName || log.dispositionCode}</div>
               </div>
             </div>
+            {log.dispositionSubstatuses && log.dispositionSubstatuses.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {log.dispositionSubstatuses.map((ss, i) => (
+                  <span key={i} className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700">
+                    {ss}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -544,11 +553,16 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
         )}
 
         {/* ── SOP Checklist (shown regardless of analysis status) ── */}
-        {checklistData?.sections && checklistData.sections.length > 0 && (
+        {checklistData?.sections && checklistData.sections.length > 0 ? (
           <div className="pt-3">
             <ChecklistResponsePanel sections={checklistData.sections} ca={ca} />
           </div>
-        )}
+        ) : checklistData === null && log.campaignContactId ? (
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg border border-dashed border-border px-3 py-2">
+            <ClipboardCheck className="h-3.5 w-3.5 shrink-0 opacity-40" />
+            <span>{ca.checklistNotFilled || 'SOP checklist nebol vyplnený'}</span>
+          </div>
+        ) : null}
       </div>
 
       {/* ── Tabs + content ── */}
@@ -1042,7 +1056,7 @@ export function TranscriptSearchContent() {
               {stats.avgQ && <span className="flex items-center gap-1 text-amber-500 font-medium"><Star className="h-3 w-3" />{stats.avgQ}</span>}
               <button onClick={() => setShowBulkDownload(true)} data-testid="btn-bulk-download"
                 className="ml-1 flex items-center gap-1 px-2 py-1 rounded-lg border border-border text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                <PackageOpen className="h-3 w-3" />Hromadné stiahnutie
+                <PackageOpen className="h-3 w-3" />{ca.bulkDownload || 'Hromadné stiahnutie'}
               </button>
             </div>
           </>
@@ -1275,35 +1289,35 @@ export function TranscriptSearchContent() {
       <Dialog open={showBulkDownload} onOpenChange={setShowBulkDownload}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><PackageOpen className="h-5 w-5 text-primary" />Hromadné stiahnutie nahrávok</DialogTitle>
-            <DialogDescription className="text-xs">Stiahni nahrávky ako ZIP archív (max. 200 hovorov). Filtre sú voliteľné.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><PackageOpen className="h-5 w-5 text-primary" />{ca.bulkDownloadTitle || 'Hromadné stiahnutie nahrávok'}</DialogTitle>
+            <DialogDescription className="text-xs">{ca.bulkDownloadDesc || 'Stiahni nahrávky ako ZIP archív (max. 200 hovorov). Filtre sú voliteľné.'}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-1">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Dátum od</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{ca.dateFrom || 'Dátum od'}</label>
                 <Input type="date" value={bdDateFrom} onChange={e => setBdDateFrom(e.target.value)} className="h-8 text-xs" data-testid="input-bd-date-from" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Dátum do</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{ca.dateTo || 'Dátum do'}</label>
                 <Input type="date" value={bdDateTo} onChange={e => setBdDateTo(e.target.value)} className="h-8 text-xs" data-testid="input-bd-date-to" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Čas od</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{ca.timeFrom || 'Čas od'}</label>
                 <Input type="time" value={bdTimeFrom} onChange={e => setBdTimeFrom(e.target.value)} className="h-8 text-xs" data-testid="input-bd-time-from" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Čas do</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{ca.timeTo || 'Čas do'}</label>
                 <Input type="time" value={bdTimeTo} onChange={e => setBdTimeTo(e.target.value)} className="h-8 text-xs" data-testid="input-bd-time-to" />
               </div>
             </div>
             {campaignsList.length > 0 && (
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Kampaň</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{ca.campaign || 'Kampaň'}</label>
                 <Select value={bdCampaign || "all"} onValueChange={v => setBdCampaign(v === "all" ? "" : v)}>
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-bd-campaign"><SelectValue placeholder="Všetky kampane" /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-bd-campaign"><SelectValue placeholder={ca.allCampaigns || 'Všetky kampane'} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Všetky kampane</SelectItem>
+                    <SelectItem value="all">{ca.allCampaigns || 'Všetky kampane'}</SelectItem>
                     {campaignsList.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -1311,38 +1325,38 @@ export function TranscriptSearchContent() {
             )}
             {uniqueAgentUsers.length > 0 && (
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Agent</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{ca.agent || 'Agent'}</label>
                 <Select value={bdAgent || "all"} onValueChange={v => setBdAgent(v === "all" ? "" : v)}>
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-bd-agent"><SelectValue placeholder="Všetci agenti" /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-bd-agent"><SelectValue placeholder={ca.allAgents || 'Všetci agenti'} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Všetci agenti</SelectItem>
+                    <SelectItem value="all">{ca.allAgents || 'Všetci agenti'}</SelectItem>
                     {uniqueAgentUsers.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             )}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Smer hovoru</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{ca.direction || 'Smer hovoru'}</label>
               <Select value={bdDirection || "all"} onValueChange={v => setBdDirection(v === "all" ? "" : v)}>
-                <SelectTrigger className="h-8 text-xs" data-testid="select-bd-direction"><SelectValue placeholder="Všetky smery" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs" data-testid="select-bd-direction"><SelectValue placeholder={ca.allDirections || 'Všetky smery'} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Všetky smery</SelectItem>
-                  <SelectItem value="inbound">Príchodzí</SelectItem>
-                  <SelectItem value="outbound">Odchodzí</SelectItem>
+                  <SelectItem value="all">{ca.allDirections || 'Všetky smery'}</SelectItem>
+                  <SelectItem value="inbound">{ca.inbound || 'Príchodzí'}</SelectItem>
+                  <SelectItem value="outbound">{ca.outbound || 'Odchodzí'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
               <input type="checkbox" checked={bdImportantOnly} onChange={e => setBdImportantOnly(e.target.checked)} className="h-3.5 w-3.5 accent-amber-500" data-testid="checkbox-bd-important" />
               <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
-              <span className="text-amber-600 dark:text-amber-400 font-medium">Iba dôležité hovory</span>
+              <span className="text-amber-600 dark:text-amber-400 font-medium">{ca.importantOnly || 'Iba dôležité hovory'}</span>
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={() => setShowBulkDownload(false)}>Zrušiť</Button>
+            <Button variant="outline" size="sm" onClick={() => setShowBulkDownload(false)}>{ca.cancel || 'Zrušiť'}</Button>
             <Button size="sm" onClick={handleBulkDownload} disabled={bdDownloading} data-testid="btn-bd-download" className="gap-1.5">
               {bdDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              {bdDownloading ? "Sťahujem…" : "Stiahnuť ZIP"}
+              {bdDownloading ? (ca.downloading || 'Sťahujem…') : (ca.downloadZip || 'Stiahnuť ZIP')}
             </Button>
           </div>
         </DialogContent>

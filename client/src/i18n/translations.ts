@@ -5031,6 +5031,19 @@ export interface Translations {
     complianceLabel: string;
     customer: string;
     checklistLabel: string;
+    checklistNotFilled: string;
+    callResult: string;
+    substatuses: string;
+    dateFrom: string;
+    timeFrom: string;
+    timeTo: string;
+    bulkDownload: string;
+    bulkDownloadTitle: string;
+    bulkDownloadDesc: string;
+    importantOnly: string;
+    downloadZip: string;
+    downloading: string;
+    cancel: string;
   };
   executiveSummaries: {
     title: string;
@@ -11739,6 +11752,19 @@ export const translations: Record<Locale, Translations> = {
       complianceLabel: 'Compliance',
       customer: 'Customer',
       checklistLabel: 'SOP Checklist',
+      checklistNotFilled: 'SOP checklist not filled',
+      callResult: 'Call result',
+      substatuses: 'Sub-statuses',
+      dateFrom: 'Date from',
+      timeFrom: 'Time from',
+      timeTo: 'Time to',
+      bulkDownload: 'Bulk download',
+      bulkDownloadTitle: 'Bulk download recordings',
+      bulkDownloadDesc: 'Download recordings as ZIP archive (max. 200 calls). Filters are optional.',
+      importantOnly: 'Important calls only',
+      downloadZip: 'Download ZIP',
+      downloading: 'Downloading…',
+      cancel: 'Cancel',
     },
     executiveSummaries: {
       title: 'Executive Summaries',
@@ -17902,6 +17928,19 @@ export const translations: Record<Locale, Translations> = {
       complianceLabel: 'Compliance',
       customer: 'Zákazník',
       checklistLabel: 'SOP Checklist',
+      checklistNotFilled: 'SOP checklist nebol vyplnený',
+      callResult: 'Výsledok hovoru',
+      substatuses: 'Podstavy',
+      dateFrom: 'Dátum od',
+      timeFrom: 'Čas od',
+      timeTo: 'Čas do',
+      bulkDownload: 'Hromadné stiahnutie',
+      bulkDownloadTitle: 'Hromadné stiahnutie nahrávok',
+      bulkDownloadDesc: 'Stiahni nahrávky ako ZIP archív (max. 200 hovorov). Filtre sú voliteľné.',
+      importantOnly: 'Iba dôležité hovory',
+      downloadZip: 'Stiahnuť ZIP',
+      downloading: 'Sťahujem…',
+      cancel: 'Zrušiť',
     },
     executiveSummaries: {
       title: 'Manažérske prehľady',
@@ -23991,6 +24030,19 @@ export const translations: Record<Locale, Translations> = {
       complianceLabel: 'Compliance',
       customer: 'Zákazník',
       checklistLabel: 'SOP Checklist',
+      checklistNotFilled: 'SOP checklist nebyl vyplněn',
+      callResult: 'Výsledek hovoru',
+      substatuses: 'Podstavy',
+      dateFrom: 'Datum od',
+      timeFrom: 'Čas od',
+      timeTo: 'Čas do',
+      bulkDownload: 'Hromadné stažení',
+      bulkDownloadTitle: 'Hromadné stažení nahrávek',
+      bulkDownloadDesc: 'Stáhnout nahrávky jako ZIP archiv (max. 200 hovorů). Filtry jsou volitelné.',
+      importantOnly: 'Pouze důležité hovory',
+      downloadZip: 'Stáhnout ZIP',
+      downloading: 'Stahuji…',
+      cancel: 'Zrušit',
     },
     executiveSummaries: {
       title: 'Manažerské přehledy',
@@ -30048,6 +30100,21 @@ export const translations: Record<Locale, Translations> = {
       topicsLabel: 'Témák',
       actionItemsLabel: 'Teendők',
       complianceLabel: 'Megfelelőség',
+      customer: 'Ügyfél',
+      checklistLabel: 'SOP Ellenőrzőlista',
+      checklistNotFilled: 'SOP ellenőrzőlista nem lett kitöltve',
+      callResult: 'Hívás eredménye',
+      substatuses: 'Alállapotok',
+      dateFrom: 'Dátumtól',
+      timeFrom: 'Időtől',
+      timeTo: 'Időig',
+      bulkDownload: 'Tömeges letöltés',
+      bulkDownloadTitle: 'Felvételek tömeges letöltése',
+      bulkDownloadDesc: 'Felvételek letöltése ZIP archívumként (max. 200 hívás). A szűrők opcionálisak.',
+      importantOnly: 'Csak fontos hívások',
+      downloadZip: 'ZIP letöltése',
+      downloading: 'Letöltés…',
+      cancel: 'Mégse',
     },
     executiveSummaries: {
       title: 'Vezetői összefoglalók',
@@ -36025,6 +36092,21 @@ export const translations: Record<Locale, Translations> = {
       topicsLabel: 'Subiecte',
       actionItemsLabel: 'Puncte de acțiune',
       complianceLabel: 'Conformitate',
+      customer: 'Client',
+      checklistLabel: 'Listă SOP',
+      checklistNotFilled: 'Lista SOP nu a fost completată',
+      callResult: 'Rezultat apel',
+      substatuses: 'Substaturi',
+      dateFrom: 'Dată de la',
+      timeFrom: 'Oră de la',
+      timeTo: 'Oră până la',
+      bulkDownload: 'Descărcare în masă',
+      bulkDownloadTitle: 'Descărcare înregistrări în masă',
+      bulkDownloadDesc: 'Descarcă înregistrările ca arhivă ZIP (max. 200 apeluri). Filtrele sunt opționale.',
+      importantOnly: 'Doar apeluri importante',
+      downloadZip: 'Descarcă ZIP',
+      downloading: 'Se descarcă…',
+      cancel: 'Anulare',
     },
     executiveSummaries: {
       title: 'Rapoarte executive',
@@ -42004,6 +42086,21 @@ export const translations: Record<Locale, Translations> = {
       topicsLabel: 'Argomenti',
       actionItemsLabel: 'Azioni da intraprendere',
       complianceLabel: 'Conformità',
+      customer: 'Cliente',
+      checklistLabel: 'Checklist SOP',
+      checklistNotFilled: 'Checklist SOP non compilata',
+      callResult: 'Risultato chiamata',
+      substatuses: 'Sotto-stati',
+      dateFrom: 'Data da',
+      timeFrom: 'Ora da',
+      timeTo: 'Ora a',
+      bulkDownload: 'Download in blocco',
+      bulkDownloadTitle: 'Download registrazioni in blocco',
+      bulkDownloadDesc: 'Scarica le registrazioni come archivio ZIP (max. 200 chiamate). I filtri sono opzionali.',
+      importantOnly: 'Solo chiamate importanti',
+      downloadZip: 'Scarica ZIP',
+      downloading: 'Download in corso…',
+      cancel: 'Annulla',
     },
     executiveSummaries: {
       title: 'Report esecutivi',
@@ -47970,6 +48067,21 @@ export const translations: Record<Locale, Translations> = {
       topicsLabel: 'Themen',
       actionItemsLabel: 'Aktionspunkte',
       complianceLabel: 'Compliance',
+      customer: 'Kunde',
+      checklistLabel: 'SOP-Checkliste',
+      checklistNotFilled: 'SOP-Checkliste nicht ausgefüllt',
+      callResult: 'Gesprächsergebnis',
+      substatuses: 'Unterstatusse',
+      dateFrom: 'Datum von',
+      timeFrom: 'Zeit von',
+      timeTo: 'Zeit bis',
+      bulkDownload: 'Massendownload',
+      bulkDownloadTitle: 'Aufnahmen massenweise herunterladen',
+      bulkDownloadDesc: 'Aufnahmen als ZIP-Archiv herunterladen (max. 200 Anrufe). Filter sind optional.',
+      importantOnly: 'Nur wichtige Anrufe',
+      downloadZip: 'ZIP herunterladen',
+      downloading: 'Wird heruntergeladen…',
+      cancel: 'Abbrechen',
     },
     executiveSummaries: {
       title: 'Managementberichte',
