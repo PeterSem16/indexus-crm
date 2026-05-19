@@ -448,8 +448,8 @@ type ClItemType = "checkbox" | "yes_no" | "text";
 type ClAutomationAction = "none" | "openDisposition" | "switchEmail" | "switchSms";
 type ClItemSize = "sm" | "base" | "lg";
 interface ClItem { id: string; label: string; type: ClItemType; required: boolean; hasNotes: boolean; automationAction: ClAutomationAction; bold?: boolean; italic?: boolean; size?: ClItemSize; }
-interface ClSubsection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; items: ClItem[]; }
-interface ClSection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; subsections: ClSubsection[]; items: ClItem[]; }
+interface ClSubsection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; selectionMode?: "or" | "and"; items: ClItem[]; }
+interface ClSection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; selectionMode?: "or" | "and"; subsections: ClSubsection[]; items: ClItem[]; }
 interface InternalChecklistCfg { enabled: boolean; sections: ClSection[]; }
 
 const CL_ICON_MAP: Record<string, LucideIcon> = {
@@ -487,8 +487,8 @@ function parseInternalChecklist(settings: string | null | undefined): InternalCh
     return {
       enabled: ic.enabled === true,
       sections: (ic.sections || []).map((sec: any) => ({
-        id: sec.id || crypto.randomUUID(), title: sec.title || "Sekcia", icon: sec.icon || "", bold: !!sec.bold, italic: !!sec.italic, color: sec.color || "",
-        subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id || crypto.randomUUID(), title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, italic: !!sub.italic, color: sub.color || "", items: (sub.items || []).map(mapItem) })),
+        id: sec.id || crypto.randomUUID(), title: sec.title || "Sekcia", icon: sec.icon || "", bold: !!sec.bold, italic: !!sec.italic, color: sec.color || "", selectionMode: (sec.selectionMode === "or" ? "or" : "and") as "or" | "and",
+        subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id || crypto.randomUUID(), title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, italic: !!sub.italic, color: sub.color || "", selectionMode: (sub.selectionMode === "or" ? "or" : "and") as "or" | "and", items: (sub.items || []).map(mapItem) })),
         items: (sec.items || []).map(mapItem),
       })),
     };
@@ -533,13 +533,13 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
     } catch { toast({ title: "Chyba pri ukladaní", variant: "destructive" }); }
   };
 
-  const addSec = () => patchChecklist({ ...cfg, sections: [...cfg.sections, { id: crypto.randomUUID(), title: "Nová sekcia", icon: "", bold: false, color: "", subsections: [], items: [] }] });
+  const addSec = () => patchChecklist({ ...cfg, sections: [...cfg.sections, { id: crypto.randomUUID(), title: "Nová sekcia", icon: "", bold: false, color: "", selectionMode: "and" as const, subsections: [], items: [] }] });
   const removeSec = (sid: string) => patchChecklist({ ...cfg, sections: cfg.sections.filter(s => s.id !== sid) });
   const moveSecUp = (idx: number) => { const ss = [...cfg.sections]; [ss[idx-1], ss[idx]] = [ss[idx], ss[idx-1]]; patchChecklist({ ...cfg, sections: ss }); };
   const moveSecDown = (idx: number) => { const ss = [...cfg.sections]; [ss[idx], ss[idx+1]] = [ss[idx+1], ss[idx]]; patchChecklist({ ...cfg, sections: ss }); };
   const updateSec = (sid: string, u: Partial<ClSection>) => patchChecklist({ ...cfg, sections: cfg.sections.map(s => s.id === sid ? { ...s, ...u } : s) });
 
-  const addSubsec = (sid: string) => { const sec = cfg.sections.find(s => s.id === sid)!; updateSec(sid, { subsections: [...sec.subsections, { id: crypto.randomUUID(), title: "Nová podsekcia", icon: "", bold: false, color: "", items: [] }] }); };
+  const addSubsec = (sid: string) => { const sec = cfg.sections.find(s => s.id === sid)!; updateSec(sid, { subsections: [...sec.subsections, { id: crypto.randomUUID(), title: "Nová podsekcia", icon: "", bold: false, color: "", selectionMode: "and" as const, items: [] }] }); };
   const removeSubsec = (sid: string, subId: string) => { const sec = cfg.sections.find(s => s.id === sid)!; updateSec(sid, { subsections: sec.subsections.filter(sub => sub.id !== subId) }); };
   const moveSubsecUp = (sid: string, idx: number) => { const sec = cfg.sections.find(s => s.id === sid)!; const ss = [...sec.subsections]; [ss[idx-1], ss[idx]] = [ss[idx], ss[idx-1]]; updateSec(sid, { subsections: ss }); };
   const moveSubsecDown = (sid: string, idx: number) => { const sec = cfg.sections.find(s => s.id === sid)!; const ss = [...sec.subsections]; [ss[idx], ss[idx+1]] = [ss[idx+1], ss[idx]]; updateSec(sid, { subsections: ss }); };
@@ -757,6 +757,13 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
                   />
                   <Badge variant="secondary" className="text-[10px] shrink-0 tabular-nums">{secItemCount} pol.</Badge>
                   {sec.subsections.length > 0 && <Badge variant="outline" className="text-[10px] shrink-0">{sec.subsections.length} sub</Badge>}
+                  <button
+                    type="button"
+                    title={sec.selectionMode === "or" ? "OR: len jedna položka naraz (radio)" : "AND: viacero položiek naraz (checkbox)"}
+                    onClick={() => updateSec(sec.id, { selectionMode: sec.selectionMode === "or" ? "and" : "or" })}
+                    data-testid={`cl-sec-mode-${sec.id}`}
+                    className={`shrink-0 text-[10px] font-bold px-2 h-5 rounded border transition-colors ${sec.selectionMode === "or" ? "bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300" : "bg-muted border-border text-muted-foreground hover:bg-muted/80"}`}
+                  >{sec.selectionMode === "or" ? "OR" : "AND"}</button>
                   <Button variant="ghost" size="icon" className={`h-6 w-6 shrink-0 rounded-lg transition-colors ${showStylePanels[`sec:${sec.id}`] ? "bg-primary/10 text-primary" : ""}`} onClick={() => toggleStyle(`sec:${sec.id}`)} title="Štýl sekcie" data-testid={`cl-sec-style-${sec.id}`}><Wand2 className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 rounded-lg" disabled={sIdx === 0} onClick={() => moveSecUp(sIdx)}><ArrowUp className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 rounded-lg" disabled={sIdx >= cfg.sections.length - 1} onClick={() => moveSecDown(sIdx)}><ArrowDown className="h-3 w-3" /></Button>
@@ -786,6 +793,13 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
                           data-testid={`cl-sub-title-${sub.id}`}
                         />
                         <Badge variant="secondary" className="text-[9px] shrink-0 h-4 px-1">{sub.items.length}</Badge>
+                        <button
+                          type="button"
+                          title={sub.selectionMode === "or" ? "OR: len jedna položka naraz" : "AND: viacero položiek naraz"}
+                          onClick={() => updateSubsec(sec.id, sub.id, { selectionMode: sub.selectionMode === "or" ? "and" : "or" })}
+                          data-testid={`cl-sub-mode-${sub.id}`}
+                          className={`shrink-0 text-[9px] font-bold px-1.5 h-4 rounded border transition-colors ${sub.selectionMode === "or" ? "bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300" : "bg-muted border-border text-muted-foreground hover:bg-muted/80"}`}
+                        >{sub.selectionMode === "or" ? "OR" : "AND"}</button>
                         <Button variant="ghost" size="icon" className={`h-5 w-5 shrink-0 rounded ${showStylePanels[`sub:${sub.id}`] ? "bg-primary/10 text-primary" : ""}`} onClick={() => toggleStyle(`sub:${sub.id}`)} title="Štýl"><Wand2 className="h-3 w-3" /></Button>
                         <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 rounded" disabled={subIdx === 0} onClick={() => moveSubsecUp(sec.id, subIdx)}><ArrowUp className="h-2.5 w-2.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 rounded" disabled={subIdx >= sec.subsections.length - 1} onClick={() => moveSubsecDown(sec.id, subIdx)}><ArrowDown className="h-2.5 w-2.5" /></Button>

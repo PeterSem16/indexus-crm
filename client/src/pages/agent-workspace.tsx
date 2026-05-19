@@ -2045,8 +2045,8 @@ function CommunicationCanvas({
   type WsCLAutomation = "none" | "openDisposition" | "switchEmail" | "switchSms";
   type WsCLItemSize = "sm" | "base" | "lg";
   interface WsCLItem { id: string; label: string; type: WsCLItemType; required: boolean; hasNotes: boolean; automationAction: WsCLAutomation; bold?: boolean; italic?: boolean; size?: WsCLItemSize; }
-  interface WsCLSubsection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; items: WsCLItem[]; }
-  interface WsCLSection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; subsections: WsCLSubsection[]; items: WsCLItem[]; }
+  interface WsCLSubsection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; selectionMode?: "or" | "and"; items: WsCLItem[]; }
+  interface WsCLSection { id: string; title: string; icon?: string; bold?: boolean; italic?: boolean; color?: string; selectionMode?: "or" | "and"; subsections: WsCLSubsection[]; items: WsCLItem[]; }
   interface WsCLConfig { enabled: boolean; sections: WsCLSection[]; }
 
   const WS_CL_ICON_MAP: Record<string, LucideIcon> = {
@@ -2071,7 +2071,8 @@ function CommunicationCanvas({
         enabled: ic.enabled === true,
         sections: (ic.sections || []).map((sec: any) => ({
           id: sec.id, title: sec.title || "Sekcia", icon: sec.icon || "", bold: !!sec.bold, italic: !!sec.italic, color: sec.color || "",
-          subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id, title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, italic: !!sub.italic, color: sub.color || "", items: (sub.items || []).map(mi) })),
+          selectionMode: (sec.selectionMode === "or" ? "or" : "and") as "or" | "and",
+          subsections: (sec.subsections || []).map((sub: any) => ({ id: sub.id, title: sub.title || "Podsekcia", icon: sub.icon || "", bold: !!sub.bold, italic: !!sub.italic, color: sub.color || "", selectionMode: (sub.selectionMode === "or" ? "or" : "and") as "or" | "and", items: (sub.items || []).map(mi) })),
           items: (sec.items || []).map(mi),
         })),
       };
@@ -3422,7 +3423,7 @@ function CommunicationCanvas({
                               <button
                                 className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${clChecked.has(item.id) ? "border-emerald-500 bg-emerald-500" : "border-muted-foreground/40 hover:border-emerald-400"}`}
                                 onClick={() => {
-                                  setClChecked(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; });
+                                  setClChecked(prev => { const next = new Set(prev); if (next.has(item.id)) { next.delete(item.id); } else { if (sec.selectionMode === "or") sec.items.filter(i => i.type === "checkbox").forEach(i => next.delete(i.id)); next.add(item.id); } return next; });
                                   if (item.automationAction !== "none" && !clChecked.has(item.id)) triggerAutomation(item.automationAction);
                                 }}
                                 data-testid={`cl-check-${item.id}`}
@@ -3516,7 +3517,7 @@ function CommunicationCanvas({
                                 {item.required && <span className="text-[10px] text-rose-500 font-bold mt-0.5 shrink-0">*</span>}
                                 {item.type === "checkbox" && (
                                   <button className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${clChecked.has(item.id) ? "border-emerald-500 bg-emerald-500" : "border-muted-foreground/40 hover:border-emerald-400"}`}
-                                    onClick={() => { setClChecked(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; }); if (item.automationAction !== "none" && !clChecked.has(item.id)) triggerAutomation(item.automationAction); }}
+                                    onClick={() => { setClChecked(prev => { const next = new Set(prev); if (next.has(item.id)) { next.delete(item.id); } else { if (sub.selectionMode === "or") sub.items.filter(i => i.type === "checkbox").forEach(i => next.delete(i.id)); next.add(item.id); } return next; }); if (item.automationAction !== "none" && !clChecked.has(item.id)) triggerAutomation(item.automationAction); }}
                                     data-testid={`cl-check-${item.id}`}>
                                     {clChecked.has(item.id) && <Check className="h-3 w-3 text-white" />}
                                   </button>
