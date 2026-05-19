@@ -778,7 +778,7 @@ function TaskListPanel({
                     key={task.id}
                     className="group flex items-center gap-2.5 px-2.5 py-2 cursor-pointer transition-all duration-150"
                     style={{
-                      background: isActive ? `${taskAc}12` : "#FFFFFF",
+                      background: isActive ? `${taskAc}12` : "hsl(var(--card))",
                       border: `1.5px solid ${isActive ? taskAc : taskAc + "30"}`,
                       borderRadius: "12px",
                       boxShadow: isActive ? `0 3px 10px ${taskAc}25` : "0 1px 4px rgba(0,0,0,0.05)",
@@ -812,10 +812,10 @@ function TaskListPanel({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold truncate" style={{ color: "#3D2E20" }}>
+                      <p className="text-xs font-bold truncate text-foreground">
                         {task.contact.firstName} {task.contact.lastName}
                       </p>
-                      <p className="text-[10px] truncate" style={{ color: "#9A8878" }}>
+                      <p className="text-[10px] truncate text-muted-foreground">
                         {task.campaignName}
                       </p>
                     </div>
@@ -840,7 +840,7 @@ function TaskListPanel({
       )}
 
       <div className="px-3 pt-2 pb-1 flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#9A8878" }}>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           {t.agentWorkspace.campaigns}
         </span>
       </div>
@@ -899,8 +899,8 @@ function TaskListPanel({
               </div>
               <div className="flex-1 min-w-0">
                 <span
-                  className="block truncate text-xs font-semibold leading-tight"
-                  style={{ color: isSelected ? "#fff" : "#2A3A4A" }}
+                  className={`block truncate text-xs font-semibold leading-tight${isSelected ? "" : " text-foreground"}`}
+                  style={{ color: isSelected ? "#fff" : undefined }}
                 >
                   {campaign.name}
                 </span>
@@ -941,7 +941,7 @@ function TaskListPanel({
         })}
         {filteredCampaigns.length === 0 && (
           <div className="text-center py-3">
-            <p className="text-xs" style={{ color: "#9A8878" }}>{t.agentWorkspace.noCampaigns || "No missions"}</p>
+            <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "No missions"}</p>
           </div>
         )}
       </div>
@@ -1057,7 +1057,7 @@ function TaskListPanel({
                       key={id}
                       className="rounded-2xl overflow-hidden"
                       style={{
-                        background: "#F8F4EE",
+                        background: "hsl(var(--card))",
                         border: `1.5px solid ${ac}40`,
                         boxShadow: `0 2px 10px ${ac}15`,
                       }}
@@ -1078,8 +1078,8 @@ function TaskListPanel({
                           <Icon className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-bold text-xs" style={{ color: "#3D2E20" }}>{label}</div>
-                          <div className="text-[10px] mt-0.5" style={{ color: "#9A8878" }}>{nContacts(items.length)}</div>
+                          <div className="font-bold text-xs text-foreground">{label}</div>
+                          <div className="text-[10px] mt-0.5 text-muted-foreground">{nContacts(items.length)}</div>
                         </div>
                         <span
                           className="text-xs font-bold min-w-[26px] h-6 flex items-center justify-center rounded-full px-1.5 shrink-0"
@@ -1094,7 +1094,7 @@ function TaskListPanel({
                       </button>
 
                       {isOpen && (
-                        <div className="p-2 space-y-1.5" style={{ background: "#F8F4EE" }}>
+                        <div className="p-2 space-y-1.5" style={{ background: "hsl(var(--card))" }}>
                           {items.map(cc => {
                             const entityDisplay = getEntityDisplayInfo(cc);
                             if (!entityDisplay) return null;
@@ -1105,7 +1105,7 @@ function TaskListPanel({
                                 key={cc.id}
                                 className={`rounded-xl px-2.5 py-2 transition-all duration-200 ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                                 style={{
-                                  background: "#FFFFFF",
+                                  background: "hsl(var(--background))",
                                   border: `1px solid ${ac}25`,
                                   boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                                 }}
@@ -1132,21 +1132,21 @@ function TaskListPanel({
                                     <TypeIcon className="h-3.5 w-3.5" style={{ color: ac }} />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold truncate" style={{ color: "#2E2118" }}>
+                                    <p className="text-xs font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>
                                       {entityDisplay.name}
                                     </p>
                                     <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                       {callbackDateStr ? (
                                         <>
-                                          <Calendar className="h-2.5 w-2.5 shrink-0" style={{ color: "#9A8878" }} />
-                                          <span className="text-[10px]" style={{ color: "#9A8878" }}>{callbackDateStr}</span>
+                                          <Calendar className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+                                          <span className="text-[10px] text-muted-foreground">{callbackDateStr}</span>
                                         </>
                                       ) : (
-                                        <span className="text-[10px]" style={{ color: "#9A8878" }}>{entityDisplay.subtitle}</span>
+                                        <span className="text-[10px] text-muted-foreground">{entityDisplay.subtitle}</span>
                                       )}
                                     </div>
                                     {cc.callbackNote && (
-                                      <p className="text-[9px] mt-0.5 truncate italic" style={{ color: "#9A8878" }} title={cc.callbackNote}>
+                                      <p className="text-[9px] mt-0.5 truncate italic text-muted-foreground" title={cc.callbackNote}>
                                         📝 {cc.callbackNote}
                                       </p>
                                     )}
@@ -4005,8 +4005,8 @@ function CustomerInfoPanel({
   const stars = Math.round(leadScore / 20);
 
   return (
-    <div className="w-64 flex flex-col shrink-0" style={{ background: "#EEEBE4", borderLeft: "1px solid #D9D0C4" }}>
-      <div className="p-3" style={{ background: "#F8F4EE", borderBottom: "1px solid #D9D0C4" }}>
+    <div className="w-64 flex flex-col shrink-0 bg-card border-l border-border">
+      <div className="p-3 bg-card/80 border-b border-border">
         <div className="flex items-start gap-2.5">
           <Avatar className="h-10 w-10 shrink-0" style={{ boxShadow: "0 0 0 2px #B5622E55" }}>
             <AvatarFallback className="font-bold text-xs text-white" style={{ background: "linear-gradient(135deg, #B5622E 0%, #D4854F 100%)" }}>
@@ -4015,12 +4015,12 @@ function CustomerInfoPanel({
           </Avatar>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
-              <h2 className="font-bold text-sm truncate flex-1" style={{ color: "#2E2118" }} data-testid="text-contact-name">
+              <h2 className="font-bold text-sm truncate flex-1 text-foreground" data-testid="text-contact-name">
                 {contact.firstName} {contact.lastName}
               </h2>
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              <Badge className="text-[10px] border-0 font-medium" style={{ background: "#EDE8E0", color: "#7A6858" }}>
+              <Badge className="text-[10px] border-0 font-medium bg-muted text-muted-foreground">
                 {contact.status || "Nový"}
               </Badge>
               <div className="flex items-center gap-0.5">
@@ -4279,7 +4279,7 @@ function CustomerInfoPanel({
         </div>
       )}
 
-      <div style={{ borderBottom: "1px solid #D9D0C4", background: "#F8F4EE" }}>
+      <div className="border-b border-border bg-card/60 dark:bg-card">
         <div className="flex">
           {(["actions", "profile", "history", "faq"] as const).map((tab) => (
             <button
@@ -4287,7 +4287,7 @@ function CustomerInfoPanel({
               className="flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors"
               style={{
                 borderBottomColor: rightTab === tab ? "#B5622E" : "transparent",
-                color: rightTab === tab ? "#B5622E" : "#9A8878",
+                color: rightTab === tab ? "#B5622E" : "hsl(var(--muted-foreground))",
               }}
               onClick={() => onRightTabChange(tab)}
               data-testid={`tab-${tab}`}
@@ -4305,44 +4305,44 @@ function CustomerInfoPanel({
         {rightTab === "profile" && (
           <div className="p-3 space-y-2">
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2.5 p-2.5 rounded-xl" style={{ background: "#FEF3EB", border: "1px solid #F0D5C0" }}>
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/30">
                 <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#B5622E22" }}>
                   <Phone className="h-3.5 w-3.5" style={{ color: "#B5622E" }} />
                 </div>
-                <span className="text-sm font-medium truncate" style={{ color: "#2E2118" }} data-testid="text-contact-phone">
+                <span className="text-sm font-medium truncate text-foreground" data-testid="text-contact-phone">
                   {contact.phone || "—"}
                 </span>
               </div>
-              <div className="flex items-center gap-2.5 p-2.5 rounded-xl" style={{ background: "#EEF0FB", border: "1px solid #CDD0F0" }}>
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-violet-50 border border-violet-200 dark:bg-violet-950/20 dark:border-violet-900/30">
                 <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#5B4FCF22" }}>
                   <Mail className="h-3.5 w-3.5" style={{ color: "#5B4FCF" }} />
                 </div>
-                <span className="text-sm truncate" style={{ color: "#2E2118" }} data-testid="text-contact-email">
+                <span className="text-sm truncate text-foreground" data-testid="text-contact-email">
                   {contact.email || "—"}
                 </span>
               </div>
-              <div className="flex items-center gap-2.5 p-2.5 rounded-xl" style={{ background: "#F8F4EE", border: "1px solid #E5DDD5" }}>
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-muted/40 border border-border dark:bg-muted/20">
                 <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#9A887822" }}>
-                  <MapPin className="h-3.5 w-3.5" style={{ color: "#9A8878" }} />
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
-                <span className="text-sm" style={{ color: "#2E2118" }}>{[contact.address, contact.city].filter(Boolean).join(", ") || "—"}</span>
+                <span className="text-sm text-foreground">{[contact.address, contact.city].filter(Boolean).join(", ") || "—"}</span>
               </div>
-              <div className="flex items-center gap-2.5 p-2.5 rounded-xl" style={{ background: "#F8F4EE", border: "1px solid #E5DDD5" }}>
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-muted/40 border border-border dark:bg-muted/20">
                 <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#9A887822" }}>
-                  <Building className="h-3.5 w-3.5" style={{ color: "#9A8878" }} />
+                  <Building className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
-                <span className="text-sm" style={{ color: "#2E2118" }}>{contact.country || "SK"}</span>
+                <span className="text-sm text-foreground">{contact.country || "SK"}</span>
               </div>
             </div>
 
             {campaign && (
-              <div className="pt-2" style={{ borderTop: "1px solid #E5DDD5" }}>
-                <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: "#9A8878" }}>
+              <div className="pt-2 border-t border-border">
+                <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5 text-muted-foreground">
                   Kampaň
                 </h4>
-                <div className="p-2.5 rounded-xl" style={{ background: "#FFFFFF", border: "1px solid #E5DDD5" }}>
-                  <p className="text-sm font-medium" style={{ color: "#2E2118" }}>{campaign.name}</p>
-                  <p className="text-xs mt-0.5" style={{ color: "#9A8878" }}>{campaign.type} / {campaign.channel}</p>
+                <div className="p-2.5 rounded-xl bg-card border border-border">
+                  <p className="text-sm font-medium text-foreground">{campaign.name}</p>
+                  <p className="text-xs mt-0.5 text-muted-foreground">{campaign.type} / {campaign.channel}</p>
                 </div>
               </div>
             )}
@@ -4485,7 +4485,7 @@ function CustomerInfoPanel({
                         className={`rounded-xl overflow-visible transition-all duration-200 ${isClickable ? "cursor-pointer group" : ""}`}
                         data-testid={`history-item-${item.id}`}
                         style={{
-                          background: "#FFFFFF",
+                          background: "hsl(var(--card))",
                           border: `1px solid ${itemAc}25`,
                           boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
                         }}
@@ -4557,7 +4557,7 @@ function CustomerInfoPanel({
                               {(item.type === "email" || item.type === "sms") && item.sentiment && (
                                 <SentimentBadge sentiment={item.sentiment} size={isModal ? "md" : "sm"} />
                               )}
-                              <span className={`${isModal ? "text-xs" : "text-[9px]"} ml-auto`} style={{ color: "#9A8878" }}>
+                              <span className={`${isModal ? "text-xs" : "text-[9px]"} ml-auto text-muted-foreground`}>
                                 {format(new Date(item.date), isModal ? "d. MMMM yyyy, HH:mm" : "d.M. HH:mm", { locale: sk })}
                               </span>
                             </div>
@@ -4568,7 +4568,7 @@ function CustomerInfoPanel({
                                 ...(s.subsections || []).flatMap((sub: any) => (sub.items || []).map((i: any) => ({ ...i, _sColor: s.color || "" }))),
                               ]).filter((i: any) => i.checked || i.answer === "yes" || (i.value && String(i.value).trim()));
                               if (answeredItems.length === 0) {
-                                return <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium leading-snug`} style={{ color: "#9A8878" }}>Žiadne položky nezodpovedané</p>;
+                                return <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium leading-snug text-muted-foreground`}>Žiadne položky nezodpovedané</p>;
                               }
                               return (
                                 <div className="flex flex-wrap gap-1 mt-1 max-w-full">
@@ -4587,13 +4587,13 @@ function CustomerInfoPanel({
                               );
                             })() : (
                               <>
-                                <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium ${isModal ? "" : "line-clamp-2"} leading-snug`} style={{ color: "#2E2118" }}>
+                                <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium ${isModal ? "" : "line-clamp-2"} leading-snug text-foreground`}>
                                   {isCall
                                     ? (highlightMatch(contentText.replace(/^(Hovor (odchádzajúci|prichádzajúci)|Prichádzajúci hovor): /, "")) || "—")
                                     : (highlightMatch(contentText) || "—")}
                                 </p>
                                 {!isCall && plainDetails && (
-                                  <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} ${isModal ? "line-clamp-3" : "line-clamp-2"} leading-snug`} style={{ color: "#9A8878" }}>
+                                  <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} ${isModal ? "line-clamp-3" : "line-clamp-2"} leading-snug text-muted-foreground`}>
                                     {highlightMatch(plainDetails)}
                                   </p>
                                 )}
@@ -4601,7 +4601,7 @@ function CustomerInfoPanel({
                             )}
                           </div>
                           {isClickable && (
-                            <ExternalLink className={`${isModal ? "h-4 w-4" : "h-3 w-3"} shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity`} style={{ color: "#9A8878" }} />
+                            <ExternalLink className={`${isModal ? "h-4 w-4" : "h-3 w-3"} shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground`} />
                           )}
                         </div>
                         {isCall && item.callLogId && (
@@ -4609,7 +4609,7 @@ function CustomerInfoPanel({
                             <CallRecordingPlayer callLogId={item.callLogId} compact />
                           </div>
                         )}
-                        <div className={`flex items-center gap-2 ${isModal ? "px-3 pb-2.5 text-xs" : "px-2.5 pb-2 text-[9px]"} flex-wrap`} style={{ color: "#9A8878" }}>
+                        <div className={`flex items-center gap-2 ${isModal ? "px-3 pb-2.5 text-xs" : "px-2.5 pb-2 text-[9px]"} flex-wrap text-muted-foreground`}>
                           {item.agentName && (
                             <span className="flex items-center gap-0.5">
                               <UserCircle className={isModal ? "h-3 w-3" : "h-2.5 w-2.5"} />
@@ -4618,8 +4618,7 @@ function CustomerInfoPanel({
                           )}
                           {item.campaignName && (
                             <span
-                              className={`inline-flex items-center ${isModal ? "text-xs px-2 py-0.5" : "text-[9px] px-1.5 py-0.5"} rounded-full truncate ${isModal ? "max-w-[200px]" : "max-w-[120px]"}`}
-                              style={{ background: "#EDE8E0", color: "#7A6858" }}
+                              className={`inline-flex items-center ${isModal ? "text-xs px-2 py-0.5" : "text-[9px] px-1.5 py-0.5"} rounded-full truncate ${isModal ? "max-w-[200px]" : "max-w-[120px]"} bg-muted text-muted-foreground`}
                               title={item.campaignName}
                             >
                               {item.campaignName}
@@ -4768,21 +4767,19 @@ function CustomerInfoPanel({
             <>
               <div
                 className={isModal ? "p-4 space-y-2" : "p-2 space-y-1.5"}
-                style={{ borderBottom: "1px solid #E5DDD5", background: "#F8F4EE" }}
+                style={{ borderBottom: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
               >
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#B5622E22" }}>
                     <BookOpen className={isModal ? "h-4 w-4" : "h-3.5 w-3.5"} style={{ color: "#B5622E" }} />
                   </div>
                   <span
-                    className={isModal ? "text-xs font-semibold uppercase tracking-wider" : "text-[10px] font-semibold uppercase tracking-wider"}
-                    style={{ color: "#9A8878" }}
+                    className={`${isModal ? "text-xs" : "text-[10px]"} font-semibold uppercase tracking-wider text-muted-foreground`}
                   >
                     {t.campaigns.faq.frequentlyAsked}
                   </span>
                   <span
-                    className={isModal ? "text-xs ml-auto px-1.5 py-0.5 rounded-md font-medium" : "text-[9px] ml-auto px-1 py-0.5 rounded-md font-medium"}
-                    style={{ background: "#EDE8E0", color: "#7A6858" }}
+                    className={`${isModal ? "text-xs ml-auto px-1.5 py-0.5" : "text-[9px] ml-auto px-1 py-0.5"} rounded-md font-medium bg-muted text-muted-foreground`}
                   >
                     {filteredFaqs.length}
                   </span>
@@ -4790,21 +4787,19 @@ function CustomerInfoPanel({
                     <button
                       onClick={() => setFaqMaximized(true)}
                       data-testid="btn-faq-maximize"
-                      className="p-1 rounded-md"
-                      style={{ color: "#9A8878" }}
+                      className="p-1 rounded-md text-muted-foreground"
                     >
                       <Maximize2 className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </div>
                 <div className="relative">
-                  <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${isModal ? "h-4 w-4" : "h-3 w-3"}`} style={{ color: "#9A8878" }} />
+                  <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${isModal ? "h-4 w-4" : "h-3 w-3"} text-muted-foreground`} />
                   <Input
                     value={faqSearch}
                     onChange={(e) => setFaqSearchQuery(e.target.value)}
                     placeholder={t.campaigns.faq.searchPlaceholder}
                     className={isModal ? "pl-9 h-9 text-sm rounded-xl" : "pl-7 h-7 text-xs rounded-xl"}
-                    style={{ background: "#FFFFFF", borderColor: "#D9D0C4", color: "#2E2118" }}
                     data-testid={isModal ? "input-faq-search-modal" : "input-faq-search"}
                   />
                 </div>
@@ -4812,7 +4807,7 @@ function CustomerInfoPanel({
 
               <div className="flex-1 overflow-auto">
                 {filteredFaqs.length === 0 ? (
-                  <div className="text-center py-8" style={{ color: "#9A8878" }}>
+                  <div className="text-center py-8 text-muted-foreground">
                     <HelpCircle className={isModal ? "h-12 w-12 mx-auto mb-3 opacity-20" : "h-8 w-8 mx-auto mb-2 opacity-20"} />
                     <p className={isModal ? "text-sm" : "text-xs"}>{t.campaigns.faq.noFaqs}</p>
                   </div>
@@ -4826,8 +4821,7 @@ function CustomerInfoPanel({
                             style={{ background: "#B5622E" }}
                           />
                           <span
-                            className={isModal ? "text-xs font-semibold uppercase tracking-wider" : "text-[10px] font-semibold uppercase tracking-wider"}
-                            style={{ color: "#7A6858" }}
+                            className={`${isModal ? "text-xs" : "text-[10px]"} font-semibold uppercase tracking-wider text-muted-foreground`}
                           >
                             {group.category}
                           </span>
@@ -4846,9 +4840,9 @@ function CustomerInfoPanel({
                                 key={faq.id}
                                 className="rounded-xl overflow-hidden transition-all"
                                 style={{
-                                  background: "#FFFFFF",
-                                  border: "1px solid #E5DDD5",
-                                  borderLeft: isExpanded ? "3px solid #B5622E" : "1px solid #E5DDD5",
+                                  background: "hsl(var(--card))",
+                                  border: `1px solid hsl(var(--border))`,
+                                  borderLeft: isExpanded ? "3px solid #B5622E" : `1px solid hsl(var(--border))`,
                                 }}
                                 data-testid={`faq-item-${faq.id}`}
                               >
@@ -4859,28 +4853,25 @@ function CustomerInfoPanel({
                                 >
                                   <HelpCircle
                                     className={isModal ? "h-4 w-4 shrink-0 mt-0.5" : "h-3.5 w-3.5 shrink-0 mt-0.5"}
-                                    style={{ color: isExpanded ? "#B5622E" : "#9A8878" }}
+                                    style={{ color: isExpanded ? "#B5622E" : "hsl(var(--muted-foreground))" }}
                                   />
                                   <span
-                                    className={isModal ? "text-sm font-medium flex-1 leading-snug" : "text-[11px] font-medium flex-1 leading-snug"}
-                                    style={{ color: "#2E2118" }}
+                                    className={`${isModal ? "text-sm" : "text-[11px]"} font-medium flex-1 leading-snug text-foreground`}
                                   >
                                     {faq.question}
                                   </span>
                                   {isExpanded ? (
                                     <ChevronUp className={isModal ? "h-4 w-4 shrink-0 mt-0.5" : "h-3 w-3 shrink-0 mt-0.5"} style={{ color: "#B5622E" }} />
                                   ) : (
-                                    <ChevronDown className={isModal ? "h-4 w-4 shrink-0 mt-0.5" : "h-3 w-3 shrink-0 mt-0.5"} style={{ color: "#9A8878" }} />
+                                    <ChevronDown className={`${isModal ? "h-4 w-4" : "h-3 w-3"} shrink-0 mt-0.5 text-muted-foreground`} />
                                   )}
                                 </button>
                                 {isExpanded && (
                                   <div
-                                    className={isModal ? "px-3 pb-3 pt-1 ml-6" : "px-2 pb-2 pt-0.5 ml-5"}
-                                    style={{ borderTop: "1px solid #F0EBE4" }}
+                                    className={`${isModal ? "px-3 pb-3 pt-1 ml-6" : "px-2 pb-2 pt-0.5 ml-5"} border-t border-border`}
                                   >
                                     <p
-                                      className={isModal ? "text-sm leading-relaxed" : "text-[11px] leading-relaxed"}
-                                      style={{ color: "#7A6858" }}
+                                      className={`${isModal ? "text-sm" : "text-[11px]"} leading-relaxed text-muted-foreground`}
                                     >
                                       {faq.answer}
                                     </p>
@@ -4925,7 +4916,7 @@ function CustomerInfoPanel({
           <div className="p-3 space-y-3">
             {/* Quick Actions */}
             <div>
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: "#9A8878" }}>
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5 text-muted-foreground">
                 <Zap className="h-3 w-3" style={{ color: "#B5622E" }} />
                 {t.agentWorkspace.quickActions}
               </h4>
@@ -4943,10 +4934,10 @@ function CustomerInfoPanel({
                     data-testid={testId}
                     className="flex items-center gap-2 p-2 rounded-xl text-left transition-all"
                     style={{
-                      background: "#FFFFFF",
-                      border: `1px solid #E5DDD5`,
+                      background: "hsl(var(--card))",
+                      border: `1px solid hsl(var(--border))`,
                       borderLeft: `3px solid ${color}`,
-                      color: "#2E2118",
+                      color: "hsl(var(--foreground))",
                       opacity: disabled ? 0.4 : 1,
                       cursor: disabled ? "not-allowed" : "pointer",
                     }}
@@ -4960,20 +4951,19 @@ function CustomerInfoPanel({
               </div>
             </div>
 
-            <div style={{ borderTop: "1px solid #E5DDD5" }} />
+            <div className="border-t border-border" />
 
             {/* Add Note */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "#9A8878" }}>
+                <h4 className="text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 text-muted-foreground">
                   <StickyNote className="h-3 w-3" style={{ color: "#B5622E" }} />
                   {t.agentWorkspace.addNote || "Pridať poznámku"}
                 </h4>
                 <button
                   onClick={() => setNoteExpanded(!noteExpanded)}
                   data-testid="btn-toggle-note-expand"
-                  className="p-1 rounded-md transition-colors"
-                  style={{ color: "#9A8878" }}
+                  className="p-1 rounded-md transition-colors text-muted-foreground"
                 >
                   {noteExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
                 </button>
@@ -4984,7 +4974,7 @@ function CustomerInfoPanel({
                 onChange={(e) => setNewNote(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
                 className="text-xs resize-none transition-all rounded-xl"
-                style={{ background: "#FFFFFF", borderColor: "#D9D0C4", minHeight: noteExpanded ? "200px" : "60px", color: "#2E2118" }}
+                style={{ minHeight: noteExpanded ? "200px" : "60px" }}
                 rows={noteExpanded ? 8 : 3}
                 data-testid="input-call-notes"
               />
@@ -4995,8 +4985,8 @@ function CustomerInfoPanel({
                   data-testid="btn-add-note"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
                   style={{
-                    background: newNote.trim() ? "#B5622E" : "#EDE8E0",
-                    color: newNote.trim() ? "#FFFFFF" : "#9A8878",
+                    background: newNote.trim() ? "#B5622E" : "hsl(var(--muted))",
+                    color: newNote.trim() ? "#FFFFFF" : "hsl(var(--muted-foreground))",
                     cursor: newNote.trim() ? "pointer" : "not-allowed",
                   }}
                 >
@@ -5006,16 +4996,16 @@ function CustomerInfoPanel({
               </div>
             </div>
 
-            <div style={{ borderTop: "1px solid #E5DDD5" }} />
+            <div className="border-t border-border" />
 
             {/* Notes list */}
             <div>
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: "#9A8878" }}>
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5 text-muted-foreground">
                 <FileText className="h-3 w-3" style={{ color: "#B5622E" }} />
                 {t.customers?.tabs?.notes || "Poznámky"}
               </h4>
               {customerNotes.length === 0 ? (
-                <div className="text-center py-4" style={{ color: "#9A8878" }}>
+                <div className="text-center py-4 text-muted-foreground">
                   <MessageSquare className="h-6 w-6 mx-auto mb-1 opacity-30" />
                   <p className="text-[10px]">{t.customers?.details?.noNotes || "Žiadne poznámky"}</p>
                 </div>
@@ -5025,7 +5015,7 @@ function CustomerInfoPanel({
                     <div
                       key={note.id}
                       className="p-2.5 rounded-xl cursor-pointer transition-all"
-                      style={{ background: "#FFFFFF", border: "1px solid #E5DDD5" }}
+                      style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
                       onClick={() => setSelectedNote(note)}
                       data-testid={`note-entry-${note.id}`}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 12px #B5622E18"; }}
@@ -5033,16 +5023,16 @@ function CustomerInfoPanel({
                     >
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <User className="h-3 w-3 shrink-0" style={{ color: "#B5622E" }} />
-                        <span className="text-[10px] font-medium truncate" style={{ color: "#2E2118" }}>{note.userName}</span>
-                        <span className="text-[10px] ml-auto shrink-0" style={{ color: "#9A8878" }}>
+                        <span className="text-[10px] font-medium truncate text-foreground">{note.userName}</span>
+                        <span className="text-[10px] ml-auto shrink-0 text-muted-foreground">
                           {format(new Date(note.createdAt), "d.M. HH:mm", { locale: sk })}
                         </span>
                       </div>
-                      <p className="text-[11px] line-clamp-2" style={{ color: "#5A4A3A" }}>{note.content}</p>
+                      <p className="text-[11px] line-clamp-2 text-foreground/80">{note.content}</p>
                     </div>
                   ))}
                   {customerNotes.length > 10 && (
-                    <p className="text-[10px] text-center" style={{ color: "#9A8878" }}>
+                    <p className="text-[10px] text-center text-muted-foreground">
                       +{customerNotes.length - 10} {t.agentWorkspace.moreNotes}
                     </p>
                   )}
@@ -8235,7 +8225,7 @@ export default function AgentWorkspacePage() {
 
             {/* Ikona + nadpis */}
             <div className="relative z-10 flex items-center gap-4 mb-4">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm shrink-0" style={{ background: "#FFFFFF", border: "1px solid #E8C8C8" }}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm shrink-0 bg-card border border-border">
                 <Headphones className="h-5 w-5 text-primary" />
               </div>
               <div>
@@ -8301,7 +8291,7 @@ export default function AgentWorkspacePage() {
               };
 
               return (
-                <div className="relative z-10 rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #E8E0DA", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                <div className="relative z-10 rounded-xl overflow-hidden bg-card border border-border" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
                   <div className="flex items-center gap-3 px-3.5 py-2.5">
                     <div className="relative shrink-0">
                       <Avatar className="h-9 w-9" style={{ border: "1.5px solid #E8C8C8" }}>
@@ -8403,8 +8393,8 @@ export default function AgentWorkspacePage() {
                           key={campaign.id}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
                           style={{
-                            background: isChecked ? "#FDF7F4" : "#FFFFFF",
-                            border: `1px solid ${isChecked ? "#E8C8C8" : "#EDE5DF"}`,
+                            background: isChecked ? "hsl(var(--primary) / 0.06)" : "hsl(var(--card))",
+                            border: `1px solid ${isChecked ? "hsl(var(--primary) / 0.3)" : "hsl(var(--border))"}`,
                             boxShadow: isChecked ? "inset 0 0 0 1px #E8C8C840" : "none",
                           }}
                           onClick={() => setSelectedLoginCampaignIds(prev => prev.includes(campaign.id) ? prev.filter(id => id !== campaign.id) : [...prev, campaign.id])}
@@ -8507,8 +8497,8 @@ export default function AgentWorkspacePage() {
                           key={queue.id}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
                           style={{
-                            background: isChecked ? (isAfterHours ? "#FFFBEB" : "#F6FEF9") : (isAfterHours ? "#FFFDF5" : "#FFFFFF"),
-                            border: `1px solid ${isChecked ? (isAfterHours ? "#FCD34D" : "#86EFAC") : (isAfterHours ? "#FDE68A" : "#EDE5DF")}`,
+                            background: isChecked ? (isAfterHours ? "hsl(48 96% 53% / 0.12)" : "hsl(143 71% 52% / 0.08)") : "hsl(var(--card))",
+                            border: `1px solid ${isChecked ? (isAfterHours ? "hsl(48 96% 53% / 0.5)" : "hsl(143 71% 52% / 0.5)") : "hsl(var(--border))"}`,
                           }}
                           onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
                           data-testid={`login-queue-${queue.id}`}
@@ -8895,7 +8885,7 @@ export default function AgentWorkspacePage() {
                     key={cc.id}
                     className="flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-all duration-150"
                     style={{
-                      background: "#FFFFFF",
+                      background: "hsl(var(--card))",
                       border: `1px solid ${ac}25`,
                       borderRadius: "12px",
                       boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
@@ -8919,8 +8909,8 @@ export default function AgentWorkspacePage() {
                       <MIcon className="h-4 w-4" style={{ color: ac }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate" style={{ color: "#3D2E20" }}>{entityInfo.name}</p>
-                      <p className="text-xs truncate" style={{ color: "#9A8878" }}>{entityInfo.subtitle}</p>
+                      <p className="text-sm font-semibold truncate text-foreground">{entityInfo.name}</p>
+                      <p className="text-xs truncate text-muted-foreground">{entityInfo.subtitle}</p>
                       {cc.callbackNote && (
                         <p className="text-[10px] mt-0.5 truncate italic" style={{ color: "#B08060" }} title={cc.callbackNote}>📝 {cc.callbackNote}</p>
                       )}
@@ -8966,7 +8956,7 @@ export default function AgentWorkspacePage() {
                         <div
                           key={id}
                           className="rounded-2xl overflow-hidden"
-                          style={{ background: "#F8F4EE", border: `1.5px solid ${ac}40`, boxShadow: `0 2px 10px ${ac}15` }}
+                          style={{ background: "hsl(var(--card))", border: `1.5px solid ${ac}40`, boxShadow: `0 2px 10px ${ac}15` }}
                         >
                           <button
                             type="button"
@@ -8978,8 +8968,8 @@ export default function AgentWorkspacePage() {
                               <Icon className="h-5 w-5 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="font-bold text-sm" style={{ color: "#3D2E20" }}>{label}</div>
-                              <div className="text-xs mt-0.5" style={{ color: "#9A8878" }}>{nContacts(items.length)}</div>
+                              <div className="font-bold text-sm text-foreground">{label}</div>
+                              <div className="text-xs mt-0.5 text-muted-foreground">{nContacts(items.length)}</div>
                             </div>
                             <span className="text-sm font-bold min-w-[30px] h-7 flex items-center justify-center rounded-full px-2 shrink-0" style={{ background: ac, color: "#fff" }}>
                               {items.length}
@@ -8987,7 +8977,7 @@ export default function AgentWorkspacePage() {
                             {isOpen ? <ChevronUp className="h-4 w-4 shrink-0" style={{ color: ac }} /> : <ChevronDown className="h-4 w-4 shrink-0" style={{ color: ac }} />}
                           </button>
                           {isOpen && (
-                            <div className="p-3 space-y-2" style={{ background: "#F8F4EE" }}>
+                            <div className="p-3 space-y-2" style={{ background: "hsl(var(--card))" }}>
                               {items.map(cc => renderModalCard(cc, ac))}
                             </div>
                           )}
@@ -9036,7 +9026,7 @@ export default function AgentWorkspacePage() {
               const flatAc = modalFilter === "due" ? "#B5622E" : modalFilter === "my_callbacks" ? "#5B4FCF" : modalFilter === "team_callbacks" ? "#2E75B6" : modalFilter === "pending" ? "#5A7A5A" : "#7A6858";
               return (
                 <div className="space-y-2 py-3">
-                  <div className="text-xs px-1 pb-1 font-medium" style={{ color: "#9A8878" }}>
+                  <div className="text-xs px-1 pb-1 font-medium text-muted-foreground">
                     {nContacts(filtered.length)}
                   </div>
                   {filtered.map(cc => renderModalCard(cc, flatAc))}
@@ -9077,7 +9067,7 @@ export default function AgentWorkspacePage() {
                       key={task.id}
                       className="flex items-center gap-4 px-4 py-3 cursor-pointer transition-all duration-150"
                       style={{
-                        background: isActive ? `${taskAc}10` : "#FFFFFF",
+                        background: isActive ? `${taskAc}10` : "hsl(var(--card))",
                         border: `1.5px solid ${isActive ? taskAc : taskAc + "35"}`,
                         borderRadius: "16px",
                         boxShadow: isActive ? `0 4px 16px ${taskAc}25` : "0 2px 8px rgba(0,0,0,0.06)",
@@ -9111,8 +9101,8 @@ export default function AgentWorkspacePage() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate" style={{ color: "#3D2E20" }}>{task.contact.firstName} {task.contact.lastName}</p>
-                        <p className="text-xs truncate mt-0.5" style={{ color: "#9A8878" }}>{task.campaignName}</p>
+                        <p className="text-sm font-bold truncate text-foreground">{task.contact.firstName} {task.contact.lastName}</p>
+                        <p className="text-xs truncate mt-0.5 text-muted-foreground">{task.campaignName}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span
@@ -9124,8 +9114,7 @@ export default function AgentWorkspacePage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 shrink-0 rounded-xl hover:bg-red-50 hover:text-red-500"
-                          style={{ color: "#9A8878" }}
+                          className="h-8 w-8 shrink-0 rounded-xl hover:bg-red-50 hover:text-red-500 text-muted-foreground"
                           onClick={(e) => { e.stopPropagation(); handleCancelTask(task.id); }}
                           data-testid={`btn-modal-cancel-task-${task.id}`}
                         >
@@ -9164,7 +9153,7 @@ export default function AgentWorkspacePage() {
                     <DispIcon className="h-4.5 w-4.5 text-white" style={{ width: 18, height: 18 }} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <SheetTitle className="text-sm font-bold leading-tight" style={{ color: "#2E2118" }}>
+                    <SheetTitle className="text-sm font-bold leading-tight text-foreground">
                       {checklistParentId
                         ? t.agentWorkspace.checklistStep2
                         : modalSelectedParent
@@ -9178,11 +9167,11 @@ export default function AgentWorkspacePage() {
                     {currentContact && (
                       <SheetDescription className="flex items-center gap-1.5 text-xs mt-0.5">
                         <User className="h-3 w-3 shrink-0" style={{ color: dispAc }} />
-                        <span className="font-semibold truncate" style={{ color: "#2E2118" }}>{currentContact.firstName} {currentContact.lastName}</span>
+                        <span className="font-semibold truncate text-foreground">{currentContact.firstName} {currentContact.lastName}</span>
                         {dispositionChannelFilter === "email" && currentContact.email
-                          ? <span style={{ color: "#9A8878" }}>· {currentContact.email}</span>
+                          ? <span className="text-muted-foreground">· {currentContact.email}</span>
                           : currentContact.phone
-                          ? <span style={{ color: "#9A8878" }}>· {currentContact.phone}</span>
+                          ? <span className="text-muted-foreground">· {currentContact.phone}</span>
                           : null}
                       </SheetDescription>
                     )}
@@ -9196,7 +9185,7 @@ export default function AgentWorkspacePage() {
           })()}
 
           {/* Body */}
-          <ScrollArea className="flex-1 min-h-0" style={{ background: "#EEEBE4" }}>
+          <ScrollArea className="flex-1 min-h-0 bg-background">
             <div className="px-4 py-4 space-y-4">
               {campaignDispositions.length === 0 ? (
                 <div className="text-center py-16">
