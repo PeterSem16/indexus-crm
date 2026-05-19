@@ -457,7 +457,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
                     <Phone className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
-                    <div className="text-[9px] text-muted-foreground leading-none">Čakanie</div>
+                    <div className="text-[9px] text-muted-foreground leading-none">{ca.waiting}</div>
                     <div className="text-[11px] font-bold text-amber-700 dark:text-amber-300 leading-tight">{formatDuration(ringS)}</div>
                   </div>
                 </div>
@@ -468,7 +468,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
                     <Mic className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <div className="text-[9px] text-muted-foreground leading-none">Rozhovor</div>
+                    <div className="text-[9px] text-muted-foreground leading-none">{ca.conversation}</div>
                     <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{formatDuration(talkS)}</div>
                   </div>
                 </div>
@@ -479,7 +479,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
                     <BarChart3 className="h-2.5 w-2.5 text-slate-500" />
                   </div>
                   <div>
-                    <div className="text-[9px] text-muted-foreground leading-none">Celkovo</div>
+                    <div className="text-[9px] text-muted-foreground leading-none">{ca.total}</div>
                     <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">{formatDuration(totalS)}</div>
                   </div>
                 </div>
@@ -487,7 +487,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
               {log.hungUpBy && (
                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground ml-1">
                   <XCircle className="h-3 w-3 text-destructive/60" />
-                  <span>Zavesil: <span className="font-medium text-foreground">{log.hungUpBy === "customer" ? "Zákazník" : log.hungUpBy === "user" ? "Agent" : log.hungUpBy}</span></span>
+                  <span>{ca.hungUpBy}: <span className="font-medium text-foreground">{log.hungUpBy === "customer" ? ca.customer : log.hungUpBy === "user" ? ca.agent : log.hungUpBy}</span></span>
                 </div>
               )}
             </div>

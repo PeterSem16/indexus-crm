@@ -5044,6 +5044,10 @@ export interface Translations {
     downloadZip: string;
     downloading: string;
     cancel: string;
+    waiting: string;
+    conversation: string;
+    total: string;
+    hungUpBy: string;
   };
   executiveSummaries: {
     title: string;
@@ -11765,6 +11769,10 @@ export const translations: Record<Locale, Translations> = {
       downloadZip: 'Download ZIP',
       downloading: 'Downloading…',
       cancel: 'Cancel',
+      waiting: 'Waiting',
+      conversation: 'Conversation',
+      total: 'Total',
+      hungUpBy: 'Hung up',
     },
     executiveSummaries: {
       title: 'Executive Summaries',
@@ -17941,6 +17949,10 @@ export const translations: Record<Locale, Translations> = {
       downloadZip: 'Stiahnuť ZIP',
       downloading: 'Sťahujem…',
       cancel: 'Zrušiť',
+      waiting: 'Čakanie',
+      conversation: 'Rozhovor',
+      total: 'Celkovo',
+      hungUpBy: 'Zavesil',
     },
     executiveSummaries: {
       title: 'Manažérske prehľady',
@@ -24043,6 +24055,10 @@ export const translations: Record<Locale, Translations> = {
       downloadZip: 'Stáhnout ZIP',
       downloading: 'Stahuji…',
       cancel: 'Zrušit',
+      waiting: 'Čekání',
+      conversation: 'Rozhovor',
+      total: 'Celkem',
+      hungUpBy: 'Zavěsil',
     },
     executiveSummaries: {
       title: 'Manažerské přehledy',
@@ -30115,6 +30131,10 @@ export const translations: Record<Locale, Translations> = {
       downloadZip: 'ZIP letöltése',
       downloading: 'Letöltés…',
       cancel: 'Mégse',
+      waiting: 'Várakozás',
+      conversation: 'Beszélgetés',
+      total: 'Összesen',
+      hungUpBy: 'Letette',
     },
     executiveSummaries: {
       title: 'Vezetői összefoglalók',
@@ -36107,6 +36127,10 @@ export const translations: Record<Locale, Translations> = {
       downloadZip: 'Descarcă ZIP',
       downloading: 'Se descarcă…',
       cancel: 'Anulare',
+      waiting: 'Așteptare',
+      conversation: 'Conversație',
+      total: 'Total',
+      hungUpBy: 'A închis',
     },
     executiveSummaries: {
       title: 'Rapoarte executive',
@@ -42101,6 +42125,10 @@ export const translations: Record<Locale, Translations> = {
       downloadZip: 'Scarica ZIP',
       downloading: 'Download in corso…',
       cancel: 'Annulla',
+      waiting: 'Attesa',
+      conversation: 'Conversazione',
+      total: 'Totale',
+      hungUpBy: 'Ha riagganciato',
     },
     executiveSummaries: {
       title: 'Report esecutivi',
@@ -48082,6 +48110,10 @@ export const translations: Record<Locale, Translations> = {
       downloadZip: 'ZIP herunterladen',
       downloading: 'Wird heruntergeladen…',
       cancel: 'Abbrechen',
+      waiting: 'Warten',
+      conversation: 'Gespräch',
+      total: 'Gesamt',
+      hungUpBy: 'Aufgelegt',
     },
     executiveSummaries: {
       title: 'Managementberichte',
