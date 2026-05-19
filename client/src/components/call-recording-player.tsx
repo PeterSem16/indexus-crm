@@ -8,6 +8,14 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import type { CallRecording } from "@shared/schema";
 
+interface CallLogDisposition {
+  dispositionCode: string;
+  dispositionName: string;
+  dispositionColor: string | null;
+  dispositionIcon: string | null;
+  checklistItems: { code: string; name: string; color: string | null; icon: string | null }[];
+}
+
 export interface PlaybackState {
   currentTime: number;
   duration: number;
@@ -399,6 +407,46 @@ function WaveformSeekBar({
   );
 }
 
+function DispositionPanel({ disposition }: { disposition: CallLogDisposition }) {
+  return (
+    <div className="mt-2 rounded-md border border-border/40 bg-muted/20 px-3 py-2 space-y-1.5" data-testid="disposition-panel">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Tag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <span className="text-[11px] font-medium text-muted-foreground">Disposition:</span>
+        <Badge
+          variant="secondary"
+          className="text-[11px] h-5 font-medium"
+          style={disposition.dispositionColor ? { backgroundColor: disposition.dispositionColor + "22", color: disposition.dispositionColor, borderColor: disposition.dispositionColor + "44" } : {}}
+          data-testid="badge-disposition"
+        >
+          {disposition.dispositionIcon && <span className="mr-1">{disposition.dispositionIcon}</span>}
+          {disposition.dispositionName}
+        </Badge>
+      </div>
+      {disposition.checklistItems.length > 0 && (
+        <div className="flex items-start gap-1.5 flex-wrap">
+          <ListChecks className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+          <span className="text-[11px] font-medium text-muted-foreground">Výber:</span>
+          <div className="flex flex-wrap gap-1">
+            {disposition.checklistItems.map((item) => (
+              <Badge
+                key={item.code}
+                variant="outline"
+                className="text-[10px] h-5"
+                style={item.color ? { borderColor: item.color + "66", color: item.color } : {}}
+                data-testid={`badge-checklist-${item.code}`}
+              >
+                <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
+                {item.name}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
   const { callLogId, compact = false, onTimeUpdate } = props;
   const { data: recordings = [], isLoading } = useQuery<CallRecording[]>({
@@ -406,6 +454,16 @@ export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
     queryFn: async () => {
       const res = await fetch(`/api/call-recordings?callLogId=${callLogId}`, { credentials: "include" });
       if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!callLogId,
+  });
+
+  const { data: disposition } = useQuery<CallLogDisposition | null>({
+    queryKey: ["/api/call-logs", String(callLogId), "disposition"],
+    queryFn: async () => {
+      const res = await fetch(`/api/call-logs/${callLogId}/disposition`, { credentials: "include" });
+      if (!res.ok) return null;
       return res.json();
     },
     enabled: !!callLogId,
@@ -421,6 +479,7 @@ export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
       {recordings.map((rec) => (
         <RecordingItem key={rec.id} recording={rec} compact={compact} onTimeUpdate={onTimeUpdate} waveNames={waveNames} />
       ))}
+      {disposition && <DispositionPanel disposition={disposition} />}
     </div>
   );
 }

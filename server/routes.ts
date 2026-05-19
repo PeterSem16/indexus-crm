@@ -26409,7 +26409,58 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
-  // Bulk download recordings as ZIP
+  // Get disposition + checklist for a call log (via campaignContact)
+  app.get("/api/call-logs/:id/disposition", requireAuth, async (req, res) => {
+    try {
+      const log = await storage.getCallLog(req.params.id);
+      if (!log) return res.status(404).json({ error: "Not found" });
+      const campaignContactId = (log as any).campaignContactId;
+      if (!campaignContactId) return res.json(null);
+      const [cc] = await db.select({
+        dispositionCode: campaignContacts.dispositionCode,
+        dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+        campaignId: campaignContacts.campaignId,
+      }).from(campaignContacts).where(eq(campaignContacts.id, campaignContactId)).limit(1);
+      if (!cc || !cc.dispositionCode) return res.json(null);
+      const disps = await db.select().from(campaignDispositions)
+        .where(eq(campaignDispositions.campaignId, cc.campaignId));
+      const mainDisp = disps.find(d => d.code === cc.dispositionCode);
+      const checklistDisps = (cc.dispositionChecklistCodes || [])
+        .map(code => disps.find(d => d.code === code))
+        .filter(Boolean) as (typeof disps[0])[];
+      res.json({
+        dispositionCode: cc.dispositionCode,
+        dispositionName: mainDisp?.name || cc.dispositionCode,
+        dispositionColor: mainDisp?.color || null,
+        dispositionIcon: mainDisp?.icon || null,
+        checklistItems: checklistDisps.map(d => ({
+          code: d.code,
+          name: d.name,
+          color: d.color || null,
+          icon: d.icon || null,
+        })),
+      });
+    } catch (error) {
+      console.error("Failed to fetch call log disposition:", error);
+      res.status(500).json({ error: "Failed to fetch disposition" });
+    }
+  });
+
+  // Helper: find ffmpeg binary (inline, no external import needed)
+  function findFfmpegBin(): string | null {
+    const candidates = ["ffmpeg", "/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/snap/bin/ffmpeg"];
+    for (const cmd of candidates) {
+      try { execSync(`${cmd} -version`, { timeout: 5000, stdio: "pipe" }); return cmd; } catch {}
+    }
+    return null;
+  }
+  let _cachedFfmpegBin: string | null | undefined = undefined;
+  function getBulkFfmpeg(): string | null {
+    if (_cachedFfmpegBin === undefined) _cachedFfmpegBin = findFfmpegBin();
+    return _cachedFfmpegBin;
+  }
+
+  // Bulk download recordings as ZIP — WAV converted + voice stamp prepended
   app.post("/api/call-recordings/bulk-download", requireAuth, async (req, res) => {
     try {
       const user = req.session.user;
@@ -26446,28 +26497,90 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       if (rows.length === 0) return res.status(404).json({ error: "Žiadne nahrávky nezodpovedajú filtrom" });
 
+      // ---- Voice stamp: get or generate once ----
+      const stampPath = path.join(DATA_ROOT, "recordings-stamp.wav");
+      if (!fs.existsSync(stampPath)) {
+        try {
+          const stampResp = await openai.audio.speech.create({
+            model: "tts-1",
+            voice: "alloy",
+            input: "Recorded via Indexus for training purposes.",
+            response_format: "wav",
+          } as any);
+          const stampBuf = Buffer.from(await (stampResp as any).arrayBuffer());
+          fs.writeFileSync(stampPath, stampBuf);
+          console.log("[BulkDownload] Generated voice stamp WAV:", stampPath);
+        } catch (stampErr) {
+          console.warn("[BulkDownload] Could not generate voice stamp:", stampErr);
+        }
+      }
+      const hasStamp = fs.existsSync(stampPath);
+      const ffmpeg = getBulkFfmpeg();
+
+      // ---- Build ZIP ----
       const AdmZip = await import("adm-zip");
       const zip = new (AdmZip as any).default();
-      let added = 0;
-      for (const { log, recording } of rows) {
-        if (!recording.filePath || !fs.existsSync(recording.filePath)) continue;
-        const ext = path.extname(recording.filePath) || ".wav";
-        const dateStr = new Date(log.startedAt).toISOString().replace(/[:.]/g, "-").slice(0, 16);
-        const phone = (log.phoneNumber || "").replace(/[^0-9+]/g, "");
-        const imp = log.isImportant ? "_DOLEZITY" : "";
-        const filename = `${dateStr}_${phone}${imp}${ext}`;
-        zip.addLocalFile(recording.filePath, "", filename);
-        added++;
-      }
-      if (added === 0) return res.status(404).json({ error: "Súbory nahrávok nie sú dostupné na disku" });
+      const os = await import("os");
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "indexus-bulk-"));
+      const cleanup: string[] = [];
 
-      const zipBuffer = zip.toBuffer();
-      res.set({
-        "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="hovory_${Date.now()}.zip"`,
-        "Content-Length": zipBuffer.length.toString(),
-      });
-      res.send(zipBuffer);
+      try {
+        let added = 0;
+        for (const { log, recording } of rows) {
+          if (!recording.filePath || !fs.existsSync(recording.filePath)) continue;
+
+          const dateStr = new Date(log.startedAt).toISOString().replace(/[:.]/g, "-").slice(0, 16);
+          const phone = (log.phoneNumber || "").replace(/[^0-9+]/g, "");
+          const imp = log.isImportant ? "_DOLEZITY" : "";
+          const outName = `${dateStr}_${phone}${imp}.wav`;
+          let finalPath: string | null = null;
+
+          if (ffmpeg) {
+            try {
+              const convertedPath = path.join(tmpDir, `conv_${Date.now()}_${added}.wav`);
+              cleanup.push(convertedPath);
+              execSync(
+                `${JSON.stringify(ffmpeg)} -y -i ${JSON.stringify(recording.filePath)} -ar 16000 -ac 1 -f wav ${JSON.stringify(convertedPath)}`,
+                { timeout: 60000, stdio: "pipe" }
+              );
+              if (hasStamp) {
+                const stampedPath = path.join(tmpDir, outName);
+                cleanup.push(stampedPath);
+                execSync(
+                  `${JSON.stringify(ffmpeg)} -y -i ${JSON.stringify(stampPath)} -i ${JSON.stringify(convertedPath)} -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" -map "[out]" -ar 16000 -ac 1 ${JSON.stringify(stampedPath)}`,
+                  { timeout: 60000, stdio: "pipe" }
+                );
+                finalPath = stampedPath;
+              } else {
+                finalPath = convertedPath;
+              }
+            } catch (convErr) {
+              console.warn(`[BulkDownload] ffmpeg conversion failed for ${recording.filename}:`, (convErr as Error).message);
+            }
+          }
+
+          if (finalPath && fs.existsSync(finalPath)) {
+            zip.addLocalFile(finalPath, "", outName);
+          } else {
+            const fallbackExt = path.extname(recording.filePath) || ".webm";
+            zip.addLocalFile(recording.filePath, "", `${dateStr}_${phone}${imp}${fallbackExt}`);
+          }
+          added++;
+        }
+
+        if (added === 0) return res.status(404).json({ error: "Súbory nahrávok nie sú dostupné na disku" });
+
+        const zipBuffer = zip.toBuffer();
+        res.set({
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="hovory_${Date.now()}.zip"`,
+          "Content-Length": zipBuffer.length.toString(),
+        });
+        res.send(zipBuffer);
+      } finally {
+        for (const f of cleanup) { try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {} }
+        try { fs.rmdirSync(tmpDir); } catch {}
+      }
     } catch (error) {
       console.error("Bulk recording download failed:", error);
       res.status(500).json({ error: "Bulk download zlyhal" });
