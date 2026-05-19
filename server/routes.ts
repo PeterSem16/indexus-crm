@@ -26332,10 +26332,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const log = await storage.getCallLog(req.params.id);
       if (!log) return res.status(404).json({ error: "Not found" });
+      console.log(`[Checklist] logId=${req.params.id} customerId=${log.customerId} campaignId=${log.campaignId} campaignContactId=${(log as any).campaignContactId}`);
       let contacts: { id: string }[] = [];
       if ((log as any).campaignContactId) {
         contacts = [{ id: (log as any).campaignContactId }];
       } else if (!log.customerId) {
+        console.log(`[Checklist] no customerId → returning null`);
         return res.json(null);
       } else if (log.campaignId) {
         contacts = await db.select({ id: campaignContacts.id })
@@ -26347,13 +26349,16 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           .where(eq(campaignContacts.customerId, log.customerId))
           .limit(50);
       }
+      console.log(`[Checklist] contacts found: ${contacts.length} → ids: ${contacts.map(c => c.id).join(", ")}`);
       if (!contacts.length) return res.json(null);
       const contactIds = contacts.map(c => c.id);
       const history = await db.select().from(campaignContactHistory)
         .where(and(inArray(campaignContactHistory.campaignContactId, contactIds), eq(campaignContactHistory.action, "checklist_response")))
         .orderBy(desc(campaignContactHistory.createdAt)).limit(1);
+      console.log(`[Checklist] history records found: ${history.length}`);
       if (!history.length) return res.json(null);
       const meta = (history[0].metadata as any) || {};
+      console.log(`[Checklist] sections: ${(meta.sections || []).length}`);
       res.json({ sections: meta.sections || [], savedAt: history[0].createdAt });
     } catch (error: any) {
       console.error("Failed to fetch call log checklist response:", error);
