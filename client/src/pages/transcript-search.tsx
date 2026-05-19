@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Phone, Megaphone, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, Calendar, UserCircle, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, CheckCircle2, ShieldAlert, ClipboardCheck, Sparkles, Star, Smartphone } from "lucide-react";
+import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Phone, Megaphone, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, Calendar, UserCircle, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, CheckCircle2, ShieldAlert, ClipboardCheck, Sparkles, Star, Smartphone, XCircle, MessageSquare, Circle, CheckSquare } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
 import { CallRecordingPlayer, type PlaybackState } from "@/components/call-recording-player";
@@ -132,32 +132,83 @@ function getSnippet(text: string, query: string, maxLen = 300): string {
   return snippet;
 }
 
-function ScoreRing({ value, max = 10, stroke, label, sub }: { value: number; max?: number; stroke: string; label: string; sub: string }) {
-  const r = 24, c = 2 * Math.PI * r;
+function DonutChart({ value, max = 10, color, label, sub }: { value: number; max?: number; color: string; label: string; sub: string }) {
+  const r = 36, c = 2 * Math.PI * r;
+  const pct = Math.min(value / max, 1);
   return (
-    <div className="flex flex-col items-center gap-1" data-testid={`score-ring-${label}`}>
-      <svg viewBox="0 0 60 60" className="w-14 h-14">
-        <circle cx="30" cy="30" r={r} fill="none" stroke="currentColor" strokeWidth="4.5" className="text-muted/40" />
-        <circle cx="30" cy="30" r={r} fill="none" stroke={stroke} strokeWidth="4.5"
-          strokeDasharray={`${(value / max) * c} ${c}`} strokeLinecap="round"
-          transform="rotate(-90 30 30)" />
-        <text x="30" y="34" textAnchor="middle" fontSize="13" fontWeight="700" fill="currentColor" className="fill-foreground">{value}</text>
-      </svg>
+    <div className="flex flex-col items-center gap-2" data-testid={`donut-${label}`}>
+      <div className="relative">
+        <svg viewBox="0 0 100 100" className="w-[88px] h-[88px]">
+          <circle cx="50" cy="50" r={r} fill="none" stroke="currentColor" strokeWidth="8" className="text-muted/25" />
+          <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8"
+            strokeDasharray={`${pct * c} ${c}`} strokeLinecap="round" transform="rotate(-90 50 50)"
+            style={{ filter: `drop-shadow(0 0 4px ${color}55)` }} />
+          <text x="50" y="45" textAnchor="middle" fontSize="18" fontWeight="800" fill={color}>{value}</text>
+          <text x="50" y="60" textAnchor="middle" fontSize="9" fill="currentColor" opacity="0.5">/{max}</text>
+        </svg>
+      </div>
       <div className="text-center leading-tight">
-        <div className="text-[11px] font-semibold text-foreground">{label}</div>
-        <div className="text-[10px] text-muted-foreground">{sub}</div>
+        <div className="text-xs font-bold text-foreground">{label}</div>
+        <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>
       </div>
     </div>
   );
 }
 
-function MiniScoreBar({ value, max = 10, cls }: { value: number; max?: number; cls: string }) {
+function ChecklistResponsePanel({ sections, ca }: { sections: any[]; ca: Record<string, any> }) {
+  const sectionsWithContent = sections.filter(s => {
+    const allItems = [...(s.items || []), ...(s.subsections || []).flatMap((sub: any) => sub.items || [])];
+    return allItems.some((i: any) => i.checked || i.answer === "yes" || i.answer === "no" || i.value?.trim());
+  });
+  if (!sectionsWithContent.length) return null;
+  const totalItems = sections.flatMap(s => [...(s.items || []), ...(s.subsections || []).flatMap((sub: any) => sub.items || [])]);
+  const checkedCount = totalItems.filter((i: any) => i.checked || i.answer === "yes").length;
+  const totalCount = totalItems.length;
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${cls}`} style={{ width: `${(value / max) * 100}%` }} />
+    <div className="bg-background border border-border rounded-xl p-4" data-testid="section-checklist-response">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+            <ClipboardCheck className="h-3 w-3 text-indigo-500" />
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground">{ca.checklistLabel || "SOP Checklist"}</span>
+        </div>
+        {totalCount > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="h-1.5 w-20 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${Math.round((checkedCount / totalCount) * 100)}%` }} />
+            </div>
+            <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">{checkedCount}/{totalCount}</span>
+          </div>
+        )}
       </div>
-      <span className="text-[10px] font-semibold text-muted-foreground w-5 text-right">{value}</span>
+      <div className="space-y-3">
+        {sectionsWithContent.map((sec: any, si: number) => {
+          const allItems = [...(sec.items || []), ...(sec.subsections || []).flatMap((sub: any) => sub.items || [])];
+          const filledItems = allItems.filter((i: any) => i.checked || i.answer === "yes" || i.answer === "no" || i.value?.trim());
+          return (
+            <div key={si}>
+              {sec.title && <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{sec.title}</div>}
+              <div className="space-y-1.5">
+                {filledItems.map((item: any, ii: number) => {
+                  const isChecked = item.checked || item.answer === "yes";
+                  const isNo = item.answer === "no";
+                  return (
+                    <div key={ii} className={`flex items-start gap-2 text-xs rounded-lg px-2.5 py-1.5 ${isChecked ? "bg-emerald-50 dark:bg-emerald-950/20" : isNo ? "bg-red-50 dark:bg-red-950/20" : "bg-muted/30"}`} data-testid={`cl-item-${si}-${ii}`}>
+                      {isChecked && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />}
+                      {isNo && <XCircle className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />}
+                      {!isChecked && !isNo && item.value?.trim() && <MessageSquare className="h-3.5 w-3.5 text-blue-400 mt-0.5 shrink-0" />}
+                      <span className={`leading-relaxed ${isNo ? "text-muted-foreground line-through" : "text-foreground"}`}>{item.label}</span>
+                      {item.value?.trim() && <span className="text-muted-foreground italic ml-auto pl-2 text-[10px]">{item.value}</span>}
+                      {item.note?.trim() && <span className="text-muted-foreground italic ml-auto pl-2 text-[10px]">📝 {item.note}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -208,6 +259,9 @@ function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEnt
   );
 }
 
+const SENTIMENT_SCORE: Record<string, number> = { positive: 9, neutral: 6, negative: 3, angry: 1 };
+const SENTIMENT_COLOR: Record<string, string> = { positive: "#10b981", neutral: "#0ea5e9", negative: "#f59e0b", angry: "#ef4444" };
+
 function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca: Record<string, any>; locale: string; searchText?: string }) {
   const [tab, setTab] = useState<"analysis" | "transcript">("analysis");
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
@@ -218,35 +272,44 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
   const alerts = rec?.alertKeywords ?? [];
   const topics = rec?.keyTopics ?? [];
   const actionItems = rec?.actionItems ?? [];
+  const sentScore = rec?.sentiment ? (SENTIMENT_SCORE[rec.sentiment] ?? 5) : null;
+  const sentColor = rec?.sentiment ? (SENTIMENT_COLOR[rec.sentiment] ?? "#94a3b8") : "#94a3b8";
+  const hasScores = rec?.qualityScore != null || rec?.scriptComplianceScore != null || sentScore != null;
+
+  const { data: checklistData } = useQuery<{ sections: any[]; savedAt: string } | null>({
+    queryKey: ["/api/call-logs", log.id, "checklist-response"],
+    queryFn: async () => {
+      const res = await fetch(`/api/call-logs/${log.id}/checklist-response`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!log.campaignId && !!log.customerId,
+  });
 
   const handleExport = (fmt: string) => { if (rec?.id) window.open(`/api/call-recordings/${rec.id}/export-transcript?format=${fmt}`, "_blank"); };
 
   return (
     <div className="flex flex-col h-full" data-testid={`analysis-detail-${log.id}`}>
-      {/* Call header */}
-      <div className="px-5 py-4 border-b bg-background shrink-0">
+
+      {/* ── Header ── */}
+      <div className="px-5 py-3.5 border-b bg-background shrink-0">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/70 to-primary flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/70 to-primary flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0 shadow-sm">
               {(log.customerName || log.phoneNumber)[0].toUpperCase()}
             </div>
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">{log.customerName || log.phoneNumber}</div>
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {log.customerName && <span className="text-xs text-muted-foreground">{log.phoneNumber}</span>}
-                <Badge variant="outline" className={`text-[10px] font-medium ${log.direction === "inbound" ? "text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700" : "text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-700"}`}>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                {log.customerName && <span className="text-[10px] text-muted-foreground">{log.phoneNumber}</span>}
+                <Badge variant="outline" className={`text-[10px] font-medium h-4 ${log.direction === "inbound" ? "text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700" : "text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-700"}`}>
                   {log.direction === "inbound" ? <><PhoneIncoming className="h-2.5 w-2.5 mr-1" />{ca.inbound}</> : <><PhoneOutgoing className="h-2.5 w-2.5 mr-1" />{ca.outbound}</>}
                 </Badge>
-                {log.campaignName && <Badge variant="outline" className="text-[10px]"><Megaphone className="h-2.5 w-2.5 mr-1" />{log.campaignName}</Badge>}
-                {rec?.agentName && <Badge variant="outline" className="text-[10px]"><UserCircle className="h-2.5 w-2.5 mr-1" />{rec.agentName}</Badge>}
+                {log.campaignName && <Badge variant="outline" className="text-[10px] h-4"><Megaphone className="h-2.5 w-2.5 mr-1" />{log.campaignName}</Badge>}
+                {rec?.agentName && <Badge variant="outline" className="text-[10px] h-4"><UserCircle className="h-2.5 w-2.5 mr-1" />{rec.agentName}</Badge>}
                 {log.isMobile && (
-                  <Badge className="text-[10px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700 hover:bg-violet-100">
+                  <Badge className="text-[10px] h-4 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700 hover:bg-violet-100">
                     <Smartphone className="h-2.5 w-2.5 mr-1" />INDEXUS Connect{log.mobileAgentName ? ` · ${log.mobileAgentName}` : ""}
-                  </Badge>
-                )}
-                {log.isMobile && log.mobileOutboundCallerId && (
-                  <Badge variant="outline" className="text-[10px] text-violet-600 dark:text-violet-400 border-violet-300 dark:border-violet-700">
-                    <Phone className="h-2.5 w-2.5 mr-1" />{log.mobileOutboundCallerId}
                   </Badge>
                 )}
                 <span className="text-[10px] text-muted-foreground">{dateStr} · {formatDuration(log.durationSeconds)}</span>
@@ -254,17 +317,33 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
             </div>
           </div>
           {sc && rec?.sentiment && (
-            <div className={`px-3 py-2 rounded-xl ${sc.bg} text-center shrink-0`} data-testid={`sentiment-badge-${log.id}`}>
-              <div className={`text-sm font-bold ${sc.text}`}>{sentimentLabels[rec.sentiment] || rec.sentiment}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">{ca.sentiment}</div>
+            <div className={`px-2.5 py-1.5 rounded-xl ${sc.bg} text-center shrink-0`} data-testid={`sentiment-badge-${log.id}`}>
+              <div className={`text-xs font-bold ${sc.text}`}>{sentimentLabels[rec.sentiment] || rec.sentiment}</div>
+              <div className="text-[9px] text-muted-foreground mt-0.5">{ca.sentiment}</div>
             </div>
           )}
         </div>
 
-        {/* Player */}
+        {/* ── Player strip (Variant B style) ── */}
         {log.hasRecording ? (
-          <div className="mt-3 bg-muted/40 rounded-xl border border-border px-3 py-2" data-testid={`player-${log.id}`}>
-            <CallRecordingPlayer callLogId={log.id} compact onTimeUpdate={setPlaybackState} />
+          <div className="mt-3 rounded-xl border border-border overflow-hidden" data-testid={`player-${log.id}`}>
+            <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-violet-500 shadow-sm" style={{ boxShadow: "0 0 5px #8b5cf688" }} />
+                  <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400">{rec?.agentName || ca.agent || "Agent"}</span>
+                </div>
+                <div className="w-px h-3 bg-border" />
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm" style={{ boxShadow: "0 0 5px #10b98188" }} />
+                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">{log.customerName || ca.customer || "Zákazník"}</span>
+                </div>
+              </div>
+              <span className="text-[9px] text-muted-foreground">{formatDuration(log.durationSeconds)}</span>
+            </div>
+            <div className="px-3 py-2 bg-background">
+              <CallRecordingPlayer callLogId={log.id} compact onTimeUpdate={setPlaybackState} />
+            </div>
           </div>
         ) : (
           <div className="mt-3 bg-muted/30 rounded-xl border border-dashed border-border px-3 py-2.5 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
@@ -273,7 +352,7 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
         )}
       </div>
 
-      {/* Tabs + content */}
+      {/* ── Tabs + content ── */}
       {rec && rec.analysisStatus === "completed" ? (
         <>
           <div className="px-5 pt-3 shrink-0">
@@ -281,7 +360,8 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
               {(["analysis", "transcript"] as const).map(t => (
                 <button key={t} onClick={() => setTab(t)} data-testid={`tab-${t}-${log.id}`}
                   className={`px-4 py-1.5 text-xs font-medium transition-colors ${tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
-                  {t === "analysis" ? <span className="flex items-center gap-1.5"><Brain className="h-3 w-3" />{ca.callAnalysis || "AI Analýza"}</span>
+                  {t === "analysis"
+                    ? <span className="flex items-center gap-1.5"><Brain className="h-3 w-3" />{ca.callAnalysis || "AI Analýza"}</span>
                     : <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" />{ca.showTranscript || "Prepis"}</span>}
                 </button>
               ))}
@@ -292,45 +372,55 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
             <div className="px-5 py-4 space-y-3 pb-6">
               {tab === "analysis" && (
                 <>
-                  {/* Score rings */}
-                  {(rec.qualityScore != null || rec.scriptComplianceScore != null) && (
-                    <div className="bg-background border border-border rounded-xl p-4" data-testid={`section-scores-${log.id}`}>
+                  {/* ── Donut score charts ── */}
+                  {hasScores && (
+                    <div className="bg-gradient-to-br from-background to-muted/30 border border-border rounded-xl p-4" data-testid={`section-scores-${log.id}`}>
                       <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-4">{ca.callAnalysis || "Výsledky analýzy"}</div>
-                      <div className="flex items-start gap-4">
-                        <div className="flex gap-6">
-                          {rec.qualityScore != null && (
-                            <ScoreRing value={rec.qualityScore} stroke="#6366f1" label={ca.quality || "Kvalita"} sub="Quality Score" />
-                          )}
-                          {rec.scriptComplianceScore != null && (
-                            <ScoreRing value={rec.scriptComplianceScore} stroke="#10b981" label={ca.script || "Skript"} sub="Script Score" />
-                          )}
-                        </div>
-                        <div className="flex-1 space-y-2 pt-1">
-                          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{ca.quality || "Detail"}</div>
-                          {rec.qualityScore != null && (
-                            <div>
-                              <div className="flex justify-between text-[10px] text-muted-foreground mb-1"><span>{ca.quality || "Kvalita"}</span></div>
-                              <MiniScoreBar value={rec.qualityScore} cls="bg-indigo-500" />
+                      <div className="flex justify-around items-center">
+                        {rec.qualityScore != null && (
+                          <DonutChart value={rec.qualityScore} color="#6366f1" label={ca.quality || "Kvalita"} sub="Quality Score" />
+                        )}
+                        {rec.scriptComplianceScore != null && (
+                          <DonutChart value={rec.scriptComplianceScore} color="#10b981" label={ca.script || "Skript"} sub="Script Score" />
+                        )}
+                        {sentScore != null && rec.sentiment && (
+                          <DonutChart value={sentScore} color={sentColor} label={ca.customerLabel || "Zákazník"} sub={sentimentLabels[rec.sentiment] || rec.sentiment} />
+                        )}
+                      </div>
+                      {/* Score bars below donuts */}
+                      <div className="mt-4 space-y-2 border-t border-border pt-3">
+                        {rec.qualityScore != null && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground w-16 shrink-0">{ca.quality || "Kvalita"}</span>
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${(rec.qualityScore / 10) * 100}%` }} />
                             </div>
-                          )}
-                          {rec.scriptComplianceScore != null && (
-                            <div>
-                              <div className="flex justify-between text-[10px] text-muted-foreground mb-1"><span>{ca.script || "Skript"}</span></div>
-                              <MiniScoreBar value={rec.scriptComplianceScore} cls="bg-emerald-500" />
+                            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 w-6 text-right">{rec.qualityScore}</span>
+                          </div>
+                        )}
+                        {rec.scriptComplianceScore != null && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground w-16 shrink-0">{ca.script || "Skript"}</span>
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(rec.scriptComplianceScore / 10) * 100}%` }} />
                             </div>
-                          )}
-                          {sc && rec.sentiment && (
-                            <div className="mt-2 pt-2 border-t border-border">
-                              <div className="text-[10px] text-muted-foreground mb-1">{ca.sentiment || "Sentiment"}</div>
-                              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${sc.badge}`}>{sentimentLabels[rec.sentiment] || rec.sentiment}</span>
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 w-6 text-right">{rec.scriptComplianceScore}</span>
+                          </div>
+                        )}
+                        {sentScore != null && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground w-16 shrink-0">{ca.customerLabel || "Zákazník"}</span>
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{ width: `${(sentScore / 10) * 100}%`, backgroundColor: sentColor }} />
                             </div>
-                          )}
-                        </div>
+                            <span className="text-[10px] font-bold w-6 text-right" style={{ color: sentColor }}>{sentScore}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* Alerts */}
+                  {/* ── Alert keywords ── */}
                   {alerts.length > 0 && (
                     <div className="bg-destructive/8 border border-destructive/20 rounded-xl p-3.5" data-testid={`section-alerts-${log.id}`}>
                       <div className="flex items-center gap-2 mb-2.5">
@@ -345,7 +435,7 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
                     </div>
                   )}
 
-                  {/* Summary */}
+                  {/* ── AI Summary ── */}
                   {rec.summary && (
                     <div className="bg-background border border-border rounded-xl p-4" data-testid={`section-summary-${log.id}`}>
                       <div className="flex items-center gap-2 mb-2.5">
@@ -354,11 +444,11 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
                         </div>
                         <span className="text-xs font-semibold text-muted-foreground">{ca.summaryLabel || "AI Zhrnutie"}</span>
                       </div>
-                      <p className="text-sm leading-relaxed">{rec.summary}</p>
+                      <p className="text-sm leading-relaxed text-foreground">{rec.summary}</p>
                     </div>
                   )}
 
-                  {/* Script compliance details */}
+                  {/* ── Script compliance detail ── */}
                   {rec.scriptComplianceDetails && (
                     <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4" data-testid={`section-script-${log.id}`}>
                       <div className="flex items-center gap-2 mb-2">
@@ -369,41 +459,50 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
                     </div>
                   )}
 
-                  {/* Topics + Action items */}
-                  {(topics.length > 0 || actionItems.length > 0) && (
-                    <div className="grid grid-cols-2 gap-3">
-                      {topics.length > 0 && (
-                        <div className="bg-background border border-border rounded-xl p-3.5" data-testid={`section-topics-${log.id}`}>
-                          <div className="flex items-center gap-1.5 mb-2.5">
-                            <Tag className="h-3.5 w-3.5 text-indigo-500" />
-                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{ca.topicsLabel || "Témy"}</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {topics.map((t, i) => (
-                              <Badge key={i} variant="outline" className="text-xs bg-primary/5" data-testid={`badge-topic-${log.id}-${i}`}>{t}</Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {actionItems.length > 0 && (
-                        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-3.5" data-testid={`section-actions-${log.id}`}>
-                          <div className="flex items-center gap-1.5 mb-2.5">
-                            <ListChecks className="h-3.5 w-3.5 text-emerald-500" />
-                            <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">{ca.actionItemsLabel || "Akcie"}</span>
-                          </div>
-                          <ul className="space-y-1.5">
-                            {actionItems.map((item, i) => (
-                              <li key={i} className="flex items-start gap-1.5 text-xs text-emerald-800 dark:text-emerald-300" data-testid={`action-item-${log.id}-${i}`}>
-                                <CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />{item}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                  {/* ── Topics ── */}
+                  {topics.length > 0 && (
+                    <div className="bg-background border border-border rounded-xl p-3.5" data-testid={`section-topics-${log.id}`}>
+                      <div className="flex items-center gap-1.5 mb-2.5">
+                        <Tag className="h-3.5 w-3.5 text-indigo-500" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{ca.topicsLabel || "Kľúčové témy"}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {topics.map((t, i) => (
+                          <Badge key={i} variant="outline" className="text-xs bg-primary/5 border-primary/20" data-testid={`badge-topic-${log.id}-${i}`}>{t}</Badge>
+                        ))}
+                      </div>
                     </div>
                   )}
 
-                  {/* Compliance notes */}
+                  {/* ── Action items (Úlohy) ── */}
+                  {actionItems.length > 0 && (
+                    <div className="bg-background border border-border rounded-xl p-4" data-testid={`section-actions-${log.id}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-5 h-5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                          <ListChecks className="h-3 w-3 text-emerald-500" />
+                        </div>
+                        <span className="text-xs font-semibold text-muted-foreground">{ca.actionItemsLabel || "Úlohy na splnenie"}</span>
+                        <span className="ml-auto text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full">{actionItems.length}</span>
+                      </div>
+                      <ul className="space-y-2">
+                        {actionItems.map((item, i) => (
+                          <li key={i} className="flex items-start gap-2.5 group" data-testid={`action-item-${log.id}-${i}`}>
+                            <div className="w-5 h-5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                              <CheckSquare className="h-3 w-3 text-emerald-500" />
+                            </div>
+                            <span className="text-xs text-foreground leading-relaxed flex-1">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* ── SOP Checklist response ── */}
+                  {checklistData?.sections && checklistData.sections.length > 0 && (
+                    <ChecklistResponsePanel sections={checklistData.sections} ca={ca} />
+                  )}
+
+                  {/* ── Compliance notes ── */}
                   {rec.complianceNotes && (
                     <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/50 rounded-xl p-3.5">
                       <div className="flex items-center gap-2 mb-2">

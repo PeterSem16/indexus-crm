@@ -26246,6 +26246,28 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  app.get("/api/call-logs/:id/checklist-response", requireAuth, async (req, res) => {
+    try {
+      const log = await storage.getCallLog(req.params.id);
+      if (!log) return res.status(404).json({ error: "Not found" });
+      if (!log.customerId || !log.campaignId) return res.json(null);
+      const contacts = await db.select({ id: campaignContacts.id })
+        .from(campaignContacts)
+        .where(and(eq(campaignContacts.customerId, log.customerId), eq(campaignContacts.campaignId, log.campaignId)))
+        .limit(1);
+      if (!contacts.length) return res.json(null);
+      const history = await db.select().from(campaignContactHistory)
+        .where(and(eq(campaignContactHistory.campaignContactId, contacts[0].id), eq(campaignContactHistory.action, "checklist_response")))
+        .orderBy(desc(campaignContactHistory.createdAt)).limit(1);
+      if (!history.length) return res.json(null);
+      const meta = (history[0].metadata as any) || {};
+      res.json({ sections: meta.sections || [], savedAt: history[0].createdAt });
+    } catch (error: any) {
+      console.error("Failed to fetch call log checklist response:", error);
+      res.status(500).json({ error: "Failed to fetch checklist response" });
+    }
+  });
+
   // Create a new call log (when call starts)
   app.post("/api/call-logs", requireAuth, async (req, res) => {
     try {
