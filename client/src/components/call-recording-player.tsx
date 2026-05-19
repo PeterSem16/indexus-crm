@@ -131,7 +131,7 @@ function DualWaveformBar({
   return (
     <div ref={containerRef} className="w-full cursor-pointer select-none" onClick={e => onSeek(getProgress(e))} data-testid="dual-waveform">
       {/* Agent track — bars going UP */}
-      <div className="text-[8px] font-bold uppercase tracking-widest text-indigo-400 dark:text-indigo-500 mb-0.5">{agentLabel || "Agent"}</div>
+      <div className="text-[8px] font-bold uppercase tracking-widest text-indigo-400 dark:text-indigo-500 mb-0.5">{agentLabel ?? "Agent"}</div>
       <div className="flex items-end gap-[1.5px] h-7">
         {agentData.map((h, i) => {
           const played = i / agentData.length < progress;
