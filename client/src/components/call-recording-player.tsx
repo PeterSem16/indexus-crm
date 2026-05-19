@@ -77,6 +77,91 @@ function QualityBadge({ score }: { score: number | null }) {
   );
 }
 
+function DualWaveformBar({
+  audioSrc, currentTime, duration, onSeek,
+}: { audioSrc: string; currentTime: number; duration: number; onSeek: (t: number) => void }) {
+  const [waveData, setWaveData] = useState<number[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!audioSrc) return;
+    let cancelled = false;
+    const ac = new (window.AudioContext || (window as any).webkitAudioContext)();
+    fetch(audioSrc, { credentials: "include" })
+      .then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b))
+      .then(ab => {
+        if (cancelled) return;
+        const raw = ab.getChannelData(0);
+        const samples = 60;
+        const block = Math.floor(raw.length / samples);
+        const data: number[] = [];
+        for (let i = 0; i < samples; i++) {
+          let s = 0;
+          for (let j = 0; j < block; j++) s += Math.abs(raw[i * block + j]);
+          data.push(s / block);
+        }
+        const mx = Math.max(...data) || 1;
+        setWaveData(data.map(v => v / mx));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const fake: number[] = [];
+        for (let i = 0; i < 60; i++) fake.push(0.2 + Math.random() * 0.7);
+        setWaveData(fake);
+      })
+      .finally(() => { ac.close().catch(() => {}); });
+    return () => { cancelled = true; };
+  }, [audioSrc]);
+
+  const getProgress = (e: React.MouseEvent) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || duration <= 0) return 0;
+    return Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1)) * duration;
+  };
+
+  const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
+
+  const agentData = waveData;
+  const custData = waveData.map((_, i) => waveData[(i + 18) % waveData.length] ?? 0.3);
+
+  const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+
+  return (
+    <div ref={containerRef} className="w-full cursor-pointer select-none" onClick={e => onSeek(getProgress(e))} data-testid="dual-waveform">
+      {/* Agent track — bars going UP */}
+      <div className="text-[8px] font-bold uppercase tracking-widest text-indigo-400 dark:text-indigo-500 mb-0.5">Agent</div>
+      <div className="flex items-end gap-[1.5px] h-7">
+        {agentData.map((h, i) => {
+          const played = i / agentData.length < progress;
+          return (
+            <div key={i} className="flex-1 rounded-t-[2px] transition-all duration-75"
+              style={{ height: `${Math.max(2, h * 26)}px`, background: played ? (isDark ? "#818cf8" : "#6366f1") : (isDark ? "#3730a3" : "#e0e7ff") }} />
+          );
+        })}
+      </div>
+      {/* Centre seek line + knob */}
+      <div className="relative h-[3px] bg-border/40 my-1">
+        <div className="absolute inset-y-0 left-0 bg-indigo-500" style={{ width: `${progress * 100}%` }} />
+        {progress > 0 && (
+          <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-indigo-600 shadow border-2 border-white dark:border-slate-900 z-10"
+            style={{ left: `calc(${progress * 100}% - 6px)` }} />
+        )}
+      </div>
+      {/* Customer track — bars going DOWN */}
+      <div className="flex items-start gap-[1.5px] h-7">
+        {custData.map((h, i) => {
+          const played = i / custData.length < progress;
+          return (
+            <div key={i} className="flex-1 rounded-b-[2px] transition-all duration-75"
+              style={{ height: `${Math.max(2, h * 26)}px`, background: played ? (isDark ? "#34d399" : "#10b981") : (isDark ? "#064e3b" : "#d1fae5") }} />
+          );
+        })}
+      </div>
+      <div className="text-[8px] font-bold uppercase tracking-widest text-emerald-400 dark:text-emerald-500 mt-0.5">Zákazník</div>
+    </div>
+  );
+}
+
 function WaveformSeekBar({
   audioSrc,
   currentTime,
@@ -451,62 +536,40 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
     return (
       <div className="space-y-1" data-testid={`recording-player-${recording.id}`}>
         <div className="rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/60 to-slate-50/40 dark:from-indigo-950/20 dark:to-slate-900/20 px-3 py-2.5">
-          {/* Speaker labels row */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2.5">
-              <span className="flex items-center gap-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_4px_rgba(99,102,241,0.7)]" />
-                Agent
-              </span>
-              <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.7)]" />
-                Zákazník
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground" onClick={handleDownload} data-testid={`btn-download-recording-${recording.id}`}>
-                <Download className="h-3 w-3" />
-              </Button>
-              <Button size="icon" variant="ghost" className={`h-5 w-5 shrink-0 ${showAnalysis ? "text-indigo-500" : "text-muted-foreground hover:text-indigo-500"}`} onClick={() => setShowAnalysis(!showAnalysis)} data-testid={`btn-toggle-analysis-${recording.id}`}>
-                {isAnalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
-              </Button>
-            </div>
+          {/* Controls row */}
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              className="w-8 h-8 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-200 dark:shadow-indigo-900/50 transition-colors shrink-0"
+              onClick={togglePlay}
+              data-testid={`btn-play-recording-${recording.id}`}
+            >
+              {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
+            </button>
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+            <div className="flex-1" />
+            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-indigo-500" onClick={() => handleSkip(-10)} data-testid={`btn-skip-back-${recording.id}`}>
+              <SkipBack className="h-2.5 w-2.5" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-indigo-500" onClick={() => handleSkip(10)} data-testid={`btn-skip-forward-${recording.id}`}>
+              <SkipForward className="h-2.5 w-2.5" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground" onClick={handleDownload} data-testid={`btn-download-recording-${recording.id}`}>
+              <Download className="h-3 w-3" />
+            </Button>
+            <Button size="icon" variant="ghost" className={`h-5 w-5 shrink-0 ${showAnalysis ? "text-indigo-500" : "text-muted-foreground hover:text-indigo-500"}`} onClick={() => setShowAnalysis(!showAnalysis)} data-testid={`btn-toggle-analysis-${recording.id}`}>
+              {isAnalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
+            </Button>
           </div>
 
-          {/* Controls + waveform row */}
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="flex items-center gap-0.5 shrink-0">
-              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-indigo-500" onClick={() => handleSkip(-10)} data-testid={`btn-skip-back-${recording.id}`}>
-                <SkipBack className="h-2.5 w-2.5" />
-              </Button>
-              <button
-                className="w-8 h-8 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-200 dark:shadow-indigo-900/50 transition-colors shrink-0"
-                onClick={togglePlay}
-                data-testid={`btn-play-recording-${recording.id}`}
-              >
-                {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
-              </button>
-              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-indigo-500" onClick={() => handleSkip(10)} data-testid={`btn-skip-forward-${recording.id}`}>
-                <SkipForward className="h-2.5 w-2.5" />
-              </Button>
-            </div>
-            <div className="flex-1 min-w-0">
-              <WaveformSeekBar
-                audioSrc={audioSrc}
-                currentTime={currentTime}
-                duration={duration}
-                isPlaying={isPlaying}
-                onSeek={handleWaveformSeek}
-                compact={true}
-              />
-            </div>
-          </div>
-
-          {/* Time display */}
-          <div className="flex items-center justify-between px-0.5">
-            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-semibold">{formatTime(currentTime)}</span>
-            <span className="text-[10px] text-muted-foreground font-mono">{formatTime(duration)}</span>
-          </div>
+          {/* Dual waveform */}
+          <DualWaveformBar
+            audioSrc={audioSrc}
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={handleWaveformSeek}
+          />
         </div>
 
         {(recording as any).sentiment && !showAnalysis && (

@@ -155,59 +155,125 @@ function DonutChart({ value, max = 10, color, label, sub }: { value: number; max
   );
 }
 
+const CL_SECTION_PALETTE = [
+  { dot: "#6366f1", bg: "bg-indigo-50 dark:bg-indigo-950/20", text: "text-indigo-700 dark:text-indigo-300", pill: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300" },
+  { dot: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-950/20", text: "text-violet-700 dark:text-violet-300", pill: "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300" },
+  { dot: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-950/20", text: "text-emerald-700 dark:text-emerald-300", pill: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" },
+  { dot: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-950/20", text: "text-amber-700 dark:text-amber-300", pill: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" },
+  { dot: "#0ea5e9", bg: "bg-sky-50 dark:bg-sky-950/20", text: "text-sky-700 dark:text-sky-300", pill: "bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300" },
+];
+
 function ChecklistResponsePanel({ sections, ca }: { sections: any[]; ca: Record<string, any> }) {
-  const sectionsWithContent = sections.filter(s => {
-    const allItems = [...(s.items || []), ...(s.subsections || []).flatMap((sub: any) => sub.items || [])];
-    return allItems.some((i: any) => i.checked || i.answer === "yes" || i.answer === "no" || i.value?.trim());
+  const [filter, setFilter] = useState<"all" | "done" | "todo">("all");
+
+  const allFlatItems: Array<{ item: any; secIdx: number; secTitle: string }> = sections.flatMap((sec, si) => {
+    const items = [...(sec.items || []), ...(sec.subsections || []).flatMap((sub: any) => sub.items || [])];
+    return items.map(item => ({ item, secIdx: si, secTitle: sec.title || "" }));
   });
-  if (!sectionsWithContent.length) return null;
-  const totalItems = sections.flatMap(s => [...(s.items || []), ...(s.subsections || []).flatMap((sub: any) => sub.items || [])]);
-  const checkedCount = totalItems.filter((i: any) => i.checked || i.answer === "yes").length;
-  const totalCount = totalItems.length;
+
+  if (!allFlatItems.length) return null;
+
+  const isDone = (item: any) => item.checked || item.answer === "yes" || (item.type === "text" && item.value?.trim());
+  const doneCount = allFlatItems.filter(({ item }) => isDone(item)).length;
+  const totalCount = allFlatItems.length;
+  const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+  const secStats = sections.map((sec, si) => {
+    const items = [...(sec.items || []), ...(sec.subsections || []).flatMap((sub: any) => sub.items || [])];
+    const done = items.filter(i => isDone(i)).length;
+    return { title: sec.title || `Sekcia ${si + 1}`, done, total: items.length, idx: si };
+  });
+
+  const filtered = allFlatItems.filter(({ item }) => {
+    if (filter === "done") return isDone(item);
+    if (filter === "todo") return !isDone(item);
+    return true;
+  });
+
   return (
-    <div className="bg-background border border-border rounded-xl p-4" data-testid="section-checklist-response">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
-            <ClipboardCheck className="h-3 w-3 text-indigo-500" />
-          </div>
-          <span className="text-xs font-semibold text-muted-foreground">{ca.checklistLabel || "SOP Checklist"}</span>
-        </div>
-        {totalCount > 0 && (
-          <div className="flex items-center gap-1.5">
-            <div className="h-1.5 w-20 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${Math.round((checkedCount / totalCount) * 100)}%` }} />
+    <div className="bg-background border border-border rounded-xl overflow-hidden" data-testid="section-checklist-response">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b border-border">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+              <ClipboardCheck className="h-3 w-3 text-indigo-500" />
             </div>
-            <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">{checkedCount}/{totalCount}</span>
+            <span className="text-xs font-semibold">{ca.checklistLabel || "SOP Checklist"}</span>
           </div>
-        )}
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg font-black" style={{ color: pct >= 70 ? "#10b981" : pct >= 40 ? "#f59e0b" : "#6366f1" }}>{pct}%</span>
+            <span className="text-[10px] text-muted-foreground">{doneCount}/{totalCount}</span>
+          </div>
+        </div>
+        {/* Section pills */}
+        <div className="flex flex-wrap gap-1">
+          {secStats.map((s, i) => {
+            const pal = CL_SECTION_PALETTE[i % CL_SECTION_PALETTE.length];
+            return (
+              <span key={i} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${pal.pill}`}>
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: pal.dot }} />
+                {s.title}
+                <span className="opacity-60">{s.done}/{s.total}</span>
+              </span>
+            );
+          })}
+        </div>
       </div>
-      <div className="space-y-3">
-        {sectionsWithContent.map((sec: any, si: number) => {
-          const allItems = [...(sec.items || []), ...(sec.subsections || []).flatMap((sub: any) => sub.items || [])];
-          const filledItems = allItems.filter((i: any) => i.checked || i.answer === "yes" || i.answer === "no" || i.value?.trim());
+
+      {/* Filter tabs */}
+      <div className="flex border-b border-border">
+        {([["all", `Všetky (${totalCount})`], ["done", `✓ Splnené (${doneCount})`], ["todo", `○ Čakajú (${totalCount - doneCount})`]] as const).map(([f, label]) => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`flex-1 py-1.5 text-[10px] font-semibold transition-colors ${filter === f ? "bg-indigo-600 text-white" : "text-muted-foreground hover:bg-muted"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Items */}
+      <div className="divide-y divide-border/60">
+        {filtered.map(({ item, secIdx, secTitle }, idx) => {
+          const pal = CL_SECTION_PALETTE[secIdx % CL_SECTION_PALETTE.length];
+          const isChecked = item.checked || item.answer === "yes";
+          const isNo = item.answer === "no";
+          const hasText = item.type === "text" && item.value?.trim();
           return (
-            <div key={si}>
-              {sec.title && <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{sec.title}</div>}
-              <div className="space-y-1.5">
-                {filledItems.map((item: any, ii: number) => {
-                  const isChecked = item.checked || item.answer === "yes";
-                  const isNo = item.answer === "no";
-                  return (
-                    <div key={ii} className={`flex items-start gap-2 text-xs rounded-lg px-2.5 py-1.5 ${isChecked ? "bg-emerald-50 dark:bg-emerald-950/20" : isNo ? "bg-red-50 dark:bg-red-950/20" : "bg-muted/30"}`} data-testid={`cl-item-${si}-${ii}`}>
-                      {isChecked && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />}
-                      {isNo && <XCircle className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />}
-                      {!isChecked && !isNo && item.value?.trim() && <MessageSquare className="h-3.5 w-3.5 text-blue-400 mt-0.5 shrink-0" />}
-                      <span className={`leading-relaxed ${isNo ? "text-muted-foreground line-through" : "text-foreground"}`}>{item.label}</span>
-                      {item.value?.trim() && <span className="text-muted-foreground italic ml-auto pl-2 text-[10px]">{item.value}</span>}
-                      {item.note?.trim() && <span className="text-muted-foreground italic ml-auto pl-2 text-[10px]">📝 {item.note}</span>}
-                    </div>
-                  );
-                })}
+            <div key={idx} className={`flex items-start gap-2.5 px-3 py-2.5 ${isChecked ? "bg-emerald-50/40 dark:bg-emerald-950/10" : ""}`} data-testid={`cl-item-${secIdx}-${idx}`}>
+              <span className="w-2 h-2 rounded-full shrink-0 mt-1" style={{ background: pal.dot }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <span className={`text-xs leading-relaxed ${isNo ? "line-through text-muted-foreground" : "text-foreground"}`}>{item.label}</span>
+                  {isChecked && (
+                    <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500 text-white">
+                      <CheckCircle2 className="h-2.5 w-2.5" />Splnené
+                    </span>
+                  )}
+                  {isNo && (
+                    <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800">
+                      <XCircle className="h-2.5 w-2.5" />Nie
+                    </span>
+                  )}
+                  {!isChecked && !isNo && hasText && (
+                    <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                      <MessageSquare className="h-2.5 w-2.5" />Poznámka
+                    </span>
+                  )}
+                </div>
+                {hasText && (
+                  <div className="mt-0.5 text-[10px] bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded italic inline-block">„{item.value}"</div>
+                )}
+                {item.note?.trim() && (
+                  <div className="mt-0.5 text-[10px] text-muted-foreground italic">📝 {item.note}</div>
+                )}
+                {secTitle && <div className={`text-[9px] mt-0.5 font-medium ${pal.text}`}>{secTitle}</div>}
               </div>
             </div>
           );
         })}
+        {filtered.length === 0 && (
+          <div className="px-4 py-6 text-center text-xs text-muted-foreground">Žiadne položky</div>
+        )}
       </div>
     </div>
   );
