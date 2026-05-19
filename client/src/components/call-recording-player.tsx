@@ -397,7 +397,7 @@ function WaveformSeekBar({
   );
 }
 
-export function CallRecordingPlayer({ callLogId, compact = false, onTimeUpdate, agentLabel, customerLabel }: CallRecordingPlayerProps) {
+export function CallRecordingPlayer({ callLogId, compact = false, onTimeUpdate, agentLabel: agLbl, customerLabel: csLbl }: CallRecordingPlayerProps) {
   const { data: recordings = [], isLoading } = useQuery<CallRecording[]>({
     queryKey: ["/api/call-recordings", { callLogId: String(callLogId) }],
     queryFn: async () => {
@@ -534,9 +534,6 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
 
   const remainingTime = Math.max(0, duration - currentTime);
 
-  const resolvedAgentLabel = agentLabel || (recording as any).agentName || undefined;
-  const resolvedCustomerLabel = customerLabel || undefined;
-
   if (compact) {
     return (
       <div className="space-y-1" data-testid={`recording-player-${recording.id}`}>
@@ -574,8 +571,8 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
             currentTime={currentTime}
             duration={duration}
             onSeek={handleWaveformSeek}
-            agentLabel={resolvedAgentLabel}
-            customerLabel={resolvedCustomerLabel}
+            agentLabel={agLbl || (recording as any).agentName || undefined}
+            customerLabel={csLbl || undefined}
           />
         </div>
 
