@@ -3552,8 +3552,11 @@ function CommunicationCanvas({
                   <div className="space-y-2">
                     {clHistoryEntries.slice(0, 5).map(entry => {
                       const prevSections = entry.metadata?.sections || [];
-                      const prevItemsFlat = prevSections.flatMap ? prevSections.flatMap((s: any) => s.items || []) : (entry.metadata?.items || []);
-                      const doneCount = prevItemsFlat.filter((i: any) => i.checked || i.answer === "yes" || i.value?.trim()).length;
+                      const prevItemsFlat = prevSections.flatMap((s: any) => [
+                        ...(s.items || []),
+                        ...(s.subsections || []).flatMap((sub: any) => sub.items || []),
+                      ]);
+                      const doneCount = prevItemsFlat.filter((i: any) => i.checked || i.answer === "yes" || (i.value && String(i.value).trim())).length;
                       return (
                         <div key={entry.id} className="rounded-md border border-border/50 p-2.5 bg-muted/30">
                           <div className="flex items-center justify-between mb-1">
@@ -3564,13 +3567,19 @@ function CommunicationCanvas({
                             </div>
                             <span className="text-[10px] text-muted-foreground">{format(new Date(entry.date), "d.M.yyyy HH:mm", { locale: sk })}</span>
                           </div>
-                          {prevSections.map((s: any) => s.items?.filter((i: any) => i.checked || i.answer === "yes" || i.value?.trim()).length > 0 && (
-                            <div key={s.id} className="flex flex-wrap gap-1 mt-0.5">
-                              {s.items.filter((i: any) => i.checked || i.answer === "yes" || i.value?.trim()).map((i: any) => (
-                                <span key={i.id} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">{i.label}</span>
-                              ))}
-                            </div>
-                          ))}
+                          {(() => {
+                            const answered = prevItemsFlat.filter((i: any) => i.checked || i.answer === "yes" || (i.value && String(i.value).trim()));
+                            if (answered.length === 0) return null;
+                            return (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {answered.map((i: any) => (
+                                  <span key={i.id} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                                    {i.type === "text" ? `${i.label}: ${i.value}` : i.label}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}
@@ -4551,15 +4560,37 @@ function CustomerInfoPanel({
                                 {format(new Date(item.date), isModal ? "d. MMMM yyyy, HH:mm" : "d.M. HH:mm", { locale: sk })}
                               </span>
                             </div>
-                            <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium ${isModal ? "" : "line-clamp-2"} leading-snug`} style={{ color: "#2E2118" }}>
-                              {isCall
-                                ? (highlightMatch(contentText.replace(/^(Hovor (odchádzajúci|prichádzajúci)|Prichádzajúci hovor): /, "")) || "—")
-                                : (highlightMatch(contentText) || "—")}
-                            </p>
-                            {!isCall && plainDetails && (
-                              <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} ${isModal ? "line-clamp-3" : "line-clamp-2"} leading-snug`} style={{ color: "#9A8878" }}>
-                                {highlightMatch(plainDetails)}
-                              </p>
+                            {(item as any).action === "checklist_response" ? (() => {
+                              const chkSections: any[] = (item as any).metadata?.sections || [];
+                              const answeredItems = chkSections.flatMap((s: any) => [
+                                ...(s.items || []),
+                                ...(s.subsections || []).flatMap((sub: any) => sub.items || []),
+                              ]).filter((i: any) => i.checked || i.answer === "yes" || (i.value && String(i.value).trim()));
+                              if (answeredItems.length === 0) {
+                                return <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium leading-snug`} style={{ color: "#9A8878" }}>Žiadne položky nezodpovedané</p>;
+                              }
+                              return (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {answeredItems.map((i: any) => (
+                                    <span key={i.id} className={`inline-flex items-center gap-0.5 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-medium bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800`}>
+                                      {i.type === "yes_no" ? `✓ ${i.label}` : i.type === "text" ? `${i.label}: ${i.value}` : `✓ ${i.label}`}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })() : (
+                              <>
+                                <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium ${isModal ? "" : "line-clamp-2"} leading-snug`} style={{ color: "#2E2118" }}>
+                                  {isCall
+                                    ? (highlightMatch(contentText.replace(/^(Hovor (odchádzajúci|prichádzajúci)|Prichádzajúci hovor): /, "")) || "—")
+                                    : (highlightMatch(contentText) || "—")}
+                                </p>
+                                {!isCall && plainDetails && (
+                                  <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} ${isModal ? "line-clamp-3" : "line-clamp-2"} leading-snug`} style={{ color: "#9A8878" }}>
+                                    {highlightMatch(plainDetails)}
+                                  </p>
+                                )}
+                              </>
                             )}
                           </div>
                           {isClickable && (
