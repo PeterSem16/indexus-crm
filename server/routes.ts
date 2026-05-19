@@ -26284,7 +26284,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         else if (cc?.hospitalId && hospitalNameMap[cc.hospitalId]) entityName = hospitalNameMap[cc.hospitalId];
         return {
           ...log,
-          customerName: customerMap[log.customerId || ""] || null,
+          customerName: customerMap[log.customerId || ""] || recordingMap[log.id]?.customerName || null,
           campaignName: campaignMap[log.campaignId || ""] || recordingMap[log.id]?.campaignName || null,
           hasRecording: !!recordingMap[log.id],
           recording: recordingMap[log.id] || null,
@@ -26340,13 +26340,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       } else if (log.campaignId) {
         contacts = await db.select({ id: campaignContacts.id })
           .from(campaignContacts)
-          .where(and(eq(campaignContacts.customerId, log.customerId), eq(campaignContacts.campaignId, log.campaignId)))
-          .limit(1);
+          .where(and(eq(campaignContacts.customerId, log.customerId), eq(campaignContacts.campaignId, log.campaignId)));
       } else {
         contacts = await db.select({ id: campaignContacts.id })
           .from(campaignContacts)
           .where(eq(campaignContacts.customerId, log.customerId))
-          .limit(20);
+          .limit(50);
       }
       if (!contacts.length) return res.json(null);
       const contactIds = contacts.map(c => c.id);
