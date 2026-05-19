@@ -181,7 +181,7 @@ function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEnt
   const timeStr = new Date(log.startedAt || log.createdAt).toLocaleTimeString(LOCALE_MAP[locale] || "en-US", { hour: "2-digit", minute: "2-digit" });
   return (
     <div onClick={onClick} data-testid={`call-row-${log.id}`}
-      className={`px-3 py-2.5 cursor-pointer transition-all border-l-2 ${isSelected ? "bg-primary/8 border-l-primary" : "hover:bg-muted/50 border-l-transparent"}`}>
+      className={`px-3 py-2.5 cursor-pointer transition-all border-l-[3px] ${isSelected ? "bg-primary/10 border-l-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.12)] dark:bg-primary/15" : "hover:bg-muted/50 border-l-transparent"}`}>
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5">
           <DirectionIcon direction={log.direction} status={log.status} />
