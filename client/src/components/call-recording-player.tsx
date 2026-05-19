@@ -487,14 +487,16 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
 
   const audioSrc = `/api/call-recordings/${recording.id}/stream`;
 
+  const recCampaignId = (recording as any).campaignId;
+  const recCustomerId = (recording as any).customerId;
   const { data: disposition } = useQuery<CallLogDisposition | null>({
-    queryKey: ["/api/call-logs", String(recording.callLogId), "disposition"],
+    queryKey: ["/api/campaign-contact-disposition", recCampaignId, recCustomerId],
     queryFn: async () => {
-      const res = await fetch(`/api/call-logs/${recording.callLogId}/disposition`, { credentials: "include" });
+      const res = await fetch(`/api/campaign-contact-disposition?campaignId=${encodeURIComponent(recCampaignId)}&customerId=${encodeURIComponent(recCustomerId)}`, { credentials: "include" });
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: !!recording.callLogId,
+    enabled: !!(recCampaignId && recCustomerId),
   });
 
   const { data: analysis, isLoading: analysisLoading } = useQuery<RecordingAnalysis>({

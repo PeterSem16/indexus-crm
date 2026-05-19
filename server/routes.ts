@@ -26409,6 +26409,48 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Get disposition + checklist directly by campaignId + customerId (used by recording player)
+  app.get("/api/campaign-contact-disposition", requireAuth, async (req, res) => {
+    try {
+      const { campaignId, customerId } = req.query as { campaignId?: string; customerId?: string };
+      if (!campaignId || !customerId) return res.json(null);
+      const rows = await db.select({
+        dispositionCode: campaignContacts.dispositionCode,
+        dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+        campaignId: campaignContacts.campaignId,
+      }).from(campaignContacts)
+        .where(and(
+          eq(campaignContacts.campaignId, campaignId),
+          eq(campaignContacts.customerId, customerId)
+        ))
+        .orderBy(desc(campaignContacts.updatedAt))
+        .limit(1);
+      const cc = rows[0];
+      if (!cc || !cc.dispositionCode) return res.json(null);
+      const disps = await db.select().from(campaignDispositions)
+        .where(eq(campaignDispositions.campaignId, cc.campaignId));
+      const mainDisp = disps.find(d => d.code === cc.dispositionCode);
+      const checklistDisps = (cc.dispositionChecklistCodes || [])
+        .map(code => disps.find(d => d.code === code))
+        .filter(Boolean) as (typeof disps[0])[];
+      res.json({
+        dispositionCode: cc.dispositionCode,
+        dispositionName: mainDisp?.name || cc.dispositionCode,
+        dispositionColor: mainDisp?.color || null,
+        dispositionIcon: mainDisp?.icon || null,
+        checklistItems: checklistDisps.map(d => ({
+          code: d.code,
+          name: d.name,
+          color: d.color || null,
+          icon: d.icon || null,
+        })),
+      });
+    } catch (error) {
+      console.error("Failed to fetch campaign contact disposition:", error);
+      res.status(500).json({ error: "Failed to fetch disposition" });
+    }
+  });
+
   // Get disposition + checklist for a call log (via campaignContact)
   app.get("/api/call-logs/:id/disposition", requireAuth, async (req, res) => {
     try {
