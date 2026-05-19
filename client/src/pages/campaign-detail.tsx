@@ -2541,6 +2541,8 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [importSearch, setImportSearch] = useState("");
   const [existingSearch, setExistingSearch] = useState("");
+  const [dragId, setDragId] = useState<string|null>(null);
+  const [dragOverId, setDragOverId] = useState<string|null>(null);
 
   const { data: dispositions = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions"],
@@ -2738,6 +2740,31 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
     onSuccess: (_,vars) => { invalidate(); toast({title: vars.childrenType==="checklist" ? t.statusEngine.disp.listChoice : t.statusEngine.disp.oneChoice}); },
     onError: (e:any)=>toast({title: t.statusEngine.disp.toastError, description:e.message, variant:"destructive"}),
   });
+
+  const toggleActiveMut = useMutation({
+    mutationFn: async ({id, isActive}:{id:string; isActive:boolean}) => {
+      const res = await apiRequest("PATCH",`/api/campaigns/${campaignId}/dispositions/${id}`,{isActive});
+      if(!res.ok) throw new Error("Error toggling visibility");
+      return res.json();
+    },
+    onSuccess: (_,vars) => { invalidate(); toast({title: vars.isActive ? "Skupina zobrazená agentom" : "Skupina skrytá pred agentom"}); },
+    onError: (e:any)=>toast({title: t.statusEngine.disp.toastError, description:e.message, variant:"destructive"}),
+  });
+
+  const handleDrop = (targetId: string) => {
+    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return; }
+    const allP = [...parents].sort((a:any,b:any)=>(a.sortOrder??0)-(b.sortOrder??0));
+    const fromIdx = allP.findIndex((p:any)=>p.id===dragId);
+    const toIdx = allP.findIndex((p:any)=>p.id===targetId);
+    if (fromIdx === -1 || toIdx === -1) { setDragId(null); setDragOverId(null); return; }
+    const reordered = [...allP];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    const items = reordered.map((p:any, i:number) => ({ id: p.id, sortOrder: i * 10 }));
+    reorderMut.mutate(items);
+    setDragId(null);
+    setDragOverId(null);
+  };
 
   const startEdit = (disp:any) => {
     setEditingId(disp.id);
@@ -3072,7 +3099,8 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
         <div>
           <p className="text-sm font-semibold">{t.statusEngine.disp.resultsTitle}</p>
           <p className="text-xs text-muted-foreground">
-            {activeParents.length} {t.statusEngine.disp.mainCount} · {dispositions.filter((d:any)=>d.parentId&&d.isActive).length} {t.statusEngine.disp.subCount}
+            {activeParents.length}/{parents.length} {t.statusEngine.disp.mainCount} · {dispositions.filter((d:any)=>d.parentId&&d.isActive).length} {t.statusEngine.disp.subCount}
+            {parents.length > activeParents.length && <span className="ml-1 text-orange-500">· {parents.length - activeParents.length} skryté</span>}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -3169,13 +3197,14 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
       ) : (
         <div className="text-xs bg-muted/50 border rounded-md px-3 py-2 text-muted-foreground">
           {t.statusEngine.disp.managerHintA} <strong>{t.statusEngine.disp.managerHintThis}</strong>. {t.statusEngine.disp.managerHintB} <Pencil className="h-3 w-3 inline mx-0.5"/>{t.statusEngine.disp.managerHintEdit} <Trash2 className="h-3 w-3 inline mx-0.5"/>{t.statusEngine.disp.managerHintDelete}
+          {" · "}<GripVertical className="h-3 w-3 inline mx-0.5"/>poradie ťahaním{" · "}<Eye className="h-3 w-3 inline mx-0.5"/>/<EyeOff className="h-3 w-3 inline mx-0.5"/>zobraziť/skryť skupinu agentom
         </div>
       )}
 
       {/* ── Content ── */}
       {previewMode ? <AgentPreview/> : (
         <div className="space-y-2">
-          {activeParents.length===0 && !addingParent && (
+          {parents.length===0 && !addingParent && (
             <div className="text-center py-12 border-2 border-dashed rounded-xl">
               <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2"/>
               <p className="text-sm text-muted-foreground font-medium">{t.statusEngine.disp.noResults}</p>
@@ -3192,25 +3221,42 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
             </div>
           )}
 
-          {activeParents.map((parent:any)=>{
+          {[...parents].sort((a:any,b:any)=>(a.sortOrder??0)-(b.sortOrder??0)).map((parent:any)=>{
             const kids=childrenOf(parent.id);
             const isExpanded=expandedId===parent.id;
             const isEditingThis=editingId===parent.id;
             const isChecklist=parent.childrenType==="checklist";
+            const isHidden=!parent.isActive;
             const colorCls=DISP_COLOR_STYLES[parent.color||"gray"]||DISP_COLOR_STYLES.gray;
             const ParentIcon=DISP_ICON_MAP[parent.icon||""]||CircleDot;
             const ai=ACTION_TYPE_LABEL[parent.actionType||"none"];
+            const isDragging=dragId===parent.id;
+            const isDragOver=dragOverId===parent.id;
             return (
-              <Card key={parent.id} className="overflow-hidden" data-testid={`card-disp-${parent.id}`}>
+              <Card
+                key={parent.id}
+                className={`overflow-hidden transition-all ${isDragging?"opacity-40 scale-[0.98]":""} ${isDragOver?"ring-2 ring-primary ring-offset-1":""} ${isHidden?"opacity-60":""}`}
+                draggable
+                onDragStart={()=>setDragId(parent.id)}
+                onDragEnd={()=>{setDragId(null);setDragOverId(null);}}
+                onDragOver={e=>{e.preventDefault();setDragOverId(parent.id);}}
+                onDragLeave={()=>setDragOverId(null)}
+                onDrop={()=>handleDrop(parent.id)}
+                data-testid={`card-disp-${parent.id}`}
+              >
                 {/* ── Parent row ── */}
                 <div className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none ${isExpanded?"border-b bg-muted/30":""}`}
                   onClick={()=>!isEditingThis&&setExpandedId(isExpanded?null:parent.id)}>
+                  <div className="flex items-center shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors" onClick={e=>e.stopPropagation()}>
+                    <GripVertical className="h-4 w-4"/>
+                  </div>
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${colorCls}`}>
                     <ParentIcon className="h-4 w-4"/>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sm font-semibold">{parent.name}</span>
+                      <span className={`text-sm font-semibold ${isHidden?"line-through text-muted-foreground":""}`}>{parent.name}</span>
+                      {isHidden && <span className="text-[9px] font-medium px-1.5 py-0.5 rounded border border-orange-300 text-orange-600 bg-orange-50 dark:bg-orange-950/30">Skryté</span>}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ai.className}`}>{(t.statusEngine.actions as Record<string,string>)[parent.actionType] ?? ai.label}</span>
@@ -3222,14 +3268,16 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0" onClick={e=>e.stopPropagation()}>
-                    <div className="flex flex-col gap-0 mr-1">
-                      <Button variant="ghost" size="icon" className="h-4 w-5 rounded-sm" disabled={reorderMut.isPending} onClick={()=>moveParent(parent.id,-1)} data-testid={`btn-up-${parent.id}`}>
-                        <ArrowUp className="h-2.5 w-2.5"/>
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-4 w-5 rounded-sm" disabled={reorderMut.isPending} onClick={()=>moveParent(parent.id,1)} data-testid={`btn-down-${parent.id}`}>
-                        <ArrowDown className="h-2.5 w-2.5"/>
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost" size="icon"
+                      className={`h-7 w-7 ${isHidden?"text-orange-500 hover:text-orange-600":"text-muted-foreground hover:text-foreground"}`}
+                      onClick={()=>toggleActiveMut.mutate({id:parent.id, isActive:!parent.isActive})}
+                      disabled={toggleActiveMut.isPending}
+                      title={isHidden?"Zobraziť agentom":"Skryť pred agentom"}
+                      data-testid={`btn-toggle-visibility-${parent.id}`}
+                    >
+                      {isHidden ? <EyeOff className="h-3.5 w-3.5"/> : <Eye className="h-3.5 w-3.5"/>}
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={()=>startEdit(parent)} data-testid={`btn-edit-${parent.id}`}>
                       <Pencil className="h-3 w-3"/>
                     </Button>
@@ -3414,7 +3462,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
           )}
 
           {/* Add parent button */}
-          {activeParents.length>0 && !addingParent && (
+          {parents.length>0 && !addingParent && (
             <Button variant="outline" className="w-full gap-1.5" onClick={()=>{setAddingParent(true);setEditingId(null);setAddingChildFor(null);setForm(EMPTY_FORM);setCodeManual(false);}} data-testid="btn-add-parent-disp">
               <Plus className="h-4 w-4"/>{t.statusEngine.disp.addResult}
             </Button>
