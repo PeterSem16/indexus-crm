@@ -8218,8 +8218,8 @@ export default function AgentWorkspacePage() {
         <DialogContent className="sm:max-w-lg p-0 overflow-hidden gap-0">
           <DialogTitle className="sr-only">{t.agentSession.shiftLogin}</DialogTitle>
 
-          {/* ── Krémová hlavička ── */}
-          <div className="relative px-7 pt-6 pb-5 overflow-hidden" style={{ background: "linear-gradient(160deg, #FAF6F1 0%, #F5EDE8 100%)" }}>
+          {/* ── Hlavička ── */}
+          <div className="relative px-7 pt-6 pb-5 overflow-hidden bg-gradient-to-br from-card via-card to-muted/40 dark:from-card dark:to-muted/20">
             <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, hsl(355 85% 42% / 0.08) 0%, transparent 70%)" }} />
             <div className="absolute bottom-0 left-0 w-36 h-20 pointer-events-none" style={{ background: "radial-gradient(ellipse, hsl(355 85% 42% / 0.05) 0%, transparent 70%)" }} />
 
@@ -8277,13 +8277,13 @@ export default function AgentWorkspacePage() {
                 return (
                   <div className="mb-2 last:mb-0">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[10px]" style={{ color: "#A89898" }}>{label}</span>
+                      <span className="text-[10px] text-muted-foreground">{label}</span>
                       <span className="text-[10px] font-semibold text-foreground">
                         {fmt(value)}
-                        {quota !== null && <span style={{ color: "#A89898" }}>/{suffix === "%" ? fmt(quota) : quota}</span>}
+                        {quota !== null && <span className="text-muted-foreground">/{suffix === "%" ? fmt(quota) : quota}</span>}
                       </span>
                     </div>
-                    <div className="h-1 rounded-full" style={{ background: "#EDE5DF" }}>
+                    <div className="h-1 rounded-full bg-muted">
                       <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
                     </div>
                   </div>
@@ -8294,7 +8294,7 @@ export default function AgentWorkspacePage() {
                 <div className="relative z-10 rounded-xl overflow-hidden bg-card border border-border" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
                   <div className="flex items-center gap-3 px-3.5 py-2.5">
                     <div className="relative shrink-0">
-                      <Avatar className="h-9 w-9" style={{ border: "1.5px solid #E8C8C8" }}>
+                      <Avatar className="h-9 w-9 border border-border">
                         {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} />}
                         <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                           {user?.firstName?.[0]}{user?.lastName?.[0]}
@@ -8306,21 +8306,20 @@ export default function AgentWorkspacePage() {
                       <p className="text-sm font-semibold text-foreground">{user?.firstName} {user?.lastName}</p>
                       <p className="text-xs text-muted-foreground">{user?.role === "admin" ? t.agentSession.administrator : t.agentSession.operator}</p>
                     </div>
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0" style={{ background: "#F0FDF4", color: "#16A34A", border: "1px solid #BBF7D0" }}>{t.agentSession.onlineStatus}</span>
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">{t.agentSession.onlineStatus}</span>
                   </div>
                   {shiftData && (
-                    <div className="px-3.5 pb-3 border-t" style={{ borderColor: "#F0EAE5" }}>
+                    <div className="px-3.5 pb-3 border-t border-border">
                       {/* Čas prihlásenia + refresh — vždy */}
                       <div className="flex items-center justify-between mt-2" style={{ marginBottom: hasTodayData ? "0.625rem" : 0 }}>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentSession.dailyTargetReached}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentSession.dailyTargetReached}</p>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px]" style={{ color: "#A89898" }}>
+                          <span className="text-[10px] text-muted-foreground">
                             {totalH > 0 ? `${totalH}h ` : ""}{totalM}m {t.agentSession.workLabel}
                           </span>
                           <button
                             onClick={() => refetchShiftData()}
-                            className="flex items-center gap-1 px-1 py-0.5 rounded-md transition-colors hover:bg-black/5"
-                            style={{ color: "#A89898" }}
+                            className="flex items-center gap-1 px-1 py-0.5 rounded-md transition-colors hover:bg-muted text-muted-foreground"
                             title="Refresh shift data"
                           >
                             <RotateCw className="h-3 w-3" />
@@ -8340,16 +8339,16 @@ export default function AgentWorkspacePage() {
 
                       {/* Prestávka — len keď > 0 sekúnd */}
                       {((shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) > 0) && (
-                        <div className="mt-2 pt-2 border-t" style={{ borderColor: "#F0EAE5" }}>
+                        <div className="mt-2 pt-2 border-t border-border">
                           <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-[10px]" style={{ color: "#A89898" }}>{t.agentSession.breakTimeUsed}</span>
-                            <span className="text-[10px] font-semibold" style={{ color: breakOver ? "#DC2626" : "#A89898" }}>
+                            <span className="text-[10px] text-muted-foreground">{t.agentSession.breakTimeUsed}</span>
+                            <span className={`text-[10px] font-semibold ${breakOver ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
                               {shiftData.totalBreakMinutes > 0
                                 ? `${shiftData.totalBreakMinutes} min`
                                 : `${shiftData.totalBreakSeconds ?? 0} s`}
                             </span>
                           </div>
-                          <div className="h-1 rounded-full" style={{ background: "#EDE5DF" }}>
+                          <div className="h-1 rounded-full bg-muted">
                             <div className="h-1 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round(((shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) / 3600) * 100))}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
                           </div>
                         </div>
@@ -8362,12 +8361,12 @@ export default function AgentWorkspacePage() {
           </div>
 
           {/* ── Telo ── */}
-          <div className="px-6 py-4 space-y-4" style={{ background: "#FAFAF8" }}>
+          <div className="px-6 py-4 space-y-4 bg-muted/20 dark:bg-muted/10">
 
             {/* Kampane */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentWorkspace.campaigns}</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentWorkspace.campaigns}</span>
                 {selectedLoginCampaignIds.length > 0 && (
                   <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "hsl(355 85% 42% / 0.10)", color: "hsl(355 85% 42%)" }}>
                     {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? t.agentSession.selectedOne : t.agentSession.selected}
@@ -8401,15 +8400,15 @@ export default function AgentWorkspacePage() {
                           data-testid={`login-campaign-${campaign.id}`}
                         >
                           <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isChecked ? "hsl(355 85% 42%)" : barColor, minHeight: 28 }} />
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "#F3F4F6" }}>
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))" }}>
                             <ChIcon className="h-3.5 w-3.5" style={{ color: isChecked ? "hsl(355 85% 42%)" : barColor }} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <p className="text-sm font-semibold text-foreground leading-tight">{campaign.name}</p>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "#F3F4F6", color: isChecked ? "hsl(355 85% 42%)" : barColor }}>{chConfig.label}</span>
-                                <div className="rounded flex items-center justify-center transition-colors" style={{ width: 18, height: 18, background: isChecked ? "hsl(355 85% 42%)" : "transparent", border: `2px solid ${isChecked ? "hsl(355 85% 42%)" : "#CBBFBA"}` }}
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))", color: isChecked ? "hsl(355 85% 42%)" : barColor }}>{chConfig.label}</span>
+                                <div className="rounded flex items-center justify-center transition-colors" style={{ width: 18, height: 18, background: isChecked ? "hsl(355 85% 42%)" : "transparent", border: `2px solid ${isChecked ? "hsl(355 85% 42%)" : "hsl(var(--border))"}` }}
                                      data-testid={`checkbox-login-campaign-${campaign.id}`}>
                                   {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
                                 </div>
@@ -8420,7 +8419,7 @@ export default function AgentWorkspacePage() {
                                 <span className="text-[10px]">{campaign.countryCodes.map((code: string) => getCountryFlag(code)).join(" ")}</span>
                               )}
                               {campaign.startDate && (
-                                <span className="text-[10px]" style={{ color: "#A89898" }}>{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
+                                <span className="text-[10px] text-muted-foreground">{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
                               )}
                             </div>
                             {(() => {
@@ -8432,19 +8431,19 @@ export default function AgentWorkspacePage() {
                               return (
                                 <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
                                   <div className="flex items-center gap-1">
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                    <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>{wStart} – {wEnd}</span>
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    <span className="text-[10px] font-medium text-muted-foreground">{wStart} – {wEnd}</span>
                                   </div>
                                   {callerId && (
                                     <div className="flex items-center gap-1">
-                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                                      <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>{callerId}</span>
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                      <span className="text-[10px] font-medium text-muted-foreground">{callerId}</span>
                                     </div>
                                   )}
                                   {quota !== null && (
                                     <div className="flex items-center gap-1">
-                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A89898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                                      <span className="text-[10px] font-medium" style={{ color: "#6B5B5E" }}>
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                      <span className="text-[10px] font-medium text-muted-foreground">
                                         {quota} {t.agentSession.calls}{t.agentSession.perDay}
                                       </span>
                                     </div>
@@ -8465,9 +8464,9 @@ export default function AgentWorkspacePage() {
             {myQueues.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#A89898" }}>{t.agentSession.inboundQueues}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentSession.inboundQueues}</span>
                   {selectedLoginQueueIds.length > 0 && (
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "#F0FDF4", color: "#16A34A" }}>
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400">
                       {selectedLoginQueueIds.length} {selectedLoginQueueIds.length === 1 ? t.agentSession.selectedOne : t.agentSession.selected}
                     </span>
                   )}
@@ -8504,32 +8503,32 @@ export default function AgentWorkspacePage() {
                           data-testid={`login-queue-${queue.id}`}
                         >
                           <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isAfterHours ? "#D97706" : "#16A34A", minHeight: 28 }} />
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? (isAfterHours ? "#FEF3C7" : "#DCFCE7") : (isAfterHours ? "#FFFBEB" : "#F0FDF4") }}>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isChecked ? (isAfterHours ? "bg-amber-100 dark:bg-amber-950/40" : "bg-green-100 dark:bg-green-950/40") : (isAfterHours ? "bg-amber-50 dark:bg-amber-950/20" : "bg-green-50 dark:bg-green-950/20")}`}>
                             <PhoneIncoming className={`h-3.5 w-3.5 ${isAfterHours ? "text-amber-600" : "text-green-600"}`} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate text-foreground">{queue.name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px]" style={{ color: "#A89898" }}>
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
                               {queue.activeFrom && queue.activeTo && <span>{queue.activeFrom} – {queue.activeTo}</span>}
-                              {queue.didNumber && <><span style={{ color: "#CBBFBA" }}>·</span><span>{queue.didNumber}</span></>}
+                              {queue.didNumber && <><span className="text-muted-foreground/50">·</span><span>{queue.didNumber}</span></>}
                             </div>
                             {isAfterHours && (
                               <div className="flex items-center gap-1 mt-1">
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400">
                                   mimo pracovných hodín
                                 </span>
                                 {afterHoursLabel && (
-                                  <span className="text-[10px] truncate" style={{ color: "#B45309" }}>{afterHoursLabel}</span>
+                                  <span className="text-[10px] truncate text-amber-700 dark:text-amber-500">{afterHoursLabel}</span>
                                 )}
                               </div>
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {queue.waiting > 0 && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#FEF2F2", color: "#DC2626" }}>{queue.waiting} {t.agentSession.waiting}</span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400">{queue.waiting} {t.agentSession.waiting}</span>
                             )}
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: isAfterHours ? "#FEF3C7" : "#F0FDF4", color: isAfterHours ? "#92400E" : "#16A34A" }}>{queue.activeAgents} {t.agentSession.online}</span>
-                            <div className="rounded flex items-center justify-center ml-0.5" style={{ width: 18, height: 18, background: isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "transparent", border: `2px solid ${isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "#CBBFBA"}` }}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isAfterHours ? "bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400" : "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400"}`}>{queue.activeAgents} {t.agentSession.online}</span>
+                            <div className="rounded flex items-center justify-center ml-0.5" style={{ width: 18, height: 18, background: isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "transparent", border: `2px solid ${isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "hsl(var(--border))"}` }}
                                  data-testid={`checkbox-login-queue-${queue.id}`}>
                               {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
                             </div>
@@ -8544,7 +8543,7 @@ export default function AgentWorkspacePage() {
           </div>
 
           {/* ── Päta ── */}
-          <div className="px-6 pb-5 pt-1" style={{ background: "#FAFAF8" }}>
+          <div className="px-6 pb-5 pt-1 bg-muted/20 dark:bg-muted/10">
             {(() => {
               const parseHHMM = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
               const now = new Date();
@@ -8576,11 +8575,11 @@ export default function AgentWorkspacePage() {
               const names = allWarnings.map(w => w.name).join(", ");
 
               return (
-                <div className="mb-3 rounded-xl px-3 py-2.5 flex items-start gap-2.5" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }} data-testid="shift-end-warning">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "#D97706" }} />
+                <div className="mb-3 rounded-xl px-3 py-2.5 flex items-start gap-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800" data-testid="shift-end-warning">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold" style={{ color: "#92400E" }}>{t.agentSession.shiftEndingSoon}</p>
-                    <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "#B45309" }}>
+                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-400">{t.agentSession.shiftEndingSoon}</p>
+                    <p className="text-[11px] mt-0.5 leading-relaxed text-amber-700 dark:text-amber-500">
                       {t.agentSession.shiftEndingWarn} <span className="font-medium">{names}</span> {t.agentSession.shiftEndingRemains} <span className="font-semibold">{minRemaining}{t.agentSession.shiftEndingSuffix}</span>
                     </p>
                   </div>
@@ -8599,7 +8598,7 @@ export default function AgentWorkspacePage() {
               <ArrowRight className="h-4 w-4" />
             </Button>
             {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && (
-              <p className="text-center text-[11px] mt-2" style={{ color: "#A89898" }}>{t.agentSession.selectAtLeastOne}</p>
+              <p className="text-center text-[11px] mt-2 text-muted-foreground">{t.agentSession.selectAtLeastOne}</p>
             )}
           </div>
         </DialogContent>
