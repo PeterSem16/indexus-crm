@@ -552,15 +552,15 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
           </div>
         )}
 
-        {/* ── SOP Checklist (shown regardless of analysis status) ── */}
+        {/* ── Checklist (shown regardless of analysis status) ── */}
         {checklistData?.sections && checklistData.sections.length > 0 ? (
           <div className="pt-3">
             <ChecklistResponsePanel sections={checklistData.sections} ca={ca} />
           </div>
-        ) : checklistData === null && log.campaignContactId ? (
+        ) : checklistData === null && (log.campaignContactId || (log.campaignId && log.customerId)) ? (
           <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg border border-dashed border-border px-3 py-2">
             <ClipboardCheck className="h-3.5 w-3.5 shrink-0 opacity-40" />
-            <span>{ca.checklistNotFilled || 'SOP checklist nebol vyplnený'}</span>
+            <span>{ca.checklistNotFilled || 'Checklist nebol vyplnený'}</span>
           </div>
         ) : null}
       </div>
