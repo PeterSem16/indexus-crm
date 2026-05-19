@@ -26409,30 +26409,77 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
-  // Get disposition + checklist directly by campaignId + customerId (used by recording player)
+  // Get disposition + checklist for a recording — tries 3 paths in order
   app.get("/api/campaign-contact-disposition", requireAuth, async (req, res) => {
     try {
-      const { campaignId, customerId } = req.query as { campaignId?: string; customerId?: string };
-      if (!campaignId || !customerId) return res.json(null);
-      const rows = await db.select({
-        dispositionCode: campaignContacts.dispositionCode,
-        dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
-        campaignId: campaignContacts.campaignId,
-      }).from(campaignContacts)
-        .where(and(
-          eq(campaignContacts.campaignId, campaignId),
-          eq(campaignContacts.customerId, customerId)
-        ))
-        .orderBy(desc(campaignContacts.updatedAt))
-        .limit(1);
-      const cc = rows[0];
+      const { campaignId, customerId, callLogId } = req.query as { campaignId?: string; customerId?: string; callLogId?: string };
+
+      type CCRow = { dispositionCode: string | null; dispositionChecklistCodes: string[] | null; campaignId: string };
+      let cc: CCRow | undefined;
+
+      // Path 1: campaignId + customerId directly from recording
+      if (campaignId && customerId) {
+        const rows = await db.select({
+          dispositionCode: campaignContacts.dispositionCode,
+          dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+          campaignId: campaignContacts.campaignId,
+        }).from(campaignContacts)
+          .where(and(eq(campaignContacts.campaignId, campaignId), eq(campaignContacts.customerId, customerId)))
+          .orderBy(desc(campaignContacts.updatedAt))
+          .limit(1);
+        if (rows[0]?.dispositionCode) cc = rows[0];
+      }
+
+      // Path 2 & 3: via callLog
+      if (!cc && callLogId) {
+        const log = await storage.getCallLog(callLogId);
+        if (log) {
+          const logAny = log as any;
+          // Path 2: callLog.campaignContactId
+          if (!cc && logAny.campaignContactId) {
+            const [row] = await db.select({
+              dispositionCode: campaignContacts.dispositionCode,
+              dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+              campaignId: campaignContacts.campaignId,
+            }).from(campaignContacts).where(eq(campaignContacts.id, logAny.campaignContactId)).limit(1);
+            if (row?.dispositionCode) cc = row;
+          }
+          // Path 3: callLog.campaignId + callLog.customerId
+          if (!cc && logAny.campaignId && logAny.customerId) {
+            const rows = await db.select({
+              dispositionCode: campaignContacts.dispositionCode,
+              dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+              campaignId: campaignContacts.campaignId,
+            }).from(campaignContacts)
+              .where(and(eq(campaignContacts.campaignId, logAny.campaignId), eq(campaignContacts.customerId, logAny.customerId)))
+              .orderBy(desc(campaignContacts.updatedAt))
+              .limit(1);
+            if (rows[0]?.dispositionCode) cc = rows[0];
+          }
+          // Path 4: callLog.campaignId from recording + callLog.customerId
+          if (!cc && campaignId && logAny.customerId) {
+            const rows = await db.select({
+              dispositionCode: campaignContacts.dispositionCode,
+              dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+              campaignId: campaignContacts.campaignId,
+            }).from(campaignContacts)
+              .where(and(eq(campaignContacts.campaignId, campaignId), eq(campaignContacts.customerId, logAny.customerId)))
+              .orderBy(desc(campaignContacts.updatedAt))
+              .limit(1);
+            if (rows[0]?.dispositionCode) cc = rows[0];
+          }
+        }
+      }
+
       if (!cc || !cc.dispositionCode) return res.json(null);
+
       const disps = await db.select().from(campaignDispositions)
         .where(eq(campaignDispositions.campaignId, cc.campaignId));
-      const mainDisp = disps.find(d => d.code === cc.dispositionCode);
+      const mainDisp = disps.find(d => d.code === cc!.dispositionCode);
       const checklistDisps = (cc.dispositionChecklistCodes || [])
         .map(code => disps.find(d => d.code === code))
         .filter(Boolean) as (typeof disps[0])[];
+      console.log(`[Disposition] found for campaignId=${cc.campaignId} disposition=${cc.dispositionCode} checklist=${(cc.dispositionChecklistCodes||[]).join(",")}`);
       res.json({
         dispositionCode: cc.dispositionCode,
         dispositionName: mainDisp?.name || cc.dispositionCode,

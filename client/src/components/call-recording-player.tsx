@@ -487,16 +487,21 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
 
   const audioSrc = `/api/call-recordings/${recording.id}/stream`;
 
-  const recCampaignId = (recording as any).campaignId;
-  const recCustomerId = (recording as any).customerId;
+  const recCampaignId = (recording as any).campaignId as string | null | undefined;
+  const recCustomerId = (recording as any).customerId as string | null | undefined;
+  const recCallLogId = recording.callLogId as string | null | undefined;
   const { data: disposition } = useQuery<CallLogDisposition | null>({
-    queryKey: ["/api/campaign-contact-disposition", recCampaignId, recCustomerId],
+    queryKey: ["/api/campaign-contact-disposition", recCampaignId, recCustomerId, recCallLogId],
     queryFn: async () => {
-      const res = await fetch(`/api/campaign-contact-disposition?campaignId=${encodeURIComponent(recCampaignId)}&customerId=${encodeURIComponent(recCustomerId)}`, { credentials: "include" });
+      const params = new URLSearchParams();
+      if (recCampaignId) params.set("campaignId", recCampaignId);
+      if (recCustomerId) params.set("customerId", recCustomerId);
+      if (recCallLogId) params.set("callLogId", recCallLogId);
+      const res = await fetch(`/api/campaign-contact-disposition?${params.toString()}`, { credentials: "include" });
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: !!(recCampaignId && recCustomerId),
+    enabled: !!(recCampaignId || recCallLogId),
   });
 
   const { data: analysis, isLoading: analysisLoading } = useQuery<RecordingAnalysis>({
