@@ -26250,14 +26250,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const log = await storage.getCallLog(req.params.id);
       if (!log) return res.status(404).json({ error: "Not found" });
-      if (!log.customerId || !log.campaignId) return res.json(null);
-      const contacts = await db.select({ id: campaignContacts.id })
-        .from(campaignContacts)
-        .where(and(eq(campaignContacts.customerId, log.customerId), eq(campaignContacts.campaignId, log.campaignId)))
-        .limit(1);
+      if (!log.customerId) return res.json(null);
+      let contacts: { id: string }[] = [];
+      if (log.campaignId) {
+        contacts = await db.select({ id: campaignContacts.id })
+          .from(campaignContacts)
+          .where(and(eq(campaignContacts.customerId, log.customerId), eq(campaignContacts.campaignId, log.campaignId)))
+          .limit(1);
+      } else {
+        contacts = await db.select({ id: campaignContacts.id })
+          .from(campaignContacts)
+          .where(eq(campaignContacts.customerId, log.customerId))
+          .limit(20);
+      }
       if (!contacts.length) return res.json(null);
+      const contactIds = contacts.map(c => c.id);
       const history = await db.select().from(campaignContactHistory)
-        .where(and(eq(campaignContactHistory.campaignContactId, contacts[0].id), eq(campaignContactHistory.action, "checklist_response")))
+        .where(and(inArray(campaignContactHistory.campaignContactId, contactIds), eq(campaignContactHistory.action, "checklist_response")))
         .orderBy(desc(campaignContactHistory.createdAt)).limit(1);
       if (!history.length) return res.json(null);
       const meta = (history[0].metadata as any) || {};

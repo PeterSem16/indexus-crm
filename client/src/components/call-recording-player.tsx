@@ -18,6 +18,8 @@ interface CallRecordingPlayerProps {
   callLogId: string | number;
   compact?: boolean;
   onTimeUpdate?: (state: PlaybackState) => void;
+  agentLabel?: string;
+  customerLabel?: string;
 }
 
 interface RecordingAnalysis {
@@ -78,8 +80,8 @@ function QualityBadge({ score }: { score: number | null }) {
 }
 
 function DualWaveformBar({
-  audioSrc, currentTime, duration, onSeek,
-}: { audioSrc: string; currentTime: number; duration: number; onSeek: (t: number) => void }) {
+  audioSrc, currentTime, duration, onSeek, agentLabel, customerLabel,
+}: { audioSrc: string; currentTime: number; duration: number; onSeek: (t: number) => void; agentLabel?: string; customerLabel?: string }) {
   const [waveData, setWaveData] = useState<number[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -129,7 +131,7 @@ function DualWaveformBar({
   return (
     <div ref={containerRef} className="w-full cursor-pointer select-none" onClick={e => onSeek(getProgress(e))} data-testid="dual-waveform">
       {/* Agent track — bars going UP */}
-      <div className="text-[8px] font-bold uppercase tracking-widest text-indigo-400 dark:text-indigo-500 mb-0.5">Agent</div>
+      <div className="text-[8px] font-bold uppercase tracking-widest text-indigo-400 dark:text-indigo-500 mb-0.5">{agentLabel || "Agent"}</div>
       <div className="flex items-end gap-[1.5px] h-7">
         {agentData.map((h, i) => {
           const played = i / agentData.length < progress;
@@ -157,7 +159,7 @@ function DualWaveformBar({
           );
         })}
       </div>
-      <div className="text-[8px] font-bold uppercase tracking-widest text-emerald-400 dark:text-emerald-500 mt-0.5">Zákazník</div>
+      <div className="text-[8px] font-bold uppercase tracking-widest text-emerald-400 dark:text-emerald-500 mt-0.5">{customerLabel || "Zákazník"}</div>
     </div>
   );
 }
@@ -395,7 +397,7 @@ function WaveformSeekBar({
   );
 }
 
-export function CallRecordingPlayer({ callLogId, compact = false, onTimeUpdate }: CallRecordingPlayerProps) {
+export function CallRecordingPlayer({ callLogId, compact = false, onTimeUpdate, agentLabel, customerLabel }: CallRecordingPlayerProps) {
   const { data: recordings = [], isLoading } = useQuery<CallRecording[]>({
     queryKey: ["/api/call-recordings", { callLogId: String(callLogId) }],
     queryFn: async () => {
@@ -569,6 +571,8 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
             currentTime={currentTime}
             duration={duration}
             onSeek={handleWaveformSeek}
+            agentLabel={agentLabel || (recording as any).agentName || undefined}
+            customerLabel={customerLabel || undefined}
           />
         </div>
 

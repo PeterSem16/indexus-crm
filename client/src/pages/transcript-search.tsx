@@ -349,7 +349,7 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: !!log.campaignId && !!log.customerId,
+    enabled: !!log.id,
   });
 
   const handleExport = (fmt: string) => { if (rec?.id) window.open(`/api/call-recordings/${rec.id}/export-transcript?format=${fmt}`, "_blank"); };
@@ -408,7 +408,13 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
               <span className="text-[9px] text-muted-foreground">{formatDuration(log.durationSeconds)}</span>
             </div>
             <div className="px-3 py-2 bg-background">
-              <CallRecordingPlayer callLogId={log.id} compact onTimeUpdate={setPlaybackState} />
+              <CallRecordingPlayer
+                callLogId={log.id}
+                compact
+                onTimeUpdate={setPlaybackState}
+                agentLabel={rec?.agentName || undefined}
+                customerLabel={log.customerName || undefined}
+              />
             </div>
           </div>
         ) : (
