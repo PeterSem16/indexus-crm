@@ -26224,11 +26224,31 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       // Lookup campaign contacts for disposition + entity info
       const ccIds = [...new Set(logs.filter(l => l.campaignContactId).map(l => l.campaignContactId!))];
+      // Key: logId → cc data
       let ccMap: Record<string, { dispositionCode: string | null; dispositionChecklistCodes: string[] | null; contactType: string | null; clinicId: string | null; hospitalId: string | null }> = {};
+      // Map: campaignContactId → cc data (for logs with campaignContactId)
+      let ccById: typeof ccMap = {};
       if (ccIds.length > 0) {
         const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId })
           .from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
-        for (const cc of ccRows) ccMap[cc.id] = { dispositionCode: cc.dispositionCode, dispositionChecklistCodes: cc.dispositionChecklistCodes, contactType: cc.contactType, clinicId: cc.clinicId, hospitalId: cc.hospitalId };
+        for (const cc of ccRows) ccById[cc.id] = { dispositionCode: cc.dispositionCode, dispositionChecklistCodes: cc.dispositionChecklistCodes, contactType: cc.contactType, clinicId: cc.clinicId, hospitalId: cc.hospitalId };
+      }
+
+      // Fallback: for logs without campaignContactId, lookup by campaignId + customerId
+      const fallbackPairs = logs.filter(l => !l.campaignContactId && l.campaignId && l.customerId);
+      let fallbackMap: Record<string, typeof ccMap[string]> = {}; // key: `${campaignId}::${customerId}`
+      if (fallbackPairs.length > 0) {
+        const uniquePairs = [...new Set(fallbackPairs.map(l => `${l.campaignId}::${l.customerId}`))];
+        const orConditions = uniquePairs.map(p => {
+          const [cId, uId] = p.split("::");
+          return and(eq(campaignContacts.campaignId, cId), eq(campaignContacts.customerId, uId));
+        });
+        const fbRows = await db.select({ campaignId: campaignContacts.campaignId, customerId: campaignContacts.customerId, dispositionCode: campaignContacts.dispositionCode, dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId, updatedAt: campaignContacts.updatedAt })
+          .from(campaignContacts).where(or(...orConditions)).orderBy(desc(campaignContacts.updatedAt));
+        for (const row of fbRows) {
+          const key = `${row.campaignId}::${row.customerId}`;
+          if (!fallbackMap[key]) fallbackMap[key] = { dispositionCode: row.dispositionCode, dispositionChecklistCodes: row.dispositionChecklistCodes, contactType: row.contactType, clinicId: row.clinicId, hospitalId: row.hospitalId };
+        }
       }
 
       // Lookup disposition names from campaignDispositions
@@ -26255,7 +26275,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
 
       const result = logs.map(log => {
-        const cc = log.campaignContactId ? ccMap[log.campaignContactId] : null;
+        const cc = log.campaignContactId
+          ? ccById[log.campaignContactId]
+          : (log.campaignId && log.customerId ? fallbackMap[`${log.campaignId}::${log.customerId}`] : null);
         let entityName: string | null = null;
         let entityType: string | null = cc?.contactType || null;
         if (cc?.clinicId && clinicNameMap[cc.clinicId]) entityName = clinicNameMap[cc.clinicId];
