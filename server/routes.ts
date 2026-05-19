@@ -26414,17 +26414,46 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const log = await storage.getCallLog(req.params.id);
       if (!log) return res.status(404).json({ error: "Not found" });
+      console.log(`[Disposition] callLogId=${req.params.id} campaignContactId=${(log as any).campaignContactId} campaignId=${(log as any).campaignId} customerId=${(log as any).customerId}`);
+
+      let cc: { dispositionCode: string | null; dispositionChecklistCodes: string[] | null; campaignId: string } | undefined;
+
+      // Primary path: campaignContactId directly on the call log
       const campaignContactId = (log as any).campaignContactId;
-      if (!campaignContactId) return res.json(null);
-      const [cc] = await db.select({
-        dispositionCode: campaignContacts.dispositionCode,
-        dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
-        campaignId: campaignContacts.campaignId,
-      }).from(campaignContacts).where(eq(campaignContacts.id, campaignContactId)).limit(1);
+      if (campaignContactId) {
+        const [row] = await db.select({
+          dispositionCode: campaignContacts.dispositionCode,
+          dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+          campaignId: campaignContacts.campaignId,
+        }).from(campaignContacts).where(eq(campaignContacts.id, campaignContactId)).limit(1);
+        if (row) cc = row;
+      }
+
+      // Fallback: find campaignContact via campaignId + customerId
+      if (!cc) {
+        const campaignId = (log as any).campaignId;
+        const customerId = (log as any).customerId;
+        if (campaignId && customerId) {
+          const rows = await db.select({
+            dispositionCode: campaignContacts.dispositionCode,
+            dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+            campaignId: campaignContacts.campaignId,
+          }).from(campaignContacts)
+            .where(and(
+              eq(campaignContacts.campaignId, campaignId),
+              eq(campaignContacts.customerId, customerId)
+            ))
+            .orderBy(desc(campaignContacts.updatedAt))
+            .limit(1);
+          if (rows[0]) cc = rows[0];
+        }
+      }
+
       if (!cc || !cc.dispositionCode) return res.json(null);
+
       const disps = await db.select().from(campaignDispositions)
         .where(eq(campaignDispositions.campaignId, cc.campaignId));
-      const mainDisp = disps.find(d => d.code === cc.dispositionCode);
+      const mainDisp = disps.find(d => d.code === cc!.dispositionCode);
       const checklistDisps = (cc.dispositionChecklistCodes || [])
         .map(code => disps.find(d => d.code === code))
         .filter(Boolean) as (typeof disps[0])[];
