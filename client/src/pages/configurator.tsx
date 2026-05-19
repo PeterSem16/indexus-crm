@@ -44,6 +44,7 @@ import { Smartphone, Wallet, MessageSquare, Calendar, Clock, Star, Heart, Folder
 import { DepartmentTree } from "@/components/department-tree";
 import { NotificationRulesManager } from "@/components/notification-center";
 import WebFormsPage from "@/pages/web-forms";
+import ScrapingPage from "@/pages/scraping";
 
 const serviceFormSchema = z.object({
   serviceCode: z.string().min(1, "Service code is required"),
@@ -21118,7 +21119,24 @@ export default function ConfiguratorPage() {
         </TabsContent>
 
         <TabsContent value="lead-search">
-          <LeadSearchTab />
+          <Tabs defaultValue="lead-intelligence" className="space-y-4">
+            <TabsList className="h-auto gap-1 p-1">
+              <TabsTrigger value="lead-intelligence" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="subtab-lead-intelligence">
+                <Search className="h-4 w-4 shrink-0" />
+                <span>Lead Intelligence</span>
+              </TabsTrigger>
+              <TabsTrigger value="web-scraping" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="subtab-web-scraping">
+                <Globe className="h-4 w-4 shrink-0" />
+                <span>Web Scraping</span>
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="lead-intelligence">
+              <LeadSearchTab />
+            </TabsContent>
+            <TabsContent value="web-scraping">
+              <ScrapingPage />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
       </Tabs>

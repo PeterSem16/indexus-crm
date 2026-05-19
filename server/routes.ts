@@ -24651,9 +24651,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.post("/api/campaigns/:campaignId/contacts/:contactId/checklist-response", requireAuth, async (req, res) => {
     try {
-      const { items } = req.body;
-      if (!Array.isArray(items)) {
-        return res.status(400).json({ error: "items must be an array" });
+      const { items, sections } = req.body;
+      const data = sections || items;
+      if (!Array.isArray(data)) {
+        return res.status(400).json({ error: "sections must be an array" });
       }
       const record = await storage.createCampaignContactHistory({
         campaignContactId: req.params.contactId,
@@ -24662,7 +24663,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         previousStatus: null,
         newStatus: null,
         notes: null,
-        metadata: { items, savedAt: new Date().toISOString() },
+        metadata: { sections: data, savedAt: new Date().toISOString() },
       });
       res.json(record);
     } catch (error) {

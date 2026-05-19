@@ -29,7 +29,6 @@ import {
   Target,
   HeartPulse,
   ListChecks,
-  Search,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -108,9 +107,11 @@ export function AppSidebar() {
   const adminNavItems = [
     { title: t.nav.users, url: "/users", icon: UserCog, testId: "users", moduleKey: "users" },
     { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings", moduleKey: "settings" },
-    { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
-    { title: "Automations", url: "/automations", icon: Zap, testId: "automations", moduleKey: "configurator" },
-    { title: "Web Scraping", url: "/scraping", icon: Search, testId: "scraping", moduleKey: "configurator" },
+  ];
+
+  const configNavSubItems = [
+    { title: t.nav.konfigurator, url: "/configurator", testId: "konfigurator", moduleKey: "configurator" },
+    { title: "Automations", url: "/automations", testId: "automations", moduleKey: "configurator" },
   ];
 
   const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;
@@ -276,7 +277,7 @@ export function AppSidebar() {
           </>
         )}
 
-        {visibleAdminItems.length > 0 && (
+        {(visibleAdminItems.length > 0 || configNavSubItems.some(i => canAccessModule(i.moduleKey))) && (
           <>
             <SidebarSeparator className="my-2" />
             <SidebarGroup>
@@ -295,6 +296,33 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
+
+                  {configNavSubItems.some(i => canAccessModule(i.moduleKey)) && (
+                    <Collapsible defaultOpen={location === "/configurator" || location === "/automations"} className="group/collapsible-config">
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton isActive={location === "/configurator" || location === "/automations"}>
+                            <Cog className="h-4 w-4" />
+                            <span>Configuration</span>
+                            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible-config:rotate-180" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {configNavSubItems.filter(item => canAccessModule(item.moduleKey)).map((item) => (
+                              <SidebarMenuSubItem key={item.testId}>
+                                <SidebarMenuSubButton asChild isActive={location === item.url}>
+                                  <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                                    <span>{item.title}</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
