@@ -534,6 +534,9 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
 
   const remainingTime = Math.max(0, duration - currentTime);
 
+  const resolvedAgentLabel = agentLabel || (recording as any).agentName || undefined;
+  const resolvedCustomerLabel = customerLabel || undefined;
+
   if (compact) {
     return (
       <div className="space-y-1" data-testid={`recording-player-${recording.id}`}>
@@ -571,8 +574,8 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
             currentTime={currentTime}
             duration={duration}
             onSeek={handleWaveformSeek}
-            agentLabel={agentLabel || (recording as any).agentName || undefined}
-            customerLabel={customerLabel || undefined}
+            agentLabel={resolvedAgentLabel}
+            customerLabel={resolvedCustomerLabel}
           />
         </div>
 
