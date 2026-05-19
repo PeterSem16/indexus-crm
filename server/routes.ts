@@ -26251,9 +26251,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const log = await storage.getCallLog(req.params.id);
       if (!log) return res.status(404).json({ error: "Not found" });
-      if (!log.customerId) return res.json(null);
       let contacts: { id: string }[] = [];
-      if (log.campaignId) {
+      if ((log as any).campaignContactId) {
+        contacts = [{ id: (log as any).campaignContactId }];
+      } else if (!log.customerId) {
+        return res.json(null);
+      } else if (log.campaignId) {
         contacts = await db.select({ id: campaignContacts.id })
           .from(campaignContacts)
           .where(and(eq(campaignContacts.customerId, log.customerId), eq(campaignContacts.campaignId, log.campaignId)))

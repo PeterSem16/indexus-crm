@@ -4563,19 +4563,25 @@ function CustomerInfoPanel({
                             {(item as any).action === "checklist_response" ? (() => {
                               const chkSections: any[] = (item as any).metadata?.sections || [];
                               const answeredItems = chkSections.flatMap((s: any) => [
-                                ...(s.items || []),
-                                ...(s.subsections || []).flatMap((sub: any) => sub.items || []),
+                                ...(s.items || []).map((i: any) => ({ ...i, _sColor: s.color || "" })),
+                                ...(s.subsections || []).flatMap((sub: any) => (sub.items || []).map((i: any) => ({ ...i, _sColor: s.color || "" }))),
                               ]).filter((i: any) => i.checked || i.answer === "yes" || (i.value && String(i.value).trim()));
                               if (answeredItems.length === 0) {
                                 return <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium leading-snug`} style={{ color: "#9A8878" }}>Žiadne položky nezodpovedané</p>;
                               }
                               return (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {answeredItems.map((i: any) => (
-                                    <span key={i.id} className={`inline-flex items-center gap-0.5 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-medium bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800`}>
-                                      {i.type === "yes_no" ? `✓ ${i.label}` : i.type === "text" ? `${i.label}: ${i.value}` : `✓ ${i.label}`}
-                                    </span>
-                                  ))}
+                                <div className="flex flex-wrap gap-1 mt-1 max-w-full">
+                                  {answeredItems.map((i: any) => {
+                                    const c = i._sColor;
+                                    const badgeStyle = c ? { backgroundColor: `${c}18`, color: c, borderColor: `${c}40` } : undefined;
+                                    const badgeCls = c ? "" : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
+                                    const label = i.type === "text" ? `${i.label}: ${i.value}` : `✓ ${i.label}`;
+                                    return (
+                                      <span key={i.id} title={label} className={`inline-flex items-center gap-0.5 ${isModal ? "text-[10px] px-2 py-0.5" : "text-[9px] px-1.5 py-0.5"} rounded-full border font-medium max-w-[200px] truncate ${badgeCls}`} style={badgeStyle}>
+                                        {label}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               );
                             })() : (
