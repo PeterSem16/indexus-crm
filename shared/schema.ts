@@ -3686,6 +3686,7 @@ export const callLogs = pgTable("call_logs", {
   inboundQueueId: varchar("inbound_queue_id"),
   inboundQueueName: text("inbound_queue_name"),
   inboundCallLogId: varchar("inbound_call_log_id"),
+  isImportant: boolean("is_important").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

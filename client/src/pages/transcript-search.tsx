@@ -1,12 +1,12 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Phone, Megaphone, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, Calendar, UserCircle, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, CheckCircle2, ShieldAlert, ClipboardCheck, Sparkles, Star, Smartphone, XCircle, MessageSquare, Circle, CheckSquare } from "lucide-react";
+import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Phone, Megaphone, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, Calendar, UserCircle, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, CheckCircle2, ShieldAlert, ClipboardCheck, Sparkles, Star, StarOff, Smartphone, XCircle, MessageSquare, Circle, CheckSquare, PackageOpen } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
 import { CallRecordingPlayer, type PlaybackState } from "@/components/call-recording-player";
@@ -28,7 +28,7 @@ interface CallLogEntry {
   phoneNumber: string; direction: string; status: string; startedAt: string;
   durationSeconds: number | null; notes: string | null; createdAt: string;
   customerName: string | null; campaignName: string | null; hasRecording: boolean; isMobile: boolean;
-  mobileAgentName: string | null; mobileOutboundCallerId: string | null;
+  mobileAgentName: string | null; mobileOutboundCallerId: string | null; isImportant: boolean;
   recording: {
     id: string; analysisStatus: string | null; transcriptionText: string | null;
     sentiment: string | null; qualityScore: number | null; scriptComplianceScore: number | null;
@@ -318,6 +318,7 @@ function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEnt
         {log.status === "failed" && <span className="text-[9px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full">{ca.statusFailed}</span>}
         {log.isMobile && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Smartphone className="h-2 w-2" />{log.mobileAgentName || "Mobile"}</span>}
         {log.hasRecording && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Mic className="h-2 w-2" /></span>}
+        {log.isImportant && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Star className="h-2 w-2 fill-amber-400" /></span>}
         {rec?.qualityScore != null && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">★ {rec.qualityScore}</span>}
         {log.campaignName && <span className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full truncate max-w-[90px]">{log.campaignName}</span>}
       </div>
@@ -328,9 +329,20 @@ function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEnt
 const SENTIMENT_SCORE: Record<string, number> = { positive: 9, neutral: 6, negative: 3, angry: 1 };
 const SENTIMENT_COLOR: Record<string, string> = { positive: "#10b981", neutral: "#0ea5e9", negative: "#f59e0b", angry: "#ef4444" };
 
-function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca: Record<string, any>; locale: string; searchText?: string }) {
+function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { log: CallLogEntry; ca: Record<string, any>; locale: string; searchText?: string; onImportantToggle?: (id: string, val: boolean) => void }) {
   const [tab, setTab] = useState<"analysis" | "transcript">("analysis");
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
+  const [isImportant, setIsImportant] = useState(log.isImportant);
+  const [togglingImportant, setTogglingImportant] = useState(false);
+  const toggleImportant = async () => {
+    setTogglingImportant(true);
+    const next = !isImportant;
+    try {
+      await fetch(`/api/call-logs/${log.id}/important`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isImportant: next }) });
+      setIsImportant(next);
+      onImportantToggle?.(log.id, next);
+    } finally { setTogglingImportant(false); }
+  };
   const rec = log.recording;
   const dateStr = new Date(log.startedAt || log.createdAt).toLocaleString(LOCALE_MAP[locale] || "en-US", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   const sc = rec?.sentiment ? SENTIMENT_CFG[rec.sentiment] : null;
@@ -382,12 +394,23 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
               </div>
             </div>
           </div>
-          {sc && rec?.sentiment && (
-            <div className={`px-2.5 py-1.5 rounded-xl ${sc.bg} text-center shrink-0`} data-testid={`sentiment-badge-${log.id}`}>
-              <div className={`text-xs font-bold ${sc.text}`}>{sentimentLabels[rec.sentiment] || rec.sentiment}</div>
-              <div className="text-[9px] text-muted-foreground mt-0.5">{ca.sentiment}</div>
-            </div>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {sc && rec?.sentiment && (
+              <div className={`px-2.5 py-1.5 rounded-xl ${sc.bg} text-center`} data-testid={`sentiment-badge-${log.id}`}>
+                <div className={`text-xs font-bold ${sc.text}`}>{sentimentLabels[rec.sentiment] || rec.sentiment}</div>
+                <div className="text-[9px] text-muted-foreground mt-0.5">{ca.sentiment}</div>
+              </div>
+            )}
+            <button
+              onClick={toggleImportant}
+              disabled={togglingImportant}
+              title={isImportant ? "Odznačiť ako dôležitý" : "Označiť ako dôležitý"}
+              data-testid={`btn-important-${log.id}`}
+              className={`p-2 rounded-xl transition-all ${isImportant ? "bg-amber-100 dark:bg-amber-900/30 text-amber-500 hover:bg-amber-200 dark:hover:bg-amber-900/50" : "text-muted-foreground hover:bg-muted hover:text-amber-500"}`}
+            >
+              {togglingImportant ? <Loader2 className="h-4 w-4 animate-spin" /> : isImportant ? <Star className="h-4 w-4 fill-amber-400 text-amber-500" /> : <Star className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
         {/* ── Player strip (Variant B style) ── */}
@@ -729,6 +752,17 @@ export function TranscriptSearchContent() {
   const [browseMobileFilter, setBrowseMobileFilter] = useState(false);
   const [browseMinQuality, setBrowseMinQuality] = useState("");
   const [browseQueueFilter, setBrowseQueueFilter] = useState("");
+  const [browseImportantFilter, setBrowseImportantFilter] = useState(false);
+  const [showBulkDownload, setShowBulkDownload] = useState(false);
+  const [bdDateFrom, setBdDateFrom] = useState(toDateStr(new Date()));
+  const [bdDateTo, setBdDateTo] = useState(toDateStr(new Date()));
+  const [bdTimeFrom, setBdTimeFrom] = useState("");
+  const [bdTimeTo, setBdTimeTo] = useState("");
+  const [bdCampaign, setBdCampaign] = useState("");
+  const [bdAgent, setBdAgent] = useState("");
+  const [bdDirection, setBdDirection] = useState("");
+  const [bdImportantOnly, setBdImportantOnly] = useState(false);
+  const [bdDownloading, setBdDownloading] = useState(false);
   const [selectedCallLogId, setSelectedCallLogId] = useState<string | null>(null);
 
   /* Search tab */
@@ -776,6 +810,7 @@ export function TranscriptSearchContent() {
   const handleSearch = useCallback(() => { if (searchInput.trim().length >= 2) setSearchQuery(searchInput.trim()); }, [searchInput]);
 
   const uniqueAgents = useMemo(() => { const s = new Set<string>(); callLogs.forEach(l => { if (l.recording?.agentName) s.add(l.recording.agentName); if (l.mobileAgentName) s.add(l.mobileAgentName); }); return Array.from(s).sort(); }, [callLogs]);
+  const uniqueAgentUsers = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { const name = (l.recording as any)?.agentName || l.mobileAgentName; if (l.userId && name) m.set(l.userId, name); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)); }, [callLogs]);
   const uniqueCampaigns = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { if (l.campaignId && l.campaignName) m.set(l.campaignId, l.campaignName); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })); }, [callLogs]);
   const uniqueQueues = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { const qId = (l as any).inboundQueueId, qName = (l as any).inboundQueueName; if (qId && qName) m.set(qId, qName); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })); }, [callLogs]);
 
@@ -802,8 +837,9 @@ export function TranscriptSearchContent() {
     if (browseHasAlertsFilter) f = f.filter(l => l.recording?.alertKeywords && l.recording.alertKeywords.length > 0);
     if (browseMobileFilter) f = f.filter(l => l.isMobile);
     if (browseMinQuality) { const minQ = parseInt(browseMinQuality); if (!isNaN(minQ)) f = f.filter(l => l.recording?.qualityScore != null && l.recording.qualityScore >= minQ); }
+    if (browseImportantFilter) f = f.filter(l => l.isImportant);
     return f;
-  }, [callLogs, selectedDate, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseQueueFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter, browseMobileFilter, browseMinQuality]);
+  }, [callLogs, selectedDate, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseQueueFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter, browseMobileFilter, browseMinQuality, browseImportantFilter]);
 
   const stats = useMemo(() => {
     const all = filteredCallLogs;
@@ -814,9 +850,25 @@ export function TranscriptSearchContent() {
     return { total: all.length, completed, withAlerts, avgQ };
   }, [filteredCallLogs]);
 
-  const activeFilterCount = [browseCampaignFilter, browseDirectionFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter ? "y" : "", browseMobileFilter ? "y" : "", browseMinQuality, browseQueueFilter].filter(Boolean).length;
+  const activeFilterCount = [browseCampaignFilter, browseDirectionFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter ? "y" : "", browseMobileFilter ? "y" : "", browseMinQuality, browseQueueFilter, browseImportantFilter ? "y" : ""].filter(Boolean).length;
 
-  const clearFilters = () => { setBrowseCampaignFilter(""); setBrowseDirectionFilter(""); setBrowseStatusFilter(""); setBrowseRecordingFilter(""); setBrowseSentimentFilter(""); setBrowseAgentFilter(""); setBrowseHasAlertsFilter(false); setBrowseMobileFilter(false); setBrowseMinQuality(""); setBrowseQueueFilter(""); };
+  const clearFilters = () => { setBrowseCampaignFilter(""); setBrowseDirectionFilter(""); setBrowseStatusFilter(""); setBrowseRecordingFilter(""); setBrowseSentimentFilter(""); setBrowseAgentFilter(""); setBrowseHasAlertsFilter(false); setBrowseMobileFilter(false); setBrowseMinQuality(""); setBrowseQueueFilter(""); setBrowseImportantFilter(false); };
+
+  const handleBulkDownload = async () => {
+    setBdDownloading(true);
+    try {
+      const res = await fetch("/api/call-recordings/bulk-download", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ importantOnly: bdImportantOnly, dateFrom: bdDateFrom || undefined, dateTo: bdDateTo || undefined, timeFrom: bdTimeFrom || undefined, timeTo: bdTimeTo || undefined, campaignId: bdCampaign || undefined, agentId: bdAgent || undefined, direction: bdDirection || undefined }),
+      });
+      if (!res.ok) { const e = await res.json(); alert(e.error || "Chyba pri sťahovaní"); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `hovory_${Date.now()}.zip`; a.click();
+      URL.revokeObjectURL(url);
+      setShowBulkDownload(false);
+    } finally { setBdDownloading(false); }
+  };
 
   useEffect(() => {
     if (filteredCallLogs.length > 0 && (!selectedCallLogId || !filteredCallLogs.find(l => l.id === selectedCallLogId))) {
@@ -891,6 +943,10 @@ export function TranscriptSearchContent() {
               <span className="font-semibold">{stats.total}</span><span className="text-muted-foreground">{ca.calls || "hovorov"}</span>
               {stats.withAlerts > 0 && <span className="flex items-center gap-1 text-destructive font-medium"><AlertTriangle className="h-3 w-3" />{stats.withAlerts}</span>}
               {stats.avgQ && <span className="flex items-center gap-1 text-amber-500 font-medium"><Star className="h-3 w-3" />{stats.avgQ}</span>}
+              <button onClick={() => setShowBulkDownload(true)} data-testid="btn-bulk-download"
+                className="ml-1 flex items-center gap-1 px-2 py-1 rounded-lg border border-border text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                <PackageOpen className="h-3 w-3" />Hromadné stiahnutie
+              </button>
             </div>
           </>
         )}
@@ -1007,6 +1063,11 @@ export function TranscriptSearchContent() {
                         <Smartphone className="h-3 w-3" />
                         INDEXUS Connect
                       </label>
+                      <label className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 cursor-pointer font-medium">
+                        <input type="checkbox" checked={browseImportantFilter} onChange={e => setBrowseImportantFilter(e.target.checked)} className="h-3 w-3 accent-amber-500" data-testid="checkbox-important-filter" />
+                        <Star className="h-3 w-3 fill-amber-400" />
+                        Dôležité
+                      </label>
                     </div>
                     {activeFilterCount > 0 && (
                       <button onClick={clearFilters} className="text-[10px] text-primary hover:underline" data-testid="btn-clear-browse-filters">
@@ -1046,7 +1107,7 @@ export function TranscriptSearchContent() {
           {/* Right: detail */}
           <div className="flex-1 min-h-0 flex flex-col bg-background">
             {selectedLog
-              ? <AnalysisDetail key={selectedLog.id} log={selectedLog} ca={ca} locale={locale} searchText={browseSearchText} />
+              ? <AnalysisDetail key={selectedLog.id} log={selectedLog} ca={ca} locale={locale} searchText={browseSearchText} onImportantToggle={(id, val) => { /* optimistic update handled inside */ }} />
               : (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
                   <Brain className="h-12 w-12 mb-4 opacity-20" />
@@ -1112,6 +1173,83 @@ export function TranscriptSearchContent() {
           </ScrollArea>
         </div>
       )}
+
+      {/* ── Bulk Download Modal ── */}
+      <Dialog open={showBulkDownload} onOpenChange={setShowBulkDownload}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><PackageOpen className="h-5 w-5 text-primary" />Hromadné stiahnutie nahrávok</DialogTitle>
+            <DialogDescription className="text-xs">Stiahni nahrávky ako ZIP archív (max. 200 hovorov). Filtre sú voliteľné.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Dátum od</label>
+                <Input type="date" value={bdDateFrom} onChange={e => setBdDateFrom(e.target.value)} className="h-8 text-xs" data-testid="input-bd-date-from" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Dátum do</label>
+                <Input type="date" value={bdDateTo} onChange={e => setBdDateTo(e.target.value)} className="h-8 text-xs" data-testid="input-bd-date-to" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Čas od</label>
+                <Input type="time" value={bdTimeFrom} onChange={e => setBdTimeFrom(e.target.value)} className="h-8 text-xs" data-testid="input-bd-time-from" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Čas do</label>
+                <Input type="time" value={bdTimeTo} onChange={e => setBdTimeTo(e.target.value)} className="h-8 text-xs" data-testid="input-bd-time-to" />
+              </div>
+            </div>
+            {campaignsList.length > 0 && (
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Kampaň</label>
+                <Select value={bdCampaign || "all"} onValueChange={v => setBdCampaign(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-bd-campaign"><SelectValue placeholder="Všetky kampane" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Všetky kampane</SelectItem>
+                    {campaignsList.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {uniqueAgentUsers.length > 0 && (
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Agent</label>
+                <Select value={bdAgent || "all"} onValueChange={v => setBdAgent(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-bd-agent"><SelectValue placeholder="Všetci agenti" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Všetci agenti</SelectItem>
+                    {uniqueAgentUsers.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Smer hovoru</label>
+              <Select value={bdDirection || "all"} onValueChange={v => setBdDirection(v === "all" ? "" : v)}>
+                <SelectTrigger className="h-8 text-xs" data-testid="select-bd-direction"><SelectValue placeholder="Všetky smery" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všetky smery</SelectItem>
+                  <SelectItem value="inbound">Príchodzí</SelectItem>
+                  <SelectItem value="outbound">Odchodzí</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+              <input type="checkbox" checked={bdImportantOnly} onChange={e => setBdImportantOnly(e.target.checked)} className="h-3.5 w-3.5 accent-amber-500" data-testid="checkbox-bd-important" />
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+              <span className="text-amber-600 dark:text-amber-400 font-medium">Iba dôležité hovory</span>
+            </label>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={() => setShowBulkDownload(false)}>Zrušiť</Button>
+            <Button size="sm" onClick={handleBulkDownload} disabled={bdDownloading} data-testid="btn-bd-download" className="gap-1.5">
+              {bdDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {bdDownloading ? "Sťahujem…" : "Stiahnuť ZIP"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

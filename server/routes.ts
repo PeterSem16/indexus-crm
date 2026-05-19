@@ -26337,6 +26337,84 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   });
 
   // Get call logs for current user
+  // Toggle call log important flag
+  app.patch("/api/call-logs/:id/important", requireAuth, async (req, res) => {
+    try {
+      const { isImportant } = req.body;
+      const log = await storage.updateCallLog(req.params.id, { isImportant: Boolean(isImportant) } as any);
+      if (!log) return res.status(404).json({ error: "Call log not found" });
+      res.json(log);
+    } catch (error) {
+      console.error("Failed to update call log importance:", error);
+      res.status(500).json({ error: "Failed to update" });
+    }
+  });
+
+  // Bulk download recordings as ZIP
+  app.post("/api/call-recordings/bulk-download", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+      const { importantOnly, dateFrom, dateTo, timeFrom, timeTo, campaignId, agentId, direction } = req.body;
+
+      const conditions: any[] = [];
+      if (importantOnly) conditions.push(eq(callLogs.isImportant, true));
+      if (dateFrom) {
+        const from = new Date(dateFrom);
+        if (timeFrom) { const [h, m] = (timeFrom as string).split(":"); from.setHours(Number(h), Number(m), 0, 0); }
+        else from.setHours(0, 0, 0, 0);
+        conditions.push(gte(callLogs.startedAt, from));
+      }
+      if (dateTo) {
+        const to = new Date(dateTo);
+        if (timeTo) { const [h, m] = (timeTo as string).split(":"); to.setHours(Number(h), Number(m), 59, 999); }
+        else to.setHours(23, 59, 59, 999);
+        conditions.push(lte(callLogs.startedAt, to));
+      }
+      if (campaignId) conditions.push(eq(callLogs.campaignId, campaignId));
+      if (direction) conditions.push(eq(callLogs.direction, direction));
+      if (agentId) conditions.push(eq(callLogs.userId, agentId));
+
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      if (!isPrivileged) conditions.push(eq(callLogs.userId, user.id));
+
+      const rows = await db.select({ log: callLogs, recording: callRecordings })
+        .from(callLogs)
+        .innerJoin(callRecordings, eq(callRecordings.callLogId, callLogs.id))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(callLogs.startedAt))
+        .limit(200);
+
+      if (rows.length === 0) return res.status(404).json({ error: "Žiadne nahrávky nezodpovedajú filtrom" });
+
+      const AdmZip = await import("adm-zip");
+      const zip = new (AdmZip as any).default();
+      let added = 0;
+      for (const { log, recording } of rows) {
+        if (!recording.filePath || !fs.existsSync(recording.filePath)) continue;
+        const ext = path.extname(recording.filePath) || ".wav";
+        const dateStr = new Date(log.startedAt).toISOString().replace(/[:.]/g, "-").slice(0, 16);
+        const phone = (log.phoneNumber || "").replace(/[^0-9+]/g, "");
+        const imp = log.isImportant ? "_DOLEZITY" : "";
+        const filename = `${dateStr}_${phone}${imp}${ext}`;
+        zip.addLocalFile(recording.filePath, "", filename);
+        added++;
+      }
+      if (added === 0) return res.status(404).json({ error: "Súbory nahrávok nie sú dostupné na disku" });
+
+      const zipBuffer = zip.toBuffer();
+      res.set({
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename="hovory_${Date.now()}.zip"`,
+        "Content-Length": zipBuffer.length.toString(),
+      });
+      res.send(zipBuffer);
+    } catch (error) {
+      console.error("Bulk recording download failed:", error);
+      res.status(500).json({ error: "Bulk download zlyhal" });
+    }
+  });
+
   app.get("/api/my-call-logs", requireAuth, async (req, res) => {
     try {
       const userId = req.session.user?.id;
