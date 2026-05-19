@@ -29,6 +29,9 @@ interface CallLogEntry {
   durationSeconds: number | null; notes: string | null; createdAt: string;
   customerName: string | null; campaignName: string | null; hasRecording: boolean; isMobile: boolean;
   mobileAgentName: string | null; mobileOutboundCallerId: string | null; isImportant: boolean;
+  campaignContactId: string | null; answeredAt: string | null; endedAt: string | null;
+  hungUpBy: string | null; inboundQueueId: string | null; inboundQueueName: string | null;
+  dispositionCode: string | null; contactType: string | null; entityName: string | null;
   recording: {
     id: string; analysisStatus: string | null; transcriptionText: string | null;
     sentiment: string | null; qualityScore: number | null; scriptComplianceScore: number | null;
@@ -370,48 +373,140 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
     <div className="flex flex-col h-full" data-testid={`analysis-detail-${log.id}`}>
 
       {/* ── Header ── */}
-      <div className="px-5 py-3.5 border-b bg-background shrink-0">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/70 to-primary flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0 shadow-sm">
-              {(log.customerName || log.phoneNumber)[0].toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold truncate">{log.customerName || log.phoneNumber}</div>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                {log.customerName && <span className="text-[10px] text-muted-foreground">{log.phoneNumber}</span>}
-                <Badge variant="outline" className={`text-[10px] font-medium h-4 ${log.direction === "inbound" ? "text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700" : "text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-700"}`}>
-                  {log.direction === "inbound" ? <><PhoneIncoming className="h-2.5 w-2.5 mr-1" />{ca.inbound}</> : <><PhoneOutgoing className="h-2.5 w-2.5 mr-1" />{ca.outbound}</>}
-                </Badge>
-                {log.campaignName && <Badge variant="outline" className="text-[10px] h-4"><Megaphone className="h-2.5 w-2.5 mr-1" />{log.campaignName}</Badge>}
-                {rec?.agentName && <Badge variant="outline" className="text-[10px] h-4"><UserCircle className="h-2.5 w-2.5 mr-1" />{rec.agentName}</Badge>}
-                {log.isMobile && (
-                  <Badge className="text-[10px] h-4 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700 hover:bg-violet-100">
-                    <Smartphone className="h-2.5 w-2.5 mr-1" />INDEXUS Connect{log.mobileAgentName ? ` · ${log.mobileAgentName}` : ""}
-                  </Badge>
-                )}
-                <span className="text-[10px] text-muted-foreground">{dateStr} · {formatDuration(log.durationSeconds)}</span>
-              </div>
-            </div>
+      <div className="px-5 pt-4 pb-3 border-b bg-background shrink-0 space-y-3">
+        {/* Row 1: Identity + sentiment + star */}
+        <div className="flex items-start gap-3">
+          {/* Avatar */}
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-base shrink-0 shadow-sm ${log.direction === "inbound" ? "bg-gradient-to-br from-emerald-400 to-emerald-600" : "bg-gradient-to-br from-sky-400 to-sky-600"}`}>
+            {log.entityName ? <Tag className="h-5 w-5" /> : (log.customerName || log.phoneNumber)[0]?.toUpperCase()}
           </div>
+          <div className="flex-1 min-w-0">
+            {/* Name + phone */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold truncate">{log.entityName || log.customerName || log.phoneNumber}</span>
+              {log.entityName && log.customerName && <span className="text-[10px] text-muted-foreground">({log.customerName})</span>}
+              {log.customerName && !log.entityName && <span className="text-[10px] text-muted-foreground">{log.phoneNumber}</span>}
+              <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${log.direction === "inbound" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" : "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400"}`}>
+                {log.direction === "inbound" ? <PhoneIncoming className="h-2.5 w-2.5" /> : <PhoneOutgoing className="h-2.5 w-2.5" />}
+                {log.direction === "inbound" ? ca.inbound : ca.outbound}
+              </span>
+              {log.isMobile && <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400"><Smartphone className="h-2.5 w-2.5" />Connect</span>}
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{dateStr}</div>
+          </div>
+          {/* Sentiment + star */}
           <div className="flex items-center gap-2 shrink-0">
             {sc && rec?.sentiment && (
-              <div className={`px-2.5 py-1.5 rounded-xl ${sc.bg} text-center`} data-testid={`sentiment-badge-${log.id}`}>
+              <div className={`px-3 py-1.5 rounded-xl ${sc.bg} text-center min-w-[60px]`} data-testid={`sentiment-badge-${log.id}`}>
                 <div className={`text-xs font-bold ${sc.text}`}>{sentimentLabels[rec.sentiment] || rec.sentiment}</div>
                 <div className="text-[9px] text-muted-foreground mt-0.5">{ca.sentiment}</div>
               </div>
             )}
-            <button
-              onClick={toggleImportant}
-              disabled={togglingImportant}
+            <button onClick={toggleImportant} disabled={togglingImportant}
               title={isImportant ? "Odznačiť ako dôležitý" : "Označiť ako dôležitý"}
               data-testid={`btn-important-${log.id}`}
-              className={`p-2 rounded-xl transition-all ${isImportant ? "bg-amber-100 dark:bg-amber-900/30 text-amber-500 hover:bg-amber-200 dark:hover:bg-amber-900/50" : "text-muted-foreground hover:bg-muted hover:text-amber-500"}`}
-            >
-              {togglingImportant ? <Loader2 className="h-4 w-4 animate-spin" /> : isImportant ? <Star className="h-4 w-4 fill-amber-400 text-amber-500" /> : <Star className="h-4 w-4" />}
+              className={`p-2 rounded-xl transition-all ${isImportant ? "bg-amber-100 dark:bg-amber-900/30 text-amber-500 hover:bg-amber-200" : "text-muted-foreground hover:bg-muted hover:text-amber-500"}`}>
+              {togglingImportant ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className={`h-4 w-4 ${isImportant ? "fill-amber-400 text-amber-500" : ""}`} />}
             </button>
           </div>
         </div>
+
+        {/* Row 2: Campaign / Agent / Entity / Queue chips */}
+        {(log.campaignName || rec?.agentName || log.mobileAgentName || log.entityName || log.inboundQueueName || log.contactType) && (
+          <div className="flex flex-wrap gap-1.5">
+            {log.campaignName && (
+              <div className="flex items-center gap-1.5 bg-primary/8 dark:bg-primary/10 border border-primary/20 rounded-lg px-2.5 py-1">
+                <Megaphone className="h-3 w-3 text-primary shrink-0" />
+                <span className="text-[11px] font-medium text-primary truncate max-w-[180px]">{log.campaignName}</span>
+              </div>
+            )}
+            {(rec?.agentName || log.mobileAgentName) && (
+              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1">
+                <UserCircle className="h-3 w-3 text-slate-500 shrink-0" />
+                <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">{rec?.agentName || log.mobileAgentName}</span>
+              </div>
+            )}
+            {log.entityName && (
+              <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border ${log.contactType === "clinic" ? "bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700" : "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700"}`}>
+                <Tag className={`h-3 w-3 shrink-0 ${log.contactType === "clinic" ? "text-teal-600 dark:text-teal-400" : "text-indigo-600 dark:text-indigo-400"}`} />
+                <span className={`text-[11px] font-medium ${log.contactType === "clinic" ? "text-teal-700 dark:text-teal-300" : "text-indigo-700 dark:text-indigo-300"}`}>{log.entityName}</span>
+                <span className={`text-[9px] ${log.contactType === "clinic" ? "text-teal-500" : "text-indigo-400"}`}>{log.contactType === "clinic" ? "Ambulancia" : "Nemocnica"}</span>
+              </div>
+            )}
+            {log.inboundQueueName && (
+              <div className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg px-2.5 py-1">
+                <Phone className="h-3 w-3 text-orange-500 shrink-0" />
+                <span className="text-[11px] font-medium text-orange-700 dark:text-orange-300">{log.inboundQueueName}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Row 3: Timing breakdown */}
+        {(() => {
+          const ringS = log.answeredAt && log.startedAt ? Math.max(0, Math.round((new Date(log.answeredAt).getTime() - new Date(log.startedAt).getTime()) / 1000)) : null;
+          const talkS = log.endedAt && log.answeredAt ? Math.max(0, Math.round((new Date(log.endedAt).getTime() - new Date(log.answeredAt).getTime()) / 1000)) : null;
+          const totalS = log.durationSeconds;
+          const hasAny = ringS != null || talkS != null || totalS;
+          if (!hasAny) return null;
+          return (
+            <div className="flex items-center gap-2 flex-wrap">
+              {ringS != null && (
+                <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5 min-w-[80px]">
+                  <div className="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-800 flex items-center justify-center shrink-0">
+                    <Phone className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <div className="text-[9px] text-muted-foreground leading-none">Čakanie</div>
+                    <div className="text-[11px] font-bold text-amber-700 dark:text-amber-300 leading-tight">{formatDuration(ringS)}</div>
+                  </div>
+                </div>
+              )}
+              {talkS != null && (
+                <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/15 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1.5 min-w-[80px]">
+                  <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-800 flex items-center justify-center shrink-0">
+                    <Mic className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="text-[9px] text-muted-foreground leading-none">Rozhovor</div>
+                    <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 leading-tight">{formatDuration(talkS)}</div>
+                  </div>
+                </div>
+              )}
+              {totalS != null && totalS > 0 && (
+                <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 min-w-[80px]">
+                  <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                    <BarChart3 className="h-2.5 w-2.5 text-slate-500" />
+                  </div>
+                  <div>
+                    <div className="text-[9px] text-muted-foreground leading-none">Celkovo</div>
+                    <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">{formatDuration(totalS)}</div>
+                  </div>
+                </div>
+              )}
+              {log.hungUpBy && (
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground ml-1">
+                  <XCircle className="h-3 w-3 text-destructive/60" />
+                  <span>Zavesil: <span className="font-medium text-foreground">{log.hungUpBy === "customer" ? "Zákazník" : log.hungUpBy === "user" ? "Agent" : log.hungUpBy}</span></span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Row 4: Disposition */}
+        {log.dispositionCode && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg px-3 py-1.5">
+              <ClipboardCheck className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+              <div>
+                <div className="text-[9px] text-violet-500 dark:text-violet-400 leading-none">Výsledok hovoru</div>
+                <div className="text-[11px] font-bold text-violet-700 dark:text-violet-300 leading-tight">{log.dispositionCode}</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
         {/* ── Player strip (Variant B style) ── */}
         {log.hasRecording ? (

@@ -26154,14 +26154,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         userId: callLogs.userId,
         customerId: callLogs.customerId,
         campaignId: callLogs.campaignId,
+        campaignContactId: callLogs.campaignContactId,
         phoneNumber: callLogs.phoneNumber,
         direction: callLogs.direction,
         status: callLogs.status,
         startedAt: callLogs.startedAt,
+        answeredAt: callLogs.answeredAt,
+        endedAt: callLogs.endedAt,
         durationSeconds: callLogs.durationSeconds,
+        hungUpBy: callLogs.hungUpBy,
         notes: callLogs.notes,
         createdAt: callLogs.createdAt,
         metadata: callLogs.metadata,
+        isImportant: callLogs.isImportant,
+        inboundQueueId: callLogs.inboundQueueId,
+        inboundQueueName: callLogs.inboundQueueName,
       }).from(callLogs)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(callLogs.createdAt))
@@ -26215,16 +26222,49 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
 
-      const result = logs.map(log => ({
-        ...log,
-        customerName: customerMap[log.customerId || ""] || null,
-        campaignName: campaignMap[log.campaignId || ""] || recordingMap[log.id]?.campaignName || null,
-        hasRecording: !!recordingMap[log.id],
-        recording: recordingMap[log.id] || null,
-        isMobile: (() => { try { return JSON.parse(log.metadata || "{}").source === "mobile"; } catch { return false; } })(),
-        mobileAgentName: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.agentName || null) : null; } catch { return null; } })(),
-        mobileOutboundCallerId: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.outboundCallerId || null) : null; } catch { return null; } })(),
-      }));
+      // Lookup campaign contacts for disposition + entity info
+      const ccIds = [...new Set(logs.filter(l => l.campaignContactId).map(l => l.campaignContactId!))];
+      let ccMap: Record<string, { dispositionCode: string | null; contactType: string | null; clinicId: string | null; hospitalId: string | null }> = {};
+      if (ccIds.length > 0) {
+        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId })
+          .from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
+        for (const cc of ccRows) ccMap[cc.id] = { dispositionCode: cc.dispositionCode, contactType: cc.contactType, clinicId: cc.clinicId, hospitalId: cc.hospitalId };
+      }
+
+      // Lookup clinic/hospital names for entity contacts
+      const clinicIds = [...new Set(Object.values(ccMap).filter(c => c.clinicId).map(c => c.clinicId!))];
+      const hospitalIds = [...new Set(Object.values(ccMap).filter(c => c.hospitalId).map(c => c.hospitalId!))];
+      let clinicNameMap: Record<string, string> = {};
+      let hospitalNameMap: Record<string, string> = {};
+      if (clinicIds.length > 0) {
+        const cRows = await db.select({ id: clinics.id, name: clinics.name }).from(clinics).where(inArray(clinics.id, clinicIds));
+        for (const r of cRows) clinicNameMap[r.id] = r.name;
+      }
+      if (hospitalIds.length > 0) {
+        const hRows = await db.select({ id: hospitals.id, name: hospitals.name }).from(hospitals).where(inArray(hospitals.id, hospitalIds));
+        for (const r of hRows) hospitalNameMap[r.id] = r.name;
+      }
+
+      const result = logs.map(log => {
+        const cc = log.campaignContactId ? ccMap[log.campaignContactId] : null;
+        let entityName: string | null = null;
+        let entityType: string | null = cc?.contactType || null;
+        if (cc?.clinicId && clinicNameMap[cc.clinicId]) entityName = clinicNameMap[cc.clinicId];
+        else if (cc?.hospitalId && hospitalNameMap[cc.hospitalId]) entityName = hospitalNameMap[cc.hospitalId];
+        return {
+          ...log,
+          customerName: customerMap[log.customerId || ""] || null,
+          campaignName: campaignMap[log.campaignId || ""] || recordingMap[log.id]?.campaignName || null,
+          hasRecording: !!recordingMap[log.id],
+          recording: recordingMap[log.id] || null,
+          isMobile: (() => { try { return JSON.parse(log.metadata || "{}").source === "mobile"; } catch { return false; } })(),
+          mobileAgentName: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.agentName || null) : null; } catch { return null; } })(),
+          mobileOutboundCallerId: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.outboundCallerId || null) : null; } catch { return null; } })(),
+          dispositionCode: cc?.dispositionCode || null,
+          contactType: entityType,
+          entityName,
+        };
+      });
 
       res.json(result);
     } catch (error) {
