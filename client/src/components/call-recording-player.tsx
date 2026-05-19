@@ -80,8 +80,10 @@ function QualityBadge({ score }: { score: number | null }) {
 }
 
 function DualWaveformBar({
-  audioSrc, currentTime, duration, onSeek, agentLabel, customerLabel,
-}: { audioSrc: string; currentTime: number; duration: number; onSeek: (t: number) => void; agentLabel?: string; customerLabel?: string }) {
+  audioSrc, currentTime, duration, onSeek, trackNames,
+}: { audioSrc: string; currentTime: number; duration: number; onSeek: (t: number) => void; trackNames?: string[] }) {
+  const agentLabel = trackNames?.[0] || "Agent";
+  const customerLabel = trackNames?.[1] || "Zákazník";
   const [waveData, setWaveData] = useState<number[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -571,8 +573,7 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
             currentTime={currentTime}
             duration={duration}
             onSeek={handleWaveformSeek}
-            agentLabel={agLbl || (recording as any).agentName || undefined}
-            customerLabel={csLbl || undefined}
+            trackNames={[agLbl || (recording as any).agentName || "", csLbl || ""]}
           />
         </div>
 
