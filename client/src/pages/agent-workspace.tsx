@@ -2039,6 +2039,7 @@ function CommunicationCanvas({
   }, [activeChannel, contact?.id]);
 
   const timelineEndRef = useRef<HTMLDivElement>(null);
+  const clLoadedForContactRef = useRef<string | null>(null);
 
   type WsCLItemType = "checkbox" | "yes_no" | "text";
   type WsCLAutomation = "none" | "openDisposition" | "switchEmail" | "switchSms";
@@ -2082,7 +2083,35 @@ function CommunicationCanvas({
     setClYesNo({});
     setClTextValues({});
     setClNotes({});
+    clLoadedForContactRef.current = null;
   }, [contact?.id]);
+
+  useEffect(() => {
+    if (!contact?.id || clLoadedForContactRef.current === contact?.id) return;
+    const clEntries = (contactHistory || []).filter((h: any) => h.action === "checklist_response");
+    if (clEntries.length === 0) return;
+    const latest = clEntries[0];
+    const sections: any[] = latest.metadata?.sections || [];
+    const allItems = sections.flatMap((s: any) => [
+      ...(s.items || []),
+      ...(s.subsections || []).flatMap((sub: any) => sub.items || []),
+    ]);
+    const newChecked = new Set<string>();
+    const newYesNo: Record<string, "yes" | "no"> = {};
+    const newTextValues: Record<string, string> = {};
+    const newNotes: Record<string, string> = {};
+    for (const item of allItems) {
+      if (item.type === "checkbox" && item.checked) newChecked.add(item.id);
+      if (item.type === "yes_no" && (item.answer === "yes" || item.answer === "no")) newYesNo[item.id] = item.answer;
+      if (item.type === "text" && item.value) newTextValues[item.id] = item.value;
+      if (item.note) newNotes[item.id] = item.note;
+    }
+    setClChecked(newChecked);
+    setClYesNo(newYesNo);
+    setClTextValues(newTextValues);
+    setClNotes(newNotes);
+    clLoadedForContactRef.current = contact?.id;
+  }, [contactHistory, contact?.id]);
 
 
   const getCustomerLanguage = (customer: Customer | null): string => {
@@ -3578,10 +3607,7 @@ function CommunicationCanvas({
                   try {
                     await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/checklist-response`, payload);
                     queryClient.invalidateQueries({ queryKey: ["/api/entity-history", contact?.id] });
-                    setClChecked(new Set());
-                    setClYesNo({});
-                    setClTextValues({});
-                    setClNotes({});
+                    clLoadedForContactRef.current = contact?.id || null;
                     toast({ title: "Checklist uložený" });
                   } catch {
                     toast({ title: "Chyba pri ukladaní checklistu", variant: "destructive" });
