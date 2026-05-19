@@ -5029,6 +5029,8 @@ export interface Translations {
     topicsLabel: string;
     actionItemsLabel: string;
     complianceLabel: string;
+    customer: string;
+    checklistLabel: string;
   };
   executiveSummaries: {
     title: string;
@@ -11735,6 +11737,8 @@ export const translations: Record<Locale, Translations> = {
       topicsLabel: 'Topics',
       actionItemsLabel: 'Action Items',
       complianceLabel: 'Compliance',
+      customer: 'Customer',
+      checklistLabel: 'SOP Checklist',
     },
     executiveSummaries: {
       title: 'Executive Summaries',
@@ -17896,6 +17900,8 @@ export const translations: Record<Locale, Translations> = {
       topicsLabel: 'Témy',
       actionItemsLabel: 'Akčné body',
       complianceLabel: 'Compliance',
+      customer: 'Zákazník',
+      checklistLabel: 'SOP Checklist',
     },
     executiveSummaries: {
       title: 'Manažérske prehľady',
@@ -23983,6 +23989,8 @@ export const translations: Record<Locale, Translations> = {
       topicsLabel: 'Témata',
       actionItemsLabel: 'Akční body',
       complianceLabel: 'Compliance',
+      customer: 'Zákazník',
+      checklistLabel: 'SOP Checklist',
     },
     executiveSummaries: {
       title: 'Manažerské přehledy',

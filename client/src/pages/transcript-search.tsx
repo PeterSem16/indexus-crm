@@ -412,8 +412,8 @@ function AnalysisDetail({ log, ca, locale, searchText }: { log: CallLogEntry; ca
                 callLogId={log.id}
                 compact
                 onTimeUpdate={setPlaybackState}
-                agentLabel={rec?.agentName || undefined}
-                customerLabel={log.customerName || undefined}
+                agentLabel={rec?.agentName || ca.agent}
+                customerLabel={log.customerName || ca.customer}
               />
             </div>
           </div>
