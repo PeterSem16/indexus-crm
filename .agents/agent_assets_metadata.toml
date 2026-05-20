@@ -90,3 +90,9 @@ id = "_I1pNXqhwKvreIjfyHZ7-"
 uri = "file://attached_assets/user-manuals/healthcare_network_documentation_EN.docx"
 type = "word_document"
 title = "Healthcare Network EN — DOCX (updated)"
+
+[[outputs]]
+id = "B2Z_iEwT2rGLvx3vxYRMs"
+uri = "file://docs/INDEXUS_Connect_User_Guide_EN.docx"
+type = "word_document"
+title = "INDEXUS Connect — User Guide EN (Word)"
