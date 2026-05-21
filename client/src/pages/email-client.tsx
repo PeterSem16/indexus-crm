@@ -280,12 +280,6 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareItem, setShareItem] = useState<any | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [pendingPinnedIds, setPendingPinnedIds] = useState<string[]>([]);
-  const [pendingDefaultSiteId, setPendingDefaultSiteId] = useState<string | null>(null);
-  const [pendingDefaultDriveId, setPendingDefaultDriveId] = useState<string | null>(null);
-  const [settingsDrives, setSettingsDrives] = useState<any[]>([]);
-  const [settingsDrivesLoading, setSettingsDrivesLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
@@ -334,17 +328,6 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     }
   }, [npSettings, allSites, sites, selectedSiteId]);
 
-  useEffect(() => {
-    if (settingsOpen && pendingDefaultSiteId && userId) {
-      setSettingsDrivesLoading(true);
-      fetch(`/api/users/${userId}/sharepoint/sites/${pendingDefaultSiteId}/drives`, { credentials: "include" })
-        .then(r => r.json())
-        .then(d => { setSettingsDrives(Array.isArray(d) ? d : []); setSettingsDrivesLoading(false); })
-        .catch(() => setSettingsDrivesLoading(false));
-    } else if (!pendingDefaultSiteId) {
-      setSettingsDrives([]);
-    }
-  }, [settingsOpen, pendingDefaultSiteId, userId]);
 
   const { data: drives = [], isLoading: drivesLoading } = useQuery<any[]>({
     queryKey: ["/api/users", userId, "sharepoint", "sites", selectedSiteId, "drives"],
@@ -582,44 +565,14 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     } catch { /* ignore */ }
   };
 
-  const saveSettingsMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("PUT", `/api/users/${userId}/nexuspoint-settings`, {
-        pinnedSiteIds: pendingPinnedIds,
-        defaultSiteId: pendingDefaultSiteId || null,
-        defaultDriveId: pendingDefaultDriveId || null,
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Nastavenia NexusPoint uložené" });
-      refetchSettings();
-      setSettingsOpen(false);
-    },
-    onError: () => {
-      toast({ title: "Chyba pri ukladaní nastavení", variant: "destructive" });
-    },
-  });
-
-  const openSettings = () => {
-    setPendingPinnedIds(npSettings?.pinnedSiteIds || []);
-    setPendingDefaultSiteId(npSettings?.defaultSiteId || null);
-    setPendingDefaultDriveId(npSettings?.defaultDriveId || null);
-    setSettingsOpen(true);
-  };
-
-  const togglePinnedSite = (siteId: string) => {
-    setPendingPinnedIds(prev =>
-      prev.includes(siteId) ? prev.filter(id => id !== siteId) : [...prev, siteId]
-    );
-  };
-
   const folders = items.filter((i: any) => i.folder);
   const filesList = items.filter((i: any) => i.file);
   const sortedItems = [...folders, ...filesList];
   const displayItems = searchResults !== null ? searchResults : sortedItems;
-  const selectedSiteName = (sites.find((s: any) => s.id === selectedSiteId) || allSites.find((s: any) => s.id === selectedSiteId))?.displayName;
+  const selectedSite = sites.find((s: any) => s.id === selectedSiteId) || allSites.find((s: any) => s.id === selectedSiteId);
+  const selectedSiteName = selectedSite?.displayName;
   const selectedDriveName = drives.find((d: any) => d.id === selectedDriveId)?.name;
+  const isContentStorageSite = !!(selectedSite?.webUrl?.includes('/contentstorage/'));
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -634,14 +587,6 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             </div>
             <span className="text-white font-semibold text-sm tracking-wide">NexusPoint</span>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-white/70 hover:text-white hover:bg-white/20 rounded-md" onClick={openSettings} data-testid="button-nexuspoint-settings">
-                <Settings className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Nastavenia NexusPoint</TooltipContent>
-          </Tooltip>
         </div>
 
         <ScrollArea className="flex-1 bg-background">
@@ -658,10 +603,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             ) : sites.length === 0 && allSites.length > 0 ? (
               <div className="px-3 py-4 text-center">
                 <Globe className="h-6 w-6 mx-auto mb-2 text-muted-foreground/40" />
-                <p className="text-xs text-muted-foreground mb-2">Žiadne pinnované weby</p>
-                <button className="text-xs text-emerald-600 hover:underline" onClick={openSettings}>
-                  Nastaviť weby →
-                </button>
+                <p className="text-xs text-muted-foreground">{t.nexusOmni.nexuspoint.noPinnedSites}</p>
               </div>
             ) : (
               sites.map((site: any) => (
@@ -731,13 +673,16 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             </div>
             <h3 className="text-lg font-semibold mb-1">{t.nexusOmni.nexuspoint.selectSite}</h3>
             <p className="text-sm text-muted-foreground max-w-[240px]">
-              {sites.length === 0 ? "Nakonfigurujte NexusPoint a vyberte weby v nastaveniach." : "Vyberte web a knižnicu z ľavého panela."}
+              {sites.length === 0 ? t.nexusOmni.nexuspoint.configureHint : t.nexusOmni.nexuspoint.selectSiteHint}
             </p>
-            {sites.length === 0 && (
-              <Button variant="outline" size="sm" className="mt-4 gap-2" onClick={openSettings}>
-                <Settings className="h-4 w-4" />Otvoriť nastavenia
-              </Button>
-            )}
+          </div>
+        ) : isContentStorageSite ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center mb-4 shadow-lg">
+              <HardDrive className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-base font-semibold mb-2">{t.nexusOmni.nexuspoint.contentStorageTitle}</h3>
+            <p className="text-sm text-muted-foreground max-w-[320px]">{t.nexusOmni.nexuspoint.contentStorageHint}</p>
           </div>
         ) : (
           <>
@@ -957,86 +902,6 @@ function NexusPointPanel({ userId }: { userId?: string }) {
           </ScrollArea>
         </div>
       )}
-
-      {/* ── SETTINGS DIALOG ── */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center">
-                <Settings className="h-4 w-4 text-white" />
-              </div>
-              NexusPoint — Nastavenia
-            </DialogTitle>
-            <DialogDescription>Vyberte SharePoint weby a predvolené umiestnenie.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-5 py-2">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Globe className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-semibold">Pinnované weby</span>
-                {pendingPinnedIds.length > 0 && <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{pendingPinnedIds.length}</Badge>}
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">Zaškrtnuté weby sa zobrazia v NexusPointe. Ak nič nevyberiete, zobrazia sa všetky.</p>
-              {sitesLoading ? (
-                <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-emerald-500" /></div>
-              ) : allSites.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic py-2">Žiadne SharePoint weby. Skontrolujte pripojenie MS365.</p>
-              ) : (
-                <div className="space-y-0 rounded-lg border bg-muted/10 overflow-hidden max-h-[200px] overflow-y-auto">
-                  {allSites.map((site: any, i: number) => (
-                    <label key={site.id} className={cn("flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors text-sm", i < allSites.length - 1 && "border-b border-border/50")}>
-                      <Checkbox checked={pendingPinnedIds.includes(site.id)} onCheckedChange={() => togglePinnedSite(site.id)} data-testid={`checkbox-site-${site.id}`} />
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-5 h-5 rounded bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0"><Globe className="h-3 w-3 text-emerald-600" /></div>
-                        <span className="truncate font-medium">{site.displayName}</span>
-                      </div>
-                      {npSettings?.globalPinnedSiteIds?.includes(site.id) && <Badge variant="outline" className="ml-auto shrink-0 text-[9px] h-4 px-1.5 border-emerald-300 text-emerald-600">Globálny</Badge>}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <HardDrive className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-semibold">Predvolený web</span>
-              </div>
-              <Select value={pendingDefaultSiteId || "none"} onValueChange={(v) => { setPendingDefaultSiteId(v === "none" ? null : v); setPendingDefaultDriveId(null); }}>
-                <SelectTrigger className="h-8 text-sm" data-testid="select-default-site"><SelectValue placeholder="Žiadny predvolený" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Žiadny predvolený</SelectItem>
-                  {(pendingPinnedIds.length > 0 ? allSites.filter((s: any) => pendingPinnedIds.includes(s.id)) : allSites).map((site: any) => (
-                    <SelectItem key={site.id} value={site.id}>{site.displayName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {pendingDefaultSiteId && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <FolderOpen className="h-4 w-4 text-emerald-600" />
-                  <span className="text-sm font-semibold">Predvolená knižnica</span>
-                </div>
-                <Select value={pendingDefaultDriveId || "none"} onValueChange={(v) => setPendingDefaultDriveId(v === "none" ? null : v)} disabled={settingsDrivesLoading}>
-                  <SelectTrigger className="h-8 text-sm" data-testid="select-default-drive"><SelectValue placeholder={settingsDrivesLoading ? "Načítavanie..." : "Žiadna predvolená"} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Žiadna predvolená</SelectItem>
-                    {settingsDrives.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSettingsOpen(false)}>Zrušiť</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending} data-testid="button-save-nexuspoint-settings">
-              {saveSettingsMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Uložiť nastavenia
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ── VERSIONS DIALOG ── */}
       <Dialog open={versionsDialogOpen} onOpenChange={(open) => { setVersionsDialogOpen(open); if (!open) setDetailTab("info"); }}>
