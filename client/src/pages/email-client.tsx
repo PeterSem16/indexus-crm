@@ -276,6 +276,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [detailItem, setDetailItem] = useState<any | null>(null);
   const [detailTab, setDetailTab] = useState<"info" | "versions" | "sharing" | "notes">("info");
   const [noteText, setNoteText] = useState("");
@@ -1021,7 +1022,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
           <>
             {/* Toolbar */}
             <div className="shrink-0 border-b bg-muted/20">
-              <div className="flex items-center justify-between gap-3 px-4 py-2">
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
                   <span className="font-medium text-foreground truncate">{selectedSiteName}</span>
                   {selectedDriveName && (
@@ -1032,14 +1033,44 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="relative">
-                    <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input value={searchQuery} onChange={(e) => handleSearch(e.target.value)} placeholder={t.nexusOmni.nexuspoint.searchFiles} className="h-7 text-xs pl-7 w-[150px]" data-testid="input-search-files" />
-                    {isSearching && <Loader2 className="h-3 w-3 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />}
+                  <div className={cn(
+                    "relative flex items-center transition-all duration-200",
+                    searchFocused || searchQuery ? "w-[260px]" : "w-[190px]"
+                  )}>
+                    <Search className={cn(
+                      "h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-150",
+                      searchFocused || searchQuery ? "text-emerald-500" : "text-muted-foreground"
+                    )} />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      onFocus={() => setSearchFocused(true)}
+                      onBlur={() => setSearchFocused(false)}
+                      placeholder={t.nexusOmni.nexuspoint.searchFiles}
+                      className={cn(
+                        "h-8 text-xs pl-8 pr-8 w-full rounded-lg border transition-all duration-200",
+                        searchFocused || searchQuery
+                          ? "border-emerald-400 dark:border-emerald-600 ring-1 ring-emerald-400/30 bg-background shadow-sm"
+                          : "border-border bg-muted/40 hover:bg-muted/70"
+                      )}
+                      data-testid="input-search-files"
+                    />
+                    {isSearching && (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    )}
                     {searchQuery && !isSearching && (
-                      <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>
+                      <button
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 hover:bg-muted transition-colors"
+                        onClick={() => { setSearchQuery(""); setSearchResults(null); }}
+                        data-testid="button-clear-search"
+                      >
                         <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                       </button>
+                    )}
+                    {searchQuery && searchQuery.length < 2 && !isSearching && (
+                      <span className="absolute -bottom-5 left-0 text-[10px] text-amber-500 dark:text-amber-400 whitespace-nowrap pointer-events-none">
+                        min. 2 znaky
+                      </span>
                     )}
                   </div>
                   <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={() => refetchItems()} disabled={itemsLoading} data-testid="button-refresh-items" title={t.nexusOmni.common.refresh}>
