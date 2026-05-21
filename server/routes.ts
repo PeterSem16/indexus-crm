@@ -5141,6 +5141,18 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     } catch { res.status(500).json({ error: "Failed" }); }
   });
 
+  // Get all tags for a specific drive (for showing on file rows + filtering)
+  app.get("/api/users/:userId/nexuspoint/tags/by-drive", requireAuth, async (req, res) => {
+    try {
+      const { driveId } = req.query as { driveId: string };
+      if (!driveId) return res.status(400).json({ error: "driveId required" });
+      const { nexuspointItemTags } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const rows = await db.select().from(nexuspointItemTags).where(and(eq(nexuspointItemTags.userId, req.params.userId), eq(nexuspointItemTags.driveId, driveId)));
+      res.json(rows);
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
   // Search NexusPoint items by tag (across all drives for user)
   app.get("/api/users/:userId/nexuspoint/tags/search", requireAuth, async (req, res) => {
     try {

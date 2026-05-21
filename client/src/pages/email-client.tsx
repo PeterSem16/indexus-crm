@@ -280,6 +280,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [noteText, setNoteText] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [nexusTagFilter, setNexusTagFilter] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false);
@@ -432,6 +433,23 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     enabled: !!userId && detailTab === "notes",
   });
 
+  const { data: driveTagRows = [], refetch: refetchDriveTags } = useQuery<any[]>({
+    queryKey: ["/api/users", userId, "nexuspoint", "tags", "by-drive", selectedDriveId],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/nexuspoint/tags/by-drive?driveId=${selectedDriveId}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!userId && !!selectedDriveId,
+  });
+
+  const driveTagsMap: Record<string, string[]> = {};
+  for (const row of driveTagRows as any[]) {
+    if (!driveTagsMap[row.itemId]) driveTagsMap[row.itemId] = [];
+    driveTagsMap[row.itemId].push(row.tag);
+  }
+  const driveTagOptions = Array.from(new Set((driveTagRows as any[]).map((r: any) => r.tag))).sort();
+
   const saveNote = async () => {
     if (!userId || !selectedDriveId || !detailItem?.id) return;
     setNoteSaving(true);
@@ -452,6 +470,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
       await apiRequest("POST", `/api/users/${userId}/nexuspoint/tags`, { driveId: selectedDriveId, itemId: detailItem.id, tag: tagInput.trim() });
       setTagInput("");
       refetchTags();
+      refetchDriveTags();
     } catch {
       toast({ title: t.nexusOmni.nexuspoint.noteSaveError, variant: "destructive" });
     }
@@ -461,6 +480,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     try {
       await apiRequest("DELETE", `/api/users/${userId}/nexuspoint/tags/${tagId}`);
       refetchTags();
+      refetchDriveTags();
     } catch { /* ignore */ }
   };
 
@@ -671,7 +691,10 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const folders = items.filter((i: any) => i.folder);
   const filesList = items.filter((i: any) => i.file);
   const sortedItems = [...folders, ...filesList];
-  const displayItems = searchResults !== null ? searchResults : sortedItems;
+  const baseItems = searchResults !== null ? searchResults : sortedItems;
+  const displayItems = nexusTagFilter
+    ? baseItems.filter((i: any) => driveTagsMap[i.id]?.includes(nexusTagFilter))
+    : baseItems;
   const selectedSite = sites.find((s: any) => s.id === selectedSiteId) || allSites.find((s: any) => s.id === selectedSiteId);
   const selectedSiteName = selectedSite?.displayName;
   const selectedDriveName = drives.find((d: any) => d.id === selectedDriveId)?.name;
@@ -943,6 +966,27 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                   <button className="ml-1 hover:text-foreground" onClick={() => { setSearchQuery(""); setSearchResults(null); }}><X className="h-3 w-3" /></button>
                 </div>
               )}
+              {driveTagOptions.length > 0 && (
+                <div className="flex items-center gap-1.5 px-4 pb-2 flex-wrap">
+                  <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
+                  {driveTagOptions.map((tag: string) => (
+                    <button
+                      key={tag}
+                      onClick={() => setNexusTagFilter(nexusTagFilter === tag ? null : tag)}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors border",
+                        nexusTagFilter === tag
+                          ? "bg-emerald-600 text-white border-emerald-600"
+                          : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                      )}
+                      data-testid={`tag-filter-${tag}`}
+                    >
+                      {tag}
+                      {nexusTagFilter === tag && <X className="h-2.5 w-2.5" />}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {newFolderOpen && (
@@ -1016,6 +1060,21 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                                   {item.lastModifiedBy.user.displayName}
                                 </span>
                               )}
+                              {driveTagsMap[item.id]?.map((tag: string) => (
+                                <span
+                                  key={tag}
+                                  onClick={(e) => { e.stopPropagation(); setNexusTagFilter(nexusTagFilter === tag ? null : tag); }}
+                                  className={cn(
+                                    "inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium border cursor-pointer transition-colors",
+                                    nexusTagFilter === tag
+                                      ? "bg-emerald-600 text-white border-emerald-600"
+                                      : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100"
+                                  )}
+                                  data-testid={`item-tag-${item.id}-${tag}`}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
                             </div>
                           </div>
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
