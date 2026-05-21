@@ -607,7 +607,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                 <Plus className="h-3.5 w-3.5 text-white" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">{np.newSite}</TooltipContent>
+            <TooltipContent side="bottom">{t.nexusOmni.nexuspoint.newSite}</TooltipContent>
           </Tooltip>
         </div>
 
