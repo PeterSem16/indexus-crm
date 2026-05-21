@@ -1608,8 +1608,8 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                     onChange={(e) => { setMoveSiteId(e.target.value); setMoveDriveId(null); setMoveFolderStack([]); }}
                     data-testid="select-move-site"
                   >
-                    {allSites.map((s: any) => (
-                      <option key={s.id} value={s.id}>{s.displayName}</option>
+                    {sites.map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.displayName || s.name}</option>
                     ))}
                   </select>
                 </div>

@@ -5189,11 +5189,11 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
       if (tagList.length === 0) return res.json([]);
       const { nexuspointItemTags } = await import("../shared/schema");
       const { eq, and, inArray, sql: sqlExpr } = await import("drizzle-orm");
-      // Get items that have at least one of the tags, then group by itemId to enforce AND
+      // Group only by itemId+driveId, use MAX(itemName) so newer non-empty names win
       const rows = await db
         .select({
           itemId: nexuspointItemTags.itemId,
-          itemName: nexuspointItemTags.itemName,
+          itemName: sqlExpr<string>`MAX(${nexuspointItemTags.itemName})`,
           driveId: nexuspointItemTags.driveId,
           matchCount: sqlExpr<number>`count(distinct ${nexuspointItemTags.tag})`,
         })
@@ -5202,7 +5202,7 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
           eq(nexuspointItemTags.userId, req.params.userId),
           inArray(nexuspointItemTags.tag, tagList),
         ))
-        .groupBy(nexuspointItemTags.itemId, nexuspointItemTags.itemName, nexuspointItemTags.driveId)
+        .groupBy(nexuspointItemTags.itemId, nexuspointItemTags.driveId)
         .having(sqlExpr`count(distinct ${nexuspointItemTags.tag}) >= 1`);
       // For each matched item, fetch all its tags (for badge display)
       if (rows.length === 0) return res.json([]);

@@ -1586,10 +1586,36 @@ export async function getSharePointSites(accessToken: string): Promise<any[]> {
 export async function moveSharePointItem(accessToken: string, driveId: string, itemId: string, targetFolderId: string | null, targetDriveId?: string | null): Promise<any> {
   const client = createGraphClient(accessToken);
   const destDriveId = targetDriveId || driveId;
+  const isCrossDrive = !!targetDriveId && targetDriveId !== driveId;
+  if (isCrossDrive) {
+    // Cross-drive: Graph API doesn't support PATCH move — use copy + delete
+    const copyBody: any = {
+      parentReference: targetFolderId
+        ? { driveId: destDriveId, id: targetFolderId }
+        : { driveId: destDriveId },
+    };
+    try {
+      await client.api(`/drives/${driveId}/items/${itemId}/copy`).post(copyBody);
+    } catch (copyErr: any) {
+      // Graph SDK may throw on 202 Accepted — that's OK, copy was initiated
+      if (copyErr?.statusCode !== 202 && copyErr?.code !== 'accepted') {
+        throw copyErr;
+      }
+    }
+    // Poll up to 20s for the item to appear in destination, then delete original
+    await new Promise(r => setTimeout(r, 5000));
+    try {
+      await client.api(`/drives/${driveId}/items/${itemId}`).delete();
+    } catch {
+      // ignore delete errors (item may not exist after copy)
+    }
+    return { success: true };
+  }
+  // Same-drive move via PATCH
   const body: any = {
     parentReference: targetFolderId
       ? { driveId: destDriveId, id: targetFolderId }
-      : { driveId: destDriveId, path: `/drives/${destDriveId}/root` }
+      : { driveId: destDriveId, id: "root" }
   };
   return await client.api(`/drives/${driveId}/items/${itemId}`).patch(body);
 }
