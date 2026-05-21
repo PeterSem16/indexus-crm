@@ -4880,6 +4880,20 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     }
   });
 
+  app.patch("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/move", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId, req.session.user);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { moveSharePointItem } = await import("./lib/ms365");
+      const { targetFolderId } = req.body;
+      const result = await moveSharePointItem(token, req.params.driveId, req.params.itemId, targetFolderId || null);
+      res.json(result);
+    } catch (error) {
+      console.error("[SharePoint] Error moving item:", error);
+      res.status(500).json({ error: "Failed to move item" });
+    }
+  });
+
   app.get("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/download", requireAuth, async (req, res) => {
     try {
       const token = await getSharePointToken(req.params.userId, req.session.user);

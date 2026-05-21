@@ -122,6 +122,7 @@ import {
   HardDrive,
   FolderOpen,
   FolderPlus,
+  FolderInput,
   ExternalLink,
   File,
   FileImage,
@@ -280,6 +281,9 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareItem, setShareItem] = useState<any | null>(null);
+  const [moveItem, setMoveItem] = useState<any | null>(null);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveFolderStack, setMoveFolderStack] = useState<{ id: string; name: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
@@ -356,6 +360,21 @@ function NexusPointPanel({ userId }: { userId?: string }) {
       return res.json();
     },
     enabled: !!userId && !!selectedDriveId,
+  });
+
+  const moveCurrentFolderId = moveFolderStack.length > 0 ? moveFolderStack[moveFolderStack.length - 1].id : undefined;
+  const { data: moveFolderItems = [], isLoading: moveFolderLoading } = useQuery<any[]>({
+    queryKey: ["/api/users", userId, "sharepoint", "drives", selectedDriveId, "move-items", moveCurrentFolderId],
+    queryFn: async () => {
+      const url = moveCurrentFolderId
+        ? `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items?folderId=${moveCurrentFolderId}`
+        : `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) return [];
+      const all = await res.json();
+      return all.filter((i: any) => i.folder);
+    },
+    enabled: !!userId && !!selectedDriveId && moveOpen,
   });
 
   const { data: versions = [], isLoading: versionsLoading, refetch: refetchVersions } = useQuery<any[]>({
@@ -442,6 +461,22 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     },
     onError: () => {
       toast({ title: t.nexusOmni.nexuspoint.deleteError, variant: "destructive" });
+    },
+  });
+
+  const moveMutation = useMutation({
+    mutationFn: async ({ itemId, targetFolderId }: { itemId: string; targetFolderId: string | null }) => {
+      return apiRequest("PATCH", `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items/${itemId}/move`, { targetFolderId });
+    },
+    onSuccess: () => {
+      toast({ title: t.nexusOmni.nexuspoint.moveSuccess });
+      refetchItems();
+      setMoveOpen(false);
+      setMoveItem(null);
+      setMoveFolderStack([]);
+    },
+    onError: () => {
+      toast({ title: t.nexusOmni.nexuspoint.moveError, variant: "destructive" });
     },
   });
 
@@ -874,6 +909,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                                 <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-emerald-600" onClick={(e) => { e.stopPropagation(); setShareItem(item); setShareDialogOpen(true); }} data-testid={`button-share-${item.id}`}><Share2 className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.share}</TooltipContent></Tooltip>
                               </>
                             )}
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-orange-500" onClick={(e) => { e.stopPropagation(); setMoveItem(item); setMoveFolderStack([]); setMoveOpen(true); }} data-testid={`button-move-${item.id}`}><FolderInput className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.move}</TooltipContent></Tooltip>
                             {item.webUrl && (
                               <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-blue-600" onClick={(e) => { e.stopPropagation(); window.open(item.webUrl, "_blank"); }} data-testid={`button-open-${item.id}`}><ExternalLink className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.openInBrowser}</TooltipContent></Tooltip>
                             )}
@@ -1055,6 +1091,53 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── MOVE DIALOG ── */}
+      <Dialog open={moveOpen} onOpenChange={(open) => { setMoveOpen(open); if (!open) { setMoveItem(null); setMoveFolderStack([]); } }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderInput className="h-4 w-4 text-orange-500" />
+              {t.nexusOmni.nexuspoint.moveTo}: <span className="font-normal truncate max-w-[200px]">{moveItem?.name}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {moveFolderStack.length > 0 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap mb-1">
+                <button className="hover:text-foreground" onClick={() => setMoveFolderStack([])}>{t.nexusOmni.nexuspoint.backToRoot}</button>
+                {moveFolderStack.map((f, i) => (
+                  <span key={f.id} className="flex items-center gap-1">
+                    <ChevronRight className="h-3 w-3" />
+                    <button className="hover:text-foreground" onClick={() => setMoveFolderStack(moveFolderStack.slice(0, i + 1))}>{f.name}</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="rounded-md border bg-muted/5 max-h-56 overflow-y-auto">
+              {moveFolderLoading ? (
+                <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{t.nexusOmni.nexuspoint.searching}</div>
+              ) : moveFolderItems.length === 0 ? (
+                <div className="p-3 text-sm text-muted-foreground text-center">{t.nexusOmni.nexuspoint.noFiles}</div>
+              ) : (
+                moveFolderItems.filter((f: any) => f.id !== moveItem?.id).map((folder: any) => (
+                  <div key={folder.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted/40 cursor-pointer border-b border-border/30 last:border-0 group" onClick={() => setMoveFolderStack([...moveFolderStack, { id: folder.id, name: folder.name }])}>
+                    <FolderOpen className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span className="text-sm flex-1 truncate">{folder.name}</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex justify-between items-center pt-1 gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setMoveOpen(false); setMoveItem(null); setMoveFolderStack([]); }} data-testid="button-move-cancel">{t.nexusOmni.common.cancel}</Button>
+              <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => moveItem && moveMutation.mutate({ itemId: moveItem.id, targetFolderId: moveCurrentFolderId ?? null })} disabled={moveMutation.isPending} data-testid="button-move-confirm">
+                {moveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderInput className="h-3.5 w-3.5" />}
+                {t.nexusOmni.nexuspoint.moveToFolder}
+              </Button>
             </div>
           </div>
         </DialogContent>

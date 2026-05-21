@@ -1565,12 +1565,32 @@ export async function getMeetingRecordings(
 export async function getSharePointSites(accessToken: string): Promise<any[]> {
   const client = createGraphClient(accessToken);
   try {
-    const result = await client.api('/sites?search=*').select('id,displayName,webUrl,description').top(100).get();
-    return result?.value || [];
+    const allSites: any[] = [];
+    let response = await client.api('/sites?search=*').select('id,displayName,webUrl,description').top(100).get();
+    while (response) {
+      if (response?.value) allSites.push(...response.value);
+      const nextLink = response['@odata.nextLink'];
+      if (nextLink) {
+        response = await client.api(nextLink).get();
+      } else {
+        break;
+      }
+    }
+    return allSites;
   } catch (error) {
     console.error('[MS365] Error fetching SharePoint sites:', error);
     return [];
   }
+}
+
+export async function moveSharePointItem(accessToken: string, driveId: string, itemId: string, targetFolderId: string | null): Promise<any> {
+  const client = createGraphClient(accessToken);
+  const body: any = {
+    parentReference: targetFolderId
+      ? { id: targetFolderId }
+      : { path: `/drives/${driveId}/root` }
+  };
+  return await client.api(`/drives/${driveId}/items/${itemId}`).patch(body);
 }
 
 export async function getSiteDrives(accessToken: string, siteId: string): Promise<any[]> {
