@@ -711,26 +711,15 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     },
   });
 
-  const handleDownload = async (item: any) => {
-    try {
-      const driveId = item?.parentReference?.driveId || selectedDriveId;
-      const res = await fetch(`/api/users/${userId}/sharepoint/drives/${driveId}/items/${item.id}/download`, { credentials: "include" });
-      const data = await res.json();
-      if (data.downloadUrl) {
-        const a = document.createElement("a");
-        a.href = data.downloadUrl;
-        a.download = item.name || "download";
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } else {
-        toast({ title: "Súbor sa nedá stiahnuť", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: t.nexusOmni.nexuspoint.uploadError, variant: "destructive" });
-    }
+  const handleDownload = (item: any) => {
+    const driveId = item?.parentReference?.driveId || selectedDriveId;
+    const name = encodeURIComponent(item.name || "download");
+    const a = document.createElement("a");
+    a.href = `/api/users/${userId}/sharepoint/drives/${driveId}/items/${item.id}/download?name=${name}`;
+    a.download = item.name || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const handleFileDrop = (e: React.DragEvent) => {

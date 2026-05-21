@@ -1791,10 +1791,34 @@ export async function deleteSharePointItem(accessToken: string, driveId: string,
 }
 
 export async function getSharePointDownloadUrl(accessToken: string, driveId: string, itemId: string): Promise<string | null> {
-  const client = createGraphClient(accessToken);
   try {
-    const result = await client.api(`/drives/${driveId}/items/${itemId}`).select('@microsoft.graph.downloadUrl,name').get();
-    return result?.['@microsoft.graph.downloadUrl'] || null;
+    // Fetch full item — @microsoft.graph.downloadUrl is included for file items
+    const metaResp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (metaResp.ok) {
+      const item = await metaResp.json();
+      const url = item['@microsoft.graph.downloadUrl'];
+      if (url) return url;
+    }
+    // Fallback: get redirect location via Node.js https (avoids opaque-redirect issue)
+    const location = await new Promise<string | null>((resolve) => {
+      const { request } = require('https');
+      const req = request(
+        `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/content`,
+        { headers: { Authorization: `Bearer ${accessToken}` }, method: 'GET' },
+        (res: any) => {
+          resolve(res.headers['location'] || null);
+          res.destroy();
+        }
+      );
+      req.on('error', () => resolve(null));
+      req.end();
+    });
+    if (location) return location;
+    console.warn('[MS365] Could not get download URL for item', itemId);
+    return null;
   } catch (error) {
     console.error('[MS365] Error getting download URL:', error);
     return null;

@@ -4915,13 +4915,35 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     try {
       const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
-      const { getSharePointDownloadUrl } = await import("./lib/ms365");
-      const url = await getSharePointDownloadUrl(token, req.params.driveId, req.params.itemId);
-      if (!url) return res.status(404).json({ error: "File not found" });
-      res.json({ downloadUrl: url });
+      const { driveId, itemId } = req.params;
+      const filename = (req.query.name as string) || "download";
+      // Stream the file directly from Graph API
+      const fileResp = await fetch(
+        `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/content`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!fileResp.ok) {
+        const txt = await fileResp.text();
+        console.error("[SharePoint] Download stream error:", fileResp.status, txt);
+        return res.status(fileResp.status).json({ error: "File not found" });
+      }
+      const contentType = fileResp.headers.get("content-type") || "application/octet-stream";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`);
+      const contentLength = fileResp.headers.get("content-length");
+      if (contentLength) res.setHeader("Content-Length", contentLength);
+      // Pipe body to response
+      if (fileResp.body) {
+        const { Readable } = await import("stream");
+        const nodeStream = Readable.fromWeb(fileResp.body as any);
+        nodeStream.pipe(res);
+        nodeStream.on("error", () => res.end());
+      } else {
+        res.end();
+      }
     } catch (error) {
-      console.error("[SharePoint] Error getting download URL:", error);
-      res.status(500).json({ error: "Failed to get download URL" });
+      console.error("[SharePoint] Error streaming download:", error);
+      res.status(500).json({ error: "Failed to download file" });
     }
   });
 
