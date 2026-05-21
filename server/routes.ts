@@ -4886,11 +4886,13 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { moveSharePointItem } = await import("./lib/ms365");
       const { targetFolderId, targetDriveId } = req.body;
+      console.log(`[Move Route] driveId=${req.params.driveId} itemId=${req.params.itemId} targetFolderId=${targetFolderId} targetDriveId=${targetDriveId}`);
       const result = await moveSharePointItem(token, req.params.driveId, req.params.itemId, targetFolderId || null, targetDriveId || null);
       res.json(result);
-    } catch (error) {
-      console.error("[SharePoint] Error moving item:", error);
-      res.status(500).json({ error: "Failed to move item" });
+    } catch (error: any) {
+      const msg = error?.message || String(error);
+      console.error("[SharePoint] Error moving item:", msg, error?.stack?.slice(0, 300));
+      res.status(500).json({ error: "Failed to move item", detail: msg });
     }
   });
 

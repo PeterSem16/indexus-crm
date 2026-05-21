@@ -1584,40 +1584,107 @@ export async function getSharePointSites(accessToken: string): Promise<any[]> {
 }
 
 export async function moveSharePointItem(accessToken: string, driveId: string, itemId: string, targetFolderId: string | null, targetDriveId?: string | null): Promise<any> {
-  const client = createGraphClient(accessToken);
   const destDriveId = targetDriveId || driveId;
   const isCrossDrive = !!targetDriveId && targetDriveId !== driveId;
-  if (isCrossDrive) {
-    // Cross-drive: Graph API doesn't support PATCH move — use copy + delete
-    const copyBody: any = {
-      parentReference: targetFolderId
-        ? { driveId: destDriveId, id: targetFolderId }
-        : { driveId: destDriveId },
-    };
-    try {
-      await client.api(`/drives/${driveId}/items/${itemId}/copy`).post(copyBody);
-    } catch (copyErr: any) {
-      // Graph SDK may throw on 202 Accepted — that's OK, copy was initiated
-      if (copyErr?.statusCode !== 202 && copyErr?.code !== 'accepted') {
-        throw copyErr;
-      }
+  console.log(`[SharePoint] moveItem: driveId=${driveId} itemId=${itemId} destDriveId=${destDriveId} targetFolderId=${targetFolderId} isCrossDrive=${isCrossDrive}`);
+
+  // Resolve destination folder id — required by Graph API PATCH move
+  let destFolderId = targetFolderId;
+  if (!destFolderId) {
+    // Fetch root folder id of destination drive
+    const rootResp = await fetch(`https://graph.microsoft.com/v1.0/drives/${destDriveId}/root?$select=id`, {
+      headers: { "Authorization": `Bearer ${accessToken}` },
+    });
+    if (!rootResp.ok) {
+      const errText = await rootResp.text().catch(() => "");
+      throw new Error(`Cannot resolve root of dest drive: HTTP ${rootResp.status} ${errText}`);
     }
-    // Poll up to 20s for the item to appear in destination, then delete original
-    await new Promise(r => setTimeout(r, 5000));
+    const rootData = await rootResp.json() as any;
+    destFolderId = rootData?.id || null;
+    console.log(`[SharePoint] Resolved dest root folder id: ${destFolderId}`);
+  }
+
+  if (isCrossDrive) {
+    // Cross-drive: try PATCH first (works within same tenant in SharePoint Online)
+    // Fall back to copy+delete if PATCH returns 400/501
+    const patchBody = {
+      parentReference: { driveId: destDriveId, id: destFolderId },
+    };
+    console.log(`[SharePoint] Cross-drive PATCH attempt:`, JSON.stringify(patchBody));
+    const patchResp = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(patchBody),
+    });
+    console.log(`[SharePoint] PATCH status: ${patchResp.status}`);
+    if (patchResp.ok) {
+      const result = await patchResp.json();
+      return result;
+    }
+    // PATCH not supported cross-drive — fall back to copy+delete
+    const patchErrText = await patchResp.text().catch(() => "");
+    console.warn(`[SharePoint] Cross-drive PATCH failed (${patchResp.status}), falling back to copy+delete: ${patchErrText.slice(0, 200)}`);
+
+    const copyBody = {
+      parentReference: { driveId: destDriveId, id: destFolderId },
+    };
+    console.log(`[SharePoint] Copy body:`, JSON.stringify(copyBody));
+    const copyResp = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/copy`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(copyBody),
+    });
+    console.log(`[SharePoint] Copy HTTP status: ${copyResp.status}`);
+    if (copyResp.status !== 202 && copyResp.status !== 200 && copyResp.status !== 201) {
+      const errBody = await copyResp.text().catch(() => "");
+      throw new Error(`Copy failed: HTTP ${copyResp.status} — ${errBody.slice(0, 300)}`);
+    }
+    // Poll for completion
+    const locationUrl = copyResp.headers.get("Location");
+    if (locationUrl) {
+      for (let i = 0; i < 12; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        try {
+          const pollResp = await fetch(locationUrl);
+          const pollData = await pollResp.json() as any;
+          console.log(`[SharePoint] Copy poll ${i + 1}: status=${pollData?.status} pct=${pollData?.percentageComplete}`);
+          if (pollData?.status === "completed" || pollData?.percentageComplete === 100) break;
+          if (pollData?.status === "failed") throw new Error(`Copy failed: ${pollData?.error?.message || "unknown"}`);
+        } catch (e: any) {
+          if (e?.message?.startsWith("Copy failed")) throw e;
+          break;
+        }
+      }
+    } else {
+      await new Promise(r => setTimeout(r, 8000));
+    }
     try {
-      await client.api(`/drives/${driveId}/items/${itemId}`).delete();
-    } catch {
-      // ignore delete errors (item may not exist after copy)
+      const delResp = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${accessToken}` },
+      });
+      console.log(`[SharePoint] Delete original status: ${delResp.status}`);
+    } catch (delErr: any) {
+      console.warn(`[SharePoint] Delete original failed (non-critical): ${delErr?.message}`);
     }
     return { success: true };
   }
+
   // Same-drive move via PATCH
-  const body: any = {
-    parentReference: targetFolderId
-      ? { driveId: destDriveId, id: targetFolderId }
-      : { driveId: destDriveId, id: "root" }
+  const body = {
+    parentReference: { driveId: destDriveId, id: destFolderId },
   };
-  return await client.api(`/drives/${driveId}/items/${itemId}`).patch(body);
+  console.log(`[SharePoint] Same-drive PATCH body:`, JSON.stringify(body));
+  const resp = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}`, {
+    method: "PATCH",
+    headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    throw new Error(`PATCH move failed: HTTP ${resp.status} — ${errText.slice(0, 300)}`);
+  }
+  return await resp.json();
 }
 
 export async function getSiteDrives(accessToken: string, siteId: string): Promise<any[]> {

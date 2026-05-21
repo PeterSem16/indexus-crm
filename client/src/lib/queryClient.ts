@@ -9,7 +9,9 @@ async function throwIfResNotOk(res: Response) {
     try {
       const json = JSON.parse(text);
       if (json.error) {
-        throw new Error(json.error);
+        const err = new Error(json.error);
+        if (json.detail) (err as any).detail = json.detail;
+        throw err;
       }
     } catch (e) {
       if (e instanceof Error && !e.message.startsWith("{")) {

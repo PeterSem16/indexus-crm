@@ -649,6 +649,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
 
   const moveMutation = useMutation({
     mutationFn: async ({ itemId, targetFolderId, targetDriveId }: { itemId: string; targetFolderId: string | null; targetDriveId?: string | null }) => {
+      console.log("[Move] sending:", { sourceDriveId: selectedDriveId, itemId, targetFolderId, targetDriveId, effectiveMoveDriveId, selectedDriveId });
       return apiRequest("PATCH", `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items/${itemId}/move`, { targetFolderId, targetDriveId: targetDriveId || null });
     },
     onSuccess: () => {
@@ -660,8 +661,9 @@ function NexusPointPanel({ userId }: { userId?: string }) {
       setMoveSiteId(null);
       setMoveDriveId(null);
     },
-    onError: () => {
-      toast({ title: t.nexusOmni.nexuspoint.moveError, variant: "destructive" });
+    onError: (err: any) => {
+      const detail = err?.detail || err?.message || "";
+      toast({ title: t.nexusOmni.nexuspoint.moveError, description: detail ? String(detail).slice(0, 120) : undefined, variant: "destructive" });
     },
   });
 
