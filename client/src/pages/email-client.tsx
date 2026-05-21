@@ -1129,7 +1129,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                     <div className="divide-y divide-border/60">
                       <div className="px-4 py-1.5 text-[11px] text-muted-foreground bg-muted/30 flex items-center gap-1.5">
                         <Tag className="h-3 w-3" />
-                        Globálne výsledky — {globalTagResults.length} súbor{globalTagResults.length === 1 ? "" : globalTagResults.length < 5 ? "y" : "ov"} vo všetkých priečinkoch
+                        {t.nexusOmni.nexuspoint.globalResultsLabel} — {globalTagResults.length} {globalTagResults.length === 1 ? t.nexusOmni.nexuspoint.files.toLowerCase().slice(0,-1) : t.nexusOmni.nexuspoint.files.toLowerCase()}
                       </div>
                       {globalTagResults.map((item) => (
                         <div
@@ -1149,7 +1149,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                           {getFileIcon(item.itemName, false)}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm truncate font-medium group-hover:text-emerald-600 transition-colors">
-                              {item.itemName || <span className="text-muted-foreground italic text-xs">Neznámy súbor (klik pre otvorenie)</span>}
+                              {item.itemName || <span className="text-muted-foreground italic text-xs">{t.nexusOmni.nexuspoint.unknownFile}</span>}
                             </p>
                             <div className="flex flex-wrap gap-1 mt-0.5">
                               {item.tags.map(({ tag, color }) => (
@@ -1598,10 +1598,10 @@ function NexusPointPanel({ userId }: { userId?: string }) {
           <div className="space-y-2">
             {/* Destination site + drive selector */}
             <div className="rounded-md border bg-muted/10 p-2.5 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Cieľové umiestnenie</p>
+              <p className="text-xs font-medium text-muted-foreground">{t.nexusOmni.nexuspoint.moveDestination}</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] text-muted-foreground mb-1 block">Web (site)</label>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.moveSiteLabel}</label>
                   <select
                     className="w-full rounded border bg-background text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
                     value={moveSiteId || selectedSiteId || ""}
@@ -1614,7 +1614,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground mb-1 block">Knižnica (drive)</label>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.moveDriveLabel}</label>
                   <select
                     className="w-full rounded border bg-background text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
                     value={moveDriveId || selectedDriveId || ""}
