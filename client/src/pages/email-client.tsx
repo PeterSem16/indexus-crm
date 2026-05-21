@@ -6849,13 +6849,13 @@ export default function EmailClientPage() {
       </Dialog>
 
       <Dialog open={saveNexusOpen} onOpenChange={(open) => { if (!open) { setSaveNexusOpen(false); setSaveNexusAtt(null); setSaveNexusSiteId(""); setSaveNexusDriveId(""); setSaveNexusFolderStack([]); } }}>
-        <DialogContent className="max-w-sm" data-testid="save-nexus-dialog">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <HardDrive className="h-4 w-4 text-emerald-600" />
-              {t.nexusOmni.nexuspoint.saveToNexusPoint}
+        <DialogContent className="max-w-sm w-full overflow-hidden" data-testid="save-nexus-dialog">
+          <DialogHeader className="min-w-0">
+            <DialogTitle className="flex items-center gap-2 min-w-0">
+              <HardDrive className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span className="truncate">{t.nexusOmni.nexuspoint.saveToNexusPoint}</span>
             </DialogTitle>
-            <DialogDescription className="truncate">{saveNexusAtt?.attName}</DialogDescription>
+            <DialogDescription className="truncate block w-full" title={saveNexusAtt?.attName}>{saveNexusAtt?.attName}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
