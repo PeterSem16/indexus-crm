@@ -1642,13 +1642,46 @@ export async function createSharePointFolder(accessToken: string, driveId: strin
 }
 
 export async function uploadSharePointFile(accessToken: string, driveId: string, parentFolderId: string | null, fileName: string, content: Buffer): Promise<any> {
+  const SIMPLE_UPLOAD_LIMIT = 4 * 1024 * 1024; // 4 MB
   const client = createGraphClient(accessToken);
-  const path = parentFolderId
-    ? `/drives/${driveId}/items/${parentFolderId}:/${encodeURIComponent(fileName)}:/content`
-    : `/drives/${driveId}/root:/${encodeURIComponent(fileName)}:/content`;
-  const result = await client.api(path)
-    .headers({ "Content-Type": "application/octet-stream" })
-    .put(content);
+  const itemPath = parentFolderId
+    ? `/drives/${driveId}/items/${parentFolderId}:/${encodeURIComponent(fileName)}`
+    : `/drives/${driveId}/root:/${encodeURIComponent(fileName)}`;
+
+  if (content.length <= SIMPLE_UPLOAD_LIMIT) {
+    return await client.api(`${itemPath}:/content`)
+      .headers({ "Content-Type": "application/octet-stream" })
+      .put(content);
+  }
+
+  // Large file — use upload session with 10 MB chunks
+  const CHUNK_SIZE = 10 * 1024 * 1024;
+  const sessionResp = await client.api(`${itemPath}:/createUploadSession`).post({
+    item: { "@microsoft.graph.conflictBehavior": "rename" }
+  });
+  const uploadUrl: string = sessionResp.uploadUrl;
+  const totalSize = content.length;
+  let result: any;
+  for (let start = 0; start < totalSize; start += CHUNK_SIZE) {
+    const end = Math.min(start + CHUNK_SIZE - 1, totalSize - 1);
+    const chunk = content.slice(start, end + 1);
+    const resp = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Length": String(chunk.length),
+        "Content-Range": `bytes ${start}-${end}/${totalSize}`,
+        "Content-Type": "application/octet-stream",
+      },
+      body: chunk,
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`Upload session chunk failed: ${resp.status} ${errText}`);
+    }
+    if (resp.status === 200 || resp.status === 201) {
+      result = await resp.json();
+    }
+  }
   return result;
 }
 

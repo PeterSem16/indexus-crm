@@ -2646,6 +2646,8 @@ export default function EmailClientPage() {
   const [saveNexusSaving, setSaveNexusSaving] = useState(false);
   const [saveNexusFolderStack, setSaveNexusFolderStack] = useState<{ id: string; name: string }[]>([]);
   const saveNexusFolderId = saveNexusFolderStack.length > 0 ? saveNexusFolderStack[saveNexusFolderStack.length - 1].id : undefined;
+  const [saveNexusNewFolderOpen, setSaveNexusNewFolderOpen] = useState(false);
+  const [saveNexusNewFolderName, setSaveNexusNewFolderName] = useState("");
 
   useEffect(() => {
     localStorage.setItem("nexus-sidebar-hidden", String(isSidebarHidden));
@@ -3062,7 +3064,7 @@ export default function EmailClientPage() {
     },
     enabled: !!user?.id && !!saveNexusSiteId,
   });
-  const { data: saveNexusFolderItems = [], isLoading: saveNexusFolderItemsLoading } = useQuery<any[]>({
+  const { data: saveNexusFolderItems = [], isLoading: saveNexusFolderItemsLoading, refetch: refetchSaveNexusFolderItems } = useQuery<any[]>({
     queryKey: ["/api/users", user?.id, "sharepoint", "drives", saveNexusDriveId, "items", saveNexusFolderId ?? "root"],
     queryFn: async () => {
       if (!user?.id || !saveNexusDriveId) return [];
@@ -3842,6 +3844,21 @@ export default function EmailClientPage() {
     a.href = url;
     a.download = fileName;
     a.click();
+  };
+
+  const saveNexusCreateFolder = async () => {
+    if (!saveNexusNewFolderName.trim() || !saveNexusDriveId || !user?.id) return;
+    try {
+      await apiRequest("POST", `/api/users/${user.id}/sharepoint/drives/${saveNexusDriveId}/folders`, {
+        parentFolderId: saveNexusFolderId ?? null,
+        name: saveNexusNewFolderName.trim(),
+      });
+      setSaveNexusNewFolderOpen(false);
+      setSaveNexusNewFolderName("");
+      refetchSaveNexusFolderItems();
+    } catch {
+      toast({ title: t.nexusOmni.nexuspoint.folderError, variant: "destructive" });
+    }
   };
 
   const saveAttachmentToNexusPoint = async () => {
@@ -6869,7 +6886,31 @@ export default function EmailClientPage() {
             </div>
             {saveNexusDriveId && (
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.folders}</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-muted-foreground">{t.nexusOmni.nexuspoint.folders}</label>
+                  <button className="flex items-center gap-0.5 text-[11px] text-emerald-600 hover:text-emerald-700 font-medium" onClick={() => { setSaveNexusNewFolderOpen(v => !v); setSaveNexusNewFolderName(""); }} data-testid="btn-nexus-new-folder-toggle">
+                    <FolderPlus className="h-3 w-3" />{t.nexusOmni.nexuspoint.newFolder}
+                  </button>
+                </div>
+                {saveNexusNewFolderOpen && (
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Input
+                      value={saveNexusNewFolderName}
+                      onChange={e => setSaveNexusNewFolderName(e.target.value)}
+                      placeholder={t.nexusOmni.nexuspoint.folderName}
+                      className="h-7 text-sm flex-1"
+                      autoFocus
+                      onKeyDown={e => { if (e.key === "Enter") saveNexusCreateFolder(); if (e.key === "Escape") { setSaveNexusNewFolderOpen(false); setSaveNexusNewFolderName(""); } }}
+                      data-testid="input-save-nexus-folder-name"
+                    />
+                    <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white border-0 px-2.5" onClick={saveNexusCreateFolder} disabled={!saveNexusNewFolderName.trim()} data-testid="btn-nexus-create-folder">
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setSaveNexusNewFolderOpen(false); setSaveNexusNewFolderName(""); }}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
                 <div className="border rounded-md overflow-hidden">
                   {/* Breadcrumb */}
                   <div className="flex items-center gap-1 px-2 py-1.5 bg-muted/40 border-b text-xs flex-wrap">
