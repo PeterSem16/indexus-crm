@@ -7547,6 +7547,19 @@ export const insertNexuspointItemTagSchema = createInsertSchema(nexuspointItemTa
 export type NexuspointItemTag = typeof nexuspointItemTags.$inferSelect;
 export type InsertNexuspointItemTag = z.infer<typeof insertNexuspointItemTagSchema>;
 
+export const nexuspointFolderSettings = pgTable("nexuspoint_folder_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  driveId: text("drive_id").notNull(),
+  folderId: text("folder_id").notNull(),
+  color: text("color").default("#f59e0b"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+export const insertNexuspointFolderSettingsSchema = createInsertSchema(nexuspointFolderSettings).omit({ id: true, createdAt: true });
+export type NexuspointFolderSettings = typeof nexuspointFolderSettings.$inferSelect;
+export type InsertNexuspointFolderSettings = z.infer<typeof insertNexuspointFolderSettingsSchema>;
+
 export const nexuspointSettings = pgTable("nexuspoint_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),

@@ -5221,6 +5221,56 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     } catch { res.status(500).json({ error: "Failed" }); }
   });
 
+  // ── Folder settings (color + sort order) ──
+  app.get("/api/users/:userId/nexuspoint/folder-settings", requireAuth, async (req, res) => {
+    try {
+      const { driveId } = req.query as { driveId: string };
+      if (!driveId) return res.status(400).json({ error: "driveId required" });
+      const { nexuspointFolderSettings } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const rows = await db.select().from(nexuspointFolderSettings).where(and(eq(nexuspointFolderSettings.userId, req.params.userId), eq(nexuspointFolderSettings.driveId, driveId)));
+      res.json(rows);
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  app.put("/api/users/:userId/nexuspoint/folder-settings", requireAuth, async (req, res) => {
+    try {
+      const { driveId, folderId, color, sortOrder } = req.body;
+      if (!driveId || !folderId) return res.status(400).json({ error: "driveId and folderId required" });
+      const { nexuspointFolderSettings } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [existing] = await db.select().from(nexuspointFolderSettings).where(and(eq(nexuspointFolderSettings.userId, req.params.userId), eq(nexuspointFolderSettings.driveId, driveId), eq(nexuspointFolderSettings.folderId, folderId)));
+      const update: Record<string, any> = {};
+      if (color !== undefined) update.color = color;
+      if (sortOrder !== undefined) update.sortOrder = sortOrder;
+      if (existing) {
+        const [row] = await db.update(nexuspointFolderSettings).set(update).where(and(eq(nexuspointFolderSettings.userId, req.params.userId), eq(nexuspointFolderSettings.driveId, driveId), eq(nexuspointFolderSettings.folderId, folderId))).returning();
+        return res.json(row);
+      }
+      const [row] = await db.insert(nexuspointFolderSettings).values({ userId: req.params.userId, driveId, folderId, ...update }).returning();
+      res.json(row);
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  // Bulk save folder order (array of {folderId, sortOrder})
+  app.put("/api/users/:userId/nexuspoint/folder-order", requireAuth, async (req, res) => {
+    try {
+      const { driveId, order } = req.body as { driveId: string; order: { folderId: string; sortOrder: number }[] };
+      if (!driveId || !Array.isArray(order)) return res.status(400).json({ error: "driveId and order required" });
+      const { nexuspointFolderSettings } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      for (const { folderId, sortOrder } of order) {
+        const [existing] = await db.select().from(nexuspointFolderSettings).where(and(eq(nexuspointFolderSettings.userId, req.params.userId), eq(nexuspointFolderSettings.driveId, driveId), eq(nexuspointFolderSettings.folderId, folderId)));
+        if (existing) {
+          await db.update(nexuspointFolderSettings).set({ sortOrder }).where(and(eq(nexuspointFolderSettings.userId, req.params.userId), eq(nexuspointFolderSettings.driveId, driveId), eq(nexuspointFolderSettings.folderId, folderId)));
+        } else {
+          await db.insert(nexuspointFolderSettings).values({ userId: req.params.userId, driveId, folderId, sortOrder }).onConflictDoNothing();
+        }
+      }
+      res.json({ success: true });
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
   // Set color for all instances of a tag (by tag name, for this user)
   app.put("/api/users/:userId/nexuspoint/tags/color", requireAuth, async (req, res) => {
     try {

@@ -152,6 +152,7 @@ import {
   Filter,
   MailSearch,
   FileSearch,
+  GripVertical,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -282,6 +283,10 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [tagInput, setTagInput] = useState("");
   const [nexusTagFilter, setNexusTagFilter] = useState<string[]>([]);
   const [tagColorPickerTag, setTagColorPickerTag] = useState<string | null>(null);
+  const [folderColorPickerId, setFolderColorPickerId] = useState<string | null>(null);
+  const [dragFolderId, setDragFolderId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [localFolderOrder, setLocalFolderOrder] = useState<string[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false);
@@ -456,6 +461,41 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     },
     enabled: !!userId && !!selectedDriveId,
   });
+
+  const { data: folderSettingsRows = [], refetch: refetchFolderSettings } = useQuery<{ folderId: string; color: string; sortOrder: number }[]>({
+    queryKey: ["/api/users", userId, "nexuspoint", "folder-settings", selectedDriveId],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/nexuspoint/folder-settings?driveId=${selectedDriveId}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!userId && !!selectedDriveId,
+  });
+
+  const folderSettingsMap: Record<string, { color: string; sortOrder: number }> = {};
+  for (const row of folderSettingsRows) {
+    folderSettingsMap[row.folderId] = { color: row.color || "#f59e0b", sortOrder: row.sortOrder ?? 0 };
+  }
+
+  const FOLDER_COLORS = ["#f59e0b","#10b981","#3b82f6","#ef4444","#8b5cf6","#ec4899","#06b6d4","#84cc16","#f97316","#64748b","#94a3b8","#0f172a"];
+
+  const saveFolderColor = async (folderId: string, color: string) => {
+    if (!userId || !selectedDriveId) return;
+    try {
+      await apiRequest("PUT", `/api/users/${userId}/nexuspoint/folder-settings`, { driveId: selectedDriveId, folderId, color });
+      refetchFolderSettings();
+      setFolderColorPickerId(null);
+    } catch { /* ignore */ }
+  };
+
+  const saveFolderOrder = async (orderedIds: string[]) => {
+    if (!userId || !selectedDriveId) return;
+    const order = orderedIds.map((folderId, i) => ({ folderId, sortOrder: i }));
+    try {
+      await apiRequest("PUT", `/api/users/${userId}/nexuspoint/folder-order`, { driveId: selectedDriveId, order });
+      refetchFolderSettings();
+    } catch { /* ignore */ }
+  };
 
   const TAG_COLORS = ["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#ec4899","#06b6d4","#84cc16","#f97316","#64748b"];
 
@@ -719,7 +759,17 @@ function NexusPointPanel({ userId }: { userId?: string }) {
 
   const folders = items.filter((i: any) => i.folder);
   const filesList = items.filter((i: any) => i.file);
-  const sortedItems = [...folders, ...filesList];
+  const orderedFolderIds = localFolderOrder.length > 0 ? localFolderOrder : (
+    [...folders].sort((a: any, b: any) => {
+      const sa = folderSettingsMap[a.id]?.sortOrder ?? 9999;
+      const sb = folderSettingsMap[b.id]?.sortOrder ?? 9999;
+      if (sa !== sb) return sa - sb;
+      return a.name.localeCompare(b.name);
+    }).map((f: any) => f.id)
+  );
+  const sortedFolders = orderedFolderIds.map((id: string) => folders.find((f: any) => f.id === id)).filter(Boolean);
+  const unsortedFolders = folders.filter((f: any) => !orderedFolderIds.includes(f.id));
+  const sortedItems = [...sortedFolders, ...unsortedFolders, ...filesList];
   const baseItems = searchResults !== null ? searchResults : sortedItems;
   const displayItems = nexusTagFilter.length > 0
     ? baseItems.filter((i: any) => nexusTagFilter.some(f => driveTagsMap[i.id]?.some(({ tag }) => tag === f)))
@@ -1102,19 +1152,52 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                   <div className="divide-y divide-border/60">
                     {displayItems.map((item: any) => {
                       const isFolder = !!item.folder;
+                      const folderColor = isFolder ? (folderSettingsMap[item.id]?.color || "#f59e0b") : null;
+                      const isDragOver = dragOverFolderId === item.id;
+                      const isBeingDragged = dragFolderId === item.id;
                       return (
                         <div
                           key={item.id}
                           className={cn(
-                            "flex items-center gap-3 px-4 py-2.5 transition-colors group cursor-pointer border-l-2",
+                            "flex items-center gap-3 px-4 py-2.5 transition-colors group cursor-pointer border-l-2 relative",
                             detailItem?.id === item.id
                               ? "bg-emerald-50 dark:bg-emerald-950/20 border-l-emerald-500"
-                              : "hover:bg-muted/40 border-l-transparent"
+                              : "hover:bg-muted/40 border-l-transparent",
+                            isBeingDragged && "opacity-40",
+                            isDragOver && isFolder && "border-t-2 border-t-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/10"
                           )}
                           onClick={() => isFolder ? navigateToFolder(item) : openDetailPanel(item)}
                           data-testid={`nexuspoint-item-${item.id}`}
+                          draggable={isFolder}
+                          onDragStart={isFolder ? (e) => { e.dataTransfer.effectAllowed = "move"; setDragFolderId(item.id); const newOrder = localFolderOrder.length > 0 ? localFolderOrder : orderedFolderIds; setLocalFolderOrder(newOrder); } : undefined}
+                          onDragOver={isFolder ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverFolderId(item.id); } : undefined}
+                          onDragLeave={isFolder ? () => setDragOverFolderId(null) : undefined}
+                          onDrop={isFolder ? (e) => {
+                            e.preventDefault();
+                            setDragOverFolderId(null);
+                            if (!dragFolderId || dragFolderId === item.id) { setDragFolderId(null); return; }
+                            const cur = localFolderOrder.length > 0 ? localFolderOrder : orderedFolderIds;
+                            const from = cur.indexOf(dragFolderId);
+                            const to = cur.indexOf(item.id);
+                            if (from === -1 || to === -1) { setDragFolderId(null); return; }
+                            const next = [...cur];
+                            next.splice(from, 1);
+                            next.splice(to, 0, dragFolderId);
+                            setLocalFolderOrder(next);
+                            setDragFolderId(null);
+                            saveFolderOrder(next);
+                          } : undefined}
+                          onDragEnd={isFolder ? () => { setDragFolderId(null); setDragOverFolderId(null); } : undefined}
                         >
-                          {getFileIcon(item.name, isFolder)}
+                          {/* drag handle for folders */}
+                          {isFolder && (
+                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-muted-foreground/60 shrink-0 cursor-grab active:cursor-grabbing" />
+                          )}
+                          {/* colored folder icon or file icon */}
+                          {isFolder
+                            ? <FolderOpen className="h-5 w-5 shrink-0" style={{ color: folderColor! }} />
+                            : getFileIcon(item.name, false)
+                          }
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{item.name}</p>
                             <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
@@ -1148,7 +1231,30 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                               </>
                             )}
                             {isFolder && (
-                              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-emerald-600" onClick={(e) => { e.stopPropagation(); setDetailItem(item); setDetailTab("notes"); setNoteText(""); }} data-testid={`button-tag-folder-${item.id}`}><Tag className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.notesAndTags}</TooltipContent></Tooltip>
+                              <>
+                                {/* folder color picker */}
+                                <div className="relative">
+                                  <Tooltip><TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setFolderColorPickerId(folderColorPickerId === item.id ? null : item.id); }} data-testid={`button-folder-color-${item.id}`}>
+                                      <div className="h-3.5 w-3.5 rounded-full border border-border" style={{ backgroundColor: folderColor! }} />
+                                    </Button>
+                                  </TooltipTrigger><TooltipContent>Farba priečinka</TooltipContent></Tooltip>
+                                  {folderColorPickerId === item.id && (
+                                    <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-2 flex flex-wrap gap-1.5 w-[148px]" onClick={e => e.stopPropagation()}>
+                                      {FOLDER_COLORS.map(c => (
+                                        <button
+                                          key={c}
+                                          onClick={() => saveFolderColor(item.id, c)}
+                                          className={cn("h-5 w-5 rounded-full transition-transform hover:scale-110 border-2", c === folderColor ? "border-foreground scale-110" : "border-transparent")}
+                                          style={{ backgroundColor: c }}
+                                          data-testid={`folder-color-${item.id}-${c}`}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-emerald-600" onClick={(e) => { e.stopPropagation(); setDetailItem(item); setDetailTab("notes"); setNoteText(""); }} data-testid={`button-tag-folder-${item.id}`}><Tag className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.notesAndTags}</TooltipContent></Tooltip>
+                              </>
                             )}
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-orange-500" onClick={(e) => { e.stopPropagation(); setMoveItem(item); setMoveFolderStack([]); setMoveOpen(true); }} data-testid={`button-move-${item.id}`}><FolderInput className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.move}</TooltipContent></Tooltip>
                             {item.webUrl && (
