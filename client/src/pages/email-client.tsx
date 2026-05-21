@@ -265,6 +265,7 @@ function getFileIcon(fileName: string, isFolder: boolean) {
 }
 
 function NexusPointPanel({ userId }: { userId?: string }) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [selectedDriveId, setSelectedDriveId] = useState<string | null>(null);
   const [folderStack, setFolderStack] = useState<{ id: string; name: string }[]>([]);
@@ -681,52 +682,96 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     <div className="flex-1 flex min-w-0 min-h-0 gap-3">
 
       {/* ── LEFT SIDEBAR ── */}
-      <div className="w-[220px] min-w-[180px] shrink-0 flex flex-col rounded-xl overflow-hidden border border-emerald-200/60 dark:border-emerald-800/40 shadow-md">
-        <div className="bg-gradient-to-b from-emerald-700 to-emerald-600 px-3 py-2.5 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center">
-              <HardDrive className="h-3.5 w-3.5 text-white" />
+      <div className={cn("shrink-0 flex flex-col rounded-xl overflow-hidden border border-emerald-200/60 dark:border-emerald-800/40 shadow-md transition-all duration-200", sidebarCollapsed ? "w-10" : "w-[220px] min-w-[180px]")}>
+        <div className="bg-gradient-to-b from-emerald-700 to-emerald-600 px-2 py-2.5 flex items-center justify-between shrink-0">
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
+                <HardDrive className="h-3.5 w-3.5 text-white" />
+              </div>
+              <span className="text-white font-semibold text-sm tracking-wide truncate">NexusPoint</span>
             </div>
-            <span className="text-white font-semibold text-sm tracking-wide">NexusPoint</span>
-          </div>
-          <div className="flex items-center gap-1">
+          )}
+          <div className={cn("flex items-center gap-1", sidebarCollapsed && "w-full justify-center")}>
+            {!sidebarCollapsed && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="w-6 h-6 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                      onClick={() => { refetchItems(); refetchSettings(); }}
+                      data-testid="button-nexuspoint-refresh"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 text-white" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{t.nexusOmni.common.refresh}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="w-6 h-6 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                      onClick={() => {
+                        const siteUrl = allSites[0]?.webUrl || sites[0]?.webUrl;
+                        if (siteUrl) {
+                          try {
+                            const tenantUrl = new URL(siteUrl).origin;
+                            window.open(`${tenantUrl}/_layouts/15/sharepoint.aspx`, '_blank');
+                          } catch { window.open('https://www.office.com/launch/sharepoint', '_blank'); }
+                        } else {
+                          window.open('https://www.office.com/launch/sharepoint', '_blank');
+                        }
+                      }}
+                      data-testid="button-nexuspoint-new-site"
+                    >
+                      <Plus className="h-3.5 w-3.5 text-white" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{t.nexusOmni.nexuspoint.newSite}</TooltipContent>
+                </Tooltip>
+              </>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   className="w-6 h-6 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
-                  onClick={() => { refetchItems(); refetchSettings(); }}
-                  data-testid="button-nexuspoint-refresh"
+                  onClick={() => setSidebarCollapsed(v => !v)}
+                  data-testid="button-nexuspoint-collapse"
                 >
-                  <RotateCcw className="h-3.5 w-3.5 text-white" />
+                  {sidebarCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-white" /> : <ChevronLeft className="h-3.5 w-3.5 text-white" />}
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">{t.nexusOmni.common.refresh}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="w-6 h-6 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
-                  onClick={() => {
-                    const siteUrl = allSites[0]?.webUrl || sites[0]?.webUrl;
-                    if (siteUrl) {
-                      try {
-                        const tenantUrl = new URL(siteUrl).origin;
-                        window.open(`${tenantUrl}/_layouts/15/sharepoint.aspx`, '_blank');
-                      } catch { window.open('https://www.office.com/launch/sharepoint', '_blank'); }
-                    } else {
-                      window.open('https://www.office.com/launch/sharepoint', '_blank');
-                    }
-                  }}
-                  data-testid="button-nexuspoint-new-site"
-                >
-                  <Plus className="h-3.5 w-3.5 text-white" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{t.nexusOmni.nexuspoint.newSite}</TooltipContent>
+              <TooltipContent side="bottom">{sidebarCollapsed ? "Expand" : "Collapse"}</TooltipContent>
             </Tooltip>
           </div>
         </div>
 
+        {sidebarCollapsed ? (
+          <div className="flex-1 bg-background flex flex-col items-center py-2 gap-1.5 overflow-y-auto">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors" onClick={() => setSidebarCollapsed(false)}>
+                  <HardDrive className="h-3.5 w-3.5 text-emerald-600" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">NexusPoint</TooltipContent>
+            </Tooltip>
+            {sites.map((site: any) => (
+              <Tooltip key={site.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    className={cn("w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0", selectedSiteId === site.id ? "bg-emerald-600 text-white" : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/50")}
+                    onClick={() => { setSelectedSiteId(site.id); setSelectedDriveId(null); setFolderStack([]); setDetailItem(null); setSidebarCollapsed(false); }}
+                    data-testid={`nexuspoint-site-icon-${site.id}`}
+                  >
+                    <Globe className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">{site.displayName}</TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        ) : (
         <ScrollArea className="flex-1 bg-background">
           <div className="py-1.5">
             {sitesLoading ? (
@@ -815,6 +860,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             )}
           </div>
         </ScrollArea>
+        )}
       </div>
 
       {/* ── MAIN CONTENT ── */}
