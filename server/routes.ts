@@ -5079,6 +5079,90 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     }
   });
 
+  // NexusPoint item notes
+  app.get("/api/users/:userId/nexuspoint/notes", requireAuth, async (req, res) => {
+    try {
+      const { driveId, itemId } = req.query as { driveId: string; itemId: string };
+      if (!driveId || !itemId) return res.status(400).json({ error: "driveId and itemId required" });
+      const { nexuspointItemNotes } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [row] = await db.select().from(nexuspointItemNotes).where(and(eq(nexuspointItemNotes.userId, req.params.userId), eq(nexuspointItemNotes.driveId, driveId), eq(nexuspointItemNotes.itemId, itemId)));
+      res.json(row || null);
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  app.put("/api/users/:userId/nexuspoint/notes", requireAuth, async (req, res) => {
+    try {
+      const { driveId, itemId, note } = req.body;
+      if (!driveId || !itemId) return res.status(400).json({ error: "driveId and itemId required" });
+      const { nexuspointItemNotes } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [existing] = await db.select().from(nexuspointItemNotes).where(and(eq(nexuspointItemNotes.userId, req.params.userId), eq(nexuspointItemNotes.driveId, driveId), eq(nexuspointItemNotes.itemId, itemId)));
+      if (existing) {
+        await db.update(nexuspointItemNotes).set({ note: note || "", updatedAt: new Date() }).where(eq(nexuspointItemNotes.id, existing.id));
+      } else {
+        await db.insert(nexuspointItemNotes).values({ userId: req.params.userId, driveId, itemId, note: note || "" });
+      }
+      res.json({ success: true });
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  // NexusPoint item tags
+  app.get("/api/users/:userId/nexuspoint/tags", requireAuth, async (req, res) => {
+    try {
+      const { driveId, itemId } = req.query as { driveId: string; itemId: string };
+      if (!driveId || !itemId) return res.status(400).json({ error: "driveId and itemId required" });
+      const { nexuspointItemTags } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const rows = await db.select().from(nexuspointItemTags).where(and(eq(nexuspointItemTags.userId, req.params.userId), eq(nexuspointItemTags.driveId, driveId), eq(nexuspointItemTags.itemId, itemId)));
+      res.json(rows);
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  app.post("/api/users/:userId/nexuspoint/tags", requireAuth, async (req, res) => {
+    try {
+      const { driveId, itemId, tag } = req.body;
+      if (!driveId || !itemId || !tag) return res.status(400).json({ error: "driveId, itemId and tag required" });
+      const { nexuspointItemTags } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [existing] = await db.select().from(nexuspointItemTags).where(and(eq(nexuspointItemTags.userId, req.params.userId), eq(nexuspointItemTags.driveId, driveId), eq(nexuspointItemTags.itemId, itemId), eq(nexuspointItemTags.tag, tag.trim())));
+      if (existing) return res.json(existing);
+      const [row] = await db.insert(nexuspointItemTags).values({ userId: req.params.userId, driveId, itemId, tag: tag.trim() }).returning();
+      res.json(row);
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  app.delete("/api/users/:userId/nexuspoint/tags/:tagId", requireAuth, async (req, res) => {
+    try {
+      const { nexuspointItemTags } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      await db.delete(nexuspointItemTags).where(and(eq(nexuspointItemTags.id, req.params.tagId), eq(nexuspointItemTags.userId, req.params.userId)));
+      res.json({ success: true });
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  // Search NexusPoint items by tag (across all drives for user)
+  app.get("/api/users/:userId/nexuspoint/tags/search", requireAuth, async (req, res) => {
+    try {
+      const { tag } = req.query as { tag: string };
+      if (!tag) return res.status(400).json({ error: "tag required" });
+      const { nexuspointItemTags } = await import("../shared/schema");
+      const { eq, and, ilike } = await import("drizzle-orm");
+      const rows = await db.select().from(nexuspointItemTags).where(and(eq(nexuspointItemTags.userId, req.params.userId), ilike(nexuspointItemTags.tag, `%${tag}%`)));
+      res.json(rows);
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  // Get all unique tags for user (for autocomplete)
+  app.get("/api/users/:userId/nexuspoint/tags/all", requireAuth, async (req, res) => {
+    try {
+      const { nexuspointItemTags } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const rows = await db.selectDistinct({ tag: nexuspointItemTags.tag }).from(nexuspointItemTags).where(eq(nexuspointItemTags.userId, req.params.userId));
+      res.json(rows.map((r: any) => r.tag));
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
   // Search emails across mailbox
   app.get("/api/users/:userId/ms365-search-emails", requireAuth, async (req, res) => {
     try {

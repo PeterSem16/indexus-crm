@@ -275,7 +275,10 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [detailItem, setDetailItem] = useState<any | null>(null);
-  const [detailTab, setDetailTab] = useState<"info" | "versions" | "sharing">("info");
+  const [detailTab, setDetailTab] = useState<"info" | "versions" | "sharing" | "notes">("info");
+  const [noteText, setNoteText] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [tagInput, setTagInput] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false);
@@ -397,6 +400,68 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     },
     enabled: !!userId && !!selectedDriveId && !!(shareItem?.id || detailItem?.id) && shareDialogOpen,
   });
+
+  const { data: itemNote, refetch: refetchNote } = useQuery<any>({
+    queryKey: ["/api/users", userId, "nexuspoint", "notes", selectedDriveId, detailItem?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/nexuspoint/notes?driveId=${selectedDriveId}&itemId=${detailItem?.id}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!userId && !!selectedDriveId && !!detailItem?.id && detailTab === "notes",
+  });
+
+  const { data: itemTags = [], refetch: refetchTags } = useQuery<any[]>({
+    queryKey: ["/api/users", userId, "nexuspoint", "tags", selectedDriveId, detailItem?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/nexuspoint/tags?driveId=${selectedDriveId}&itemId=${detailItem?.id}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!userId && !!selectedDriveId && !!detailItem?.id && detailTab === "notes",
+  });
+
+  const { data: allUserTags = [] } = useQuery<string[]>({
+    queryKey: ["/api/users", userId, "nexuspoint", "tags", "all"],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/nexuspoint/tags/all`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!userId && detailTab === "notes",
+  });
+
+  const saveNote = async () => {
+    if (!userId || !selectedDriveId || !detailItem?.id) return;
+    setNoteSaving(true);
+    try {
+      await apiRequest("PUT", `/api/users/${userId}/nexuspoint/notes`, { driveId: selectedDriveId, itemId: detailItem.id, note: noteText });
+      await refetchNote();
+      toast({ title: t.nexusOmni.nexuspoint.noteSaved });
+    } catch {
+      toast({ title: t.nexusOmni.nexuspoint.noteSaveError, variant: "destructive" });
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  const addTag = async () => {
+    if (!tagInput.trim() || !userId || !selectedDriveId || !detailItem?.id) return;
+    try {
+      await apiRequest("POST", `/api/users/${userId}/nexuspoint/tags`, { driveId: selectedDriveId, itemId: detailItem.id, tag: tagInput.trim() });
+      setTagInput("");
+      refetchTags();
+    } catch {
+      toast({ title: t.nexusOmni.nexuspoint.noteSaveError, variant: "destructive" });
+    }
+  };
+
+  const removeTag = async (tagId: string) => {
+    try {
+      await apiRequest("DELETE", `/api/users/${userId}/nexuspoint/tags/${tagId}`);
+      refetchTags();
+    } catch { /* ignore */ }
+  };
 
   const uploadMutation = useMutation({
     mutationFn: async (file: globalThis.File) => {
@@ -582,6 +647,8 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const openDetailPanel = async (item: any) => {
     setDetailItem(item);
     setDetailTab("info");
+    setNoteText("");
+    setTagInput("");
     setPreviewUrl(null);
     setThumbnailUrl(null);
     try {
@@ -943,12 +1010,18 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             <div className="flex items-center gap-1">
               {([
                 { id: "info", icon: Info, label: t.nexusOmni.nexuspoint.preview },
+                { id: "notes", icon: Tag, label: t.nexusOmni.nexuspoint.notesAndTags },
                 { id: "versions", icon: History, label: t.nexusOmni.nexuspoint.versions },
                 { id: "sharing", icon: Share2, label: t.nexusOmni.nexuspoint.share },
-              ] as { id: "info" | "versions" | "sharing"; icon: any; label: string }[]).map(({ id, icon: Icon, label }) => (
+              ] as { id: "info" | "notes" | "versions" | "sharing"; icon: any; label: string }[]).map(({ id, icon: Icon, label }) => (
                 <button
                   key={id}
-                  onClick={() => { setDetailTab(id); if (id === "versions") setVersionsDialogOpen(true); if (id === "sharing") { setShareItem(detailItem); setShareDialogOpen(true); } }}
+                  onClick={() => {
+                    setDetailTab(id);
+                    if (id === "versions") setVersionsDialogOpen(true);
+                    if (id === "sharing") { setShareItem(detailItem); setShareDialogOpen(true); }
+                    if (id === "notes") setNoteText(itemNote?.note ?? "");
+                  }}
                   className={cn("flex items-center gap-1 px-2.5 py-1 text-xs rounded-full transition-colors", detailTab === id ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/60")}
                   data-testid={`tab-detail-${id}`}
                 >
@@ -959,35 +1032,92 @@ function NexusPointPanel({ userId }: { userId?: string }) {
           </div>
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-3">
-              {thumbnailUrl && (
-                <div className="rounded-lg border overflow-hidden bg-muted/20 shadow-sm">
-                  <img src={thumbnailUrl} alt={detailItem.name} className="w-full h-auto max-h-[180px] object-contain" />
-                </div>
-              )}
-              {previewUrl && (
-                <Button variant="outline" size="sm" className="w-full text-xs gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => window.open(previewUrl, "_blank")} data-testid="button-open-preview">
-                  <Eye className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.preview}
-                </Button>
-              )}
-              <div className="rounded-lg border bg-muted/10 overflow-hidden">
-                {[
-                  { label: t.nexusOmni.nexuspoint.size, value: formatFileSize(detailItem.size || 0) },
-                  detailItem.lastModifiedDateTime ? { label: t.nexusOmni.nexuspoint.modified, value: format(new Date(detailItem.lastModifiedDateTime), "d.M.yyyy HH:mm") } : null,
-                  detailItem.lastModifiedBy?.user?.displayName ? { label: t.nexusOmni.nexuspoint.modifiedBy, value: detailItem.lastModifiedBy.user.displayName } : null,
-                  detailItem.createdDateTime ? { label: t.nexusOmni.nexuspoint.created, value: format(new Date(detailItem.createdDateTime), "d.M.yyyy HH:mm") } : null,
-                ].filter(Boolean).map((row: any, i, arr) => (
-                  <div key={row.label} className={cn("flex items-center justify-between px-3 py-2 text-xs", i < arr.length - 1 && "border-b border-border/50")}>
-                    <span className="text-muted-foreground">{row.label}</span>
-                    <span className="font-medium truncate ml-3 max-w-[130px] text-right">{row.value}</span>
+              {detailTab === "notes" ? (
+                <>
+                  {/* ── NOTE ── */}
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.note}</label>
+                    <textarea
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/40 min-h-[90px]"
+                      placeholder={t.nexusOmni.nexuspoint.notePlaceholder}
+                      value={noteText}
+                      onChange={e => setNoteText(e.target.value)}
+                      data-testid="textarea-item-note"
+                    />
+                    <Button size="sm" className="w-full mt-1.5 h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white border-0 gap-1.5" onClick={saveNote} disabled={noteSaving} data-testid="button-save-note">
+                      {noteSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      {t.nexusOmni.nexuspoint.saveNote}
+                    </Button>
                   </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1 text-xs gap-1.5" onClick={() => handleDownload(detailItem)} data-testid="button-detail-download"><Download className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.download}</Button>
-                {detailItem.webUrl && (
-                  <Button variant="outline" size="sm" className="flex-1 text-xs gap-1.5" onClick={() => window.open(detailItem.webUrl, "_blank")} data-testid="button-detail-open"><ExternalLink className="h-3.5 w-3.5" />SP</Button>
-                )}
-              </div>
+                  {/* ── TAGS ── */}
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.tags}</label>
+                    <div className="flex flex-wrap gap-1 mb-2 min-h-[24px]">
+                      {(itemTags as any[]).length === 0 ? (
+                        <span className="text-xs text-muted-foreground">{t.nexusOmni.nexuspoint.noTags}</span>
+                      ) : (
+                        (itemTags as any[]).map((tag: any) => (
+                          <span key={tag.id} className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-[11px] font-medium px-2 py-0.5 rounded-full" data-testid={`tag-${tag.id}`}>
+                            <Tag className="h-2.5 w-2.5" />{tag.tag}
+                            <button onClick={() => removeTag(tag.id)} className="ml-0.5 hover:text-red-500 transition-colors" data-testid={`btn-remove-tag-${tag.id}`}><X className="h-2.5 w-2.5" /></button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <div className="relative flex-1">
+                        <Input
+                          value={tagInput}
+                          onChange={e => setTagInput(e.target.value)}
+                          placeholder={t.nexusOmni.nexuspoint.tagPlaceholder}
+                          className="h-7 text-xs pr-2"
+                          list="nexuspoint-tags-datalist"
+                          onKeyDown={e => { if (e.key === "Enter") addTag(); }}
+                          data-testid="input-tag"
+                        />
+                        <datalist id="nexuspoint-tags-datalist">
+                          {(allUserTags as string[]).map((t: string) => <option key={t} value={t} />)}
+                        </datalist>
+                      </div>
+                      <Button size="sm" className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shrink-0" onClick={addTag} disabled={!tagInput.trim()} data-testid="button-add-tag">
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {thumbnailUrl && (
+                    <div className="rounded-lg border overflow-hidden bg-muted/20 shadow-sm">
+                      <img src={thumbnailUrl} alt={detailItem.name} className="w-full h-auto max-h-[180px] object-contain" />
+                    </div>
+                  )}
+                  {previewUrl && (
+                    <Button variant="outline" size="sm" className="w-full text-xs gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => window.open(previewUrl, "_blank")} data-testid="button-open-preview">
+                      <Eye className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.preview}
+                    </Button>
+                  )}
+                  <div className="rounded-lg border bg-muted/10 overflow-hidden">
+                    {[
+                      { label: t.nexusOmni.nexuspoint.size, value: formatFileSize(detailItem.size || 0) },
+                      detailItem.lastModifiedDateTime ? { label: t.nexusOmni.nexuspoint.modified, value: format(new Date(detailItem.lastModifiedDateTime), "d.M.yyyy HH:mm") } : null,
+                      detailItem.lastModifiedBy?.user?.displayName ? { label: t.nexusOmni.nexuspoint.modifiedBy, value: detailItem.lastModifiedBy.user.displayName } : null,
+                      detailItem.createdDateTime ? { label: t.nexusOmni.nexuspoint.created, value: format(new Date(detailItem.createdDateTime), "d.M.yyyy HH:mm") } : null,
+                    ].filter(Boolean).map((row: any, i, arr) => (
+                      <div key={row.label} className={cn("flex items-center justify-between px-3 py-2 text-xs", i < arr.length - 1 && "border-b border-border/50")}>
+                        <span className="text-muted-foreground">{row.label}</span>
+                        <span className="font-medium truncate ml-3 max-w-[130px] text-right">{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1 text-xs gap-1.5" onClick={() => handleDownload(detailItem)} data-testid="button-detail-download"><Download className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.download}</Button>
+                    {detailItem.webUrl && (
+                      <Button variant="outline" size="sm" className="flex-1 text-xs gap-1.5" onClick={() => window.open(detailItem.webUrl, "_blank")} data-testid="button-detail-open"><ExternalLink className="h-3.5 w-3.5" />SP</Button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </ScrollArea>
         </div>

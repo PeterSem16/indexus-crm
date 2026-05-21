@@ -7521,6 +7521,30 @@ export type InsertScrapedContact = z.infer<typeof insertScrapedContactSchema>;
 // ============================================
 // NEXUSPOINT SETTINGS
 // ============================================
+export const nexuspointItemNotes = pgTable("nexuspoint_item_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  driveId: text("drive_id").notNull(),
+  itemId: text("item_id").notNull(),
+  note: text("note").notNull().default(""),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+export const insertNexuspointItemNoteSchema = createInsertSchema(nexuspointItemNotes).omit({ id: true, updatedAt: true });
+export type NexuspointItemNote = typeof nexuspointItemNotes.$inferSelect;
+export type InsertNexuspointItemNote = z.infer<typeof insertNexuspointItemNoteSchema>;
+
+export const nexuspointItemTags = pgTable("nexuspoint_item_tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  driveId: text("drive_id").notNull(),
+  itemId: text("item_id").notNull(),
+  tag: text("tag").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+export const insertNexuspointItemTagSchema = createInsertSchema(nexuspointItemTags).omit({ id: true, createdAt: true });
+export type NexuspointItemTag = typeof nexuspointItemTags.$inferSelect;
+export type InsertNexuspointItemTag = z.infer<typeof insertNexuspointItemTagSchema>;
+
 export const nexuspointSettings = pgTable("nexuspoint_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
