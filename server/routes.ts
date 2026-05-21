@@ -5216,6 +5216,35 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
         if (!tagsPerItem[t.itemId]) tagsPerItem[t.itemId] = [];
         tagsPerItem[t.itemId].push({ tag: t.tag, color: t.color || "#10b981" });
       }
+      // Enrich empty itemNames from Graph API
+      const missingName = rows.filter(r => !r.itemName);
+      if (missingName.length > 0) {
+        try {
+          const token = await getSharePointToken(req.params.userId, req.session.user);
+          if (token) {
+            const { createGraphClient } = await import("./lib/ms365");
+            const client = createGraphClient(token);
+            await Promise.all(missingName.map(async (r) => {
+              try {
+                const item = await client.api(`/drives/${r.driveId}/items/${r.itemId}`).select("id,name").get();
+                if (item?.name) {
+                  r.itemName = item.name;
+                  // Persist the name back to DB for future calls
+                  const { nexuspointItemTags } = await import("../shared/schema");
+                  const { eq, and } = await import("drizzle-orm");
+                  await db.update(nexuspointItemTags)
+                    .set({ itemName: item.name })
+                    .where(and(
+                      eq(nexuspointItemTags.userId, req.params.userId),
+                      eq(nexuspointItemTags.itemId, r.itemId),
+                      eq(nexuspointItemTags.driveId, r.driveId),
+                    ));
+                }
+              } catch { /* ignore per-item errors */ }
+            }));
+          }
+        } catch { /* ignore token errors */ }
+      }
       const result = rows.map(r => ({
         itemId: r.itemId,
         itemName: r.itemName || "",

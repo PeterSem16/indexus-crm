@@ -403,6 +403,13 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     enabled: !!userId && !!moveSiteId && moveOpen,
   });
 
+  // Auto-select first drive when site changes and drives load
+  useEffect(() => {
+    if (moveSiteDrives.length > 0 && moveSiteId && moveSiteId !== selectedSiteId && !moveDriveId) {
+      setMoveDriveId(moveSiteDrives[0].id);
+    }
+  }, [moveSiteDrives, moveSiteId]);
+
   const { data: versions = [], isLoading: versionsLoading, refetch: refetchVersions } = useQuery<any[]>({
     queryKey: ["/api/users", userId, "sharepoint", "drives", selectedDriveId, "items", detailItem?.id, "versions"],
     queryFn: async () => {
