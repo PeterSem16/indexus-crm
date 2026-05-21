@@ -587,6 +587,28 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             </div>
             <span className="text-white font-semibold text-sm tracking-wide">NexusPoint</span>
           </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="w-6 h-6 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                onClick={() => {
+                  const siteUrl = allSites[0]?.webUrl || sites[0]?.webUrl;
+                  if (siteUrl) {
+                    try {
+                      const tenantUrl = new URL(siteUrl).origin;
+                      window.open(`${tenantUrl}/_layouts/15/sharepoint.aspx`, '_blank');
+                    } catch { window.open('https://www.office.com/launch/sharepoint', '_blank'); }
+                  } else {
+                    window.open('https://www.office.com/launch/sharepoint', '_blank');
+                  }
+                }}
+                data-testid="button-nexuspoint-new-site"
+              >
+                <Plus className="h-3.5 w-3.5 text-white" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{np.newSite}</TooltipContent>
+          </Tooltip>
         </div>
 
         <ScrollArea className="flex-1 bg-background">
@@ -2502,6 +2524,12 @@ export default function EmailClientPage() {
     return saved === "true";
   });
 
+  const [saveNexusOpen, setSaveNexusOpen] = useState(false);
+  const [saveNexusAtt, setSaveNexusAtt] = useState<{ emailId: string; attId: string; attName: string; mailbox: string } | null>(null);
+  const [saveNexusSiteId, setSaveNexusSiteId] = useState<string>("");
+  const [saveNexusDriveId, setSaveNexusDriveId] = useState<string>("");
+  const [saveNexusSaving, setSaveNexusSaving] = useState(false);
+
   useEffect(() => {
     localStorage.setItem("nexus-sidebar-hidden", String(isSidebarHidden));
   }, [isSidebarHidden]);
@@ -2882,6 +2910,41 @@ export default function EmailClientPage() {
     setUrlParamsProcessed(true);
     window.history.replaceState({}, "", "/email");
   }, [searchString, urlParamsProcessed, effectiveMailbox]);
+
+  const { data: saveNexusNpSettings } = useQuery<any>({
+    queryKey: ["/api/users", user?.id, "nexuspoint-settings"],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${user?.id}/nexuspoint-settings`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+  const { data: saveNexusAllSites = [] } = useQuery<any[]>({
+    queryKey: ["/api/users", user?.id, "sharepoint", "sites"],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${user?.id}/sharepoint/sites`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+  const saveNexusSites = useMemo(() => {
+    const pinnedIds = [...(saveNexusNpSettings?.pinnedSiteIds || []), ...(saveNexusNpSettings?.globalPinnedSiteIds || [])].filter(Boolean);
+    const unique = [...new Set(pinnedIds)] as string[];
+    if (!unique.length) return saveNexusAllSites;
+    return saveNexusAllSites.filter((s: any) => unique.includes(s.id));
+  }, [saveNexusAllSites, saveNexusNpSettings]);
+  const { data: saveNexusDrives = [], isLoading: saveNexusDrivesLoading } = useQuery<any[]>({
+    queryKey: ["/api/users", user?.id, "sharepoint", "sites", saveNexusSiteId, "drives"],
+    queryFn: async () => {
+      if (!saveNexusSiteId || !user?.id) return [];
+      const res = await fetch(`/api/users/${user?.id}/sharepoint/sites/${saveNexusSiteId}/drives`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id && !!saveNexusSiteId,
+  });
 
   const { data: searchResults, isLoading: searchLoading } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
     queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox, searchDateFrom, searchDateTo],
@@ -3650,6 +3713,37 @@ export default function EmailClientPage() {
     a.href = url;
     a.download = fileName;
     a.click();
+  };
+
+  const saveAttachmentToNexusPoint = async () => {
+    if (!saveNexusAtt || !saveNexusDriveId || !user?.id) return;
+    setSaveNexusSaving(true);
+    try {
+      const url = `/api/users/${user.id}/ms365-email/${saveNexusAtt.emailId}/attachments/${saveNexusAtt.attId}?mailbox=${encodeURIComponent(saveNexusAtt.mailbox)}`;
+      const resp = await fetch(url, { credentials: "include" });
+      if (!resp.ok) throw new Error("fetch failed");
+      const blob = await resp.blob();
+      const reader = new FileReader();
+      const contentBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      await apiRequest("POST", `/api/users/${user.id}/sharepoint/drives/${saveNexusDriveId}/upload`, {
+        parentFolderId: null,
+        fileName: saveNexusAtt.attName,
+        contentBase64,
+      });
+      toast({ title: t.nexusOmni.nexuspoint.savedToNexusPoint });
+      setSaveNexusOpen(false);
+      setSaveNexusAtt(null);
+      setSaveNexusSiteId("");
+      setSaveNexusDriveId("");
+    } catch {
+      toast({ title: t.nexusOmni.nexuspoint.saveNexusError, variant: "destructive" });
+    } finally {
+      setSaveNexusSaving(false);
+    }
   };
 
   const processHtmlForImages = (html: string, emailId: string, attachmentsList?: any[]) => {
@@ -6606,6 +6700,54 @@ export default function EmailClientPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={saveNexusOpen} onOpenChange={(open) => { if (!open) { setSaveNexusOpen(false); setSaveNexusAtt(null); setSaveNexusSiteId(""); setSaveNexusDriveId(""); } }}>
+        <DialogContent className="max-w-sm" data-testid="save-nexus-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HardDrive className="h-4 w-4 text-emerald-600" />
+              {t.nexusOmni.nexuspoint.saveToNexusPoint}
+            </DialogTitle>
+            <DialogDescription className="truncate">{saveNexusAtt?.attName}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.sites}</label>
+              <Select value={saveNexusSiteId} onValueChange={(v) => { setSaveNexusSiteId(v); setSaveNexusDriveId(""); }}>
+                <SelectTrigger className="h-8 text-sm" data-testid="select-save-nexus-site">
+                  <SelectValue placeholder={t.nexusOmni.nexuspoint.selectSite} />
+                </SelectTrigger>
+                <SelectContent>
+                  {saveNexusSites.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>{s.displayName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.libraries}</label>
+              <Select value={saveNexusDriveId} onValueChange={setSaveNexusDriveId} disabled={!saveNexusSiteId || saveNexusDrivesLoading}>
+                <SelectTrigger className="h-8 text-sm" data-testid="select-save-nexus-drive">
+                  <SelectValue placeholder={saveNexusDrivesLoading ? t.nexusOmni.nexuspoint.loadingLibraries : t.nexusOmni.nexuspoint.selectLibrary} />
+                </SelectTrigger>
+                <SelectContent>
+                  {saveNexusDrives.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { setSaveNexusOpen(false); setSaveNexusAtt(null); setSaveNexusSiteId(""); setSaveNexusDriveId(""); }} data-testid="button-save-nexus-cancel">
+              {t.nexusOmni.common.cancel}
+            </Button>
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={saveAttachmentToNexusPoint} disabled={!saveNexusDriveId || saveNexusSaving} data-testid="button-save-to-nexus">
+              {saveNexusSaving ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />{t.nexusOmni.nexuspoint.uploading}</> : <><HardDrive className="h-3.5 w-3.5 mr-1" />{t.nexusOmni.nexuspoint.saveToNexusPoint}</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {sendProgress.active && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-4 fade-in duration-300" data-testid="send-progress-overlay">
           <div className="bg-background/95 backdrop-blur-md border shadow-2xl rounded-xl px-6 py-4 min-w-[320px] max-w-[400px]">
@@ -7088,25 +7230,30 @@ export default function EmailClientPage() {
                 const isImg = att.contentType?.startsWith("image/");
                 const thumbUrl = isImg ? `/api/users/${user?.id}/ms365-email/${emailDetail.id}/attachments/${att.id}?mailbox=${encodeURIComponent(emailDetailMailbox)}` : null;
                 return (
-                  <button
-                    key={att.id}
-                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-xs"
-                    onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)}
-                    data-testid={`attachment-download-${att.id}`}
-                  >
-                    {isImg && thumbUrl ? (
-                      <img src={thumbUrl} alt={att.name} className="h-8 w-8 rounded object-cover shrink-0" />
-                    ) : (
-                      <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
-                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                  <div key={att.id} className="group relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-xs">
+                    <button className="flex items-center gap-2 min-w-0 text-left" onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)} data-testid={`attachment-download-${att.id}`}>
+                      {isImg && thumbUrl ? (
+                        <img src={thumbUrl} alt={att.name} className="h-8 w-8 rounded object-cover shrink-0" />
+                      ) : (
+                        <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0 text-left">
+                        <p className="text-xs font-medium truncate max-w-28">{att.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatFileSize(att.size)}</p>
                       </div>
-                    )}
-                    <div className="min-w-0 text-left">
-                      <p className="text-xs font-medium truncate max-w-32">{att.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{formatFileSize(att.size)}</p>
-                    </div>
-                    <Download className="h-3 w-3 text-muted-foreground shrink-0" />
-                  </button>
+                      <Download className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors shrink-0 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); setSaveNexusAtt({ emailId: emailDetail.id, attId: att.id, attName: att.name, mailbox: emailDetailMailbox }); setSaveNexusSiteId(""); setSaveNexusDriveId(""); setSaveNexusOpen(true); }} data-testid={`attachment-save-nexus-${att.id}`}>
+                          <HardDrive className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">{t.nexusOmni.nexuspoint.saveToNexusPoint}</TooltipContent>
+                    </Tooltip>
+                  </div>
                 );
               })}
             </div>
@@ -7350,25 +7497,30 @@ export default function EmailClientPage() {
                   const isImg = att.contentType?.startsWith("image/");
                   const thumbUrl = isImg ? `/api/users/${user?.id}/ms365-email/${emailDetail.id}/attachments/${att.id}?mailbox=${encodeURIComponent(emailDetailMailbox)}` : null;
                   return (
-                    <button
-                      key={att.id}
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-xs"
-                      onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)}
-                      data-testid={`attachment-download-${att.id}`}
-                    >
-                      {isImg && thumbUrl ? (
-                        <img src={thumbUrl} alt={att.name} className="h-8 w-8 rounded object-cover shrink-0" />
-                      ) : (
-                        <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div key={att.id} className="group relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-xs">
+                      <button className="flex items-center gap-2 min-w-0 text-left" onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)} data-testid={`attachment-download-${att.id}`}>
+                        {isImg && thumbUrl ? (
+                          <img src={thumbUrl} alt={att.name} className="h-8 w-8 rounded object-cover shrink-0" />
+                        ) : (
+                          <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0 text-left">
+                          <p className="text-xs font-medium truncate max-w-28">{att.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{formatFileSize(att.size)}</p>
                         </div>
-                      )}
-                      <div className="min-w-0 text-left">
-                        <p className="text-xs font-medium truncate max-w-32">{att.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{formatFileSize(att.size)}</p>
-                      </div>
-                      <Download className="h-3 w-3 text-muted-foreground shrink-0" />
-                    </button>
+                        <Download className="h-3 w-3 text-muted-foreground shrink-0" />
+                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors shrink-0 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); setSaveNexusAtt({ emailId: emailDetail.id, attId: att.id, attName: att.name, mailbox: emailDetailMailbox }); setSaveNexusSiteId(""); setSaveNexusDriveId(""); setSaveNexusOpen(true); }} data-testid={`attachment-save-nexus-${att.id}`}>
+                            <HardDrive className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">{t.nexusOmni.nexuspoint.saveToNexusPoint}</TooltipContent>
+                      </Tooltip>
+                    </div>
                   );
                 })}
               </div>
@@ -7908,25 +8060,30 @@ export default function EmailClientPage() {
                   const isImg = att.contentType?.startsWith("image/");
                   const thumbUrl = isImg ? `/api/users/${user?.id}/ms365-email/${detail.id}/attachments/${att.id}?mailbox=${encodeURIComponent(emailDetailMailbox)}` : null;
                   return (
-                    <button
-                      key={att.id}
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-xs"
-                      onClick={() => downloadAttachment(detail.id, att.id, att.name)}
-                      data-testid={`modal-attachment-${att.id}`}
-                    >
-                      {isImg && thumbUrl ? (
-                        <img src={thumbUrl} alt={att.name} className="h-8 w-8 rounded object-cover shrink-0" />
-                      ) : (
-                        <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div key={att.id} className="group relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-xs">
+                      <button className="flex items-center gap-2 min-w-0 text-left" onClick={() => downloadAttachment(detail.id, att.id, att.name)} data-testid={`modal-attachment-${att.id}`}>
+                        {isImg && thumbUrl ? (
+                          <img src={thumbUrl} alt={att.name} className="h-8 w-8 rounded object-cover shrink-0" />
+                        ) : (
+                          <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0 text-left">
+                          <p className="text-xs font-medium truncate max-w-28">{att.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{formatFileSize(att.size)}</p>
                         </div>
-                      )}
-                      <div className="min-w-0 text-left">
-                        <p className="text-xs font-medium truncate max-w-32">{att.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{formatFileSize(att.size)}</p>
-                      </div>
-                      <Download className="h-3 w-3 text-muted-foreground shrink-0" />
-                    </button>
+                        <Download className="h-3 w-3 text-muted-foreground shrink-0" />
+                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors shrink-0 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); setSaveNexusAtt({ emailId: detail.id, attId: att.id, attName: att.name, mailbox: emailDetailMailbox }); setSaveNexusSiteId(""); setSaveNexusDriveId(""); setSaveNexusOpen(true); }} data-testid={`modal-attachment-save-nexus-${att.id}`}>
+                            <HardDrive className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">{t.nexusOmni.nexuspoint.saveToNexusPoint}</TooltipContent>
+                      </Tooltip>
+                    </div>
                   );
                 })}
               </div>
