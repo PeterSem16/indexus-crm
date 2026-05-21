@@ -644,14 +644,14 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             ) : (
               sites.map((site: any) => (
                 <div key={site.id}>
+                  <div className="group relative mx-1.5" style={{ width: "calc(100% - 12px)" }}>
                   <button
                     className={cn(
-                      "text-left px-2.5 py-2 flex items-center gap-2 transition-all text-sm mx-1.5 rounded-lg",
+                      "w-full text-left px-2.5 py-2 flex items-center gap-2 transition-all text-sm rounded-lg pr-8",
                       selectedSiteId === site.id
                         ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-medium"
                         : "text-foreground hover:bg-muted/60"
                     )}
-                    style={{ width: "calc(100% - 12px)" }}
                     onClick={() => {
                       if (selectedSiteId !== site.id) {
                         setSelectedSiteId(site.id);
@@ -669,6 +669,21 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                     </div>
                     <span className="truncate">{site.displayName}</span>
                   </button>
+                  {site.webUrl && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-muted-foreground hover:text-emerald-700 dark:hover:text-emerald-400"
+                          onClick={(e) => { e.stopPropagation(); window.open(site.webUrl, "_blank"); }}
+                          data-testid={`nexuspoint-site-open-${site.id}`}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">{t.nexusOmni.nexuspoint.openInBrowser}</TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
                   {selectedSiteId === site.id && (
                     <div className="mb-1">
                       {drivesLoading ? (
