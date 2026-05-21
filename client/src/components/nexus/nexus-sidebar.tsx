@@ -520,6 +520,36 @@ export default function NexusSidebar({
             </>
           )}
 
+          {activeTab === "nexuspoint" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="p-2 rounded-md bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all"
+                  onClick={onToggleCollapse}
+                  data-testid="nexuspoint-collapsed-icon"
+                >
+                  <HardDrive className="h-5 w-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">{t.nexusOmni.tabs.nexuspoint}</TooltipContent>
+            </Tooltip>
+          )}
+
+          {activeTab === "training-room" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="p-2 rounded-md text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-all"
+                  onClick={onToggleCollapse}
+                  data-testid="training-room-collapsed-icon"
+                >
+                  <Languages className="h-5 w-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">Training Room</TooltipContent>
+            </Tooltip>
+          )}
+
           {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
             <div className="mt-auto pt-2 border-t flex flex-col items-center gap-1">
               {mailboxes.length > 1 && (
