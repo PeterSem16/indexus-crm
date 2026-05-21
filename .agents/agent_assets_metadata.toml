@@ -102,3 +102,9 @@ id = "WMuZyY1NMN-qDzH4EShoc"
 uri = "file://docs/INDEXUS_CRM_User_Manual_EN.docx"
 type = "word_document"
 title = "INDEXUS CRM — User Manual EN (Word)"
+
+[[outputs]]
+id = "Mu2LMHhY44KMfL3--00nn"
+uri = "file://docs/NEXUSPOINT_SharePoint_Analysis_EN.docx"
+type = "word_document"
+title = "NexusPoint — SharePoint Analysis & Roadmap"
