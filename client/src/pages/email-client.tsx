@@ -3864,6 +3864,7 @@ export default function EmailClientPage() {
         contentBase64,
       });
       toast({ title: t.nexusOmni.nexuspoint.savedToNexusPoint });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "sharepoint", "drives", saveNexusDriveId, "items"] });
       setSaveNexusOpen(false);
       setSaveNexusAtt(null);
       setSaveNexusSiteId("");
