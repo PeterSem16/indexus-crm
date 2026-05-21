@@ -4885,12 +4885,27 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
       const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { moveSharePointItem } = await import("./lib/ms365");
-      const { targetFolderId } = req.body;
-      const result = await moveSharePointItem(token, req.params.driveId, req.params.itemId, targetFolderId || null);
+      const { targetFolderId, targetDriveId } = req.body;
+      const result = await moveSharePointItem(token, req.params.driveId, req.params.itemId, targetFolderId || null, targetDriveId || null);
       res.json(result);
     } catch (error) {
       console.error("[SharePoint] Error moving item:", error);
       res.status(500).json({ error: "Failed to move item" });
+    }
+  });
+
+  app.get("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/info", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId, req.session.user);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { createGraphClient } = await import("./lib/ms365");
+      const client = createGraphClient(token);
+      const item = await client.api(`/drives/${req.params.driveId}/items/${req.params.itemId}`)
+        .select("id,name,size,lastModifiedDateTime,file,folder,webUrl,parentReference")
+        .get();
+      res.json(item);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get item info" });
     }
   });
 
@@ -5121,13 +5136,13 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
 
   app.post("/api/users/:userId/nexuspoint/tags", requireAuth, async (req, res) => {
     try {
-      const { driveId, itemId, itemName, tag } = req.body;
+      const { driveId, itemId, itemName, tag, color } = req.body;
       if (!driveId || !itemId || !tag) return res.status(400).json({ error: "driveId, itemId and tag required" });
       const { nexuspointItemTags } = await import("../shared/schema");
       const { eq, and } = await import("drizzle-orm");
       const [existing] = await db.select().from(nexuspointItemTags).where(and(eq(nexuspointItemTags.userId, req.params.userId), eq(nexuspointItemTags.driveId, driveId), eq(nexuspointItemTags.itemId, itemId), eq(nexuspointItemTags.tag, tag.trim())));
       if (existing) return res.json(existing);
-      const [row] = await db.insert(nexuspointItemTags).values({ userId: req.params.userId, driveId, itemId, itemName: itemName || "", tag: tag.trim() }).returning();
+      const [row] = await db.insert(nexuspointItemTags).values({ userId: req.params.userId, driveId, itemId, itemName: itemName || "", tag: tag.trim(), ...(color ? { color } : {}) }).returning();
       res.json(row);
     } catch { res.status(500).json({ error: "Failed" }); }
   });

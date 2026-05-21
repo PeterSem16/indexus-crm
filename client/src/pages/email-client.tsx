@@ -295,6 +295,8 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [moveItem, setMoveItem] = useState<any | null>(null);
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveFolderStack, setMoveFolderStack] = useState<{ id: string; name: string }[]>([]);
+  const [moveSiteId, setMoveSiteId] = useState<string | null>(null);
+  const [moveDriveId, setMoveDriveId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
@@ -374,19 +376,31 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   });
 
   const moveCurrentFolderId = moveFolderStack.length > 0 ? moveFolderStack[moveFolderStack.length - 1].id : undefined;
+  const effectiveMoveDriveId = moveDriveId || selectedDriveId;
   const { data: moveFolderItems = [], isLoading: moveFolderLoading } = useQuery<any[]>({
-    queryKey: ["/api/users", userId, "sharepoint", "drives", selectedDriveId, "move-items", moveCurrentFolderId],
+    queryKey: ["/api/users", userId, "sharepoint", "drives", effectiveMoveDriveId, "move-items", moveCurrentFolderId],
     queryFn: async () => {
+      if (!effectiveMoveDriveId) return [];
       const url = moveCurrentFolderId
-        ? `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items?folderId=${moveCurrentFolderId}`
-        : `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items`;
+        ? `/api/users/${userId}/sharepoint/drives/${effectiveMoveDriveId}/items?folderId=${moveCurrentFolderId}`
+        : `/api/users/${userId}/sharepoint/drives/${effectiveMoveDriveId}/items`;
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) return [];
       const all = await res.json();
       return all.filter((i: any) => i.folder);
     },
-    enabled: !!userId && !!selectedDriveId && moveOpen,
+    enabled: !!userId && !!effectiveMoveDriveId && moveOpen,
     staleTime: 0,
+  });
+
+  const { data: moveSiteDrives = [] } = useQuery<any[]>({
+    queryKey: ["/api/users", userId, "sharepoint", "sites", moveSiteId, "drives"],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/sharepoint/sites/${moveSiteId}/drives`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!userId && !!moveSiteId && moveOpen,
   });
 
   const { data: versions = [], isLoading: versionsLoading, refetch: refetchVersions } = useQuery<any[]>({
@@ -535,8 +549,15 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const addTag = async (overrideTag?: string) => {
     const tagToAdd = (overrideTag ?? tagInput).trim();
     if (!tagToAdd || !userId || !selectedDriveId || !detailItem?.id) return;
+    const existingColor = allUserTags.find(t => t.tag === tagToAdd)?.color;
     try {
-      await apiRequest("POST", `/api/users/${userId}/nexuspoint/tags`, { driveId: selectedDriveId, itemId: detailItem.id, itemName: detailItem.name || "", tag: tagToAdd });
+      await apiRequest("POST", `/api/users/${userId}/nexuspoint/tags`, {
+        driveId: selectedDriveId,
+        itemId: detailItem.id,
+        itemName: detailItem.name || "",
+        tag: tagToAdd,
+        ...(existingColor ? { color: existingColor } : {}),
+      });
       if (!overrideTag) setTagInput("");
       refetchTags();
       refetchDriveTags();
@@ -620,8 +641,8 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   });
 
   const moveMutation = useMutation({
-    mutationFn: async ({ itemId, targetFolderId }: { itemId: string; targetFolderId: string | null }) => {
-      return apiRequest("PATCH", `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items/${itemId}/move`, { targetFolderId });
+    mutationFn: async ({ itemId, targetFolderId, targetDriveId }: { itemId: string; targetFolderId: string | null; targetDriveId?: string | null }) => {
+      return apiRequest("PATCH", `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items/${itemId}/move`, { targetFolderId, targetDriveId: targetDriveId || null });
     },
     onSuccess: () => {
       toast({ title: t.nexusOmni.nexuspoint.moveSuccess });
@@ -629,6 +650,8 @@ function NexusPointPanel({ userId }: { userId?: string }) {
       setMoveOpen(false);
       setMoveItem(null);
       setMoveFolderStack([]);
+      setMoveSiteId(null);
+      setMoveDriveId(null);
     },
     onError: () => {
       toast({ title: t.nexusOmni.nexuspoint.moveError, variant: "destructive" });
@@ -1111,18 +1134,30 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                       {globalTagResults.map((item) => (
                         <div
                           key={item.itemId}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors cursor-default"
+                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors cursor-pointer group"
                           data-testid={`global-tag-result-${item.itemId}`}
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/users/${userId}/sharepoint/drives/${item.driveId}/items/${item.itemId}/info`, { credentials: "include" });
+                              if (res.ok) {
+                                const data = await res.json();
+                                if (data.webUrl) window.open(data.webUrl, "_blank");
+                              }
+                            } catch { /* ignore */ }
+                          }}
                         >
                           {getFileIcon(item.itemName, false)}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm truncate font-medium">{item.itemName || item.itemId}</p>
+                            <p className="text-sm truncate font-medium group-hover:text-emerald-600 transition-colors">
+                              {item.itemName || <span className="text-muted-foreground italic text-xs">Neznámy súbor (klik pre otvorenie)</span>}
+                            </p>
                             <div className="flex flex-wrap gap-1 mt-0.5">
                               {item.tags.map(({ tag, color }) => (
                                 <span key={tag} className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium text-white" style={{ backgroundColor: color }}>{tag}</span>
                               ))}
                             </div>
                           </div>
+                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-60 shrink-0" />
                         </div>
                       ))}
                     </div>
@@ -1552,8 +1587,8 @@ function NexusPointPanel({ userId }: { userId?: string }) {
       </Dialog>
 
       {/* ── MOVE DIALOG ── */}
-      <Dialog open={moveOpen} onOpenChange={(open) => { setMoveOpen(open); if (!open) { setMoveItem(null); setMoveFolderStack([]); } }}>
-        <DialogContent className="sm:max-w-[420px]">
+      <Dialog open={moveOpen} onOpenChange={(open) => { setMoveOpen(open); if (!open) { setMoveItem(null); setMoveFolderStack([]); setMoveSiteId(null); setMoveDriveId(null); } }}>
+        <DialogContent className="sm:max-w-[460px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FolderInput className="h-4 w-4 text-orange-500" />
@@ -1561,8 +1596,41 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
+            {/* Destination site + drive selector */}
+            <div className="rounded-md border bg-muted/10 p-2.5 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Cieľové umiestnenie</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">Web (site)</label>
+                  <select
+                    className="w-full rounded border bg-background text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                    value={moveSiteId || selectedSiteId || ""}
+                    onChange={(e) => { setMoveSiteId(e.target.value); setMoveDriveId(null); setMoveFolderStack([]); }}
+                    data-testid="select-move-site"
+                  >
+                    {allSites.map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.displayName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">Knižnica (drive)</label>
+                  <select
+                    className="w-full rounded border bg-background text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                    value={moveDriveId || selectedDriveId || ""}
+                    onChange={(e) => { setMoveDriveId(e.target.value); setMoveFolderStack([]); }}
+                    data-testid="select-move-drive"
+                  >
+                    {(moveSiteId && moveSiteId !== selectedSiteId ? moveSiteDrives : drives).map((d: any) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            {/* Folder breadcrumb */}
             {moveFolderStack.length > 0 && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap mb-1">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
                 <button className="hover:text-foreground" onClick={() => setMoveFolderStack([])}>{t.nexusOmni.nexuspoint.backToRoot}</button>
                 {moveFolderStack.map((f, i) => (
                   <span key={f.id} className="flex items-center gap-1">
@@ -1572,7 +1640,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                 ))}
               </div>
             )}
-            <div className="rounded-md border bg-muted/5 max-h-56 overflow-y-auto">
+            <div className="rounded-md border bg-muted/5 max-h-52 overflow-y-auto">
               {moveFolderLoading ? (
                 <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{t.nexusOmni.nexuspoint.searching}</div>
               ) : moveFolderItems.length === 0 ? (
@@ -1588,8 +1656,8 @@ function NexusPointPanel({ userId }: { userId?: string }) {
               )}
             </div>
             <div className="flex justify-between items-center pt-1 gap-2">
-              <Button variant="outline" size="sm" onClick={() => { setMoveOpen(false); setMoveItem(null); setMoveFolderStack([]); }} data-testid="button-move-cancel">{t.nexusOmni.common.cancel}</Button>
-              <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => moveItem && moveMutation.mutate({ itemId: moveItem.id, targetFolderId: moveCurrentFolderId ?? null })} disabled={moveMutation.isPending} data-testid="button-move-confirm">
+              <Button variant="outline" size="sm" onClick={() => { setMoveOpen(false); setMoveItem(null); setMoveFolderStack([]); setMoveSiteId(null); setMoveDriveId(null); }} data-testid="button-move-cancel">{t.nexusOmni.common.cancel}</Button>
+              <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => moveItem && moveMutation.mutate({ itemId: moveItem.id, targetFolderId: moveCurrentFolderId ?? null, targetDriveId: effectiveMoveDriveId !== selectedDriveId ? effectiveMoveDriveId : null })} disabled={moveMutation.isPending} data-testid="button-move-confirm">
                 {moveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderInput className="h-3.5 w-3.5" />}
                 {t.nexusOmni.nexuspoint.moveToFolder}
               </Button>

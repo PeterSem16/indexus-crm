@@ -1583,12 +1583,13 @@ export async function getSharePointSites(accessToken: string): Promise<any[]> {
   }
 }
 
-export async function moveSharePointItem(accessToken: string, driveId: string, itemId: string, targetFolderId: string | null): Promise<any> {
+export async function moveSharePointItem(accessToken: string, driveId: string, itemId: string, targetFolderId: string | null, targetDriveId?: string | null): Promise<any> {
   const client = createGraphClient(accessToken);
+  const destDriveId = targetDriveId || driveId;
   const body: any = {
     parentReference: targetFolderId
-      ? { id: targetFolderId }
-      : { path: `/drives/${driveId}/root` }
+      ? { driveId: destDriveId, id: targetFolderId }
+      : { driveId: destDriveId, path: `/drives/${destDriveId}/root` }
   };
   return await client.api(`/drives/${driveId}/items/${itemId}`).patch(body);
 }
