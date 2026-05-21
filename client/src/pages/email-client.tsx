@@ -381,6 +381,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
       return all.filter((i: any) => i.folder);
     },
     enabled: !!userId && !!selectedDriveId && moveOpen,
+    staleTime: 0,
   });
 
   const { data: versions = [], isLoading: versionsLoading, refetch: refetchVersions } = useQuery<any[]>({
@@ -708,7 +709,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const sortedItems = [...folders, ...filesList];
   const baseItems = searchResults !== null ? searchResults : sortedItems;
   const displayItems = nexusTagFilter
-    ? baseItems.filter((i: any) => driveTagsMap[i.id]?.includes(nexusTagFilter))
+    ? baseItems.filter((i: any) => driveTagsMap[i.id]?.some(({ tag }) => tag === nexusTagFilter))
     : baseItems;
   const selectedSite = sites.find((s: any) => s.id === selectedSiteId) || allSites.find((s: any) => s.id === selectedSiteId);
   const selectedSiteName = selectedSite?.displayName;
@@ -1095,6 +1096,9 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                                 <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-emerald-600" onClick={(e) => { e.stopPropagation(); setShareItem(item); setShareDialogOpen(true); }} data-testid={`button-share-${item.id}`}><Share2 className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.share}</TooltipContent></Tooltip>
                               </>
                             )}
+                            {isFolder && (
+                              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-emerald-600" onClick={(e) => { e.stopPropagation(); setDetailItem(item); setDetailTab("notes"); setNoteText(""); }} data-testid={`button-tag-folder-${item.id}`}><Tag className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.notesAndTags}</TooltipContent></Tooltip>
+                            )}
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-orange-500" onClick={(e) => { e.stopPropagation(); setMoveItem(item); setMoveFolderStack([]); setMoveOpen(true); }} data-testid={`button-move-${item.id}`}><FolderInput className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.move}</TooltipContent></Tooltip>
                             {item.webUrl && (
                               <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-blue-600" onClick={(e) => { e.stopPropagation(); window.open(item.webUrl, "_blank"); }} data-testid={`button-open-${item.id}`}><ExternalLink className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.openInBrowser}</TooltipContent></Tooltip>
@@ -1113,22 +1117,22 @@ function NexusPointPanel({ userId }: { userId?: string }) {
       </div>
 
       {/* ── DETAIL PANEL ── */}
-      {detailItem && !detailItem.folder && (
+      {detailItem && (
         <div className="w-[290px] shrink-0 flex flex-col rounded-xl overflow-hidden border border-border shadow-sm bg-card min-h-0">
           <div className="shrink-0 px-4 py-3 border-b bg-muted/20">
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex items-center gap-2 min-w-0">
-                {getFileIcon(detailItem.name, false)}
+                {getFileIcon(detailItem.name, !!detailItem.folder)}
                 <span className="text-sm font-semibold truncate">{detailItem.name}</span>
               </div>
               <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => setDetailItem(null)} data-testid="button-close-detail"><X className="h-3.5 w-3.5" /></Button>
             </div>
             <div className="flex items-center gap-1">
               {([
-                { id: "info", icon: Info, label: t.nexusOmni.nexuspoint.preview },
+                ...(!detailItem.folder ? [{ id: "info", icon: Info, label: t.nexusOmni.nexuspoint.preview }] : []),
                 { id: "notes", icon: Tag, label: t.nexusOmni.nexuspoint.notesAndTags },
-                { id: "versions", icon: History, label: t.nexusOmni.nexuspoint.versions },
-                { id: "sharing", icon: Share2, label: t.nexusOmni.nexuspoint.share },
+                ...(!detailItem.folder ? [{ id: "versions", icon: History, label: t.nexusOmni.nexuspoint.versions }] : []),
+                ...(!detailItem.folder ? [{ id: "sharing", icon: Share2, label: t.nexusOmni.nexuspoint.share }] : []),
               ] as { id: "info" | "notes" | "versions" | "sharing"; icon: any; label: string }[]).map(({ id, icon: Icon, label }) => (
                 <button
                   key={id}
