@@ -4025,7 +4025,7 @@ export default function EmailClientPage() {
   const saveNexusCreateFolder = async () => {
     if (!saveNexusNewFolderName.trim() || !saveNexusDriveId || !user?.id) return;
     try {
-      await apiRequest("POST", `/api/users/${user.id}/sharepoint/drives/${saveNexusDriveId}/folders`, {
+      await apiRequest("POST", `/api/users/${user.id}/sharepoint/drives/${saveNexusDriveId}/folder`, {
         parentFolderId: saveNexusFolderId ?? null,
         name: saveNexusNewFolderName.trim(),
       });
