@@ -713,10 +713,20 @@ function NexusPointPanel({ userId }: { userId?: string }) {
 
   const handleDownload = async (item: any) => {
     try {
-      const res = await fetch(`/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items/${item.id}/download`, { credentials: "include" });
+      const driveId = item?.parentReference?.driveId || selectedDriveId;
+      const res = await fetch(`/api/users/${userId}/sharepoint/drives/${driveId}/items/${item.id}/download`, { credentials: "include" });
       const data = await res.json();
       if (data.downloadUrl) {
-        window.open(data.downloadUrl, "_blank");
+        const a = document.createElement("a");
+        a.href = data.downloadUrl;
+        a.download = item.name || "download";
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        toast({ title: "Súbor sa nedá stiahnuť", variant: "destructive" });
       }
     } catch {
       toast({ title: t.nexusOmni.nexuspoint.uploadError, variant: "destructive" });
