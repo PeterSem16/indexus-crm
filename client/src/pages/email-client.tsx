@@ -587,28 +587,42 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             </div>
             <span className="text-white font-semibold text-sm tracking-wide">NexusPoint</span>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="w-6 h-6 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
-                onClick={() => {
-                  const siteUrl = allSites[0]?.webUrl || sites[0]?.webUrl;
-                  if (siteUrl) {
-                    try {
-                      const tenantUrl = new URL(siteUrl).origin;
-                      window.open(`${tenantUrl}/_layouts/15/sharepoint.aspx`, '_blank');
-                    } catch { window.open('https://www.office.com/launch/sharepoint', '_blank'); }
-                  } else {
-                    window.open('https://www.office.com/launch/sharepoint', '_blank');
-                  }
-                }}
-                data-testid="button-nexuspoint-new-site"
-              >
-                <Plus className="h-3.5 w-3.5 text-white" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{t.nexusOmni.nexuspoint.newSite}</TooltipContent>
-          </Tooltip>
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="w-6 h-6 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                  onClick={() => { refetchItems(); refetchSettings(); }}
+                  data-testid="button-nexuspoint-refresh"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-white" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{t.nexusOmni.common.refresh}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="w-6 h-6 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                  onClick={() => {
+                    const siteUrl = allSites[0]?.webUrl || sites[0]?.webUrl;
+                    if (siteUrl) {
+                      try {
+                        const tenantUrl = new URL(siteUrl).origin;
+                        window.open(`${tenantUrl}/_layouts/15/sharepoint.aspx`, '_blank');
+                      } catch { window.open('https://www.office.com/launch/sharepoint', '_blank'); }
+                    } else {
+                      window.open('https://www.office.com/launch/sharepoint', '_blank');
+                    }
+                  }}
+                  data-testid="button-nexuspoint-new-site"
+                >
+                  <Plus className="h-3.5 w-3.5 text-white" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{t.nexusOmni.nexuspoint.newSite}</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         <ScrollArea className="flex-1 bg-background">
@@ -2529,6 +2543,8 @@ export default function EmailClientPage() {
   const [saveNexusSiteId, setSaveNexusSiteId] = useState<string>("");
   const [saveNexusDriveId, setSaveNexusDriveId] = useState<string>("");
   const [saveNexusSaving, setSaveNexusSaving] = useState(false);
+  const [saveNexusFolderStack, setSaveNexusFolderStack] = useState<{ id: string; name: string }[]>([]);
+  const saveNexusFolderId = saveNexusFolderStack.length > 0 ? saveNexusFolderStack[saveNexusFolderStack.length - 1].id : undefined;
 
   useEffect(() => {
     localStorage.setItem("nexus-sidebar-hidden", String(isSidebarHidden));
@@ -2945,6 +2961,18 @@ export default function EmailClientPage() {
     },
     enabled: !!user?.id && !!saveNexusSiteId,
   });
+  const { data: saveNexusFolderItems = [], isLoading: saveNexusFolderItemsLoading } = useQuery<any[]>({
+    queryKey: ["/api/users", user?.id, "sharepoint", "drives", saveNexusDriveId, "items", saveNexusFolderId ?? "root"],
+    queryFn: async () => {
+      if (!user?.id || !saveNexusDriveId) return [];
+      const params = saveNexusFolderId ? `?folderId=${saveNexusFolderId}` : '';
+      const res = await fetch(`/api/users/${user.id}/sharepoint/drives/${saveNexusDriveId}/items${params}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id && !!saveNexusDriveId,
+  });
+  const saveNexusSubfolders = saveNexusFolderItems.filter((item: any) => item.folder);
 
   const { data: searchResults, isLoading: searchLoading } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
     queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox, searchDateFrom, searchDateTo],
@@ -3730,7 +3758,7 @@ export default function EmailClientPage() {
         reader.readAsDataURL(blob);
       });
       await apiRequest("POST", `/api/users/${user.id}/sharepoint/drives/${saveNexusDriveId}/upload`, {
-        parentFolderId: null,
+        parentFolderId: saveNexusFolderId ?? null,
         fileName: saveNexusAtt.attName,
         contentBase64,
       });
@@ -3739,6 +3767,7 @@ export default function EmailClientPage() {
       setSaveNexusAtt(null);
       setSaveNexusSiteId("");
       setSaveNexusDriveId("");
+      setSaveNexusFolderStack([]);
     } catch {
       toast({ title: t.nexusOmni.nexuspoint.saveNexusError, variant: "destructive" });
     } finally {
@@ -6700,7 +6729,7 @@ export default function EmailClientPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={saveNexusOpen} onOpenChange={(open) => { if (!open) { setSaveNexusOpen(false); setSaveNexusAtt(null); setSaveNexusSiteId(""); setSaveNexusDriveId(""); } }}>
+      <Dialog open={saveNexusOpen} onOpenChange={(open) => { if (!open) { setSaveNexusOpen(false); setSaveNexusAtt(null); setSaveNexusSiteId(""); setSaveNexusDriveId(""); setSaveNexusFolderStack([]); } }}>
         <DialogContent className="max-w-sm" data-testid="save-nexus-dialog">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -6712,7 +6741,7 @@ export default function EmailClientPage() {
           <div className="space-y-3 py-2">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.sites}</label>
-              <Select value={saveNexusSiteId} onValueChange={(v) => { setSaveNexusSiteId(v); setSaveNexusDriveId(""); }}>
+              <Select value={saveNexusSiteId} onValueChange={(v) => { setSaveNexusSiteId(v); setSaveNexusDriveId(""); setSaveNexusFolderStack([]); }}>
                 <SelectTrigger className="h-8 text-sm" data-testid="select-save-nexus-site">
                   <SelectValue placeholder={t.nexusOmni.nexuspoint.selectSite} />
                 </SelectTrigger>
@@ -6725,7 +6754,7 @@ export default function EmailClientPage() {
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.libraries}</label>
-              <Select value={saveNexusDriveId} onValueChange={setSaveNexusDriveId} disabled={!saveNexusSiteId || saveNexusDrivesLoading}>
+              <Select value={saveNexusDriveId} onValueChange={(v) => { setSaveNexusDriveId(v); setSaveNexusFolderStack([]); }} disabled={!saveNexusSiteId || saveNexusDrivesLoading}>
                 <SelectTrigger className="h-8 text-sm" data-testid="select-save-nexus-drive">
                   <SelectValue placeholder={saveNexusDrivesLoading ? t.nexusOmni.nexuspoint.loadingLibraries : t.nexusOmni.nexuspoint.selectLibrary} />
                 </SelectTrigger>
@@ -6736,9 +6765,47 @@ export default function EmailClientPage() {
                 </SelectContent>
               </Select>
             </div>
+            {saveNexusDriveId && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">{t.nexusOmni.nexuspoint.folders}</label>
+                <div className="border rounded-md overflow-hidden">
+                  {/* Breadcrumb */}
+                  <div className="flex items-center gap-1 px-2 py-1.5 bg-muted/40 border-b text-xs flex-wrap">
+                    <button className="hover:text-emerald-600 transition-colors flex items-center gap-1" onClick={() => setSaveNexusFolderStack([])} data-testid="btn-nexus-folder-root">
+                      <FolderOpen className="h-3 w-3" /><span>Root</span>
+                    </button>
+                    {saveNexusFolderStack.map((f, i) => (
+                      <span key={f.id} className="flex items-center gap-1">
+                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                        <button className="hover:text-emerald-600 transition-colors truncate max-w-[80px]" onClick={() => setSaveNexusFolderStack(prev => prev.slice(0, i + 1))} data-testid={`btn-nexus-breadcrumb-${i}`}>{f.name}</button>
+                      </span>
+                    ))}
+                  </div>
+                  {/* Folder list */}
+                  <div className="max-h-[140px] overflow-y-auto">
+                    {saveNexusFolderItemsLoading ? (
+                      <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-emerald-500" /></div>
+                    ) : saveNexusSubfolders.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-3">{t.nexusOmni.nexuspoint.noFiles}</p>
+                    ) : (
+                      saveNexusSubfolders.map((folder: any) => (
+                        <button key={folder.id} className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-muted/60 text-sm text-left transition-colors" onClick={() => setSaveNexusFolderStack(prev => [...prev, { id: folder.id, name: folder.name }])} data-testid={`btn-nexus-folder-${folder.id}`}>
+                          <FolderOpen className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                          <span className="truncate">{folder.name}</span>
+                          <ChevronRight className="h-3 w-3 text-muted-foreground ml-auto shrink-0" />
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {t.nexusOmni.nexuspoint.selectDestination}: <span className="font-medium text-foreground">/{saveNexusFolderStack.map(f => f.name).join('/')}</span>
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => { setSaveNexusOpen(false); setSaveNexusAtt(null); setSaveNexusSiteId(""); setSaveNexusDriveId(""); }} data-testid="button-save-nexus-cancel">
+            <Button variant="outline" size="sm" onClick={() => { setSaveNexusOpen(false); setSaveNexusAtt(null); setSaveNexusSiteId(""); setSaveNexusDriveId(""); setSaveNexusFolderStack([]); }} data-testid="button-save-nexus-cancel">
               {t.nexusOmni.common.cancel}
             </Button>
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={saveAttachmentToNexusPoint} disabled={!saveNexusDriveId || saveNexusSaving} data-testid="button-save-to-nexus">
