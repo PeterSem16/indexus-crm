@@ -5188,7 +5188,7 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
           inArray(nexuspointItemTags.tag, tagList),
         ))
         .groupBy(nexuspointItemTags.itemId, nexuspointItemTags.itemName, nexuspointItemTags.driveId)
-        .having(sqlExpr`count(distinct ${nexuspointItemTags.tag}) >= ${tagList.length}`);
+        .having(sqlExpr`count(distinct ${nexuspointItemTags.tag}) >= 1`);
       // For each matched item, fetch all its tags (for badge display)
       if (rows.length === 0) return res.json([]);
       const itemIds = rows.map(r => r.itemId);

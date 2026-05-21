@@ -722,7 +722,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const sortedItems = [...folders, ...filesList];
   const baseItems = searchResults !== null ? searchResults : sortedItems;
   const displayItems = nexusTagFilter.length > 0
-    ? baseItems.filter((i: any) => nexusTagFilter.every(f => driveTagsMap[i.id]?.some(({ tag }) => tag === f)))
+    ? baseItems.filter((i: any) => nexusTagFilter.some(f => driveTagsMap[i.id]?.some(({ tag }) => tag === f)))
     : baseItems;
   const selectedSite = sites.find((s: any) => s.id === selectedSiteId) || allSites.find((s: any) => s.id === selectedSiteId);
   const selectedSiteName = selectedSite?.displayName;
