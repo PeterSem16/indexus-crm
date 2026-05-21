@@ -27,14 +27,16 @@ export function NexusPointUserSettings({ userId }: NexusPointUserSettingsProps) 
   const [settingsDrives, setSettingsDrives] = useState<any[]>([]);
   const [settingsDrivesLoading, setSettingsDrivesLoading] = useState(false);
 
-  const { data: ms365Status } = useQuery<any>({
-    queryKey: ["/api/users", userId, "ms365", "status"],
+  const { data: ms365Connection, isLoading: ms365Loading } = useQuery<any>({
+    queryKey: ["/api/users", userId, "ms365-connection"],
     queryFn: async () => {
-      const res = await fetch(`/api/users/${userId}/ms365/status`, { credentials: "include" });
-      if (!res.ok) return { connected: false };
+      const res = await fetch(`/api/users/${userId}/ms365-connection`, { credentials: "include" });
+      if (!res.ok) return null;
       return res.json();
     },
   });
+
+  const isMs365Connected = !!(ms365Connection?.isConnected && ms365Connection?.hasTokens);
 
   const { data: allSites = [], isLoading: sitesLoading } = useQuery<any[]>({
     queryKey: ["/api/users", userId, "sharepoint", "sites"],
@@ -43,7 +45,7 @@ export function NexusPointUserSettings({ userId }: NexusPointUserSettingsProps) 
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: !!ms365Status?.connected,
+    enabled: isMs365Connected,
   });
 
   const { data: npSettings, isLoading: settingsLoading, refetch: refetchSettings } = useQuery<any>({
@@ -101,7 +103,16 @@ export function NexusPointUserSettings({ userId }: NexusPointUserSettingsProps) 
     );
   };
 
-  if (!ms365Status?.connected) {
+  if (ms365Loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground p-4">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Kontrola MS365 pripojenia...
+      </div>
+    );
+  }
+
+  if (!isMs365Connected) {
     return (
       <div className="rounded-lg border bg-muted/20 p-6 flex flex-col items-center gap-3 text-center">
         <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
