@@ -280,7 +280,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [noteText, setNoteText] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
-  const [nexusTagFilter, setNexusTagFilter] = useState<string | null>(null);
+  const [nexusTagFilter, setNexusTagFilter] = useState<string[]>([]);
   const [tagColorPickerTag, setTagColorPickerTag] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
@@ -708,8 +708,8 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const filesList = items.filter((i: any) => i.file);
   const sortedItems = [...folders, ...filesList];
   const baseItems = searchResults !== null ? searchResults : sortedItems;
-  const displayItems = nexusTagFilter
-    ? baseItems.filter((i: any) => driveTagsMap[i.id]?.some(({ tag }) => tag === nexusTagFilter))
+  const displayItems = nexusTagFilter.length > 0
+    ? baseItems.filter((i: any) => nexusTagFilter.every(f => driveTagsMap[i.id]?.some(({ tag }) => tag === f)))
     : baseItems;
   const selectedSite = sites.find((s: any) => s.id === selectedSiteId) || allSites.find((s: any) => s.id === selectedSiteId);
   const selectedSiteName = selectedSite?.displayName;
@@ -987,13 +987,13 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                   <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
                   {driveTagOptions.map((tag: string) => {
                     const color = tagColorMap[tag] || "#10b981";
-                    const isActive = nexusTagFilter === tag;
+                    const isActive = nexusTagFilter.includes(tag);
                     return (
                       <button
                         key={tag}
-                        onClick={() => setNexusTagFilter(isActive ? null : tag)}
+                        onClick={() => setNexusTagFilter(isActive ? nexusTagFilter.filter(f => f !== tag) : [...nexusTagFilter, tag])}
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-all border text-white"
-                        style={{ backgroundColor: color, borderColor: color, opacity: isActive ? 1 : 0.75 }}
+                        style={{ backgroundColor: color, borderColor: color, opacity: isActive ? 1 : 0.65 }}
                         data-testid={`tag-filter-${tag}`}
                       >
                         {tag}
@@ -1079,9 +1079,9 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                               {driveTagsMap[item.id]?.map(({ tag, color }) => (
                                 <span
                                   key={tag}
-                                  onClick={(e) => { e.stopPropagation(); setNexusTagFilter(nexusTagFilter === tag ? null : tag); }}
+                                  onClick={(e) => { e.stopPropagation(); const isActive = nexusTagFilter.includes(tag); setNexusTagFilter(isActive ? nexusTagFilter.filter(f => f !== tag) : [...nexusTagFilter, tag]); }}
                                   className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium cursor-pointer transition-opacity text-white"
-                                  style={{ backgroundColor: color, opacity: nexusTagFilter && nexusTagFilter !== tag ? 0.45 : 1 }}
+                                  style={{ backgroundColor: color, opacity: nexusTagFilter.length > 0 && !nexusTagFilter.includes(tag) ? 0.45 : 1 }}
                                   data-testid={`item-tag-${item.id}-${tag}`}
                                 >
                                   {tag}
