@@ -281,6 +281,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [noteSaving, setNoteSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [nexusTagFilter, setNexusTagFilter] = useState<string | null>(null);
+  const [tagColorPickerTag, setTagColorPickerTag] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false);
@@ -443,12 +444,26 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     enabled: !!userId && !!selectedDriveId,
   });
 
-  const driveTagsMap: Record<string, string[]> = {};
+  const TAG_COLORS = ["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#ec4899","#06b6d4","#84cc16","#f97316","#64748b"];
+
+  const driveTagsMap: Record<string, { tag: string; color: string }[]> = {};
+  const tagColorMap: Record<string, string> = {};
   for (const row of driveTagRows as any[]) {
     if (!driveTagsMap[row.itemId]) driveTagsMap[row.itemId] = [];
-    driveTagsMap[row.itemId].push(row.tag);
+    driveTagsMap[row.itemId].push({ tag: row.tag, color: row.color || "#10b981" });
+    tagColorMap[row.tag] = row.color || "#10b981";
   }
   const driveTagOptions = Array.from(new Set((driveTagRows as any[]).map((r: any) => r.tag))).sort();
+
+  const setTagColor = async (tagName: string, color: string) => {
+    if (!userId) return;
+    try {
+      await apiRequest("PUT", `/api/users/${userId}/nexuspoint/tags/color`, { tag: tagName, color });
+      refetchDriveTags();
+      refetchTags();
+      setTagColorPickerTag(null);
+    } catch { /* ignore */ }
+  };
 
   const saveNote = async () => {
     if (!userId || !selectedDriveId || !detailItem?.id) return;
@@ -969,22 +984,22 @@ function NexusPointPanel({ userId }: { userId?: string }) {
               {driveTagOptions.length > 0 && (
                 <div className="flex items-center gap-1.5 px-4 pb-2 flex-wrap">
                   <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
-                  {driveTagOptions.map((tag: string) => (
-                    <button
-                      key={tag}
-                      onClick={() => setNexusTagFilter(nexusTagFilter === tag ? null : tag)}
-                      className={cn(
-                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors border",
-                        nexusTagFilter === tag
-                          ? "bg-emerald-600 text-white border-emerald-600"
-                          : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
-                      )}
-                      data-testid={`tag-filter-${tag}`}
-                    >
-                      {tag}
-                      {nexusTagFilter === tag && <X className="h-2.5 w-2.5" />}
-                    </button>
-                  ))}
+                  {driveTagOptions.map((tag: string) => {
+                    const color = tagColorMap[tag] || "#10b981";
+                    const isActive = nexusTagFilter === tag;
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => setNexusTagFilter(isActive ? null : tag)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-all border text-white"
+                        style={{ backgroundColor: color, borderColor: color, opacity: isActive ? 1 : 0.75 }}
+                        data-testid={`tag-filter-${tag}`}
+                      >
+                        {tag}
+                        {isActive && <X className="h-2.5 w-2.5" />}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1060,16 +1075,12 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                                   {item.lastModifiedBy.user.displayName}
                                 </span>
                               )}
-                              {driveTagsMap[item.id]?.map((tag: string) => (
+                              {driveTagsMap[item.id]?.map(({ tag, color }) => (
                                 <span
                                   key={tag}
                                   onClick={(e) => { e.stopPropagation(); setNexusTagFilter(nexusTagFilter === tag ? null : tag); }}
-                                  className={cn(
-                                    "inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium border cursor-pointer transition-colors",
-                                    nexusTagFilter === tag
-                                      ? "bg-emerald-600 text-white border-emerald-600"
-                                      : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100"
-                                  )}
+                                  className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium cursor-pointer transition-opacity text-white"
+                                  style={{ backgroundColor: color, opacity: nexusTagFilter && nexusTagFilter !== tag ? 0.45 : 1 }}
                                   data-testid={`item-tag-${item.id}-${tag}`}
                                 >
                                   {tag}
@@ -1161,12 +1172,38 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                       {(itemTags as any[]).length === 0 ? (
                         <span className="text-xs text-muted-foreground">{t.nexusOmni.nexuspoint.noTags}</span>
                       ) : (
-                        (itemTags as any[]).map((tag: any) => (
-                          <span key={tag.id} className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-[11px] font-medium px-2 py-0.5 rounded-full" data-testid={`tag-${tag.id}`}>
-                            <Tag className="h-2.5 w-2.5" />{tag.tag}
-                            <button onClick={() => removeTag(tag.id)} className="ml-0.5 hover:text-red-500 transition-colors" data-testid={`btn-remove-tag-${tag.id}`}><X className="h-2.5 w-2.5" /></button>
-                          </span>
-                        ))
+                        (itemTags as any[]).map((tag: any) => {
+                          const tagColor = tagColorMap[tag.tag] || tag.color || "#10b981";
+                          const isPickerOpen = tagColorPickerTag === tag.tag;
+                          return (
+                            <div key={tag.id} className="relative inline-flex flex-col items-start">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: tagColor }} data-testid={`tag-${tag.id}`}>
+                                <button
+                                  onClick={() => setTagColorPickerTag(isPickerOpen ? null : tag.tag)}
+                                  className="h-2.5 w-2.5 rounded-full border border-white/50 shrink-0 hover:scale-110 transition-transform"
+                                  style={{ backgroundColor: tagColor, filter: "brightness(1.4)" }}
+                                  title="Zmeniť farbu"
+                                  data-testid={`btn-tag-color-${tag.id}`}
+                                />
+                                {tag.tag}
+                                <button onClick={() => removeTag(tag.id)} className="ml-0.5 hover:opacity-70 transition-opacity" data-testid={`btn-remove-tag-${tag.id}`}><X className="h-2.5 w-2.5" /></button>
+                              </span>
+                              {isPickerOpen && (
+                                <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-lg p-2 flex flex-wrap gap-1.5 w-[132px]">
+                                  {TAG_COLORS.map(c => (
+                                    <button
+                                      key={c}
+                                      onClick={() => setTagColor(tag.tag, c)}
+                                      className={cn("h-5 w-5 rounded-full transition-transform hover:scale-110 border-2", c === tagColor ? "border-foreground scale-110" : "border-transparent")}
+                                      style={{ backgroundColor: c }}
+                                      data-testid={`color-swatch-${c}`}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                     <div className="flex gap-1.5">
@@ -1181,7 +1218,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                           data-testid="input-tag"
                         />
                         <datalist id="nexuspoint-tags-datalist">
-                          {(allUserTags as string[]).map((t: string) => <option key={t} value={t} />)}
+                          {(allUserTags as any[]).map((t: any) => <option key={t.tag ?? t} value={t.tag ?? t} />)}
                         </datalist>
                       </div>
                       <Button size="sm" className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shrink-0" onClick={addTag} disabled={!tagInput.trim()} data-testid="button-add-tag">

@@ -5165,13 +5165,25 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     } catch { res.status(500).json({ error: "Failed" }); }
   });
 
-  // Get all unique tags for user (for autocomplete)
+  // Get all unique tags for user (with color, for autocomplete + color display)
   app.get("/api/users/:userId/nexuspoint/tags/all", requireAuth, async (req, res) => {
     try {
       const { nexuspointItemTags } = await import("../shared/schema");
       const { eq } = await import("drizzle-orm");
-      const rows = await db.selectDistinct({ tag: nexuspointItemTags.tag }).from(nexuspointItemTags).where(eq(nexuspointItemTags.userId, req.params.userId));
-      res.json(rows.map((r: any) => r.tag));
+      const rows = await db.selectDistinct({ tag: nexuspointItemTags.tag, color: nexuspointItemTags.color }).from(nexuspointItemTags).where(eq(nexuspointItemTags.userId, req.params.userId));
+      res.json(rows);
+    } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  // Set color for all instances of a tag (by tag name, for this user)
+  app.put("/api/users/:userId/nexuspoint/tags/color", requireAuth, async (req, res) => {
+    try {
+      const { tag, color } = req.body;
+      if (!tag || !color) return res.status(400).json({ error: "tag and color required" });
+      const { nexuspointItemTags } = await import("../shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      await db.update(nexuspointItemTags).set({ color }).where(and(eq(nexuspointItemTags.userId, req.params.userId), eq(nexuspointItemTags.tag, tag)));
+      res.json({ success: true });
     } catch { res.status(500).json({ error: "Failed" }); }
   });
 

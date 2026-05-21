@@ -7539,6 +7539,7 @@ export const nexuspointItemTags = pgTable("nexuspoint_item_tags", {
   driveId: text("drive_id").notNull(),
   itemId: text("item_id").notNull(),
   tag: text("tag").notNull(),
+  color: text("color").default("#10b981"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 export const insertNexuspointItemTagSchema = createInsertSchema(nexuspointItemTags).omit({ id: true, createdAt: true });
