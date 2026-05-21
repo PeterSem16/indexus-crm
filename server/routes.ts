@@ -5121,13 +5121,13 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
 
   app.post("/api/users/:userId/nexuspoint/tags", requireAuth, async (req, res) => {
     try {
-      const { driveId, itemId, tag } = req.body;
+      const { driveId, itemId, itemName, tag } = req.body;
       if (!driveId || !itemId || !tag) return res.status(400).json({ error: "driveId, itemId and tag required" });
       const { nexuspointItemTags } = await import("../shared/schema");
       const { eq, and } = await import("drizzle-orm");
       const [existing] = await db.select().from(nexuspointItemTags).where(and(eq(nexuspointItemTags.userId, req.params.userId), eq(nexuspointItemTags.driveId, driveId), eq(nexuspointItemTags.itemId, itemId), eq(nexuspointItemTags.tag, tag.trim())));
       if (existing) return res.json(existing);
-      const [row] = await db.insert(nexuspointItemTags).values({ userId: req.params.userId, driveId, itemId, tag: tag.trim() }).returning();
+      const [row] = await db.insert(nexuspointItemTags).values({ userId: req.params.userId, driveId, itemId, itemName: itemName || "", tag: tag.trim() }).returning();
       res.json(row);
     } catch { res.status(500).json({ error: "Failed" }); }
   });
@@ -5163,6 +5163,52 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
       const rows = await db.select().from(nexuspointItemTags).where(and(eq(nexuspointItemTags.userId, req.params.userId), ilike(nexuspointItemTags.tag, `%${tag}%`)));
       res.json(rows);
     } catch { res.status(500).json({ error: "Failed" }); }
+  });
+
+  // Global multi-tag search — returns items that have ALL specified tags (AND), across all drives
+  app.get("/api/users/:userId/nexuspoint/tags/global-search", requireAuth, async (req, res) => {
+    try {
+      const { tags } = req.query as { tags: string };
+      if (!tags) return res.status(400).json({ error: "tags required" });
+      const tagList = tags.split(",").map(t => t.trim()).filter(Boolean);
+      if (tagList.length === 0) return res.json([]);
+      const { nexuspointItemTags } = await import("../shared/schema");
+      const { eq, and, inArray, sql: sqlExpr } = await import("drizzle-orm");
+      // Get items that have at least one of the tags, then group by itemId to enforce AND
+      const rows = await db
+        .select({
+          itemId: nexuspointItemTags.itemId,
+          itemName: nexuspointItemTags.itemName,
+          driveId: nexuspointItemTags.driveId,
+          matchCount: sqlExpr<number>`count(distinct ${nexuspointItemTags.tag})`,
+        })
+        .from(nexuspointItemTags)
+        .where(and(
+          eq(nexuspointItemTags.userId, req.params.userId),
+          inArray(nexuspointItemTags.tag, tagList),
+        ))
+        .groupBy(nexuspointItemTags.itemId, nexuspointItemTags.itemName, nexuspointItemTags.driveId)
+        .having(sqlExpr`count(distinct ${nexuspointItemTags.tag}) >= ${tagList.length}`);
+      // For each matched item, fetch all its tags (for badge display)
+      if (rows.length === 0) return res.json([]);
+      const itemIds = rows.map(r => r.itemId);
+      const allTags = await db.select().from(nexuspointItemTags).where(and(
+        eq(nexuspointItemTags.userId, req.params.userId),
+        inArray(nexuspointItemTags.itemId, itemIds),
+      ));
+      const tagsPerItem: Record<string, { tag: string; color: string }[]> = {};
+      for (const t of allTags) {
+        if (!tagsPerItem[t.itemId]) tagsPerItem[t.itemId] = [];
+        tagsPerItem[t.itemId].push({ tag: t.tag, color: t.color || "#10b981" });
+      }
+      const result = rows.map(r => ({
+        itemId: r.itemId,
+        itemName: r.itemName || "",
+        driveId: r.driveId,
+        tags: tagsPerItem[r.itemId] || [],
+      }));
+      res.json(result);
+    } catch (e) { res.status(500).json({ error: "Failed" }); }
   });
 
   // Get all unique tags for user (with color, for autocomplete + color display)

@@ -425,14 +425,26 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     enabled: !!userId && !!selectedDriveId && !!detailItem?.id && detailTab === "notes",
   });
 
-  const { data: allUserTags = [] } = useQuery<string[]>({
+  const { data: allUserTags = [] } = useQuery<{ tag: string; color: string }[]>({
     queryKey: ["/api/users", userId, "nexuspoint", "tags", "all"],
     queryFn: async () => {
       const res = await fetch(`/api/users/${userId}/nexuspoint/tags/all`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: !!userId && detailTab === "notes",
+    enabled: !!userId,
+  });
+
+  const { data: globalTagResults = [], isFetching: globalTagFetching } = useQuery<{ itemId: string; itemName: string; driveId: string; tags: { tag: string; color: string }[] }[]>({
+    queryKey: ["/api/users", userId, "nexuspoint", "tags", "global-search", nexusTagFilter.join(",")],
+    queryFn: async () => {
+      if (!nexusTagFilter.length) return [];
+      const res = await fetch(`/api/users/${userId}/nexuspoint/tags/global-search?tags=${encodeURIComponent(nexusTagFilter.join(","))}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!userId && nexusTagFilter.length > 0,
+    staleTime: 0,
   });
 
   const { data: driveTagRows = [], refetch: refetchDriveTags } = useQuery<any[]>({
@@ -480,11 +492,12 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     }
   };
 
-  const addTag = async () => {
-    if (!tagInput.trim() || !userId || !selectedDriveId || !detailItem?.id) return;
+  const addTag = async (overrideTag?: string) => {
+    const tagToAdd = (overrideTag ?? tagInput).trim();
+    if (!tagToAdd || !userId || !selectedDriveId || !detailItem?.id) return;
     try {
-      await apiRequest("POST", `/api/users/${userId}/nexuspoint/tags`, { driveId: selectedDriveId, itemId: detailItem.id, tag: tagInput.trim() });
-      setTagInput("");
+      await apiRequest("POST", `/api/users/${userId}/nexuspoint/tags`, { driveId: selectedDriveId, itemId: detailItem.id, itemName: detailItem.name || "", tag: tagToAdd });
+      if (!overrideTag) setTagInput("");
       refetchTags();
       refetchDriveTags();
     } catch {
@@ -1026,7 +1039,45 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                 </div>
               )}
               <ScrollArea className="flex-1">
-                {itemsLoading || drivesLoading ? (
+                {/* ── GLOBAL TAG SEARCH RESULTS ── */}
+                {nexusTagFilter.length > 0 ? (
+                  globalTagFetching ? (
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <Loader2 className="h-7 w-7 animate-spin text-emerald-500 mb-3" />
+                      <p className="text-sm text-muted-foreground">Hľadám vo všetkých priečinkoch...</p>
+                    </div>
+                  ) : globalTagResults.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                      <Tag className="h-8 w-8 opacity-30 mb-3" />
+                      <p className="text-sm font-medium mb-1">Žiadne súbory s týmito tagmi</p>
+                      <p className="text-xs">Tagy sú hľadané vo všetkých priečinkoch</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border/60">
+                      <div className="px-4 py-1.5 text-[11px] text-muted-foreground bg-muted/30 flex items-center gap-1.5">
+                        <Tag className="h-3 w-3" />
+                        Globálne výsledky — {globalTagResults.length} súbor{globalTagResults.length === 1 ? "" : globalTagResults.length < 5 ? "y" : "ov"} vo všetkých priečinkoch
+                      </div>
+                      {globalTagResults.map((item) => (
+                        <div
+                          key={item.itemId}
+                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors cursor-default"
+                          data-testid={`global-tag-result-${item.itemId}`}
+                        >
+                          {getFileIcon(item.itemName, false)}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate font-medium">{item.itemName || item.itemId}</p>
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                              {item.tags.map(({ tag, color }) => (
+                                <span key={tag} className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium text-white" style={{ backgroundColor: color }}>{tag}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : itemsLoading || drivesLoading ? (
                   <div className="flex flex-col items-center justify-center py-16">
                     <Loader2 className="h-7 w-7 animate-spin text-emerald-500 mb-3" />
                     <p className="text-sm text-muted-foreground">Načítavanie...</p>
@@ -1210,22 +1261,41 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                         })
                       )}
                     </div>
+                    {/* ── Existing tag suggestions ── */}
+                    {(() => {
+                      const currentItemTagNames = new Set((itemTags as any[]).map((t: any) => t.tag));
+                      const suggestions = allUserTags.filter(({ tag }) =>
+                        !currentItemTagNames.has(tag) &&
+                        (tagInput === "" || tag.toLowerCase().includes(tagInput.toLowerCase()))
+                      );
+                      if (suggestions.length === 0) return null;
+                      return (
+                        <div className="flex flex-wrap gap-1 mb-1.5">
+                          {suggestions.map(({ tag, color }) => (
+                            <button
+                              key={tag}
+                              onClick={() => addTag(tag)}
+                              className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium text-white hover:opacity-80 transition-opacity"
+                              style={{ backgroundColor: color }}
+                              title={`Pridať tag "${tag}"`}
+                              data-testid={`suggest-tag-${tag}`}
+                            >
+                              <Plus className="h-2.5 w-2.5" />{tag}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <div className="flex gap-1.5">
-                      <div className="relative flex-1">
-                        <Input
-                          value={tagInput}
-                          onChange={e => setTagInput(e.target.value)}
-                          placeholder={t.nexusOmni.nexuspoint.tagPlaceholder}
-                          className="h-7 text-xs pr-2"
-                          list="nexuspoint-tags-datalist"
-                          onKeyDown={e => { if (e.key === "Enter") addTag(); }}
-                          data-testid="input-tag"
-                        />
-                        <datalist id="nexuspoint-tags-datalist">
-                          {(allUserTags as any[]).map((t: any) => <option key={t.tag ?? t} value={t.tag ?? t} />)}
-                        </datalist>
-                      </div>
-                      <Button size="sm" className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shrink-0" onClick={addTag} disabled={!tagInput.trim()} data-testid="button-add-tag">
+                      <Input
+                        value={tagInput}
+                        onChange={e => setTagInput(e.target.value)}
+                        placeholder={t.nexusOmni.nexuspoint.tagPlaceholder}
+                        className="h-7 text-xs pr-2 flex-1"
+                        onKeyDown={e => { if (e.key === "Enter") addTag(); }}
+                        data-testid="input-tag"
+                      />
+                      <Button size="sm" className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shrink-0" onClick={() => addTag()} disabled={!tagInput.trim()} data-testid="button-add-tag">
                         <Plus className="h-3.5 w-3.5" />
                       </Button>
                     </div>

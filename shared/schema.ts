@@ -7538,6 +7538,7 @@ export const nexuspointItemTags = pgTable("nexuspoint_item_tags", {
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   driveId: text("drive_id").notNull(),
   itemId: text("item_id").notNull(),
+  itemName: text("item_name").default(""),
   tag: text("tag").notNull(),
   color: text("color").default("#10b981"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
