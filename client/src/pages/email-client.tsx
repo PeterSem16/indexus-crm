@@ -795,6 +795,9 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                       </button>
                     )}
                   </div>
+                  <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={() => refetchItems()} disabled={itemsLoading} data-testid="button-refresh-items" title={t.nexusOmni.common.refresh}>
+                    <RotateCcw className={`h-3.5 w-3.5 ${itemsLoading ? "animate-spin" : ""}`} />
+                  </Button>
                   <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 px-2.5" onClick={() => setNewFolderOpen(true)} data-testid="button-new-folder">
                     <FolderPlus className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.newFolder}
                   </Button>
