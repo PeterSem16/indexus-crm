@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Phone, PhoneOff, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle, Sparkles, Bell, Settings, Send, Eye } from "lucide-react";
+import { Phone, PhoneOff, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle, Sparkles, Bell, Settings, Send, Eye, HardDrive } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { COUNTRIES } from "@/lib/countries";
+import { NexusPointUserSettings } from "@/components/nexuspoint-user-settings";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { User as UserType, Role } from "@shared/schema";
 import { COUNTRY_PHONE_PREFIXES } from "@shared/schema";
@@ -1752,6 +1753,19 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     );
   };
 
+  const renderNexusPointTab = () => {
+    const userId = initialData?.id;
+    if (!userId) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground p-4">
+          <HardDrive className="h-4 w-4" />
+          <span>Najprv uložte používateľa, potom nastavte NexusPoint.</span>
+        </div>
+      );
+    }
+    return <NexusPointUserSettings userId={userId} />;
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
@@ -1789,7 +1803,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
           
           <TabsContent value="settings" className="mt-6">
             <Tabs defaultValue="sip" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="sip" className="flex items-center gap-2" data-testid="tab-settings-sip">
                   <Phone className="h-4 w-4" />
                   <span className="hidden sm:inline">SIP</span>
@@ -1805,6 +1819,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                 <TabsTrigger value="jira" className="flex items-center gap-2" data-testid="tab-settings-jira">
                   <Link2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Jira</span>
+                </TabsTrigger>
+                <TabsTrigger value="nexuspoint" className="flex items-center gap-2" data-testid="tab-settings-nexuspoint">
+                  <HardDrive className="h-4 w-4" />
+                  <span className="hidden sm:inline">NexusPoint</span>
                 </TabsTrigger>
               </TabsList>
               
@@ -1822,6 +1840,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
               
               <TabsContent value="jira" className="mt-4">
                 {renderJiraTab()}
+              </TabsContent>
+
+              <TabsContent value="nexuspoint" className="mt-4">
+                {renderNexusPointTab()}
               </TabsContent>
             </Tabs>
           </TabsContent>

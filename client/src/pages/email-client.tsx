@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -280,6 +280,12 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareItem, setShareItem] = useState<any | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pendingPinnedIds, setPendingPinnedIds] = useState<string[]>([]);
+  const [pendingDefaultSiteId, setPendingDefaultSiteId] = useState<string | null>(null);
+  const [pendingDefaultDriveId, setPendingDefaultDriveId] = useState<string | null>(null);
+  const [settingsDrives, setSettingsDrives] = useState<any[]>([]);
+  const [settingsDrivesLoading, setSettingsDrivesLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
@@ -287,7 +293,17 @@ function NexusPointPanel({ userId }: { userId?: string }) {
 
   const currentFolderId = folderStack.length > 0 ? folderStack[folderStack.length - 1].id : undefined;
 
-  const { data: sites = [], isLoading: sitesLoading } = useQuery<any[]>({
+  const { data: npSettings, refetch: refetchSettings } = useQuery<any>({
+    queryKey: ["/api/users", userId, "nexuspoint-settings"],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/nexuspoint-settings`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const { data: allSites = [], isLoading: sitesLoading } = useQuery<any[]>({
     queryKey: ["/api/users", userId, "sharepoint", "sites"],
     queryFn: async () => {
       const res = await fetch(`/api/users/${userId}/sharepoint/sites`, { credentials: "include" });
@@ -296,6 +312,39 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     },
     enabled: !!userId,
   });
+
+  const sites = useMemo(() => {
+    const pinnedIds = [
+      ...(npSettings?.pinnedSiteIds || []),
+      ...(npSettings?.globalPinnedSiteIds || []),
+    ].filter(Boolean);
+    const unique = [...new Set(pinnedIds)] as string[];
+    if (!unique.length) return allSites;
+    return allSites.filter((s: any) => unique.includes(s.id));
+  }, [allSites, npSettings]);
+
+  useEffect(() => {
+    if (!selectedSiteId && allSites.length > 0) {
+      const defaultId = npSettings?.defaultSiteId || npSettings?.globalDefaultSiteId;
+      if (defaultId && allSites.some((s: any) => s.id === defaultId)) {
+        setSelectedSiteId(defaultId);
+      } else if (sites.length === 1) {
+        setSelectedSiteId(sites[0].id);
+      }
+    }
+  }, [npSettings, allSites, sites, selectedSiteId]);
+
+  useEffect(() => {
+    if (settingsOpen && pendingDefaultSiteId && userId) {
+      setSettingsDrivesLoading(true);
+      fetch(`/api/users/${userId}/sharepoint/sites/${pendingDefaultSiteId}/drives`, { credentials: "include" })
+        .then(r => r.json())
+        .then(d => { setSettingsDrives(Array.isArray(d) ? d : []); setSettingsDrivesLoading(false); })
+        .catch(() => setSettingsDrivesLoading(false));
+    } else if (!pendingDefaultSiteId) {
+      setSettingsDrives([]);
+    }
+  }, [settingsOpen, pendingDefaultSiteId, userId]);
 
   const { data: drives = [], isLoading: drivesLoading } = useQuery<any[]>({
     queryKey: ["/api/users", userId, "sharepoint", "sites", selectedSiteId, "drives"],
@@ -309,9 +358,11 @@ function NexusPointPanel({ userId }: { userId?: string }) {
 
   useEffect(() => {
     if (drives.length > 0 && !selectedDriveId) {
-      setSelectedDriveId(drives[0].id);
+      const defaultDriveId = npSettings?.defaultDriveId || npSettings?.globalDefaultDriveId;
+      const defaultDrive = defaultDriveId ? drives.find((d: any) => d.id === defaultDriveId) : null;
+      setSelectedDriveId(defaultDrive?.id || drives[0].id);
     }
-  }, [drives, selectedDriveId]);
+  }, [drives, selectedDriveId, npSettings]);
 
   const { data: items = [], isLoading: itemsLoading, refetch: refetchItems } = useQuery<any[]>({
     queryKey: ["/api/users", userId, "sharepoint", "drives", selectedDriveId, "items", currentFolderId],
@@ -531,40 +582,98 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     } catch { /* ignore */ }
   };
 
-  useEffect(() => {
-    if (drives.length > 0 && !selectedDriveId) {
-      setSelectedDriveId(drives[0].id);
-    }
-  }, [drives, selectedDriveId]);
+  const saveSettingsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PUT", `/api/users/${userId}/nexuspoint-settings`, {
+        pinnedSiteIds: pendingPinnedIds,
+        defaultSiteId: pendingDefaultSiteId || null,
+        defaultDriveId: pendingDefaultDriveId || null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Nastavenia NexusPoint uložené" });
+      refetchSettings();
+      setSettingsOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladaní nastavení", variant: "destructive" });
+    },
+  });
+
+  const openSettings = () => {
+    setPendingPinnedIds(npSettings?.pinnedSiteIds || []);
+    setPendingDefaultSiteId(npSettings?.defaultSiteId || null);
+    setPendingDefaultDriveId(npSettings?.defaultDriveId || null);
+    setSettingsOpen(true);
+  };
+
+  const togglePinnedSite = (siteId: string) => {
+    setPendingPinnedIds(prev =>
+      prev.includes(siteId) ? prev.filter(id => id !== siteId) : [...prev, siteId]
+    );
+  };
 
   const folders = items.filter((i: any) => i.folder);
   const filesList = items.filter((i: any) => i.file);
   const sortedItems = [...folders, ...filesList];
   const displayItems = searchResults !== null ? searchResults : sortedItems;
+  const selectedSiteName = (sites.find((s: any) => s.id === selectedSiteId) || allSites.find((s: any) => s.id === selectedSiteId))?.displayName;
+  const selectedDriveName = drives.find((d: any) => d.id === selectedDriveId)?.name;
 
-  if (!selectedSiteId || !selectedDriveId) {
-    return (
-      <div className="flex-1 flex min-w-0 min-h-0 gap-0">
-        <Card className="w-[240px] min-w-[200px] max-w-[280px] shrink-0 flex flex-col">
-          <CardHeader className="py-2 px-3 border-b shrink-0 space-y-0">
-            <div className="flex items-center gap-2">
-              <HardDrive className="h-4 w-4 text-emerald-600" />
-              <span className="text-sm font-semibold">NexusPoint</span>
+  return (
+    <TooltipProvider delayDuration={200}>
+    <div className="flex-1 flex min-w-0 min-h-0 gap-3">
+
+      {/* ── LEFT SIDEBAR ── */}
+      <div className="w-[220px] min-w-[180px] shrink-0 flex flex-col rounded-xl overflow-hidden border border-emerald-200/60 dark:border-emerald-800/40 shadow-md">
+        <div className="bg-gradient-to-b from-emerald-700 to-emerald-600 px-3 py-2.5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center">
+              <HardDrive className="h-3.5 w-3.5 text-white" />
             </div>
-          </CardHeader>
-          <ScrollArea className="flex-1">
-            <div className="py-1">
-              {sitesLoading ? (
-                <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-              ) : sites.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">{t.nexusOmni.nexuspoint.noSites}</p>
-              ) : sites.map((site: any) => (
+            <span className="text-white font-semibold text-sm tracking-wide">NexusPoint</span>
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-white/70 hover:text-white hover:bg-white/20 rounded-md" onClick={openSettings} data-testid="button-nexuspoint-settings">
+                <Settings className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Nastavenia NexusPoint</TooltipContent>
+          </Tooltip>
+        </div>
+
+        <ScrollArea className="flex-1 bg-background">
+          <div className="py-1.5">
+            {sitesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+              </div>
+            ) : sites.length === 0 && allSites.length === 0 ? (
+              <div className="px-3 py-4 text-center">
+                <Globe className="h-6 w-6 mx-auto mb-2 text-muted-foreground/40" />
+                <p className="text-xs text-muted-foreground">{t.nexusOmni.nexuspoint.noSites}</p>
+              </div>
+            ) : sites.length === 0 && allSites.length > 0 ? (
+              <div className="px-3 py-4 text-center">
+                <Globe className="h-6 w-6 mx-auto mb-2 text-muted-foreground/40" />
+                <p className="text-xs text-muted-foreground mb-2">Žiadne pinnované weby</p>
+                <button className="text-xs text-emerald-600 hover:underline" onClick={openSettings}>
+                  Nastaviť weby →
+                </button>
+              </div>
+            ) : (
+              sites.map((site: any) => (
                 <div key={site.id}>
                   <button
                     className={cn(
-                      "w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-accent/50 transition-colors text-sm",
-                      selectedSiteId === site.id && "bg-accent font-medium"
+                      "text-left px-2.5 py-2 flex items-center gap-2 transition-all text-sm mx-1.5 rounded-lg",
+                      selectedSiteId === site.id
+                        ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-medium"
+                        : "text-foreground hover:bg-muted/60"
                     )}
+                    style={{ width: "calc(100% - 12px)" }}
                     onClick={() => {
                       if (selectedSiteId !== site.id) {
                         setSelectedSiteId(site.id);
@@ -577,17 +686,25 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                     }}
                     data-testid={`nexuspoint-site-${site.id}`}
                   >
-                    <Globe className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <div className={cn("w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors", selectedSiteId === site.id ? "bg-emerald-600 text-white" : "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600")}>
+                      <Globe className="h-3 w-3" />
+                    </div>
                     <span className="truncate">{site.displayName}</span>
                   </button>
-                  {selectedSiteId === site.id && drives.length > 0 && (
-                    <div className="ml-4">
-                      {drives.map((d: any) => (
+                  {selectedSiteId === site.id && (
+                    <div className="mb-1">
+                      {drivesLoading ? (
+                        <div className="flex items-center gap-2 pl-9 py-1.5 text-xs text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        </div>
+                      ) : drives.map((d: any) => (
                         <button
                           key={d.id}
                           className={cn(
-                            "w-full text-left px-3 py-1 flex items-center gap-2 hover:bg-accent/50 transition-colors text-xs",
-                            selectedDriveId === d.id && "bg-emerald-50 dark:bg-emerald-950/20 font-medium text-emerald-700 dark:text-emerald-300"
+                            "w-full text-left pl-9 pr-2 py-1.5 flex items-center gap-2 transition-colors text-xs",
+                            selectedDriveId === d.id
+                              ? "text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-50/80 dark:bg-emerald-950/30"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                           )}
                           onClick={() => { setSelectedDriveId(d.id); setFolderStack([]); setDetailItem(null); }}
                           data-testid={`nexuspoint-drive-${d.id}`}
@@ -599,359 +716,329 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </Card>
-        <Card className="flex-1 flex flex-col items-center justify-center min-w-0">
-          <HardDrive className="h-12 w-12 text-emerald-500/30 mb-4" />
-          <h3 className="text-lg font-semibold mb-2">{t.nexusOmni.nexuspoint.selectSite}</h3>
-          <p className="text-sm text-muted-foreground">{selectedSiteId ? "Select a document library" : t.nexusOmni.nexuspoint.noSites}</p>
-        </Card>
-      </div>
-    );
-  }
-
-  const renderFileRow = (item: any, showActions = true) => {
-    const isFolder = !!item.folder;
-    return (
-      <div
-        key={item.id}
-        className={cn(
-          "flex items-center gap-3 px-3 py-2 hover:bg-accent/50 transition-colors group cursor-pointer",
-          detailItem?.id === item.id && "bg-emerald-50 dark:bg-emerald-950/20"
-        )}
-        onClick={() => isFolder ? navigateToFolder(item) : openDetailPanel(item)}
-        data-testid={`nexuspoint-item-${item.id}`}
-      >
-        {getFileIcon(item.name, isFolder)}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{item.name}</p>
-          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-            {isFolder && item.folder?.childCount !== undefined && (
-              <span>{item.folder.childCount} {t.nexusOmni.nexuspoint.items}</span>
+              ))
             )}
-            {!isFolder && item.size && (
-              <span>{formatFileSize(item.size)}</span>
-            )}
-            {item.lastModifiedDateTime && (
-              <span>{format(new Date(item.lastModifiedDateTime), "d.M.yyyy HH:mm")}</span>
-            )}
-            {item.lastModifiedBy?.user?.displayName && (
-              <span className="inline-flex items-center gap-1 truncate max-w-[160px]">
-                <MsAvatar email={item.lastModifiedBy.user.email} name={item.lastModifiedBy.user.displayName} userId={userId} size="sm" className="!h-4 !w-4 !text-[7px]" />
-                {item.lastModifiedBy.user.displayName}
-              </span>
-            )}
-          </div>
-        </div>
-        {showActions && (
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-            {!isFolder && (
-              <>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleDownload(item); }} data-testid={`button-download-${item.id}`}>
-                  <Download className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setShareItem(item); setShareDialogOpen(true); }} data-testid={`button-share-${item.id}`}>
-                  <Share2 className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            )}
-            {item.webUrl && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(item.webUrl, "_blank"); }} data-testid={`button-open-${item.id}`}>
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(t.nexusOmni.nexuspoint.deleteConfirm)) deleteMutation.mutate(item.id); }} data-testid={`button-delete-${item.id}`}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <TooltipProvider delayDuration={200}>
-    <div className="flex-1 flex min-w-0 min-h-0 gap-0">
-      <Card className="w-[240px] min-w-[200px] max-w-[280px] shrink-0 flex flex-col">
-        <CardHeader className="py-2 px-3 border-b shrink-0 space-y-0">
-          <div className="flex items-center gap-2">
-            <HardDrive className="h-4 w-4 text-emerald-600" />
-            <span className="text-sm font-semibold">NexusPoint</span>
-          </div>
-        </CardHeader>
-        <ScrollArea className="flex-1">
-          <div className="py-1">
-            {sitesLoading ? (
-              <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-            ) : sites.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">{t.nexusOmni.nexuspoint.noSites}</p>
-            ) : sites.map((site: any) => (
-              <div key={site.id}>
-                <button
-                  className={cn(
-                    "w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-accent/50 transition-colors text-sm",
-                    selectedSiteId === site.id && "bg-accent font-medium"
-                  )}
-                  onClick={() => {
-                    if (selectedSiteId !== site.id) {
-                      setSelectedSiteId(site.id);
-                      setSelectedDriveId(null);
-                      setFolderStack([]);
-                      setDetailItem(null);
-                      setSearchResults(null);
-                      setSearchQuery("");
-                    }
-                  }}
-                  data-testid={`nexuspoint-sidebar-site-${site.id}`}
-                >
-                  <Globe className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                  <span className="truncate">{site.displayName}</span>
-                </button>
-                {selectedSiteId === site.id && drives.length > 0 && (
-                  <div className="ml-4">
-                    {drives.map((d: any) => (
-                      <button
-                        key={d.id}
-                        className={cn(
-                          "w-full text-left px-3 py-1 flex items-center gap-2 hover:bg-accent/50 transition-colors text-xs",
-                          selectedDriveId === d.id && "bg-emerald-50 dark:bg-emerald-950/20 font-medium text-emerald-700 dark:text-emerald-300"
-                        )}
-                        onClick={() => { setSelectedDriveId(d.id); setFolderStack([]); setDetailItem(null); }}
-                        data-testid={`nexuspoint-sidebar-drive-${d.id}`}
-                      >
-                        <HardDrive className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{d.name}</span>
-                      </button>
-                    ))}
-                    {drivesLoading && (
-                      <div className="flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
         </ScrollArea>
-      </Card>
-      <Card className="flex-1 flex flex-col min-w-0">
-        <CardHeader className="py-1.5 px-3 border-b shrink-0 space-y-0">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <HardDrive className="h-4 w-4 text-emerald-600 shrink-0" />
-              <span className="text-sm font-semibold truncate">{sites.find((s: any) => s.id === selectedSiteId)?.displayName || 'NexusPoint'}</span>
-              {selectedDriveId && drives.length > 0 && (
-                <span className="text-xs text-muted-foreground">/ {drives.find((d: any) => d.id === selectedDriveId)?.name}</span>
-              )}
+      </div>
+
+      {/* ── MAIN CONTENT ── */}
+      <div className="flex-1 flex flex-col min-w-0 rounded-xl overflow-hidden border border-border shadow-sm bg-card">
+        {!selectedDriveId ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center mb-4 shadow-lg">
+              <HardDrive className="h-8 w-8 text-white" />
             </div>
-            <div className="relative shrink-0">
-              <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder={t.nexusOmni.nexuspoint.searchFiles}
-                className="h-7 text-xs pl-7 w-[140px]"
-                data-testid="input-search-files"
-              />
-              {isSearching && <Loader2 className="h-3 w-3 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />}
-              {searchQuery && !isSearching && (
-                <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>
-                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                </button>
-              )}
-            </div>
+            <h3 className="text-lg font-semibold mb-1">{t.nexusOmni.nexuspoint.selectSite}</h3>
+            <p className="text-sm text-muted-foreground max-w-[240px]">
+              {sites.length === 0 ? "Nakonfigurujte NexusPoint a vyberte weby v nastaveniach." : "Vyberte web a knižnicu z ľavého panela."}
+            </p>
+            {sites.length === 0 && (
+              <Button variant="outline" size="sm" className="mt-4 gap-2" onClick={openSettings}>
+                <Settings className="h-4 w-4" />Otvoriť nastavenia
+              </Button>
+            )}
           </div>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 px-2.5" onClick={() => setNewFolderOpen(true)} data-testid="button-new-folder">
-              <FolderPlus className="h-3.5 w-3.5" />
-              {t.nexusOmni.nexuspoint.createFolder}
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 px-2.5" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending} data-testid="button-upload">
-              {uploadMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-              {t.nexusOmni.nexuspoint.upload}
-            </Button>
-            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
-          </div>
-          {folderStack.length > 0 && !searchResults && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1 overflow-x-auto">
-              <button onClick={() => navigateBack(0)} className="hover:text-foreground shrink-0" data-testid="breadcrumb-root">
-                <FolderOpen className="h-3 w-3" />
-              </button>
-              {folderStack.map((f, i) => (
-                <span key={f.id} className="flex items-center gap-1 shrink-0">
-                  <ChevronRight className="h-3 w-3" />
-                  <button onClick={() => navigateBack(i + 1)} className={cn("hover:text-foreground", i === folderStack.length - 1 && "text-foreground font-medium")}>
-                    {f.name}
+        ) : (
+          <>
+            {/* Toolbar */}
+            <div className="shrink-0 border-b bg-muted/20">
+              <div className="flex items-center justify-between gap-3 px-4 py-2">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+                  <span className="font-medium text-foreground truncate">{selectedSiteName}</span>
+                  {selectedDriveName && (
+                    <>
+                      <ChevronRight className="h-3 w-3 shrink-0" />
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium truncate">{selectedDriveName}</span>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input value={searchQuery} onChange={(e) => handleSearch(e.target.value)} placeholder={t.nexusOmni.nexuspoint.searchFiles} className="h-7 text-xs pl-7 w-[150px]" data-testid="input-search-files" />
+                    {isSearching && <Loader2 className="h-3 w-3 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />}
+                    {searchQuery && !isSearching && (
+                      <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>
+                        <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                      </button>
+                    )}
+                  </div>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 px-2.5" onClick={() => setNewFolderOpen(true)} data-testid="button-new-folder">
+                    <FolderPlus className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.newFolder}
+                  </Button>
+                  <Button size="sm" className="h-7 text-xs gap-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending} data-testid="button-upload">
+                    {uploadMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    {t.nexusOmni.nexuspoint.upload}
+                  </Button>
+                  <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+                </div>
+              </div>
+              {folderStack.length > 0 && !searchResults && (
+                <div className="flex items-center gap-1 px-4 pb-2 text-xs text-muted-foreground overflow-x-auto">
+                  <button onClick={() => navigateBack(0)} className="hover:text-emerald-600 shrink-0 flex items-center gap-1 transition-colors" data-testid="breadcrumb-root">
+                    <FolderOpen className="h-3 w-3" /><span>Root</span>
                   </button>
-                </span>
-              ))}
+                  {folderStack.map((f, i) => (
+                    <span key={f.id} className="flex items-center gap-1 shrink-0">
+                      <ChevronRight className="h-3 w-3" />
+                      <button onClick={() => navigateBack(i + 1)} className={cn("hover:text-emerald-600 transition-colors", i === folderStack.length - 1 && "text-foreground font-medium")}>
+                        {f.name}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {searchResults !== null && (
+                <div className="flex items-center gap-2 px-4 pb-2 text-xs text-muted-foreground">
+                  <Search className="h-3 w-3 text-emerald-500" />
+                  <span>{t.nexusOmni.nexuspoint.searchResults}: <span className="font-medium text-foreground">{searchResults.length}</span></span>
+                  <button className="ml-1 hover:text-foreground" onClick={() => { setSearchQuery(""); setSearchResults(null); }}><X className="h-3 w-3" /></button>
+                </div>
+              )}
             </div>
-          )}
-          {searchResults !== null && (
-            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-              <Search className="h-3 w-3" />
-              <span>{t.nexusOmni.nexuspoint.searchResults}: {searchResults.length}</span>
-            </div>
-          )}
-        </CardHeader>
-        <CardContent
-          className={cn("p-0 flex-1 min-h-0 flex flex-col", isDragging && "bg-emerald-50 dark:bg-emerald-950/20")}
-          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleFileDrop}
-        >
-          {isDragging && (
-            <div className="p-4 text-center text-sm text-emerald-600 font-medium border-2 border-dashed border-emerald-300 rounded-lg m-2">
-              {t.nexusOmni.nexuspoint.dragDropHint}
-            </div>
-          )}
-          {newFolderOpen && (
-            <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30">
-              <FolderPlus className="h-4 w-4 text-amber-500" />
-              <Input
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder={t.nexusOmni.nexuspoint.folderName}
-                className="h-7 text-sm flex-1"
-                autoFocus
-                onKeyDown={(e) => { if (e.key === "Enter" && newFolderName.trim()) createFolderMutation.mutate(newFolderName.trim()); if (e.key === "Escape") { setNewFolderOpen(false); setNewFolderName(""); } }}
-                data-testid="input-folder-name"
-              />
-              <Button size="sm" className="h-7 text-xs" onClick={() => newFolderName.trim() && createFolderMutation.mutate(newFolderName.trim())} disabled={createFolderMutation.isPending} data-testid="button-create-folder">
-                {createFolderMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : t.nexusOmni.nexuspoint.createFolder}
-              </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setNewFolderOpen(false); setNewFolderName(""); }}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
-          <ScrollArea className="flex-1">
-            {itemsLoading || drivesLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : displayItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <FolderOpen className="h-10 w-10 mb-3 opacity-30" />
-                <p className="text-sm">{searchResults !== null ? t.nexusOmni.nexuspoint.searchResults + ": 0" : t.nexusOmni.nexuspoint.noFiles}</p>
-                {!searchResults && (
-                  <>
-                    <p className="text-xs mt-1 mb-4">{t.nexusOmni.nexuspoint.dragDropHint}</p>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setNewFolderOpen(true)} data-testid="button-new-folder-empty">
-                        <FolderPlus className="h-3.5 w-3.5" />
-                        {t.nexusOmni.nexuspoint.createFolder}
-                      </Button>
-                      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending} data-testid="button-upload-empty">
-                        {uploadMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                        Upload
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="divide-y">
-                {displayItems.map((item: any) => renderFileRow(item))}
+
+            {newFolderOpen && (
+              <div className="flex items-center gap-2 px-4 py-2 border-b bg-amber-50/50 dark:bg-amber-950/20 shrink-0">
+                <FolderPlus className="h-4 w-4 text-amber-500 shrink-0" />
+                <Input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder={t.nexusOmni.nexuspoint.folderName} className="h-7 text-sm flex-1" autoFocus onKeyDown={(e) => { if (e.key === "Enter" && newFolderName.trim()) createFolderMutation.mutate(newFolderName.trim()); if (e.key === "Escape") { setNewFolderOpen(false); setNewFolderName(""); } }} data-testid="input-folder-name" />
+                <Button size="sm" className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0" onClick={() => newFolderName.trim() && createFolderMutation.mutate(newFolderName.trim())} disabled={createFolderMutation.isPending} data-testid="button-create-folder">
+                  {createFolderMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : t.nexusOmni.nexuspoint.createFolder}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setNewFolderOpen(false); setNewFolderName(""); }}><X className="h-3.5 w-3.5" /></Button>
               </div>
             )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
 
+            <div className={cn("flex-1 min-h-0 flex flex-col relative", isDragging && "ring-2 ring-emerald-400 ring-inset bg-emerald-50/30 dark:bg-emerald-950/10")} onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleFileDrop}>
+              {isDragging && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                  <div className="bg-white dark:bg-card shadow-xl rounded-xl px-6 py-4 flex items-center gap-3 border-2 border-emerald-400 border-dashed">
+                    <Upload className="h-5 w-5 text-emerald-600" />
+                    <span className="text-sm font-medium text-emerald-700">{t.nexusOmni.nexuspoint.dragDropHint}</span>
+                  </div>
+                </div>
+              )}
+              <ScrollArea className="flex-1">
+                {itemsLoading || drivesLoading ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <Loader2 className="h-7 w-7 animate-spin text-emerald-500 mb-3" />
+                    <p className="text-sm text-muted-foreground">Načítavanie...</p>
+                  </div>
+                ) : displayItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                    <div className="w-14 h-14 rounded-xl bg-muted/50 flex items-center justify-center mb-4">
+                      <FolderOpen className="h-7 w-7 opacity-40" />
+                    </div>
+                    <p className="text-sm font-medium mb-1">{searchResults !== null ? "Žiadne výsledky" : t.nexusOmni.nexuspoint.noFiles}</p>
+                    {!searchResults && (
+                      <>
+                        <p className="text-xs mb-4">{t.nexusOmni.nexuspoint.dragDropHint}</p>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setNewFolderOpen(true)} data-testid="button-new-folder-empty"><FolderPlus className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.newFolder}</Button>
+                          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending} data-testid="button-upload-empty">{uploadMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}{t.nexusOmni.nexuspoint.upload}</Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border/60">
+                    {displayItems.map((item: any) => {
+                      const isFolder = !!item.folder;
+                      return (
+                        <div
+                          key={item.id}
+                          className={cn(
+                            "flex items-center gap-3 px-4 py-2.5 transition-colors group cursor-pointer border-l-2",
+                            detailItem?.id === item.id
+                              ? "bg-emerald-50 dark:bg-emerald-950/20 border-l-emerald-500"
+                              : "hover:bg-muted/40 border-l-transparent"
+                          )}
+                          onClick={() => isFolder ? navigateToFolder(item) : openDetailPanel(item)}
+                          data-testid={`nexuspoint-item-${item.id}`}
+                        >
+                          {getFileIcon(item.name, isFolder)}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{item.name}</p>
+                            <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
+                              {isFolder && item.folder?.childCount !== undefined && <span className="flex items-center gap-1"><FolderOpen className="h-3 w-3" />{item.folder.childCount} {t.nexusOmni.nexuspoint.items}</span>}
+                              {!isFolder && item.size && <span>{formatFileSize(item.size)}</span>}
+                              {item.lastModifiedDateTime && <span>{format(new Date(item.lastModifiedDateTime), "d.M.yyyy HH:mm")}</span>}
+                              {item.lastModifiedBy?.user?.displayName && (
+                                <span className="hidden lg:flex items-center gap-1 truncate max-w-[120px]">
+                                  <MsAvatar email={item.lastModifiedBy.user.email} name={item.lastModifiedBy.user.displayName} userId={userId} size="sm" className="!h-3.5 !w-3.5 !text-[7px]" />
+                                  {item.lastModifiedBy.user.displayName}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            {!isFolder && (
+                              <>
+                                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); handleDownload(item); }} data-testid={`button-download-${item.id}`}><Download className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.download}</TooltipContent></Tooltip>
+                                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-emerald-600" onClick={(e) => { e.stopPropagation(); setShareItem(item); setShareDialogOpen(true); }} data-testid={`button-share-${item.id}`}><Share2 className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.share}</TooltipContent></Tooltip>
+                              </>
+                            )}
+                            {item.webUrl && (
+                              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-blue-600" onClick={(e) => { e.stopPropagation(); window.open(item.webUrl, "_blank"); }} data-testid={`button-open-${item.id}`}><ExternalLink className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.openInBrowser}</TooltipContent></Tooltip>
+                            )}
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(t.nexusOmni.nexuspoint.deleteConfirm)) deleteMutation.mutate(item.id); }} data-testid={`button-delete-${item.id}`}><Trash2 className="h-3.5 w-3.5" /></Button></TooltipTrigger><TooltipContent>{t.nexusOmni.nexuspoint.delete}</TooltipContent></Tooltip>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── DETAIL PANEL ── */}
       {detailItem && !detailItem.folder && (
-        <Card className="w-[320px] shrink-0 flex flex-col border-l min-h-0">
-          <CardHeader className="py-1.5 px-3 border-b shrink-0 space-y-0">
-            <div className="flex items-center justify-between gap-2">
+        <div className="w-[290px] shrink-0 flex flex-col rounded-xl overflow-hidden border border-border shadow-sm bg-card min-h-0">
+          <div className="shrink-0 px-4 py-3 border-b bg-muted/20">
+            <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex items-center gap-2 min-w-0">
                 {getFileIcon(detailItem.name, false)}
                 <span className="text-sm font-semibold truncate">{detailItem.name}</span>
               </div>
-              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setDetailItem(null)} data-testid="button-close-detail">
-                <X className="h-3.5 w-3.5" />
-              </Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => setDetailItem(null)} data-testid="button-close-detail"><X className="h-3.5 w-3.5" /></Button>
             </div>
-            <div className="flex items-center gap-1 mt-1.5">
-              <button
-                onClick={() => setDetailTab("info")}
-                className={cn("px-2 py-1 text-xs rounded-md transition-colors", detailTab === "info" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium" : "text-muted-foreground hover:text-foreground")}
-                data-testid="tab-detail-info"
-              >
-                <Info className="h-3 w-3 inline mr-1" />{t.nexusOmni.nexuspoint.preview}
-              </button>
-              <button
-                onClick={() => { setDetailTab("versions"); setVersionsDialogOpen(true); }}
-                className={cn("px-2 py-1 text-xs rounded-md transition-colors", detailTab === "versions" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium" : "text-muted-foreground hover:text-foreground")}
-                data-testid="tab-detail-versions"
-              >
-                <History className="h-3 w-3 inline mr-1" />{t.nexusOmni.nexuspoint.versions}
-              </button>
-              <button
-                onClick={() => { setDetailTab("sharing"); setShareItem(detailItem); setShareDialogOpen(true); }}
-                className={cn("px-2 py-1 text-xs rounded-md transition-colors", detailTab === "sharing" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium" : "text-muted-foreground hover:text-foreground")}
-                data-testid="tab-detail-sharing"
-              >
-                <Share2 className="h-3 w-3 inline mr-1" />{t.nexusOmni.nexuspoint.share}
-              </button>
+            <div className="flex items-center gap-1">
+              {([
+                { id: "info", icon: Info, label: t.nexusOmni.nexuspoint.preview },
+                { id: "versions", icon: History, label: t.nexusOmni.nexuspoint.versions },
+                { id: "sharing", icon: Share2, label: t.nexusOmni.nexuspoint.share },
+              ] as { id: "info" | "versions" | "sharing"; icon: any; label: string }[]).map(({ id, icon: Icon, label }) => (
+                <button
+                  key={id}
+                  onClick={() => { setDetailTab(id); if (id === "versions") setVersionsDialogOpen(true); if (id === "sharing") { setShareItem(detailItem); setShareDialogOpen(true); } }}
+                  className={cn("flex items-center gap-1 px-2.5 py-1 text-xs rounded-full transition-colors", detailTab === id ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/60")}
+                  data-testid={`tab-detail-${id}`}
+                >
+                  <Icon className="h-3 w-3" />{label}
+                </button>
+              ))}
             </div>
-          </CardHeader>
-          <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-            <ScrollArea className="flex-1">
-              <div className="p-3 space-y-3">
-                {thumbnailUrl && (
-                  <div className="rounded-lg border overflow-hidden bg-muted/30">
-                    <img src={thumbnailUrl} alt={detailItem.name} className="w-full h-auto max-h-[200px] object-contain" />
-                  </div>
-                )}
-                {previewUrl && (
-                  <Button variant="outline" size="sm" className="w-full text-xs gap-2" onClick={() => window.open(previewUrl, "_blank")} data-testid="button-open-preview">
-                    <Eye className="h-3.5 w-3.5" />
-                    {t.nexusOmni.nexuspoint.preview}
-                  </Button>
-                )}
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between py-1 border-b border-dashed">
-                    <span className="text-muted-foreground">{t.nexusOmni.nexuspoint.size}</span>
-                    <span className="font-medium">{formatFileSize(detailItem.size || 0)}</span>
-                  </div>
-                  {detailItem.lastModifiedDateTime && (
-                    <div className="flex items-center justify-between py-1 border-b border-dashed">
-                      <span className="text-muted-foreground">{t.nexusOmni.nexuspoint.modified}</span>
-                      <span className="font-medium">{format(new Date(detailItem.lastModifiedDateTime), "d.M.yyyy HH:mm")}</span>
-                    </div>
-                  )}
-                  {detailItem.lastModifiedBy?.user?.displayName && (
-                    <div className="flex items-center justify-between py-1 border-b border-dashed">
-                      <span className="text-muted-foreground">{t.nexusOmni.nexuspoint.modifiedBy}</span>
-                      <span className="font-medium truncate ml-2 max-w-[140px]">{detailItem.lastModifiedBy.user.displayName}</span>
-                    </div>
-                  )}
-                  {detailItem.createdDateTime && (
-                    <div className="flex items-center justify-between py-1 border-b border-dashed">
-                      <span className="text-muted-foreground">{t.nexusOmni.nexuspoint.created}</span>
-                      <span className="font-medium">{format(new Date(detailItem.createdDateTime), "d.M.yyyy HH:mm")}</span>
-                    </div>
-                  )}
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-3">
+              {thumbnailUrl && (
+                <div className="rounded-lg border overflow-hidden bg-muted/20 shadow-sm">
+                  <img src={thumbnailUrl} alt={detailItem.name} className="w-full h-auto max-h-[180px] object-contain" />
                 </div>
-                <div className="flex items-center gap-1 pt-1">
-                  <Button variant="outline" size="sm" className="flex-1 text-xs gap-1.5" onClick={() => handleDownload(detailItem)} data-testid="button-detail-download">
-                    <Download className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.download}
-                  </Button>
-                  {detailItem.webUrl && (
-                    <Button variant="outline" size="sm" className="flex-1 text-xs gap-1.5" onClick={() => window.open(detailItem.webUrl, "_blank")} data-testid="button-detail-open">
-                      <ExternalLink className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.openInBrowser}
-                    </Button>
-                  )}
-                </div>
+              )}
+              {previewUrl && (
+                <Button variant="outline" size="sm" className="w-full text-xs gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => window.open(previewUrl, "_blank")} data-testid="button-open-preview">
+                  <Eye className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.preview}
+                </Button>
+              )}
+              <div className="rounded-lg border bg-muted/10 overflow-hidden">
+                {[
+                  { label: t.nexusOmni.nexuspoint.size, value: formatFileSize(detailItem.size || 0) },
+                  detailItem.lastModifiedDateTime ? { label: t.nexusOmni.nexuspoint.modified, value: format(new Date(detailItem.lastModifiedDateTime), "d.M.yyyy HH:mm") } : null,
+                  detailItem.lastModifiedBy?.user?.displayName ? { label: t.nexusOmni.nexuspoint.modifiedBy, value: detailItem.lastModifiedBy.user.displayName } : null,
+                  detailItem.createdDateTime ? { label: t.nexusOmni.nexuspoint.created, value: format(new Date(detailItem.createdDateTime), "d.M.yyyy HH:mm") } : null,
+                ].filter(Boolean).map((row: any, i, arr) => (
+                  <div key={row.label} className={cn("flex items-center justify-between px-3 py-2 text-xs", i < arr.length - 1 && "border-b border-border/50")}>
+                    <span className="text-muted-foreground">{row.label}</span>
+                    <span className="font-medium truncate ml-3 max-w-[130px] text-right">{row.value}</span>
+                  </div>
+                ))}
               </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1 text-xs gap-1.5" onClick={() => handleDownload(detailItem)} data-testid="button-detail-download"><Download className="h-3.5 w-3.5" />{t.nexusOmni.nexuspoint.download}</Button>
+                {detailItem.webUrl && (
+                  <Button variant="outline" size="sm" className="flex-1 text-xs gap-1.5" onClick={() => window.open(detailItem.webUrl, "_blank")} data-testid="button-detail-open"><ExternalLink className="h-3.5 w-3.5" />SP</Button>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+        </div>
       )}
 
+      {/* ── SETTINGS DIALOG ── */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center">
+                <Settings className="h-4 w-4 text-white" />
+              </div>
+              NexusPoint — Nastavenia
+            </DialogTitle>
+            <DialogDescription>Vyberte SharePoint weby a predvolené umiestnenie.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Globe className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm font-semibold">Pinnované weby</span>
+                {pendingPinnedIds.length > 0 && <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{pendingPinnedIds.length}</Badge>}
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">Zaškrtnuté weby sa zobrazia v NexusPointe. Ak nič nevyberiete, zobrazia sa všetky.</p>
+              {sitesLoading ? (
+                <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-emerald-500" /></div>
+              ) : allSites.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic py-2">Žiadne SharePoint weby. Skontrolujte pripojenie MS365.</p>
+              ) : (
+                <div className="space-y-0 rounded-lg border bg-muted/10 overflow-hidden max-h-[200px] overflow-y-auto">
+                  {allSites.map((site: any, i: number) => (
+                    <label key={site.id} className={cn("flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors text-sm", i < allSites.length - 1 && "border-b border-border/50")}>
+                      <Checkbox checked={pendingPinnedIds.includes(site.id)} onCheckedChange={() => togglePinnedSite(site.id)} data-testid={`checkbox-site-${site.id}`} />
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-5 h-5 rounded bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0"><Globe className="h-3 w-3 text-emerald-600" /></div>
+                        <span className="truncate font-medium">{site.displayName}</span>
+                      </div>
+                      {npSettings?.globalPinnedSiteIds?.includes(site.id) && <Badge variant="outline" className="ml-auto shrink-0 text-[9px] h-4 px-1.5 border-emerald-300 text-emerald-600">Globálny</Badge>}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <HardDrive className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm font-semibold">Predvolený web</span>
+              </div>
+              <Select value={pendingDefaultSiteId || "none"} onValueChange={(v) => { setPendingDefaultSiteId(v === "none" ? null : v); setPendingDefaultDriveId(null); }}>
+                <SelectTrigger className="h-8 text-sm" data-testid="select-default-site"><SelectValue placeholder="Žiadny predvolený" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Žiadny predvolený</SelectItem>
+                  {(pendingPinnedIds.length > 0 ? allSites.filter((s: any) => pendingPinnedIds.includes(s.id)) : allSites).map((site: any) => (
+                    <SelectItem key={site.id} value={site.id}>{site.displayName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {pendingDefaultSiteId && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <FolderOpen className="h-4 w-4 text-emerald-600" />
+                  <span className="text-sm font-semibold">Predvolená knižnica</span>
+                </div>
+                <Select value={pendingDefaultDriveId || "none"} onValueChange={(v) => setPendingDefaultDriveId(v === "none" ? null : v)} disabled={settingsDrivesLoading}>
+                  <SelectTrigger className="h-8 text-sm" data-testid="select-default-drive"><SelectValue placeholder={settingsDrivesLoading ? "Načítavanie..." : "Žiadna predvolená"} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Žiadna predvolená</SelectItem>
+                    {settingsDrives.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSettingsOpen(false)}>Zrušiť</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending} data-testid="button-save-nexuspoint-settings">
+              {saveSettingsMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Uložiť nastavenia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── VERSIONS DIALOG ── */}
       <Dialog open={versionsDialogOpen} onOpenChange={(open) => { setVersionsDialogOpen(open); if (!open) setDetailTab("info"); }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -961,37 +1048,28 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             </DialogTitle>
             <DialogDescription>{t.nexusOmni.nexuspoint.restoreVersion}</DialogDescription>
           </DialogHeader>
-          <div className="max-h-[400px] overflow-auto">
+          <div className="max-h-[400px] overflow-auto rounded-lg border">
             {versionsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
+              <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : versions.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">{t.nexusOmni.nexuspoint.noVersions}</p>
             ) : (
               <div className="divide-y">
                 {versions.map((v: any, i: number) => (
-                  <div key={v.id} className="flex items-center justify-between py-2 px-1 group">
+                  <div key={v.id} className="flex items-center justify-between py-2.5 px-3 group hover:bg-muted/30">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{t.nexusOmni.nexuspoint.version} {v.id}</span>
-                        {i === 0 && <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-emerald-300 text-emerald-600">✓</Badge>}
+                        {i === 0 && <Badge className="text-[10px] h-4 px-1.5 bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400">✓ Aktuálna</Badge>}
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
                         {v.lastModifiedDateTime && <span>{format(new Date(v.lastModifiedDateTime), "d.M.yyyy HH:mm")}</span>}
-                        {v.lastModifiedBy?.user?.displayName && <span>{v.lastModifiedBy.user.displayName}</span>}
-                        {v.size && <span>{formatFileSize(v.size)}</span>}
+                        {v.lastModifiedBy?.user?.displayName && <span>· {v.lastModifiedBy.user.displayName}</span>}
+                        {v.size && <span>· {formatFileSize(v.size)}</span>}
                       </div>
                     </div>
                     {i > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => restoreVersionMutation.mutate(v.id)}
-                        disabled={restoreVersionMutation.isPending}
-                        data-testid={`button-restore-version-${v.id}`}
-                      >
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 opacity-0 group-hover:opacity-100 transition-opacity border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => restoreVersionMutation.mutate(v.id)} disabled={restoreVersionMutation.isPending} data-testid={`button-restore-version-${v.id}`}>
                         {restoreVersionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
                         {t.nexusOmni.nexuspoint.restoreVersion}
                       </Button>
@@ -1004,8 +1082,9 @@ function NexusPointPanel({ userId }: { userId?: string }) {
         </DialogContent>
       </Dialog>
 
+      {/* ── SHARE DIALOG ── */}
       <Dialog open={shareDialogOpen} onOpenChange={(open) => { setShareDialogOpen(open); if (!open) { setShareItem(null); setDetailTab("info"); } }}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Share2 className="h-4 w-4 text-emerald-600" />
@@ -1013,107 +1092,46 @@ function NexusPointPanel({ userId }: { userId?: string }) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">{t.nexusOmni.nexuspoint.createLink}</p>
+            <div>
+              <p className="text-sm font-medium mb-2">{t.nexusOmni.nexuspoint.createLink}</p>
               <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5"
-                  onClick={() => createShareLinkMutation.mutate({ type: 'view', scope: 'organization' })}
-                  disabled={createShareLinkMutation.isPending}
-                  data-testid="button-share-view-org"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  {t.nexusOmni.nexuspoint.viewOnly} ({t.nexusOmni.nexuspoint.organization})
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5"
-                  onClick={() => createShareLinkMutation.mutate({ type: 'edit', scope: 'organization' })}
-                  disabled={createShareLinkMutation.isPending}
-                  data-testid="button-share-edit-org"
-                >
-                  <Link2 className="h-3.5 w-3.5" />
-                  {t.nexusOmni.nexuspoint.editAccess} ({t.nexusOmni.nexuspoint.organization})
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5"
-                  onClick={() => createShareLinkMutation.mutate({ type: 'view', scope: 'anonymous' })}
-                  disabled={createShareLinkMutation.isPending}
-                  data-testid="button-share-view-anyone"
-                >
-                  <Globe className="h-3.5 w-3.5" />
-                  {t.nexusOmni.nexuspoint.viewOnly} ({t.nexusOmni.nexuspoint.anyone})
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5"
-                  onClick={() => createShareLinkMutation.mutate({ type: 'edit', scope: 'anonymous' })}
-                  disabled={createShareLinkMutation.isPending}
-                  data-testid="button-share-edit-anyone"
-                >
-                  <Link2 className="h-3.5 w-3.5" />
-                  {t.nexusOmni.nexuspoint.editAccess} ({t.nexusOmni.nexuspoint.anyone})
-                </Button>
+                {([
+                  { type: 'view' as const, scope: 'organization' as const, label: t.nexusOmni.nexuspoint.viewOnly, sub: t.nexusOmni.nexuspoint.organization, Icon: Eye },
+                  { type: 'edit' as const, scope: 'organization' as const, label: t.nexusOmni.nexuspoint.editAccess, sub: t.nexusOmni.nexuspoint.organization, Icon: Link2 },
+                  { type: 'view' as const, scope: 'anonymous' as const, label: t.nexusOmni.nexuspoint.viewOnly, sub: t.nexusOmni.nexuspoint.anyone, Icon: Globe },
+                  { type: 'edit' as const, scope: 'anonymous' as const, label: t.nexusOmni.nexuspoint.editAccess, sub: t.nexusOmni.nexuspoint.anyone, Icon: Link2 },
+                ]).map(({ type, scope, label, sub, Icon }) => (
+                  <Button key={`${type}-${scope}`} variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => createShareLinkMutation.mutate({ type, scope })} disabled={createShareLinkMutation.isPending} data-testid={`button-share-${type}-${scope}`}>
+                    <Icon className="h-3.5 w-3.5" />{label} ({sub})
+                  </Button>
+                ))}
               </div>
-              {createShareLinkMutation.isPending && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  {t.nexusOmni.nexuspoint.searching}
-                </div>
-              )}
+              {createShareLinkMutation.isPending && <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2"><Loader2 className="h-3 w-3 animate-spin" />{t.nexusOmni.nexuspoint.searching}</div>}
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">{t.nexusOmni.nexuspoint.permissions}</p>
+            <div>
+              <p className="text-sm font-medium mb-2">{t.nexusOmni.nexuspoint.permissions}</p>
               {permissionsLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
+                <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
               ) : permissions.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">{t.nexusOmni.nexuspoint.noPermissions}</p>
               ) : (
                 <div className="divide-y max-h-[200px] overflow-auto rounded-lg border">
                   {permissions.map((perm: any) => (
-                    <div key={perm.id} className="flex items-center justify-between px-3 py-2 group text-xs">
+                    <div key={perm.id} className="flex items-center justify-between px-3 py-2 group text-xs hover:bg-muted/30">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          {perm.grantedTo?.user?.displayName && (
-                            <span className="font-medium">{perm.grantedTo.user.displayName}</span>
-                          )}
-                          {perm.link && (
-                            <span className="font-medium flex items-center gap-1">
-                              <Link2 className="h-3 w-3" />
-                              {perm.link.type === 'view' ? t.nexusOmni.nexuspoint.viewOnly : t.nexusOmni.nexuspoint.editAccess}
-                              {perm.link.scope === 'anonymous' ? ` (${t.nexusOmni.nexuspoint.anyone})` : ` (${t.nexusOmni.nexuspoint.organization})`}
-                            </span>
-                          )}
-                          {!perm.grantedTo?.user?.displayName && !perm.link && (
-                            <span className="font-medium">{perm.roles?.join(', ')}</span>
-                          )}
+                          {perm.grantedTo?.user?.displayName && <span className="font-medium">{perm.grantedTo.user.displayName}</span>}
+                          {perm.link && <span className="font-medium flex items-center gap-1"><Link2 className="h-3 w-3" />{perm.link.type === 'view' ? t.nexusOmni.nexuspoint.viewOnly : t.nexusOmni.nexuspoint.editAccess}{perm.link.scope === 'anonymous' ? ` (${t.nexusOmni.nexuspoint.anyone})` : ` (${t.nexusOmni.nexuspoint.organization})`}</span>}
+                          {!perm.grantedTo?.user?.displayName && !perm.link && <span className="font-medium">{perm.roles?.join(', ')}</span>}
                         </div>
                         {perm.link?.webUrl && (
-                          <button
-                            className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 mt-0.5"
-                            onClick={() => { navigator.clipboard.writeText(perm.link.webUrl); toast({ title: t.nexusOmni.nexuspoint.linkCopied }); }}
-                          >
+                          <button className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 mt-0.5" onClick={() => { navigator.clipboard.writeText(perm.link.webUrl); toast({ title: t.nexusOmni.nexuspoint.linkCopied }); }}>
                             <Copy className="h-2.5 w-2.5" />{t.nexusOmni.nexuspoint.copyLink}
                           </button>
                         )}
                       </div>
                       {perm.link && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          onClick={() => removePermissionMutation.mutate(perm.id)}
-                          disabled={removePermissionMutation.isPending}
-                          data-testid={`button-remove-perm-${perm.id}`}
-                        >
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={() => removePermissionMutation.mutate(perm.id)} disabled={removePermissionMutation.isPending} data-testid={`button-remove-perm-${perm.id}`}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       )}

@@ -7517,3 +7517,20 @@ export const scrapedContacts = pgTable("scraped_contacts", {
 export const insertScrapedContactSchema = createInsertSchema(scrapedContacts).omit({ id: true, createdAt: true, reviewedAt: true });
 export type ScrapedContact = typeof scrapedContacts.$inferSelect;
 export type InsertScrapedContact = z.infer<typeof insertScrapedContactSchema>;
+
+// ============================================
+// NEXUSPOINT SETTINGS
+// ============================================
+export const nexuspointSettings = pgTable("nexuspoint_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  isGlobal: boolean("is_global").notNull().default(false),
+  pinnedSiteIds: text("pinned_site_ids").array().default(sql`ARRAY[]::text[]`),
+  defaultSiteId: text("default_site_id"),
+  defaultDriveId: text("default_drive_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+export const insertNexuspointSettingsSchema = createInsertSchema(nexuspointSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export type NexuspointSettings = typeof nexuspointSettings.$inferSelect;
+export type InsertNexuspointSettings = z.infer<typeof insertNexuspointSettingsSchema>;

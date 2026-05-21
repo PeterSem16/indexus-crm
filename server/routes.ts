@@ -4994,6 +4994,77 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     }
   });
 
+  // ============ NexusPoint Settings routes ============
+
+  app.get("/api/users/:userId/nexuspoint-settings", requireAuth, async (req, res) => {
+    try {
+      const { nexuspointSettings } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [userSettings] = await db.select().from(nexuspointSettings).where(eq(nexuspointSettings.userId, req.params.userId));
+      const [globalSettings] = await db.select().from(nexuspointSettings).where(eq(nexuspointSettings.isGlobal, true));
+      res.json({
+        pinnedSiteIds: userSettings?.pinnedSiteIds?.length ? userSettings.pinnedSiteIds : [],
+        defaultSiteId: userSettings?.defaultSiteId || null,
+        defaultDriveId: userSettings?.defaultDriveId || null,
+        globalPinnedSiteIds: globalSettings?.pinnedSiteIds || [],
+        globalDefaultSiteId: globalSettings?.defaultSiteId || null,
+        globalDefaultDriveId: globalSettings?.defaultDriveId || null,
+        hasUserSettings: !!userSettings,
+      });
+    } catch (error) {
+      console.error("[NexusPoint] Error fetching settings:", error);
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.put("/api/users/:userId/nexuspoint-settings", requireAuth, async (req, res) => {
+    try {
+      const { pinnedSiteIds, defaultSiteId, defaultDriveId } = req.body;
+      const { nexuspointSettings } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [existing] = await db.select().from(nexuspointSettings).where(eq(nexuspointSettings.userId, req.params.userId));
+      if (existing) {
+        await db.update(nexuspointSettings).set({ pinnedSiteIds: pinnedSiteIds || [], defaultSiteId: defaultSiteId || null, defaultDriveId: defaultDriveId || null, updatedAt: new Date() }).where(eq(nexuspointSettings.userId, req.params.userId));
+      } else {
+        await db.insert(nexuspointSettings).values({ userId: req.params.userId, isGlobal: false, pinnedSiteIds: pinnedSiteIds || [], defaultSiteId: defaultSiteId || null, defaultDriveId: defaultDriveId || null });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[NexusPoint] Error saving settings:", error);
+      res.status(500).json({ error: "Failed to save settings" });
+    }
+  });
+
+  app.get("/api/admin/nexuspoint-settings", requireAuth, async (req, res) => {
+    try {
+      const { nexuspointSettings } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [settings] = await db.select().from(nexuspointSettings).where(eq(nexuspointSettings.isGlobal, true));
+      res.json(settings || { pinnedSiteIds: [], defaultSiteId: null, defaultDriveId: null });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch global settings" });
+    }
+  });
+
+  app.put("/api/admin/nexuspoint-settings", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user as any;
+      if (sessionUser?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+      const { pinnedSiteIds, defaultSiteId, defaultDriveId } = req.body;
+      const { nexuspointSettings } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [existing] = await db.select().from(nexuspointSettings).where(eq(nexuspointSettings.isGlobal, true));
+      if (existing) {
+        await db.update(nexuspointSettings).set({ pinnedSiteIds: pinnedSiteIds || [], defaultSiteId: defaultSiteId || null, defaultDriveId: defaultDriveId || null, updatedAt: new Date() }).where(eq(nexuspointSettings.isGlobal, true));
+      } else {
+        await db.insert(nexuspointSettings).values({ userId: null, isGlobal: true, pinnedSiteIds: pinnedSiteIds || [], defaultSiteId: defaultSiteId || null, defaultDriveId: defaultDriveId || null });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to save global settings" });
+    }
+  });
+
   // Search emails across mailbox
   app.get("/api/users/:userId/ms365-search-emails", requireAuth, async (req, res) => {
     try {
