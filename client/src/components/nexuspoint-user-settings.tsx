@@ -6,7 +6,7 @@ import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Globe, HardDrive, FolderOpen, Settings, CheckCircle2 } from "lucide-react";
+import { Loader2, Globe, HardDrive, FolderOpen, Settings, CheckCircle2, RotateCcw } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -41,7 +41,7 @@ export function NexusPointUserSettings({ userId }: NexusPointUserSettingsProps) 
 
   const isMs365Connected = !!(ms365Connection?.isConnected && ms365Connection?.hasTokens);
 
-  const { data: allSites = [], isLoading: sitesLoading } = useQuery<any[]>({
+  const { data: allSites = [], isLoading: sitesLoading, refetch: refetchSites } = useQuery<any[]>({
     queryKey: ["/api/users", userId, "sharepoint", "sites"],
     queryFn: async () => {
       const res = await fetch(`/api/users/${userId}/sharepoint/sites`, { credentials: "include" });
@@ -149,6 +149,17 @@ export function NexusPointUserSettings({ userId }: NexusPointUserSettingsProps) 
           {pendingPinnedIds.length > 0 && (
             <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{pendingPinnedIds.length}</Badge>
           )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 ml-auto text-muted-foreground hover:text-emerald-600"
+            onClick={() => refetchSites()}
+            disabled={sitesLoading}
+            data-testid="button-refresh-nexuspoint-sites"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 ${sitesLoading ? "animate-spin" : ""}`} />
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground">{np.pinnedSitesHint}</p>
 
