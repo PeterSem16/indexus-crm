@@ -1,0 +1,78 @@
+psql:/tmp/indexus_check.sql:20: ERROR:  relation "contracts" does not exist
+LINE 2: UNION ALL SELECT 'contracts', COUNT(*) FROM contracts
+                                                    ^
+=== CUSTOMERS per COUNTRY ===
+ krajina | pocet
+---------+-------
+ RO      | 78912
+ SK      | 57461
+ HU      | 16961
+ CZ      |  9777
+ IT      |  1196
+ AT      |   717
+ UA      |   141
+ DE      |    71
+ MD      |    43
+ CH      |    27
+ GB      |    17
+ FR      |    15
+ LU      |    11
+ ES      |    11
+ US      |    10
+ RS      |    10
+ NL      |     9
+ PL      |     9
+ BE      |     6
+ SE      |     5
+ CA      |     5
+ HR      |     5
+ IE      |     4
+ DK      |     4
+ KN      |     4
+ RU      |     3
+ PT      |     3
+ SI      |     3
+ NO      |     3
+ TR      |     2
+ JO      |     2
+ BG      |     2
+ CY      |     1
+ CF      |     1
+ SM      |     1
+ SZ      |     1
+ AU      |     1
+ LV      |     1
+ VN      |     1
+ MT      |     1
+ MX      |     1
+ NZ      |     1
+ IR      |     1
+ IN      |     1
+ AR      |     1
+(45 rows)
+
+=== CUSTOMERS SOURCE (ISCBC check) ===
+psql:/tmp/indexus_check.sql:26: ERROR:  column "source" does not exist
+LINE 1: SELECT COALESCE(source,'NULL') AS source, COUNT(*) AS pocet ...
+                        ^
+=== CONTRACTS per COUNTRY & STATUS ===
+psql:/tmp/indexus_check.sql:29: ERROR:  relation "contracts" does not exist
+LINE 1: ...SCE(status,'?') AS status, COUNT(*) AS pocet FROM contracts ...
+                                                             ^
+=== INVOICES per COUNTRY & STATUS ===
+psql:/tmp/indexus_check.sql:32: ERROR:  column "country" does not exist
+LINE 1: SELECT COALESCE(country,'?') AS krajina, COALESCE(status,'?'...
+                        ^
+=== COLLECTIONS per STATUS ===
+psql:/tmp/indexus_check.sql:35: ERROR:  invalid input syntax for type integer: "?"
+LINE 1: SELECT COALESCE(status,'?') AS status, COUNT(*) AS pocet FRO...
+                               ^
+=== CONTROL CHECKS ===
+psql:/tmp/indexus_check.sql:47: ERROR:  relation "contracts" does not exist
+LINE 4: ...NION ALL SELECT 'Zmluvy bez cisla', COUNT(*) FROM contracts ...
+                                                             ^
+=== USERS ===
+psql:/tmp/indexus_check.sql:50: ERROR:  column "country" does not exist
+LINE 1: SELECT COALESCE(country,'?') AS krajina, COUNT(*) AS pocet F...
+                        ^
+seman
