@@ -125,10 +125,10 @@ title = "INDEXUS CRM — Finálny dokument (v3)"
 id = "NfMogEM-w4cXduqANnTBF"
 uri = "file://einvoicing_analysis.docx"
 type = "word_document"
-title = "e-Invoicing Analýza — SK, CH, RO, CZ, HU, IT (opravený)"
+title = "e-Invoicing Analýza — SK, CH, RO, CZ, HU, IT"
 
 [[outputs]]
 id = "z5-JfNPtM7Ja1KmsvvwP5"
 uri = "file://eso_integration_analysis.docx"
 type = "word_document"
-title = "ESO Integrácia — Návrh riešenia (opravený)"
+title = "ESO Integrácia — Návrh riešenia"
