@@ -108,3 +108,9 @@ id = "Mu2LMHhY44KMfL3--00nn"
 uri = "file://docs/NEXUSPOINT_SharePoint_Analysis_EN.docx"
 type = "word_document"
 title = "NexusPoint — SharePoint Analysis & Roadmap"
+
+[[outputs]]
+id = "RJ9_zHP7Yz_fQLXAtTigu"
+uri = "file://indexus_overview.md"
+type = "text"
+title = "INDEXUS — Prehľad modulov & Control Check"
