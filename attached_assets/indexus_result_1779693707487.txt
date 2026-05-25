@@ -1,0 +1,201 @@
+============================================================
+INDEXUS — Record Counts & Control Check
+============================================================
+
+=== SUMMARY — pocty zaznamov ===
+         modul          |  pocet  
+------------------------+---------
+ communication_messages | 1163268
+ contract_instances     |  236935
+ collections            |  198066
+ customers              |  165462
+ collaborators          |   14887
+ clinics                |   10078
+ hospitals              |    1213
+ call_logs              |    1087
+ campaign_contacts      |     734
+ visit_events           |      29
+ sop_articles           |      25
+ invoice_items          |      15
+ users                  |      12
+ web_form_submissions   |      10
+ deals                  |      10
+ tasks                  |       9
+ campaigns              |       5
+ products               |       3
+ training_room_archives |       2
+ pipelines              |       2
+ invoices               |       0
+(21 rows)
+
+
+=== CUSTOMERS — per krajina ===
+ krajina | pocet 
+---------+-------
+ RO      | 78912
+ SK      | 57461
+ HU      | 16961
+ CZ      |  9777
+ IT      |  1196
+ AT      |   717
+ UA      |   141
+ DE      |    71
+ MD      |    43
+ CH      |    27
+ GB      |    17
+ FR      |    15
+ LU      |    11
+ ES      |    11
+ US      |    10
+ RS      |    10
+ NL      |     9
+ PL      |     9
+ BE      |     6
+ SE      |     5
+ CA      |     5
+ HR      |     5
+ IE      |     4
+ DK      |     4
+ KN      |     4
+ RU      |     3
+ PT      |     3
+ SI      |     3
+ NO      |     3
+ TR      |     2
+ JO      |     2
+ BG      |     2
+ CY      |     1
+ CF      |     1
+ SM      |     1
+ SZ      |     1
+ AU      |     1
+ LV      |     1
+ VN      |     1
+ MT      |     1
+ MX      |     1
+ NZ      |     1
+ IR      |     1
+ IN      |     1
+ AR      |     1
+(45 rows)
+
+
+=== CUSTOMERS — data_source (ISCBC check) ===
+ data_source | pocet  
+-------------+--------
+ iscbc       | 165448
+ NULL        |     14
+(2 rows)
+
+
+=== CUSTOMERS — registration_source ===
+ reg_source | pocet  
+------------+--------
+ NULL       | 165453
+ web_form   |      6
+            |      3
+(3 rows)
+
+
+=== CONTRACT INSTANCES — per status ===
+      status       | pocet  
+-------------------+--------
+ completed         | 221467
+ cancelled         |  14118
+ signed            |    671
+ sent              |    645
+ pending_signature |     25
+ draft             |      9
+(6 rows)
+
+
+=== INVOICES — per status ===
+ status | pocet | suma | mena 
+--------+-------+------+------
+(0 rows)
+
+
+=== INVOICES — per customer_country ===
+ krajina | pocet | suma 
+---------+-------+------
+(0 rows)
+
+
+=== INVOICES — data_source ===
+ zdroj | pocet 
+-------+-------
+(0 rows)
+
+
+=== COLLECTIONS — per state ===
+   state   | pocet  
+-----------+--------
+ 6         | 187911
+ 8         |   8688
+ 4         |    446
+ 5         |    411
+ 3         |    315
+ 10        |    134
+ 2         |     79
+ 7         |     46
+ evaluated |     14
+ 9         |     14
+ 1         |      5
+ 11        |      2
+ 12        |      1
+(13 rows)
+
+
+=== COLLECTIONS — per country_code ===
+ krajina | pocet 
+---------+-------
+ RO      | 91502
+ SK      | 74041
+ HU      | 19445
+ CZ      | 11589
+ AT      |   724
+ IT      |   722
+ MD      |    32
+ DE      |    11
+(8 rows)
+
+
+=== COLLECTIONS — data_source ===
+ zdroj | pocet  
+-------+--------
+ iscbc | 197991
+ NULL  |     75
+(2 rows)
+
+
+=== USERS — assigned_countries ===
+psql:/tmp/indexus_final.sql:87: ERROR:  set-returning functions are not allowed in COALESCE
+LINE 1: SELECT COALESCE(unnest(assigned_countries),'?') AS krajina, ...
+                        ^
+HINT:  You might be able to move the set-returning function into a LATERAL FROM item.
+
+=== CAMPAIGNS — per status ===
+ status | pocet 
+--------+-------
+ paused |     2
+ active |     2
+ draft  |     1
+(3 rows)
+
+
+=== CONTROL CHECKS ===
+           check_name            | pocet  
+---------------------------------+--------
+ Customers bez poistovne         | 165448
+ Collections bez contract_id     |     89
+ Users bez roly (user_roles)     |     12
+ Tasks po termine (open)         |      1
+ Customers bez krajiny           |      0
+ Invoices issued > 60 dni        |      0
+ Customers bez tel aj email      |      0
+ Invoices nulova suma            |      0
+ Invoices bez invoice_number     |      0
+ Collections bez collection_date |      0
+ Contract_instances bez customer |      0
+(11 rows)
+
