@@ -64,13 +64,13 @@ function alertBox(label,text,fill,labelColor){
     rows:[new TableRow({children:[
       new TableCell({
         children:[new Paragraph({children:[tr(label,{bold:true,size:20,color:labelColor})],spacing:{before:40,after:0}})],
-        shading:{type:ShadingType.SOLID,fill},
+        shading:{type:ShadingType.CLEAR,color:"auto",fill},
         margins:{top:80,bottom:80,left:120,right:60},
         width:{size:1200,type:WidthType.DXA},
       }),
       new TableCell({
         children:[new Paragraph({children:[tr(text,{size:19,color:C.dark})],spacing:{before:40,after:40}})],
-        shading:{type:ShadingType.SOLID,fill},
+        shading:{type:ShadingType.CLEAR,color:"auto",fill},
         margins:{top:80,bottom:80,left:60,right:120},
       }),
     ]})]
@@ -80,7 +80,7 @@ function alertBox(label,text,fill,labelColor){
 function colorBox(text,fill,textColor=C.dark){
   return new Paragraph({
     children:[tr(text,{color:textColor,size:19})],
-    shading:{type:ShadingType.SOLID,fill},
+    shading:{type:ShadingType.CLEAR,color:"auto",fill},
     spacing:{before:80,after:80},
     indent:{left:100,right:100},
   });
@@ -98,7 +98,7 @@ function mkTable(headers,rows,widths){
             children:[tr(h,{bold:true,color:C.white,size:18})],
             alignment:AlignmentType.CENTER,spacing:{before:50,after:50},
           })],
-          shading:{type:ShadingType.SOLID,fill:C.header},
+          shading:{type:ShadingType.CLEAR,color:"auto",fill:C.header},
           margins:{top:60,bottom:60,left:100,right:100},
           width:widths?.[i]?{size:widths[i],type:WidthType.DXA}:undefined,
         })),
@@ -113,7 +113,7 @@ function mkTable(headers,rows,widths){
               alignment:o.align||AlignmentType.LEFT,
               spacing:{before:50,after:50},
             })],
-            shading:bg?{type:ShadingType.SOLID,fill:bg}:undefined,
+            shading:bg?{type:ShadingType.CLEAR,color:"auto",fill:bg}:undefined,
             margins:{top:60,bottom:60,left:100,right:100},
             width:widths?.[i]?{size:widths[i],type:WidthType.DXA}:undefined,
           });
