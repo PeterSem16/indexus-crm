@@ -114,3 +114,9 @@ id = "RJ9_zHP7Yz_fQLXAtTigu"
 uri = "file://indexus_overview.md"
 type = "text"
 title = "INDEXUS — Prehľad modulov & Control Check"
+
+[[outputs]]
+id = "OZhqIKwQSS6ETBL7RdCWX"
+uri = "file://indexus_overview.docx"
+type = "word_document"
+title = "INDEXUS CRM — Prehľad modulov & Plán úprav"

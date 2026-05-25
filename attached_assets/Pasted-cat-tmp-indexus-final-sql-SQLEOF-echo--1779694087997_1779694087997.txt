@@ -1,0 +1,124 @@
+cat > /tmp/indexus_final.sql << 'SQLEOF'
+\echo '============================================================'
+\echo 'INDEXUS — Record Counts & Control Check'
+\echo '============================================================'
+
+\echo ''
+\echo '=== SUMMARY — pocty zaznamov ==='
+SELECT 'customers'              AS modul, COUNT(*) AS pocet FROM customers
+UNION ALL SELECT 'contract_instances', COUNT(*) FROM contract_instances
+UNION ALL SELECT 'collections',        COUNT(*) FROM collections
+UNION ALL SELECT 'invoices',           COUNT(*) FROM invoices
+UNION ALL SELECT 'hospitals',          COUNT(*) FROM hospitals
+UNION ALL SELECT 'clinics',            COUNT(*) FROM clinics
+UNION ALL SELECT 'collaborators',      COUNT(*) FROM collaborators
+UNION ALL SELECT 'campaigns',          COUNT(*) FROM campaigns
+UNION ALL SELECT 'campaign_contacts',  COUNT(*) FROM campaign_contacts
+UNION ALL SELECT 'communication_messages', COUNT(*) FROM communication_messages
+UNION ALL SELECT 'tasks',              COUNT(*) FROM tasks
+UNION ALL SELECT 'call_logs',          COUNT(*) FROM call_logs
+UNION ALL SELECT 'users',              COUNT(*) FROM users
+UNION ALL SELECT 'products',           COUNT(*) FROM products
+UNION ALL SELECT 'invoice_items',      COUNT(*) FROM invoice_items
+UNION ALL SELECT 'visit_events',       COUNT(*) FROM visit_events
+UNION ALL SELECT 'sop_articles',       COUNT(*) FROM sop_articles
+UNION ALL SELECT 'web_form_submissions', COUNT(*) FROM web_form_submissions
+UNION ALL SELECT 'training_room_archives', COUNT(*) FROM training_room_archives
+UNION ALL SELECT 'pipelines',          COUNT(*) FROM pipelines
+UNION ALL SELECT 'deals',              COUNT(*) FROM deals
+ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== CUSTOMERS — per krajina ==='
+SELECT COALESCE(country,'?') AS krajina, COUNT(*) AS pocet
+FROM customers GROUP BY country ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== CUSTOMERS — data_source (ISCBC check) ==='
+SELECT COALESCE(data_source,'NULL') AS data_source, COUNT(*) AS pocet
+FROM customers GROUP BY data_source ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== CUSTOMERS — registration_source ==='
+SELECT COALESCE(registration_source,'NULL') AS reg_source, COUNT(*) AS pocet
+FROM customers GROUP BY registration_source ORDER BY pocet DESC LIMIT 20;
+
+\echo ''
+\echo '=== CONTRACT INSTANCES — per status ==='
+SELECT COALESCE(status,'?') AS status, COUNT(*) AS pocet
+FROM contract_instances GROUP BY status ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== INVOICES — per status ==='
+SELECT COALESCE(status,'?') AS status,
+       COUNT(*) AS pocet,
+       ROUND(COALESCE(SUM(total_amount),0),2) AS suma,
+       COALESCE(currency,'?') AS mena
+FROM invoices GROUP BY status, currency ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== INVOICES — per customer_country ==='
+SELECT COALESCE(customer_country,'?') AS krajina, COUNT(*) AS pocet,
+       ROUND(COALESCE(SUM(total_amount),0),2) AS suma
+FROM invoices GROUP BY customer_country ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== INVOICES — data_source ==='
+SELECT COALESCE(data_source,'NULL') AS zdroj, COUNT(*) AS pocet
+FROM invoices GROUP BY data_source ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== COLLECTIONS — per state ==='
+SELECT COALESCE(state,'?') AS state, COUNT(*) AS pocet
+FROM collections GROUP BY state ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== COLLECTIONS — per country_code ==='
+SELECT COALESCE(country_code,'?') AS krajina, COUNT(*) AS pocet
+FROM collections GROUP BY country_code ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== COLLECTIONS — data_source ==='
+SELECT COALESCE(data_source,'NULL') AS zdroj, COUNT(*) AS pocet
+FROM collections GROUP BY data_source ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== USERS — assigned_countries ==='
+SELECT COALESCE(unnest(assigned_countries),'?') AS krajina, COUNT(*) AS pocet
+FROM users GROUP BY krajina ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== CAMPAIGNS — per status ==='
+SELECT COALESCE(status,'?') AS status, COUNT(*) AS pocet
+FROM campaigns GROUP BY status ORDER BY pocet DESC;
+
+\echo ''
+\echo '=== CONTROL CHECKS ==='
+SELECT 'Customers bez tel aj email'       AS check_name,
+       COUNT(*) AS pocet
+FROM customers WHERE (phone IS NULL OR phone='') AND (email IS NULL OR email='')
+UNION ALL
+SELECT 'Customers bez krajiny',            COUNT(*) FROM customers WHERE country IS NULL OR country=''
+UNION ALL
+SELECT 'Customers bez poistovne',          COUNT(*) FROM customers WHERE health_insurance_id IS NULL
+UNION ALL
+SELECT 'Contract_instances bez customer',  COUNT(*) FROM contract_instances WHERE customer_id IS NULL
+UNION ALL
+SELECT 'Invoices bez invoice_number',      COUNT(*) FROM invoices WHERE invoice_number IS NULL OR invoice_number=''
+UNION ALL
+SELECT 'Invoices nulova suma',             COUNT(*) FROM invoices WHERE total_amount=0 OR total_amount IS NULL
+UNION ALL
+SELECT 'Invoices issued > 60 dni',         COUNT(*) FROM invoices WHERE status='issued' AND COALESCE(issue_date, generated_at) < NOW()-INTERVAL '60 days'
+UNION ALL
+SELECT 'Collections bez collection_date',  COUNT(*) FROM collections WHERE collection_date IS NULL
+UNION ALL
+SELECT 'Collections bez contract_id',      COUNT(*) FROM collections WHERE contract_id IS NULL
+UNION ALL
+SELECT 'Tasks po termine (open)',           COUNT(*) FROM tasks WHERE due_date < NOW() AND status != 'done'
+UNION ALL
+SELECT 'Users bez roly (user_roles)',       COUNT(*) FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id WHERE ur.role_id IS NULL AND u.is_active=true
+ORDER BY pocet DESC;
+SQLEOF
+
+PGPASSWORD=HanyurIfKisck psql -h localhost -U indexus -d indexus_crm -f /tmp/indexus_final.sql 2>&1 | tee /tmp/indexus_result.txt
+echo "=== Ulozene do /tmp/indexus_result.txt ==="
