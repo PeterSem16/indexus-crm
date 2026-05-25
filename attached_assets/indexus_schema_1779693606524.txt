@@ -1,0 +1,441 @@
+             table_name              
+-------------------------------------
+ activity_logs
+ agent_break_types
+ agent_breaks
+ agent_queue_status
+ agent_session_activities
+ agent_sessions
+ agent_workspace_access
+ alert_instances
+ alert_rules
+ api_keys
+ ari_settings
+ automation_rules
+ billing_company_accounts
+ billing_company_audit_log
+ billing_company_collaborators
+ billing_company_couriers
+ billing_company_laboratories
+ billing_details
+ call_logs
+ call_recordings
+ campaign_agents
+ campaign_contact_history
+ campaign_contact_phases
+ campaign_contact_sessions
+ campaign_contacts
+ campaign_dispositions
+ campaign_mailchimp_sync
+ campaign_metrics_snapshots
+ campaign_operator_settings
+ campaign_phases
+ campaign_schedules
+ campaign_status_assignments
+ campaign_templates
+ campaigns
+ cbc_activity_definitions
+ cbu_report_audit
+ cbu_report_otp
+ chat_messages
+ clinic_events
+ clinic_referrals
+ clinics
+ collaborator_activities
+ collaborator_addresses
+ collaborator_agreements
+ collaborator_documents
+ collaborator_other_data
+ collaborator_referrals
+ collaborators
+ collection_lab_results
+ collection_sprievodny_list
+ collection_statuses
+ collections
+ communication_messages
+ communication_schedules
+ complaint_types
+ contact_assignments
+ contact_channels
+ contact_scores
+ contract_audit_log
+ contract_audit_share_tokens
+ contract_categories
+ contract_category_default_templates
+ contract_instance_products
+ contract_instances
+ contract_participants
+ contract_signature_requests
+ contract_template_versions
+ contract_templates
+ cooperation_types
+ country_system_settings
+ customer_consents
+ customer_debt_collection
+ customer_documents
+ customer_email_notifications
+ customer_notes
+ customer_potential_cases
+ customer_products
+ customers
+ deal_activities
+ deal_products
+ deals
+ departments
+ did_routes
+ docx_templates
+ email_metadata
+ email_routing_rules
+ email_signatures
+ email_tag_assignments
+ email_tags
+ entity_campaign_timeline
+ entity_evidences
+ entity_relations
+ exchange_rates
+ executive_summaries
+ feedback_patterns
+ first_contact_protocols
+ gsm_sender_configs
+ health_insurance_companies
+ hospital_network_members
+ hospital_networks
+ hospitals
+ inbound_call_logs
+ inbound_queues
+ inflation_rates
+ instance_discounts
+ instance_payment_options
+ instance_prices
+ instance_vat_rates
+ invoice_items
+ invoice_layouts
+ invoice_payments
+ invoice_templates
+ invoices
+ ivr_menu_options
+ ivr_menus
+ ivr_messages
+ laboratories
+ lead_campaigns
+ lead_entities
+ lead_feedback
+ lead_lifecycle
+ lead_scoring_criteria
+ lead_sources
+ mailbox_colors
+ mailchimp_settings
+ market_product_instances
+ market_product_services
+ message_templates
+ mobile_contacts
+ mobile_push_tokens
+ ms365_pkce_store
+ nexuspoint_folder_settings
+ nexuspoint_item_notes
+ nexuspoint_item_tags
+ nexuspoint_settings
+ notification_rules
+ notifications
+ number_ranges
+ partner_categories
+ payment_installments
+ pipeline_stages
+ pipelines
+ product_set_collections
+ product_set_storage
+ product_sets
+ products
+ query_templates
+ queue_members
+ role_field_permissions
+ role_module_permissions
+ roles
+ saved_searches
+ scheduled_invoices
+ scheduled_reports
+ scrape_jobs
+ scrape_sources
+ scraped_contacts
+ script_templates
+ search_jobs
+ search_results
+ service_configurations
+ service_instances
+ session
+ sip_extensions
+ sip_settings
+ sop_article_reads
+ sop_articles
+ sop_campaign_articles
+ sop_categories
+ source_learning_metrics
+ status_categories
+ status_definitions
+ system_ms365_connections
+ task_checklist_items
+ task_comments
+ task_subscriptions
+ tasks
+ template_categories
+ training_room_archives
+ user_ms365_connections
+ user_ms365_shared_mailboxes
+ user_roles
+ user_sessions
+ users
+ variable_blocks
+ variable_keywords
+ variables
+ vip_statuses
+ virtual_agent_configs
+ virtual_agent_conversations
+ visit_events
+ voice_notes
+ voicemail_boxes
+ voicemail_messages
+ web_form_audit_log
+ web_form_fields
+ web_form_otp
+ web_form_sections
+ web_form_submissions
+ web_forms
+ webhook_configs
+ workflow_action_log
+ workflow_events
+ workflow_rules
+ workflow_runs
+(205 rows)
+
+        column_name         |          data_type          
+----------------------------+-----------------------------
+ id                         | character varying
+ internal_id                | text
+ title_before               | text
+ first_name                 | text
+ last_name                  | text
+ maiden_name                | text
+ title_after                | text
+ phone                      | text
+ mobile                     | text
+ mobile_2                   | text
+ other_contact              | text
+ email                      | text
+ email_2                    | text
+ national_id                | text
+ id_card_number             | text
+ date_of_birth              | timestamp without time zone
+ newsletter                 | boolean
+ complaint_type_id          | character varying
+ cooperation_type_id        | character varying
+ vip_status_id              | character varying
+ country                    | text
+ city                       | text
+ address                    | text
+ postal_code                | text
+ region                     | text
+ use_correspondence_address | boolean
+ corr_name                  | text
+ corr_address               | text
+ corr_city                  | text
+ corr_postal_code           | text
+ corr_region                | text
+ corr_country               | text
+ bank_account               | text
+ bank_code                  | text
+ bank_name                  | text
+ bank_swift                 | text
+ health_insurance_id        | character varying
+ client_status              | text
+ status                     | text
+ service_type               | text
+ notes                      | text
+ assigned_user_id           | character varying
+ lead_score                 | integer
+ lead_score_updated_at      | timestamp without time zone
+ lead_status                | text
+ created_at                 | timestamp without time zone
+ gynecologist_name          | text
+ gynecologist_phone         | text
+ gynecologist_email         | text
+ expected_delivery_date     | timestamp without time zone
+ hospital_name              | text
+ registration_source        | text
+ registration_date          | timestamp without time zone
+ data_source                | text
+ district                   | text
+ tags                       | ARRAY
+(56 rows)
+
+         column_name         |          data_type          
+-----------------------------+-----------------------------
+ id                          | character varying
+ invoice_number              | text
+ customer_id                 | character varying
+ subtotal                    | numeric
+ vat_rate                    | numeric
+ vat_amount                  | numeric
+ total_amount                | numeric
+ currency                    | text
+ status                      | text
+ payment_term_days           | integer
+ due_date                    | timestamp without time zone
+ generated_at                | timestamp without time zone
+ pdf_path                    | text
+ billing_company_name        | text
+ billing_address             | text
+ billing_city                | text
+ billing_tax_id              | text
+ billing_bank_name           | text
+ billing_bank_iban           | text
+ billing_bank_swift          | text
+ legacy_id                   | text
+ billing_details_id          | character varying
+ bank_account_id             | character varying
+ product_id                  | character varying
+ instance_price_id           | character varying
+ paid_amount                 | numeric
+ delivery_date               | timestamp without time zone
+ issue_date                  | timestamp without time zone
+ send_date                   | timestamp without time zone
+ period_from                 | timestamp without time zone
+ period_to                   | timestamp without time zone
+ variable_symbol             | text
+ constant_symbol             | text
+ specific_symbol             | text
+ barcode_type                | text
+ barcode_value               | text
+ created_at                  | timestamp without time zone
+ updated_at                  | timestamp without time zone
+ customer_name               | text
+ customer_address            | text
+ customer_city               | text
+ customer_zip                | text
+ customer_country            | text
+ customer_email              | text
+ customer_phone              | text
+ customer_company_name       | text
+ customer_tax_id             | text
+ customer_vat_id             | text
+ billing_zip                 | text
+ billing_country             | text
+ billing_vat_id              | text
+ billing_email               | text
+ billing_phone               | text
+ billing_bank_account_number | text
+ qr_code_type                | text
+ qr_code_data                | text
+ epc_qr_code_data            | text
+ qr_code_enabled             | boolean
+ items_snapshot              | jsonb
+ wizard_created_at           | timestamp without time zone
+ payment_date                | timestamp without time zone
+ payment_method              | text
+ payment_reference           | text
+ data_source                 | text
+ legacy_data                 | jsonb
+ contract_instance_id        | character varying
+ note                        | text
+ pdf_downloaded_at           | timestamp without time zone
+(68 rows)
+
+         column_name         |          data_type          
+-----------------------------+-----------------------------
+ id                          | character varying
+ legacy_id                   | text
+ cbu_number                  | text
+ billing_company_id          | character varying
+ product_id                  | character varying
+ billset_id                  | character varying
+ country_code                | text
+ customer_id                 | character varying
+ client_first_name           | text
+ client_last_name            | text
+ client_phone                | text
+ client_mobile               | text
+ client_birth_number         | text
+ client_birth_day            | integer
+ client_birth_month          | integer
+ client_birth_year           | integer
+ child_first_name            | text
+ child_last_name             | text
+ child_gender                | text
+ collection_date             | timestamp without time zone
+ hospital_id                 | character varying
+ cord_blood_collector_id     | character varying
+ tissue_collector_id         | character varying
+ placenta_collector_id       | character varying
+ assistant_nurse_id          | character varying
+ second_nurse_id             | character varying
+ representative_id           | character varying
+ status_created_at           | timestamp without time zone
+ status_paired_at            | timestamp without time zone
+ status_evaluated_at         | timestamp without time zone
+ status_verified_at          | timestamp without time zone
+ status_stored_at            | timestamp without time zone
+ status_transferred_at       | timestamp without time zone
+ status_released_at          | timestamp without time zone
+ status_awaiting_disposal_at | timestamp without time zone
+ status_disposed_at          | timestamp without time zone
+ state                       | text
+ certificate                 | text
+ laboratory_id               | character varying
+ responsible_coordinator_id  | character varying
+ contract_id                 | character varying
+ doctor_note                 | text
+ note                        | text
+ created_at                  | timestamp without time zone
+ updated_at                  | timestamp without time zone
+ status                      | integer
+ data_source                 | text
+ legacy_data                 | jsonb
+(48 rows)
+
+      column_name       |          data_type          
+------------------------+-----------------------------
+ id                     | character varying
+ username               | text
+ email                  | text
+ full_name              | text
+ password_hash          | text
+ role                   | text
+ role_id                | character varying
+ is_active              | boolean
+ assigned_countries     | ARRAY
+ avatar_url             | text
+ sip_enabled            | boolean
+ sip_extension          | text
+ sip_password           | text
+ sip_display_name       | text
+ jira_account_id        | text
+ jira_display_name      | text
+ auth_method            | text
+ nexus_enabled          | boolean
+ created_at             | timestamp without time zone
+ phone_prefix           | text
+ phone                  | text
+ show_notification_bell | boolean
+ show_email_queue       | boolean
+ show_sip_phone         | boolean
+(24 rows)
+
+             table_name              
+-------------------------------------
+ contract_audit_log
+ contract_audit_share_tokens
+ contract_categories
+ contract_category_default_templates
+ contract_instance_products
+ contract_instances
+ contract_participants
+ contract_signature_requests
+ contract_template_versions
+ contract_templates
+ invoice_items
+ invoice_layouts
+ invoice_payments
+ invoice_templates
+ invoices
+ scheduled_invoices
+(16 rows)
+
