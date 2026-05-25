@@ -351,11 +351,39 @@ const doc = new Document({
       bullet("scheduled_invoices — periodická fakturácia"),
       bullet("invoice_payments, invoice_layouts, invoice_templates — pripravené"),
       ...sp(1),
+      h3("Strategické rozhodnutia a rozšírenia"),
+      infoBox(
+        "Fakturácia v INDEXUS nie je izolovaná — je súčasťou širšieho ekosystému: musí byť prepojená " +
+        "s ekonomickým systémom ESO, zabezpečiť migráciu zákazníkov pod CBC AG a splniť legislatívne " +
+        "požiadavky na elektronickú fakturáciu voči Finančnej správe SR.",
+        "FEF9E7"
+      ),
+      ...sp(1),
+      h3("Čo je ESO a prečo je prepojenie dôležité?"),
+      p("ESO je ekonomický/účtovný systém spoločnosti, v ktorom sa evidujú faktúry, platby, náklady a výnosy. " +
+        "Bez dátovej výmeny medzi INDEXUS a ESO by bolo potrebné každú faktúru zadávať do oboch systémov ručne — " +
+        "čo je chybové a neefektívne. Prepojenie umožní automatický prenos vystavených faktúr z INDEXUS do ESO."),
+      ...sp(1),
+      h3("Čo je elektronická fakturácia pre Finančnú správu?"),
+      p("Od roku 2025 platí povinnosť pre B2B transakcie podávať informácie o vystavených faktúrach " +
+        "elektronicky priamo Finančnej správe SR (systém e-Faktura / e-Invoice). " +
+        "INDEXUS musí vedieť generovať faktúry v požadovanom elektronickom formáte (UBL/XML) " +
+        "a odosielať ich cez príslušné API Finančnej správy."),
+      ...sp(1),
+      h3("Čo je migrácia zákazníkov na CBC AG?"),
+      p("CBC AG je materská spoločnosť, pod ktorú budú prevedení všetci zákazníci do konca roka. " +
+        "Táto migrácia znamená zmenu fakturačného subjektu — faktúry budú vystavované v mene CBC AG, " +
+        "nie pôvodných lokálnych entít. V INDEXUS to vyžaduje zmenu billing_company_accounts per zákazník " +
+        "a úpravu šablón faktúr (logo, IČO, bankové spojenie)."),
+      ...sp(1),
       h3("Plán úprav"),
       planTable([
         ["Kritická", "Rozhodnutie: import histórie z ISCBC alebo štart od nuly?", ""],
         ["Kritická", "Konfigurácia number_ranges per krajina (SK, RO, HU, CZ)", "Pripravené, treba presne zadefinovať aké číslovacie rady sa majú používať"],
         ["Kritická", "Konfigurácia billing_company_accounts", "Pripravené, doplniť a zadefinovať fakturačné spoločnosti"],
+        ["Kritická", "Dátová výmena s ekonomickým systémom ESO", "Definovať rozhranie (API / export súbor) — obojsmerný prenos faktúr a platieb"],
+        ["Kritická", "Migrácia všetkých zákazníkov pod CBC AG (do konca roka)", "Zmena billing subjektu per zákazník, úprava šablón faktúr (logo, IČO, IBAN CBC AG)"],
+        ["Kritická", "Elektronická fakturácia pre Finančnú správu SR (e-Invoice)", "Generovanie faktúr vo formáte UBL/XML, napojenie na API Finančnej správy"],
         ["Vysoká",   "Test generovania faktúry pre 1 zákazníka / krajinu", "Zadefinovať kto bude testovať v jednotlivých krajinách"],
         ["Vysoká",   "Aktivácia scheduled_invoices (periodická fakturácia)", "Zadefinovať kto bude testovať v jednotlivých krajinách"],
         ["Stredná",  "PDF šablóny per krajina a jazyk", "Pripraviť súbor šablón pre jednotlivé krajiny"],
@@ -490,9 +518,37 @@ const doc = new Document({
 
       // ── 7. POUŽÍVATELIA ─────────────────────────────────────────────────
       h2("7. Používatelia & Oprávnenia (users)"),
+
+      h3("Čo je RBAC — vysvetlenie pre nezainteresovaných", COLOR_DARK),
+      infoBox(
+        "RBAC (Role-Based Access Control) = systém prístupu na základe rolí. " +
+        "Jednoducho povedané: každý používateľ dostane rolu (napr. Administrátor, Obchodný zástupca, " +
+        "Manažér), a táto rola určuje čo môže v systéme vidieť a robiť.",
+        "F4ECF7"
+      ),
+      ...sp(1),
+      h3("Starý spôsob vs. RBAC"),
+      makeTable(
+        ["", "Starý spôsob (role stĺpec)", "Nový spôsob (RBAC / user_roles)"],
+        [
+          [["Ako funguje", "Každý používateľ má priamo napísanú rolu ako text (napr. 'admin')", "Každý používateľ má priradenú rolu z tabuľky rolí — rola má presne definované oprávnenia"], [{bold:true}, {}, {}]],
+          [["Kto môže rolu zmeniť", "Len programátor (zmena v DB alebo kóde)", "Administrátor v INDEXUS cez UI — bez programátora"], [{bold:true}, {}, { color: COLOR_GREEN }]],
+          [["Flexibilita", "Obmedzená — pridať novú rolu = zmena kódu", "Vysoká — novú rolu vytvorí admin za 5 minút"], [{bold:true}, { color: COLOR_ORANGE }, { color: COLOR_GREEN }]],
+          [["Oprávnenia per modul", "Pevne naprogramované", "Konfigurovateľné per modul, per pole (citlivé dáta)"], [{bold:true}, { color: COLOR_ORANGE }, { color: COLOR_GREEN }]],
+          [["Stav v INDEXUS", "Aktuálne používaný (všetkých 12 používateľov)", "Pripravený — tabuľky naplnené, čaká na migráciu"], [{bold:true}, { color: COLOR_ORANGE }, { color: COLOR_BLUE }]],
+        ],
+        [2000, 3200, 3300]
+      ),
+      ...sp(1),
+      p("Príklad: Po migrácii bude môcť admin nastaviť, že Obchodný zástupca vidí zákazníkov len svojej krajiny, " +
+        "nemôže mazať zmluvy a nevidí bankové údaje. Bez RBAC toto nie je možné bez zmeny kódu.", { italics: true, color: COLOR_GRAY }),
+      ...sp(1),
+
+      h3("Aktuálny stav"),
       bullet("12 aktívnych používateľov"),
-      bullet("Všetci 12 nemajú záznam v user_roles — používajú starý role stĺpec ⚠️", COLOR_ORANGE),
-      bullet("role_module_permissions tabuľka je naplnená (RBAC je pripravený)"),
+      bullet("Všetci 12 stále používajú starý role stĺpec ⚠️", COLOR_ORANGE),
+      bullet("Tabuľky user_roles a role_module_permissions sú naplnené — RBAC je technicky pripravený ✅", COLOR_GREEN),
+      bullet("Migrácia = jednorazová akcia: priradiť každému používateľovi správnu rolu v novom systéme (cca 1 hod.)"),
       ...sp(1),
       h3("Plán úprav"),
       planTable([
