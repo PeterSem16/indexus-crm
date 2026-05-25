@@ -1,0 +1,103 @@
+=== SUMMARY ===
+psql:/tmp/indexus_check.sql:20: ERROR:  relation "contracts" does not exist
+LINE 2: UNION ALL SELECT 'contracts', COUNT(*) FROM contracts
+                                                    ^
+=== CUSTOMERS per COUNTRY ===
+ krajina | pocet
+---------+-------
+ RO      | 78912
+ SK      | 57461
+ HU      | 16961
+ CZ      |  9777
+ IT      |  1196
+ AT      |   717
+ UA      |   141
+ DE      |    71
+ MD      |    43
+ CH      |    27
+ GB      |    17
+ FR      |    15
+ LU      |    11
+ ES      |    11
+ US      |    10
+ RS      |    10
+ NL      |     9
+ PL      |     9
+ BE      |     6
+ SE      |     5
+ CA      |     5
+ HR      |     5
+ IE      |     4
+ DK      |     4
+ KN      |     4
+ RU      |     3
+ PT      |     3
+ SI      |     3
+ NO      |     3
+ TR      |     2
+ JO      |     2
+ BG      |     2
+ CY      |     1
+ CF      |     1
+ SM      |     1
+ SZ      |     1
+ AU      |     1
+ LV      |     1
+ VN      |     1
+ MT      |     1
+ MX      |     1
+ NZ      |     1
+ IR      |     1
+ IN      |     1
+ AR      |     1
+             table_name
+-------------------------------------
+ activity_logs
+ agent_break_types
+ agent_breaks
+ agent_queue_status
+ agent_session_activities
+ agent_sessions
+ agent_workspace_access
+ alert_instances
+ alert_rules
+ api_keys
+ ari_settings
+ automation_rules
+ billing_company_accounts
+ billing_company_audit_log
+ billing_company_collaborators
+ billing_company_couriers
+ billing_company_laboratories
+ billing_details
+ call_logs
+ call_recordings
+ campaign_agents
+ campaign_contact_history
+ campaign_contact_phases
+ campaign_contact_sessions
+ campaign_contacts
+ campaign_dispositions
+ campaign_mailchimp_sync
+ campaign_metrics_snapshots
+ campaign_operator_settings
+ campaign_phases
+ campaign_schedules
+ campaign_status_assignments
+ campaign_templates
+ campaigns
+ cbc_activity_definitions
+ cbu_report_audit
+ cbu_report_otp
+ chat_messages
+ clinic_events
+ clinic_referrals
+ clinics
+ collaborator_activities
+ collaborator_addresses
+ collaborator_agreements
+ collaborator_documents
+ collaborator_other_data
+ collaborator_referrals
+ collaborators
+:
