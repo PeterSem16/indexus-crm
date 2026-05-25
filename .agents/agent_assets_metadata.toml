@@ -120,3 +120,9 @@ id = "OZhqIKwQSS6ETBL7RdCWX"
 uri = "file://indexus_overview.docx"
 type = "word_document"
 title = "INDEXUS CRM — Finálny dokument (v3)"
+
+[[outputs]]
+id = "NfMogEM-w4cXduqANnTBF"
+uri = "file://einvoicing_analysis.docx"
+type = "word_document"
+title = "e-Invoicing Analýza — SK, CH, RO, CZ, HU (máj 2026)"
