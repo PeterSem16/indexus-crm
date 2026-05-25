@@ -1315,6 +1315,23 @@ export async function registerRoutes(
   const { initAutomationEngine } = await import("./lib/automation-engine");
   initAutomationEngine();
 
+  // Document download endpoints
+  app.get("/api/download/:filename", (req, res) => {
+    const allowed = ["einvoicing_analysis.docx", "eso_integration_analysis.docx", "indexus_overview.docx"];
+    const { filename } = req.params;
+    if (!allowed.includes(filename)) return res.status(404).json({ error: "Not found" });
+    const path = require("path");
+    const fs = require("fs");
+    const filePath = path.resolve(process.cwd(), filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Transfer-Encoding", "binary");
+    const buf = fs.readFileSync(filePath);
+    res.setHeader("Content-Length", buf.length);
+    return res.end(buf);
+  });
+
   // OpenAI Realtime SIP — tool-call webhook (called by OpenAI Realtime agent during a live call)
   // Auth: shared secret in header `x-realtime-secret` (set REALTIME_WEBHOOK_SECRET env var)
   app.post("/api/realtime/webhook", async (req, res) => {
