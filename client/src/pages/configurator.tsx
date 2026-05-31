@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { BulkGeoMappingPanel } from "@/components/bulk-geo-mapping";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ReactQuill from "react-quill";
@@ -12888,8 +12889,47 @@ function MessageTemplatesTab() {
                     <Code className="h-3.5 w-3.5" />
                     {(t.konfigurator as any).htmlSourceCode || "HTML kód"}
                   </Button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs gap-1.5"
+                        data-testid="button-insert-html-template"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Vložiť vzor
+                        <ChevronDown className="h-3 w-3 opacity-60" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64">
+                      <DropdownMenuLabel className="text-[11px] text-muted-foreground font-normal">
+                        Pripravené HTML vzory
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {Object.entries(HTML_TEMPLATES).map(([key, tpl]) => (
+                        <DropdownMenuItem
+                          key={key}
+                          className="flex flex-col items-start gap-0.5 py-2 cursor-pointer"
+                          data-testid={`btn-html-template-${key}`}
+                          onClick={() => {
+                            if (templateContentHtml && templateContentHtml.trim().length > 20) {
+                              if (!confirm("Existujúci HTML obsah bude nahradený. Pokračovať?")) return;
+                            }
+                            setTemplateContentHtml(tpl.content);
+                            setHtmlSourceMode(false);
+                          }}
+                        >
+                          <span className="text-sm font-medium">{tpl.label}</span>
+                          <span className="text-[11px] text-muted-foreground">{tpl.description}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   {!htmlSourceMode && (
-                    <span className="text-[10px] text-muted-foreground">{(t.konfigurator as any).insertVariableRightPanel || "Premenné vložíte kliknutím v pravom paneli →"}</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">{(t.konfigurator as any).insertVariableRightPanel || "Premenné vložíte kliknutím v pravom paneli →"}</span>
                   )}
                 </div>
               )}
@@ -21214,6 +21254,321 @@ function HistoryJobResults({ jobId }: { jobId: number }) {
     </div>
   );
 }
+
+// ─── HTML email templates ────────────────────────────────────────────────────
+const HTML_TEMPLATES = {
+  informacny: {
+    label: "📋 Informačný",
+    description: "Profesionálny informačný email s modrou hlavičkou",
+    content: `<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{subject}}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);border-radius:16px 16px 0 0;padding:36px 44px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:0.5px;">{{company.name}}</h1>
+              <p style="margin:8px 0 0;color:#bfdbfe;font-size:13px;letter-spacing:0.3px;">{{company.email}}</p>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="background:#ffffff;padding:44px;">
+              <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
+                Vážená/ý <strong style="color:#1e3a5f;">{{customer.fullName}}</strong>,
+              </p>
+              <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.75;">
+                Dovoľujeme si Vás informovať o aktuálnom stave Vašej zmluvy o uskladnení kmeňových buniek z pupočníkovej krvi.
+              </p>
+
+              <!-- INFO BOX -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+                <tr>
+                  <td style="background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:0 10px 10px 0;padding:18px 22px;">
+                    <p style="margin:0 0 6px;font-size:12px;color:#1d4ed8;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">Detaily zmluvy</p>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:13px;color:#374151;padding:3px 0;width:50%;"><span style="color:#6b7280;">Zmluvné číslo:</span></td>
+                        <td style="font-size:13px;color:#111827;font-weight:600;padding:3px 0;">{{customer.contractNumber}}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#374151;padding:3px 0;"><span style="color:#6b7280;">Dátum narodenia:</span></td>
+                        <td style="font-size:13px;color:#111827;font-weight:600;padding:3px 0;">{{customer.childBirthDate}}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#374151;padding:3px 0;"><span style="color:#6b7280;">Kontakt:</span></td>
+                        <td style="font-size:13px;color:#111827;font-weight:600;padding:3px 0;">{{customer.phone}}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- MAIN MESSAGE -->
+              <p style="margin:0 0 32px;font-size:15px;color:#4b5563;line-height:1.75;">
+                Sem vložte hlavný text správy. Môžete použiť premenné ako <strong>{{customer.firstName}}</strong> pre personalizáciu.
+              </p>
+
+              <!-- CTA BUTTON -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:36px;">
+                <tr>
+                  <td align="center">
+                    <a href="{{company.website}}" style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:14px 36px;border-radius:10px;letter-spacing:0.3px;">Zobraziť môj účet →</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.7;border-top:1px solid #f3f4f6;padding-top:24px;">
+                S úctou,<br/>
+                <strong style="color:#374151;">{{user.name}}</strong><br/>
+                <span style="color:#9ca3af;font-size:13px;">{{company.name}}</span>
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 16px 16px;padding:22px 44px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:11px;color:#94a3b8;line-height:1.7;">
+                {{company.name}} &bull; {{company.address}}
+              </p>
+              <p style="margin:0;font-size:11px;color:#94a3b8;">
+                Tel: {{company.phone}} &bull; <a href="mailto:{{company.email}}" style="color:#64748b;text-decoration:none;">{{company.email}}</a>
+              </p>
+              <p style="margin:10px 0 0;font-size:10px;color:#cbd5e1;">Táto správa bola odoslaná automaticky. Prosíme, neodpovedajte na tento email.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
+  upomienka: {
+    label: "⚠️ Upomienka",
+    description: "Email na pripomenutie platby alebo termínu",
+    content: `<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{subject}}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#fafafa;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="background:#1e293b;border-radius:16px 16px 0 0;padding:28px 44px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">{{company.name}}</h1>
+            </td>
+          </tr>
+
+          <!-- ALERT BANNER -->
+          <tr>
+            <td style="background:#f59e0b;padding:14px 44px;text-align:center;">
+              <p style="margin:0;color:#ffffff;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">⚠️ Upomienka platby</p>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="background:#ffffff;padding:44px;">
+              <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
+                Vážená/ý <strong style="color:#1e293b;">{{customer.fullName}}</strong>,
+              </p>
+              <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.75;">
+                Dovoľujeme si Vám pripomenúť, že Vaša platba za uskladnenie kmeňových buniek z pupočníkovej krvi je po splatnosti.
+              </p>
+
+              <!-- PAYMENT BOX -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+                <tr>
+                  <td style="background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;padding:18px 22px;">
+                    <p style="margin:0 0 10px;font-size:12px;color:#92400e;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">Detaily platby</p>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:13px;color:#78350f;padding:3px 0;width:50%;">Zmluvné číslo:</td>
+                        <td style="font-size:13px;color:#111827;font-weight:700;padding:3px 0;">{{customer.contractNumber}}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#78350f;padding:3px 0;">Suma:</td>
+                        <td style="font-size:22px;color:#92400e;font-weight:800;padding:4px 0;">{{invoice.amount}} €</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#78350f;padding:3px 0;">Dátum splatnosti:</td>
+                        <td style="font-size:13px;color:#dc2626;font-weight:700;padding:3px 0;">{{invoice.dueDate}}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#78350f;padding:3px 0;">IBAN:</td>
+                        <td style="font-size:13px;color:#111827;font-weight:600;padding:3px 0;">{{company.iban}}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 32px;font-size:14px;color:#6b7280;line-height:1.75;">
+                V prípade, že ste platbu už uhradili, tento email ignorujte. Ak máte otázky, kontaktujte nás na <a href="mailto:{{company.email}}" style="color:#1e293b;">{{company.email}}</a>.
+              </p>
+
+              <!-- CTA -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:36px;">
+                <tr>
+                  <td align="center">
+                    <a href="{{company.website}}" style="display:inline-block;background:#f59e0b;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:14px 36px;border-radius:10px;letter-spacing:0.3px;">Zaplatiť online →</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.7;border-top:1px solid #f3f4f6;padding-top:24px;">
+                S úctou,<br/>
+                <strong style="color:#374151;">{{user.name}}</strong><br/>
+                <span style="color:#9ca3af;font-size:13px;">{{company.name}}</span>
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 16px 16px;padding:22px 44px;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.7;">
+                {{company.name}} &bull; {{company.address}}<br/>
+                Tel: {{company.phone}} &bull; <a href="mailto:{{company.email}}" style="color:#64748b;text-decoration:none;">{{company.email}}</a>
+              </p>
+              <p style="margin:8px 0 0;font-size:10px;color:#cbd5e1;">Táto správa bola odoslaná automaticky. Prosíme, neodpovedajte na tento email.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
+  vitanie: {
+    label: "🎉 Víťazný / Vitajúci",
+    description: "Uvítací email pre nových zákazníkov",
+    content: `<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{subject}}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0fdf4;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#14532d 0%,#16a34a 100%);border-radius:16px 16px 0 0;padding:44px;text-align:center;">
+              <p style="margin:0 0 12px;font-size:48px;line-height:1;">🎉</p>
+              <h1 style="margin:0 0 8px;color:#ffffff;font-size:26px;font-weight:800;">Vitajte v rodine {{company.name}}!</h1>
+              <p style="margin:0;color:#bbf7d0;font-size:14px;">Ďakujeme za Vašu dôveru</p>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="background:#ffffff;padding:44px;">
+              <p style="margin:0 0 20px;font-size:16px;color:#374151;line-height:1.6;">
+                Vážená/ý <strong style="color:#14532d;">{{customer.fullName}}</strong>,
+              </p>
+              <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.75;">
+                Sme veľmi radi, že ste sa rozhodli zveriť zdravie Vášho dieťaťa do rúk {{company.name}}. Vaše rozhodnutie môže raz zachrániť život — a to je to najdôležitejšie.
+              </p>
+
+              <!-- STEPS -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+                <tr>
+                  <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:22px 26px;">
+                    <p style="margin:0 0 14px;font-size:12px;color:#14532d;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">Ďalšie kroky</p>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding:6px 0;vertical-align:top;width:28px;"><span style="display:inline-block;width:22px;height:22px;background:#16a34a;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;color:#fff;">1</span></td>
+                        <td style="padding:6px 0;font-size:13px;color:#374151;line-height:1.5;">Naša kolekčná sestra Vás bude kontaktovať pre dohodnutie termínu odberu.</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:6px 0;vertical-align:top;"><span style="display:inline-block;width:22px;height:22px;background:#16a34a;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;color:#fff;">2</span></td>
+                        <td style="padding:6px 0;font-size:13px;color:#374151;line-height:1.5;">Obdržíte kolekčný kit s podrobnými inštrukciami.</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:6px 0;vertical-align:top;"><span style="display:inline-block;width:22px;height:22px;background:#16a34a;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;color:#fff;">3</span></td>
+                        <td style="padding:6px 0;font-size:13px;color:#374151;line-height:1.5;">Po odbere Vám zašleme potvrdenie o spracovaní a uložení vzorky.</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CONTRACT INFO -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+                <tr>
+                  <td style="font-size:13px;color:#6b7280;padding:4px 0;">Číslo zmluvy:</td>
+                  <td style="font-size:13px;color:#111827;font-weight:700;padding:4px 0;text-align:right;">{{customer.contractNumber}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size:13px;color:#6b7280;padding:4px 0;border-top:1px solid #f3f4f6;">Váš poradca:</td>
+                  <td style="font-size:13px;color:#111827;font-weight:600;padding:4px 0;text-align:right;border-top:1px solid #f3f4f6;">{{user.name}}</td>
+                </tr>
+              </table>
+
+              <!-- CTA -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:36px;">
+                <tr>
+                  <td align="center">
+                    <a href="{{company.website}}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:14px 36px;border-radius:10px;letter-spacing:0.3px;">Vstúpiť do klientskej zóny →</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.7;border-top:1px solid #f3f4f6;padding-top:24px;">
+                Teší nás spolupráca s Vami!<br/>
+                <strong style="color:#374151;">{{user.name}}</strong><br/>
+                <span style="color:#9ca3af;font-size:13px;">{{company.name}}</span>
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 16px 16px;padding:22px 44px;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.7;">
+                {{company.name}} &bull; {{company.address}}<br/>
+                Tel: {{company.phone}} &bull; <a href="mailto:{{company.email}}" style="color:#64748b;text-decoration:none;">{{company.email}}</a>
+              </p>
+              <p style="margin:8px 0 0;font-size:10px;color:#cbd5e1;">Táto správa bola odoslaná automaticky. Prosíme, neodpovedajte na tento email.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ConfiguratorPage() {
   const { t } = useI18n();
