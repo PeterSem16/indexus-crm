@@ -11601,6 +11601,7 @@ function MessageTemplatesTab() {
   const [isTestEmailOpen, setIsTestEmailOpen] = useState(false);
   const [testEmailTo, setTestEmailTo] = useState("");
   const [testEmailSending, setTestEmailSending] = useState(false);
+  const [testEmailTab, setTestEmailTab] = useState("preview");
 
   // Category form state
   const [categoryName, setCategoryName] = useState("");
@@ -11882,6 +11883,50 @@ function MessageTemplatesTab() {
     const all = content + " " + subj;
     const matches = all.match(/\{\{([^}]+)\}\}/g) || [];
     return [...new Set(matches)];
+  };
+
+  const getTestSampleValues = (): Record<string, string> => ({
+    "customer.firstName": "Jana", "customer.lastName": "Nováková", "customer.fullName": "Jana Nováková",
+    "customer.maidenName": "Slobodná", "customer.titleBefore": "Bc.", "customer.titleAfter": "",
+    "customer.email": "jana.novakova@example.sk", "customer.phone": "+421 900 123 456",
+    "customer.dateOfBirth": "15.03.1990", "customer.nationalId": "900315/1234",
+    "customer.expectedDeliveryDate": "20.08.2026", "customer.hospitalName": "FN Bratislava",
+    "customer.gynecologistName": "MUDr. Peter Kováč", "customer.contractNumber": "CBC-2026-001234",
+    "customer.contractDate": "10.01.2026", "customer.storagePlan": "20 rokov",
+    "customer.price": "1.290,00 €", "customer.invoiceNumber": "2026-001234",
+    "customer.city": "Bratislava", "customer.district": "Bratislava I",
+    "customer.streetNumber": "Mlynské Nivy 1", "customer.postalCode": "821 09",
+    "customer.country": "Slovensko", "customer.status": "Aktívny",
+    "customer.note": "Klientka má záujem o 20-ročné uskladnenie.",
+    "hospital.name": "FN Bratislava", "hospital.fullName": "Fakultná nemocnica s poliklinikou Bratislava",
+    "hospital.city": "Bratislava", "hospital.district": "Bratislava II",
+    "hospital.contactPerson": "MUDr. Anna Horváthová", "hospital.phone": "+421 2 4333 2111",
+    "hospital.email": "sekretariat@fnb.sk",
+    "clinic.doctorFirstName": "Peter", "clinic.doctorLastName": "Kováč",
+    "clinic.doctorFullName": "MUDr. Peter Kováč", "clinic.doctorTitle": "MUDr.",
+    "clinic.pzsCode": "P12345", "clinic.phone": "+421 2 1234 5678",
+    "clinic.email": "ambulancia@example.sk", "clinic.city": "Bratislava",
+    "clinic.contractStatus": "Aktívna", "clinic.nextContactDate": "15.06.2026",
+    "collaborator.firstName": "Mária", "collaborator.lastName": "Horváthová",
+    "collaborator.fullName": "Mária Horváthová", "collaborator.phone": "+421 905 678 901",
+    "collaborator.email": "maria.horvathova@example.sk", "collaborator.iban": "SK89 0900 0000 0051 8790 7234",
+    "collaborator.rewardAmount": "50,00 €",
+    "user.firstName": "Martin", "user.lastName": "Novák", "user.fullName": "Martin Novák",
+    "user.email": "martin.novak@indexus.sk", "user.phone": "+421 900 234 567",
+    "company.name": "Cord Blood Center", "company.address": "Mlynské Nivy 1, 821 09 Bratislava",
+    "company.phone": "+421 2 5020 4000", "company.email": "info@cordbloodcenter.sk",
+    "company.web": "www.cordbloodcenter.sk", "company.ico": "35882090",
+    "document.contractNumber": "CBC-2026-001234", "document.invoiceNumber": "2026-001234",
+    "document.amount": "1.290,00 €", "document.dueDate": "30.06.2026",
+    "system.date": new Date().toLocaleDateString("sk-SK"),
+    "system.time": new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }),
+    "system.year": new Date().getFullYear().toString(),
+    "system.month": new Date().toLocaleDateString("sk-SK", { month: "long" }),
+  });
+
+  const interpolatePreview = (text: string): string => {
+    const samples = getTestSampleValues();
+    return text.replace(/\{\{([^}]+)\}\}/g, (_, key) => samples[key.trim()] ?? `{{${key.trim()}}}`);
   };
 
   const handleZipImport = async () => {
@@ -12355,67 +12400,130 @@ function MessageTemplatesTab() {
         </TabsContent>
       </Tabs>
 
-      {/* Test Email Dialog */}
-      <Dialog open={isTestEmailOpen} onOpenChange={setIsTestEmailOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Send className="h-5 w-5 text-primary" />
-              Odoslať testovací email
-            </DialogTitle>
-            <DialogDescription>
-              Premenné budú vyplnené ukážkovými hodnotami. Email bude odoslaný cez váš MS365 účet.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-1">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Príjemca (e-mail)</Label>
-              <Input
-                type="email"
-                value={testEmailTo}
-                onChange={(e) => setTestEmailTo(e.target.value)}
-                placeholder="vas@email.sk"
-                data-testid="input-test-email-to"
-                autoFocus
-              />
-            </div>
-            {detectTemplateVariables().length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Premenné v šablóne ({detectTemplateVariables().length})
-                </p>
-                <div className="flex flex-wrap gap-1.5 p-3 bg-muted/40 rounded-lg border">
-                  {detectTemplateVariables().map((v) => (
-                    <span key={v} className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20">
-                      {v}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Tieto premenné budú automaticky doplnené ukážkovými hodnotami.
-                </p>
+      {/* Test Email Dialog — tabbed preview + send */}
+      <Dialog open={isTestEmailOpen} onOpenChange={(open) => { setIsTestEmailOpen(open); if (open) setTestEmailTab("preview"); }}>
+        <DialogContent className="max-w-2xl flex flex-col p-0 gap-0 overflow-hidden" style={{ maxHeight: "88vh" }}>
+          <div className="px-6 pt-5 pb-4 border-b shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+                  <Send className="h-4 w-4 text-primary" />
+                  Test šablóny — {templateName || "Bez názvu"}
+                </DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">
+                  {templateType === "sms" ? "SMS správa" : `Email · ${templateFormat === "html" ? "HTML" : "Textový"}`} · Premenné nahradené ukážkovými hodnotami
+                </DialogDescription>
               </div>
-            )}
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTestEmailOpen(false)}>Zrušiť</Button>
-            <Button
-              onClick={handleSendTestEmail}
-              disabled={!testEmailTo || testEmailSending}
-              data-testid="button-send-test-email"
-            >
-              {testEmailSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Odoslať test
-            </Button>
-          </DialogFooter>
+          <Tabs value={testEmailTab} onValueChange={setTestEmailTab} className="flex flex-col flex-1 overflow-hidden min-h-0">
+            <TabsList className="mx-6 mt-3 mb-0 shrink-0 justify-start h-8 bg-muted/50 w-fit rounded-lg">
+              <TabsTrigger value="preview" className="text-xs h-7 px-3 rounded-md">
+                <Eye className="h-3 w-3 mr-1.5" />
+                Náhľad
+              </TabsTrigger>
+              <TabsTrigger value="send" className="text-xs h-7 px-3 rounded-md">
+                <Send className="h-3 w-3 mr-1.5" />
+                Odoslať
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="preview" className="flex-1 overflow-y-auto px-6 pb-6 pt-4 mt-0 space-y-4 data-[state=active]:flex data-[state=active]:flex-col">
+              {templateType === "email" && templateSubject && (
+                <div className="flex items-baseline gap-3 px-4 py-2.5 bg-muted/30 rounded-xl border shrink-0">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">Predmet</span>
+                  <span className="text-sm font-medium flex-1">{interpolatePreview(templateSubject)}</span>
+                </div>
+              )}
+              <div className="border rounded-xl overflow-hidden shadow-sm bg-white shrink-0">
+                {templateType === "sms" ? (
+                  <div className="p-6 bg-gradient-to-b from-muted/20 to-muted/5">
+                    <div className="flex flex-col gap-2 max-w-[320px]">
+                      <div className="bg-muted/80 rounded-2xl rounded-tl-sm px-4 py-3 self-start">
+                        <p className="text-sm whitespace-pre-wrap">{interpolatePreview(templateContent || "")}</p>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">{(interpolatePreview(templateContent || "")).length} znakov · SMS</p>
+                    </div>
+                  </div>
+                ) : templateFormat === "html" && templateContentHtml ? (
+                  <iframe
+                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:20px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.6;color:#1a1a1a;}</style></head><body>${interpolatePreview(templateContentHtml).replace(/<script[\s\S]*?<\/script>/gi, "").replace(/on\w+\s*=/gi, "data-blocked=")}</body></html>`}
+                    className="w-full border-0"
+                    style={{ minHeight: "360px" }}
+                    sandbox="allow-same-origin"
+                    title="Email náhľad"
+                  />
+                ) : (
+                  <div className="p-8 font-sans text-sm whitespace-pre-wrap text-gray-800 leading-relaxed">
+                    {interpolatePreview(templateContent || "")}
+                  </div>
+                )}
+              </div>
+              {detectTemplateVariables().length > 0 && (
+                <div className="shrink-0">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Ukážkové hodnoty premenných ({detectTemplateVariables().length})</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {detectTemplateVariables().map(v => {
+                      const key = v.replace(/^\{\{|\}\}$/g, "").trim();
+                      const val = getTestSampleValues()[key];
+                      return (
+                        <div key={v} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/30 rounded-lg border text-xs overflow-hidden">
+                          <span className="font-mono text-primary/80 shrink-0 text-[10px]">{v}</span>
+                          <span className="text-muted-foreground truncate">→ {val || <span className="italic text-orange-400">nenájdená</span>}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="shrink-0 pt-2">
+                <Button className="w-full" onClick={() => setTestEmailTab("send")}>
+                  <Send className="h-4 w-4 mr-2" />
+                  Odoslať testovací email →
+                </Button>
+              </div>
+            </TabsContent>
+            <TabsContent value="send" className="px-6 pb-6 pt-4 mt-0 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Príjemca (e-mail)</Label>
+                <Input
+                  type="email"
+                  value={testEmailTo}
+                  onChange={(e) => setTestEmailTo(e.target.value)}
+                  placeholder="vas@email.sk"
+                  className="h-9"
+                  autoFocus
+                  data-testid="input-test-email-to"
+                />
+              </div>
+              <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 rounded-xl p-3.5 border border-blue-100 dark:border-blue-900 leading-relaxed">
+                Email bude odoslaný s ukážkovými hodnotami premenných cez váš MS365 účet.
+                {detectTemplateVariables().length > 0 && <> <span className="font-medium">{detectTemplateVariables().length} premenných</span> bude automaticky doplnených.</>}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1" onClick={() => setTestEmailTab("preview")}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Späť na náhľad
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleSendTestEmail}
+                  disabled={!testEmailTo || testEmailSending}
+                  data-testid="button-send-test-email"
+                >
+                  {testEmailSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                  Odoslať
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
-      {/* Template Drawer */}
-      <Sheet open={isTemplateDialogOpen} onOpenChange={(open) => { setIsTemplateDialogOpen(open); if (!open) { setVarsExpanded(false); setVarsSearch(""); setOpenVarGroup(null); } }}>
-        <SheetContent side="right" className="w-full sm:max-w-[960px] flex flex-col p-0 gap-0 [&>button]:hidden">
+      {/* Template Drawer — 3-column: settings | editor | variables */}
+      <Sheet open={isTemplateDialogOpen} onOpenChange={(open) => { setIsTemplateDialogOpen(open); if (!open) { setVarsSearch(""); setOpenVarGroup(null); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-[1300px] flex flex-col p-0 gap-0 [&>button]:hidden">
           {/* Drawer Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b shrink-0 bg-background">
+          <div className="flex items-center justify-between px-6 py-3.5 border-b shrink-0 bg-background">
             <div>
               <SheetTitle className="text-base font-semibold">
                 {editingTemplate ? t.konfigurator.editMessageTemplate : t.konfigurator.addMessageTemplate}
@@ -12429,11 +12537,12 @@ function MessageTemplatesTab() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { setIsTestEmailOpen(true); setTestEmailTo(""); }}
+                  onClick={() => { setIsTestEmailOpen(true); setTestEmailTo(""); setTestEmailTab("preview"); }}
                   data-testid="button-open-test-email"
+                  className="h-8 text-xs gap-1.5"
                 >
-                  <Send className="h-3.5 w-3.5 mr-1.5" />
-                  Test email
+                  <Eye className="h-3.5 w-3.5" />
+                  Náhľad / Test
                 </Button>
               )}
               <Button
@@ -12441,6 +12550,7 @@ function MessageTemplatesTab() {
                 onClick={handleSaveTemplate}
                 disabled={!templateName || createTemplateMutation.isPending || updateTemplateMutation.isPending}
                 data-testid="button-save-template"
+                className="h-8"
               >
                 {(createTemplateMutation.isPending || updateTemplateMutation.isPending) && (
                   <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -12453,15 +12563,16 @@ function MessageTemplatesTab() {
             </div>
           </div>
 
-          {/* Drawer Body — 2 panels */}
+          {/* Drawer Body — 3 columns */}
           <div className="flex flex-1 overflow-hidden min-h-0">
-            {/* LEFT PANEL — Settings */}
-            <div className="w-72 border-r shrink-0 overflow-y-auto bg-muted/20">
-              <div className="p-5 space-y-5">
+
+            {/* COLUMN 1 — Settings (260px) */}
+            <div className="w-[260px] shrink-0 border-r overflow-y-auto bg-muted/15">
+              <div className="p-4 space-y-4">
 
                 {/* Name */}
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateName}</Label>
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateName}</Label>
                   <Input
                     value={templateName}
                     onChange={(e) => setTemplateName(e.target.value)}
@@ -12473,21 +12584,21 @@ function MessageTemplatesTab() {
 
                 {/* Type toggle */}
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateType}</Label>
-                  <div className="flex gap-1 p-1 bg-background border rounded-lg">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateType}</Label>
+                  <div className="flex gap-1 p-0.5 bg-background border rounded-lg">
                     <button
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${templateType === "email" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${templateType === "email" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                       onClick={() => setTemplateType("email")}
                       data-testid="toggle-type-email"
                     >
-                      <Mail className="h-3.5 w-3.5" /> Email
+                      <Mail className="h-3 w-3" /> Email
                     </button>
                     <button
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${templateType === "sms" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${templateType === "sms" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                       onClick={() => setTemplateType("sms")}
                       data-testid="toggle-type-sms"
                     >
-                      <Smartphone className="h-3.5 w-3.5" /> SMS
+                      <Smartphone className="h-3 w-3" /> SMS
                     </button>
                   </div>
                 </div>
@@ -12495,17 +12606,17 @@ function MessageTemplatesTab() {
                 {/* Format (email only) */}
                 {templateType === "email" && (
                   <div className="space-y-1.5">
-                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateFormat}</Label>
-                    <div className="flex gap-1 p-1 bg-background border rounded-lg">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateFormat}</Label>
+                    <div className="flex gap-1 p-0.5 bg-background border rounded-lg">
                       <button
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${templateFormat === "text" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`flex-1 flex items-center justify-center py-1.5 px-2 rounded-md text-xs font-medium transition-all ${templateFormat === "text" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                         onClick={() => setTemplateFormat("text")}
                         data-testid="toggle-format-text"
                       >
                         {t.konfigurator.formatText}
                       </button>
                       <button
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${templateFormat === "html" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`flex-1 flex items-center justify-center py-1.5 px-2 rounded-md text-xs font-medium transition-all ${templateFormat === "html" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                         onClick={() => setTemplateFormat("html")}
                         data-testid="toggle-format-html"
                       >
@@ -12517,9 +12628,9 @@ function MessageTemplatesTab() {
 
                 {/* Language */}
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateLanguage}</Label>
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateLanguage}</Label>
                   <Select value={templateLanguage} onValueChange={setTemplateLanguage}>
-                    <SelectTrigger className="h-8 text-sm" data-testid="select-template-language">
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-template-language">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -12532,9 +12643,9 @@ function MessageTemplatesTab() {
 
                 {/* Category */}
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateCategory}</Label>
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateCategory}</Label>
                   <Select value={templateCategoryId} onValueChange={setTemplateCategoryId}>
-                    <SelectTrigger className="h-8 text-sm" data-testid="select-template-category">
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-template-category">
                       <SelectValue placeholder={t.konfigurator.selectCategory} />
                     </SelectTrigger>
                     <SelectContent>
@@ -12547,21 +12658,21 @@ function MessageTemplatesTab() {
 
                 {/* Description */}
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateDescription}</Label>
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateDescription}</Label>
                   <Textarea
                     value={templateDescription}
                     onChange={(e) => setTemplateDescription(e.target.value)}
                     placeholder={t.konfigurator.templateDescription}
                     rows={2}
-                    className="text-sm resize-none"
+                    className="text-xs resize-none"
                     data-testid="input-template-description"
                   />
                 </div>
 
                 {/* Tags */}
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.selectEmailTags}</Label>
-                  <div className="flex flex-wrap gap-1.5 p-2.5 border rounded-lg bg-background min-h-[42px]">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.konfigurator.selectEmailTags}</Label>
+                  <div className="flex flex-wrap gap-1 p-2 border rounded-lg bg-background min-h-[36px]">
                     {emailTags.length === 0 ? (
                       <span className="text-xs text-muted-foreground">{t.common.noData}</span>
                     ) : (
@@ -12571,7 +12682,7 @@ function MessageTemplatesTab() {
                           <Badge
                             key={tag.id}
                             variant={isSelected ? "default" : "outline"}
-                            className="cursor-pointer text-xs h-5"
+                            className="cursor-pointer text-[10px] h-5 px-1.5"
                             style={isSelected ? { backgroundColor: tag.color } : {}}
                             onClick={() => {
                               const currentTags = templateTags.split(",").map(t => t.trim()).filter(Boolean);
@@ -12592,24 +12703,24 @@ function MessageTemplatesTab() {
                 </div>
 
                 {/* Switches */}
-                <div className="space-y-2.5 pt-1">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm cursor-pointer">{t.konfigurator.templateIsDefault}</Label>
+                <div className="space-y-2 pt-1 border-t">
+                  <div className="flex items-center justify-between pt-2">
+                    <Label className="text-xs cursor-pointer">{t.konfigurator.templateIsDefault}</Label>
                     <Switch checked={templateIsDefault} onCheckedChange={setTemplateIsDefault} data-testid="switch-template-default" />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm cursor-pointer">{t.konfigurator.templateIsActive}</Label>
+                    <Label className="text-xs cursor-pointer">{t.konfigurator.templateIsActive}</Label>
                     <Switch checked={templateIsActive} onCheckedChange={setTemplateIsActive} data-testid="switch-template-active" />
                   </div>
                 </div>
 
                 {/* Attachments (email only) */}
                 {templateType === "email" && (
-                  <div className="space-y-1.5 pt-1 border-t">
-                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mt-2">
+                  <div className="space-y-2 pt-1 border-t">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 pt-2">
                       <Paperclip className="h-3 w-3" />
                       {t.konfigurator.templateAttachments || "Prílohy"}
-                      {templateAttachments.length > 0 && ` (${templateAttachments.length})`}
+                      {templateAttachments.length > 0 && <Badge variant="secondary" className="text-[9px] h-4 px-1 ml-1">{templateAttachments.length}</Badge>}
                     </Label>
                     {templateAttachments.length > 0 && (
                       <div className="border rounded-lg divide-y bg-background">
@@ -12626,10 +12737,10 @@ function MessageTemplatesTab() {
                             return new Blob([byteArr], { type: att.mimeType || "application/octet-stream" });
                           };
                           return (
-                            <div key={idx} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
-                              <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <span className="truncate flex-1 min-w-0">{att.fileName}</span>
-                              <span className="text-muted-foreground shrink-0">
+                            <div key={idx} className="flex items-center gap-1.5 px-2 py-1.5 text-xs">
+                              <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="truncate flex-1 min-w-0 text-[11px]">{att.fileName}</span>
+                              <span className="text-muted-foreground shrink-0 text-[10px]">
                                 {att.size < 1024 ? `${att.size}B` : att.size < 1048576 ? `${(att.size / 1024).toFixed(0)}KB` : `${(att.size / 1048576).toFixed(1)}MB`}
                               </span>
                               <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0"
@@ -12657,30 +12768,45 @@ function MessageTemplatesTab() {
                       onChange={(e) => { if (e.target.files?.length) handleUploadTemplateAttachment(e.target.files); }}
                       data-testid="input-template-attachment"
                     />
-                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full"
-                      disabled={!editingTemplate || isUploadingAttachment}
-                      onClick={() => templateFileInputRef.current?.click()}
-                      data-testid="btn-upload-attachment"
-                    >
-                      {isUploadingAttachment ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                      {t.konfigurator?.addAttachment || "Pridať prílohu"}
-                    </Button>
-                    {!editingTemplate && (
-                      <p className="text-[10px] text-muted-foreground">{t.konfigurator?.saveFirst || "Najskôr uložte šablónu"}</p>
+                    {!editingTemplate ? (
+                      <div className="rounded-lg border border-dashed p-3 text-center space-y-1.5">
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">Prílohy budú dostupné po uložení šablóny</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px] gap-1.5 w-full"
+                          onClick={handleSaveTemplate}
+                          disabled={!templateName || createTemplateMutation.isPending}
+                          data-testid="btn-save-for-attachment"
+                        >
+                          <Save className="h-3 w-3" />
+                          Uložiť šablónu
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full"
+                        disabled={isUploadingAttachment}
+                        onClick={() => templateFileInputRef.current?.click()}
+                        data-testid="btn-upload-attachment"
+                      >
+                        {isUploadingAttachment ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                        {t.konfigurator?.addAttachment || "Pridať prílohu"}
+                      </Button>
                     )}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* RIGHT PANEL — Editor */}
+            {/* COLUMN 2 — Editor (flex-1) */}
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
               {/* Subject row (email only) */}
               {templateType === "email" && (
-                <div className="px-5 py-3 border-b shrink-0 bg-background">
+                <div className="px-5 py-2.5 border-b shrink-0 bg-background">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider w-14 shrink-0">Predmet</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-14 shrink-0">Predmet</span>
                     <Input
                       value={templateSubject}
                       onChange={(e) => setTemplateSubject(e.target.value)}
@@ -12693,8 +12819,8 @@ function MessageTemplatesTab() {
               )}
 
               {/* Editor toolbar */}
-              <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30 shrink-0">
-                {templateFormat === "html" && (
+              {templateFormat === "html" && (
+                <div className="flex items-center gap-2 px-4 py-1.5 border-b bg-muted/20 shrink-0">
                   <Button
                     variant={htmlSourceMode ? "default" : "ghost"}
                     size="sm"
@@ -12705,20 +12831,11 @@ function MessageTemplatesTab() {
                     <Code className="h-3.5 w-3.5" />
                     HTML kód
                   </Button>
-                )}
-                <div className="flex-1" />
-                <Button
-                  variant={varsExpanded ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={() => setVarsExpanded(!varsExpanded)}
-                  data-testid="button-toggle-variables"
-                >
-                  <Hash className="h-3.5 w-3.5" />
-                  {t.konfigurator.insertVariable}
-                  {varsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                </Button>
-              </div>
+                  {!htmlSourceMode && (
+                    <span className="text-[10px] text-muted-foreground">Premenné vložíte kliknutím v pravom paneli →</span>
+                  )}
+                </div>
+              )}
 
               {/* Editor area */}
               <div className="flex-1 overflow-y-auto p-5">
@@ -12735,12 +12852,12 @@ function MessageTemplatesTab() {
                       />
                       {templateContentHtml && (
                         <div className="space-y-1 shrink-0">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Náhľad</p>
-                          <div className="border rounded-lg overflow-hidden bg-gray-50">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Náhľad</p>
+                          <div className="border rounded-xl overflow-hidden bg-gray-50">
                             <iframe
-                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:8px;}</style></head><body>${templateContentHtml.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/on\w+\s*=/gi, "data-blocked=")}</body></html>`}
+                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px;}</style></head><body>${templateContentHtml.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/on\w+\s*=/gi, "data-blocked=")}</body></html>`}
                               className="w-full border-0"
-                              style={{ minHeight: "320px" }}
+                              style={{ minHeight: "280px" }}
                               sandbox="allow-same-origin"
                               title="Email náhľad"
                               data-testid="iframe-template-preview"
@@ -12750,7 +12867,7 @@ function MessageTemplatesTab() {
                       )}
                     </div>
                   ) : (
-                    <div className="border rounded-lg overflow-hidden" data-testid="input-template-content-html">
+                    <div className="border rounded-xl overflow-hidden" data-testid="input-template-content-html">
                       <ReactQuill
                         ref={quillRef}
                         theme="snow"
@@ -12769,7 +12886,7 @@ function MessageTemplatesTab() {
                         }}
                         formats={["header", "bold", "italic", "underline", "strike", "color", "background", "list", "bullet", "align", "link", "image"]}
                         placeholder={t.konfigurator.templateContentHtml}
-                        style={{ minHeight: "320px" }}
+                        style={{ minHeight: "380px" }}
                       />
                     </div>
                   )
@@ -12779,88 +12896,115 @@ function MessageTemplatesTab() {
                     value={templateContent}
                     onChange={(e) => setTemplateContent(e.target.value)}
                     placeholder={t.konfigurator.templateContent}
-                    className="resize-none text-sm"
-                    style={{ minHeight: "320px" }}
+                    className="resize-none text-sm h-full"
+                    style={{ minHeight: "380px" }}
                     data-testid="input-template-content"
                   />
                 )}
               </div>
+            </div>
 
-              {/* Variable picker panel */}
-              {varsExpanded && (
-                <div className="border-t bg-muted/20 shrink-0 flex flex-col" style={{ maxHeight: "300px" }}>
-                  <div className="px-4 py-2.5 border-b bg-background flex items-center gap-2 shrink-0">
-                    <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dostupné premenné</span>
-                    <div className="flex-1">
-                      <Input
-                        value={varsSearch}
-                        onChange={(e) => setVarsSearch(e.target.value)}
-                        placeholder="Hľadať premennú..."
-                        className="h-6 text-xs"
-                      />
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setVarsExpanded(false)}>
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  <div className="overflow-y-auto flex-1 p-3">
-                    {varsSearch ? (
-                      // Search results — flat list
-                      <div className="space-y-1">
-                        {Object.entries(SYSTEM_VARIABLES).flatMap(([, group]) =>
-                          group.vars.filter(v =>
-                            v.label.toLowerCase().includes(varsSearch.toLowerCase()) ||
-                            v.key.toLowerCase().includes(varsSearch.toLowerCase())
-                          ).map(v => (
-                            <button
-                              key={v.key}
-                              onClick={() => insertVariable(v.key)}
-                              className="flex items-center gap-2 w-full text-left px-2.5 py-1.5 rounded-md text-xs hover:bg-accent hover:text-accent-foreground transition-colors group"
-                              data-testid={`button-variable-${v.key}`}
-                            >
-                              <span className="flex-1 font-medium">{v.label}</span>
-                              <span className="font-mono text-[10px] text-muted-foreground group-hover:text-accent-foreground/70 truncate max-w-[200px]">{v.key}</span>
-                              <span className="text-[10px] text-muted-foreground/60 italic hidden group-hover:block">{v.example}</span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    ) : (
-                      // Grouped by category
-                      <div className="grid grid-cols-4 gap-3">
-                        {Object.entries(SYSTEM_VARIABLES).map(([catKey, group]) => (
-                          <div key={catKey} className="space-y-1">
-                            <div
-                              className="flex items-center gap-1.5 cursor-pointer py-1 px-1.5 rounded-md hover:bg-accent/50 transition-colors"
-                              onClick={() => setOpenVarGroup(openVarGroup === catKey ? null : catKey)}
-                            >
-                              <div className={`h-2 w-2 rounded-full shrink-0 ${group.color}`} />
-                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide truncate flex-1">{group.label}</span>
-                              {openVarGroup === catKey ? <ChevronDown className="h-2.5 w-2.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />}
-                            </div>
-                            {(openVarGroup === catKey || Object.keys(SYSTEM_VARIABLES).length <= 4) && (
-                              <div className="space-y-0.5 pl-1">
-                                {group.vars.map(v => (
-                                  <button
-                                    key={v.key}
-                                    onClick={() => insertVariable(v.key)}
-                                    title={`${v.key}\nPríklad: ${v.example}`}
-                                    className="flex items-center gap-1.5 w-full text-left px-1.5 py-1 rounded text-xs hover:bg-primary/10 hover:text-primary transition-colors"
-                                    data-testid={`button-variable-${v.key}`}
-                                  >
-                                    <span className="flex-1 leading-tight">{v.label}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+            {/* COLUMN 3 — Variables (280px, always visible) */}
+            <div className="w-[280px] shrink-0 border-l flex flex-col overflow-hidden bg-muted/10">
+              {/* Variables header */}
+              <div className="px-3 py-3 border-b shrink-0 bg-background/80 backdrop-blur-sm">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Hash className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">Premenné</span>
+                  <span className="ml-auto text-[9px] text-muted-foreground">klik = vložiť</span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={varsSearch}
+                    onChange={(e) => setVarsSearch(e.target.value)}
+                    placeholder="Hľadať premennú..."
+                    className="h-7 text-xs pl-6 pr-2 bg-muted/30"
+                  />
+                  {varsSearch && (
+                    <button className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setVarsSearch("")}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Variables list */}
+              <div className="overflow-y-auto flex-1 py-1.5">
+                {varsSearch ? (
+                  // Flat filtered search results
+                  <div className="px-2 space-y-0.5">
+                    {Object.entries(SYSTEM_VARIABLES).flatMap(([, group]) =>
+                      group.vars.filter(v =>
+                        v.label.toLowerCase().includes(varsSearch.toLowerCase()) ||
+                        v.key.toLowerCase().includes(varsSearch.toLowerCase())
+                      ).map(v => (
+                        <button
+                          key={v.key}
+                          onClick={() => insertVariable(v.key)}
+                          title={`Príklad: ${v.example}`}
+                          className="flex flex-col items-start w-full text-left px-2.5 py-2 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors group border border-transparent hover:border-primary/20"
+                          data-testid={`button-variable-${v.key}`}
+                        >
+                          <span className="text-xs font-medium leading-tight">{v.label}</span>
+                          <span className="font-mono text-[9px] text-muted-foreground group-hover:text-primary/70 mt-0.5">{`{{${v.key}}}`}</span>
+                        </button>
+                      ))
+                    )}
+                    {Object.entries(SYSTEM_VARIABLES).flatMap(([, group]) =>
+                      group.vars.filter(v =>
+                        v.label.toLowerCase().includes(varsSearch.toLowerCase()) ||
+                        v.key.toLowerCase().includes(varsSearch.toLowerCase())
+                      )
+                    ).length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-6">Žiadna premenná nenájdená</p>
                     )}
                   </div>
-                </div>
-              )}
+                ) : (
+                  // Grouped view
+                  <div className="px-2 space-y-0.5">
+                    {Object.entries(SYSTEM_VARIABLES).map(([catKey, group]) => (
+                      <div key={catKey} className="mb-1">
+                        <button
+                          className="flex items-center gap-2 w-full px-2 py-2 rounded-lg hover:bg-accent/60 transition-colors text-left"
+                          onClick={() => setOpenVarGroup(openVarGroup === catKey ? null : catKey)}
+                        >
+                          <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${group.color}`} />
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex-1 leading-none">{group.label}</span>
+                          <span className="text-[9px] text-muted-foreground/70 tabular-nums">{group.vars.length}</span>
+                          {openVarGroup === catKey
+                            ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                            : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                          }
+                        </button>
+                        {openVarGroup === catKey && (
+                          <div className="pl-2 pr-1 space-y-0.5 pb-1">
+                            {group.vars.map(v => (
+                              <button
+                                key={v.key}
+                                onClick={() => insertVariable(v.key)}
+                                title={`Príklad: ${v.example}`}
+                                className="flex flex-col items-start w-full text-left px-2.5 py-1.5 rounded-md hover:bg-primary/10 hover:text-primary transition-colors group"
+                                data-testid={`button-variable-${v.key}`}
+                              >
+                                <span className="text-xs leading-tight">{v.label}</span>
+                                <span className="font-mono text-[9px] text-muted-foreground/60 group-hover:text-primary/60 mt-0.5">{`{{${v.key}}}`}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Variables footer hint */}
+              <div className="px-3 py-2 border-t shrink-0 bg-background/50">
+                <p className="text-[9px] text-muted-foreground leading-relaxed">
+                  Kliknite na premennú pre vloženie do šablóny. V texte sa zobrazí ako <span className="font-mono">{"{{premenná}}"}</span>
+                </p>
+              </div>
             </div>
           </div>
         </SheetContent>
