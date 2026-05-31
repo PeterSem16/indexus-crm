@@ -11573,6 +11573,7 @@ function MessageTemplatesTab() {
   const [templateIsActive, setTemplateIsActive] = useState(true);
   const [templateAttachments, setTemplateAttachments] = useState<any[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [isSavingForAttachment, setIsSavingForAttachment] = useState(false);
   const templateFileInputRef = useRef<HTMLInputElement>(null);
   const saveForAttachmentRef = useRef(false);
   
@@ -12039,6 +12040,48 @@ function MessageTemplatesTab() {
       updateTemplateMutation.mutate({ id: editingTemplate.id, data });
     } else {
       createTemplateMutation.mutate(data);
+    }
+  };
+
+  // Dedicated save-and-stay-open function for attachment workflow
+  const handleSaveForAttachment = async () => {
+    if (!templateName.trim()) return;
+    setIsSavingForAttachment(true);
+    try {
+      const tags = templateTags.split(",").map((tag) => tag.trim()).filter(Boolean);
+      const contentValue = templateFormat === "html"
+        ? (templateContent || templateContentHtml || " ")
+        : (templateContent || " ");
+      const payload: Partial<MessageTemplate> = {
+        name: templateName,
+        description: templateDescription || undefined,
+        type: templateType,
+        format: templateFormat,
+        subject: templateType === "email" ? templateSubject : undefined,
+        content: contentValue,
+        contentHtml: templateFormat === "html" ? templateContentHtml : undefined,
+        categoryId: templateCategoryId || undefined,
+        language: templateLanguage,
+        tags: tags.length > 0 ? tags : undefined,
+        isDefault: templateIsDefault,
+        isActive: templateIsActive,
+      };
+      const res = await fetch("/api/message-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to create template");
+      const created: MessageTemplate = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+      toast({ title: t.konfigurator.templateCreated });
+      // Keep drawer open and switch to edit mode so attachment upload works immediately
+      setEditingTemplate(created);
+    } catch {
+      toast({ title: t.errors?.saveFailed || "Save failed", variant: "destructive" });
+    } finally {
+      setIsSavingForAttachment(false);
     }
   };
 
@@ -12777,17 +12820,24 @@ function MessageTemplatesTab() {
                     />
                     {!editingTemplate ? (
                       <div className="rounded-lg border border-dashed p-3 text-center space-y-1.5">
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">{(t.konfigurator as any).attachmentsAfterSave || "Prílohy budú dostupné po uložení šablóny"}</p>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          {(t.konfigurator as any).attachmentsAfterSave || "Prílohy budú dostupné po uložení šablóny"}
+                        </p>
+                        {!templateName.trim() && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                            ↑ {t.konfigurator.templateName} {t.common?.required || "je povinný"}
+                          </p>
+                        )}
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
                           className="h-7 text-[11px] gap-1.5 w-full"
-                          onClick={() => { saveForAttachmentRef.current = true; handleSaveTemplate(); }}
-                          disabled={!templateName || createTemplateMutation.isPending}
+                          onClick={handleSaveForAttachment}
+                          disabled={!templateName.trim() || isSavingForAttachment}
                           data-testid="btn-save-for-attachment"
                         >
-                          {createTemplateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                          {isSavingForAttachment ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                           {(t.konfigurator as any).saveTemplateBtn || "Uložiť šablónu"}
                         </Button>
                       </div>
