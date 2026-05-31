@@ -42702,6 +42702,86 @@ Return ONLY the JSON object.`
     }
   });
 
+  // Send test email for a message template (interpolates variables with sample/provided values)
+  app.post("/api/message-templates/send-test", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const { to, subject, content, contentHtml, format, variables } = req.body;
+      if (!to || !subject || !content) {
+        return res.status(400).json({ error: "Missing required fields: to, subject, content" });
+      }
+      const interpolate = (text: string, vars: Record<string, string>) => {
+        return text.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+          return vars[key] !== undefined ? vars[key] : `[${key}]`;
+        });
+      };
+      const vars = variables || {};
+      const today = new Date().toLocaleDateString("sk-SK");
+      const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString("sk-SK");
+      const defaultVars: Record<string, string> = {
+        "date.today": today, "date.tomorrow": tomorrow,
+        "link.unsubscribe": "#unsubscribe", "link.portal": "#portal",
+        "customer.firstName": "Jana", "customer.lastName": "Nováková",
+        "customer.fullName": "Jana Nováková", "customer.email": to,
+        "customer.phone": "+421901234567", "customer.mobile": "+421901234567",
+        "customer.address": "Hlavná 1", "customer.city": "Bratislava",
+        "customer.postalCode": "81101", "customer.country": "SK",
+        "customer.dateOfBirth": "15.03.1990", "customer.expectedDeliveryDate": "20.09.2026",
+        "customer.hospitalName": "Nemocnica sv. Cyrila a Metoda",
+        "customer.gynecologistName": "MUDr. Eva Horváthová",
+        "user.fullName": "Agent INDEXUS", "user.email": "agent@indexus.sk",
+        "user.phone": "+421900000000", "user.position": "Konzultant",
+        "user.signature": "S pozdravom,\nAgent INDEXUS",
+        "company.name": "INDEXUS s.r.o.", "company.email": "info@indexus.sk",
+        "company.phone": "+421000000000", "company.address": "Bratislava, SK",
+        "company.website": "www.indexus.sk",
+        "clinic.name": "Gynekologická ambulancia", "clinic.doctorFirstName": "Peter",
+        "clinic.doctorLastName": "Novák", "clinic.doctorName": "MUDr. Peter Novák",
+        "clinic.phone": "+421900111222", "clinic.email": "ambulancia@test.sk",
+        "clinic.city": "Bratislava", "clinic.address": "Nemocničná 5",
+        "hospital.name": "UNB Bratislava", "hospital.fullName": "Univerzitná nemocnica Bratislava",
+        "hospital.city": "Bratislava", "hospital.phone": "+421200000000",
+        "collaborator.firstName": "Mária", "collaborator.lastName": "Horáková",
+        "collaborator.fullName": "Mária Horáková", "collaborator.email": to,
+        "collaborator.phone": "+421902345678",
+        "order.number": "OBJ-2026-001", "order.total": "890.00 €",
+        "contract.number": "ZML-2026-001", "invoice.number": "FAK-2026-001",
+      };
+      const mergedVars = { ...defaultVars, ...vars };
+      const finalSubject = interpolate(subject, mergedVars);
+      const isHtml = format === "html";
+      const finalBody = isHtml
+        ? interpolate(contentHtml || content, mergedVars)
+        : interpolate(content, mergedVars);
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection?.isConnected) {
+        return res.status(401).json({ error: "Not connected to Microsoft 365. Please connect your MS365 account first." });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const { getValidAccessToken, sendEmail } = await import("./lib/ms365");
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult) {
+        return res.status(401).json({ error: "MS365 session expired. Please reconnect your Microsoft 365 account." });
+      }
+      if (tokenResult.refreshed) {
+        const { encryptTokenWithMarker } = await import("./lib/token-crypto");
+        await storage.updateUserMs365Connection(userId, {
+          accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+          tokenExpiresAt: tokenResult.expiresOn,
+          lastSyncAt: new Date(),
+          ...(tokenResult.refreshToken ? { refreshToken: encryptTokenWithMarker(tokenResult.refreshToken) } : {}),
+        });
+      }
+      await sendEmail(tokenResult.accessToken, [to], finalSubject, finalBody, isHtml);
+      res.json({ success: true, message: "Test email sent successfully" });
+    } catch (error: any) {
+      console.error("[send-test-email] Error:", error);
+      res.status(500).json({ error: error.message || "Failed to send test email" });
+    }
+  });
+
   // Agent Session Management
   app.get("/api/agent-sessions/active", requireAuth, async (req, res) => {
     try {

@@ -1,0 +1,1 @@
+- [Email template drawer](email-template-drawer.md) — Sheet drawer replaces Dialog for email templates; SYSTEM_VARIABLES uses new {label,color,description,vars[]} structure.

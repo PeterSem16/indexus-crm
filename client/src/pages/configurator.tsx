@@ -11374,129 +11374,150 @@ interface TemplateCategory {
 }
 
 const SYSTEM_VARIABLES = {
-  customer: [
-    { key: "{{customer.firstName}}", label: "Meno" },
-    { key: "{{customer.lastName}}", label: "Priezvisko" },
-    { key: "{{customer.fullName}}", label: "Celé meno" },
-    { key: "{{customer.email}}", label: "Email" },
-    { key: "{{customer.email2}}", label: "Email 2" },
-    { key: "{{customer.phone}}", label: "Telefón" },
-    { key: "{{customer.phone2}}", label: "Telefón 2" },
-    { key: "{{customer.address}}", label: "Adresa" },
-    { key: "{{customer.city}}", label: "Mesto" },
-    { key: "{{customer.postalCode}}", label: "PSČ" },
-    { key: "{{customer.country}}", label: "Krajina" },
-    { key: "{{customer.birthDate}}", label: "Dátum narodenia" },
-    { key: "{{customer.deliveryDate}}", label: "Dátum pôrodu" },
-  ],
-  user: [
-    { key: "{{user.fullName}}", label: "Meno používateľa" },
-    { key: "{{user.email}}", label: "Email používateľa" },
-    { key: "{{user.phone}}", label: "Telefón používateľa" },
-    { key: "{{user.position}}", label: "Pozícia" },
-    { key: "{{user.signature}}", label: "Podpis" },
-  ],
-  order: [
-    { key: "{{order.number}}", label: "Číslo objednávky" },
-    { key: "{{order.date}}", label: "Dátum objednávky" },
-    { key: "{{order.total}}", label: "Celková suma" },
-    { key: "{{order.status}}", label: "Stav objednávky" },
-  ],
-  contract: [
-    { key: "{{contract.number}}", label: "Číslo zmluvy" },
-    { key: "{{contract.date}}", label: "Dátum zmluvy" },
-    { key: "{{contract.validFrom}}", label: "Platná od" },
-    { key: "{{contract.validTo}}", label: "Platná do" },
-    { key: "{{contract.amount}}", label: "Suma zmluvy" },
-  ],
-  invoice: [
-    { key: "{{invoice.number}}", label: "Číslo faktúry" },
-    { key: "{{invoice.date}}", label: "Dátum faktúry" },
-    { key: "{{invoice.dueDate}}", label: "Splatnosť" },
-    { key: "{{invoice.amount}}", label: "Suma faktúry" },
-  ],
-  company: [
-    { key: "{{company.name}}", label: "Názov spoločnosti" },
-    { key: "{{company.email}}", label: "Email spoločnosti" },
-    { key: "{{company.phone}}", label: "Telefón spoločnosti" },
-    { key: "{{company.address}}", label: "Adresa spoločnosti" },
-    { key: "{{company.website}}", label: "Web stránka" },
-  ],
-  clinic: [
-    { key: "{{clinic.name}}", label: "Názov ambulancie" },
-    { key: "{{clinic.doctorName}}", label: "Meno lekára" },
-    { key: "{{clinic.doctorTitle}}", label: "Titul lekára" },
-    { key: "{{clinic.doctorFirstName}}", label: "Meno lekára (krstné)" },
-    { key: "{{clinic.doctorLastName}}", label: "Priezvisko lekára" },
-    { key: "{{clinic.address}}", label: "Adresa ambulancie" },
-    { key: "{{clinic.city}}", label: "Mesto ambulancie" },
-    { key: "{{clinic.postalCode}}", label: "PSČ ambulancie" },
-    { key: "{{clinic.countryCode}}", label: "Kód krajiny" },
-    { key: "{{clinic.phone}}", label: "Telefón ambulancie" },
-    { key: "{{clinic.email}}", label: "E-mail ambulancie" },
-    { key: "{{clinic.website}}", label: "Web stránka" },
-    { key: "{{clinic.notes}}", label: "Poznámky" },
-    { key: "{{clinic.contractStatus}}", label: "Stav zmluvy" },
-    { key: "{{clinic.lastCallResult}}", label: "Výsledok posledného hovoru" },
-    { key: "{{clinic.lastCallNote}}", label: "Poznámka k poslednému hovoru" },
-    { key: "{{clinic.nextContactDate}}", label: "Dátum ďalšieho kontaktu" },
-    { key: "{{clinic.conferenceName}}", label: "Názov konferencie" },
-    { key: "{{clinic.latitude}}", label: "GPS šírka" },
-    { key: "{{clinic.longitude}}", label: "GPS dĺžka" },
-  ],
-  hospital: [
-    { key: "{{hospital.name}}", label: "Názov nemocnice" },
-    { key: "{{hospital.fullName}}", label: "Plný názov nemocnice" },
-    { key: "{{hospital.streetNumber}}", label: "Ulica a číslo" },
-    { key: "{{hospital.city}}", label: "Mesto" },
-    { key: "{{hospital.postalCode}}", label: "PSČ" },
-    { key: "{{hospital.region}}", label: "Oblasť / Región" },
-    { key: "{{hospital.countryCode}}", label: "Kód krajiny" },
-    { key: "{{hospital.contactPerson}}", label: "Kontaktná osoba" },
-    { key: "{{hospital.phone}}", label: "Telefón nemocnice" },
-    { key: "{{hospital.email}}", label: "E-mail nemocnice" },
-    { key: "{{hospital.latitude}}", label: "GPS šírka" },
-    { key: "{{hospital.longitude}}", label: "GPS dĺžka" },
-  ],
-  collaborator: [
-    { key: "{{collaborator.titleBefore}}", label: "Titul pred menom" },
-    { key: "{{collaborator.firstName}}", label: "Meno" },
-    { key: "{{collaborator.lastName}}", label: "Priezvisko" },
-    { key: "{{collaborator.titleAfter}}", label: "Titul za menom" },
-    { key: "{{collaborator.fullName}}", label: "Celé meno" },
-    { key: "{{collaborator.maidenName}}", label: "Rodné priezvisko" },
-    { key: "{{collaborator.birthNumber}}", label: "Rodné číslo" },
-    { key: "{{collaborator.birthDay}}", label: "Deň narodenia" },
-    { key: "{{collaborator.birthMonth}}", label: "Mesiac narodenia" },
-    { key: "{{collaborator.birthYear}}", label: "Rok narodenia" },
-    { key: "{{collaborator.birthPlace}}", label: "Miesto narodenia" },
-    { key: "{{collaborator.maritalStatus}}", label: "Rodinný stav" },
-    { key: "{{collaborator.collaboratorType}}", label: "Typ spolupracovníka" },
-    { key: "{{collaborator.phone}}", label: "Telefón" },
-    { key: "{{collaborator.mobile}}", label: "Mobil" },
-    { key: "{{collaborator.mobile2}}", label: "Mobil 2" },
-    { key: "{{collaborator.email}}", label: "E-mail" },
-    { key: "{{collaborator.otherContact}}", label: "Iný kontakt" },
-    { key: "{{collaborator.bankAccountIban}}", label: "IBAN" },
-    { key: "{{collaborator.swiftCode}}", label: "SWIFT kód" },
-    { key: "{{collaborator.companyName}}", label: "Názov firmy" },
-    { key: "{{collaborator.ico}}", label: "IČO" },
-    { key: "{{collaborator.dic}}", label: "DIČ" },
-    { key: "{{collaborator.icDph}}", label: "IČ DPH" },
-    { key: "{{collaborator.companyIban}}", label: "IBAN firmy" },
-    { key: "{{collaborator.companySwift}}", label: "SWIFT firmy" },
-    { key: "{{collaborator.countryCode}}", label: "Kód krajiny" },
-    { key: "{{collaborator.note}}", label: "Poznámka" },
-    { key: "{{collaborator.rewardType}}", label: "Typ odmeny" },
-    { key: "{{collaborator.fixedRewardAmount}}", label: "Fixná odmena" },
-    { key: "{{collaborator.fixedRewardCurrency}}", label: "Mena odmeny" },
-  ],
-  system: [
-    { key: "{{date.today}}", label: "Dnešný dátum" },
-    { key: "{{date.tomorrow}}", label: "Zajtrajší dátum" },
-    { key: "{{link.unsubscribe}}", label: "Odkaz na odhlásenie" },
-    { key: "{{link.portal}}", label: "Odkaz na portál" },
-  ],
+  customer: {
+    label: "Zákazník",
+    color: "bg-blue-500",
+    description: "Osobné údaje zákazníka (tehotná/rodička)",
+    vars: [
+      { key: "{{customer.titleBefore}}", label: "Titul pred menom", example: "MUDr." },
+      { key: "{{customer.firstName}}", label: "Krstné meno", example: "Jana" },
+      { key: "{{customer.lastName}}", label: "Priezvisko", example: "Nováková" },
+      { key: "{{customer.titleAfter}}", label: "Titul za menom", example: "PhD." },
+      { key: "{{customer.maidenName}}", label: "Rodné priezvisko", example: "Horáková" },
+      { key: "{{customer.fullName}}", label: "Celé meno", example: "Jana Nováková" },
+      { key: "{{customer.email}}", label: "E-mail", example: "jana@email.sk" },
+      { key: "{{customer.phone}}", label: "Telefón", example: "+421901234567" },
+      { key: "{{customer.mobile}}", label: "Mobil", example: "+421901234567" },
+      { key: "{{customer.address}}", label: "Adresa (ulica)", example: "Hlavná 1" },
+      { key: "{{customer.city}}", label: "Mesto", example: "Bratislava" },
+      { key: "{{customer.postalCode}}", label: "PSČ", example: "81101" },
+      { key: "{{customer.region}}", label: "Kraj", example: "Bratislavský kraj" },
+      { key: "{{customer.country}}", label: "Krajina", example: "SK" },
+      { key: "{{customer.dateOfBirth}}", label: "Dátum narodenia", example: "15.03.1990" },
+      { key: "{{customer.nationalId}}", label: "Rodné číslo", example: "9003151234" },
+      { key: "{{customer.expectedDeliveryDate}}", label: "Očakávaný termín pôrodu", example: "20.09.2026" },
+      { key: "{{customer.hospitalName}}", label: "Nemocnica pôrodu", example: "UNB Bratislava" },
+      { key: "{{customer.gynecologistName}}", label: "Gynekológ", example: "MUDr. Eva Horváthová" },
+    ],
+  },
+  hospital: {
+    label: "Nemocnica",
+    color: "bg-red-500",
+    description: "Údaje o nemocnici / pôrodnici",
+    vars: [
+      { key: "{{hospital.name}}", label: "Krátky názov", example: "UNB Bratislava" },
+      { key: "{{hospital.fullName}}", label: "Plný názov", example: "Univerzitná nemocnica Bratislava" },
+      { key: "{{hospital.streetNumber}}", label: "Ulica a číslo", example: "Mickiewiczova 13" },
+      { key: "{{hospital.city}}", label: "Mesto", example: "Bratislava" },
+      { key: "{{hospital.postalCode}}", label: "PSČ", example: "81369" },
+      { key: "{{hospital.district}}", label: "Okres", example: "Bratislava I" },
+      { key: "{{hospital.region}}", label: "Kraj", example: "Bratislavský kraj" },
+      { key: "{{hospital.countryCode}}", label: "Krajina", example: "SK" },
+      { key: "{{hospital.contactPerson}}", label: "Kontaktná osoba", example: "Jana Kováčová" },
+      { key: "{{hospital.phone}}", label: "Telefón", example: "+421259221111" },
+      { key: "{{hospital.email}}", label: "E-mail", example: "info@unb.sk" },
+    ],
+  },
+  clinic: {
+    label: "Ambulancia",
+    color: "bg-green-500",
+    description: "Údaje o gynekologickej ambulancii / lekárovi",
+    vars: [
+      { key: "{{clinic.name}}", label: "Názov ambulancie", example: "Gynekologická ambulancia" },
+      { key: "{{clinic.doctorTitle}}", label: "Titul lekára", example: "MUDr." },
+      { key: "{{clinic.doctorFirstName}}", label: "Krstné meno lekára", example: "Peter" },
+      { key: "{{clinic.doctorLastName}}", label: "Priezvisko lekára", example: "Novák" },
+      { key: "{{clinic.doctorName}}", label: "Celé meno lekára", example: "MUDr. Peter Novák" },
+      { key: "{{clinic.address}}", label: "Adresa", example: "Nemocničná 5, Bratislava" },
+      { key: "{{clinic.city}}", label: "Mesto", example: "Bratislava" },
+      { key: "{{clinic.postalCode}}", label: "PSČ", example: "81101" },
+      { key: "{{clinic.phone}}", label: "Telefón", example: "+421902345678" },
+      { key: "{{clinic.email}}", label: "E-mail", example: "ambulancia@example.sk" },
+      { key: "{{clinic.website}}", label: "Web stránka", example: "www.ambulancia.sk" },
+      { key: "{{clinic.pzsCode}}", label: "Kód PZS", example: "P12345" },
+      { key: "{{clinic.contractStatus}}", label: "Stav zmluvy", example: "active" },
+      { key: "{{clinic.lastCallResult}}", label: "Výsledok posledného hovoru", example: "positive" },
+      { key: "{{clinic.nextContactDate}}", label: "Dátum ďalšieho kontaktu", example: "01.07.2026" },
+    ],
+  },
+  collaborator: {
+    label: "Spolupracovník / Pôrodná asistentka",
+    color: "bg-purple-500",
+    description: "Údaje o spolupracovníkovi, pôrodnej asistentke alebo externej osobe",
+    vars: [
+      { key: "{{collaborator.titleBefore}}", label: "Titul pred menom", example: "Mgr." },
+      { key: "{{collaborator.firstName}}", label: "Krstné meno", example: "Mária" },
+      { key: "{{collaborator.lastName}}", label: "Priezvisko", example: "Horáková" },
+      { key: "{{collaborator.titleAfter}}", label: "Titul za menom", example: "PhD." },
+      { key: "{{collaborator.maidenName}}", label: "Rodné priezvisko", example: "Nováková" },
+      { key: "{{collaborator.fullName}}", label: "Celé meno", example: "Mária Horáková" },
+      { key: "{{collaborator.email}}", label: "E-mail", example: "maria@email.sk" },
+      { key: "{{collaborator.phone}}", label: "Telefón", example: "+421901111222" },
+      { key: "{{collaborator.mobile}}", label: "Mobil", example: "+421901111222" },
+      { key: "{{collaborator.birthNumber}}", label: "Rodné číslo", example: "8555111234" },
+      { key: "{{collaborator.bankAccountIban}}", label: "IBAN", example: "SK89 0900 0000 0004 1234 5678" },
+      { key: "{{collaborator.companyName}}", label: "Názov firmy", example: "Pôrodná asistencia s.r.o." },
+      { key: "{{collaborator.ico}}", label: "IČO", example: "12345678" },
+      { key: "{{collaborator.dic}}", label: "DIČ", example: "2023456789" },
+      { key: "{{collaborator.rewardType}}", label: "Typ odmeny", example: "fixed" },
+      { key: "{{collaborator.note}}", label: "Poznámka", example: "" },
+    ],
+  },
+  user: {
+    label: "Agent / Používateľ",
+    color: "bg-orange-500",
+    description: "Údaje o agentovi / konzultantovi, ktorý email odosiela",
+    vars: [
+      { key: "{{user.fullName}}", label: "Celé meno", example: "Ján Kozák" },
+      { key: "{{user.email}}", label: "E-mail", example: "jan.kozak@indexus.sk" },
+      { key: "{{user.phone}}", label: "Telefón", example: "+421900000001" },
+      { key: "{{user.position}}", label: "Pozícia / Funkcia", example: "Konzultant" },
+      { key: "{{user.signature}}", label: "E-mailový podpis", example: "S pozdravom,\nJán Kozák" },
+    ],
+  },
+  company: {
+    label: "Spoločnosť",
+    color: "bg-gray-500",
+    description: "Kontaktné údaje spoločnosti INDEXUS",
+    vars: [
+      { key: "{{company.name}}", label: "Názov spoločnosti", example: "INDEXUS s.r.o." },
+      { key: "{{company.email}}", label: "E-mail", example: "info@indexus.sk" },
+      { key: "{{company.phone}}", label: "Telefón", example: "+421200000000" },
+      { key: "{{company.address}}", label: "Adresa", example: "Hlavná 1, Bratislava" },
+      { key: "{{company.website}}", label: "Web stránka", example: "www.indexus.sk" },
+    ],
+  },
+  documents: {
+    label: "Zmluva / Faktúra / Objednávka",
+    color: "bg-yellow-600",
+    description: "Údaje z dokumentov zákazníka",
+    vars: [
+      { key: "{{contract.number}}", label: "Číslo zmluvy", example: "ZML-2026-001" },
+      { key: "{{contract.date}}", label: "Dátum zmluvy", example: "01.01.2026" },
+      { key: "{{contract.validFrom}}", label: "Platná od", example: "01.01.2026" },
+      { key: "{{contract.validTo}}", label: "Platná do", example: "31.12.2026" },
+      { key: "{{contract.amount}}", label: "Suma zmluvy", example: "890.00 €" },
+      { key: "{{invoice.number}}", label: "Číslo faktúry", example: "FAK-2026-001" },
+      { key: "{{invoice.date}}", label: "Dátum faktúry", example: "01.01.2026" },
+      { key: "{{invoice.dueDate}}", label: "Dátum splatnosti", example: "15.01.2026" },
+      { key: "{{invoice.amount}}", label: "Suma faktúry", example: "890.00 €" },
+      { key: "{{order.number}}", label: "Číslo objednávky", example: "OBJ-2026-001" },
+      { key: "{{order.date}}", label: "Dátum objednávky", example: "01.01.2026" },
+      { key: "{{order.total}}", label: "Celková suma", example: "890.00 €" },
+      { key: "{{order.status}}", label: "Stav objednávky", example: "active" },
+    ],
+  },
+  system: {
+    label: "Systémové",
+    color: "bg-slate-500",
+    description: "Automaticky generované systémové hodnoty",
+    vars: [
+      { key: "{{date.today}}", label: "Dnešný dátum", example: "31.05.2026" },
+      { key: "{{date.tomorrow}}", label: "Zajtrajší dátum", example: "01.06.2026" },
+      { key: "{{link.unsubscribe}}", label: "Odkaz na odhlásenie", example: "https://..." },
+      { key: "{{link.portal}}", label: "Odkaz na portál", example: "https://..." },
+    ],
+  },
 };
 
 const TEMPLATE_LANGUAGES = [
@@ -11570,6 +11591,16 @@ function MessageTemplatesTab() {
   const [zipProgress, setZipProgress] = useState<{ phase: string; detail?: string } | null>(null);
   const [zipResult, setZipResult] = useState<{ total: number; created: number; errors: number; templates?: any[]; errorDetails?: any[] } | null>(null);
   const zipFileRef = useRef<HTMLInputElement>(null);
+
+  // Variable picker state
+  const [varsExpanded, setVarsExpanded] = useState(false);
+  const [varsSearch, setVarsSearch] = useState("");
+  const [openVarGroup, setOpenVarGroup] = useState<string | null>(null);
+
+  // Test email state
+  const [isTestEmailOpen, setIsTestEmailOpen] = useState(false);
+  const [testEmailTo, setTestEmailTo] = useState("");
+  const [testEmailSending, setTestEmailSending] = useState(false);
 
   // Category form state
   const [categoryName, setCategoryName] = useState("");
@@ -11819,6 +11850,38 @@ function MessageTemplatesTab() {
     setCategoryIcon("");
     setCategoryColor("#6B7280");
     setCategoryPriority(0);
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmailTo) return;
+    setTestEmailSending(true);
+    try {
+      const res = await apiRequest("POST", "/api/message-templates/send-test", {
+        to: testEmailTo,
+        subject: templateSubject || "(bez predmetu)",
+        content: templateContent || templateContentHtml || " ",
+        contentHtml: templateContentHtml || undefined,
+        format: templateFormat,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Chyba odoslania" }));
+        throw new Error(err.error || "Chyba odoslania");
+      }
+      toast({ title: "Testovací email odoslaný", description: `Odoslaný na: ${testEmailTo}` });
+      setIsTestEmailOpen(false);
+    } catch (err: any) {
+      toast({ title: "Nepodarilo sa odoslať", description: err.message, variant: "destructive" });
+    } finally {
+      setTestEmailSending(false);
+    }
+  };
+
+  const detectTemplateVariables = (): string[] => {
+    const content = templateContentHtml || templateContent || "";
+    const subj = templateSubject || "";
+    const all = content + " " + subj;
+    const matches = all.match(/\{\{([^}]+)\}\}/g) || [];
+    return [...new Set(matches)];
   };
 
   const handleZipImport = async () => {
@@ -12292,423 +12355,517 @@ function MessageTemplatesTab() {
         </TabsContent>
       </Tabs>
 
-      {/* Template Dialog */}
-      <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      {/* Test Email Dialog */}
+      <Dialog open={isTestEmailOpen} onOpenChange={setIsTestEmailOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingTemplate ? t.konfigurator.editMessageTemplate : t.konfigurator.addMessageTemplate}
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-primary" />
+              Odoslať testovací email
             </DialogTitle>
             <DialogDescription>
-              {t.konfigurator.messageTemplatesDescription}
+              Premenné budú vyplnené ukážkovými hodnotami. Email bude odoslaný cez váš MS365 účet.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t.konfigurator.templateName}</Label>
-                <Input
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder={t.konfigurator.templateName}
-                  data-testid="input-template-name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.konfigurator.templateLanguage}</Label>
-                <Select value={templateLanguage} onValueChange={setTemplateLanguage}>
-                  <SelectTrigger data-testid="select-template-language">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TEMPLATE_LANGUAGES.map((lang) => (
-                      <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t.konfigurator.templateDescription}</Label>
-              <Textarea
-                value={templateDescription}
-                onChange={(e) => setTemplateDescription(e.target.value)}
-                placeholder={t.konfigurator.templateDescription}
-                rows={2}
-                data-testid="input-template-description"
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Príjemca (e-mail)</Label>
+              <Input
+                type="email"
+                value={testEmailTo}
+                onChange={(e) => setTestEmailTo(e.target.value)}
+                placeholder="vas@email.sk"
+                data-testid="input-test-email-to"
+                autoFocus
               />
             </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>{t.konfigurator.templateType}</Label>
-                <Select value={templateType} onValueChange={(v) => setTemplateType(v as "email" | "sms")}>
-                  <SelectTrigger data-testid="select-template-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="email">{t.konfigurator.typeEmail}</SelectItem>
-                    <SelectItem value="sms">{t.konfigurator.typeSms}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t.konfigurator.templateFormat}</Label>
-                <Select value={templateFormat} onValueChange={(v) => setTemplateFormat(v as "text" | "html")}>
-                  <SelectTrigger data-testid="select-template-format">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="text">{t.konfigurator.formatText}</SelectItem>
-                    <SelectItem value="html">{t.konfigurator.formatHtml}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t.konfigurator.templateCategory}</Label>
-                <Select value={templateCategoryId} onValueChange={setTemplateCategoryId}>
-                  <SelectTrigger data-testid="select-template-category">
-                    <SelectValue placeholder={t.konfigurator.selectCategory} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {templateType === "email" && (
-              <div className="space-y-2">
-                <Label>{t.konfigurator.templateSubject}</Label>
-                <Input
-                  value={templateSubject}
-                  onChange={(e) => setTemplateSubject(e.target.value)}
-                  placeholder={t.konfigurator.templateSubject}
-                  data-testid="input-template-subject"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>{templateFormat === "html" ? t.konfigurator.templateContentHtml : t.konfigurator.templateContent}</Label>
-                <div className="flex items-center gap-2">
-                  {templateFormat === "html" && (
-                    <Button
-                      variant={htmlSourceMode ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setHtmlSourceMode(!htmlSourceMode)}
-                      data-testid="button-toggle-html-source"
-                    >
-                      <Code className="h-4 w-4 mr-2" />
-                      HTML kód
-                    </Button>
-                  )}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" data-testid="button-insert-variable">
-                      <Hash className="h-4 w-4 mr-2" />
-                      {t.konfigurator.insertVariable}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[700px] z-[10001]" align="end">
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-sm">{t.konfigurator.availableVariables}</h4>
-                      <div className="grid grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-2">
-                        {Object.entries(SYSTEM_VARIABLES).map(([category, variables]) => (
-                          <div key={category} className="space-y-1">
-                            <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b pb-1">
-                              {category === "customer" ? t.customers.title :
-                               category === "user" ? t.users.title :
-                               category === "order" ? t.konfigurator.order :
-                               category === "contract" ? t.nav.contracts :
-                               category === "invoice" ? t.nav.invoices :
-                               category === "company" ? t.konfigurator.company :
-                               category === "clinic" ? (t.nav.clinics || "Ambulancie") :
-                               category === "hospital" ? (t.nav.hospitals || "Nemocnice") :
-                               category === "collaborator" ? (t.nav.collaborators || "Spolupracovníci") :
-                               t.konfigurator.system}
-                            </h5>
-                            {variables.map((variable) => (
-                              <Button
-                                key={variable.key}
-                                variant="ghost"
-                                size="sm"
-                                className="w-full justify-start text-xs font-mono h-7 px-2"
-                                onClick={() => insertVariable(variable.key)}
-                                data-testid={`button-variable-${variable.key}`}
-                              >
-                                <span className="truncate flex-1 text-left">{variable.label}</span>
-                              </Button>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+            {detectTemplateVariables().length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Premenné v šablóne ({detectTemplateVariables().length})
+                </p>
+                <div className="flex flex-wrap gap-1.5 p-3 bg-muted/40 rounded-lg border">
+                  {detectTemplateVariables().map((v) => (
+                    <span key={v} className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20">
+                      {v}
+                    </span>
+                  ))}
                 </div>
-              </div>
-              {templateFormat === "html" ? (
-                htmlSourceMode ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      value={templateContentHtml}
-                      onChange={(e) => setTemplateContentHtml(e.target.value)}
-                      placeholder="<div style='...'>\n  <h1>Nadpis</h1>\n  <p>Obsah emailu...</p>\n</div>"
-                      rows={16}
-                      className="font-mono text-xs leading-relaxed"
-                      data-testid="textarea-html-source"
-                    />
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Code className="h-3 w-3" />
-                      <span>Zadajte kompletný HTML kód emailu vrátane inline štýlov. Premenné: {"{{clinic.doctorLastName}}"}, {"{{user.fullName}}"}, atď.</span>
-                    </div>
-                    {templateContentHtml && (
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Náhľad emailu</Label>
-                        <div className="border rounded-md overflow-hidden bg-gray-100">
-                          <iframe
-                            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;padding:0;}</style></head><body>${templateContentHtml.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')}</body></html>`}
-                            className="w-full border-0"
-                            style={{ minHeight: "400px", width: "100%" }}
-                            sandbox="allow-same-origin"
-                            title="Email náhľad"
-                            data-testid="iframe-template-preview"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="border rounded-md" data-testid="input-template-content-html">
-                    <ReactQuill
-                      ref={quillRef}
-                      theme="snow"
-                      value={templateContentHtml}
-                      onChange={setTemplateContentHtml}
-                      modules={{
-                        toolbar: [
-                          [{ header: [1, 2, 3, false] }],
-                          ["bold", "italic", "underline", "strike"],
-                          [{ color: [] }, { background: [] }],
-                          [{ list: "ordered" }, { list: "bullet" }],
-                          [{ align: [] }],
-                          ["link", "image"],
-                          ["clean"],
-                        ],
-                      }}
-                      formats={[
-                        "header",
-                        "bold", "italic", "underline", "strike",
-                        "color", "background",
-                        "list", "bullet",
-                        "align",
-                        "link", "image",
-                      ]}
-                      placeholder={t.konfigurator.templateContentHtml}
-                      style={{ minHeight: "200px" }}
-                    />
-                  </div>
-                )
-              ) : (
-                <Textarea
-                  ref={textareaRef}
-                  value={templateContent}
-                  onChange={(e) => setTemplateContent(e.target.value)}
-                  placeholder={t.konfigurator.templateContent}
-                  rows={6}
-                  data-testid="input-template-content"
-                />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t.konfigurator.selectEmailTags}</Label>
-              <div className="flex flex-wrap gap-2 p-3 border rounded-md min-h-[42px]">
-                {emailTags.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">{t.common.noData}</span>
-                ) : (
-                  emailTags.map((tag) => {
-                    const isSelected = templateTags.split(",").map(t => t.trim()).includes(tag.name);
-                    return (
-                      <Badge
-                        key={tag.id}
-                        variant={isSelected ? "default" : "outline"}
-                        className="cursor-pointer"
-                        style={isSelected ? { backgroundColor: tag.color } : {}}
-                        onClick={() => {
-                          const currentTags = templateTags.split(",").map(t => t.trim()).filter(Boolean);
-                          if (isSelected) {
-                            setTemplateTags(currentTags.filter(t => t !== tag.name).join(", "));
-                          } else {
-                            setTemplateTags([...currentTags, tag.name].join(", "));
-                          }
-                        }}
-                        data-testid={`badge-tag-${tag.id}`}
-                      >
-                        {tag.name}
-                      </Badge>
-                    );
-                  })
-                )}
-              </div>
-              {templateTags && (
-                <p className="text-xs text-muted-foreground">{templateTags}</p>
-              )}
-            </div>
-
-            {templateType === "email" && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5">
-                  <Paperclip className="h-3.5 w-3.5" />
-                  {t.konfigurator.templateAttachments || "Attachments"}
-                  {templateAttachments.length > 0 && ` (${templateAttachments.length})`}
-                </Label>
-                {templateAttachments.length > 0 && (
-                  <div className="border rounded-md divide-y">
-                    {templateAttachments.map((att: any, idx: number) => {
-                      const fetchAttBlob = async () => {
-                        const res = await fetch(`/api/message-templates/${editingTemplate!.id}/attachments`, { credentials: "include" });
-                        if (!res.ok) throw new Error("Failed to fetch");
-                        const data = await res.json();
-                        const match = data[idx];
-                        if (!match?.contentBase64) throw new Error("No content");
-                        const byteChars = atob(match.contentBase64);
-                        const byteArr = new Uint8Array(byteChars.length);
-                        for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
-                        return new Blob([byteArr], { type: att.mimeType || "application/octet-stream" });
-                      };
-                      return (
-                      <div key={idx} className="flex items-center gap-3 px-3 py-2 text-sm">
-                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="truncate flex-1 min-w-0">{att.fileName}</span>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {att.size < 1024 ? `${att.size} B` : att.size < 1048576 ? `${(att.size / 1024).toFixed(1)} KB` : `${(att.size / 1048576).toFixed(1)} MB`}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 shrink-0"
-                          onClick={async () => {
-                            try {
-                              const blob = await fetchAttBlob();
-                              const url = URL.createObjectURL(blob);
-                              if (att.mimeType === "application/pdf" || att.mimeType?.startsWith("image/")) {
-                                window.open(url, "_blank");
-                                setTimeout(() => URL.revokeObjectURL(url), 60000);
-                              } else {
-                                const a = document.createElement("a");
-                                a.href = url; a.download = att.fileName; a.click();
-                                URL.revokeObjectURL(url);
-                              }
-                            } catch {
-                              toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
-                            }
-                          }}
-                          data-testid={`btn-preview-attachment-${idx}`}
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1" />
-                          {t.konfigurator.preview || "Preview"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 shrink-0"
-                          onClick={async () => {
-                            try {
-                              const blob = await fetchAttBlob();
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement("a");
-                              a.href = url; a.download = att.fileName; a.click();
-                              URL.revokeObjectURL(url);
-                            } catch {
-                              toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
-                            }
-                          }}
-                          data-testid={`btn-download-attachment-${idx}`}
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 shrink-0 text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteTemplateAttachment(idx)}
-                          data-testid={`btn-delete-attachment-${idx}`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <input
-                  ref={templateFileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => { if (e.target.files?.length) handleUploadTemplateAttachment(e.target.files); }}
-                  data-testid="input-template-attachment"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  disabled={!editingTemplate || isUploadingAttachment}
-                  onClick={() => templateFileInputRef.current?.click()}
-                  data-testid="btn-upload-attachment"
-                >
-                  {isUploadingAttachment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  {t.konfigurator?.addAttachment || "Add attachment"}
-                </Button>
-                {!editingTemplate && (
-                  <p className="text-xs text-muted-foreground">{t.konfigurator?.saveFirst || "Save the template first to add attachments"}</p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Tieto premenné budú automaticky doplnené ukážkovými hodnotami.
+                </p>
               </div>
             )}
-
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={templateIsDefault}
-                  onCheckedChange={setTemplateIsDefault}
-                  data-testid="switch-template-default"
-                />
-                <Label>{t.konfigurator.templateIsDefault}</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={templateIsActive}
-                  onCheckedChange={setTemplateIsActive}
-                  data-testid="switch-template-active"
-                />
-                <Label>{t.konfigurator.templateIsActive}</Label>
-              </div>
-            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTemplateDialogOpen(false)}>
-              {t.common.cancel}
-            </Button>
+            <Button variant="outline" onClick={() => setIsTestEmailOpen(false)}>Zrušiť</Button>
             <Button
-              onClick={handleSaveTemplate}
-              disabled={!templateName || createTemplateMutation.isPending || updateTemplateMutation.isPending}
-              data-testid="button-save-template"
+              onClick={handleSendTestEmail}
+              disabled={!testEmailTo || testEmailSending}
+              data-testid="button-send-test-email"
             >
-              {(createTemplateMutation.isPending || updateTemplateMutation.isPending) && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              {t.common.save}
+              {testEmailSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Odoslať test
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Template Drawer */}
+      <Sheet open={isTemplateDialogOpen} onOpenChange={(open) => { setIsTemplateDialogOpen(open); if (!open) { setVarsExpanded(false); setVarsSearch(""); setOpenVarGroup(null); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-[960px] flex flex-col p-0 gap-0 [&>button]:hidden">
+          {/* Drawer Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b shrink-0 bg-background">
+            <div>
+              <SheetTitle className="text-base font-semibold">
+                {editingTemplate ? t.konfigurator.editMessageTemplate : t.konfigurator.addMessageTemplate}
+              </SheetTitle>
+              <SheetDescription className="text-xs text-muted-foreground mt-0.5">
+                {t.konfigurator.messageTemplatesDescription}
+              </SheetDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              {templateType === "email" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setIsTestEmailOpen(true); setTestEmailTo(""); }}
+                  data-testid="button-open-test-email"
+                >
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                  Test email
+                </Button>
+              )}
+              <Button
+                size="sm"
+                onClick={handleSaveTemplate}
+                disabled={!templateName || createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                data-testid="button-save-template"
+              >
+                {(createTemplateMutation.isPending || updateTemplateMutation.isPending) && (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                )}
+                {t.common.save}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsTemplateDialogOpen(false)} className="h-8 w-8">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Drawer Body — 2 panels */}
+          <div className="flex flex-1 overflow-hidden min-h-0">
+            {/* LEFT PANEL — Settings */}
+            <div className="w-72 border-r shrink-0 overflow-y-auto bg-muted/20">
+              <div className="p-5 space-y-5">
+
+                {/* Name */}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateName}</Label>
+                  <Input
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder={t.konfigurator.templateName}
+                    className="h-8 text-sm"
+                    data-testid="input-template-name"
+                  />
+                </div>
+
+                {/* Type toggle */}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateType}</Label>
+                  <div className="flex gap-1 p-1 bg-background border rounded-lg">
+                    <button
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${templateType === "email" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      onClick={() => setTemplateType("email")}
+                      data-testid="toggle-type-email"
+                    >
+                      <Mail className="h-3.5 w-3.5" /> Email
+                    </button>
+                    <button
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${templateType === "sms" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      onClick={() => setTemplateType("sms")}
+                      data-testid="toggle-type-sms"
+                    >
+                      <Smartphone className="h-3.5 w-3.5" /> SMS
+                    </button>
+                  </div>
+                </div>
+
+                {/* Format (email only) */}
+                {templateType === "email" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateFormat}</Label>
+                    <div className="flex gap-1 p-1 bg-background border rounded-lg">
+                      <button
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${templateFormat === "text" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                        onClick={() => setTemplateFormat("text")}
+                        data-testid="toggle-format-text"
+                      >
+                        {t.konfigurator.formatText}
+                      </button>
+                      <button
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${templateFormat === "html" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                        onClick={() => setTemplateFormat("html")}
+                        data-testid="toggle-format-html"
+                      >
+                        HTML
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Language */}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateLanguage}</Label>
+                  <Select value={templateLanguage} onValueChange={setTemplateLanguage}>
+                    <SelectTrigger className="h-8 text-sm" data-testid="select-template-language">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEMPLATE_LANGUAGES.map((lang) => (
+                        <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Category */}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateCategory}</Label>
+                  <Select value={templateCategoryId} onValueChange={setTemplateCategoryId}>
+                    <SelectTrigger className="h-8 text-sm" data-testid="select-template-category">
+                      <SelectValue placeholder={t.konfigurator.selectCategory} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateDescription}</Label>
+                  <Textarea
+                    value={templateDescription}
+                    onChange={(e) => setTemplateDescription(e.target.value)}
+                    placeholder={t.konfigurator.templateDescription}
+                    rows={2}
+                    className="text-sm resize-none"
+                    data-testid="input-template-description"
+                  />
+                </div>
+
+                {/* Tags */}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.konfigurator.selectEmailTags}</Label>
+                  <div className="flex flex-wrap gap-1.5 p-2.5 border rounded-lg bg-background min-h-[42px]">
+                    {emailTags.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">{t.common.noData}</span>
+                    ) : (
+                      emailTags.map((tag) => {
+                        const isSelected = templateTags.split(",").map(t => t.trim()).includes(tag.name);
+                        return (
+                          <Badge
+                            key={tag.id}
+                            variant={isSelected ? "default" : "outline"}
+                            className="cursor-pointer text-xs h-5"
+                            style={isSelected ? { backgroundColor: tag.color } : {}}
+                            onClick={() => {
+                              const currentTags = templateTags.split(",").map(t => t.trim()).filter(Boolean);
+                              if (isSelected) {
+                                setTemplateTags(currentTags.filter(t => t !== tag.name).join(", "));
+                              } else {
+                                setTemplateTags([...currentTags, tag.name].join(", "));
+                              }
+                            }}
+                            data-testid={`badge-tag-${tag.id}`}
+                          >
+                            {tag.name}
+                          </Badge>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Switches */}
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm cursor-pointer">{t.konfigurator.templateIsDefault}</Label>
+                    <Switch checked={templateIsDefault} onCheckedChange={setTemplateIsDefault} data-testid="switch-template-default" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm cursor-pointer">{t.konfigurator.templateIsActive}</Label>
+                    <Switch checked={templateIsActive} onCheckedChange={setTemplateIsActive} data-testid="switch-template-active" />
+                  </div>
+                </div>
+
+                {/* Attachments (email only) */}
+                {templateType === "email" && (
+                  <div className="space-y-1.5 pt-1 border-t">
+                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mt-2">
+                      <Paperclip className="h-3 w-3" />
+                      {t.konfigurator.templateAttachments || "Prílohy"}
+                      {templateAttachments.length > 0 && ` (${templateAttachments.length})`}
+                    </Label>
+                    {templateAttachments.length > 0 && (
+                      <div className="border rounded-lg divide-y bg-background">
+                        {templateAttachments.map((att: any, idx: number) => {
+                          const fetchAttBlob = async () => {
+                            const res = await fetch(`/api/message-templates/${editingTemplate!.id}/attachments`, { credentials: "include" });
+                            if (!res.ok) throw new Error("Failed to fetch");
+                            const data = await res.json();
+                            const match = data[idx];
+                            if (!match?.contentBase64) throw new Error("No content");
+                            const byteChars = atob(match.contentBase64);
+                            const byteArr = new Uint8Array(byteChars.length);
+                            for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+                            return new Blob([byteArr], { type: att.mimeType || "application/octet-stream" });
+                          };
+                          return (
+                            <div key={idx} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+                              <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span className="truncate flex-1 min-w-0">{att.fileName}</span>
+                              <span className="text-muted-foreground shrink-0">
+                                {att.size < 1024 ? `${att.size}B` : att.size < 1048576 ? `${(att.size / 1024).toFixed(0)}KB` : `${(att.size / 1048576).toFixed(1)}MB`}
+                              </span>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0"
+                                onClick={async () => {
+                                  try {
+                                    const blob = await fetchAttBlob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url; a.download = att.fileName; a.click();
+                                    URL.revokeObjectURL(url);
+                                  } catch { toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" }); }
+                                }}
+                                data-testid={`btn-download-attachment-${idx}`}
+                              ><Download className="h-3 w-3" /></Button>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteTemplateAttachment(idx)}
+                                data-testid={`btn-delete-attachment-${idx}`}
+                              ><Trash2 className="h-3 w-3" /></Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <input ref={templateFileInputRef} type="file" multiple className="hidden"
+                      onChange={(e) => { if (e.target.files?.length) handleUploadTemplateAttachment(e.target.files); }}
+                      data-testid="input-template-attachment"
+                    />
+                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full"
+                      disabled={!editingTemplate || isUploadingAttachment}
+                      onClick={() => templateFileInputRef.current?.click()}
+                      data-testid="btn-upload-attachment"
+                    >
+                      {isUploadingAttachment ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                      {t.konfigurator?.addAttachment || "Pridať prílohu"}
+                    </Button>
+                    {!editingTemplate && (
+                      <p className="text-[10px] text-muted-foreground">{t.konfigurator?.saveFirst || "Najskôr uložte šablónu"}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT PANEL — Editor */}
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+
+              {/* Subject row (email only) */}
+              {templateType === "email" && (
+                <div className="px-5 py-3 border-b shrink-0 bg-background">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider w-14 shrink-0">Predmet</span>
+                    <Input
+                      value={templateSubject}
+                      onChange={(e) => setTemplateSubject(e.target.value)}
+                      placeholder="Predmet emailu..."
+                      className="h-8 text-sm flex-1"
+                      data-testid="input-template-subject"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Editor toolbar */}
+              <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30 shrink-0">
+                {templateFormat === "html" && (
+                  <Button
+                    variant={htmlSourceMode ? "default" : "ghost"}
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    onClick={() => setHtmlSourceMode(!htmlSourceMode)}
+                    data-testid="button-toggle-html-source"
+                  >
+                    <Code className="h-3.5 w-3.5" />
+                    HTML kód
+                  </Button>
+                )}
+                <div className="flex-1" />
+                <Button
+                  variant={varsExpanded ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => setVarsExpanded(!varsExpanded)}
+                  data-testid="button-toggle-variables"
+                >
+                  <Hash className="h-3.5 w-3.5" />
+                  {t.konfigurator.insertVariable}
+                  {varsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                </Button>
+              </div>
+
+              {/* Editor area */}
+              <div className="flex-1 overflow-y-auto p-5">
+                {templateFormat === "html" ? (
+                  htmlSourceMode ? (
+                    <div className="space-y-3 h-full flex flex-col">
+                      <Textarea
+                        value={templateContentHtml}
+                        onChange={(e) => setTemplateContentHtml(e.target.value)}
+                        placeholder={"<div style='...'>\n  <h1>Nadpis</h1>\n  <p>Obsah emailu...</p>\n</div>"}
+                        className="font-mono text-xs leading-relaxed flex-1 resize-none"
+                        style={{ minHeight: "280px" }}
+                        data-testid="textarea-html-source"
+                      />
+                      {templateContentHtml && (
+                        <div className="space-y-1 shrink-0">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Náhľad</p>
+                          <div className="border rounded-lg overflow-hidden bg-gray-50">
+                            <iframe
+                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:8px;}</style></head><body>${templateContentHtml.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/on\w+\s*=/gi, "data-blocked=")}</body></html>`}
+                              className="w-full border-0"
+                              style={{ minHeight: "320px" }}
+                              sandbox="allow-same-origin"
+                              title="Email náhľad"
+                              data-testid="iframe-template-preview"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden" data-testid="input-template-content-html">
+                      <ReactQuill
+                        ref={quillRef}
+                        theme="snow"
+                        value={templateContentHtml}
+                        onChange={setTemplateContentHtml}
+                        modules={{
+                          toolbar: [
+                            [{ header: [1, 2, 3, false] }],
+                            ["bold", "italic", "underline", "strike"],
+                            [{ color: [] }, { background: [] }],
+                            [{ list: "ordered" }, { list: "bullet" }],
+                            [{ align: [] }],
+                            ["link", "image"],
+                            ["clean"],
+                          ],
+                        }}
+                        formats={["header", "bold", "italic", "underline", "strike", "color", "background", "list", "bullet", "align", "link", "image"]}
+                        placeholder={t.konfigurator.templateContentHtml}
+                        style={{ minHeight: "320px" }}
+                      />
+                    </div>
+                  )
+                ) : (
+                  <Textarea
+                    ref={textareaRef}
+                    value={templateContent}
+                    onChange={(e) => setTemplateContent(e.target.value)}
+                    placeholder={t.konfigurator.templateContent}
+                    className="resize-none text-sm"
+                    style={{ minHeight: "320px" }}
+                    data-testid="input-template-content"
+                  />
+                )}
+              </div>
+
+              {/* Variable picker panel */}
+              {varsExpanded && (
+                <div className="border-t bg-muted/20 shrink-0 flex flex-col" style={{ maxHeight: "300px" }}>
+                  <div className="px-4 py-2.5 border-b bg-background flex items-center gap-2 shrink-0">
+                    <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dostupné premenné</span>
+                    <div className="flex-1">
+                      <Input
+                        value={varsSearch}
+                        onChange={(e) => setVarsSearch(e.target.value)}
+                        placeholder="Hľadať premennú..."
+                        className="h-6 text-xs"
+                      />
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setVarsExpanded(false)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-3">
+                    {varsSearch ? (
+                      // Search results — flat list
+                      <div className="space-y-1">
+                        {Object.entries(SYSTEM_VARIABLES).flatMap(([, group]) =>
+                          group.vars.filter(v =>
+                            v.label.toLowerCase().includes(varsSearch.toLowerCase()) ||
+                            v.key.toLowerCase().includes(varsSearch.toLowerCase())
+                          ).map(v => (
+                            <button
+                              key={v.key}
+                              onClick={() => insertVariable(v.key)}
+                              className="flex items-center gap-2 w-full text-left px-2.5 py-1.5 rounded-md text-xs hover:bg-accent hover:text-accent-foreground transition-colors group"
+                              data-testid={`button-variable-${v.key}`}
+                            >
+                              <span className="flex-1 font-medium">{v.label}</span>
+                              <span className="font-mono text-[10px] text-muted-foreground group-hover:text-accent-foreground/70 truncate max-w-[200px]">{v.key}</span>
+                              <span className="text-[10px] text-muted-foreground/60 italic hidden group-hover:block">{v.example}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    ) : (
+                      // Grouped by category
+                      <div className="grid grid-cols-4 gap-3">
+                        {Object.entries(SYSTEM_VARIABLES).map(([catKey, group]) => (
+                          <div key={catKey} className="space-y-1">
+                            <div
+                              className="flex items-center gap-1.5 cursor-pointer py-1 px-1.5 rounded-md hover:bg-accent/50 transition-colors"
+                              onClick={() => setOpenVarGroup(openVarGroup === catKey ? null : catKey)}
+                            >
+                              <div className={`h-2 w-2 rounded-full shrink-0 ${group.color}`} />
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide truncate flex-1">{group.label}</span>
+                              {openVarGroup === catKey ? <ChevronDown className="h-2.5 w-2.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />}
+                            </div>
+                            {(openVarGroup === catKey || Object.keys(SYSTEM_VARIABLES).length <= 4) && (
+                              <div className="space-y-0.5 pl-1">
+                                {group.vars.map(v => (
+                                  <button
+                                    key={v.key}
+                                    onClick={() => insertVariable(v.key)}
+                                    title={`${v.key}\nPríklad: ${v.example}`}
+                                    className="flex items-center gap-1.5 w-full text-left px-1.5 py-1 rounded text-xs hover:bg-primary/10 hover:text-primary transition-colors"
+                                    data-testid={`button-variable-${v.key}`}
+                                  >
+                                    <span className="flex-1 leading-tight">{v.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
 
       {/* Category Dialog */}
       <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
