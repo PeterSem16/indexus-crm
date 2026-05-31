@@ -11574,6 +11574,7 @@ function MessageTemplatesTab() {
   const [templateAttachments, setTemplateAttachments] = useState<any[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const templateFileInputRef = useRef<HTMLInputElement>(null);
+  const saveForAttachmentRef = useRef(false);
   
   // Copy/Translate dialog state
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
@@ -11665,11 +11666,17 @@ function MessageTemplatesTab() {
       if (!res.ok) throw new Error("Failed to create template");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
       toast({ title: t.konfigurator.templateCreated });
-      setIsTemplateDialogOpen(false);
-      resetTemplateForm();
+      if (saveForAttachmentRef.current) {
+        // Keep drawer open after save, set editingTemplate so attachment upload works
+        saveForAttachmentRef.current = false;
+        setEditingTemplate(data as MessageTemplate);
+      } else {
+        setIsTemplateDialogOpen(false);
+        resetTemplateForm();
+      }
     },
     onError: () => {
       toast({ title: t.errors.saveFailed, variant: "destructive" });
@@ -12408,10 +12415,10 @@ function MessageTemplatesTab() {
               <div>
                 <DialogTitle className="flex items-center gap-2 text-base font-semibold">
                   <Send className="h-4 w-4 text-primary" />
-                  Test šablóny — {templateName || "Bez názvu"}
+                  {(t.konfigurator as any).templateTestTitle || "Test šablóny"} — {templateName || "Bez názvu"}
                 </DialogTitle>
                 <DialogDescription className="text-xs mt-0.5">
-                  {templateType === "sms" ? "SMS správa" : `Email · ${templateFormat === "html" ? "HTML" : "Textový"}`} · Premenné nahradené ukážkovými hodnotami
+                  {templateType === "sms" ? t.konfigurator.typeSms : `Email · ${templateFormat === "html" ? "HTML" : t.konfigurator.formatText}`} · {(t.konfigurator as any).templateTestSampleDesc || "Premenné nahradené ukážkovými hodnotami"}
                 </DialogDescription>
               </div>
             </div>
@@ -12420,17 +12427,17 @@ function MessageTemplatesTab() {
             <TabsList className="mx-6 mt-3 mb-0 shrink-0 justify-start h-8 bg-muted/50 w-fit rounded-lg">
               <TabsTrigger value="preview" className="text-xs h-7 px-3 rounded-md">
                 <Eye className="h-3 w-3 mr-1.5" />
-                Náhľad
+                {(t.konfigurator as any).tabPreview || "Náhľad"}
               </TabsTrigger>
               <TabsTrigger value="send" className="text-xs h-7 px-3 rounded-md">
                 <Send className="h-3 w-3 mr-1.5" />
-                Odoslať
+                {(t.konfigurator as any).tabSend || "Odoslať"}
               </TabsTrigger>
             </TabsList>
             <TabsContent value="preview" className="flex-1 overflow-y-auto px-6 pb-6 pt-4 mt-0 space-y-4 data-[state=active]:flex data-[state=active]:flex-col">
               {templateType === "email" && templateSubject && (
                 <div className="flex items-baseline gap-3 px-4 py-2.5 bg-muted/30 rounded-xl border shrink-0">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">Predmet</span>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">{t.konfigurator.templateSubject}</span>
                   <span className="text-sm font-medium flex-1">{interpolatePreview(templateSubject)}</span>
                 </div>
               )}
@@ -12441,7 +12448,7 @@ function MessageTemplatesTab() {
                       <div className="bg-muted/80 rounded-2xl rounded-tl-sm px-4 py-3 self-start">
                         <p className="text-sm whitespace-pre-wrap">{interpolatePreview(templateContent || "")}</p>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">{(interpolatePreview(templateContent || "")).length} znakov · SMS</p>
+                      <p className="text-[10px] text-muted-foreground">{(interpolatePreview(templateContent || "")).length} {t.konfigurator.typeSms}</p>
                     </div>
                   </div>
                 ) : templateFormat === "html" && templateContentHtml ? (
@@ -12460,7 +12467,7 @@ function MessageTemplatesTab() {
               </div>
               {detectTemplateVariables().length > 0 && (
                 <div className="shrink-0">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Ukážkové hodnoty premenných ({detectTemplateVariables().length})</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">{(t.konfigurator as any).sampleVariableValues || "Ukážkové hodnoty premenných"} ({detectTemplateVariables().length})</p>
                   <div className="grid grid-cols-2 gap-1.5">
                     {detectTemplateVariables().map(v => {
                       const key = v.replace(/^\{\{|\}\}$/g, "").trim();
@@ -12468,7 +12475,7 @@ function MessageTemplatesTab() {
                       return (
                         <div key={v} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/30 rounded-lg border text-xs overflow-hidden">
                           <span className="font-mono text-primary/80 shrink-0 text-[10px]">{v}</span>
-                          <span className="text-muted-foreground truncate">→ {val || <span className="italic text-orange-400">nenájdená</span>}</span>
+                          <span className="text-muted-foreground truncate">→ {val || <span className="italic text-orange-400">{(t.konfigurator as any).variableValueNotFound || "nenájdená"}</span>}</span>
                         </div>
                       );
                     })}
@@ -12478,13 +12485,13 @@ function MessageTemplatesTab() {
               <div className="shrink-0 pt-2">
                 <Button className="w-full" onClick={() => setTestEmailTab("send")}>
                   <Send className="h-4 w-4 mr-2" />
-                  Odoslať testovací email →
+                  {(t.konfigurator as any).sendTestEmailBtn || "Odoslať testovací email"} →
                 </Button>
               </div>
             </TabsContent>
             <TabsContent value="send" className="px-6 pb-6 pt-4 mt-0 space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Príjemca (e-mail)</Label>
+                <Label className="text-sm font-medium">{(t.konfigurator as any).testRecipientLabel || "Príjemca (e-mail)"}</Label>
                 <Input
                   type="email"
                   value={testEmailTo}
@@ -12496,13 +12503,13 @@ function MessageTemplatesTab() {
                 />
               </div>
               <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 rounded-xl p-3.5 border border-blue-100 dark:border-blue-900 leading-relaxed">
-                Email bude odoslaný s ukážkovými hodnotami premenných cez váš MS365 účet.
-                {detectTemplateVariables().length > 0 && <> <span className="font-medium">{detectTemplateVariables().length} premenných</span> bude automaticky doplnených.</>}
+                {(t.konfigurator as any).testEmailSendNote || "Email bude odoslaný s ukážkovými hodnotami premenných cez váš MS365 účet."}
+                {detectTemplateVariables().length > 0 && <> <span className="font-medium">{detectTemplateVariables().length}</span> {(t.konfigurator as any).nVarsAutoFilled || "premenných bude automaticky doplnených"}.</>}
               </div>
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1" onClick={() => setTestEmailTab("preview")}>
                   <Eye className="h-4 w-4 mr-2" />
-                  Späť na náhľad
+                  {(t.konfigurator as any).backToPreview || "Späť na náhľad"}
                 </Button>
                 <Button
                   className="flex-1"
@@ -12542,7 +12549,7 @@ function MessageTemplatesTab() {
                   className="h-8 text-xs gap-1.5"
                 >
                   <Eye className="h-3.5 w-3.5" />
-                  Náhľad / Test
+                  {(t.konfigurator as any).previewTestBtn || "Náhľad / Test"}
                 </Button>
               )}
               <Button
@@ -12770,18 +12777,18 @@ function MessageTemplatesTab() {
                     />
                     {!editingTemplate ? (
                       <div className="rounded-lg border border-dashed p-3 text-center space-y-1.5">
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">Prílohy budú dostupné po uložení šablóny</p>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">{(t.konfigurator as any).attachmentsAfterSave || "Prílohy budú dostupné po uložení šablóny"}</p>
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
                           className="h-7 text-[11px] gap-1.5 w-full"
-                          onClick={handleSaveTemplate}
+                          onClick={() => { saveForAttachmentRef.current = true; handleSaveTemplate(); }}
                           disabled={!templateName || createTemplateMutation.isPending}
                           data-testid="btn-save-for-attachment"
                         >
-                          <Save className="h-3 w-3" />
-                          Uložiť šablónu
+                          {createTemplateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                          {(t.konfigurator as any).saveTemplateBtn || "Uložiť šablónu"}
                         </Button>
                       </div>
                     ) : (
@@ -12806,11 +12813,11 @@ function MessageTemplatesTab() {
               {templateType === "email" && (
                 <div className="px-5 py-2.5 border-b shrink-0 bg-background">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-14 shrink-0">Predmet</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-14 shrink-0">{t.konfigurator.templateSubject}</span>
                     <Input
                       value={templateSubject}
                       onChange={(e) => setTemplateSubject(e.target.value)}
-                      placeholder="Predmet emailu..."
+                      placeholder={`${t.konfigurator.templateSubject}...`}
                       className="h-8 text-sm flex-1"
                       data-testid="input-template-subject"
                     />
@@ -12829,10 +12836,10 @@ function MessageTemplatesTab() {
                     data-testid="button-toggle-html-source"
                   >
                     <Code className="h-3.5 w-3.5" />
-                    HTML kód
+                    {(t.konfigurator as any).htmlSourceCode || "HTML kód"}
                   </Button>
                   {!htmlSourceMode && (
-                    <span className="text-[10px] text-muted-foreground">Premenné vložíte kliknutím v pravom paneli →</span>
+                    <span className="text-[10px] text-muted-foreground">{(t.konfigurator as any).insertVariableRightPanel || "Premenné vložíte kliknutím v pravom paneli →"}</span>
                   )}
                 </div>
               )}
@@ -12910,15 +12917,15 @@ function MessageTemplatesTab() {
               <div className="px-3 py-3 border-b shrink-0 bg-background/80 backdrop-blur-sm">
                 <div className="flex items-center gap-1.5 mb-2">
                   <Hash className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">Premenné</span>
-                  <span className="ml-auto text-[9px] text-muted-foreground">klik = vložiť</span>
+                  <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">{(t.konfigurator as any).variablesPanel || "Premenné"}</span>
+                  <span className="ml-auto text-[9px] text-muted-foreground">{(t.konfigurator as any).clickToInsertHint || "klik = vložiť"}</span>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
                   <Input
                     value={varsSearch}
                     onChange={(e) => setVarsSearch(e.target.value)}
-                    placeholder="Hľadať premennú..."
+                    placeholder={(t.konfigurator as any).searchVariablePlaceholder || "Hľadať premennú..."}
                     className="h-7 text-xs pl-6 pr-2 bg-muted/30"
                   />
                   {varsSearch && (
@@ -12957,7 +12964,7 @@ function MessageTemplatesTab() {
                         v.key.toLowerCase().includes(varsSearch.toLowerCase())
                       )
                     ).length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-6">Žiadna premenná nenájdená</p>
+                      <p className="text-xs text-muted-foreground text-center py-6">{(t.konfigurator as any).noVariableFound || "Žiadna premenná nenájdená"}</p>
                     )}
                   </div>
                 ) : (
@@ -13002,7 +13009,7 @@ function MessageTemplatesTab() {
               {/* Variables footer hint */}
               <div className="px-3 py-2 border-t shrink-0 bg-background/50">
                 <p className="text-[9px] text-muted-foreground leading-relaxed">
-                  Kliknite na premennú pre vloženie do šablóny. V texte sa zobrazí ako <span className="font-mono">{"{{premenná}}"}</span>
+                  {(t.konfigurator as any).variableInsertFooter || "Kliknite na premennú pre vloženie do šablóny."}
                 </p>
               </div>
             </div>
