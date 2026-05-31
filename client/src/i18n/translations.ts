@@ -4025,6 +4025,16 @@ export interface Translations {
       variableInsertFooter: string;
       insertVariableRightPanel: string;
       htmlSourceCode: string;
+      varGroups: {
+        customer: { label: string; desc: string; };
+        hospital: { label: string; desc: string; };
+        clinic: { label: string; desc: string; };
+        collaborator: { label: string; desc: string; };
+        user: { label: string; desc: string; };
+        company: { label: string; desc: string; };
+        documents: { label: string; desc: string; };
+        system: { label: string; desc: string; };
+      };
     templateUsageCount: string;
     noMessageTemplates: string;
     typeEmail: string;
@@ -10801,6 +10811,16 @@ export const translations: Record<Locale, Translations> = {
       variableInsertFooter: 'Click a variable to insert it into the template. It appears as {{variable}}',
       insertVariableRightPanel: 'Insert variables by clicking in the right panel →',
       htmlSourceCode: 'HTML code',
+      varGroups: {
+        customer: { label: 'Customer', desc: 'Personal data of the customer (pregnant / maternity)' },
+        hospital: { label: 'Hospital', desc: 'Hospital / maternity ward data' },
+        clinic: { label: 'Clinic / GP', desc: 'Gynaecological clinic / doctor data' },
+        collaborator: { label: 'Collaborator / Midwife', desc: 'Collaborator, midwife or external person data' },
+        user: { label: 'Agent / User', desc: 'Agent / consultant who sends the email or SMS' },
+        company: { label: 'Company', desc: 'INDEXUS company contact details' },
+        documents: { label: 'Contract / Invoice / Order', desc: 'Customer document data' },
+        system: { label: 'System', desc: 'Automatically generated system values' },
+      },
       preview: 'Preview',
       templateUsageCount: 'Usage Count',
       noMessageTemplates: 'No templates defined yet',
@@ -16979,6 +16999,16 @@ export const translations: Record<Locale, Translations> = {
       variableInsertFooter: 'Kliknite na premennú pre vloženie do šablóny. V texte sa zobrazí ako {{premenná}}',
       insertVariableRightPanel: 'Premenné vložíte kliknutím v pravom paneli →',
       htmlSourceCode: 'HTML kód',
+      varGroups: {
+        customer: { label: 'Zákazník', desc: 'Osobné údaje zákazníka (tehotná/rodička)' },
+        hospital: { label: 'Nemocnica', desc: 'Údaje o nemocnici / pôrodnici' },
+        clinic: { label: 'Ambulancia', desc: 'Údaje o gynekologickej ambulancii / lekárovi' },
+        collaborator: { label: 'Spolupracovník / Pôrodná asistentka', desc: 'Údaje o spolupracovníkovi, pôrodnej asistentke alebo externej osobe' },
+        user: { label: 'Agent / Používateľ', desc: 'Údaje o agentovi / konzultantovi, ktorý email odosiela' },
+        company: { label: 'Spoločnosť', desc: 'Kontaktné údaje spoločnosti INDEXUS' },
+        documents: { label: 'Zmluva / Faktúra / Objednávka', desc: 'Údaje z dokumentov zákazníka' },
+        system: { label: 'Systémové', desc: 'Automaticky generované systémové hodnoty' },
+      },
       preview: 'Náhľad',
       templateUsageCount: 'Počet použití',
       noMessageTemplates: 'Zatiaľ nie sú definované žiadne šablóny',
@@ -23143,6 +23173,16 @@ export const translations: Record<Locale, Translations> = {
       variableInsertFooter: 'Kliknutím na proměnnou ji vložíte do šablony. Zobrazí se jako {{proměnná}}',
       insertVariableRightPanel: 'Proměnné vložíte kliknutím v pravém panelu →',
       htmlSourceCode: 'HTML kód',
+      varGroups: {
+        customer: { label: 'Zákazník', desc: 'Osobní údaje zákazníka (těhotná/rodička)' },
+        hospital: { label: 'Nemocnice', desc: 'Údaje o nemocnici / porodnici' },
+        clinic: { label: 'Ambulance', desc: 'Údaje o gynekologické ambulanci / lékaři' },
+        collaborator: { label: 'Spolupracovník / Porodní asistentka', desc: 'Údaje o spolupracovníkovi, porodní asistentce nebo externí osobě' },
+        user: { label: 'Agent / Uživatel', desc: 'Údaje o agentovi / konzultantovi, který odesílá e-mail' },
+        company: { label: 'Společnost', desc: 'Kontaktní údaje společnosti INDEXUS' },
+        documents: { label: 'Smlouva / Faktura / Objednávka', desc: 'Údaje z dokumentů zákazníka' },
+        system: { label: 'Systémové', desc: 'Automaticky generované systémové hodnoty' },
+      },
       preview: 'Náhled',
       templateUsageCount: 'Počet použití',
       noMessageTemplates: 'Zatím nejsou definovány žádné šablony',
@@ -29265,6 +29305,16 @@ export const translations: Record<Locale, Translations> = {
       variableInsertFooter: 'Kattintson egy változóra a sablonba való beillesztéséhez. {{változó}} formában jelenik meg',
       insertVariableRightPanel: 'Változókat a jobb oldali panelre kattintva illeszthet be →',
       htmlSourceCode: 'HTML kód',
+      varGroups: {
+        customer: { label: 'Ügyfél', desc: 'Az ügyfél személyes adatai (terhes/szülő)' },
+        hospital: { label: 'Kórház', desc: 'Kórház / szülészet adatai' },
+        clinic: { label: 'Rendelő', desc: 'Nőgyógyászati rendelő / orvos adatai' },
+        collaborator: { label: 'Munkatárs / Bába', desc: 'Munkatárs, bába vagy külső személy adatai' },
+        user: { label: 'Ügynök / Felhasználó', desc: 'Az e-mailt küldő ügynök / tanácsadó adatai' },
+        company: { label: 'Cég', desc: 'Az INDEXUS cég elérhetőségei' },
+        documents: { label: 'Szerződés / Számla / Rendelés', desc: 'Az ügyfél dokumentumainak adatai' },
+        system: { label: 'Rendszer', desc: 'Automatikusan generált rendszerértékek' },
+      },
       preview: 'Előnézet',
       templateUsageCount: 'Használatok száma',
       noMessageTemplates: 'Még nincsenek sablonok definiálva',
@@ -35282,6 +35332,16 @@ export const translations: Record<Locale, Translations> = {
       variableInsertFooter: 'Faceți clic pe o variabilă pentru a o insera în șablon. Apare ca {{variabilă}}',
       insertVariableRightPanel: 'Inserați variabile făcând clic în panoul din dreapta →',
       htmlSourceCode: 'Cod HTML',
+      varGroups: {
+        customer: { label: 'Client', desc: 'Date personale ale clientului (gravidă/lăuză)' },
+        hospital: { label: 'Spital', desc: 'Date despre spital / maternitate' },
+        clinic: { label: 'Clinică', desc: 'Date despre clinica ginecologică / medic' },
+        collaborator: { label: 'Colaborator / Moașă', desc: 'Date despre colaborator, moașă sau persoană externă' },
+        user: { label: 'Agent / Utilizator', desc: 'Date despre agentul / consultantul care trimite emailul' },
+        company: { label: 'Companie', desc: 'Date de contact ale companiei INDEXUS' },
+        documents: { label: 'Contract / Factură / Comandă', desc: 'Date din documentele clientului' },
+        system: { label: 'Sistem', desc: 'Valori de sistem generate automat' },
+      },
       preview: 'Previzualizare',
       templateUsageCount: 'Număr utilizări',
       noMessageTemplates: 'Nu există șabloane definite',
@@ -41301,6 +41361,16 @@ export const translations: Record<Locale, Translations> = {
       variableInsertFooter: 'Clicca su una variabile per inserirla nel modello. Appare come {{variabile}}',
       insertVariableRightPanel: 'Inserisci variabili cliccando nel pannello destro →',
       htmlSourceCode: 'Codice HTML',
+      varGroups: {
+        customer: { label: 'Cliente', desc: 'Dati personali del cliente (in gravidanza/puerpera)' },
+        hospital: { label: 'Ospedale', desc: "Dati dell'ospedale / reparto maternità" },
+        clinic: { label: 'Ambulatorio', desc: "Dati dell'ambulatorio ginecologico / medico" },
+        collaborator: { label: 'Collaboratore / Ostetrica', desc: "Dati del collaboratore, ostetrica o persona esterna" },
+        user: { label: 'Agente / Utente', desc: "Dati dell'agente / consulente che invia l'email" },
+        company: { label: 'Azienda', desc: "Dati di contatto dell'azienda INDEXUS" },
+        documents: { label: 'Contratto / Fattura / Ordine', desc: 'Dati dai documenti del cliente' },
+        system: { label: 'Sistema', desc: 'Valori di sistema generati automaticamente' },
+      },
       preview: 'Anteprima',
       templateUsageCount: 'Conteggio utilizzi',
       noMessageTemplates: 'Nessun modello definito',
@@ -47307,6 +47377,16 @@ export const translations: Record<Locale, Translations> = {
       variableInsertFooter: 'Klicken Sie auf eine Variable, um sie in die Vorlage einzufügen. Sie erscheint als {{Variable}}',
       insertVariableRightPanel: 'Variablen durch Klicken im rechten Panel einfügen →',
       htmlSourceCode: 'HTML-Code',
+      varGroups: {
+        customer: { label: 'Kunde', desc: 'Persönliche Daten der Kundin (Schwangere/Wöchnerin)' },
+        hospital: { label: 'Krankenhaus', desc: 'Daten zum Krankenhaus / zur Entbindungsstation' },
+        clinic: { label: 'Praxis', desc: 'Daten zur gynäkologischen Praxis / zum Arzt' },
+        collaborator: { label: 'Mitarbeiter / Hebamme', desc: 'Daten zu Mitarbeiter, Hebamme oder externer Person' },
+        user: { label: 'Agent / Benutzer', desc: 'Daten des Agenten / Beraters, der die E-Mail sendet' },
+        company: { label: 'Unternehmen', desc: 'Kontaktdaten des Unternehmens INDEXUS' },
+        documents: { label: 'Vertrag / Rechnung / Bestellung', desc: 'Daten aus Kundendokumenten' },
+        system: { label: 'System', desc: 'Automatisch generierte Systemwerte' },
+      },
       preview: 'Vorschau',
       templateUsageCount: 'Nutzungsanzahl',
       noMessageTemplates: 'Noch keine Vorlagen definiert',

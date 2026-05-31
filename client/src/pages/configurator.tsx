@@ -12970,14 +12970,19 @@ function MessageTemplatesTab() {
                 ) : (
                   // Grouped view
                   <div className="px-2 space-y-0.5">
-                    {Object.entries(SYSTEM_VARIABLES).map(([catKey, group]) => (
+                    {Object.entries(SYSTEM_VARIABLES).map(([catKey, group]) => {
+                      const vg = (t.konfigurator as any).varGroups;
+                      const locLabel = vg?.[catKey]?.label || group.label;
+                      const locDesc = vg?.[catKey]?.desc || group.description;
+                      return (
                       <div key={catKey} className="mb-1">
                         <button
                           className="flex items-center gap-2 w-full px-2 py-2 rounded-lg hover:bg-accent/60 transition-colors text-left"
                           onClick={() => setOpenVarGroup(openVarGroup === catKey ? null : catKey)}
+                          title={locDesc}
                         >
                           <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${group.color}`} />
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex-1 leading-none">{group.label}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex-1 leading-none">{locLabel}</span>
                           <span className="text-[9px] text-muted-foreground/70 tabular-nums">{group.vars.length}</span>
                           {openVarGroup === catKey
                             ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -12990,7 +12995,7 @@ function MessageTemplatesTab() {
                               <button
                                 key={v.key}
                                 onClick={() => insertVariable(v.key)}
-                                title={`Príklad: ${v.example}`}
+                                title={`${v.example ? v.example : v.key}`}
                                 className="flex flex-col items-start w-full text-left px-2.5 py-1.5 rounded-md hover:bg-primary/10 hover:text-primary transition-colors group"
                                 data-testid={`button-variable-${v.key}`}
                               >
@@ -13001,7 +13006,8 @@ function MessageTemplatesTab() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
