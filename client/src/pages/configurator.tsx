@@ -11380,6 +11380,8 @@ const SYSTEM_VARIABLES = {
     color: "bg-blue-500",
     description: "Osobné údaje zákazníka (tehotná/rodička)",
     vars: [
+      { key: "{{customer.salutation}}", label: "Oslovenie (Vážený/Vážená) ✨ AI", example: "Vážená" },
+      { key: "{{customer.salutationFull}}", label: "Oslovenie plné ✨ AI", example: "Vážená pani" },
       { key: "{{customer.titleBefore}}", label: "Titul pred menom", example: "MUDr." },
       { key: "{{customer.firstName}}", label: "Krstné meno", example: "Jana" },
       { key: "{{customer.lastName}}", label: "Priezvisko", example: "Nováková" },
@@ -11575,6 +11577,10 @@ function MessageTemplatesTab() {
   const [templateAttachments, setTemplateAttachments] = useState<any[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [isSavingForAttachment, setIsSavingForAttachment] = useState(false);
+  const [genderTestFirst, setGenderTestFirst] = useState("");
+  const [genderTestLast, setGenderTestLast] = useState("");
+  const [genderTestResult, setGenderTestResult] = useState<{ gender: string; salutation: string; salutationFull: string } | null>(null);
+  const [genderTestLoading, setGenderTestLoading] = useState(false);
   const templateFileInputRef = useRef<HTMLInputElement>(null);
   const saveForAttachmentRef = useRef(false);
   
@@ -11895,6 +11901,7 @@ function MessageTemplatesTab() {
   };
 
   const getTestSampleValues = (): Record<string, string> => ({
+    "customer.salutation": "Vážená", "customer.salutationFull": "Vážená pani",
     "customer.firstName": "Jana", "customer.lastName": "Nováková", "customer.fullName": "Jana Nováková",
     "customer.maidenName": "Slobodná", "customer.titleBefore": "Bc.", "customer.titleAfter": "",
     "customer.email": "jana.novakova@example.sk", "customer.phone": "+421 900 123 456",
@@ -12890,7 +12897,7 @@ function MessageTemplatesTab() {
                     {(t.konfigurator as any).htmlSourceCode || "HTML kód"}
                   </Button>
 
-                  <DropdownMenu>
+                  <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
@@ -13004,8 +13011,8 @@ function MessageTemplatesTab() {
             {/* COLUMN 3 — Variables (280px, always visible) */}
             <div className="w-[280px] shrink-0 border-l flex flex-col overflow-hidden bg-muted/10">
               {/* Variables header */}
-              <div className="px-3 py-3 border-b shrink-0 bg-background/80 backdrop-blur-sm">
-                <div className="flex items-center gap-1.5 mb-2">
+              <div className="px-3 py-3 border-b shrink-0 bg-background/80 backdrop-blur-sm space-y-2">
+                <div className="flex items-center gap-1.5">
                   <Hash className="h-3.5 w-3.5 text-primary" />
                   <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">{(t.konfigurator as any).variablesPanel || "Premenné"}</span>
                   <span className="ml-auto text-[9px] text-muted-foreground">{(t.konfigurator as any).clickToInsertHint || "klik = vložiť"}</span>
@@ -13022,6 +13029,77 @@ function MessageTemplatesTab() {
                     <button className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setVarsSearch("")}>
                       <X className="h-3 w-3" />
                     </button>
+                  )}
+                </div>
+
+                {/* AI Gender / Salutation Tester */}
+                <div className="rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/30 p-2 space-y-1.5">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <Sparkles className="h-3 w-3 text-violet-500" />
+                    <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wide">AI Oslovenie</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Input
+                      value={genderTestFirst}
+                      onChange={(e) => { setGenderTestFirst(e.target.value); setGenderTestResult(null); }}
+                      placeholder="Meno"
+                      className="h-6 text-[11px] px-2 bg-white dark:bg-background flex-1"
+                    />
+                    <Input
+                      value={genderTestLast}
+                      onChange={(e) => { setGenderTestLast(e.target.value); setGenderTestResult(null); }}
+                      placeholder="Priezvisko"
+                      className="h-6 text-[11px] px-2 bg-white dark:bg-background flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (genderTestFirst || genderTestLast)) {
+                          setGenderTestLoading(true);
+                          setGenderTestResult(null);
+                          fetch("/api/ai/detect-gender", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "include",
+                            body: JSON.stringify({ firstName: genderTestFirst, lastName: genderTestLast, language: templateLanguage || "sk" }),
+                          }).then(r => r.json()).then(d => { setGenderTestResult(d); setGenderTestLoading(false); }).catch(() => setGenderTestLoading(false));
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] w-full gap-1 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40"
+                    disabled={genderTestLoading || (!genderTestFirst && !genderTestLast)}
+                    onClick={() => {
+                      setGenderTestLoading(true);
+                      setGenderTestResult(null);
+                      fetch("/api/ai/detect-gender", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({ firstName: genderTestFirst, lastName: genderTestLast, language: templateLanguage || "sk" }),
+                      }).then(r => r.json()).then(d => { setGenderTestResult(d); setGenderTestLoading(false); }).catch(() => setGenderTestLoading(false));
+                    }}
+                  >
+                    {genderTestLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    Zistiť pohlavie
+                  </Button>
+                  {genderTestResult && (
+                    <div className="flex flex-col gap-0.5 text-[10px] pt-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground">Pohlavie:</span>
+                        <span className="font-semibold text-violet-700 dark:text-violet-300">
+                          {genderTestResult.gender === "male" ? "♂ Muž" : genderTestResult.gender === "female" ? "♀ Žena" : "Neurčené"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground font-mono text-[9px]">{"{{customer.salutation}}"}</span>
+                        <span className="font-bold text-foreground">→ {genderTestResult.salutation}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground font-mono text-[9px]">{"{{customer.salutationFull}}"}</span>
+                        <span className="font-bold text-foreground">→ {genderTestResult.salutationFull}</span>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -21285,7 +21363,7 @@ const HTML_TEMPLATES = {
           <tr>
             <td style="background:#ffffff;padding:44px;">
               <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
-                Vážená/ý <strong style="color:#1e3a5f;">{{customer.fullName}}</strong>,
+                {{customer.salutation}} <strong style="color:#1e3a5f;">{{customer.fullName}}</strong>,
               </p>
               <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.75;">
                 Dovoľujeme si Vás informovať o aktuálnom stave Vašej zmluvy o uskladnení kmeňových buniek z pupočníkovej krvi.
@@ -21390,7 +21468,7 @@ const HTML_TEMPLATES = {
           <tr>
             <td style="background:#ffffff;padding:44px;">
               <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">
-                Vážená/ý <strong style="color:#1e293b;">{{customer.fullName}}</strong>,
+                {{customer.salutation}} <strong style="color:#1e293b;">{{customer.fullName}}</strong>,
               </p>
               <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.75;">
                 Dovoľujeme si Vám pripomenúť, že Vaša platba za uskladnenie kmeňových buniek z pupočníkovej krvi je po splatnosti.
@@ -21491,7 +21569,7 @@ const HTML_TEMPLATES = {
           <tr>
             <td style="background:#ffffff;padding:44px;">
               <p style="margin:0 0 20px;font-size:16px;color:#374151;line-height:1.6;">
-                Vážená/ý <strong style="color:#14532d;">{{customer.fullName}}</strong>,
+                {{customer.salutation}} <strong style="color:#14532d;">{{customer.fullName}}</strong>,
               </p>
               <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.75;">
                 Sme veľmi radi, že ste sa rozhodli zveriť zdravie Vášho dieťaťa do rúk {{company.name}}. Vaše rozhodnutie môže raz zachrániť život — a to je to najdôležitejšie.
