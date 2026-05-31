@@ -11417,6 +11417,8 @@ const SYSTEM_VARIABLES = {
       { key: "{{hospital.region}}", label: "Kraj", example: "Bratislavský kraj" },
       { key: "{{hospital.countryCode}}", label: "Krajina", example: "SK" },
       { key: "{{hospital.contactPerson}}", label: "Kontaktná osoba", example: "Jana Kováčová" },
+      { key: "{{hospital.contactPersonSalutation}}", label: "Oslovenie kontaktu ✨ AI", example: "Vážená" },
+      { key: "{{hospital.contactPersonSalutationFull}}", label: "Oslovenie kontaktu plné ✨ AI", example: "Vážená pani" },
       { key: "{{hospital.phone}}", label: "Telefón", example: "+421259221111" },
       { key: "{{hospital.email}}", label: "E-mail", example: "info@unb.sk" },
     ],
@@ -11427,6 +11429,8 @@ const SYSTEM_VARIABLES = {
     description: "Údaje o gynekologickej ambulancii / lekárovi",
     vars: [
       { key: "{{clinic.name}}", label: "Názov ambulancie", example: "Gynekologická ambulancia" },
+      { key: "{{clinic.doctorSalutation}}", label: "Oslovenie lekára ✨ AI", example: "Vážený" },
+      { key: "{{clinic.doctorSalutationFull}}", label: "Oslovenie lekára plné ✨ AI", example: "Vážený pán" },
       { key: "{{clinic.doctorTitle}}", label: "Titul lekára", example: "MUDr." },
       { key: "{{clinic.doctorFirstName}}", label: "Krstné meno lekára", example: "Peter" },
       { key: "{{clinic.doctorLastName}}", label: "Priezvisko lekára", example: "Novák" },
@@ -11581,6 +11585,7 @@ function MessageTemplatesTab() {
   const [genderTestLast, setGenderTestLast] = useState("");
   const [genderTestResult, setGenderTestResult] = useState<{ gender: string; salutation: string; salutationFull: string } | null>(null);
   const [genderTestLoading, setGenderTestLoading] = useState(false);
+  const [htmlTemplatePopoverOpen, setHtmlTemplatePopoverOpen] = useState(false);
   const templateFileInputRef = useRef<HTMLInputElement>(null);
   const saveForAttachmentRef = useRef(false);
   
@@ -11916,8 +11921,10 @@ function MessageTemplatesTab() {
     "customer.note": "Klientka má záujem o 20-ročné uskladnenie.",
     "hospital.name": "FN Bratislava", "hospital.fullName": "Fakultná nemocnica s poliklinikou Bratislava",
     "hospital.city": "Bratislava", "hospital.district": "Bratislava II",
-    "hospital.contactPerson": "MUDr. Anna Horváthová", "hospital.phone": "+421 2 4333 2111",
-    "hospital.email": "sekretariat@fnb.sk",
+    "hospital.contactPerson": "MUDr. Anna Horváthová",
+    "hospital.contactPersonSalutation": "Vážená", "hospital.contactPersonSalutationFull": "Vážená pani",
+    "hospital.phone": "+421 2 4333 2111", "hospital.email": "sekretariat@fnb.sk",
+    "clinic.doctorSalutation": "Vážený", "clinic.doctorSalutationFull": "Vážený pán",
     "clinic.doctorFirstName": "Peter", "clinic.doctorLastName": "Kováč",
     "clinic.doctorFullName": "MUDr. Peter Kováč", "clinic.doctorTitle": "MUDr.",
     "clinic.pzsCode": "P12345", "clinic.phone": "+421 2 1234 5678",
@@ -12897,8 +12904,8 @@ function MessageTemplatesTab() {
                     {(t.konfigurator as any).htmlSourceCode || "HTML kód"}
                   </Button>
 
-                  <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
+                  <Popover open={htmlTemplatePopoverOpen} onOpenChange={setHtmlTemplatePopoverOpen}>
+                    <PopoverTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -12909,31 +12916,31 @@ function MessageTemplatesTab() {
                         Vložiť vzor
                         <ChevronDown className="h-3 w-3 opacity-60" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-64">
-                      <DropdownMenuLabel className="text-[11px] text-muted-foreground font-normal">
-                        Pripravené HTML vzory
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-64 p-1.5" sideOffset={4}>
+                      <p className="text-[10px] text-muted-foreground px-2 py-1">Pripravené HTML vzory</p>
                       {Object.entries(HTML_TEMPLATES).map(([key, tpl]) => (
-                        <DropdownMenuItem
+                        <button
                           key={key}
-                          className="flex flex-col items-start gap-0.5 py-2 cursor-pointer"
+                          className="w-full flex flex-col items-start gap-0.5 px-2 py-2 rounded-md hover:bg-muted/60 text-left transition-colors"
                           data-testid={`btn-html-template-${key}`}
                           onClick={() => {
-                            if (templateContentHtml && templateContentHtml.trim().length > 20) {
-                              if (!confirm("Existujúci HTML obsah bude nahradený. Pokračovať?")) return;
-                            }
-                            setTemplateContentHtml(tpl.content);
-                            setHtmlSourceMode(false);
+                            setHtmlTemplatePopoverOpen(false);
+                            setTimeout(() => {
+                              if (templateContentHtml && templateContentHtml.trim().length > 20) {
+                                if (!window.confirm("Existujúci HTML obsah bude nahradený. Pokračovať?")) return;
+                              }
+                              setTemplateContentHtml(tpl.content);
+                              setHtmlSourceMode(false);
+                            }, 50);
                           }}
                         >
                           <span className="text-sm font-medium">{tpl.label}</span>
                           <span className="text-[11px] text-muted-foreground">{tpl.description}</span>
-                        </DropdownMenuItem>
+                        </button>
                       ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    </PopoverContent>
+                  </Popover>
 
                   {!htmlSourceMode && (
                     <span className="text-[10px] text-muted-foreground ml-auto">{(t.konfigurator as any).insertVariableRightPanel || "Premenné vložíte kliknutím v pravom paneli →"}</span>
