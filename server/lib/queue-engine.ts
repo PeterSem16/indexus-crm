@@ -673,7 +673,29 @@ export class QueueEngine extends EventEmitter {
         await this.handleDidRoute(channel, didRoute, callerNumber, callerName);
         return;
       }
-      console.log(`[QueueEngine] No DID route found either. Available queues:`);
+      // Check if DID matches a collaborator's outboundCallerId (INDEXUS Connect personal line)
+      const [collabMatch] = await db.select({
+        id: collaborators.id,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+        callForwardingEnabled: collaborators.callForwardingEnabled,
+        callForwardingNumber: collaborators.callForwardingNumber,
+        mobileSipExtensionId: collaborators.mobileSipExtensionId,
+        mobileAppEnabled: collaborators.mobileAppEnabled,
+      }).from(collaborators)
+        .where(and(
+          eq(collaborators.outboundCallerId, dialedNumber),
+          eq(collaborators.mobileAppEnabled, true),
+        ))
+        .limit(1);
+
+      if (collabMatch) {
+        console.log(`[QueueEngine] DID "${dialedNumber}" matched collaborator: ${collabMatch.firstName} ${collabMatch.lastName} (id: ${collabMatch.id})`);
+        await this.handleCollaboratorDirectCall(channel, collabMatch, callerNumber, callerName);
+        return;
+      }
+
+      console.log(`[QueueEngine] No queue, DID route, or collaborator found for DID "${dialedNumber}". Available queues:`);
       const allQueues = await db.select().from(inboundQueues);
       allQueues.forEach(q => console.log(`[QueueEngine]   Queue "${q.name}" → DID: "${q.didNumber}" (active: ${q.isActive})`));
       console.log(`[QueueEngine] Hanging up channel ${channel.id}`);
@@ -775,6 +797,60 @@ export class QueueEngine extends EventEmitter {
 
     console.log(`[QueueEngine] Call ${queuedCall.id} added to queue "${queueName}" at position ${queuedCall.position}`);
     this.processQueues();
+  }
+
+  private async handleCollaboratorDirectCall(
+    channel: AriChannel,
+    collab: {
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      callForwardingEnabled: boolean;
+      callForwardingNumber: string | null;
+      mobileSipExtensionId: string | null;
+      mobileAppEnabled: boolean;
+    },
+    callerNumber: string,
+    callerName: string,
+  ): Promise<void> {
+    const collabName = `${collab.firstName ?? ""} ${collab.lastName ?? ""}`.trim();
+
+    try {
+      await this.ariClient.answerChannel(channel.id);
+    } catch {}
+
+    // Priority 1: call forwarding to mobile number
+    if (collab.callForwardingEnabled && collab.callForwardingNumber) {
+      const fwd = collab.callForwardingNumber.replace(/\s/g, "");
+      console.log(`[QueueEngine] Collaborator direct call → forwarding to mobile ${fwd} (collab: ${collabName})`);
+      const ok = await this.transferCallToEndpoint(channel.id, `Local/${fwd}@from-internal`, null as any);
+      if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+      return;
+    }
+
+    // Priority 2: check AstDB for forwarding on SIP extension
+    if (collab.mobileSipExtensionId) {
+      const [sipExt] = await db.select({ extension: sipExtensions.extension })
+        .from(sipExtensions).where(eq(sipExtensions.id, collab.mobileSipExtensionId)).limit(1);
+      if (sipExt?.extension) {
+        const astDbFwd = await this.ariClient.getAsteriskDB("callforward", sipExt.extension);
+        if (astDbFwd) {
+          const fwd = astDbFwd.replace(/\s/g, "");
+          console.log(`[QueueEngine] Collaborator direct call → AstDB forwarding to ${fwd} (ext: ${sipExt.extension})`);
+          const ok = await this.transferCallToEndpoint(channel.id, `Local/${fwd}@from-internal`, null as any);
+          if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+          return;
+        }
+        // Priority 3: ring SIP extension directly
+        console.log(`[QueueEngine] Collaborator direct call → SIP PJSIP/${sipExt.extension} (collab: ${collabName})`);
+        const ok = await this.transferCallToEndpoint(channel.id, `PJSIP/${sipExt.extension}`, null as any);
+        if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+        return;
+      }
+    }
+
+    console.warn(`[QueueEngine] Collaborator ${collabName} has no forwarding and no SIP extension, hanging up`);
+    await this.ariClient.hangupChannel(channel.id, "normal");
   }
 
   private async findQueueForNumber(didNumber: string): Promise<InboundQueue | null> {
