@@ -883,35 +883,26 @@ export class QueueEngine extends EventEmitter {
       }
     };
 
-    // Helper: start AMI MixMonitor + register channel-destroyed listener for duration/recording
+    // Helper: set INDEXUS_REC_NAME channel variable (dialplan picks it up and runs MixMonitor)
+    // + register channel-destroyed listener for duration tracking and post-call processing
     const startRecordingAndTracking = async (callLogId: string) => {
       try {
         const [cfg] = await db.select().from(ariSettings).limit(1);
-        if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) {
-          console.warn(`[ForwardedRecording] ARI/SSH settings not configured — recording skipped`);
-          return;
-        }
-        const sshPort = cfg.sshPort || 22;
+        const sshInfo = (cfg?.host && cfg?.sshUsername && cfg?.sshPassword)
+          ? { host: cfg.host, sshPort: cfg.sshPort || 22, sshUsername: cfg.sshUsername, sshPassword: cfg.sshPassword, amiUsername: cfg.username, amiPassword: cfg.password }
+          : null;
+
         const recordingName = `fwd_${channel.id.replace(/-/g, "_")}_${Date.now()}`;
         const amiFilePath = `/var/spool/asterisk/monitor/${recordingName}`;
 
-        const amiResult = await sendAmiActionViaSshTunnel(
-          cfg.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-          cfg.username, cfg.password,
-          {
-            Action: "MixMonitor",
-            Channel: channel.name,
-            File: `${amiFilePath}.wav`,
-            Options: "v(1)V(1)",
-          }
-        );
-
-        if (!amiResult.success) {
-          console.warn(`[ForwardedRecording] AMI MixMonitor failed: ${amiResult.response}`);
-          return;
+        // Set channel variable so the dialplan runs MixMonitor before Dial
+        try {
+          await this.ariClient.setChannelVariable(channel.id, "INDEXUS_REC_NAME", recordingName);
+          console.log(`[ForwardedRecording] Set INDEXUS_REC_NAME=${recordingName} on channel ${channel.id}`);
+        } catch (varErr) {
+          console.warn(`[ForwardedRecording] Could not set INDEXUS_REC_NAME:`, varErr instanceof Error ? varErr.message : varErr);
         }
 
-        const sshInfo = { host: cfg.host, sshPort, sshUsername: cfg.sshUsername, sshPassword: cfg.sshPassword, amiUsername: cfg.username, amiPassword: cfg.password };
         const tracking = {
           callLogId,
           inboundChannelId: channel.id,
@@ -925,20 +916,40 @@ export class QueueEngine extends EventEmitter {
         };
         this.forwardedCallTracking.set(channel.id, tracking);
 
-        const onDestroyed = (event: AriEvent) => {
-          if (event.channel?.id !== channel.id) return;
-          this.ariClient.removeListener("channel-destroyed", onDestroyed);
-          const t = this.forwardedCallTracking.get(channel.id);
-          if (!t) return;
-          this.forwardedCallTracking.delete(channel.id);
-          const durationSeconds = Math.max(0, Math.round((Date.now() - t.startTime.getTime()) / 1000));
-          console.log(`[ForwardedRecording] Channel ${channel.id} destroyed, duration=${durationSeconds}s`);
-          this.processForwardedCallRecordingAsync(t, durationSeconds).catch(err =>
-            console.error(`[ForwardedRecording] Processing error:`, err instanceof Error ? err.message : err)
-          );
+        // Poll ARI every 5s — channel-destroyed event is NOT fired after continueDialplan
+        const channelId = channel.id;
+        const pollForHangup = async () => {
+          const maxMs = 4 * 60 * 60 * 1000; // 4-hour safety cap
+          const pollInterval = 5000;
+          while (Date.now() - tracking.startTime.getTime() < maxMs) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            try {
+              await this.ariClient.getChannel(channelId);
+              // Channel still alive — keep polling
+            } catch (err: any) {
+              const msg = String(err?.message || err);
+              if (msg.includes("404") || msg.includes("not found") || msg.toLowerCase().includes("channel not found")) {
+                // Channel is gone
+                const t = this.forwardedCallTracking.get(channelId);
+                if (!t) return;
+                this.forwardedCallTracking.delete(channelId);
+                const durationSeconds = Math.max(0, Math.round((Date.now() - t.startTime.getTime()) / 1000));
+                console.log(`[ForwardedRecording] Channel ${channelId} gone (poll), duration=${durationSeconds}s`);
+                this.processForwardedCallRecordingAsync(t, durationSeconds).catch(e =>
+                  console.error(`[ForwardedRecording] Processing error:`, e instanceof Error ? e.message : e)
+                );
+                return;
+              }
+              // Transient ARI error — keep polling
+              console.warn(`[ForwardedRecording] Poll error (non-fatal): ${msg}`);
+            }
+          }
+          // Safety cap reached — clean up without processing
+          console.warn(`[ForwardedRecording] Poll timeout for channel ${channelId}, cleaning up`);
+          this.forwardedCallTracking.delete(channelId);
         };
-        this.ariClient.on("channel-destroyed", onDestroyed);
-        console.log(`[ForwardedRecording] MixMonitor started on '${channel.name}' → ${amiFilePath}.wav`);
+        pollForHangup().catch(e => console.error(`[ForwardedRecording] Poll fatal:`, e instanceof Error ? e.message : e));
+        console.log(`[ForwardedRecording] Polling started for channel ${channel.id}, recording: ${amiFilePath}.wav`);
       } catch (err) {
         console.warn(`[ForwardedRecording] Recording setup error:`, err instanceof Error ? err.message : err);
       }
