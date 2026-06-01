@@ -65,7 +65,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
         </DialogHeader>
 
         <Tabs defaultValue="sip" className="mt-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="general" data-testid="tab-user-general">
               {t.common.detail}
             </TabsTrigger>
@@ -74,6 +74,9 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
             </TabsTrigger>
             <TabsTrigger value="sip" data-testid="tab-user-sip">
               {t.settings.sipProfile.title}
+            </TabsTrigger>
+            <TabsTrigger value="connect" data-testid="tab-user-connect">
+              {"INDEXUS Connect"}
             </TabsTrigger>
           </TabsList>
 
@@ -87,6 +90,10 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
 
           <TabsContent value="sip" className="mt-4">
             <UserSipProfileTab showSipPhone={showSipPhone} />
+          </TabsContent>
+
+          <TabsContent value="connect" className="mt-4">
+            <UserConnectTab />
           </TabsContent>
         </Tabs>
       </DialogContent>
@@ -319,9 +326,6 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
   const [sipDisplayName, setSipDisplayName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [localRegistering, setLocalRegistering] = useState(false);
-  const [fwdEnabled, setFwdEnabled] = useState(false);
-  const [fwdNumber, setFwdNumber] = useState("");
-  const [savingFwd, setSavingFwd] = useState(false);
   const registerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: sipSettings } = useQuery<SipSettingsData | null>({
@@ -354,36 +358,6 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    fetch(`/api/users/${user.id}/call-forwarding`, { credentials: "include" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data) {
-          setFwdEnabled(data.enabled ?? false);
-          setFwdNumber(data.number ?? "");
-        }
-      })
-      .catch(() => {});
-  }, [user?.id]);
-
-  const handleSaveForwarding = async () => {
-    if (!user?.id) return;
-    setSavingFwd(true);
-    try {
-      await apiRequest("PUT", `/api/users/${user.id}/call-forwarding`, {
-        enabled: fwdEnabled,
-        number: fwdNumber,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({ title: "Presmerovanie hovorov uložené" });
-    } catch (err: any) {
-      toast({ title: "Chyba", description: err.message, variant: "destructive" });
-    } finally {
-      setSavingFwd(false);
-    }
-  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -632,56 +606,6 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-row items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Smartphone className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-base">{"Presmerovanie hovorov"}</CardTitle>
-              <CardDescription className="text-sm">{"Prichádzajúce hovory z fronty presmeruje na mobilné číslo"}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">{"Aktivovať presmerovanie"}</p>
-              <p className="text-xs text-muted-foreground">{"Hovory budú preposielané na vaše mobilné číslo"}</p>
-            </div>
-            <Switch
-              checked={fwdEnabled}
-              onCheckedChange={setFwdEnabled}
-              data-testid="switch-call-forwarding"
-            />
-          </div>
-          {fwdEnabled && (
-            <div className="space-y-2">
-              <Label htmlFor="fwdNumber">{"Mobilné číslo"}</Label>
-              <Input
-                id="fwdNumber"
-                value={fwdNumber}
-                onChange={(e) => setFwdNumber(e.target.value)}
-                placeholder="+421900123456"
-                type="tel"
-                data-testid="input-forwarding-number"
-              />
-              <p className="text-xs text-muted-foreground">{"Číslo vrátane krajinského predvolby, napr. +421900..."}</p>
-            </div>
-          )}
-          <Button
-            onClick={handleSaveForwarding}
-            disabled={savingFwd || (fwdEnabled && !fwdNumber.trim())}
-            size="sm"
-            data-testid="button-save-call-forwarding"
-          >
-            {savingFwd ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-            {"Uložiť presmerovanie"}
-          </Button>
-        </CardContent>
-      </Card>
-
       {sipSettings && (
         <Card>
           <CardHeader>
@@ -705,6 +629,106 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function UserConnectTab() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [fwdEnabled, setFwdEnabled] = useState(false);
+  const [fwdNumber, setFwdNumber] = useState("");
+  const [savingFwd, setSavingFwd] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`/api/users/${user.id}/call-forwarding`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setFwdEnabled(data.enabled ?? false);
+          setFwdNumber(data.number ?? "");
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
+  const handleSaveForwarding = async () => {
+    if (!user?.id) return;
+    setSavingFwd(true);
+    try {
+      await apiRequest("PUT", `/api/users/${user.id}/call-forwarding`, {
+        enabled: fwdEnabled,
+        number: fwdNumber,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "Presmerovanie hovorov uložené" });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingFwd(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-row items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Smartphone className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base">{"Presmerovanie hovorov"}</CardTitle>
+              <CardDescription className="text-sm">
+                {"Prichádzajúce hovory z fronty budú presmerované na mobilné číslo"}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">{"Aktivovať presmerovanie"}</p>
+              <p className="text-xs text-muted-foreground">
+                {"Keď ste prihlásení v INDEXUS Connect a prídete hovor z fronty, presmeruje sa na vaše mobilné číslo"}
+              </p>
+            </div>
+            <Switch
+              checked={fwdEnabled}
+              onCheckedChange={setFwdEnabled}
+              data-testid="switch-call-forwarding"
+            />
+          </div>
+
+          {fwdEnabled && (
+            <div className="space-y-2">
+              <Label htmlFor="fwdNumber">{"Mobilné číslo"}</Label>
+              <Input
+                id="fwdNumber"
+                value={fwdNumber}
+                onChange={(e) => setFwdNumber(e.target.value)}
+                placeholder="+421900123456"
+                type="tel"
+                data-testid="input-forwarding-number"
+              />
+              <p className="text-xs text-muted-foreground">
+                {"Zadajte číslo vrátane medzinárodnej predvoľby, napr. +421900123456"}
+              </p>
+            </div>
+          )}
+
+          <Button
+            onClick={handleSaveForwarding}
+            disabled={savingFwd || (fwdEnabled && !fwdNumber.trim())}
+            data-testid="button-save-call-forwarding"
+          >
+            {savingFwd ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            {"Uložiť"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
