@@ -11419,6 +11419,7 @@ const SYSTEM_VARIABLES = {
       { key: "{{hospital.contactPerson}}", label: "Kontaktná osoba", example: "Jana Kováčová" },
       { key: "{{hospital.contactPersonSalutation}}", label: "Oslovenie kontaktu ✨ AI", example: "Vážená" },
       { key: "{{hospital.contactPersonSalutationFull}}", label: "Oslovenie kontaktu plné ✨ AI", example: "Vážená pani" },
+      { key: "{{hospital.contactPersonSalutationDoc}}", label: "Oslovenie kontaktu s titulom ✨ AI", example: "Vážená pani doktorka" },
       { key: "{{hospital.phone}}", label: "Telefón", example: "+421259221111" },
       { key: "{{hospital.email}}", label: "E-mail", example: "info@unb.sk" },
     ],
@@ -11431,6 +11432,7 @@ const SYSTEM_VARIABLES = {
       { key: "{{clinic.name}}", label: "Názov ambulancie", example: "Gynekologická ambulancia" },
       { key: "{{clinic.doctorSalutation}}", label: "Oslovenie lekára ✨ AI", example: "Vážený" },
       { key: "{{clinic.doctorSalutationFull}}", label: "Oslovenie lekára plné ✨ AI", example: "Vážený pán" },
+      { key: "{{clinic.doctorSalutationDoc}}", label: "Oslovenie lekára s titulom ✨ AI", example: "Vážený pán doktor" },
       { key: "{{clinic.doctorTitle}}", label: "Titul lekára", example: "MUDr." },
       { key: "{{clinic.doctorFirstName}}", label: "Krstné meno lekára", example: "Peter" },
       { key: "{{clinic.doctorLastName}}", label: "Priezvisko lekára", example: "Novák" },
@@ -11583,7 +11585,7 @@ function MessageTemplatesTab() {
   const [isSavingForAttachment, setIsSavingForAttachment] = useState(false);
   const [genderTestFirst, setGenderTestFirst] = useState("");
   const [genderTestLast, setGenderTestLast] = useState("");
-  const [genderTestResult, setGenderTestResult] = useState<{ gender: string; salutation: string; salutationFull: string } | null>(null);
+  const [genderTestResult, setGenderTestResult] = useState<{ gender: string; salutation: string; salutationFull: string; salutationDoc: string } | null>(null);
   const [genderTestLoading, setGenderTestLoading] = useState(false);
   const [htmlTemplatePopoverOpen, setHtmlTemplatePopoverOpen] = useState(false);
   const templateFileInputRef = useRef<HTMLInputElement>(null);
@@ -11905,47 +11907,64 @@ function MessageTemplatesTab() {
     return [...new Set(matches)];
   };
 
-  const getTestSampleValues = (): Record<string, string> => ({
-    "customer.salutation": "Vážená", "customer.salutationFull": "Vážená pani",
-    "customer.firstName": "Jana", "customer.lastName": "Nováková", "customer.fullName": "Jana Nováková",
-    "customer.maidenName": "Slobodná", "customer.titleBefore": "Bc.", "customer.titleAfter": "",
-    "customer.email": "jana.novakova@example.sk", "customer.phone": "+421 900 123 456",
-    "customer.dateOfBirth": "15.03.1990", "customer.nationalId": "900315/1234",
-    "customer.expectedDeliveryDate": "20.08.2026", "customer.hospitalName": "FN Bratislava",
-    "customer.gynecologistName": "MUDr. Peter Kováč", "customer.contractNumber": "CBC-2026-001234",
-    "customer.contractDate": "10.01.2026", "customer.storagePlan": "20 rokov",
-    "customer.price": "1.290,00 €", "customer.invoiceNumber": "2026-001234",
-    "customer.city": "Bratislava", "customer.district": "Bratislava I",
-    "customer.streetNumber": "Mlynské Nivy 1", "customer.postalCode": "821 09",
-    "customer.country": "Slovensko", "customer.status": "Aktívny",
-    "customer.note": "Klientka má záujem o 20-ročné uskladnenie.",
-    "hospital.name": "FN Bratislava", "hospital.fullName": "Fakultná nemocnica s poliklinikou Bratislava",
-    "hospital.city": "Bratislava", "hospital.district": "Bratislava II",
-    "hospital.contactPerson": "MUDr. Anna Horváthová",
-    "hospital.contactPersonSalutation": "Vážená", "hospital.contactPersonSalutationFull": "Vážená pani",
-    "hospital.phone": "+421 2 4333 2111", "hospital.email": "sekretariat@fnb.sk",
-    "clinic.doctorSalutation": "Vážený", "clinic.doctorSalutationFull": "Vážený pán",
-    "clinic.doctorFirstName": "Peter", "clinic.doctorLastName": "Kováč",
-    "clinic.doctorFullName": "MUDr. Peter Kováč", "clinic.doctorTitle": "MUDr.",
-    "clinic.pzsCode": "P12345", "clinic.phone": "+421 2 1234 5678",
-    "clinic.email": "ambulancia@example.sk", "clinic.city": "Bratislava",
-    "clinic.contractStatus": "Aktívna", "clinic.nextContactDate": "15.06.2026",
-    "collaborator.firstName": "Mária", "collaborator.lastName": "Horváthová",
-    "collaborator.fullName": "Mária Horváthová", "collaborator.phone": "+421 905 678 901",
-    "collaborator.email": "maria.horvathova@example.sk", "collaborator.iban": "SK89 0900 0000 0051 8790 7234",
-    "collaborator.rewardAmount": "50,00 €",
-    "user.firstName": "Martin", "user.lastName": "Novák", "user.fullName": "Martin Novák",
-    "user.email": "martin.novak@indexus.sk", "user.phone": "+421 900 234 567",
-    "company.name": "Cord Blood Center", "company.address": "Mlynské Nivy 1, 821 09 Bratislava",
-    "company.phone": "+421 2 5020 4000", "company.email": "info@cordbloodcenter.sk",
-    "company.web": "www.cordbloodcenter.sk", "company.ico": "35882090",
-    "document.contractNumber": "CBC-2026-001234", "document.invoiceNumber": "2026-001234",
-    "document.amount": "1.290,00 €", "document.dueDate": "30.06.2026",
-    "system.date": new Date().toLocaleDateString("sk-SK"),
-    "system.time": new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }),
-    "system.year": new Date().getFullYear().toString(),
-    "system.month": new Date().toLocaleDateString("sk-SK", { month: "long" }),
-  });
+  const getTestSampleValues = (): Record<string, string> => {
+    const lang = templateLanguage || "sk";
+    // Salutation lookup by language — female customer (Jana), male doctor (Peter), female hospital contact (Anna)
+    type SalRow = { mSal: string; fSal: string; mFull: string; fFull: string; mDoc: string; fDoc: string };
+    const sal: Record<string, SalRow> = {
+      sk: { mSal: "Vážený",        fSal: "Vážená",        mFull: "Vážený pán",           fFull: "Vážená pani",          mDoc: "Vážený pán doktor",          fDoc: "Vážená pani doktorka"         },
+      cz: { mSal: "Vážený",        fSal: "Vážená",        mFull: "Vážený pane",           fFull: "Vážená paní",          mDoc: "Vážený pane doktore",         fDoc: "Vážená paní doktorko"          },
+      hu: { mSal: "Tisztelt",      fSal: "Tisztelt",      mFull: "Tisztelt Úr",           fFull: "Tisztelt Asszony",     mDoc: "Tisztelt Doktor Úr",          fDoc: "Tisztelt Doktor Asszony"      },
+      ro: { mSal: "Stimate",       fSal: "Stimată",       mFull: "Stimate domn",          fFull: "Stimată doamnă",       mDoc: "Stimate Domn Doctor",         fDoc: "Stimată Doamnă Doctor"        },
+      it: { mSal: "Egregio",       fSal: "Gentile",       mFull: "Egregio Signor",        fFull: "Gentile Signora",      mDoc: "Egregio Dottor",              fDoc: "Egregia Dottoressa"           },
+      de: { mSal: "Sehr geehrter", fSal: "Sehr geehrte",  mFull: "Sehr geehrter Herr",    fFull: "Sehr geehrte Frau",    mDoc: "Sehr geehrter Herr Doktor",   fDoc: "Sehr geehrte Frau Doktor"     },
+      en: { mSal: "Dear",          fSal: "Dear",          mFull: "Dear Mr.",              fFull: "Dear Ms.",             mDoc: "Dear Dr.",                    fDoc: "Dear Dr."                     },
+    };
+    const s = sal[lang] || sal.sk;
+    return {
+      "customer.salutation": s.fSal, "customer.salutationFull": s.fFull,
+      "customer.firstName": "Jana", "customer.lastName": "Nováková", "customer.fullName": "Jana Nováková",
+      "customer.maidenName": "Slobodná", "customer.titleBefore": "Bc.", "customer.titleAfter": "",
+      "customer.email": "jana.novakova@example.sk", "customer.phone": "+421 900 123 456",
+      "customer.dateOfBirth": "15.03.1990", "customer.nationalId": "900315/1234",
+      "customer.expectedDeliveryDate": "20.08.2026", "customer.hospitalName": "FN Bratislava",
+      "customer.gynecologistName": "MUDr. Peter Kováč", "customer.contractNumber": "CBC-2026-001234",
+      "customer.contractDate": "10.01.2026", "customer.storagePlan": "20 rokov",
+      "customer.price": "1.290,00 €", "customer.invoiceNumber": "2026-001234",
+      "customer.city": "Bratislava", "customer.district": "Bratislava I",
+      "customer.streetNumber": "Mlynské Nivy 1", "customer.postalCode": "821 09",
+      "customer.country": "Slovensko", "customer.status": "Aktívny",
+      "customer.note": "Klientka má záujem o 20-ročné uskladnenie.",
+      "hospital.name": "FN Bratislava", "hospital.fullName": "Fakultná nemocnica s poliklinikou Bratislava",
+      "hospital.city": "Bratislava", "hospital.district": "Bratislava II",
+      "hospital.contactPerson": "MUDr. Anna Horváthová",
+      "hospital.contactPersonSalutation": s.fSal, "hospital.contactPersonSalutationFull": s.fFull,
+      "hospital.contactPersonSalutationDoc": s.fDoc,
+      "hospital.phone": "+421 2 4333 2111", "hospital.email": "sekretariat@fnb.sk",
+      "clinic.doctorSalutation": s.mSal, "clinic.doctorSalutationFull": s.mFull,
+      "clinic.doctorSalutationDoc": s.mDoc,
+      "clinic.doctorFirstName": "Peter", "clinic.doctorLastName": "Kováč",
+      "clinic.doctorFullName": "MUDr. Peter Kováč", "clinic.doctorTitle": "MUDr.",
+      "clinic.pzsCode": "P12345", "clinic.phone": "+421 2 1234 5678",
+      "clinic.email": "ambulancia@example.sk", "clinic.city": "Bratislava",
+      "clinic.contractStatus": "Aktívna", "clinic.nextContactDate": "15.06.2026",
+      "collaborator.firstName": "Mária", "collaborator.lastName": "Horváthová",
+      "collaborator.fullName": "Mária Horváthová", "collaborator.phone": "+421 905 678 901",
+      "collaborator.email": "maria.horvathova@example.sk", "collaborator.iban": "SK89 0900 0000 0051 8790 7234",
+      "collaborator.rewardAmount": "50,00 €",
+      "user.firstName": "Martin", "user.lastName": "Novák", "user.fullName": "Martin Novák",
+      "user.email": "martin.novak@indexus.sk", "user.phone": "+421 900 234 567",
+      "company.name": "Cord Blood Center", "company.address": "Mlynské Nivy 1, 821 09 Bratislava",
+      "company.phone": "+421 2 5020 4000", "company.email": "info@cordbloodcenter.sk",
+      "company.web": "www.cordbloodcenter.sk", "company.ico": "35882090",
+      "document.contractNumber": "CBC-2026-001234", "document.invoiceNumber": "2026-001234",
+      "document.amount": "1.290,00 €", "document.dueDate": "30.06.2026",
+      "system.date": new Date().toLocaleDateString("sk-SK"),
+      "system.time": new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }),
+      "system.year": new Date().getFullYear().toString(),
+      "system.month": new Date().toLocaleDateString("sk-SK", { month: "long" }),
+    };
+  };
 
   const interpolatePreview = (text: string): string => {
     const samples = getTestSampleValues();
@@ -13099,12 +13118,16 @@ function MessageTemplatesTab() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground font-mono text-[9px]">{"{{customer.salutation}}"}</span>
+                        <span className="text-muted-foreground font-mono text-[9px]">{"{{*.salutation}}"}</span>
                         <span className="font-bold text-foreground">→ {genderTestResult.salutation}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground font-mono text-[9px]">{"{{customer.salutationFull}}"}</span>
+                        <span className="text-muted-foreground font-mono text-[9px]">{"{{*.salutationFull}}"}</span>
                         <span className="font-bold text-foreground">→ {genderTestResult.salutationFull}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground font-mono text-[9px]">{"{{*.salutationDoc}}"}</span>
+                        <span className="font-bold text-foreground">→ {genderTestResult.salutationDoc ?? "—"}</span>
                       </div>
                     </div>
                   )}

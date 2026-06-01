@@ -30399,14 +30399,19 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       }
 
       const salutations: Record<string, Record<string, string>> = {
-        male:    { sk: "Vážený",  cs: "Vážený",  hu: "Tisztelt", ro: "Stimate",  it: "Egregio",  de: "Sehr geehrter Herr", en: "Dear Mr" },
-        female:  { sk: "Vážená",  cs: "Vážená",  hu: "Tisztelt", ro: "Stimată",  it: "Gentile",  de: "Sehr geehrte Frau",  en: "Dear Ms" },
-        unknown: { sk: "Vážený/á", cs: "Vážený/á", hu: "Tisztelt", ro: "Stimate/ă", it: "Gentile", de: "Sehr geehrte/r",    en: "Dear" },
+        male:    { sk: "Vážený",   cz: "Vážený",        cs: "Vážený",        hu: "Tisztelt",  ro: "Stimate",  it: "Egregio",  de: "Sehr geehrter", en: "Dear" },
+        female:  { sk: "Vážená",   cz: "Vážená",        cs: "Vážená",        hu: "Tisztelt",  ro: "Stimată",  it: "Gentile",  de: "Sehr geehrte",  en: "Dear" },
+        unknown: { sk: "Vážený/á", cz: "Vážený/á",      cs: "Vážený/á",      hu: "Tisztelt",  ro: "Stimate/ă", it: "Gentile", de: "Sehr geehrte/r", en: "Dear" },
       };
       const salutationsFull: Record<string, Record<string, string>> = {
-        male:    { sk: "Vážený pán",  cs: "Vážený pane",  hu: "Tisztelt Úr",  ro: "Stimate domn",   it: "Egregio Signor",  de: "Sehr geehrter Herr", en: "Dear Mr" },
-        female:  { sk: "Vážená pani", cs: "Vážená paní",  hu: "Tisztelt Asszony", ro: "Stimată doamnă", it: "Gentile Signora", de: "Sehr geehrte Frau",  en: "Dear Ms" },
-        unknown: { sk: "Vážený/á",    cs: "Vážený/á",     hu: "Tisztelt",     ro: "Stimate/ă",      it: "Gentile",         de: "Sehr geehrte/r",    en: "Dear" },
+        male:    { sk: "Vážený pán",  cz: "Vážený pane",  cs: "Vážený pane",  hu: "Tisztelt Úr",       ro: "Stimate domn",   it: "Egregio Signor",  de: "Sehr geehrter Herr", en: "Dear Mr." },
+        female:  { sk: "Vážená pani", cz: "Vážená paní",  cs: "Vážená paní",  hu: "Tisztelt Asszony",  ro: "Stimată doamnă", it: "Gentile Signora", de: "Sehr geehrte Frau",  en: "Dear Ms." },
+        unknown: { sk: "Vážený/á",    cz: "Vážený/á",     cs: "Vážený/á",     hu: "Tisztelt",          ro: "Stimate/ă",      it: "Gentile",         de: "Sehr geehrte/r",     en: "Dear" },
+      };
+      const salutationsDoc: Record<string, Record<string, string>> = {
+        male:    { sk: "Vážený pán doktor",       cz: "Vážený pane doktore",    cs: "Vážený pane doktore",    hu: "Tisztelt Doktor Úr",       ro: "Stimate Domn Doctor",   it: "Egregio Dottor",              de: "Sehr geehrter Herr Doktor", en: "Dear Dr." },
+        female:  { sk: "Vážená pani doktorka",     cz: "Vážená paní doktorko",   cs: "Vážená paní doktorko",   hu: "Tisztelt Doktor Asszony",  ro: "Stimată Doamnă Doctor", it: "Egregia Dottoressa",          de: "Sehr geehrte Frau Doktor",  en: "Dear Dr." },
+        unknown: { sk: "Vážený/á pán/pani doktor/doktorka", cz: "Vážený/á doktore/doktorko", cs: "Vážený/á doktore/doktorko", hu: "Tisztelt Doktor Úr/Asszony", ro: "Stimate/ă Doctor", it: "Egregio/a Dottor/Dottoressa", de: "Sehr geehrte/r Herr/Frau Doktor", en: "Dear Dr." },
       };
 
       const lang = language as string;
@@ -30414,6 +30419,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         gender,
         salutation:     salutations[gender][lang]     ?? salutations[gender]["sk"],
         salutationFull: salutationsFull[gender][lang] ?? salutationsFull[gender]["sk"],
+        salutationDoc:  salutationsDoc[gender][lang]  ?? salutationsDoc[gender]["sk"],
       });
     } catch (error) {
       console.error("AI detect-gender error:", error);
@@ -42816,12 +42822,14 @@ Return ONLY the JSON object.`
         "customer.salutation": "Vážená", "customer.salutationFull": "Vážená pani",
         "clinic.name": "Gynekologická ambulancia",
         "clinic.doctorSalutation": "Vážený", "clinic.doctorSalutationFull": "Vážený pán",
+        "clinic.doctorSalutationDoc": "Vážený pán doktor",
         "clinic.doctorFirstName": "Peter",
         "clinic.doctorLastName": "Novák", "clinic.doctorName": "MUDr. Peter Novák",
         "clinic.phone": "+421900111222", "clinic.email": "ambulancia@test.sk",
         "clinic.city": "Bratislava", "clinic.address": "Nemocničná 5",
         "hospital.name": "UNB Bratislava", "hospital.fullName": "Univerzitná nemocnica Bratislava",
         "hospital.contactPersonSalutation": "Vážená", "hospital.contactPersonSalutationFull": "Vážená pani",
+        "hospital.contactPersonSalutationDoc": "Vážená pani doktorka",
         "hospital.city": "Bratislava", "hospital.phone": "+421200000000",
         "collaborator.firstName": "Mária", "collaborator.lastName": "Horáková",
         "collaborator.fullName": "Mária Horáková", "collaborator.email": to,
