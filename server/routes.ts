@@ -6814,7 +6814,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.get("/api/email-tags", requireAuth, async (req, res) => {
     try {
       const tags = await storage.getAllEmailTags();
-      res.json(tags);
+      // Deduplicate by name (keep first occurrence per unique name)
+      const seen = new Set<string>();
+      const unique = tags.filter(t => {
+        const key = t.name.toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      res.json(unique);
     } catch (error) {
       console.error("Error fetching email tags:", error);
       res.status(500).json({ error: "Failed to fetch email tags" });
@@ -42805,11 +42813,15 @@ Return ONLY the JSON object.`
         "company.name": "INDEXUS s.r.o.", "company.email": "info@indexus.sk",
         "company.phone": "+421000000000", "company.address": "Bratislava, SK",
         "company.website": "www.indexus.sk",
-        "clinic.name": "Gynekologická ambulancia", "clinic.doctorFirstName": "Peter",
+        "customer.salutation": "Vážená", "customer.salutationFull": "Vážená pani",
+        "clinic.name": "Gynekologická ambulancia",
+        "clinic.doctorSalutation": "Vážený", "clinic.doctorSalutationFull": "Vážený pán",
+        "clinic.doctorFirstName": "Peter",
         "clinic.doctorLastName": "Novák", "clinic.doctorName": "MUDr. Peter Novák",
         "clinic.phone": "+421900111222", "clinic.email": "ambulancia@test.sk",
         "clinic.city": "Bratislava", "clinic.address": "Nemocničná 5",
         "hospital.name": "UNB Bratislava", "hospital.fullName": "Univerzitná nemocnica Bratislava",
+        "hospital.contactPersonSalutation": "Vážená", "hospital.contactPersonSalutationFull": "Vážená pani",
         "hospital.city": "Bratislava", "hospital.phone": "+421200000000",
         "collaborator.firstName": "Mária", "collaborator.lastName": "Horáková",
         "collaborator.fullName": "Mária Horáková", "collaborator.email": to,
