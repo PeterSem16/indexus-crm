@@ -819,12 +819,11 @@ export class QueueEngine extends EventEmitter {
       await this.ariClient.answerChannel(channel.id);
     } catch {}
 
-    // Priority 1: call forwarding to mobile number
+    // Priority 1: call forwarding to mobile number (DB setting)
     if (collab.callForwardingEnabled && collab.callForwardingNumber) {
       const fwd = collab.callForwardingNumber.replace(/\s/g, "");
       console.log(`[QueueEngine] Collaborator direct call → forwarding to mobile ${fwd} (collab: ${collabName})`);
-      const ok = await this.transferCallToEndpoint(channel.id, `Local/${fwd}@from-internal`, null as any);
-      if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+      await this.forwardToExternalNumber(channel.id, fwd);
       return;
     }
 
@@ -837,8 +836,7 @@ export class QueueEngine extends EventEmitter {
         if (astDbFwd) {
           const fwd = astDbFwd.replace(/\s/g, "");
           console.log(`[QueueEngine] Collaborator direct call → AstDB forwarding to ${fwd} (ext: ${sipExt.extension})`);
-          const ok = await this.transferCallToEndpoint(channel.id, `Local/${fwd}@from-internal`, null as any);
-          if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+          await this.forwardToExternalNumber(channel.id, fwd);
           return;
         }
         // Priority 3: ring SIP extension directly
@@ -851,6 +849,27 @@ export class QueueEngine extends EventEmitter {
 
     console.warn(`[QueueEngine] Collaborator ${collabName} has no forwarding and no SIP extension, hanging up`);
     await this.ariClient.hangupChannel(channel.id, "normal");
+  }
+
+  private async forwardToExternalNumber(channelId: string, number: string): Promise<void> {
+    // For external number forwarding, use continueDialplan with the number as extension
+    // into from-internal context which handles outbound routing via trunks.
+    // Do NOT use transferCallToEndpoint — that only works for internal SIP extensions.
+    await this.stopMohForChannel(channelId);
+    this.waitingCalls.delete(channelId);
+    const contexts = ["from-internal", "from-internal-indexus", "default"];
+    for (const ctx of contexts) {
+      try {
+        console.log(`[QueueEngine] forwardToExternalNumber: continueDialplan ctx=${ctx} exten=${number}`);
+        await this.ariClient.continueDialplan(channelId, ctx, number, 1);
+        console.log(`[QueueEngine] forwardToExternalNumber: SUCCESS via ${ctx}/${number}/1`);
+        return;
+      } catch (err: any) {
+        console.log(`[QueueEngine] forwardToExternalNumber: ${ctx} failed: ${err.message}`);
+      }
+    }
+    console.error(`[QueueEngine] forwardToExternalNumber: all contexts failed for ${number}, hanging up`);
+    try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
   }
 
   private async findQueueForNumber(didNumber: string): Promise<InboundQueue | null> {
@@ -924,8 +943,7 @@ export class QueueEngine extends EventEmitter {
               if (forwardTo) {
                 const fwd = forwardTo.replace(/\s/g, "");
                 console.log(`[QueueEngine] DID pjsip_user → call forwarding to ${fwd} (ext: ${targetUser.sipExtension})`);
-                const ok = await this.transferCallToEndpoint(channel.id, `Local/${fwd}@from-internal`, null as any);
-                if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+                await this.forwardToExternalNumber(channel.id, fwd);
               } else {
                 const ok = await this.transferCallToEndpoint(channel.id, `PJSIP/${targetUser.sipExtension}`, null as any);
                 if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
@@ -951,8 +969,7 @@ export class QueueEngine extends EventEmitter {
             if (astDbForward) {
               const fwd = astDbForward.replace(/\s/g, "");
               console.log(`[QueueEngine] DID transfer → call forwarding to ${fwd} (ext: ${rawExt})`);
-              const ok = await this.transferCallToEndpoint(channel.id, `Local/${fwd}@from-internal`, null as any);
-              if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+              await this.forwardToExternalNumber(channel.id, fwd);
             } else {
               const endpoint = route.targetExtension.includes("/") ? route.targetExtension : `PJSIP/${route.targetExtension}`;
               const ok = await this.transferCallToEndpoint(channel.id, endpoint, null as any);
