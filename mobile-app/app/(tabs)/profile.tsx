@@ -15,10 +15,8 @@ import { useSipStore } from '@/stores/sipStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { SUPPORTED_LANGUAGES, SupportedLanguage } from '@/constants/config';
 import { API_BASE_URL } from '@/constants/config';
-import Constants from 'expo-constants';
 import { runDiagnostics, formatDiagReport, DiagTest, DiagStatus } from '@/lib/turnDiagnostics';
-
-const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
+import { useAppVersion } from '@/hooks/useAppVersion';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -28,6 +26,7 @@ export default function ProfileScreen() {
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
   const { lastSyncAt, pendingCount, isOnline } = useSyncStore();
   const { registrationState, debugMessages, iceStats, clearDebugMessages, forceReconnect, connect, isConnecting } = useSipStore();
+  const appVersion = useAppVersion();
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showPhoneLog, setShowPhoneLog] = useState(false);
   const [logTab, setLogTab] = useState<'turn' | 'log'>('turn');
@@ -91,7 +90,7 @@ export default function ProfileScreen() {
     const now = new Date();
     const header = [
       `INDEXUS Connect — Phone Log`,
-      `Version: ${APP_VERSION}`,
+      `Version: ${appVersion}`,
       `Exported: ${now.toLocaleString()}`,
       `SIP: ${registrationState}`,
       `----------------------------------------`,
@@ -353,7 +352,7 @@ export default function ProfileScreen() {
               <Text style={styles.settingsLabel}>{translations.profile.version}</Text>
               <Text style={styles.settingsDescription}>{translations.common.brandName} {translations.common.appName}</Text>
             </View>
-            <Text style={styles.versionNumber}>{translations.common.versionPrefix}{APP_VERSION}</Text>
+            <Text style={styles.versionNumber}>{translations.common.versionPrefix}{appVersion}</Text>
           </View>
 
           <View style={styles.divider} />

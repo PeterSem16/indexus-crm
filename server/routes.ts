@@ -16637,6 +16637,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   }
   
+  // Current INDEXUS Connect version served to all APK builds
+  const INDEXUS_CONNECT_VERSION = '1.2.30';
+
+  app.get("/api/mobile/app-version", (_req, res) => {
+    res.json({ version: INDEXUS_CONNECT_VERSION });
+  });
+
   // Mobile app authentication - issues JWT token
   app.post("/api/mobile/auth/login", async (req, res) => {
     try {

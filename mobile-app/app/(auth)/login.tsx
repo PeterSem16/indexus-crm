@@ -2,15 +2,13 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { SUPPORTED_LANGUAGES, SupportedLanguage } from '@/constants/config';
-
-const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
+import { useAppVersion } from '@/hooks/useAppVersion';
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,6 +20,7 @@ export default function LoginScreen() {
   const { login, isLoading, error, clearError } = useAuth();
   const { translations, language } = useTranslation();
   const setLanguage = useSettingsStore((state) => state.setLanguage);
+  const appVersion = useAppVersion();
 
   const handleLogin = async () => {
     if (!username || !password) return;
@@ -179,7 +178,7 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.versionText}>{translations.common.versionPrefix}{APP_VERSION}</Text>
+            <Text style={styles.versionText}>{translations.common.versionPrefix}{appVersion}</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

@@ -12,15 +12,14 @@ import { syncAll } from '@/lib/sync';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { getVisitTypeName } from '@/lib/visitTypes';
 import { SupportedLanguage } from '@/constants/config';
-import Constants from 'expo-constants';
-
-const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
+import { useAppVersion } from '@/hooks/useAppVersion';
 
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
   const { translations, language: currentLanguage } = useTranslation();
   const { pendingCount, isOnline, isSyncing } = useSyncStore();
+  const appVersion = useAppVersion();
   const { data: visits, isLoading: visitsLoading, refetch: refetchVisits } = useVisits();
 
   const onRefresh = async () => {
@@ -238,7 +237,7 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>{translations.common.versionPrefix}{APP_VERSION}</Text>
+          <Text style={styles.versionText}>{translations.common.versionPrefix}{appVersion}</Text>
         </View>
       </ScrollView>
     </View>
