@@ -481,6 +481,10 @@ export class AriClient extends EventEmitter {
     await this.setGlobalVariable(`DB(${family}/${key})`, value);
   }
 
+  async getAsteriskDB(family: string, key: string): Promise<string | null> {
+    return this.getGlobalVariable(`DB(${family}/${key})`);
+  }
+
   async deleteAsteriskDB(family: string, key: string): Promise<void> {
     await this.setGlobalVariable(`DB_DELETE(${family}/${key})`, "");
   }

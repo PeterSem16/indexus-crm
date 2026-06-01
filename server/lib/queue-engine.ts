@@ -830,15 +830,29 @@ export class QueueEngine extends EventEmitter {
         }
         case "pjsip_user": {
           if (route.targetUserId) {
-            const [targetUser] = await db.select({ sipExtension: users.sipExtension, sipEnabled: users.sipEnabled })
-              .from(users).where(eq(users.id, route.targetUserId)).limit(1);
+            const [targetUser] = await db.select({
+              sipExtension: users.sipExtension,
+              sipEnabled: users.sipEnabled,
+              callForwardingEnabled: users.callForwardingEnabled,
+              callForwardingNumber: users.callForwardingNumber,
+            }).from(users).where(eq(users.id, route.targetUserId)).limit(1);
             if (targetUser?.sipEnabled && targetUser.sipExtension) {
+              // Check AstDB first (set by mobile app), then fall back to user's own forwarding setting
+              const astDbForward = await this.ariClient.getAsteriskDB("callforward", targetUser.sipExtension);
+              const forwardTo = astDbForward || ((targetUser as any).callForwardingEnabled && (targetUser as any).callForwardingNumber
+                ? (targetUser as any).callForwardingNumber as string
+                : null);
               try {
                 await this.ariClient.answerChannel(channel.id);
               } catch {}
-              const ok = await this.transferCallToEndpoint(channel.id, `PJSIP/${targetUser.sipExtension}`, null as any);
-              if (!ok) {
-                await this.ariClient.hangupChannel(channel.id, "normal");
+              if (forwardTo) {
+                const fwd = forwardTo.replace(/\s/g, "");
+                console.log(`[QueueEngine] DID pjsip_user → call forwarding to ${fwd} (ext: ${targetUser.sipExtension})`);
+                const ok = await this.transferCallToEndpoint(channel.id, `Local/${fwd}@from-internal`, null as any);
+                if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+              } else {
+                const ok = await this.transferCallToEndpoint(channel.id, `PJSIP/${targetUser.sipExtension}`, null as any);
+                if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
               }
               return;
             }
@@ -849,13 +863,24 @@ export class QueueEngine extends EventEmitter {
         }
         case "transfer": {
           if (route.targetExtension) {
+            // Extract raw extension (strip PJSIP/ prefix if present)
+            const rawExt = route.targetExtension.includes("/")
+              ? route.targetExtension.split("/")[1]
+              : route.targetExtension;
+            // Check AstDB for call forwarding on this extension
+            const astDbForward = await this.ariClient.getAsteriskDB("callforward", rawExt);
             try {
               await this.ariClient.answerChannel(channel.id);
             } catch {}
-            const endpoint = route.targetExtension.includes("/") ? route.targetExtension : `PJSIP/${route.targetExtension}`;
-            const ok = await this.transferCallToEndpoint(channel.id, endpoint, null as any);
-            if (!ok) {
-              await this.ariClient.hangupChannel(channel.id, "normal");
+            if (astDbForward) {
+              const fwd = astDbForward.replace(/\s/g, "");
+              console.log(`[QueueEngine] DID transfer → call forwarding to ${fwd} (ext: ${rawExt})`);
+              const ok = await this.transferCallToEndpoint(channel.id, `Local/${fwd}@from-internal`, null as any);
+              if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+            } else {
+              const endpoint = route.targetExtension.includes("/") ? route.targetExtension : `PJSIP/${route.targetExtension}`;
+              const ok = await this.transferCallToEndpoint(channel.id, endpoint, null as any);
+              if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
             }
             return;
           }
