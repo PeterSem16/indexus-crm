@@ -17646,6 +17646,55 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Mobile call forwarding — JWT auth (no session cookie needed)
+  app.get("/api/mobile/call-forwarding", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
+      const collab = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collab) return res.status(404).json({ error: "Collaborator not found" });
+      res.json({
+        enabled: (collab as any).callForwardingEnabled ?? false,
+        number: (collab as any).callForwardingNumber ?? "",
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get call forwarding" });
+    }
+  });
+
+  app.put("/api/mobile/call-forwarding", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
+      const { enabled, number } = req.body;
+      const collab = await storage.updateCollaborator(tokenData.collaboratorId, {
+        callForwardingEnabled: Boolean(enabled),
+        callForwardingNumber: number || null,
+      } as any);
+      if (!collab) return res.status(404).json({ error: "Collaborator not found" });
+      const sipExtId = (collab as any).mobileSipExtensionId;
+      if (sipExtId) {
+        try {
+          const sipExt = await storage.getSipExtensionById(sipExtId);
+          if (sipExt) {
+            const engine = getQueueEngine();
+            if (engine) {
+              await engine.syncForwardingToAsteriskDB(sipExt.extension, enabled && number ? number : null);
+            }
+          }
+        } catch (syncErr) {
+          console.warn("[MobileForwarding] AstDB sync failed:", syncErr instanceof Error ? syncErr.message : syncErr);
+        }
+      }
+      res.json({
+        enabled: (collab as any).callForwardingEnabled ?? false,
+        number: (collab as any).callForwardingNumber ?? "",
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to save call forwarding" });
+    }
+  });
+
   app.post("/api/mobile/call-log/:id/trigger-server-recording", async (req, res) => {
     try {
       const tokenData = await getMobileCollaboratorFromToken(req);

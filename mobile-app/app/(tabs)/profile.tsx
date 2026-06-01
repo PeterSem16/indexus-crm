@@ -41,35 +41,25 @@ export default function ProfileScreen() {
   const [forwardingLoaded, setForwardingLoaded] = useState(false);
 
   const loadForwardingSettings = async () => {
-    if (!user?.id || forwardingLoaded) return;
+    if (forwardingLoaded) return;
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/collaborators/${user.id}/call-forwarding`, {
-        credentials: 'include',
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        setCallForwardingEnabled(data.enabled ?? false);
-        setCallForwardingNumber(data.number ?? '');
-        setForwardingLoaded(true);
-      }
+      const { api } = await import('@/lib/api');
+      const data = await api.get<{ enabled: boolean; number: string }>('/api/mobile/call-forwarding');
+      setCallForwardingEnabled(data.enabled ?? false);
+      setCallForwardingNumber(data.number ?? '');
+      setForwardingLoaded(true);
     } catch {}
   };
 
   const handleSaveForwarding = async () => {
-    if (!user?.id) return;
     setSavingForwarding(true);
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/collaborators/${user.id}/call-forwarding`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ enabled: callForwardingEnabled, number: callForwardingNumber }),
+      const { api } = await import('@/lib/api');
+      await api.put<{ enabled: boolean; number: string }>('/api/mobile/call-forwarding', {
+        enabled: callForwardingEnabled,
+        number: callForwardingNumber,
       });
-      if (resp.ok) {
-        Alert.alert('✓', translations.profile.forwardingSaved);
-      } else {
-        Alert.alert('!', translations.profile.forwardingError);
-      }
+      Alert.alert('✓', translations.profile.forwardingSaved);
     } catch {
       Alert.alert('!', translations.profile.forwardingError);
     } finally {
@@ -79,7 +69,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadForwardingSettings();
-  }, [user?.id]);
+  }, []);
 
   const handleLogout = () => {
     Alert.alert(
