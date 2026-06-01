@@ -66,12 +66,12 @@ export default function ProfileScreen() {
         body: JSON.stringify({ enabled: callForwardingEnabled, number: callForwardingNumber }),
       });
       if (resp.ok) {
-        Alert.alert('✓', translations.profile.forwardingSaved || 'Nastavenie uložené');
+        Alert.alert('✓', translations.profile.forwardingSaved);
       } else {
-        Alert.alert('Chyba', translations.profile.forwardingError || 'Nepodarilo sa uložiť');
+        Alert.alert('!', translations.profile.forwardingError);
       }
     } catch {
-      Alert.alert('Chyba', translations.profile.forwardingError || 'Nepodarilo sa uložiť');
+      Alert.alert('!', translations.profile.forwardingError);
     } finally {
       setSavingForwarding(false);
     }
@@ -283,7 +283,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>{translations.profile.callForwardingTitle || 'Presmerovanie hovorov'}</Text>
+        <Text style={styles.sectionTitle}>{translations.profile.callForwardingTitle}</Text>
 
         <View style={styles.settingsCard}>
           <View style={styles.settingsItem}>
@@ -291,8 +291,8 @@ export default function ProfileScreen() {
               <Ionicons name="call-outline" size={20} color={Colors.primary} />
             </View>
             <View style={styles.settingsContent}>
-              <Text style={styles.settingsLabel}>{translations.profile.callForwardingLabel || 'Presmerovať hovory na mobil'}</Text>
-              <Text style={styles.settingsDescription}>{translations.profile.callForwardingDesc || 'Prichádzajúce hovory z fronty budú presmerované'}</Text>
+              <Text style={styles.settingsLabel}>{translations.profile.callForwardingLabel}</Text>
+              <Text style={styles.settingsDescription}>{translations.profile.callForwardingDesc}</Text>
             </View>
             <Switch
               value={callForwardingEnabled}
@@ -312,7 +312,7 @@ export default function ProfileScreen() {
                   style={styles.forwardingInput}
                   value={callForwardingNumber}
                   onChangeText={setCallForwardingNumber}
-                  placeholder={translations.profile.callForwardingPlaceholder || '+421900123456'}
+                  placeholder={translations.profile.callForwardingPlaceholder}
                   placeholderTextColor={Colors.textSecondary}
                   keyboardType="phone-pad"
                   autoCorrect={false}
@@ -328,7 +328,7 @@ export default function ProfileScreen() {
               >
                 {savingForwarding
                   ? <ActivityIndicator size="small" color={Colors.white} />
-                  : <Text style={styles.forwardingSaveBtnText}>{translations.profile.callForwardingSave || 'Uložiť presmerovanie'}</Text>
+                  : <Text style={styles.forwardingSaveBtnText}>{translations.profile.callForwardingSave}</Text>
                 }
               </TouchableOpacity>
             </>
@@ -345,7 +345,7 @@ export default function ProfileScreen() {
               >
                 {savingForwarding
                   ? <ActivityIndicator size="small" color={Colors.white} />
-                  : <Text style={styles.forwardingSaveBtnText}>{translations.profile.callForwardingSave || 'Uložiť presmerovanie'}</Text>
+                  : <Text style={styles.forwardingSaveBtnText}>{translations.profile.callForwardingSave}</Text>
                 }
               </TouchableOpacity>
             </>

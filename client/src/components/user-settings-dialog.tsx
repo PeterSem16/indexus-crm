@@ -663,9 +663,9 @@ function UserConnectTab() {
         number: fwdNumber,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({ title: "Presmerovanie hovorov uložené" });
+      toast({ title: t.collaborators.mobileApp.callForwardingSaved });
     } catch (err: any) {
-      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+      toast({ title: t.common.error || "Chyba", description: err.message, variant: "destructive" });
     } finally {
       setSavingFwd(false);
     }
@@ -680,9 +680,9 @@ function UserConnectTab() {
               <Smartphone className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-base">{"Presmerovanie hovorov"}</CardTitle>
+              <CardTitle className="text-base">{t.collaborators.mobileApp.callForwardingLabel}</CardTitle>
               <CardDescription className="text-sm">
-                {"Prichádzajúce hovory z fronty budú presmerované na mobilné číslo"}
+                {t.collaborators.mobileApp.callForwardingDesc}
               </CardDescription>
             </div>
           </div>
@@ -690,9 +690,9 @@ function UserConnectTab() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <p className="text-sm font-medium">{"Aktivovať presmerovanie"}</p>
+              <p className="text-sm font-medium">{t.collaborators.mobileApp.callForwardingActivate}</p>
               <p className="text-xs text-muted-foreground">
-                {"Keď ste prihlásení v INDEXUS Connect a prídete hovor z fronty, presmeruje sa na vaše mobilné číslo"}
+                {t.collaborators.mobileApp.callForwardingActivateDesc}
               </p>
             </div>
             <Switch
@@ -704,7 +704,7 @@ function UserConnectTab() {
 
           {fwdEnabled && (
             <div className="space-y-2">
-              <Label htmlFor="fwdNumber">{"Mobilné číslo"}</Label>
+              <Label htmlFor="fwdNumber">{t.collaborators.mobileApp.callForwardingNumber}</Label>
               <Input
                 id="fwdNumber"
                 value={fwdNumber}
@@ -714,7 +714,7 @@ function UserConnectTab() {
                 data-testid="input-forwarding-number"
               />
               <p className="text-xs text-muted-foreground">
-                {"Zadajte číslo vrátane medzinárodnej predvoľby, napr. +421900123456"}
+                {t.collaborators.mobileApp.callForwardingNumberDesc}
               </p>
             </div>
           )}
@@ -725,7 +725,7 @@ function UserConnectTab() {
             data-testid="button-save-call-forwarding"
           >
             {savingFwd ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-            {"Uložiť"}
+            {t.collaborators.mobileApp.callForwardingSave}
           </Button>
         </CardContent>
       </Card>
