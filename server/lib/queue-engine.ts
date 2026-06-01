@@ -1185,43 +1185,81 @@ export class QueueEngine extends EventEmitter {
       if (recMode === "transcription_only") try { fs.unlinkSync(filePath); } catch {}
       return;
     }
+
+    // Resolve collaborator language for Whisper hint
+    const COLLAB_LANG_MAP: Record<string, string> = {
+      SK: "sk", CZ: "cs", RO: "ro", HU: "hu", DE: "de", IT: "it", PL: "pl", EN: "en",
+    };
+    let whisperLanguage = "sk";
     try {
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI();
+      const [collabRecord] = await db.select({ countryCode: collaborators.countryCode })
+        .from(collaborators).where(eq(collaborators.id, tracking.collaboratorId)).limit(1);
+      const cc = (collabRecord?.countryCode || "").toUpperCase();
+      if (cc && COLLAB_LANG_MAP[cc]) whisperLanguage = COLLAB_LANG_MAP[cc];
+    } catch {}
 
-      console.log(`[ForwardedRecording] Starting Whisper transcription for ${filename}`);
-      const transcriptionResult = await openai.audio.transcriptions.create({
-        file: fs.createReadStream(filePath),
-        model: "whisper-1",
-        response_format: "text",
-      });
-      const transcriptText = transcriptionResult as unknown as string;
-      console.log(`[ForwardedRecording] Transcription done: ${transcriptText.length} chars`);
+    if (recordingId) {
+      await db.update(callRecordings).set({ analysisStatus: "processing" }).where(eq(callRecordings.id, recordingId)).catch(() => {});
+    }
 
-      if (recMode === "transcription_only") {
-        // Delete temp file — we only keep the transcript
-        try { fs.unlinkSync(filePath); } catch {}
-        await db.update(callLogs)
-          .set({ notes: transcriptText.substring(0, 500) })
-          .where(eq(callLogs.id, tracking.callLogId));
-        console.log(`[ForwardedRecording] Transcript-only: saved to callLogs.notes, temp file deleted`);
-        return;
+    const { default: OpenAI, toFile } = await import("openai");
+    const openai = new OpenAI();
+
+    let transcriptText = "";
+    const maxRetries = 2;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 2000 * attempt));
+        const fileStream = fs.createReadStream(filePath);
+        const audioFile = await toFile(fileStream, path.basename(filePath));
+        console.log(`[ForwardedRecording] Whisper attempt ${attempt + 1}/${maxRetries + 1} for ${filename}, lang=${whisperLanguage}`);
+        const transcriptionResult = await openai.audio.transcriptions.create({
+          file: audioFile,
+          model: "whisper-1",
+          language: whisperLanguage,
+          response_format: "text",
+        });
+        transcriptText = transcriptionResult as unknown as string;
+        console.log(`[ForwardedRecording] Transcription done: ${transcriptText.length} chars`);
+        break;
+      } catch (whisperErr: any) {
+        console.error(`[ForwardedRecording] Whisper attempt ${attempt + 1} failed: ${whisperErr?.message}`);
+        if (attempt === maxRetries) {
+          if (recMode === "transcription_only") try { fs.unlinkSync(filePath); } catch {}
+          if (recordingId) {
+            await db.update(callRecordings)
+              .set({ analysisStatus: "failed" })
+              .where(eq(callRecordings.id, recordingId)).catch(() => {});
+          }
+          return;
+        }
       }
+    }
 
-      // "full" mode: save transcript to callRecordings and run GPT-4o analysis
-      if (recordingId) {
-        await db.update(callRecordings)
-          .set({ transcriptionText: transcriptText, analysisStatus: "completed" })
-          .where(eq(callRecordings.id, recordingId));
-      }
+    if (recMode === "transcription_only") {
+      try { fs.unlinkSync(filePath); } catch {}
+      await db.update(callLogs)
+        .set({ notes: transcriptText.substring(0, 500) })
+        .where(eq(callLogs.id, tracking.callLogId));
+      console.log(`[ForwardedRecording] Transcript-only: saved to callLogs.notes, temp file deleted`);
+      return;
+    }
 
+    // "full" mode: save transcript + GPT-4o analysis
+    if (recordingId) {
+      await db.update(callRecordings)
+        .set({ transcriptionText: transcriptText, analysisStatus: "completed" })
+        .where(eq(callRecordings.id, recordingId));
+    }
+
+    if (transcriptText.trim().length >= 10) {
       try {
         const analysisResult = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: [
             {
               role: "system",
-              content: "You are analyzing a forwarded inbound call recording for a cord blood banking company. Provide a brief JSON analysis: sentiment (positive/negative/neutral), summary (1-2 sentences in the same language as the transcript), urgency (low/medium/high), keyTopics (array of strings).",
+              content: "You are analyzing a forwarded inbound call recording for a cord blood banking company. Provide a brief JSON analysis with keys: sentiment (positive/negative/neutral), summary (1-2 sentences in the same language as the transcript), urgency (low/medium/high), keyTopics (array of strings).",
             },
             { role: "user", content: `Call transcript:\n${transcriptText}` },
           ],
@@ -1231,19 +1269,23 @@ export class QueueEngine extends EventEmitter {
         const analysisText = analysisResult.choices[0]?.message?.content;
         if (analysisText) {
           const analysis = JSON.parse(analysisText);
+          if (recordingId) {
+            await db.update(callRecordings)
+              .set({
+                sentiment: analysis.sentiment || null,
+                summary: analysis.summary || null,
+                keyTopics: analysis.keyTopics || null,
+                analyzedAt: new Date(),
+              })
+              .where(eq(callRecordings.id, recordingId));
+          }
           await db.update(callLogs)
             .set({ notes: analysis.summary || transcriptText.substring(0, 200) })
             .where(eq(callLogs.id, tracking.callLogId));
-          console.log(`[ForwardedRecording] Analysis saved: ${analysis.sentiment}, urgency: ${analysis.urgency}`);
+          console.log(`[ForwardedRecording] Analysis saved: sentiment=${analysis.sentiment}, urgency=${analysis.urgency}`);
         }
       } catch (analysisErr) {
-        console.warn(`[ForwardedRecording] Analysis failed:`, analysisErr instanceof Error ? analysisErr.message : analysisErr);
-      }
-    } catch (transcriptErr) {
-      console.error(`[ForwardedRecording] Transcription failed:`, transcriptErr instanceof Error ? transcriptErr.message : transcriptErr);
-      if (recMode === "transcription_only") try { fs.unlinkSync(filePath); } catch {}
-      if (recordingId) {
-        await db.update(callRecordings).set({ analysisStatus: "failed" }).where(eq(callRecordings.id, recordingId)).catch(() => {});
+        console.warn(`[ForwardedRecording] GPT-4o analysis failed (non-fatal):`, analysisErr instanceof Error ? analysisErr.message : analysisErr);
       }
     }
   }
