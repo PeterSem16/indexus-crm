@@ -43,7 +43,7 @@ export default function ProfileScreen() {
   const loadForwardingSettings = async () => {
     if (!user?.id || forwardingLoaded) return;
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/users/${user.id}/call-forwarding`, {
+      const resp = await fetch(`${API_BASE_URL}/api/collaborators/${user.id}/call-forwarding`, {
         credentials: 'include',
       });
       if (resp.ok) {
@@ -59,7 +59,7 @@ export default function ProfileScreen() {
     if (!user?.id) return;
     setSavingForwarding(true);
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/users/${user.id}/call-forwarding`, {
+      const resp = await fetch(`${API_BASE_URL}/api/collaborators/${user.id}/call-forwarding`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
