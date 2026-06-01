@@ -17451,6 +17451,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         password,
         callRecording: collaborator.mobileCallRecording,
         callRecordingMode: (collaborator as any).callRecordingMode ?? "full",
+        outboundCallerId: collaborator.outboundCallerId ?? null,
         stunServers: [
           "stun:stun.l.google.com:19302",
           "stun:stun1.l.google.com:19302",

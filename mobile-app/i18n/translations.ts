@@ -346,6 +346,8 @@ type TranslationKeys = {
     clearLogMsg: string;
     cancelBtn: string;
     noSipLog: string;
+    outboundCallerId: string;
+    outboundCallerIdNone: string;
   };
   languages: {
     sk: string;
@@ -758,6 +760,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       clearLogMsg: 'Vymazat vsetky zaznamy a ICE statistiky?',
       cancelBtn: 'Zrusit',
       noSipLog: 'Ziadne zaznamy.',
+      outboundCallerId: 'Odchadzajuce Caller ID',
+      outboundCallerIdNone: 'Nenastavene',
     },
     languages: {
       sk: 'Slovencina',
@@ -1168,6 +1172,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       clearLogMsg: 'Vymazat vsechny zaznamy a ICE statistiky?',
       cancelBtn: 'Zrusit',
       noSipLog: 'Zadne zaznamy.',
+      outboundCallerId: 'Odchozí Caller ID',
+      outboundCallerIdNone: 'Nenastaveno',
     },
     languages: {
       sk: 'Slovencina',
@@ -1578,6 +1584,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       clearLogMsg: 'Torli az osszes bejegyzest es ICE statistikat?',
       cancelBtn: 'Megse',
       noSipLog: 'Nincsenek bejegyzesek.',
+      outboundCallerId: 'Kimenő Caller ID',
+      outboundCallerIdNone: 'Nincs beállítva',
     },
     languages: {
       sk: 'Szlovak',
@@ -1988,6 +1996,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       clearLogMsg: 'Alle Eintrage und ICE-Statistiken loschen?',
       cancelBtn: 'Abbrechen',
       noSipLog: 'Keine Eintrage.',
+      outboundCallerId: 'Ausgehende Caller ID',
+      outboundCallerIdNone: 'Nicht eingestellt',
     },
     languages: {
       sk: 'Slowakisch',
@@ -2398,6 +2408,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       clearLogMsg: 'Cancellare tutti i record e le statistiche ICE?',
       cancelBtn: 'Annulla',
       noSipLog: 'Nessun record.',
+      outboundCallerId: 'Caller ID in uscita',
+      outboundCallerIdNone: 'Non impostato',
     },
     languages: {
       sk: 'Slovacco',
@@ -2808,6 +2820,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       clearLogMsg: 'Sterge toate inregistrarile si statisticile ICE?',
       cancelBtn: 'Anulare',
       noSipLog: 'Nicio inregistrare.',
+      outboundCallerId: 'Caller ID ieșire',
+      outboundCallerIdNone: 'Nesetat',
     },
     languages: {
       sk: 'Slovaca',
@@ -3218,6 +3232,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       clearLogMsg: 'Clear all records and ICE statistics?',
       cancelBtn: 'Cancel',
       noSipLog: 'No records.',
+      outboundCallerId: 'Outbound Caller ID',
+      outboundCallerIdNone: 'Not set',
     },
     languages: {
       sk: 'Slovak',

@@ -38,6 +38,7 @@ export default function ProfileScreen() {
   const [callForwardingNumber, setCallForwardingNumber] = useState('');
   const [savingForwarding, setSavingForwarding] = useState(false);
   const [forwardingLoaded, setForwardingLoaded] = useState(false);
+  const [outboundCallerId, setOutboundCallerId] = useState<string | null>(null);
 
   const loadForwardingSettings = async () => {
     if (forwardingLoaded) return;
@@ -47,6 +48,14 @@ export default function ProfileScreen() {
       setCallForwardingEnabled(data.enabled ?? false);
       setCallForwardingNumber(data.number ?? '');
       setForwardingLoaded(true);
+    } catch {}
+  };
+
+  const loadOutboundCallerId = async () => {
+    try {
+      const { api } = await import('@/lib/api');
+      const data = await api.get<{ outboundCallerId?: string | null }>('/api/mobile/sip/credentials');
+      setOutboundCallerId(data.outboundCallerId ?? null);
     } catch {}
   };
 
@@ -68,6 +77,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadForwardingSettings();
+    loadOutboundCallerId();
   }, []);
 
   const handleLogout = () => {
@@ -368,6 +378,20 @@ export default function ProfileScreen() {
             <View style={styles.activeBadge}>
               <Text style={styles.activeText}>{translations.common.active}</Text>
             </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.settingsItem}>
+            <View style={styles.settingsIconContainer}>
+              <Ionicons name="call-outline" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.settingsContent}>
+              <Text style={styles.settingsLabel}>{translations.profile.outboundCallerId}</Text>
+            </View>
+            <Text style={[styles.versionNumber, outboundCallerId ? {} : { color: Colors.textSecondary }]} testID="text-outbound-caller-id">
+              {outboundCallerId ?? translations.profile.outboundCallerIdNone}
+            </Text>
           </View>
 
           <View style={styles.divider} />
