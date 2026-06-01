@@ -20,10 +20,12 @@ import {
   collaborators,
   sipExtensions,
   callRecordings,
+  ariSettings,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
 } from "@shared/schema";
+import { sendAmiActionViaSshTunnel, downloadFileViaSsh } from "./ami-client";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 
@@ -95,6 +97,17 @@ export class QueueEngine extends EventEmitter {
   private ringAllPending: Map<string, { callId: string; agentChannelIds: Map<string, string>; agentIds: Set<string> }> = new Map();
   private pendingOutboundCallerIds: Map<string, { callerIdNumber: string; expiresAt: number }> = new Map();
   private subscribedEndpoints: Set<string> = new Set();
+  private forwardedCallTracking: Map<string, {
+    callLogId: string;
+    inboundChannelId: string;
+    startTime: Date;
+    recordingName: string;
+    amiFilePath: string;
+    sshInfo: { host: string; sshPort: number; sshUsername: string; sshPassword: string; amiUsername: string; amiPassword: string } | null;
+    collaboratorId: string;
+    customerId: string | null;
+    callerNumber: string;
+  }> = new Map();
 
   constructor(ariClient: AriClient) {
     super();
@@ -822,8 +835,8 @@ export class QueueEngine extends EventEmitter {
     // Lookup customer by phone number (best-effort)
     const customerId = await this.lookupCustomer(callerNumber);
 
-    // Helper: save call log + inbound call log before forwarding/routing
-    const saveCallRecord = async (forwardedTo: string | null, mode: "forwarded" | "sip") => {
+    // Helper: save call log + inbound call log before forwarding/routing, returns callLogId
+    const saveCallRecord = async (forwardedTo: string | null, mode: "forwarded" | "sip"): Promise<string | null> => {
       const now = new Date();
       try {
         const [saved] = await db.insert(callLogs).values({
@@ -863,8 +876,71 @@ export class QueueEngine extends EventEmitter {
         } as any);
 
         console.log(`[QueueEngine] Saved call record for collaborator ${collabName} (callLogId=${saved?.id})`);
+        return saved?.id || null;
       } catch (err) {
         console.warn(`[QueueEngine] Failed to save call record for collaborator ${collabName}:`, err instanceof Error ? err.message : err);
+        return null;
+      }
+    };
+
+    // Helper: start AMI MixMonitor + register channel-destroyed listener for duration/recording
+    const startRecordingAndTracking = async (callLogId: string) => {
+      try {
+        const [cfg] = await db.select().from(ariSettings).limit(1);
+        if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) {
+          console.warn(`[ForwardedRecording] ARI/SSH settings not configured — recording skipped`);
+          return;
+        }
+        const sshPort = cfg.sshPort || 22;
+        const recordingName = `fwd_${channel.id.replace(/-/g, "_")}_${Date.now()}`;
+        const amiFilePath = `/var/spool/asterisk/monitor/${recordingName}`;
+
+        const amiResult = await sendAmiActionViaSshTunnel(
+          cfg.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+          cfg.username, cfg.password,
+          {
+            Action: "MixMonitor",
+            Channel: channel.name,
+            File: `${amiFilePath}.wav`,
+            Options: "v(1)V(1)",
+          }
+        );
+
+        if (!amiResult.success) {
+          console.warn(`[ForwardedRecording] AMI MixMonitor failed: ${amiResult.response}`);
+          return;
+        }
+
+        const sshInfo = { host: cfg.host, sshPort, sshUsername: cfg.sshUsername, sshPassword: cfg.sshPassword, amiUsername: cfg.username, amiPassword: cfg.password };
+        const tracking = {
+          callLogId,
+          inboundChannelId: channel.id,
+          startTime: new Date(),
+          recordingName,
+          amiFilePath,
+          sshInfo,
+          collaboratorId: collab.id,
+          customerId: customerId || null,
+          callerNumber,
+        };
+        this.forwardedCallTracking.set(channel.id, tracking);
+
+        const onDestroyed = (event: AriEvent) => {
+          if (event.channel?.id !== channel.id) return;
+          this.ariClient.removeListener("channel-destroyed", onDestroyed);
+          const t = this.forwardedCallTracking.get(channel.id);
+          if (!t) return;
+          this.forwardedCallTracking.delete(channel.id);
+          const durationSeconds = Math.max(0, Math.round((Date.now() - t.startTime.getTime()) / 1000));
+          console.log(`[ForwardedRecording] Channel ${channel.id} destroyed, duration=${durationSeconds}s`);
+          this.processForwardedCallRecordingAsync(t, durationSeconds).catch(err =>
+            console.error(`[ForwardedRecording] Processing error:`, err instanceof Error ? err.message : err)
+          );
+        };
+        this.ariClient.on("channel-destroyed", onDestroyed);
+        console.log(`[ForwardedRecording] MixMonitor started on '${channel.name}' → ${amiFilePath}.wav`);
+      } catch (err) {
+        console.warn(`[ForwardedRecording] Recording setup error:`, err instanceof Error ? err.message : err);
       }
     };
 
@@ -872,7 +948,8 @@ export class QueueEngine extends EventEmitter {
     if (collab.callForwardingEnabled && collab.callForwardingNumber) {
       const fwd = collab.callForwardingNumber.replace(/\s/g, "");
       console.log(`[QueueEngine] Collaborator direct call → forwarding to mobile ${fwd} (collab: ${collabName})`);
-      await saveCallRecord(fwd, "forwarded");
+      const callLogId = await saveCallRecord(fwd, "forwarded");
+      if (callLogId) await startRecordingAndTracking(callLogId);
       await this.forwardToExternalNumber(channel.id, fwd);
       return;
     }
@@ -886,13 +963,15 @@ export class QueueEngine extends EventEmitter {
         if (astDbFwd) {
           const fwd = astDbFwd.replace(/\s/g, "");
           console.log(`[QueueEngine] Collaborator direct call → AstDB forwarding to ${fwd} (ext: ${sipExt.extension})`);
-          await saveCallRecord(fwd, "forwarded");
+          const callLogId = await saveCallRecord(fwd, "forwarded");
+          if (callLogId) await startRecordingAndTracking(callLogId);
           await this.forwardToExternalNumber(channel.id, fwd);
           return;
         }
-        // Priority 3: ring SIP extension directly
+        // Priority 3: ring SIP extension directly (SIP recording handled by standard Stasis flow)
         console.log(`[QueueEngine] Collaborator direct call → SIP PJSIP/${sipExt.extension} (collab: ${collabName})`);
-        await saveCallRecord(null, "sip");
+        const callLogId = await saveCallRecord(null, "sip");
+        if (callLogId) await startRecordingAndTracking(callLogId);
         const ok = await this.transferCallToEndpoint(channel.id, `PJSIP/${sipExt.extension}`, null as any);
         if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
         return;
@@ -942,6 +1021,167 @@ export class QueueEngine extends EventEmitter {
     }
     console.error(`[QueueEngine] forwardToExternalNumber: all contexts failed for ${number}, hanging up`);
     try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+  }
+
+  private async processForwardedCallRecordingAsync(
+    tracking: {
+      callLogId: string;
+      inboundChannelId: string;
+      startTime: Date;
+      recordingName: string;
+      amiFilePath: string;
+      sshInfo: { host: string; sshPort: number; sshUsername: string; sshPassword: string; amiUsername: string; amiPassword: string } | null;
+      collaboratorId: string;
+      customerId: string | null;
+      callerNumber: string;
+    },
+    durationSeconds: number,
+  ): Promise<void> {
+    const endedAt = new Date();
+
+    // 1. Update call log with duration
+    try {
+      await db.update(callLogs)
+        .set({ durationSeconds, endedAt, answeredAt: tracking.startTime, status: "completed" })
+        .where(eq(callLogs.id, tracking.callLogId));
+
+      await db.update(inboundCallLogs)
+        .set({ completedAt: endedAt, talkDurationSeconds: durationSeconds, status: "completed" })
+        .where(eq(inboundCallLogs.ariChannelId, tracking.inboundChannelId));
+
+      console.log(`[ForwardedRecording] Updated call log ${tracking.callLogId} — duration: ${durationSeconds}s`);
+    } catch (err) {
+      console.warn(`[ForwardedRecording] Failed to update call log duration:`, err instanceof Error ? err.message : err);
+    }
+
+    if (!tracking.sshInfo || durationSeconds < 2) {
+      console.log(`[ForwardedRecording] Skipping recording download (no SSH config or call too short: ${durationSeconds}s)`);
+      return;
+    }
+
+    // 2. Wait for MixMonitor to flush the file (typically 1-3s after hangup)
+    await new Promise(resolve => setTimeout(resolve, 4000));
+
+    // 3. Download recording via SSH
+    let audioBuffer: Buffer | null = null;
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      try {
+        console.log(`[ForwardedRecording] Download attempt ${attempt}: ${tracking.amiFilePath}`);
+        audioBuffer = await downloadFileViaSsh(
+          tracking.sshInfo.host,
+          tracking.sshInfo.sshPort,
+          tracking.sshInfo.sshUsername,
+          tracking.sshInfo.sshPassword,
+          tracking.amiFilePath,
+        );
+        if (audioBuffer && audioBuffer.length > 500) {
+          console.log(`[ForwardedRecording] Downloaded ${audioBuffer.length} bytes`);
+          break;
+        }
+        audioBuffer = null;
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (dlErr) {
+        console.warn(`[ForwardedRecording] Download attempt ${attempt} failed:`, dlErr instanceof Error ? dlErr.message : dlErr);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    if (!audioBuffer || audioBuffer.length < 500) {
+      console.warn(`[ForwardedRecording] Could not download recording for call log ${tracking.callLogId}`);
+      return;
+    }
+
+    // 4. Save file locally
+    let filePath: string;
+    let filename: string;
+    try {
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+      filename = `fwd_${dateStr}_${timeStr}_${tracking.callLogId.substring(0, 8)}.wav`;
+      filePath = path.join(STORAGE_PATHS.callRecordings, filename);
+      fs.mkdirSync(STORAGE_PATHS.callRecordings, { recursive: true });
+      fs.writeFileSync(filePath, audioBuffer);
+      console.log(`[ForwardedRecording] Saved recording: ${filename} (${audioBuffer.length} bytes)`);
+    } catch (saveErr) {
+      console.error(`[ForwardedRecording] Failed to save recording file:`, saveErr instanceof Error ? saveErr.message : saveErr);
+      return;
+    }
+
+    // 5. Save to callRecordings table
+    let recordingId: string | null = null;
+    try {
+      const [rec] = await db.insert(callRecordings).values({
+        callLogId: tracking.callLogId,
+        userId: tracking.collaboratorId,
+        customerId: tracking.customerId || null,
+        filename,
+        filePath,
+        mimeType: "audio/wav",
+        fileSizeBytes: audioBuffer.length,
+        durationSeconds,
+        phoneNumber: tracking.callerNumber,
+        agentName: "Forwarded Call",
+        direction: "inbound",
+        analysisStatus: "pending",
+      }).returning({ id: callRecordings.id });
+      recordingId = rec?.id || null;
+      console.log(`[ForwardedRecording] Saved callRecording ${recordingId}`);
+    } catch (dbErr) {
+      console.error(`[ForwardedRecording] Failed to save callRecording:`, dbErr instanceof Error ? dbErr.message : dbErr);
+      return;
+    }
+
+    // 6. Whisper transcription
+    if (!process.env.OPENAI_API_KEY || !recordingId) return;
+    try {
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI();
+
+      console.log(`[ForwardedRecording] Starting Whisper transcription for ${filename}`);
+      const transcriptionResult = await openai.audio.transcriptions.create({
+        file: fs.createReadStream(filePath),
+        model: "whisper-1",
+        response_format: "text",
+      });
+      const transcriptText = transcriptionResult as unknown as string;
+      console.log(`[ForwardedRecording] Transcription done: ${transcriptText.length} chars`);
+
+      await db.update(callRecordings)
+        .set({ transcriptionText: transcriptText, analysisStatus: "completed" })
+        .where(eq(callRecordings.id, recordingId));
+
+      // 7. GPT-4o sentiment analysis
+      try {
+        const analysisResult = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are analyzing a forwarded inbound call recording for a cord blood banking company. Provide a brief JSON analysis: sentiment (positive/negative/neutral), summary (1-2 sentences in the same language as the transcript), urgency (low/medium/high), keyTopics (array of strings).",
+            },
+            { role: "user", content: `Call transcript:\n${transcriptText}` },
+          ],
+          response_format: { type: "json_object" },
+          max_tokens: 500,
+        });
+        const analysisText = analysisResult.choices[0]?.message?.content;
+        if (analysisText) {
+          const analysis = JSON.parse(analysisText);
+          await db.update(callLogs)
+            .set({ notes: analysis.summary || transcriptText.substring(0, 200) })
+            .where(eq(callLogs.id, tracking.callLogId));
+          console.log(`[ForwardedRecording] Analysis saved: ${analysis.sentiment}, urgency: ${analysis.urgency}`);
+        }
+      } catch (analysisErr) {
+        console.warn(`[ForwardedRecording] Analysis failed:`, analysisErr instanceof Error ? analysisErr.message : analysisErr);
+      }
+    } catch (transcriptErr) {
+      console.error(`[ForwardedRecording] Transcription failed:`, transcriptErr instanceof Error ? transcriptErr.message : transcriptErr);
+      if (recordingId) {
+        await db.update(callRecordings).set({ analysisStatus: "failed" }).where(eq(callRecordings.id, recordingId)).catch(() => {});
+      }
+    }
   }
 
   private async findQueueForNumber(didNumber: string): Promise<InboundQueue | null> {
