@@ -819,10 +819,60 @@ export class QueueEngine extends EventEmitter {
       await this.ariClient.answerChannel(channel.id);
     } catch {}
 
+    // Lookup customer by phone number (best-effort)
+    const customerId = await this.lookupCustomer(callerNumber);
+
+    // Helper: save call log + inbound call log before forwarding/routing
+    const saveCallRecord = async (forwardedTo: string | null, mode: "forwarded" | "sip") => {
+      const now = new Date();
+      try {
+        const [saved] = await db.insert(callLogs).values({
+          userId: collab.id,          // callLogs.userId stores collaboratorId for collaborator calls
+          customerId: customerId || null,
+          phoneNumber: callerNumber,
+          direction: "inbound",
+          status: forwardedTo ? "forwarded" : "answered",
+          startedAt: now,
+          isForwarded: !!forwardedTo,
+          forwardedToNumber: forwardedTo || null,
+          sipCallId: channel.id,
+          metadata: JSON.stringify({
+            collaboratorName: collabName,
+            callerName,
+            mode,
+            channelId: channel.id,
+          }),
+        } as any).returning({ id: callLogs.id });
+
+        // Also create inboundCallLog (shown in Missions → Calls view)
+        await db.insert(inboundCallLogs).values({
+          callLogId: saved?.id || null,
+          callerNumber,
+          callerName: callerName || null,
+          customerId: customerId || null,
+          assignedAgentId: collab.id,
+          ariChannelId: channel.id,
+          status: forwardedTo ? "transferred" : "answered",
+          enteredQueueAt: now,
+          answeredAt: now,
+          metadata: {
+            collaboratorName: collabName,
+            forwardedTo: forwardedTo || null,
+            mode,
+          },
+        } as any);
+
+        console.log(`[QueueEngine] Saved call record for collaborator ${collabName} (callLogId=${saved?.id})`);
+      } catch (err) {
+        console.warn(`[QueueEngine] Failed to save call record for collaborator ${collabName}:`, err instanceof Error ? err.message : err);
+      }
+    };
+
     // Priority 1: call forwarding to mobile number (DB setting)
     if (collab.callForwardingEnabled && collab.callForwardingNumber) {
       const fwd = collab.callForwardingNumber.replace(/\s/g, "");
       console.log(`[QueueEngine] Collaborator direct call → forwarding to mobile ${fwd} (collab: ${collabName})`);
+      await saveCallRecord(fwd, "forwarded");
       await this.forwardToExternalNumber(channel.id, fwd);
       return;
     }
@@ -836,11 +886,13 @@ export class QueueEngine extends EventEmitter {
         if (astDbFwd) {
           const fwd = astDbFwd.replace(/\s/g, "");
           console.log(`[QueueEngine] Collaborator direct call → AstDB forwarding to ${fwd} (ext: ${sipExt.extension})`);
+          await saveCallRecord(fwd, "forwarded");
           await this.forwardToExternalNumber(channel.id, fwd);
           return;
         }
         // Priority 3: ring SIP extension directly
         console.log(`[QueueEngine] Collaborator direct call → SIP PJSIP/${sipExt.extension} (collab: ${collabName})`);
+        await saveCallRecord(null, "sip");
         const ok = await this.transferCallToEndpoint(channel.id, `PJSIP/${sipExt.extension}`, null as any);
         if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
         return;
