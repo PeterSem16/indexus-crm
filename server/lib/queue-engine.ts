@@ -1111,7 +1111,7 @@ export class QueueEngine extends EventEmitter {
               tracking.sshInfo.sshPort,
               tracking.sshInfo.sshUsername,
               tracking.sshInfo.sshPassword,
-              `rm -f "${dlResult.foundPath}" 2>/dev/null; echo ok`,
+              `sudo rm -f "${dlResult.foundPath}" 2>/dev/null; echo ok`,
             );
             console.log(`[ForwardedRecording] Deleted from Asterisk: ${dlResult.foundPath}`);
           } catch (rmErr) {
