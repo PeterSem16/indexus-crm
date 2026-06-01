@@ -1090,25 +1090,26 @@ export class QueueEngine extends EventEmitter {
     for (let attempt = 1; attempt <= 4; attempt++) {
       try {
         console.log(`[ForwardedRecording] Download attempt ${attempt}: ${tracking.amiFilePath}`);
-        audioBuffer = await downloadFileViaSsh(
+        const dlResult = await downloadFileViaSsh(
           tracking.sshInfo.host,
           tracking.sshInfo.sshPort,
           tracking.sshInfo.sshUsername,
           tracking.sshInfo.sshPassword,
           tracking.amiFilePath,
         );
-        if (audioBuffer && audioBuffer.length > 500) {
-          console.log(`[ForwardedRecording] Downloaded ${audioBuffer.length} bytes`);
-          // Delete file from Asterisk server after successful download
+        if (dlResult && dlResult.buffer.length > 500) {
+          audioBuffer = dlResult.buffer;
+          console.log(`[ForwardedRecording] Downloaded ${audioBuffer.length} bytes from ${dlResult.foundPath}`);
+          // Delete the exact file that was found on Asterisk
           try {
             await runSshCommand(
               tracking.sshInfo.host,
               tracking.sshInfo.sshPort,
               tracking.sshInfo.sshUsername,
               tracking.sshInfo.sshPassword,
-              `rm -f "${tracking.amiFilePath}.wav" "${tracking.amiFilePath}.WAV" "${tracking.amiFilePath}" 2>/dev/null; echo ok`,
+              `rm -f "${dlResult.foundPath}" 2>/dev/null; echo ok`,
             );
-            console.log(`[ForwardedRecording] Deleted from Asterisk: ${tracking.amiFilePath}`);
+            console.log(`[ForwardedRecording] Deleted from Asterisk: ${dlResult.foundPath}`);
           } catch (rmErr) {
             console.warn(`[ForwardedRecording] Could not delete from Asterisk (non-fatal):`, rmErr instanceof Error ? rmErr.message : rmErr);
           }

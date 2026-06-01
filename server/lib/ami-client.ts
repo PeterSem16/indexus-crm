@@ -190,7 +190,7 @@ export function downloadFileViaSsh(
   username: string,
   password: string,
   basePath: string
-): Promise<Buffer> {
+): Promise<{ buffer: Buffer; foundPath: string }> {
   return new Promise((resolve, reject) => {
     const conn = new SshClient();
 
@@ -252,7 +252,7 @@ export function downloadFileViaSsh(
               if (foundPath.endsWith(".raw")) {
                 buf = wrapRawPcmAsWav(buf, 8000, 1, 16);
               }
-              resolve(buf);
+              resolve({ buffer: buf, foundPath });
             });
             catStream.on("error", (e: Error) => {
               clearTimeout(timer);

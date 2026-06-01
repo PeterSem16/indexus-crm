@@ -17962,6 +17962,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const callDurationSec = callLog?.durationSeconds ?? null;
 
       let audioBuffer: Buffer | null = null;
+      let primaryFoundPath: string | null = null;
 
       console.log(`[FinalizeRecording] Starting SSH download: ${recInfo.sshUser}@${recInfo.sshHost}:${recInfo.sshPort} path=${recInfo.amiFilePath}.* (call duration: ${callDurationSec ?? "unknown"}s)`);
 
@@ -17970,11 +17971,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (attempt > 1) await new Promise(r => setTimeout(r, 3000));
         try {
           console.log(`[FinalizeRecording] SSH download attempt ${attempt}/6 for '${recInfo.amiFilePath}.*'`);
-          audioBuffer = await downloadFileViaSsh(
+          const dlResult = await downloadFileViaSsh(
             recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
             recInfo.amiFilePath
           );
-          console.log(`[FinalizeRecording] SSH download succeeded on attempt ${attempt}: ${audioBuffer.length} bytes`);
+          audioBuffer = dlResult.buffer;
+          primaryFoundPath = dlResult.foundPath;
+          console.log(`[FinalizeRecording] SSH download succeeded on attempt ${attempt}: ${audioBuffer.length} bytes at ${primaryFoundPath}`);
           break;
         } catch (e: any) {
           console.log(`[FinalizeRecording] Attempt ${attempt}/6 failed — ${e?.message}`);
@@ -17990,20 +17993,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         for (let attempt = 1; attempt <= 4; attempt++) {
           if (attempt > 1) await new Promise(r => setTimeout(r, 2000));
           try {
-            audioBuffer = await downloadFileViaSsh(
+            const trunkResult = await downloadFileViaSsh(
               recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
               recInfo.amiTrunkFilePath
             );
-            console.log(`[FinalizeRecording] Trunk fallback succeeded on attempt ${attempt}: ${audioBuffer.length} bytes`);
+            audioBuffer = trunkResult.buffer;
+            primaryFoundPath = trunkResult.foundPath;
+            console.log(`[FinalizeRecording] Trunk fallback succeeded on attempt ${attempt}: ${audioBuffer.length} bytes at ${primaryFoundPath}`);
             break;
           } catch (e: any) {
             console.log(`[FinalizeRecording] Trunk fallback attempt ${attempt}/4 failed — ${e?.message}`);
           }
         }
-        // Clean up trunk file regardless of success
-        runSshCommand(recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
-          `sudo rm -f "${recInfo.amiTrunkFilePath}.wav" "${recInfo.amiTrunkFilePath}^wav.raw" 2>/dev/null; echo ok`
-        ).catch(() => {});
       }
 
       if (!audioBuffer) {
@@ -18051,10 +18052,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const [savedRecording] = await db.select().from(callRecordings).where(eq(callRecordings.callLogId, callLogId)).orderBy(desc(callRecordings.createdAt)).limit(1);
 
       // Delete source files from Asterisk to free space (best-effort)
-      const cleanupPaths = [recInfo.amiFilePath, ...(recInfo.amiTrunkFilePath ? [recInfo.amiTrunkFilePath] : [])];
-      const cleanupCmd = cleanupPaths.flatMap(p =>
-        [`"${p}.wav"`, `"${p}^wav.raw"`, `"${p}.raw"`, `"${p}.ulaw"`, `"${p}.gsm"`]
+      // Use primaryFoundPath (exact file found by SSH) + fallback glob on base paths
+      const exactFile = primaryFoundPath ? `"${primaryFoundPath}"` : "";
+      const fallbackPaths = [recInfo.amiFilePath, ...(recInfo.amiTrunkFilePath ? [recInfo.amiTrunkFilePath] : [])];
+      const fallbackCmd = fallbackPaths.flatMap(p =>
+        [`"${p}.wav"`, `"${p}.WAV"`, `"${p}^wav.raw"`, `"${p}.raw"`, `"${p}.ulaw"`, `"${p}.gsm"`]
       ).join(" ");
+      const cleanupCmd = [exactFile, fallbackCmd].filter(Boolean).join(" ");
       runSshCommand(recInfo.sshHost, recInfo.sshPort, recInfo.sshUser, recInfo.sshPass,
         `sudo rm -f ${cleanupCmd} 2>/dev/null; echo deleted`
       ).then(out => console.log(`[FinalizeRecording] Cleaned up Asterisk file(s): ${out.trim()}`))
