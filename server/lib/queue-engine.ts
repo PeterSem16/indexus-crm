@@ -25,7 +25,7 @@ import {
   type QueueMember,
   type InboundCallLog,
 } from "@shared/schema";
-import { sendAmiActionViaSshTunnel, downloadFileViaSsh } from "./ami-client";
+import { sendAmiActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./ami-client";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 
@@ -1076,6 +1076,19 @@ export class QueueEngine extends EventEmitter {
         );
         if (audioBuffer && audioBuffer.length > 500) {
           console.log(`[ForwardedRecording] Downloaded ${audioBuffer.length} bytes`);
+          // Delete file from Asterisk server after successful download
+          try {
+            await runSshCommand(
+              tracking.sshInfo.host,
+              tracking.sshInfo.sshPort,
+              tracking.sshInfo.sshUsername,
+              tracking.sshInfo.sshPassword,
+              `rm -f "${tracking.amiFilePath}.wav" "${tracking.amiFilePath}.WAV" "${tracking.amiFilePath}" 2>/dev/null; echo ok`,
+            );
+            console.log(`[ForwardedRecording] Deleted from Asterisk: ${tracking.amiFilePath}`);
+          } catch (rmErr) {
+            console.warn(`[ForwardedRecording] Could not delete from Asterisk (non-fatal):`, rmErr instanceof Error ? rmErr.message : rmErr);
+          }
           break;
         }
         audioBuffer = null;
