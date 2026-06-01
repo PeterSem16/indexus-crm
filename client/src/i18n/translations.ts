@@ -1538,6 +1538,9 @@ export interface Translations {
       sipExtensionNone: string;
       callRecording: string;
       callRecordingDesc: string;
+      callRecordingFull: string;
+      callRecordingTranscriptOnly: string;
+      callRecordingOff: string;
       outboundCallerId: string;
       outboundCallerIdPlaceholder: string;
       outboundCallerIdDesc: string;
@@ -8294,7 +8297,10 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionPlaceholder: 'Select SIP extension...',
         sipExtensionNone: 'No extension assigned',
         callRecording: 'Call recording',
-        callRecordingDesc: 'Record all calls made via the mobile app',
+        callRecordingDesc: 'Recording and transcription mode for all calls (inbound & outbound)',
+        callRecordingFull: 'Recording + Transcription',
+        callRecordingTranscriptOnly: 'Transcription only',
+        callRecordingOff: 'Off',
         outboundCallerId: 'Outbound Caller ID',
         outboundCallerIdPlaceholder: '+421 XXX XXX XXX',
         outboundCallerIdDesc: 'Phone number presented as caller ID for outbound calls from the mobile app',
@@ -14532,7 +14538,10 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionPlaceholder: 'Vybrať SIP klapku...',
         sipExtensionNone: 'Žiadna klapka priradená',
         callRecording: 'Nahrávanie hovorov',
-        callRecordingDesc: 'Nahrávať všetky hovory uskutočnené cez mobilnú aplikáciu',
+        callRecordingDesc: 'Režim nahrávania a prepisu pre všetky hovory (prichádzajúce & odchádzajúce)',
+        callRecordingFull: 'Nahrávanie + prepis',
+        callRecordingTranscriptOnly: 'Len prepis',
+        callRecordingOff: 'Vypnuté',
         outboundCallerId: 'Odchádzajúce telefónne číslo',
         outboundCallerIdPlaceholder: '+421 XXX XXX XXX',
         outboundCallerIdDesc: 'Telefónne číslo zobrazené ako ID volajúceho pri odchádzajúcich hovoroch z mobilnej aplikácie',
@@ -20716,7 +20725,10 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionPlaceholder: 'Vybrat SIP klapku...',
         sipExtensionNone: 'Žádná klapka přiřazena',
         callRecording: 'Nahrávání hovorů',
-        callRecordingDesc: 'Nahrávat všechny hovory uskutečněné přes mobilní aplikaci',
+        callRecordingDesc: 'Režim nahrávání a přepisu pro všechny hovory (příchozí & odchozí)',
+        callRecordingFull: 'Nahrávání + přepis',
+        callRecordingTranscriptOnly: 'Jen přepis',
+        callRecordingOff: 'Vypnuto',
         outboundCallerId: 'Odchozí telefonní číslo',
         outboundCallerIdPlaceholder: '+420 XXX XXX XXX',
         outboundCallerIdDesc: 'Telefonní číslo zobrazené jako ID volajícího při odchozích hovorech z mobilní aplikace',
@@ -26858,7 +26870,10 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionPlaceholder: 'SIP mellék kiválasztása...',
         sipExtensionNone: 'Nincs mellék hozzárendelve',
         callRecording: 'Hívásrögzítés',
-        callRecordingDesc: 'Az összes mobilalkalmazáson keresztüli hívás rögzítése',
+        callRecordingDesc: 'Rögzítési és átirat mód minden híváshoz (bejövő és kimenő)',
+        callRecordingFull: 'Rögzítés + átirat',
+        callRecordingTranscriptOnly: 'Csak átirat',
+        callRecordingOff: 'Kikapcsolva',
         outboundCallerId: 'Kimenő hívószám',
         outboundCallerIdPlaceholder: '+36 XX XXX XXXX',
         outboundCallerIdDesc: 'A mobilalkalmazásból indított kimenő hívásoknál megjelenő hívószám',
@@ -32895,7 +32910,10 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionPlaceholder: 'Selectați extensia SIP...',
         sipExtensionNone: 'Nicio extensie atribuită',
         callRecording: 'Înregistrarea apelurilor',
-        callRecordingDesc: 'Înregistrați toate apelurile efectuate prin aplicația mobilă',
+        callRecordingDesc: 'Modul de înregistrare și transcriere pentru toate apelurile (primite și efectuate)',
+        callRecordingFull: 'Înregistrare + transcriere',
+        callRecordingTranscriptOnly: 'Doar transcriere',
+        callRecordingOff: 'Dezactivat',
         outboundCallerId: 'Număr de telefon de ieșire',
         outboundCallerIdPlaceholder: '+40 XXX XXX XXX',
         outboundCallerIdDesc: 'Numărul de telefon afișat ca ID apelant la apelurile de ieșire din aplicația mobilă',

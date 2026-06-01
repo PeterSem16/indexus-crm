@@ -2099,6 +2099,7 @@ export const collaborators = pgTable("collaborators", {
   mobileWebrtcEnabled: boolean("mobile_webrtc_enabled").notNull().default(false),
   mobileSipExtensionId: varchar("mobile_sip_extension_id"),
   mobileCallRecording: boolean("mobile_call_recording").notNull().default(true),
+  callRecordingMode: text("call_recording_mode").notNull().default("full"), // "full" | "transcription_only" | "off"
   outboundCallerId: text("outbound_caller_id"),
   callForwardingEnabled: boolean("call_forwarding_enabled").notNull().default(false),
   callForwardingNumber: text("call_forwarding_number"),

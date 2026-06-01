@@ -3588,7 +3588,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
     mobilePasswordConfirm: "",
     mobileWebrtcEnabled: initialData?.mobileWebrtcEnabled ?? false,
     mobileSipExtensionId: initialData?.mobileSipExtensionId ?? "",
-    mobileCallRecording: initialData?.mobileCallRecording ?? true,
+    callRecordingMode: (initialData as any)?.callRecordingMode ?? "full",
     outboundCallerId: (initialData as any)?.outboundCallerId ?? "",
     callForwardingEnabled: (initialData as any)?.callForwardingEnabled ?? false,
     callForwardingNumber: (initialData as any)?.callForwardingNumber ?? "",
@@ -3977,11 +3977,13 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           }
           mobileData.mobileWebrtcEnabled = mobileCredentials.mobileWebrtcEnabled;
           mobileData.mobileSipExtensionId = mobileCredentials.mobileSipExtensionId || null;
-          mobileData.mobileCallRecording = mobileCredentials.mobileCallRecording;
+          mobileData.callRecordingMode = mobileCredentials.callRecordingMode;
+          mobileData.mobileCallRecording = mobileCredentials.callRecordingMode !== "off";
           mobileData.outboundCallerId = mobileCredentials.outboundCallerId || null;
         } else {
           mobileData.mobileWebrtcEnabled = false;
           mobileData.mobileSipExtensionId = null;
+          mobileData.callRecordingMode = "full";
           mobileData.mobileCallRecording = true;
           mobileData.outboundCallerId = null;
         }
@@ -5488,15 +5490,31 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                             <p className="text-xs text-muted-foreground">{t.collaborators.mobileApp?.outboundCallerIdDesc || 'Phone number presented as caller ID for outbound calls from the mobile app'}</p>
                           </div>
 
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              checked={mobileCredentials.mobileCallRecording}
-                              onCheckedChange={(checked) => setMobileCredentials({ ...mobileCredentials, mobileCallRecording: checked })}
-                              data-testid="wizard-switch-call-recording"
-                            />
+                          <div className="space-y-2">
                             <div>
                               <Label>{t.collaborators.mobileApp.callRecording}</Label>
                               <p className="text-xs text-muted-foreground">{t.collaborators.mobileApp.callRecordingDesc}</p>
+                            </div>
+                            <div className="flex gap-2" data-testid="wizard-call-recording-mode">
+                              {(["full", "transcription_only", "off"] as const).map((mode) => {
+                                const labels: Record<string, string> = {
+                                  full: t.collaborators.mobileApp.callRecordingFull,
+                                  transcription_only: t.collaborators.mobileApp.callRecordingTranscriptOnly,
+                                  off: t.collaborators.mobileApp.callRecordingOff,
+                                };
+                                const active = mobileCredentials.callRecordingMode === mode;
+                                return (
+                                  <button
+                                    key={mode}
+                                    type="button"
+                                    data-testid={`wizard-recording-mode-${mode}`}
+                                    onClick={() => setMobileCredentials({ ...mobileCredentials, callRecordingMode: mode })}
+                                    className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-primary/50"}`}
+                                  >
+                                    {labels[mode]}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
 

@@ -16267,7 +16267,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.put("/api/collaborators/:id/mobile-credentials", requireAuth, async (req, res) => {
     try {
-      const { mobileAppEnabled, mobileUsername, mobilePassword, mobileWebrtcEnabled, mobileSipExtensionId, mobileCallRecording, outboundCallerId } = req.body;
+      const { mobileAppEnabled, mobileUsername, mobilePassword, mobileWebrtcEnabled, mobileSipExtensionId, mobileCallRecording, callRecordingMode, outboundCallerId } = req.body;
       
       if (typeof mobileAppEnabled !== 'boolean') {
         return res.status(400).json({ error: "mobileAppEnabled is required" });
@@ -16299,8 +16299,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (typeof mobileWebrtcEnabled === 'boolean') {
         webrtcUpdate.mobileWebrtcEnabled = mobileWebrtcEnabled;
       }
-      if (typeof mobileCallRecording === 'boolean') {
+      if (callRecordingMode && ["full", "transcription_only", "off"].includes(callRecordingMode)) {
+        webrtcUpdate.callRecordingMode = callRecordingMode;
+        webrtcUpdate.mobileCallRecording = callRecordingMode !== "off";
+      } else if (typeof mobileCallRecording === 'boolean') {
         webrtcUpdate.mobileCallRecording = mobileCallRecording;
+        webrtcUpdate.callRecordingMode = mobileCallRecording ? "full" : "off";
       }
       if (mobileSipExtensionId !== undefined) {
         webrtcUpdate.mobileSipExtensionId = mobileSipExtensionId || null;
