@@ -852,12 +852,32 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async forwardToExternalNumber(channelId: string, number: string): Promise<void> {
-    // For external number forwarding, use continueDialplan with the number as extension
-    // into from-internal context which handles outbound routing via trunks.
+    // For external number forwarding, use continueDialplan with the number as extension.
+    // Country-specific contexts route directly to correct trunk without relying on CALLERID.
     // Do NOT use transferCallToEndpoint — that only works for internal SIP extensions.
     await this.stopMohForChannel(channelId);
     this.waitingCalls.delete(channelId);
-    const contexts = ["from-internal", "from-internal-indexus", "default"];
+
+    // Detect country from number prefix → pick country-specific context
+    const norm = number.replace(/^\+/, "").replace(/\s/g, "");
+    let primaryCtx: string;
+    if (norm.startsWith("421") || /^0[89]/.test(norm) || /^0[2-7]/.test(norm)) {
+      primaryCtx = "from-internal-sk";
+    } else if (norm.startsWith("420") || /^[67]/.test(norm)) {
+      primaryCtx = "from-internal-cz";
+    } else if (norm.startsWith("40")) {
+      primaryCtx = "from-internal-ro";
+    } else if (norm.startsWith("36")) {
+      primaryCtx = "from-internal-hu";
+    } else if (norm.startsWith("49")) {
+      primaryCtx = "from-internal-de";
+    } else if (norm.startsWith("39")) {
+      primaryCtx = "from-internal-it";
+    } else {
+      primaryCtx = "from-internal";
+    }
+
+    const contexts = [primaryCtx, "from-internal", "indexus-outbound"];
     for (const ctx of contexts) {
       try {
         console.log(`[QueueEngine] forwardToExternalNumber: continueDialplan ctx=${ctx} exten=${number}`);
