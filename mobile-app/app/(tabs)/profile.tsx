@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard, ActivityIndicator } from 'react-native';
-import { useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image, Share, Clipboard, ActivityIndicator, TextInput } from 'react-native';
+import { useState, useRef, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,6 +35,51 @@ export default function ProfileScreen() {
   const [diagResults, setDiagResults] = useState<DiagTest[] | null>(null);
   const [diagRunning, setDiagRunning] = useState(false);
   const [reregistering, setReregistering] = useState(false);
+  const [callForwardingEnabled, setCallForwardingEnabled] = useState(false);
+  const [callForwardingNumber, setCallForwardingNumber] = useState('');
+  const [savingForwarding, setSavingForwarding] = useState(false);
+  const [forwardingLoaded, setForwardingLoaded] = useState(false);
+
+  const loadForwardingSettings = async () => {
+    if (!user?.id || forwardingLoaded) return;
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/users/${user.id}/call-forwarding`, {
+        credentials: 'include',
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setCallForwardingEnabled(data.enabled ?? false);
+        setCallForwardingNumber(data.number ?? '');
+        setForwardingLoaded(true);
+      }
+    } catch {}
+  };
+
+  const handleSaveForwarding = async () => {
+    if (!user?.id) return;
+    setSavingForwarding(true);
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/users/${user.id}/call-forwarding`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ enabled: callForwardingEnabled, number: callForwardingNumber }),
+      });
+      if (resp.ok) {
+        Alert.alert('✓', translations.profile.forwardingSaved || 'Nastavenie uložené');
+      } else {
+        Alert.alert('Chyba', translations.profile.forwardingError || 'Nepodarilo sa uložiť');
+      }
+    } catch {
+      Alert.alert('Chyba', translations.profile.forwardingError || 'Nepodarilo sa uložiť');
+    } finally {
+      setSavingForwarding(false);
+    }
+  };
+
+  useEffect(() => {
+    loadForwardingSettings();
+  }, [user?.id]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -236,6 +281,75 @@ export default function ProfileScreen() {
               testID="switch-notifications"
             />
           </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>{translations.profile.callForwardingTitle || 'Presmerovanie hovorov'}</Text>
+
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsItem}>
+            <View style={styles.settingsIconContainer}>
+              <Ionicons name="call-outline" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.settingsContent}>
+              <Text style={styles.settingsLabel}>{translations.profile.callForwardingLabel || 'Presmerovať hovory na mobil'}</Text>
+              <Text style={styles.settingsDescription}>{translations.profile.callForwardingDesc || 'Prichádzajúce hovory z fronty budú presmerované'}</Text>
+            </View>
+            <Switch
+              value={callForwardingEnabled}
+              onValueChange={setCallForwardingEnabled}
+              trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+              thumbColor={callForwardingEnabled ? Colors.primary : Colors.textSecondary}
+              testID="switch-call-forwarding"
+            />
+          </View>
+
+          {callForwardingEnabled && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.forwardingInputRow}>
+                <Ionicons name="phone-portrait-outline" size={18} color={Colors.textSecondary} style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.forwardingInput}
+                  value={callForwardingNumber}
+                  onChangeText={setCallForwardingNumber}
+                  placeholder={translations.profile.callForwardingPlaceholder || '+421900123456'}
+                  placeholderTextColor={Colors.textSecondary}
+                  keyboardType="phone-pad"
+                  autoCorrect={false}
+                  testID="input-forwarding-number"
+                />
+              </View>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                style={[styles.forwardingSaveBtn, savingForwarding && { opacity: 0.6 }]}
+                onPress={handleSaveForwarding}
+                disabled={savingForwarding}
+                testID="button-save-forwarding"
+              >
+                {savingForwarding
+                  ? <ActivityIndicator size="small" color={Colors.white} />
+                  : <Text style={styles.forwardingSaveBtnText}>{translations.profile.callForwardingSave || 'Uložiť presmerovanie'}</Text>
+                }
+              </TouchableOpacity>
+            </>
+          )}
+
+          {!callForwardingEnabled && (
+            <>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                style={[styles.forwardingSaveBtn, savingForwarding && { opacity: 0.6 }]}
+                onPress={handleSaveForwarding}
+                disabled={savingForwarding}
+                testID="button-disable-forwarding"
+              >
+                {savingForwarding
+                  ? <ActivityIndicator size="small" color={Colors.white} />
+                  : <Text style={styles.forwardingSaveBtnText}>{translations.profile.callForwardingSave || 'Uložiť presmerovanie'}</Text>
+                }
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>{translations.profile.about}</Text>
@@ -1358,5 +1472,32 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginLeft: 8,
     overflow: 'hidden',
+  },
+  forwardingInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  forwardingInput: {
+    flex: 1,
+    fontSize: FontSizes.md,
+    color: Colors.text,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  forwardingSaveBtn: {
+    backgroundColor: Colors.primary,
+    marginHorizontal: Spacing.lg,
+    marginVertical: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  forwardingSaveBtnText: {
+    color: Colors.white,
+    fontSize: FontSizes.md,
+    fontWeight: '600',
   },
 });

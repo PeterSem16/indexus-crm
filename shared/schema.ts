@@ -188,6 +188,8 @@ export const users = pgTable("users", {
   showSipPhone: boolean("show_sip_phone").notNull().default(false), // Show SIP phone icon in header
   phonePrefix: text("phone_prefix"), // Phone country prefix like +421
   phone: text("phone"), // Phone number for notifications/alerts
+  callForwardingEnabled: boolean("call_forwarding_enabled").notNull().default(false),
+  callForwardingNumber: text("call_forwarding_number"), // Mobile number to forward incoming calls to
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -3687,6 +3689,8 @@ export const callLogs = pgTable("call_logs", {
   inboundQueueName: text("inbound_queue_name"),
   inboundCallLogId: varchar("inbound_call_log_id"),
   isImportant: boolean("is_important").notNull().default(false),
+  isForwarded: boolean("is_forwarded").notNull().default(false),
+  forwardedToNumber: text("forwarded_to_number"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

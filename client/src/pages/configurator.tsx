@@ -13568,6 +13568,7 @@ const CONDITION_OPERATORS = [
 ] as const;
 
 function EmailRouterTab() {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [selectedRule, setSelectedRule] = useState<EmailRoutingRule | null>(null);
   const [isRuleDialogOpen, setIsRuleDialogOpen] = useState(false);

@@ -2274,6 +2274,53 @@ export async function registerRoutes(
     }
   });
 
+  // Call forwarding settings
+  app.get("/api/users/:id/call-forwarding", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json({
+        enabled: (user as any).callForwardingEnabled ?? false,
+        number: (user as any).callForwardingNumber ?? "",
+      });
+    } catch (error) {
+      console.error("Error getting call forwarding:", error);
+      res.status(500).json({ error: "Failed to get call forwarding settings" });
+    }
+  });
+
+  app.put("/api/users/:id/call-forwarding", requireAuth, async (req, res) => {
+    try {
+      const { enabled, number } = req.body;
+      const user = await storage.updateUser(req.params.id, {
+        callForwardingEnabled: Boolean(enabled),
+        callForwardingNumber: number || null,
+      } as any);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      // Sync to Asterisk AstDB if user has a SIP extension
+      const sipExt = (user as any).sipExtension;
+      if (sipExt) {
+        const engine = getQueueEngine();
+        if (engine) {
+          try {
+            await engine.syncForwardingToAsteriskDB(sipExt, enabled && number ? number : null);
+          } catch (err) {
+            console.warn("[CallForwarding] AstDB sync failed:", err instanceof Error ? err.message : err);
+          }
+        }
+      }
+
+      res.json({
+        enabled: (user as any).callForwardingEnabled ?? false,
+        number: (user as any).callForwardingNumber ?? "",
+      });
+    } catch (error) {
+      console.error("Error updating call forwarding:", error);
+      res.status(500).json({ error: "Failed to update call forwarding settings" });
+    }
+  });
+
   // User avatar upload
   app.post("/api/users/:id/avatar", requireAuth, uploadAvatar.single("avatar"), async (req, res) => {
     try {
