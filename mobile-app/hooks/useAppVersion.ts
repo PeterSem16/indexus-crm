@@ -11,7 +11,9 @@ export function useAppVersion() {
 
   useEffect(() => {
     if (_cachedServerVersion) return;
-    fetch(`${API_BASE_URL}/api/mobile/app-version`, { signal: AbortSignal.timeout(5000) })
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    fetch(`${API_BASE_URL}/api/mobile/app-version`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
       .then((data: { version: string } | null) => {
         if (data?.version) {
@@ -19,7 +21,8 @@ export function useAppVersion() {
           setVersion(data.version);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => clearTimeout(timer));
   }, []);
 
   return version;
