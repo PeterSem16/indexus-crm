@@ -7858,7 +7858,7 @@ function DocxTemplatesTab() {
             <SelectValue placeholder="Krajina" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Všetky krajiny</SelectItem>
+            <SelectItem value="all">{(t.konfigurator as any).filterAllCountries || "Všetky krajiny"}</SelectItem>
             {countries.map(c => (
               <SelectItem key={c.code} value={c.code}>
                 <span className="mr-2">{c.flag}</span>{c.name}
@@ -7871,10 +7871,10 @@ function DocxTemplatesTab() {
             <SelectValue placeholder="Typ" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Všetky typy</SelectItem>
-            <SelectItem value="invoice">Faktúra</SelectItem>
-            <SelectItem value="proforma">Proforma</SelectItem>
-            <SelectItem value="credit_note">Dobropis</SelectItem>
+            <SelectItem value="all">{(t.konfigurator as any).filterAllTypes || "Všetky typy"}</SelectItem>
+            <SelectItem value="invoice">{t.konfigurator.invoice || "Faktúra"}</SelectItem>
+            <SelectItem value="proforma">{t.konfigurator.proforma || "Proforma"}</SelectItem>
+            <SelectItem value="credit_note">{t.konfigurator.creditNote || "Dobropis"}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setCurrentPage(1); }}>
@@ -7882,9 +7882,9 @@ function DocxTemplatesTab() {
             <SelectValue placeholder="Stav" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Všetky</SelectItem>
-            <SelectItem value="active">Aktívne</SelectItem>
-            <SelectItem value="inactive">Neaktívne</SelectItem>
+            <SelectItem value="all">{(t.konfigurator as any).filterAllStatuses || "Všetky"}</SelectItem>
+            <SelectItem value="active">{(t.konfigurator as any).filterStatusActive || "Aktívne"}</SelectItem>
+            <SelectItem value="inactive">{(t.konfigurator as any).filterStatusInactive || "Neaktívne"}</SelectItem>
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground ml-auto">
@@ -7955,8 +7955,8 @@ function DocxTemplatesTab() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {template.templateType === "invoice" ? "Faktúra" : 
-                           template.templateType === "proforma" ? "Proforma" : "Dobropis"}
+                          {template.templateType === "invoice" ? (t.konfigurator.invoice || "Faktúra") : 
+                           template.templateType === "proforma" ? (t.konfigurator.proforma || "Proforma") : (t.konfigurator.creditNote || "Dobropis")}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -8094,9 +8094,9 @@ function DocxTemplatesTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="invoice">Faktúra</SelectItem>
-                  <SelectItem value="proforma">Proforma faktúra</SelectItem>
-                  <SelectItem value="credit_note">Dobropis</SelectItem>
+                  <SelectItem value="invoice">{t.konfigurator.invoice || "Faktúra"}</SelectItem>
+                  <SelectItem value="proforma">{t.konfigurator.proformaInvoice || t.konfigurator.proforma || "Proforma"}</SelectItem>
+                  <SelectItem value="credit_note">{t.konfigurator.creditNote || "Dobropis"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -8108,7 +8108,7 @@ function DocxTemplatesTab() {
                     <SelectValue placeholder="Všetky krajiny" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_all">Všetky krajiny</SelectItem>
+                    <SelectItem value="_all">{(t.konfigurator as any).filterAllCountries || "Všetky krajiny"}</SelectItem>
                     {countries.map((c) => (
                       <SelectItem key={c.code} value={c.code}><span className="mr-2">{c.flag}</span>{c.name}</SelectItem>
                     ))}
@@ -12259,7 +12259,7 @@ function MessageTemplatesTab() {
                   <SelectValue placeholder={t.konfigurator.templateType} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Všetky typy</SelectItem>
+                  <SelectItem value="all">{(t.konfigurator as any).filterAllTypes || "Všetky typy"}</SelectItem>
                   <SelectItem value="email">{t.konfigurator.typeEmail}</SelectItem>
                   <SelectItem value="sms">{t.konfigurator.typeSms}</SelectItem>
                 </SelectContent>
@@ -12269,7 +12269,7 @@ function MessageTemplatesTab() {
                   <SelectValue placeholder={t.konfigurator.templateCategory} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Všetky kategórie</SelectItem>
+                  <SelectItem value="all">{(t.konfigurator as any).filterAllCategories || "Všetky kategórie"}</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                   ))}
@@ -12280,7 +12280,7 @@ function MessageTemplatesTab() {
                   <SelectValue placeholder={t.konfigurator.templateLanguage} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Všetky jazyky</SelectItem>
+                  <SelectItem value="all">{(t.konfigurator as any).filterAllLanguages || "Všetky jazyky"}</SelectItem>
                   {TEMPLATE_LANGUAGES.map((lang) => (
                     <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>
                   ))}
@@ -13876,22 +13876,22 @@ function EmailRouterTab() {
         <TabsList>
           <TabsTrigger value="rules" data-testid="subtab-rules">
             <Settings className="h-4 w-4 mr-2" />
-            Pravidlá routera
+            {(t.konfigurator as any).routerRules || "Pravidlá routera"}
           </TabsTrigger>
           <TabsTrigger value="tags" data-testid="subtab-tags">
             <Palette className="h-4 w-4 mr-2" />
-            Email tagy
+            {(t.konfigurator as any).emailTagsTab || "Email tagy"}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="rules" className="space-y-4">
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">
-              Pravidlá sa aplikujú na prichádzajúce emaily podľa priority (vyššie číslo = vyššia priorita)
+              {(t.konfigurator as any).routerRulesDesc || "Pravidlá sa aplikujú na prichádzajúce emaily podľa priority (vyššie číslo = vyššia priorita)"}
             </p>
             <Button onClick={() => openRuleDialog()} data-testid="button-add-rule">
               <Plus className="h-4 w-4 mr-2" />
-              Pridať pravidlo
+              {(t.konfigurator as any).addRule || "Pridať pravidlo"}
             </Button>
           </div>
 
@@ -13901,7 +13901,7 @@ function EmailRouterTab() {
             </div>
           ) : rules.length === 0 ? (
             <div className="text-center p-8 text-muted-foreground">
-              Zatiaľ nie sú definované žiadne pravidlá
+              {(t.konfigurator as any).noRulesYet || "Zatiaľ nie sú definované žiadne pravidlá"}
             </div>
           ) : (
             <div className="space-y-2">
@@ -13918,16 +13918,16 @@ function EmailRouterTab() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{rule.name}</span>
-                            <Badge variant="outline">Priorita: {rule.priority}</Badge>
-                            <Badge variant="secondary">{rule.matchMode === "all" ? "Všetky podmienky" : "Ľubovoľná podmienka"}</Badge>
+                            <Badge variant="outline">{(t.konfigurator as any).priorityLabel || "Priorita"}: {rule.priority}</Badge>
+                            <Badge variant="secondary">{rule.matchMode === "all" ? ((t.konfigurator as any).allConditions || "Všetky podmienky") : ((t.konfigurator as any).anyCondition || "Ľubovoľná podmienka")}</Badge>
                           </div>
                           {rule.description && (
                             <p className="text-sm text-muted-foreground">{rule.description}</p>
                           )}
                           <div className="flex gap-2 mt-1">
                             <span className="text-xs text-muted-foreground">
-                              {(rule.conditions as any[])?.length || 0} podmienok,{" "}
-                              {(rule.actions as any[])?.length || 0} akcií
+                              {(rule.conditions as any[])?.length || 0} {(t.konfigurator as any).conditionsSuffix || "podmienok"},{" "}
+                              {(rule.actions as any[])?.length || 0} {(t.konfigurator as any).actionsSuffix || "akcií"}
                             </span>
                           </div>
                         </div>
@@ -14046,8 +14046,8 @@ function EmailRouterTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Všetky podmienky (AND)</SelectItem>
-                    <SelectItem value="any">Ľubovoľná podmienka (OR)</SelectItem>
+                    <SelectItem value="all">{(t.konfigurator as any).allConditions || "Všetky podmienky (AND)"}</SelectItem>
+                    <SelectItem value="any">{(t.konfigurator as any).anyCondition || "Ľubovoľná podmienka"} (OR)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
