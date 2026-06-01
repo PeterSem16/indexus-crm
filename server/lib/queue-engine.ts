@@ -696,6 +696,8 @@ export class QueueEngine extends EventEmitter {
         callForwardingNumber: collaborators.callForwardingNumber,
         mobileSipExtensionId: collaborators.mobileSipExtensionId,
         mobileAppEnabled: collaborators.mobileAppEnabled,
+        mobileCallRecording: collaborators.mobileCallRecording,
+        callRecordingMode: collaborators.callRecordingMode,
       }).from(collaborators)
         .where(and(
           eq(collaborators.outboundCallerId, dialedNumber),
@@ -823,6 +825,8 @@ export class QueueEngine extends EventEmitter {
       callForwardingNumber: string | null;
       mobileSipExtensionId: string | null;
       mobileAppEnabled: boolean;
+      mobileCallRecording: boolean | null;
+      callRecordingMode: string | null;
     },
     callerNumber: string,
     callerName: string,
