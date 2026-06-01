@@ -3590,6 +3590,8 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
     mobileSipExtensionId: initialData?.mobileSipExtensionId ?? "",
     mobileCallRecording: initialData?.mobileCallRecording ?? true,
     outboundCallerId: (initialData as any)?.outboundCallerId ?? "",
+    callForwardingEnabled: (initialData as any)?.callForwardingEnabled ?? false,
+    callForwardingNumber: (initialData as any)?.callForwardingNumber ?? "",
   });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialData?.avatarUrl || null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -3982,6 +3984,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           mobileData.mobileSipExtensionId = null;
           mobileData.mobileCallRecording = true;
           mobileData.outboundCallerId = null;
+        }
+        
+        // Save call forwarding separately via dedicated endpoint (stored on linked user account)
+        try {
+          await apiRequest("PUT", `/api/collaborators/${collaboratorId}/call-forwarding`, {
+            enabled: mobileCredentials.callForwardingEnabled,
+            number: mobileCredentials.callForwardingNumber || null,
+          });
+        } catch (fwdErr) {
+          console.warn("[CollabWizard] Call forwarding save failed:", fwdErr);
         }
         
         await apiRequest("PUT", `/api/collaborators/${collaboratorId}/mobile-credentials`, mobileData);
@@ -5486,6 +5498,34 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                               <Label>{t.collaborators.mobileApp.callRecording}</Label>
                               <p className="text-xs text-muted-foreground">{t.collaborators.mobileApp.callRecordingDesc}</p>
                             </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-muted">
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                checked={mobileCredentials.callForwardingEnabled}
+                                onCheckedChange={(checked) => setMobileCredentials({ ...mobileCredentials, callForwardingEnabled: checked })}
+                                data-testid="wizard-switch-call-forwarding"
+                              />
+                              <div>
+                                <Label>{t.collaborators.mobileApp?.callForwardingLabel || "Presmerovanie hovorov"}</Label>
+                                <p className="text-xs text-muted-foreground">{t.collaborators.mobileApp?.callForwardingDesc || "Prichádzajúce hovory z fronty presmeruje na mobilné číslo"}</p>
+                              </div>
+                            </div>
+
+                            {mobileCredentials.callForwardingEnabled && (
+                              <div className="mt-3 space-y-1">
+                                <Label>{t.collaborators.mobileApp?.callForwardingNumber || "Mobilné číslo"}</Label>
+                                <Input
+                                  value={mobileCredentials.callForwardingNumber}
+                                  onChange={(e) => setMobileCredentials({ ...mobileCredentials, callForwardingNumber: e.target.value })}
+                                  placeholder="+421900123456"
+                                  type="tel"
+                                  data-testid="wizard-input-call-forwarding-number"
+                                />
+                                <p className="text-xs text-muted-foreground">{t.collaborators.mobileApp?.callForwardingNumberDesc || "Číslo s medzinárodnou predvoľbou, napr. +421900123456"}</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}

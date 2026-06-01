@@ -2100,6 +2100,8 @@ export const collaborators = pgTable("collaborators", {
   mobileSipExtensionId: varchar("mobile_sip_extension_id"),
   mobileCallRecording: boolean("mobile_call_recording").notNull().default(true),
   outboundCallerId: text("outbound_caller_id"),
+  callForwardingEnabled: boolean("call_forwarding_enabled").notNull().default(false),
+  callForwardingNumber: text("call_forwarding_number"),
   preferredLanguage: text("preferred_language").notNull().default("sk"),
   avatarUrl: text("avatar_url"),
   dataSource: text("data_source"), // Pôvod záznamu (napr. 'iscbc' pre migráciu z CBC)
