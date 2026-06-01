@@ -17450,6 +17450,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         username: ext.sipUsername,
         password,
         callRecording: collaborator.mobileCallRecording,
+        callRecordingMode: (collaborator as any).callRecordingMode ?? "full",
         stunServers: [
           "stun:stun.l.google.com:19302",
           "stun:stun1.l.google.com:19302",
@@ -17712,7 +17713,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!tokenData) return res.status(401).json({ error: "Unauthorized" });
 
       const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
-      if (!collaborator || !collaborator.mobileCallRecording) {
+      const recMode = (collaborator as any).callRecordingMode ?? (collaborator.mobileCallRecording ? "full" : "off");
+      if (!collaborator || recMode === "off") {
         return res.status(403).json({ error: "Call recording not enabled" });
       }
 
@@ -18089,11 +18091,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return res.status(404).json({ error: "Collaborator not found" });
       }
 
-      if (!collaborator.mobileCallRecording) {
-        try {
-          const fsSync = await import("fs");
-          fsSync.unlinkSync(req.file.path);
-        } catch (e) {}
+      const recMode = (collaborator as any).callRecordingMode ?? (collaborator.mobileCallRecording ? "full" : "off");
+      if (recMode === "off") {
+        try { const fsSync = await import("fs"); fsSync.unlinkSync(req.file.path); } catch (e) {}
         return res.status(403).json({ error: "Call recording is not enabled for this collaborator" });
       }
 
@@ -18137,6 +18137,34 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         inboundQueueId: null,
         inboundQueueName: null,
       };
+
+      if (recMode === "transcription_only") {
+        // Transcribe, save transcript to callLog notes, delete the file
+        const transcriptResult: { text: string } = { text: "" };
+        if (process.env.OPENAI_API_KEY) {
+          try {
+            const OpenAI = (await import("openai")).default;
+            const openai = new OpenAI();
+            const fsSync = await import("fs");
+            const result = await openai.audio.transcriptions.create({
+              file: fsSync.createReadStream(req.file.path),
+              model: "whisper-1",
+              response_format: "text",
+            });
+            transcriptResult.text = result as unknown as string;
+            if (callLogId) {
+              await db.update(callLogs)
+                .set({ notes: transcriptResult.text.substring(0, 500) })
+                .where(eq(callLogs.id, String(callLogId)));
+            }
+            console.log(`[MobileRecording] Transcript-only done: ${transcriptResult.text.length} chars`);
+          } catch (transcriptErr: any) {
+            console.warn(`[MobileRecording] Transcript-only transcription failed:`, transcriptErr.message);
+          }
+        }
+        try { const fsSync = await import("fs"); fsSync.unlinkSync(req.file.path); } catch {}
+        return res.status(201).json({ transcriptionOnly: true, transcript: transcriptResult.text });
+      }
 
       const [recording] = await db.insert(callRecordings).values(recordingData).returning();
 

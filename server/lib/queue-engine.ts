@@ -107,6 +107,7 @@ export class QueueEngine extends EventEmitter {
     collaboratorId: string;
     customerId: string | null;
     callerNumber: string;
+    callRecordingMode: string;
   }> = new Map();
 
   constructor(ariClient: AriClient) {
@@ -903,6 +904,14 @@ export class QueueEngine extends EventEmitter {
           console.warn(`[ForwardedRecording] Could not set INDEXUS_REC_NAME:`, varErr instanceof Error ? varErr.message : varErr);
         }
 
+        const callRecordingMode = (collab as any).callRecordingMode ?? (collab.mobileCallRecording ? "full" : "off");
+
+        // Skip channel variable if recording is fully off
+        if (callRecordingMode === "off") {
+          console.log(`[ForwardedRecording] Recording mode=off for collab ${collab.id}, skipping`);
+          return;
+        }
+
         const tracking = {
           callLogId,
           inboundChannelId: channel.id,
@@ -913,6 +922,7 @@ export class QueueEngine extends EventEmitter {
           collaboratorId: collab.id,
           customerId: customerId || null,
           callerNumber,
+          callRecordingMode,
         };
         this.forwardedCallTracking.set(channel.id, tracking);
 
@@ -1045,10 +1055,12 @@ export class QueueEngine extends EventEmitter {
       collaboratorId: string;
       customerId: string | null;
       callerNumber: string;
+      callRecordingMode: string;
     },
     durationSeconds: number,
   ): Promise<void> {
     const endedAt = new Date();
+    const recMode = tracking.callRecordingMode ?? "full";
 
     // 1. Update call log with duration
     try {
@@ -1060,13 +1072,13 @@ export class QueueEngine extends EventEmitter {
         .set({ completedAt: endedAt, talkDurationSeconds: durationSeconds, status: "completed" })
         .where(eq(inboundCallLogs.ariChannelId, tracking.inboundChannelId));
 
-      console.log(`[ForwardedRecording] Updated call log ${tracking.callLogId} — duration: ${durationSeconds}s`);
+      console.log(`[ForwardedRecording] Updated call log ${tracking.callLogId} — duration: ${durationSeconds}s, mode: ${recMode}`);
     } catch (err) {
       console.warn(`[ForwardedRecording] Failed to update call log duration:`, err instanceof Error ? err.message : err);
     }
 
-    if (!tracking.sshInfo || durationSeconds < 2) {
-      console.log(`[ForwardedRecording] Skipping recording download (no SSH config or call too short: ${durationSeconds}s)`);
+    if (recMode === "off" || !tracking.sshInfo || durationSeconds < 2) {
+      console.log(`[ForwardedRecording] Skipping recording download (mode=${recMode}, sshInfo=${!!tracking.sshInfo}, duration=${durationSeconds}s)`);
       return;
     }
 
@@ -1115,49 +1127,59 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
-    // 4. Save file locally
+    // 4. Save file (permanently for "full", temp for "transcription_only")
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+    const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+    const filename = `fwd_${dateStr}_${timeStr}_${tracking.callLogId.substring(0, 8)}.wav`;
+
     let filePath: string;
-    let filename: string;
-    try {
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
-      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
-      filename = `fwd_${dateStr}_${timeStr}_${tracking.callLogId.substring(0, 8)}.wav`;
+    if (recMode === "transcription_only") {
+      filePath = path.join("/tmp", filename);
+    } else {
       filePath = path.join(STORAGE_PATHS.callRecordings, filename);
       fs.mkdirSync(STORAGE_PATHS.callRecordings, { recursive: true });
+    }
+
+    try {
       fs.writeFileSync(filePath, audioBuffer);
-      console.log(`[ForwardedRecording] Saved recording: ${filename} (${audioBuffer.length} bytes)`);
+      console.log(`[ForwardedRecording] Saved to ${recMode === "transcription_only" ? "temp" : "storage"}: ${filename} (${audioBuffer.length} bytes)`);
     } catch (saveErr) {
       console.error(`[ForwardedRecording] Failed to save recording file:`, saveErr instanceof Error ? saveErr.message : saveErr);
       return;
     }
 
-    // 5. Save to callRecordings table
+    // 5. For "full" mode: save to callRecordings table
     let recordingId: string | null = null;
-    try {
-      const [rec] = await db.insert(callRecordings).values({
-        callLogId: tracking.callLogId,
-        userId: tracking.collaboratorId,
-        customerId: tracking.customerId || null,
-        filename,
-        filePath,
-        mimeType: "audio/wav",
-        fileSizeBytes: audioBuffer.length,
-        durationSeconds,
-        phoneNumber: tracking.callerNumber,
-        agentName: "Forwarded Call",
-        direction: "inbound",
-        analysisStatus: "pending",
-      }).returning({ id: callRecordings.id });
-      recordingId = rec?.id || null;
-      console.log(`[ForwardedRecording] Saved callRecording ${recordingId}`);
-    } catch (dbErr) {
-      console.error(`[ForwardedRecording] Failed to save callRecording:`, dbErr instanceof Error ? dbErr.message : dbErr);
-      return;
+    if (recMode === "full") {
+      try {
+        const [rec] = await db.insert(callRecordings).values({
+          callLogId: tracking.callLogId,
+          userId: tracking.collaboratorId,
+          customerId: tracking.customerId || null,
+          filename,
+          filePath,
+          mimeType: "audio/wav",
+          fileSizeBytes: audioBuffer.length,
+          durationSeconds,
+          phoneNumber: tracking.callerNumber,
+          agentName: "Forwarded Call",
+          direction: "inbound",
+          analysisStatus: "pending",
+        }).returning({ id: callRecordings.id });
+        recordingId = rec?.id || null;
+        console.log(`[ForwardedRecording] Saved callRecording ${recordingId}`);
+      } catch (dbErr) {
+        console.error(`[ForwardedRecording] Failed to save callRecording:`, dbErr instanceof Error ? dbErr.message : dbErr);
+        return;
+      }
     }
 
-    // 6. Whisper transcription
-    if (!process.env.OPENAI_API_KEY || !recordingId) return;
+    // 6. Whisper transcription (both "full" and "transcription_only")
+    if (!process.env.OPENAI_API_KEY) {
+      if (recMode === "transcription_only") try { fs.unlinkSync(filePath); } catch {}
+      return;
+    }
     try {
       const OpenAI = (await import("openai")).default;
       const openai = new OpenAI();
@@ -1171,11 +1193,23 @@ export class QueueEngine extends EventEmitter {
       const transcriptText = transcriptionResult as unknown as string;
       console.log(`[ForwardedRecording] Transcription done: ${transcriptText.length} chars`);
 
-      await db.update(callRecordings)
-        .set({ transcriptionText: transcriptText, analysisStatus: "completed" })
-        .where(eq(callRecordings.id, recordingId));
+      if (recMode === "transcription_only") {
+        // Delete temp file — we only keep the transcript
+        try { fs.unlinkSync(filePath); } catch {}
+        await db.update(callLogs)
+          .set({ notes: transcriptText.substring(0, 500) })
+          .where(eq(callLogs.id, tracking.callLogId));
+        console.log(`[ForwardedRecording] Transcript-only: saved to callLogs.notes, temp file deleted`);
+        return;
+      }
 
-      // 7. GPT-4o sentiment analysis
+      // "full" mode: save transcript to callRecordings and run GPT-4o analysis
+      if (recordingId) {
+        await db.update(callRecordings)
+          .set({ transcriptionText: transcriptText, analysisStatus: "completed" })
+          .where(eq(callRecordings.id, recordingId));
+      }
+
       try {
         const analysisResult = await openai.chat.completions.create({
           model: "gpt-4o",
@@ -1202,6 +1236,7 @@ export class QueueEngine extends EventEmitter {
       }
     } catch (transcriptErr) {
       console.error(`[ForwardedRecording] Transcription failed:`, transcriptErr instanceof Error ? transcriptErr.message : transcriptErr);
+      if (recMode === "transcription_only") try { fs.unlinkSync(filePath); } catch {}
       if (recordingId) {
         await db.update(callRecordings).set({ analysisStatus: "failed" }).where(eq(callRecordings.id, recordingId)).catch(() => {});
       }
