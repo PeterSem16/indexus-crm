@@ -26624,101 +26624,102 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   // =================== Number Mapping (read-only overview) ===================
   app.get("/api/number-mapping", requireAuth, async (req, res) => {
+    const result: Array<{ type: string; number: string; label: string; countryCode: string | null; detail: string | null; active: boolean }> = [];
+
+    // DID Routes
     try {
-      // Trunk rows fetched separately — new columns may not exist on older DBs
-      let trunkRows: Array<{ id: string; name: string; serviceType: string | null; host: string | null; countryCode: string | null; rangeFrom: string | null; rangeTo: string | null; individualNumbers: string[] | null }> = [];
-      try {
-        trunkRows = await db.select({
-          id: trunks.id,
-          name: trunks.name,
-          serviceType: trunks.serviceType,
-          host: trunks.host,
-          countryCode: trunks.countryCode,
-          rangeFrom: trunks.rangeFrom,
-          rangeTo: trunks.rangeTo,
-          individualNumbers: trunks.individualNumbers,
-        }).from(trunks).orderBy(asc(trunks.name));
-      } catch (_e) {
-        // Ignore — DB schema not yet migrated
+      const didRows = await db.select({
+        id: didRoutes.id,
+        number: didRoutes.didNumber,
+        name: didRoutes.name,
+        countryCode: didRoutes.countryCode,
+        detail: didRoutes.action,
+        isActive: didRoutes.isActive,
+      }).from(didRoutes).orderBy(asc(didRoutes.didNumber));
+      for (const r of didRows) {
+        result.push({ type: "DID Route", number: r.number, label: r.name || r.number, countryCode: r.countryCode, detail: r.detail, active: r.isActive });
       }
+    } catch (e: any) {
+      console.error("[number-mapping] DID routes error:", e.message);
+    }
 
-      const [didRows, outboundRows, forwardRows] = await Promise.all([
-        db.select({
-          id: didRoutes.id,
-          number: didRoutes.didNumber,
-          name: didRoutes.name,
-          countryCode: didRoutes.countryCode,
-          detail: didRoutes.action,
-          isActive: didRoutes.isActive,
-        }).from(didRoutes).orderBy(asc(didRoutes.didNumber)),
+    // Outbound CallerID
+    try {
+      const outboundRows = await db.select({
+        number: collaborators.outboundCallerId,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+        countryCode: collaborators.countryCode,
+      }).from(collaborators).where(isNotNull(collaborators.outboundCallerId)).orderBy(asc(collaborators.outboundCallerId));
+      for (const r of outboundRows) {
+        result.push({ type: "Outbound CallerID", number: r.number!, label: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim(), countryCode: r.countryCode, detail: null, active: true });
+      }
+    } catch (e: any) {
+      console.error("[number-mapping] Outbound CallerID error:", e.message);
+    }
 
-        db.select({
-          id: collaborators.id,
-          number: collaborators.outboundCallerId,
-          firstName: collaborators.firstName,
-          lastName: collaborators.lastName,
-          countryCode: collaborators.countryCode,
-        }).from(collaborators)
-          .where(isNotNull(collaborators.outboundCallerId))
-          .orderBy(asc(collaborators.outboundCallerId)),
+    // Call Forwarding
+    try {
+      const forwardRows = await db.select({
+        number: collaborators.callForwardingNumber,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+        countryCode: collaborators.countryCode,
+        enabled: collaborators.callForwardingEnabled,
+      }).from(collaborators)
+        .where(and(isNotNull(collaborators.callForwardingNumber), eq(collaborators.callForwardingEnabled, true)))
+        .orderBy(asc(collaborators.callForwardingNumber));
+      for (const r of forwardRows) {
+        result.push({ type: "Call Forwarding", number: r.number!, label: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim(), countryCode: r.countryCode, detail: null, active: r.enabled ?? false });
+      }
+    } catch (e: any) {
+      console.error("[number-mapping] Call forwarding error:", e.message);
+    }
 
-        db.select({
-          id: collaborators.id,
-          number: collaborators.callForwardingNumber,
-          firstName: collaborators.firstName,
-          lastName: collaborators.lastName,
-          countryCode: collaborators.countryCode,
-          enabled: collaborators.callForwardingEnabled,
-        }).from(collaborators)
-          .where(and(isNotNull(collaborators.callForwardingNumber), eq(collaborators.callForwardingEnabled, true)))
-          .orderBy(asc(collaborators.callForwardingNumber)),
-      ]);
-
-      // Flatten trunk numbers
-      const trunkNumberRows: Array<{ type: string; number: string; label: string; countryCode: string | null; detail: string | null; active: boolean }> = [];
+    // Trunk numbers (new schema — may not exist on older DBs)
+    try {
+      const trunkRows = await db.select({
+        name: trunks.name,
+        serviceType: trunks.serviceType,
+        host: trunks.host,
+        countryCode: trunks.countryCode,
+        rangeFrom: trunks.rangeFrom,
+        rangeTo: trunks.rangeTo,
+        individualNumbers: trunks.individualNumbers,
+      }).from(trunks).orderBy(asc(trunks.name));
       for (const trunk of trunkRows) {
-        const label = `${trunk.name} (${trunk.serviceType})`;
+        const label = `${trunk.name} (${trunk.serviceType ?? "Trunk"})`;
         if (trunk.rangeFrom && trunk.rangeTo) {
-          trunkNumberRows.push({ type: "Trunk Range", number: `${trunk.rangeFrom}–${trunk.rangeTo}`, label, countryCode: trunk.countryCode, detail: trunk.host, active: true });
+          result.push({ type: "Trunk Range", number: `${trunk.rangeFrom}–${trunk.rangeTo}`, label, countryCode: trunk.countryCode, detail: trunk.host, active: true });
         }
         if (trunk.individualNumbers && trunk.individualNumbers.length > 0) {
           for (const num of trunk.individualNumbers) {
-            trunkNumberRows.push({ type: "Trunk Number", number: num, label, countryCode: trunk.countryCode, detail: trunk.host, active: true });
+            result.push({ type: "Trunk Number", number: num, label, countryCode: trunk.countryCode, detail: trunk.host, active: true });
           }
         }
       }
-
-      const result = [
-        ...didRows.map(r => ({
-          type: "DID Route",
-          number: r.number,
-          label: r.name || r.number,
-          countryCode: r.countryCode,
-          detail: r.detail,
-          active: r.isActive,
-        })),
-        ...outboundRows.map(r => ({
-          type: "Outbound CallerID",
-          number: r.number!,
-          label: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim(),
-          countryCode: r.countryCode,
-          detail: null,
-          active: true,
-        })),
-        ...forwardRows.map(r => ({
-          type: "Call Forwarding",
-          number: r.number!,
-          label: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim(),
-          countryCode: r.countryCode,
-          detail: null,
-          active: r.enabled,
-        })),
-        ...trunkNumberRows,
-      ];
-      res.json(result);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("[number-mapping] Trunks error:", e.message);
     }
+
+    // Trunk numbers fallback — old schema (only name, host, range_from, range_to)
+    if (!result.some(r => r.type === "Trunk Range" || r.type === "Trunk Number")) {
+      try {
+        const oldTrunkRows = await db.execute(
+          sql`SELECT name, host, country_code, range_from, range_to FROM trunks ORDER BY name`
+        ) as any;
+        const rows = Array.isArray(oldTrunkRows) ? oldTrunkRows : (oldTrunkRows.rows ?? []);
+        for (const trunk of rows) {
+          if (trunk.range_from && trunk.range_to) {
+            result.push({ type: "Trunk Range", number: `${trunk.range_from}–${trunk.range_to}`, label: `${trunk.name} (Trunk)`, countryCode: trunk.country_code, detail: trunk.host, active: true });
+          }
+        }
+      } catch (e: any) {
+        console.error("[number-mapping] Trunks fallback error:", e.message);
+      }
+    }
+
+    res.json(result);
   });
 
   app.get("/api/asterisk/callerid/:extension", async (req, res) => {
