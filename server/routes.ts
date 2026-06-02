@@ -26625,7 +26625,24 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   // =================== Number Mapping (read-only overview) ===================
   app.get("/api/number-mapping", requireAuth, async (req, res) => {
     try {
-      const [didRows, outboundRows, forwardRows, trunkRows] = await Promise.all([
+      // Trunk rows fetched separately — new columns may not exist on older DBs
+      let trunkRows: Array<{ id: string; name: string; serviceType: string | null; host: string | null; countryCode: string | null; rangeFrom: string | null; rangeTo: string | null; individualNumbers: string[] | null }> = [];
+      try {
+        trunkRows = await db.select({
+          id: trunks.id,
+          name: trunks.name,
+          serviceType: trunks.serviceType,
+          host: trunks.host,
+          countryCode: trunks.countryCode,
+          rangeFrom: trunks.rangeFrom,
+          rangeTo: trunks.rangeTo,
+          individualNumbers: trunks.individualNumbers,
+        }).from(trunks).orderBy(asc(trunks.name));
+      } catch (_e) {
+        // Ignore — DB schema not yet migrated
+      }
+
+      const [didRows, outboundRows, forwardRows] = await Promise.all([
         db.select({
           id: didRoutes.id,
           number: didRoutes.didNumber,
@@ -26655,17 +26672,6 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }).from(collaborators)
           .where(and(isNotNull(collaborators.callForwardingNumber), eq(collaborators.callForwardingEnabled, true)))
           .orderBy(asc(collaborators.callForwardingNumber)),
-
-        db.select({
-          id: trunks.id,
-          name: trunks.name,
-          serviceType: trunks.serviceType,
-          host: trunks.host,
-          countryCode: trunks.countryCode,
-          rangeFrom: trunks.rangeFrom,
-          rangeTo: trunks.rangeTo,
-          individualNumbers: trunks.individualNumbers,
-        }).from(trunks).orderBy(asc(trunks.name)),
       ]);
 
       // Flatten trunk numbers
