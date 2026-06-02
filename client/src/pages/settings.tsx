@@ -1532,6 +1532,7 @@ function TrunksAndNumbersTab() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [numberMode, setNumberMode] = useState<"range" | "individual">("individual");
   const [formTab, setFormTab] = useState<"numbers" | "details">("numbers");
+  const [mapFilter, setMapFilter] = useState({ type: "", number: "", label: "", country: "" });
 
   const { data: trunkList = [], isLoading: loadingTrunks } = useQuery<Trunk[]>({ queryKey: ["/api/trunks"] });
   const { data: numberMap = [], isLoading: loadingMap, isError: mapError, refetch: refetchMap } = useQuery<NumberMappingRow[]>({ queryKey: ["/api/number-mapping"] });
@@ -1817,7 +1818,7 @@ function TrunksAndNumbersTab() {
             </div>
           </div>
           <Button size="sm" variant="outline" onClick={() => refetchMap()} disabled={loadingMap} data-testid="button-refresh-number-map">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loadingMap ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-4 w-4 ${loadingMap ? "animate-spin" : ""}`} />
           </Button>
         </CardHeader>
         <CardContent className="p-0">
@@ -1827,43 +1828,105 @@ function TrunksAndNumbersTab() {
             </div>
           ) : mapError ? (
             <div className="text-center py-6 text-destructive text-sm">Error loading number map.</div>
-          ) : numberMap.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">{tr.noNumbers}</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30 text-muted-foreground text-xs uppercase">
-                    <th className="text-left py-2 px-3 font-medium">{tr.colType}</th>
-                    <th className="text-left py-2 px-3 font-medium">{tr.colNumber}</th>
-                    <th className="text-left py-2 px-3 font-medium">{tr.colLabel}</th>
-                    <th className="text-left py-2 px-3 font-medium">{tr.colDetail}</th>
-                    <th className="text-left py-2 px-3 font-medium">{tr.colCountry}</th>
-                    <th className="text-left py-2 px-3 font-medium">{tr.colStatus}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {numberMap.map((row, i) => (
-                    <tr key={i} className="border-b hover:bg-muted/20 transition-colors" data-testid={`row-number-${i}`}>
-                      <td className="py-2 px-3">
-                        <Badge className={`text-xs ${TYPE_COLOR[row.type] || "bg-gray-100 text-gray-700"}`} variant="secondary">
-                          {TYPE_LABEL[row.type] || row.type}
-                        </Badge>
-                      </td>
-                      <td className="py-2 px-3 font-mono text-xs font-medium">{row.number}</td>
-                      <td className="py-2 px-3 text-muted-foreground text-xs">{row.label}</td>
-                      <td className="py-2 px-3 text-muted-foreground text-xs">{row.detail || "—"}</td>
-                      <td className="py-2 px-3">{row.countryCode ? <Badge variant="secondary" className="text-xs">{row.countryCode}</Badge> : "—"}</td>
-                      <td className="py-2 px-3">
-                        <Badge variant={row.active ? "default" : "secondary"} className="text-xs">
-                          {row.active ? tr.active : tr.inactive}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {/* Filter row */}
+              <div className="flex flex-wrap gap-2 px-4 py-3 border-b bg-muted/10">
+                <Select value={mapFilter.type || "__all__"} onValueChange={v => setMapFilter(f => ({ ...f, type: v === "__all__" ? "" : v }))}>
+                  <SelectTrigger className="h-8 w-40 text-xs" data-testid="filter-map-type">
+                    <SelectValue placeholder={tr.colType} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">— {tr.colType} —</SelectItem>
+                    {Array.from(new Set(numberMap.map(r => r.type))).sort().map(t => (
+                      <SelectItem key={t} value={t}>{TYPE_LABEL[t] || t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  className="h-8 w-40 text-xs"
+                  placeholder={tr.colNumber}
+                  value={mapFilter.number}
+                  onChange={e => setMapFilter(f => ({ ...f, number: e.target.value }))}
+                  data-testid="filter-map-number"
+                />
+                <Input
+                  className="h-8 w-48 text-xs"
+                  placeholder={tr.colLabel}
+                  value={mapFilter.label}
+                  onChange={e => setMapFilter(f => ({ ...f, label: e.target.value }))}
+                  data-testid="filter-map-label"
+                />
+                <Select value={mapFilter.country || "__all__"} onValueChange={v => setMapFilter(f => ({ ...f, country: v === "__all__" ? "" : v }))}>
+                  <SelectTrigger className="h-8 w-28 text-xs" data-testid="filter-map-country">
+                    <SelectValue placeholder={tr.colCountry} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">— {tr.colCountry} —</SelectItem>
+                    {Array.from(new Set(numberMap.map(r => r.countryCode).filter(Boolean))).sort().map(c => (
+                      <SelectItem key={c!} value={c!}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(mapFilter.type || mapFilter.number || mapFilter.label || mapFilter.country) && (
+                  <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setMapFilter({ type: "", number: "", label: "", country: "" })} data-testid="button-clear-map-filter">
+                    <XCircle className="h-3.5 w-3.5 mr-1" /> Clear
+                  </Button>
+                )}
+              </div>
+
+              {/* Table */}
+              {(() => {
+                const filtered = numberMap.filter(row =>
+                  (!mapFilter.type || row.type === mapFilter.type) &&
+                  (!mapFilter.number || row.number.toLowerCase().includes(mapFilter.number.toLowerCase())) &&
+                  (!mapFilter.label || row.label.toLowerCase().includes(mapFilter.label.toLowerCase())) &&
+                  (!mapFilter.country || row.countryCode === mapFilter.country)
+                );
+                if (filtered.length === 0) return (
+                  <div className="text-center py-8 text-muted-foreground text-sm">{tr.noNumbers}</div>
+                );
+                return (
+                  <div className="overflow-x-auto">
+                    <div className="px-4 py-1.5 text-xs text-muted-foreground border-b">
+                      {filtered.length} / {numberMap.length}
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30 text-muted-foreground text-xs uppercase">
+                          <th className="text-left py-2 px-3 font-medium">{tr.colType}</th>
+                          <th className="text-left py-2 px-3 font-medium">{tr.colNumber}</th>
+                          <th className="text-left py-2 px-3 font-medium">{tr.colLabel}</th>
+                          <th className="text-left py-2 px-3 font-medium">{tr.colDetail}</th>
+                          <th className="text-left py-2 px-3 font-medium">{tr.colCountry}</th>
+                          <th className="text-left py-2 px-3 font-medium">{tr.colStatus}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((row, i) => (
+                          <tr key={i} className="border-b hover:bg-muted/20 transition-colors" data-testid={`row-number-${i}`}>
+                            <td className="py-2 px-3">
+                              <Badge className={`text-xs ${TYPE_COLOR[row.type] || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"}`} variant="secondary">
+                                {TYPE_LABEL[row.type] || row.type}
+                              </Badge>
+                            </td>
+                            <td className="py-2 px-3 font-mono text-xs font-medium">{row.number}</td>
+                            <td className="py-2 px-3 text-muted-foreground text-xs">{row.label}</td>
+                            <td className="py-2 px-3 text-muted-foreground text-xs">{row.detail || "—"}</td>
+                            <td className="py-2 px-3">{row.countryCode ? <Badge variant="secondary" className="text-xs">{row.countryCode}</Badge> : "—"}</td>
+                            <td className="py-2 px-3">
+                              <Badge variant={row.active ? "default" : "secondary"} className="text-xs">
+                                {row.active ? tr.active : tr.inactive}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </>
           )}
         </CardContent>
       </Card>
