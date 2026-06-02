@@ -26625,7 +26625,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   // =================== Number Mapping (read-only overview) ===================
   app.get("/api/number-mapping", requireAuth, async (req, res) => {
     try {
-      const [didRows, outboundRows, forwardRows] = await Promise.all([
+      const [didRows, outboundRows, forwardRows, trunkRows] = await Promise.all([
         db.select({
           id: didRoutes.id,
           number: didRoutes.didNumber,
@@ -26655,7 +26655,32 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }).from(collaborators)
           .where(and(isNotNull(collaborators.callForwardingNumber), eq(collaborators.callForwardingEnabled, true)))
           .orderBy(asc(collaborators.callForwardingNumber)),
+
+        db.select({
+          id: trunks.id,
+          name: trunks.name,
+          serviceType: trunks.serviceType,
+          host: trunks.host,
+          countryCode: trunks.countryCode,
+          rangeFrom: trunks.rangeFrom,
+          rangeTo: trunks.rangeTo,
+          individualNumbers: trunks.individualNumbers,
+        }).from(trunks).orderBy(asc(trunks.name)),
       ]);
+
+      // Flatten trunk numbers
+      const trunkNumberRows: Array<{ type: string; number: string; label: string; countryCode: string | null; detail: string | null; active: boolean }> = [];
+      for (const trunk of trunkRows) {
+        const label = `${trunk.name} (${trunk.serviceType})`;
+        if (trunk.rangeFrom && trunk.rangeTo) {
+          trunkNumberRows.push({ type: "Trunk Range", number: `${trunk.rangeFrom}–${trunk.rangeTo}`, label, countryCode: trunk.countryCode, detail: trunk.host, active: true });
+        }
+        if (trunk.individualNumbers && trunk.individualNumbers.length > 0) {
+          for (const num of trunk.individualNumbers) {
+            trunkNumberRows.push({ type: "Trunk Number", number: num, label, countryCode: trunk.countryCode, detail: trunk.host, active: true });
+          }
+        }
+      }
 
       const result = [
         ...didRows.map(r => ({
@@ -26682,6 +26707,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           detail: null,
           active: r.enabled,
         })),
+        ...trunkNumberRows,
       ];
       res.json(result);
     } catch (e: any) {

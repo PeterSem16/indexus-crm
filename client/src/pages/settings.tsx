@@ -12,6 +12,7 @@ import * as LucideIcons from "lucide-react";
 import { AriSettingsTab } from "@/components/configurator/AriSettingsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -1495,8 +1496,29 @@ type NumberMappingRow = {
   active: boolean;
 };
 
-const TRUNK_TYPES = ["SIP", "IAX2", "OTHER"] as const;
-const EMPTY_TRUNK = { name: "", type: "SIP", host: "", username: "", password: "", countryCode: "", asteriskHost: "", rangeFrom: "", rangeTo: "", notes: "" };
+const SERVICE_TYPES = ["Eurovoice", "SIP Trunk", "vPBX", "ISDN", "OTHER"] as const;
+type ServiceType = typeof SERVICE_TYPES[number];
+
+const EMPTY_TRUNK = {
+  name: "", serviceType: "SIP Trunk" as ServiceType,
+  location: "", contractDate: "", contractConditions: "", serviceDetail: "",
+  host: "", alias: "", username: "", password: "",
+  internalLines: "", externalLines: "", ivrCount: "",
+  countryCode: "", asteriskHost: "",
+  rangeFrom: "", rangeTo: "",
+  individualNumbersText: "", // textarea: one per line
+  notes: "",
+};
+
+function formatTrunkNumbers(trunk: Trunk): string {
+  const parts: string[] = [];
+  if (trunk.rangeFrom && trunk.rangeTo) parts.push(`${trunk.rangeFrom}–${trunk.rangeTo}`);
+  if (trunk.individualNumbers && trunk.individualNumbers.length > 0) {
+    parts.push(...trunk.individualNumbers.slice(0, 3));
+    if (trunk.individualNumbers.length > 3) parts.push(`+${trunk.individualNumbers.length - 3}`);
+  }
+  return parts.join(", ") || "—";
+}
 
 function TrunksAndNumbersTab() {
   const { t } = useI18n();
@@ -1507,19 +1529,44 @@ function TrunksAndNumbersTab() {
   const [form, setForm] = useState<typeof EMPTY_TRUNK>({ ...EMPTY_TRUNK });
   const [showPass, setShowPass] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [numberMode, setNumberMode] = useState<"range" | "individual">("individual");
+  const [formTab, setFormTab] = useState<"numbers" | "details">("numbers");
 
   const { data: trunkList = [], isLoading: loadingTrunks } = useQuery<Trunk[]>({ queryKey: ["/api/trunks"] });
   const { data: numberMap = [], isLoading: loadingMap, isError: mapError, refetch: refetchMap } = useQuery<NumberMappingRow[]>({ queryKey: ["/api/number-mapping"] });
 
   const saveMut = useMutation({
     mutationFn: async (data: typeof EMPTY_TRUNK) => {
-      if (editing) {
-        return apiRequest("PUT", `/api/trunks/${editing.id}`, data);
-      }
-      return apiRequest("POST", "/api/trunks", data);
+      const payload = {
+        name: data.name,
+        serviceType: data.serviceType,
+        location: data.location || null,
+        contractDate: data.contractDate || null,
+        contractConditions: data.contractConditions || null,
+        serviceDetail: data.serviceDetail || null,
+        host: data.host || null,
+        alias: data.alias || null,
+        username: data.username || null,
+        password: data.password || null,
+        internalLines: data.internalLines ? parseInt(data.internalLines) : null,
+        externalLines: data.externalLines ? parseInt(data.externalLines) : null,
+        ivrCount: data.ivrCount ? parseInt(data.ivrCount) : null,
+        countryCode: data.countryCode || null,
+        asteriskHost: data.asteriskHost || null,
+        rangeFrom: numberMode === "range" ? (data.rangeFrom || null) : null,
+        rangeTo: numberMode === "range" ? (data.rangeTo || null) : null,
+        individualNumbers: numberMode === "individual"
+          ? data.individualNumbersText.split("\n").map(s => s.trim()).filter(Boolean)
+          : [],
+        notes: data.notes || null,
+      };
+      if (editing) return apiRequest("PUT", `/api/trunks/${editing.id}`, payload);
+      return apiRequest("POST", "/api/trunks", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trunks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/number-mapping"] });
       setDialogOpen(false);
       const wasEditing = editing;
       setEditing(null);
@@ -1533,16 +1580,48 @@ function TrunksAndNumbersTab() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/trunks/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trunks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/number-mapping"] });
       setDeleteId(null);
       toast({ title: tr.deleted });
     },
     onError: () => toast({ title: tr.errorDelete, variant: "destructive" }),
   });
 
-  const openAdd = () => { setEditing(null); setForm({ ...EMPTY_TRUNK }); setShowPass(false); setDialogOpen(true); };
+  const openAdd = () => {
+    setEditing(null);
+    setForm({ ...EMPTY_TRUNK });
+    setShowPass(false);
+    setNumberMode("individual");
+    setFormTab("numbers");
+    setDialogOpen(true);
+  };
+
   const openEdit = (trunk: Trunk) => {
     setEditing(trunk);
-    setForm({ name: trunk.name, type: trunk.type, host: trunk.host || "", username: trunk.username || "", password: trunk.password || "", countryCode: trunk.countryCode || "", asteriskHost: trunk.asteriskHost || "", rangeFrom: trunk.rangeFrom || "", rangeTo: trunk.rangeTo || "", notes: trunk.notes || "" });
+    const hasRange = !!(trunk.rangeFrom && trunk.rangeTo);
+    setNumberMode(hasRange ? "range" : "individual");
+    setFormTab("numbers");
+    setForm({
+      name: trunk.name,
+      serviceType: (trunk.serviceType as ServiceType) || "SIP Trunk",
+      location: trunk.location || "",
+      contractDate: trunk.contractDate || "",
+      contractConditions: trunk.contractConditions || "",
+      serviceDetail: trunk.serviceDetail || "",
+      host: trunk.host || "",
+      alias: trunk.alias || "",
+      username: trunk.username || "",
+      password: trunk.password || "",
+      internalLines: trunk.internalLines != null ? String(trunk.internalLines) : "",
+      externalLines: trunk.externalLines != null ? String(trunk.externalLines) : "",
+      ivrCount: trunk.ivrCount != null ? String(trunk.ivrCount) : "",
+      countryCode: trunk.countryCode || "",
+      asteriskHost: trunk.asteriskHost || "",
+      rangeFrom: trunk.rangeFrom || "",
+      rangeTo: trunk.rangeTo || "",
+      individualNumbersText: (trunk.individualNumbers ?? []).join("\n"),
+      notes: trunk.notes || "",
+    });
     setShowPass(false);
     setDialogOpen(true);
   };
@@ -1551,13 +1630,28 @@ function TrunksAndNumbersTab() {
     "DID Route": "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
     "Outbound CallerID": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
     "Call Forwarding": "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+    "Trunk Number": "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+    "Trunk Range": "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300",
   };
 
   const TYPE_LABEL: Record<string, string> = {
     "DID Route": tr.typeDID,
     "Outbound CallerID": tr.typeOutbound,
     "Call Forwarding": tr.typeForwarding,
+    "Trunk Number": "Trunk",
+    "Trunk Range": "Trunk Range",
   };
+
+  const SERVICE_TYPE_LABELS: Record<string, string> = {
+    "Eurovoice": tr.serviceTypeEurovoice,
+    "SIP Trunk": tr.serviceTypeSipTrunk,
+    "vPBX": tr.serviceTypeVpbx,
+    "ISDN": tr.serviceTypeIsdn,
+    "OTHER": tr.serviceTypeOther,
+  };
+
+  const F = (k: keyof typeof EMPTY_TRUNK) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
 
   return (
     <div className="space-y-6">
@@ -1577,7 +1671,7 @@ function TrunksAndNumbersTab() {
             <Plus className="h-4 w-4 mr-2" /> {tr.addTrunk}
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loadingTrunks ? (
             <div className="flex items-center gap-2 text-muted-foreground py-6 justify-center">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1591,40 +1685,117 @@ function TrunksAndNumbersTab() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-muted-foreground text-xs uppercase">
-                    <th className="text-left py-2 px-3 font-medium">{tr.colName}</th>
-                    <th className="text-left py-2 px-3 font-medium">{tr.colType}</th>
+                  <tr className="border-b bg-muted/30 text-muted-foreground text-xs uppercase">
+                    <th className="text-left py-2 px-4 font-medium w-8"></th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colContract}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colServiceType}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colLocation}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colNumbers}</th>
                     <th className="text-left py-2 px-3 font-medium">{tr.colHost}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colUsername}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colLines}</th>
                     <th className="text-left py-2 px-3 font-medium">{tr.colCountry}</th>
-                    <th className="text-left py-2 px-3 font-medium">{tr.colRange}</th>
-                    <th className="text-left py-2 px-3 font-medium">{tr.colAsterisk}</th>
                     <th className="py-2 px-3" />
                   </tr>
                 </thead>
                 <tbody>
                   {trunkList.map(trunk => (
-                    <tr key={trunk.id} className="border-b hover:bg-muted/40 transition-colors" data-testid={`row-trunk-${trunk.id}`}>
-                      <td className="py-2 px-3 font-medium">{trunk.name}</td>
-                      <td className="py-2 px-3">
-                        <Badge variant="outline">{trunk.type}</Badge>
-                      </td>
-                      <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{trunk.host || "—"}</td>
-                      <td className="py-2 px-3">{trunk.countryCode ? <Badge variant="secondary">{trunk.countryCode}</Badge> : "—"}</td>
-                      <td className="py-2 px-3 text-muted-foreground text-xs">
-                        {trunk.rangeFrom && trunk.rangeTo ? `${trunk.rangeFrom} – ${trunk.rangeTo}` : trunk.rangeFrom || trunk.rangeTo || "—"}
-                      </td>
-                      <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{trunk.asteriskHost || "—"}</td>
-                      <td className="py-2 px-3">
-                        <div className="flex items-center gap-1 justify-end">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(trunk)} data-testid={`button-edit-trunk-${trunk.id}`}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(trunk.id)} data-testid={`button-delete-trunk-${trunk.id}`}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                    <>
+                      <tr
+                        key={trunk.id}
+                        className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
+                        data-testid={`row-trunk-${trunk.id}`}
+                        onClick={() => setExpandedRow(expandedRow === trunk.id ? null : trunk.id)}
+                      >
+                        <td className="py-2 px-4 text-muted-foreground">
+                          <span className="text-xs">{expandedRow === trunk.id ? "▼" : "▶"}</span>
+                        </td>
+                        <td className="py-2 px-3 font-medium font-mono text-xs">{trunk.name}</td>
+                        <td className="py-2 px-3">
+                          <Badge variant="outline" className="text-xs">{SERVICE_TYPE_LABELS[trunk.serviceType ?? ""] || trunk.serviceType || "—"}</Badge>
+                        </td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs max-w-[140px] truncate">{trunk.location || "—"}</td>
+                        <td className="py-2 px-3 text-xs font-mono max-w-[180px] truncate">{formatTrunkNumbers(trunk)}</td>
+                        <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{trunk.host || "—"}</td>
+                        <td className="py-2 px-3 text-muted-foreground text-xs">{trunk.username || "—"}</td>
+                        <td className="py-2 px-3 text-xs text-muted-foreground">
+                          {trunk.internalLines != null || trunk.externalLines != null
+                            ? `${trunk.internalLines ?? "?"}i / ${trunk.externalLines ?? "?"}e`
+                            : "—"}
+                        </td>
+                        <td className="py-2 px-3">{trunk.countryCode ? <Badge variant="secondary" className="text-xs">{trunk.countryCode}</Badge> : "—"}</td>
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(trunk)} data-testid={`button-edit-trunk-${trunk.id}`}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(trunk.id)} data-testid={`button-delete-trunk-${trunk.id}`}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                      {expandedRow === trunk.id && (
+                        <tr key={`${trunk.id}-exp`} className="bg-muted/10 border-b">
+                          <td colSpan={10} className="px-6 py-3">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                              {trunk.contractDate && (
+                                <div>
+                                  <span className="text-muted-foreground block">{tr.fieldContractDate}</span>
+                                  <span className="font-medium">{trunk.contractDate}</span>
+                                </div>
+                              )}
+                              {trunk.contractConditions && (
+                                <div className="col-span-2">
+                                  <span className="text-muted-foreground block">{tr.fieldContractConditions}</span>
+                                  <span className="font-medium">{trunk.contractConditions}</span>
+                                </div>
+                              )}
+                              {trunk.serviceDetail && (
+                                <div className="col-span-2">
+                                  <span className="text-muted-foreground block">{tr.fieldServiceDetail}</span>
+                                  <span className="font-medium">{trunk.serviceDetail}</span>
+                                </div>
+                              )}
+                              {trunk.alias && (
+                                <div>
+                                  <span className="text-muted-foreground block">{tr.fieldAlias}</span>
+                                  <span className="font-medium">{trunk.alias}</span>
+                                </div>
+                              )}
+                              {trunk.ivrCount != null && (
+                                <div>
+                                  <span className="text-muted-foreground block">{tr.fieldIvrCount}</span>
+                                  <span className="font-medium">{trunk.ivrCount}</span>
+                                </div>
+                              )}
+                              {trunk.asteriskHost && (
+                                <div>
+                                  <span className="text-muted-foreground block">{tr.fieldAsteriskHost}</span>
+                                  <span className="font-mono font-medium">{trunk.asteriskHost}</span>
+                                </div>
+                              )}
+                              {trunk.notes && (
+                                <div className="col-span-2 md:col-span-4">
+                                  <span className="text-muted-foreground block">{tr.fieldNotes}</span>
+                                  <span className="font-medium">{trunk.notes}</span>
+                                </div>
+                              )}
+                              {trunk.individualNumbers && trunk.individualNumbers.length > 0 && (
+                                <div className="col-span-2 md:col-span-4">
+                                  <span className="text-muted-foreground block mb-1">{tr.fieldIndividualNumbers} ({trunk.individualNumbers.length})</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {trunk.individualNumbers.map((n, i) => (
+                                      <Badge key={i} variant="secondary" className="font-mono text-xs">{n}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
@@ -1645,51 +1816,44 @@ function TrunksAndNumbersTab() {
               <CardDescription>{tr.numberMapDesc}</CardDescription>
             </div>
           </div>
-          <Button size="sm" variant="outline" onClick={() => refetchMap()} data-testid="button-refresh-nummap">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+          <Button size="sm" variant="outline" onClick={() => refetchMap()} disabled={loadingMap} data-testid="button-refresh-number-map">
+            <RefreshCw className={`h-4 w-4 mr-2 ${loadingMap ? "animate-spin" : ""}`} />
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loadingMap ? (
             <div className="flex items-center gap-2 text-muted-foreground py-6 justify-center">
               <Loader2 className="h-4 w-4 animate-spin" />
             </div>
           ) : mapError ? (
-            <div className="flex flex-col items-center gap-2 py-8 text-destructive">
-              <AlertCircle className="h-8 w-8 opacity-60" />
-              <p className="text-sm">Chyba pri načítaní — skontrolujte či je backend aktualizovaný na serveri</p>
-              <Button size="sm" variant="outline" onClick={() => refetchMap()}>Skúsiť znova</Button>
-            </div>
+            <div className="text-center py-6 text-destructive text-sm">Error loading number map.</div>
           ) : numberMap.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">{tr.noNumbers}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-muted-foreground text-xs uppercase">
+                  <tr className="border-b bg-muted/30 text-muted-foreground text-xs uppercase">
                     <th className="text-left py-2 px-3 font-medium">{tr.colType}</th>
                     <th className="text-left py-2 px-3 font-medium">{tr.colNumber}</th>
                     <th className="text-left py-2 px-3 font-medium">{tr.colLabel}</th>
-                    <th className="text-left py-2 px-3 font-medium">{tr.colCountry}</th>
                     <th className="text-left py-2 px-3 font-medium">{tr.colDetail}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colCountry}</th>
                     <th className="text-left py-2 px-3 font-medium">{tr.colStatus}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {numberMap.map((row, i) => (
-                    <tr key={i} className="border-b hover:bg-muted/40 transition-colors" data-testid={`row-nummap-${i}`}>
+                    <tr key={i} className="border-b hover:bg-muted/20 transition-colors" data-testid={`row-number-${i}`}>
                       <td className="py-2 px-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${TYPE_COLOR[row.type] ?? "bg-muted text-muted-foreground"}`}>
-                          {TYPE_LABEL[row.type] ?? row.type}
-                        </span>
+                        <Badge className={`text-xs ${TYPE_COLOR[row.type] || "bg-gray-100 text-gray-700"}`} variant="secondary">
+                          {TYPE_LABEL[row.type] || row.type}
+                        </Badge>
                       </td>
-                      <td className="py-2 px-3 font-mono font-medium text-xs">{row.number}</td>
-                      <td className="py-2 px-3 text-muted-foreground">{row.label || "—"}</td>
-                      <td className="py-2 px-3">
-                        {row.countryCode ? <Badge variant="secondary" className="text-xs">{row.countryCode}</Badge> : <span className="text-muted-foreground">—</span>}
-                      </td>
+                      <td className="py-2 px-3 font-mono text-xs font-medium">{row.number}</td>
+                      <td className="py-2 px-3 text-muted-foreground text-xs">{row.label}</td>
                       <td className="py-2 px-3 text-muted-foreground text-xs">{row.detail || "—"}</td>
+                      <td className="py-2 px-3">{row.countryCode ? <Badge variant="secondary" className="text-xs">{row.countryCode}</Badge> : "—"}</td>
                       <td className="py-2 px-3">
                         <Badge variant={row.active ? "default" : "secondary"} className="text-xs">
                           {row.active ? tr.active : tr.inactive}
@@ -1705,70 +1869,168 @@ function TrunksAndNumbersTab() {
       </Card>
 
       {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={open => { setDialogOpen(open); if (!open) { setEditing(null); setForm({ ...EMPTY_TRUNK }); } }}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={dialogOpen} onOpenChange={open => { if (!open) { setDialogOpen(false); setEditing(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? tr.editTrunk : tr.newTrunk}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
+          <div className="space-y-4">
+            {/* Basic info row */}
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Label htmlFor="trunk-name">{tr.fieldName} *</Label>
-                <Input id="trunk-name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="napr. SK-Main-Trunk" data-testid="input-trunk-name" />
+                <Input id="trunk-name" value={form.name} onChange={F("name")} placeholder="E90058110_VOC" data-testid="input-trunk-name" />
               </div>
               <div>
-                <Label htmlFor="trunk-type">{tr.fieldType}</Label>
-                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
-                  <SelectTrigger id="trunk-type" data-testid="select-trunk-type"><SelectValue /></SelectTrigger>
+                <Label htmlFor="trunk-service-type">{tr.fieldServiceType}</Label>
+                <Select value={form.serviceType} onValueChange={v => setForm(f => ({ ...f, serviceType: v as ServiceType }))}>
+                  <SelectTrigger id="trunk-service-type" data-testid="select-trunk-service-type">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {TRUNK_TYPES.map(tp => <SelectItem key={tp} value={tp}>{tp}</SelectItem>)}
+                    {SERVICE_TYPES.map(st => (
+                      <SelectItem key={st} value={st}>{SERVICE_TYPE_LABELS[st] || st}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="trunk-country">{tr.fieldCountry}</Label>
                 <Select value={form.countryCode || "__none__"} onValueChange={v => setForm(f => ({ ...f, countryCode: v === "__none__" ? "" : v }))}>
-                  <SelectTrigger id="trunk-country" data-testid="select-trunk-country"><SelectValue placeholder={tr.noCountry} /></SelectTrigger>
+                  <SelectTrigger id="trunk-country" data-testid="select-trunk-country">
+                    <SelectValue placeholder={tr.noCountry} />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">{tr.noCountry}</SelectItem>
                     {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name} ({c.code})</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2">
-                <Label htmlFor="trunk-host">{tr.fieldHost}</Label>
-                <Input id="trunk-host" value={form.host} onChange={e => setForm(f => ({ ...f, host: e.target.value }))} placeholder="sip.provider.com" data-testid="input-trunk-host" />
-              </div>
-              <div>
-                <Label htmlFor="trunk-username">{tr.fieldUsername}</Label>
-                <Input id="trunk-username" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="trunk_user" data-testid="input-trunk-username" />
-              </div>
-              <div>
-                <Label htmlFor="trunk-password">{tr.fieldPassword}</Label>
-                <div className="relative">
-                  <Input id="trunk-password" type={showPass ? "text" : "password"} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" data-testid="input-trunk-password" />
-                  <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-7 w-7" onClick={() => setShowPass(s => !s)}>
-                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </div>
+
+            {/* Tabs: Numbers | Details */}
+            <Tabs value={formTab} onValueChange={v => setFormTab(v as "numbers" | "details")}>
+              <TabsList className="w-full">
+                <TabsTrigger value="numbers" className="flex-1" data-testid="tab-form-numbers">{tr.tabNumbers}</TabsTrigger>
+                <TabsTrigger value="details" className="flex-1" data-testid="tab-form-details">{tr.tabDetails}</TabsTrigger>
+              </TabsList>
+
+              {/* Numbers Tab */}
+              <TabsContent value="numbers" className="space-y-3 mt-3">
+                {/* Number mode toggle */}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={numberMode === "individual" ? "default" : "outline"}
+                    onClick={() => setNumberMode("individual")}
+                    data-testid="button-mode-individual"
+                  >
+                    {tr.numberModeIndividual}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={numberMode === "range" ? "default" : "outline"}
+                    onClick={() => setNumberMode("range")}
+                    data-testid="button-mode-range"
+                  >
+                    {tr.numberModeRange}
                   </Button>
                 </div>
-              </div>
-              <div>
-                <Label htmlFor="trunk-range-from">{tr.fieldRangeFrom}</Label>
-                <Input id="trunk-range-from" value={form.rangeFrom} onChange={e => setForm(f => ({ ...f, rangeFrom: e.target.value }))} placeholder="+421900000000" data-testid="input-trunk-range-from" />
-              </div>
-              <div>
-                <Label htmlFor="trunk-range-to">{tr.fieldRangeTo}</Label>
-                <Input id="trunk-range-to" value={form.rangeTo} onChange={e => setForm(f => ({ ...f, rangeTo: e.target.value }))} placeholder="+421900999999" data-testid="input-trunk-range-to" />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="trunk-asterisk-host">{tr.fieldAsteriskHost}</Label>
-                <Input id="trunk-asterisk-host" value={form.asteriskHost} onChange={e => setForm(f => ({ ...f, asteriskHost: e.target.value }))} placeholder="10.1.2.112" data-testid="input-trunk-asterisk-host" />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="trunk-notes">{tr.fieldNotes}</Label>
-                <Input id="trunk-notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="..." data-testid="input-trunk-notes" />
-              </div>
-            </div>
+
+                {numberMode === "individual" ? (
+                  <div>
+                    <Label htmlFor="trunk-individual-numbers">{tr.fieldIndividualNumbers}</Label>
+                    <Textarea
+                      id="trunk-individual-numbers"
+                      value={form.individualNumbersText}
+                      onChange={F("individualNumbersText")}
+                      placeholder={"+40364716400\n+40364716401\n+40364716402"}
+                      rows={6}
+                      className="font-mono text-xs"
+                      data-testid="textarea-trunk-individual-numbers"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">{tr.fieldIndividualNumbersHint}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="trunk-range-from">{tr.fieldRangeFrom}</Label>
+                      <Input id="trunk-range-from" value={form.rangeFrom} onChange={F("rangeFrom")} placeholder="364716400" className="font-mono" data-testid="input-trunk-range-from" />
+                    </div>
+                    <div>
+                      <Label htmlFor="trunk-range-to">{tr.fieldRangeTo}</Label>
+                      <Input id="trunk-range-to" value={form.rangeTo} onChange={F("rangeTo")} placeholder="364716499" className="font-mono" data-testid="input-trunk-range-to" />
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Details Tab */}
+              <TabsContent value="details" className="space-y-3 mt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <Label htmlFor="trunk-location">{tr.fieldLocation}</Label>
+                    <Input id="trunk-location" value={form.location} onChange={F("location")} placeholder="Budova XY, Bratislava" data-testid="input-trunk-location" />
+                  </div>
+                  <div>
+                    <Label htmlFor="trunk-contract-date">{tr.fieldContractDate}</Label>
+                    <Input id="trunk-contract-date" type="date" value={form.contractDate} onChange={F("contractDate")} data-testid="input-trunk-contract-date" />
+                  </div>
+                  <div>
+                    <Label htmlFor="trunk-ivr-count">{tr.fieldIvrCount}</Label>
+                    <Input id="trunk-ivr-count" type="number" min="0" value={form.ivrCount} onChange={F("ivrCount")} placeholder="0" data-testid="input-trunk-ivr-count" />
+                  </div>
+                  <div>
+                    <Label htmlFor="trunk-internal-lines">{tr.fieldInternalLines}</Label>
+                    <Input id="trunk-internal-lines" type="number" min="0" value={form.internalLines} onChange={F("internalLines")} placeholder="0" data-testid="input-trunk-internal-lines" />
+                  </div>
+                  <div>
+                    <Label htmlFor="trunk-external-lines">{tr.fieldExternalLines}</Label>
+                    <Input id="trunk-external-lines" type="number" min="0" value={form.externalLines} onChange={F("externalLines")} placeholder="0" data-testid="input-trunk-external-lines" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="trunk-contract-conditions">{tr.fieldContractConditions}</Label>
+                    <Input id="trunk-contract-conditions" value={form.contractConditions} onChange={F("contractConditions")} placeholder="Dodatok č.1..." data-testid="input-trunk-contract-conditions" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="trunk-service-detail">{tr.fieldServiceDetail}</Label>
+                    <Input id="trunk-service-detail" value={form.serviceDetail} onChange={F("serviceDetail")} placeholder="Hlasová sieť..." data-testid="input-trunk-service-detail" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="trunk-host">{tr.fieldHost}</Label>
+                    <Input id="trunk-host" value={form.host} onChange={F("host")} placeholder="sip.eurovoice.sk" data-testid="input-trunk-host" />
+                  </div>
+                  <div>
+                    <Label htmlFor="trunk-alias">{tr.fieldAlias}</Label>
+                    <Input id="trunk-alias" value={form.alias} onChange={F("alias")} placeholder="alias@provider.com" data-testid="input-trunk-alias" />
+                  </div>
+                  <div>
+                    <Label htmlFor="trunk-username">{tr.fieldUsername}</Label>
+                    <Input id="trunk-username" value={form.username} onChange={F("username")} placeholder="trunk_user" data-testid="input-trunk-username" />
+                  </div>
+                  <div>
+                    <Label htmlFor="trunk-password">{tr.fieldPassword}</Label>
+                    <div className="relative">
+                      <Input id="trunk-password" type={showPass ? "text" : "password"} value={form.password} onChange={F("password")} placeholder="••••••••" data-testid="input-trunk-password" />
+                      <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-7 w-7" onClick={() => setShowPass(s => !s)}>
+                        {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="trunk-asterisk-host">{tr.fieldAsteriskHost}</Label>
+                    <Input id="trunk-asterisk-host" value={form.asteriskHost} onChange={F("asteriskHost")} placeholder="10.1.2.112" data-testid="input-trunk-asterisk-host" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="trunk-notes">{tr.fieldNotes}</Label>
+                    <Input id="trunk-notes" value={form.notes} onChange={F("notes")} placeholder="..." data-testid="input-trunk-notes" />
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-trunk-cancel">{tr.cancel}</Button>
               <Button onClick={() => saveMut.mutate(form)} disabled={!form.name.trim() || saveMut.isPending} data-testid="button-trunk-save">

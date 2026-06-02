@@ -7584,15 +7584,24 @@ export type InsertNexuspointSettings = z.infer<typeof insertNexuspointSettingsSc
 // =================== Trunks ===================
 export const trunks = pgTable("trunks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  type: text("type").notNull().default("SIP"), // SIP, IAX2, OTHER
-  host: text("host"),
-  username: text("username"),
-  password: text("password"),
+  name: text("name").notNull(), // Contract code / name
+  serviceType: text("service_type").notNull().default("SIP Trunk"), // Eurovoice, SIP Trunk, vPBX, ISDN, OTHER
+  location: text("location"), // Physical address (Locatie)
+  contractDate: text("contract_date"), // Data semnarii Contractului
+  contractConditions: text("contract_conditions"), // Conditii Speciale / Act Ad.
+  serviceDetail: text("service_detail"), // Detalii Serviciu (e.g. hostname label)
+  host: text("host"), // Server hostname (small.eurovoice.ro)
+  alias: text("alias"), // Alias / email
+  username: text("username"), // Nume Utilizator
+  password: text("password"), // Parola Initiala
+  internalLines: integer("internal_lines"), // nr. Linii interioare
+  externalLines: integer("external_lines"), // nr. Linii Exterioare / conv. Simultane
+  ivrCount: integer("ivr_count"), // cantitate IVR
   countryCode: text("country_code"),
   asteriskHost: text("asterisk_host"),
-  rangeFrom: text("range_from"),
-  rangeTo: text("range_to"),
+  rangeFrom: text("range_from"), // Number range start
+  rangeTo: text("range_to"), // Number range end
+  individualNumbers: text("individual_numbers").array(), // Individual phone numbers
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
