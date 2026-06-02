@@ -7580,3 +7580,23 @@ export const nexuspointSettings = pgTable("nexuspoint_settings", {
 export const insertNexuspointSettingsSchema = createInsertSchema(nexuspointSettings).omit({ id: true, createdAt: true, updatedAt: true });
 export type NexuspointSettings = typeof nexuspointSettings.$inferSelect;
 export type InsertNexuspointSettings = z.infer<typeof insertNexuspointSettingsSchema>;
+
+// =================== Trunks ===================
+export const trunks = pgTable("trunks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("SIP"), // SIP, IAX2, OTHER
+  host: text("host"),
+  username: text("username"),
+  password: text("password"),
+  countryCode: text("country_code"),
+  asteriskHost: text("asterisk_host"),
+  rangeFrom: text("range_from"),
+  rangeTo: text("range_to"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+export const insertTrunkSchema = createInsertSchema(trunks).omit({ id: true, createdAt: true, updatedAt: true });
+export type Trunk = typeof trunks.$inferSelect;
+export type InsertTrunk = z.infer<typeof insertTrunkSchema>;

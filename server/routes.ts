@@ -51,6 +51,8 @@ import {
   collaboratorDocuments,
   taskChecklistItems,
   collaboratorAgreements,
+  trunks,
+  insertTrunkSchema,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -26574,6 +26576,116 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to get outbound caller ID:", error);
       res.status(500).json({ error: "Failed to get outbound caller ID" });
+    }
+  });
+
+  // =================== Trunks CRUD ===================
+  app.get("/api/trunks", requireAuth, async (req, res) => {
+    try {
+      const rows = await db.select().from(trunks).orderBy(asc(trunks.name));
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/trunks", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertTrunkSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      const [row] = await db.insert(trunks).values(parsed.data).returning();
+      res.json(row);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/trunks/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const parsed = insertTrunkSchema.partial().safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      const [row] = await db.update(trunks).set({ ...parsed.data, updatedAt: new Date() }).where(eq(trunks.id, id)).returning();
+      if (!row) return res.status(404).json({ error: "Trunk not found" });
+      res.json(row);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/trunks/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(trunks).where(eq(trunks.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // =================== Number Mapping (read-only overview) ===================
+  app.get("/api/number-mapping", requireAuth, async (req, res) => {
+    try {
+      const [didRows, outboundRows, forwardRows] = await Promise.all([
+        db.select({
+          id: didRoutes.id,
+          number: didRoutes.didNumber,
+          name: didRoutes.name,
+          countryCode: didRoutes.countryCode,
+          detail: didRoutes.action,
+          isActive: didRoutes.isActive,
+        }).from(didRoutes).orderBy(asc(didRoutes.didNumber)),
+
+        db.select({
+          id: collaborators.id,
+          number: collaborators.outboundCallerId,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          countryCode: collaborators.countryCode,
+        }).from(collaborators)
+          .where(isNotNull(collaborators.outboundCallerId))
+          .orderBy(asc(collaborators.outboundCallerId)),
+
+        db.select({
+          id: collaborators.id,
+          number: collaborators.callForwardingNumber,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          countryCode: collaborators.countryCode,
+          enabled: collaborators.callForwardingEnabled,
+        }).from(collaborators)
+          .where(and(isNotNull(collaborators.callForwardingNumber), eq(collaborators.callForwardingEnabled, true)))
+          .orderBy(asc(collaborators.callForwardingNumber)),
+      ]);
+
+      const result = [
+        ...didRows.map(r => ({
+          type: "DID Route",
+          number: r.number,
+          label: r.name || r.number,
+          countryCode: r.countryCode,
+          detail: r.detail,
+          active: r.isActive,
+        })),
+        ...outboundRows.map(r => ({
+          type: "Outbound CallerID",
+          number: r.number!,
+          label: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim(),
+          countryCode: r.countryCode,
+          detail: null,
+          active: true,
+        })),
+        ...forwardRows.map(r => ({
+          type: "Call Forwarding",
+          number: r.number!,
+          label: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim(),
+          countryCode: r.countryCode,
+          detail: null,
+          active: r.enabled,
+        })),
+      ];
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 
