@@ -1499,6 +1499,8 @@ const TRUNK_TYPES = ["SIP", "IAX2", "OTHER"] as const;
 const EMPTY_TRUNK = { name: "", type: "SIP", host: "", username: "", password: "", countryCode: "", asteriskHost: "", rangeFrom: "", rangeTo: "", notes: "" };
 
 function TrunksAndNumbersTab() {
+  const { t } = useI18n();
+  const tr = t.settings.trunks;
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Trunk | null>(null);
@@ -1507,7 +1509,7 @@ function TrunksAndNumbersTab() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: trunkList = [], isLoading: loadingTrunks } = useQuery<Trunk[]>({ queryKey: ["/api/trunks"] });
-  const { data: numberMap = [], isLoading: loadingMap } = useQuery<NumberMappingRow[]>({ queryKey: ["/api/number-mapping"] });
+  const { data: numberMap = [], isLoading: loadingMap, isError: mapError, refetch: refetchMap } = useQuery<NumberMappingRow[]>({ queryKey: ["/api/number-mapping"] });
 
   const saveMut = useMutation({
     mutationFn: async (data: typeof EMPTY_TRUNK) => {
@@ -1519,11 +1521,12 @@ function TrunksAndNumbersTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trunks"] });
       setDialogOpen(false);
+      const wasEditing = editing;
       setEditing(null);
       setForm({ ...EMPTY_TRUNK });
-      toast({ title: editing ? "Trunk aktualizovaný" : "Trunk pridaný" });
+      toast({ title: wasEditing ? tr.updated : tr.added });
     },
-    onError: () => toast({ title: "Chyba pri ukladaní", variant: "destructive" }),
+    onError: () => toast({ title: tr.errorSave, variant: "destructive" }),
   });
 
   const deleteMut = useMutation({
@@ -1531,25 +1534,29 @@ function TrunksAndNumbersTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trunks"] });
       setDeleteId(null);
-      toast({ title: "Trunk vymazaný" });
+      toast({ title: tr.deleted });
     },
-    onError: () => toast({ title: "Chyba pri mazaní", variant: "destructive" }),
+    onError: () => toast({ title: tr.errorDelete, variant: "destructive" }),
   });
 
   const openAdd = () => { setEditing(null); setForm({ ...EMPTY_TRUNK }); setShowPass(false); setDialogOpen(true); };
-  const openEdit = (t: Trunk) => {
-    setEditing(t);
-    setForm({ name: t.name, type: t.type, host: t.host || "", username: t.username || "", password: t.password || "", countryCode: t.countryCode || "", asteriskHost: t.asteriskHost || "", rangeFrom: t.rangeFrom || "", rangeTo: t.rangeTo || "", notes: t.notes || "" });
+  const openEdit = (trunk: Trunk) => {
+    setEditing(trunk);
+    setForm({ name: trunk.name, type: trunk.type, host: trunk.host || "", username: trunk.username || "", password: trunk.password || "", countryCode: trunk.countryCode || "", asteriskHost: trunk.asteriskHost || "", rangeFrom: trunk.rangeFrom || "", rangeTo: trunk.rangeTo || "", notes: trunk.notes || "" });
     setShowPass(false);
     setDialogOpen(true);
   };
-
-  const getCountryName = (code: string | null) => COUNTRIES.find(c => c.code === code)?.name ?? code ?? "—";
 
   const TYPE_COLOR: Record<string, string> = {
     "DID Route": "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
     "Outbound CallerID": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
     "Call Forwarding": "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+  };
+
+  const TYPE_LABEL: Record<string, string> = {
+    "DID Route": tr.typeDID,
+    "Outbound CallerID": tr.typeOutbound,
+    "Call Forwarding": tr.typeForwarding,
   };
 
   return (
@@ -1562,57 +1569,57 @@ function TrunksAndNumbersTab() {
               <Network className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle>Trunky</CardTitle>
-              <CardDescription>Konfigurácia SIP/IAX2 trunk pripojení k Asterisk serveru</CardDescription>
+              <CardTitle>{tr.title}</CardTitle>
+              <CardDescription>{tr.description}</CardDescription>
             </div>
           </div>
           <Button size="sm" onClick={openAdd} data-testid="button-add-trunk">
-            <Plus className="h-4 w-4 mr-2" /> Pridať trunk
+            <Plus className="h-4 w-4 mr-2" /> {tr.addTrunk}
           </Button>
         </CardHeader>
         <CardContent>
           {loadingTrunks ? (
             <div className="flex items-center gap-2 text-muted-foreground py-6 justify-center">
-              <Loader2 className="h-4 w-4 animate-spin" /> Načítavam...
+              <Loader2 className="h-4 w-4 animate-spin" />
             </div>
           ) : trunkList.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Network className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Žiadne trunky. Pridajte prvý trunk kliknutím na tlačidlo vyššie.</p>
+              <p className="text-sm">{tr.noTrunks}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-muted-foreground text-xs uppercase">
-                    <th className="text-left py-2 px-3 font-medium">Názov</th>
-                    <th className="text-left py-2 px-3 font-medium">Typ</th>
-                    <th className="text-left py-2 px-3 font-medium">Host</th>
-                    <th className="text-left py-2 px-3 font-medium">Krajina</th>
-                    <th className="text-left py-2 px-3 font-medium">Rozsah čísel</th>
-                    <th className="text-left py-2 px-3 font-medium">Asterisk server</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colName}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colType}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colHost}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colCountry}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colRange}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colAsterisk}</th>
                     <th className="py-2 px-3" />
                   </tr>
                 </thead>
                 <tbody>
-                  {trunkList.map(tr => (
-                    <tr key={tr.id} className="border-b hover:bg-muted/40 transition-colors" data-testid={`row-trunk-${tr.id}`}>
-                      <td className="py-2 px-3 font-medium">{tr.name}</td>
+                  {trunkList.map(trunk => (
+                    <tr key={trunk.id} className="border-b hover:bg-muted/40 transition-colors" data-testid={`row-trunk-${trunk.id}`}>
+                      <td className="py-2 px-3 font-medium">{trunk.name}</td>
                       <td className="py-2 px-3">
-                        <Badge variant="outline">{tr.type}</Badge>
+                        <Badge variant="outline">{trunk.type}</Badge>
                       </td>
-                      <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{tr.host || "—"}</td>
-                      <td className="py-2 px-3">{tr.countryCode ? <Badge variant="secondary">{tr.countryCode}</Badge> : "—"}</td>
+                      <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{trunk.host || "—"}</td>
+                      <td className="py-2 px-3">{trunk.countryCode ? <Badge variant="secondary">{trunk.countryCode}</Badge> : "—"}</td>
                       <td className="py-2 px-3 text-muted-foreground text-xs">
-                        {tr.rangeFrom && tr.rangeTo ? `${tr.rangeFrom} – ${tr.rangeTo}` : tr.rangeFrom || tr.rangeTo || "—"}
+                        {trunk.rangeFrom && trunk.rangeTo ? `${trunk.rangeFrom} – ${trunk.rangeTo}` : trunk.rangeFrom || trunk.rangeTo || "—"}
                       </td>
-                      <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{tr.asteriskHost || "—"}</td>
+                      <td className="py-2 px-3 text-muted-foreground font-mono text-xs">{trunk.asteriskHost || "—"}</td>
                       <td className="py-2 px-3">
                         <div className="flex items-center gap-1 justify-end">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(tr)} data-testid={`button-edit-trunk-${tr.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(trunk)} data-testid={`button-edit-trunk-${trunk.id}`}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(tr.id)} data-testid={`button-delete-trunk-${tr.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(trunk.id)} data-testid={`button-delete-trunk-${trunk.id}`}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -1628,33 +1635,45 @@ function TrunksAndNumbersTab() {
 
       {/* Number Mapping Table */}
       <Card>
-        <CardHeader className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Hash className="h-5 w-5 text-primary" />
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Hash className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle>{tr.numberMap}</CardTitle>
+              <CardDescription>{tr.numberMapDesc}</CardDescription>
+            </div>
           </div>
-          <div>
-            <CardTitle>Mapa čísel</CardTitle>
-            <CardDescription>Prehľad všetkých čísel ktoré INDEXUS aktuálne používa — DID routy, outbound CallerID a call forwarding čísla</CardDescription>
-          </div>
+          <Button size="sm" variant="outline" onClick={() => refetchMap()} data-testid="button-refresh-nummap">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </CardHeader>
         <CardContent>
           {loadingMap ? (
             <div className="flex items-center gap-2 text-muted-foreground py-6 justify-center">
-              <Loader2 className="h-4 w-4 animate-spin" /> Načítavam...
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+          ) : mapError ? (
+            <div className="flex flex-col items-center gap-2 py-8 text-destructive">
+              <AlertCircle className="h-8 w-8 opacity-60" />
+              <p className="text-sm">Chyba pri načítaní — skontrolujte či je backend aktualizovaný na serveri</p>
+              <Button size="sm" variant="outline" onClick={() => refetchMap()}>Skúsiť znova</Button>
             </div>
           ) : numberMap.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">Žiadne čísla v systéme</div>
+            <div className="text-center py-8 text-muted-foreground text-sm">{tr.noNumbers}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-muted-foreground text-xs uppercase">
-                    <th className="text-left py-2 px-3 font-medium">Typ</th>
-                    <th className="text-left py-2 px-3 font-medium">Číslo</th>
-                    <th className="text-left py-2 px-3 font-medium">Popis / Kolaborátor</th>
-                    <th className="text-left py-2 px-3 font-medium">Krajina</th>
-                    <th className="text-left py-2 px-3 font-medium">Detail</th>
-                    <th className="text-left py-2 px-3 font-medium">Stav</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colType}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colNumber}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colLabel}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colCountry}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colDetail}</th>
+                    <th className="text-left py-2 px-3 font-medium">{tr.colStatus}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1662,7 +1681,7 @@ function TrunksAndNumbersTab() {
                     <tr key={i} className="border-b hover:bg-muted/40 transition-colors" data-testid={`row-nummap-${i}`}>
                       <td className="py-2 px-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${TYPE_COLOR[row.type] ?? "bg-muted text-muted-foreground"}`}>
-                          {row.type}
+                          {TYPE_LABEL[row.type] ?? row.type}
                         </span>
                       </td>
                       <td className="py-2 px-3 font-mono font-medium text-xs">{row.number}</td>
@@ -1673,7 +1692,7 @@ function TrunksAndNumbersTab() {
                       <td className="py-2 px-3 text-muted-foreground text-xs">{row.detail || "—"}</td>
                       <td className="py-2 px-3">
                         <Badge variant={row.active ? "default" : "secondary"} className="text-xs">
-                          {row.active ? "Aktívne" : "Neaktívne"}
+                          {row.active ? tr.active : tr.inactive}
                         </Badge>
                       </td>
                     </tr>
@@ -1689,43 +1708,43 @@ function TrunksAndNumbersTab() {
       <Dialog open={dialogOpen} onOpenChange={open => { setDialogOpen(open); if (!open) { setEditing(null); setForm({ ...EMPTY_TRUNK }); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? "Upraviť trunk" : "Nový trunk"}</DialogTitle>
+            <DialogTitle>{editing ? tr.editTrunk : tr.newTrunk}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <Label htmlFor="trunk-name">Názov *</Label>
+                <Label htmlFor="trunk-name">{tr.fieldName} *</Label>
                 <Input id="trunk-name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="napr. SK-Main-Trunk" data-testid="input-trunk-name" />
               </div>
               <div>
-                <Label htmlFor="trunk-type">Typ</Label>
+                <Label htmlFor="trunk-type">{tr.fieldType}</Label>
                 <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
                   <SelectTrigger id="trunk-type" data-testid="select-trunk-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {TRUNK_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    {TRUNK_TYPES.map(tp => <SelectItem key={tp} value={tp}>{tp}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="trunk-country">Krajina</Label>
+                <Label htmlFor="trunk-country">{tr.fieldCountry}</Label>
                 <Select value={form.countryCode || "__none__"} onValueChange={v => setForm(f => ({ ...f, countryCode: v === "__none__" ? "" : v }))}>
-                  <SelectTrigger id="trunk-country" data-testid="select-trunk-country"><SelectValue placeholder="Vyberte krajinu" /></SelectTrigger>
+                  <SelectTrigger id="trunk-country" data-testid="select-trunk-country"><SelectValue placeholder={tr.noCountry} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— Bez krajiny —</SelectItem>
+                    <SelectItem value="__none__">{tr.noCountry}</SelectItem>
                     {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name} ({c.code})</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="col-span-2">
-                <Label htmlFor="trunk-host">Host / IP</Label>
+                <Label htmlFor="trunk-host">{tr.fieldHost}</Label>
                 <Input id="trunk-host" value={form.host} onChange={e => setForm(f => ({ ...f, host: e.target.value }))} placeholder="sip.provider.com" data-testid="input-trunk-host" />
               </div>
               <div>
-                <Label htmlFor="trunk-username">Meno (username)</Label>
+                <Label htmlFor="trunk-username">{tr.fieldUsername}</Label>
                 <Input id="trunk-username" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="trunk_user" data-testid="input-trunk-username" />
               </div>
               <div>
-                <Label htmlFor="trunk-password">Heslo</Label>
+                <Label htmlFor="trunk-password">{tr.fieldPassword}</Label>
                 <div className="relative">
                   <Input id="trunk-password" type={showPass ? "text" : "password"} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" data-testid="input-trunk-password" />
                   <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-7 w-7" onClick={() => setShowPass(s => !s)}>
@@ -1734,27 +1753,27 @@ function TrunksAndNumbersTab() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="trunk-range-from">Rozsah čísel od</Label>
+                <Label htmlFor="trunk-range-from">{tr.fieldRangeFrom}</Label>
                 <Input id="trunk-range-from" value={form.rangeFrom} onChange={e => setForm(f => ({ ...f, rangeFrom: e.target.value }))} placeholder="+421900000000" data-testid="input-trunk-range-from" />
               </div>
               <div>
-                <Label htmlFor="trunk-range-to">Rozsah čísel do</Label>
+                <Label htmlFor="trunk-range-to">{tr.fieldRangeTo}</Label>
                 <Input id="trunk-range-to" value={form.rangeTo} onChange={e => setForm(f => ({ ...f, rangeTo: e.target.value }))} placeholder="+421900999999" data-testid="input-trunk-range-to" />
               </div>
               <div className="col-span-2">
-                <Label htmlFor="trunk-asterisk-host">Adresa Asterisk servera</Label>
+                <Label htmlFor="trunk-asterisk-host">{tr.fieldAsteriskHost}</Label>
                 <Input id="trunk-asterisk-host" value={form.asteriskHost} onChange={e => setForm(f => ({ ...f, asteriskHost: e.target.value }))} placeholder="10.1.2.112" data-testid="input-trunk-asterisk-host" />
               </div>
               <div className="col-span-2">
-                <Label htmlFor="trunk-notes">Poznámky</Label>
-                <Input id="trunk-notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Voliteľné poznámky..." data-testid="input-trunk-notes" />
+                <Label htmlFor="trunk-notes">{tr.fieldNotes}</Label>
+                <Input id="trunk-notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="..." data-testid="input-trunk-notes" />
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-trunk-cancel">Zrušiť</Button>
+              <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-trunk-cancel">{tr.cancel}</Button>
               <Button onClick={() => saveMut.mutate(form)} disabled={!form.name.trim() || saveMut.isPending} data-testid="button-trunk-save">
                 {saveMut.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                {editing ? "Uložiť zmeny" : "Pridať trunk"}
+                {editing ? tr.saveChanges : tr.addTrunk}
               </Button>
             </div>
           </div>
@@ -1765,13 +1784,13 @@ function TrunksAndNumbersTab() {
       <AlertDialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Vymazať trunk?</AlertDialogTitle>
-            <AlertDialogDescription>Táto akcia je nevratná. Trunk bude permanentne vymazaný.</AlertDialogDescription>
+            <AlertDialogTitle>{tr.deleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{tr.deleteDesc}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Zrušiť</AlertDialogCancel>
+            <AlertDialogCancel>{tr.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteId && deleteMut.mutate(deleteId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Vymazať
+              {tr.deleteTitle.replace("?", "")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1800,7 +1819,7 @@ function SipPhoneSection() {
         </TabsTrigger>
         <TabsTrigger value="trunks" data-testid="tab-trunks">
           <Network className="h-4 w-4 mr-2" />
-          Trunks &amp; čísla
+          {t.settings.trunks.tabLabel}
         </TabsTrigger>
       </TabsList>
       <TabsContent value="sip-server" className="mt-4">
