@@ -53,6 +53,7 @@ import {
   collaboratorAgreements,
   trunks,
   insertTrunkSchema,
+  didRoutes,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
