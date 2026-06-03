@@ -2764,18 +2764,6 @@ export class QueueEngine extends EventEmitter {
 
       console.log(`[QueueEngine] Both channels added to bridge ${bridge.id}`);
 
-      setTimeout(async () => {
-        try {
-          console.log(`[QueueEngine] RTP path refresh: hold on caller ${pending.callerChannelId}`);
-          await this.ariClient.holdChannel(pending.callerChannelId);
-          await new Promise(resolve => setTimeout(resolve, 500));
-          await this.ariClient.unholdChannel(pending.callerChannelId);
-          console.log(`[QueueEngine] RTP path refresh done for caller ${pending.callerChannelId}`);
-        } catch (err: any) {
-          console.warn(`[QueueEngine] RTP refresh (non-critical):`, err.message);
-        }
-      }, 2000);
-
       this.activeBridges.set(pending.callerChannelId, {
         bridgeId: bridge.id,
         callerChannelId: pending.callerChannelId,
@@ -2840,18 +2828,6 @@ export class QueueEngine extends EventEmitter {
         if (waitingCall) {
           waitingCall.bridgeId = bridge.id;
         }
-
-        setTimeout(async () => {
-          try {
-            console.log(`[QueueEngine] RTP path refresh: hold on caller ${callerChannelId}`);
-            await this.ariClient.holdChannel(callerChannelId);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            await this.ariClient.unholdChannel(callerChannelId);
-            console.log(`[QueueEngine] RTP path refresh done for caller ${callerChannelId}`);
-          } catch (err: any) {
-            console.warn(`[QueueEngine] RTP refresh (non-critical):`, err.message);
-          }
-        }, 2000);
       } catch (err) {
         console.error("[QueueEngine] Failed to bridge channels:", err);
       }
