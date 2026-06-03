@@ -1,0 +1,148 @@
+seman@mediagtw:~$ sudo asterisk -rx "pjsip show endpoint trunk-ro-endpoint" | grep -i "direct\|media\|nat\|rtp"
+ asymmetric_rtp_codec               : false
+ bind_rtp_to_media_address          : false
+ direct_media                       : false
+ direct_media_glare_mitigation      : none
+ direct_media_method                : invite
+ disable_direct_media_on_nat        : false
+ follow_early_media_fork            : true
+ follow_redirect_methods            :
+ from_user                          : mediagtw
+ media_address                      :
+ media_encryption                   : no
+ media_encryption_optimistic        : false
+ media_use_received_transport       : false
+ redirect_method                    : user
+ rpid_immediate                     : false
+ rtp_engine                         : asterisk
+ rtp_ipv6                           : false
+ rtp_keepalive                      : 15
+ rtp_symmetric                      : true
+ rtp_timeout                        : 60
+ rtp_timeout_hold                   : 0
+ srtp_tag_32                        : false
+ t38_bind_udptl_to_media_address    : false
+ t38_udptl_nat                      : false
+seman@mediagtw:~$ sudo grep -rn "trunk-ro-endpoint" /etc/asterisk/
+/etc/asterisk/pjsip.conf.before-final-generator.bak:69:[trunk-ro-endpoint]
+/etc/asterisk/pjsip.conf.before-final-generator.bak:83:endpoint=trunk-ro-endpoint
+/etc/asterisk/pjsip.conf:75:;[trunk-ro-endpoint]
+/etc/asterisk/pjsip.conf:92:[trunk-ro-endpoint]
+/etc/asterisk/pjsip.conf:122:endpoint=trunk-ro-endpoint
+/etc/asterisk/pjsip.conf.before-working-generator.bak:69:[trunk-ro-endpoint]
+/etc/asterisk/pjsip.conf.before-working-generator.bak:83:endpoint=trunk-ro-endpoint
+/etc/asterisk/extensions.conf.bak_answer_fix_2026-03-12_14-18-16:144: same => n,Dial(PJSIP/${EXTEN}@trunk-ro-endpoint,60)
+/etc/asterisk/extensions.conf:229: same => n,Dial(PJSIP/${OUTNUM}@trunk-ro-endpoint,60)
+/etc/asterisk/extensions.conf:330: same => n,Dial(PJSIP/${OUTNUM}@trunk-ro-endpoint,60)
+/etc/asterisk/extensions.conf:337: same => n,Dial(PJSIP/${EXTEN}@trunk-ro-endpoint,60)
+/etc/asterisk/extensions.conf.bak_2026-03-12_13-16-05:997: same => n,Dial(PJSIP/${EXTEN}@trunk-ro-endpoint,60)
+/etc/asterisk/pjsip.conf.before-expiration-fix.bak:68:[trunk-ro-endpoint]
+/etc/asterisk/pjsip.conf.before-expiration-fix.bak:82:endpoint=trunk-ro-endpoint
+/etc/asterisk/extensions.conf.bak_norm_2026-03-12_15-21-14:153: same => n,Dial(PJSIP/${EXTEN}@trunk-ro-endpoint,60)
+/etc/asterisk/extensions.conf.bak:997: same => n,Dial(PJSIP/${EXTEN}@trunk-ro-endpoint,60)
+/etc/asterisk/pjsip.conf.bad-template.bak:69:[trunk-ro-endpoint]
+/etc/asterisk/pjsip.conf.bad-template.bak:83:endpoint=trunk-ro-endpoint
+/etc/asterisk/extensions.conf.bak_2026-03-12_14-46-32:143: same => n,Dial(PJSIP/${EXTEN}@trunk-ro-endpoint,60)
+/etc/asterisk/pjsip.conf.bak_2026-03-13_11-51-32:71:[trunk-ro-endpoint]
+/etc/asterisk/pjsip.conf.bak_2026-03-13_11-51-32:85:endpoint=trunk-ro-endpoint
+seman@mediagtw:~$ sed -n '88,140p' /etc/asterisk/pjsip.conf
+;rtp_keepalive=15
+;rtp_timeout=60
+;media_address=10.1.2.112
+
+[trunk-ro-endpoint]
+type=endpoint
+transport=transport-udp
+context=from-ro-trunk
+disallow=all
+allow=ulaw,alaw
+aors=trunk-ro-aor
+
+direct_media=no
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
+timers=no
+rtp_keepalive=15
+rtp_timeout=60
+
+; Dôležité:
+; aby RO chan_sip matchol peer [mediagtw], nie peer podľa CallerID čísla
+from_user=mediagtw
+from_domain=10.1.2.112
+
+; pre interný trunk nepoužívaj media_address=10.1.2.112, ak to netreba
+; media_address=10.1.2.112
+
+trust_id_outbound=yes
+send_pai=yes
+send_rpid=yes
+
+[trunk-ro-identify]
+type=identify
+endpoint=trunk-ro-endpoint
+match=10.33.0.55
+
+
+; =========================================================
+; SK CALL CENTER USERS: 2001 - 2030
+; =========================================================
+
+[2001]
+type=aor
+max_contacts=1
+remove_existing=yes
+qualify_frequency=30
+qualify_timeout=3.0
+default_expiration=600
+minimum_expiration=300
+maximum_expiration=3600
+remove_unavailable=no
+
+seman@mediagtw:~$ sudo asterisk -rx "pjsip show endpoint trunk-ro-endpoint" | grep -i "codec\|allow\|disallow\|transport\|media_address\|local\|contact"
+        Aor:  <Aor............................................>  <MaxContact>
+      Contact:  <Aor/ContactUri..........................> <Hash....> <Status> <RTT(ms)..>
+  Transport:  <TransportId........>  <Type>  <cos>  <tos>  <BindAddress..................>
+      Contact:  trunk-ro-aor/sip:10.33.0.55:5060           712c5b2806 Avail        36.617
+  Transport:  transport-udp             udp      0      0  0.0.0.0:5060
+ allow                              : (ulaw|alaw)
+ allow_overlap                      : true
+ allow_subscribe                    : true
+ allow_transfer                     : true
+ allow_unauthenticated_options      : false
+ asymmetric_rtp_codec               : false
+ bind_rtp_to_media_address          : false
+ callerid_privacy                   : allowed_not_screened
+ codec_prefs_incoming_answer        : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_incoming_offer         : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_outgoing_answer        : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_outgoing_offer         : prefer:pending, operation:union, keep:all, transcode:allow
+ contact_acl                        :
+ incoming_call_offer_pref           : local
+ media_address                      :
+ media_use_received_transport       : false
+ preferred_codec_only               : false
+ rewrite_contact                    : true
+ t38_bind_udptl_to_media_address    : false
+ transport                          : transport-udp
+seman@mediagtw:~$ sudo asterisk -rx "pjsip show endpoint trunk-sk-endpoint" | grep -i "codec\|allow\|disallow\|transport\|media_address"
+  Transport:  <TransportId........>  <Type>  <cos>  <tos>  <BindAddress..................>
+  Transport:  transport-udp             udp      0      0  0.0.0.0:5060
+ allow                              : (ulaw|alaw)
+ allow_overlap                      : true
+ allow_subscribe                    : true
+ allow_transfer                     : true
+ allow_unauthenticated_options      : false
+ asymmetric_rtp_codec               : false
+ bind_rtp_to_media_address          : false
+ callerid_privacy                   : allowed_not_screened
+ codec_prefs_incoming_answer        : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_incoming_offer         : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_outgoing_answer        : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_outgoing_offer         : prefer:pending, operation:union, keep:all, transcode:allow
+ media_address                      :
+ media_use_received_transport       : false
+ preferred_codec_only               : false
+ t38_bind_udptl_to_media_address    : false
+ transport                          : transport-udp
+seman@mediagt
