@@ -1,0 +1,33 @@
+[root@diallog ~]# sudo asterisk -rx "sip set debug on"
+Usage: sip set debug
+       Enables dumping of SIP packets for debugging purposes
+
+       sip set debug ip <host[:PORT]>
+       Enables dumping of SIP packets to and from host.
+
+       sip set debug peer <peername>
+       Enables dumping of SIP packets to and from host.
+       Require peer to be registered.
+[Jun  3 17:27:43] VERBOSE[22634] logger.c:     -- Remote UNIX connection
+[root@diallog ~]# sudo tail -f /var/log/asterisk/messages | grep -E "SDP|c=IN|m=audio|RTP|rtpaddr"[Jun  3 17:27:44] VERBOSE[23471] logger.c:     -- Remote UNIX connection disconnected
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- Executing [364716410@trunkinbound:1] NoOp("SIP/dp_800008121-00000a87", "RO DID 364716410 redirect to from-ro-inbound FROM=491723627488 UNIQUEID=1780496874.13992") in new stack
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- Executing [364716410@trunkinbound:2] Goto("SIP/dp_800008121-00000a87", "from-ro-inbound|364716410|1") in new stack
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- Goto (from-ro-inbound,364716410,1)
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- Executing [364716410@from-ro-inbound:1] NoOp("SIP/dp_800008121-00000a87", "INDEXUS OVERRIDE TO MEDIAGTW RO DID=364716410 FROM=491723627488 UNIQUEID=1780496874.13992") in new stack
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- Executing [364716410@from-ro-inbound:2] Set("SIP/dp_800008121-00000a87", "__DID_INB=364716410") in new stack
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- Executing [364716410@from-ro-inbound:3] Set("SIP/dp_800008121-00000a87", "__DID_Date=03-06-2026 17:27:54") in new stack
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- Executing [364716410@from-ro-inbound:4] Set("SIP/dp_800008121-00000a87", "__CBC_SOURCE_TRUNK=RO") in new stack
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- Executing [364716410@from-ro-inbound:5] Dial("SIP/dp_800008121-00000a87", "SIP/mediagtw/364716410|60") in new stack
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- Called mediagtw/364716410
+[Jun  3 17:27:54] VERBOSE[23483] logger.c:     -- SIP/mediagtw-00000a88 answered SIP/dp_800008121-00000a87
+[Jun  3 17:27:56] VERBOSE[22640] logger.c:   == Refreshing DNS lookups.
+[Jun  3 17:28:01] VERBOSE[23511] logger.c:   == Parsing '/etc/asterisk/manager.conf': [Jun  3 17:28:01] VERBOSE[23511] logger.c: Found
+[Jun  3 17:28:01] VERBOSE[23511] logger.c:   == Manager 'sendcron' logged on from 127.0.0.1
+[Jun  3 17:28:01] VERBOSE[23512] logger.c:   == Parsing '/etc/asterisk/manager.conf': [Jun  3 17:28:01] VERBOSE[23512] logger.c: Found
+[Jun  3 17:28:01] VERBOSE[23512] logger.c:   == Manager 'sendcron' logged on from 127.0.0.1
+[Jun  3 17:28:01] VERBOSE[23512] logger.c:   == Manager 'sendcron' logged off from 127.0.0.1
+[Jun  3 17:28:05] VERBOSE[23511] logger.c:   == Manager 'sendcron' logged off from 127.0.0.1
+[Jun  3 17:28:06] VERBOSE[23519] logger.c:   == Parsing '/etc/asterisk/manager.conf': [Jun  3 17:28:06] VERBOSE[23519] logger.c: Found
+[Jun  3 17:28:06] VERBOSE[23519] logger.c:   == Manager 'sendcron' logged on from 127.0.0.1
+[Jun  3 17:28:06] VERBOSE[23519] logger.c:   == Manager 'sendcron' logged off from 127.0.0.1
+[Jun  3 17:28:14] VERBOSE[23483] logger.c:   == Spawn extension (from-ro-inbound, 364716410, 5) exited non-zero on 'SIP/dp_800008121-00000a87'
