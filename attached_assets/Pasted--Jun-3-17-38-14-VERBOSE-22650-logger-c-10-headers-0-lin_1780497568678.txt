@@ -1,0 +1,583 @@
+<------------->
+[Jun  3 17:38:14] VERBOSE[22650] logger.c: --- (10 headers 0 lines) ---
+[Jun  3 17:38:14] VERBOSE[22650] logger.c: Really destroying SIP dialog '3d4273ba780353113c4498ed2ec6d78a@10.33.0.55' Method: OPTIONS
+[Jun  3 17:38:15] VERBOSE[22650] logger.c: Really destroying SIP dialog '29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55' Method: REGISTER
+[Jun  3 17:38:19] VERBOSE[22650] logger.c: Really destroying SIP dialog '5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55' Method: REGISTER
+[Jun  3 17:38:28] NOTICE[22650] chan_sip.c:    -- Re-registration for  364716410@cbc.eurovoice.ro
+[Jun  3 17:38:28] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 364716410@cbc.eurovoice.ro
+[Jun  3 17:38:28] VERBOSE[22650] logger.c: REGISTER 12 headers, 0 lines
+[Jun  3 17:38:28] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+REGISTER sip:cbc.eurovoice.ro SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK22db5adb;rport
+From: <sip:364716410@cbc.eurovoice.ro>;tag=as5d4fd8e2
+To: <sip:364716410@cbc.eurovoice.ro>
+Call-ID: 29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55
+CSeq: 156 REGISTER
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Authorization: Digest username="364716410", realm="cbc.eurovoice.ro", algorithm=MD5, uri="sip:cbc.eurovoice.ro", nonce="6a203c55f1999ba4e28d663d95e8fb6d22a4a65f", response="3be143fcda7aa18dac827a66927bc605"
+Expires: 60
+Contact: <sip:364716410@10.33.0.55>
+Event: registration
+Content-Length: 0
+
+
+---
+[Jun  3 17:38:28] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK22db5adb;rport=5060
+From: <sip:364716410@cbc.eurovoice.ro>;tag=as5d4fd8e2
+To: <sip:364716410@cbc.eurovoice.ro>;tag=368a920b54791e73c5efceac446a0340.6276
+Call-ID: 29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55
+CSeq: 156 REGISTER
+WWW-Authenticate: Digest realm="cbc.eurovoice.ro", nonce="6a203c82a9d5121a9e985296b7ab025fc423a471", stale=true
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:38:28] VERBOSE[22650] logger.c: --- (9 headers 0 lines) ---
+[Jun  3 17:38:28] VERBOSE[22650] logger.c: Responding to challenge, registration to domain/host name cbc.eurovoice.ro
+[Jun  3 17:38:28] VERBOSE[22650] logger.c: REGISTER 12 headers, 0 lines
+[Jun  3 17:38:28] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+REGISTER sip:cbc.eurovoice.ro SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK3e9e5f6d;rport
+From: <sip:364716410@cbc.eurovoice.ro>;tag=as0301c44e
+To: <sip:364716410@cbc.eurovoice.ro>
+Call-ID: 29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55
+CSeq: 157 REGISTER
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Authorization: Digest username="364716410", realm="cbc.eurovoice.ro", algorithm=MD5, uri="sip:cbc.eurovoice.ro", nonce="6a203c82a9d5121a9e985296b7ab025fc423a471", response="ce486381b54ac03a1b20915630e0336b"
+Expires: 60
+Contact: <sip:364716410@10.33.0.55>
+Event: registration
+Content-Length: 0
+
+
+---
+[Jun  3 17:38:28] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK3e9e5f6d;rport=5060
+From: <sip:364716410@cbc.eurovoice.ro>;tag=as0301c44e
+To: <sip:364716410@cbc.eurovoice.ro>;tag=368a920b54791e73c5efceac446a0340.85f1
+Call-ID: 29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55
+CSeq: 157 REGISTER
+Contact: <sip:364716410@10.33.0.55>;expires=60;received="sip:89.238.223.202:5060"
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:38:28] VERBOSE[22650] logger.c: --- (9 headers 0 lines) ---
+[Jun  3 17:38:28] VERBOSE[22650] logger.c: Scheduling destruction of SIP dialog '29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55' in 32000 ms (Method: REGISTER)
+[Jun  3 17:38:28] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for cbc.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:38:28] NOTICE[22650] chan_sip.c:    -- Re-registration for  800008121@green.eurovoice.ro
+[Jun  3 17:38:28] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 800008121@green.eurovoice.ro
+[Jun  3 17:38:28] NOTICE[22650] chan_sip.c:    -- Re-registration for  364710206@small.eurovoice.ro
+[Jun  3 17:38:28] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 364710206@small.eurovoice.ro
+[Jun  3 17:38:28] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for green.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:38:28] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for small.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:38:30] NOTICE[22650] chan_sip.c:    -- Re-registration for  364716400@cbc.eurovoice.ro
+[Jun  3 17:38:30] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 364716400@cbc.eurovoice.ro
+[Jun  3 17:38:30] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for cbc.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:38:31] NOTICE[22650] chan_sip.c:    -- Re-registration for  377100075@small.eurovoice.ro
+[Jun  3 17:38:31] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 377100075@small.eurovoice.ro
+[Jun  3 17:38:32] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for small.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:38:32] NOTICE[22650] chan_sip.c:    -- Re-registration for  364710205@small.eurovoice.ro
+[Jun  3 17:38:32] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 364710205@small.eurovoice.ro
+[Jun  3 17:38:32] VERBOSE[22650] logger.c: REGISTER 12 headers, 0 lines
+[Jun  3 17:38:32] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+REGISTER sip:small.eurovoice.ro SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK67679d60;rport
+From: <sip:364710205@small.eurovoice.ro>;tag=as791b0b63
+To: <sip:364710205@small.eurovoice.ro>
+Call-ID: 5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55
+CSeq: 156 REGISTER
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Authorization: Digest username="364710205", realm="small.eurovoice.ro", algorithm=MD5, uri="sip:small.eurovoice.ro", nonce="6a203c59bf6fd539367d9a3b3439dc615face5a8", response="c73d6df3f8380aa7f25650ba7e27de9b"
+Expires: 60
+Contact: <sip:364710205@10.33.0.55>
+Event: registration
+Content-Length: 0
+
+
+---
+[Jun  3 17:38:32] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK67679d60;rport=5060
+From: <sip:364710205@small.eurovoice.ro>;tag=as791b0b63
+To: <sip:364710205@small.eurovoice.ro>;tag=a68888ded2e813c6a3c7a78ae013f0f6.bd14
+Call-ID: 5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55
+CSeq: 156 REGISTER
+WWW-Authenticate: Digest realm="small.eurovoice.ro", nonce="6a203c8634d37f712e4967ef059a357b8b46a993", stale=true
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:38:32] VERBOSE[22650] logger.c: --- (9 headers 0 lines) ---
+[Jun  3 17:38:32] VERBOSE[22650] logger.c: Responding to challenge, registration to domain/host name small.eurovoice.ro
+[Jun  3 17:38:32] VERBOSE[22650] logger.c: REGISTER 12 headers, 0 lines
+[Jun  3 17:38:32] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+REGISTER sip:small.eurovoice.ro SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK7d604f8e;rport
+From: <sip:364710205@small.eurovoice.ro>;tag=as6100ba8b
+To: <sip:364710205@small.eurovoice.ro>
+Call-ID: 5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55
+CSeq: 157 REGISTER
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Authorization: Digest username="364710205", realm="small.eurovoice.ro", algorithm=MD5, uri="sip:small.eurovoice.ro", nonce="6a203c8634d37f712e4967ef059a357b8b46a993", response="0f936773a01d6a0be91f2a7b541f165f"
+Expires: 60
+Contact: <sip:364710205@10.33.0.55>
+Event: registration
+Content-Length: 0
+
+
+---
+[Jun  3 17:38:32] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK7d604f8e;rport=5060
+From: <sip:364710205@small.eurovoice.ro>;tag=as6100ba8b
+To: <sip:364710205@small.eurovoice.ro>;tag=a68888ded2e813c6a3c7a78ae013f0f6.caa6
+Call-ID: 5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55
+CSeq: 157 REGISTER
+Contact: <sip:364710205@10.33.0.55>;expires=60;received="sip:89.238.205.74:5060;target=%73%69%70:%38%39.%32%33%38.%32%32%33.%32%30%32:%35%30%36%30"
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:38:32] VERBOSE[22650] logger.c: --- (9 headers 0 lines) ---
+[Jun  3 17:38:32] VERBOSE[22650] logger.c: Scheduling destruction of SIP dialog '5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55' in 32000 ms (Method: REGISTER)
+[Jun  3 17:38:32] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for small.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:38:48] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+INVITE sip:364716410@10.33.0.55 SIP/2.0
+Record-Route: <sip:89.238.205.74;lr;ftag=00E0F51515B50100004711010004u095400D767186581;did=74c.50171c23>
+Via: SIP/2.0/UDP 89.238.205.74:5060;branch=z9hG4bK25c8.07761fa.0
+Via: SIP/2.0/UDP 89.238.228.150:5060;branch=z9hG4bK00E0F51515B5BF98187D7A581522
+From: <sip:491723627488@89.238.228.150;user=phone>;tag=00E0F51515B50100004711010004u095400D767186581
+To: "0364716410" <sip:0364716410@89.238.205.74;user=phone>
+Call-ID: b515e00015f5-6a203c78-6bfb79d8-1d8914b8-29c050c-01
+CSeq: 19415 INVITE
+Contact: <sip:89.238.228.150:5060;transport=UDP>
+Allow-Events: refer
+Content-Type: application/sdp
+Max-Forwards: 66
+P-Asserted-Identity: <sip:491723627488@89.45.225.32;user=phone>
+Supported: timer, replaces, histinfo, 100rel
+Content-Length: 255
+
+v=0
+o=- 2616259800950842647 1 IN IP4 89.238.228.150
+s=Communi5-SBC
+c=IN IP4 89.238.205.74
+t=0 0
+m=audio 54402 RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=ptime:20
+a=sendrecv
+a=silenceSupp:off - - - -
+
+<------------->
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: --- (15 headers 12 lines) ---
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Sending to 89.238.205.74 : 5060 (NAT)
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Using INVITE request as basis request - b515e00015f5-6a203c78-6bfb79d8-1d8914b8-29c050c-01
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Found peer 'dp_800008121'
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Found RTP audio format 8
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Found RTP audio format 101
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Found audio description format PCMA for ID 8
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Found audio description format telephone-event for ID 101
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Capabilities: us - 0xc (ulaw|alaw), peer - audio=0x8 (alaw)/video=0x0 (nothing), combined - 0x8 (alaw)
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Non-codec capabilities (dtmf): us - 0x1 (telephone-event), peer - 0x1 (telephone-event), combined - 0x1 (telephone-event)
+[Jun  3 17:38:48] DEBUG[22650] chan_sip.c: Our T38 capability = (0), peer T38 capability (0), joint T38 capability (0)
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Peer audio RTP is at port 89.238.205.74:54402
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: Looking for 364716410 in trunkinbound (domain 10.33.0.55)
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: list_route: hop: <sip:89.238.205.74;lr;ftag=00E0F51515B50100004711010004u095400D767186581;did=74c.50171c23>
+[Jun  3 17:38:48] VERBOSE[22650] logger.c:
+<--- Transmitting (NAT) to 89.238.205.74:5060 --->
+SIP/2.0 100 Trying
+Via: SIP/2.0/UDP 89.238.205.74:5060;branch=z9hG4bK25c8.07761fa.0;received=89.238.205.74
+Via: SIP/2.0/UDP 89.238.228.150:5060;branch=z9hG4bK00E0F51515B5BF98187D7A581522
+Record-Route: <sip:89.238.205.74;lr;ftag=00E0F51515B50100004711010004u095400D767186581;did=74c.50171c23>
+From: <sip:491723627488@89.238.228.150;user=phone>;tag=00E0F51515B50100004711010004u095400D767186581
+To: "0364716410" <sip:0364716410@89.238.205.74;user=phone>
+Call-ID: b515e00015f5-6a203c78-6bfb79d8-1d8914b8-29c050c-01
+CSeq: 19415 INVITE
+User-Agent: DialLog.DialLer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO
+Supported: replaces
+Contact: <sip:364716410@10.33.0.55>
+Content-Length: 0
+
+
+<------------>
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- Executing [364716410@trunkinbound:1] NoOp("SIP/dp_800008121-00000a8d", "RO DID 364716410 redirect to from-ro-inbound FROM=491723627488 UNIQUEID=1780497528.13998") in new stack
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- Executing [364716410@trunkinbound:2] Goto("SIP/dp_800008121-00000a8d", "from-ro-inbound|364716410|1") in new stack
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- Goto (from-ro-inbound,364716410,1)
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- Executing [364716410@from-ro-inbound:1] NoOp("SIP/dp_800008121-00000a8d", "INDEXUS OVERRIDE TO MEDIAGTW RO DID=364716410 FROM=491723627488 UNIQUEID=1780497528.13998") in new stack
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- Executing [364716410@from-ro-inbound:2] Set("SIP/dp_800008121-00000a8d", "__DID_INB=364716410") in new stack
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- Executing [364716410@from-ro-inbound:3] Set("SIP/dp_800008121-00000a8d", "__DID_Date=03-06-2026 17:38:48") in new stack
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- Executing [364716410@from-ro-inbound:4] Set("SIP/dp_800008121-00000a8d", "__CBC_SOURCE_TRUNK=RO") in new stack
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- Executing [364716410@from-ro-inbound:5] Dial("SIP/dp_800008121-00000a8d", "SIP/mediagtw/364716410|60") in new stack
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- Called mediagtw/364716410
+[Jun  3 17:38:48] DEBUG[22650] chan_sip.c: Strict routing enforced for session 0a1c748c302ceaa9227b93683b2f700b@10.33.0.55
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:     -- SIP/mediagtw-00000a8e answered SIP/dp_800008121-00000a8d
+[Jun  3 17:38:48] VERBOSE[24829] logger.c: Audio is at 10.33.0.55 port 17984
+[Jun  3 17:38:48] VERBOSE[24829] logger.c: Adding codec 0x8 (alaw) to SDP
+[Jun  3 17:38:48] VERBOSE[24829] logger.c: Adding non-codec 0x1 (telephone-event) to SDP
+[Jun  3 17:38:48] VERBOSE[24829] logger.c:
+<--- Reliably Transmitting (NAT) to 89.238.205.74:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 89.238.205.74:5060;branch=z9hG4bK25c8.07761fa.0;received=89.238.205.74
+Via: SIP/2.0/UDP 89.238.228.150:5060;branch=z9hG4bK00E0F51515B5BF98187D7A581522
+Record-Route: <sip:89.238.205.74;lr;ftag=00E0F51515B50100004711010004u095400D767186581;did=74c.50171c23>
+From: <sip:491723627488@89.238.228.150;user=phone>;tag=00E0F51515B50100004711010004u095400D767186581
+To: "0364716410" <sip:0364716410@89.238.205.74;user=phone>;tag=as59be982e
+Call-ID: b515e00015f5-6a203c78-6bfb79d8-1d8914b8-29c050c-01
+CSeq: 19415 INVITE
+User-Agent: DialLog.DialLer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO
+Supported: replaces
+Contact: <sip:364716410@10.33.0.55>
+Content-Type: application/sdp
+Content-Length: 209
+
+v=0
+o=root 22633 22633 IN IP4 10.33.0.55
+s=session
+c=IN IP4 10.33.0.55
+t=0 0
+m=audio 17984 RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=sendrecv
+
+<------------>
+[Jun  3 17:38:48] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+ACK sip:364716410@89.238.223.202:5060 SIP/2.0
+Record-Route: <sip:89.238.205.74;lr;ftag=00E0F51515B50100004711010004u095400D767186581>
+Via: SIP/2.0/UDP 89.238.205.74:5060;branch=z9hG4bK25c8.07761fa.2
+Via: SIP/2.0/UDP 89.238.228.150:5060;branch=z9hG4bK00E0F51515B5BF98188322373570
+From: <sip:491723627488@89.238.228.150;user=phone>;tag=00E0F51515B50100004711010004u095400D767186581
+To: "0364716410" <sip:0364716410@89.238.205.74;user=phone>;tag=as59be982e
+Call-ID: b515e00015f5-6a203c78-6bfb79d8-1d8914b8-29c050c-01
+CSeq: 19415 ACK
+Contact: <sip:491723627488@89.238.228.150:5060;transport=UDP>
+Max-Forwards: 69
+Content-Length:     0
+
+
+<------------->
+[Jun  3 17:38:48] VERBOSE[22650] logger.c: --- (11 headers 0 lines) ---
+[Jun  3 17:38:57] VERBOSE[24829] logger.c:   == Spawn extension (from-ro-inbound, 364716410, 5) exited non-zero on 'SIP/dp_800008121-00000a8d'
+[Jun  3 17:38:57] VERBOSE[24829] logger.c: Scheduling destruction of SIP dialog 'b515e00015f5-6a203c78-6bfb79d8-1d8914b8-29c050c-01' in 6400 ms (Method: ACK)
+[Jun  3 17:38:57] VERBOSE[24829] logger.c: set_destination: Parsing <sip:89.238.205.74;lr;ftag=00E0F51515B50100004711010004u095400D767186581;did=74c.50171c23> for address/port to send to
+[Jun  3 17:38:57] VERBOSE[24829] logger.c: set_destination: set destination to 89.238.205.74, port 5060
+[Jun  3 17:38:57] VERBOSE[24829] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+BYE sip:89.238.228.150:5060;transport=UDP SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK6291dc13;rport
+Route: <sip:89.238.205.74;lr;ftag=00E0F51515B50100004711010004u095400D767186581;did=74c.50171c23>
+From: "0364716410" <sip:0364716410@89.238.205.74;user=phone>;tag=as59be982e
+To: <sip:491723627488@89.238.228.150;user=phone>;tag=00E0F51515B50100004711010004u095400D767186581
+Call-ID: b515e00015f5-6a203c78-6bfb79d8-1d8914b8-29c050c-01
+CSeq: 102 BYE
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+X-Asterisk-HangupCause: Normal Clearing
+X-Asterisk-HangupCauseCode: 16
+Content-Length: 0
+
+
+---
+[Jun  3 17:38:57] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK6291dc13;rport=5060
+From: "0364716410" <sip:0364716410@89.238.205.74;user=phone>;tag=as59be982e
+To: <sip:491723627488@89.238.228.150;user=phone>;tag=00E0F51515B50100004711010004u095400D767186581
+Call-ID: b515e00015f5-6a203c78-6bfb79d8-1d8914b8-29c050c-01
+CSeq: 102 BYE
+Contact: <sip:89.238.228.150:5060;transport=UDP>
+Content-Length:     0
+
+
+<------------->
+[Jun  3 17:38:57] VERBOSE[22650] logger.c: --- (8 headers 0 lines) ---
+[Jun  3 17:38:57] VERBOSE[22650] logger.c: SIP Response message for INCOMING dialog BYE arrived
+[Jun  3 17:38:57] VERBOSE[22650] logger.c: Really destroying SIP dialog 'b515e00015f5-6a203c78-6bfb79d8-1d8914b8-29c050c-01' Method: ACK
+[Jun  3 17:39:00] VERBOSE[22650] logger.c: Really destroying SIP dialog '29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55' Method: REGISTER
+[Jun  3 17:39:01] VERBOSE[24869] logger.c:   == Parsing '/etc/asterisk/manager.conf': [Jun  3 17:39:01] VERBOSE[24869] logger.c: Found
+[Jun  3 17:39:01] VERBOSE[24869] logger.c:   == Manager 'sendcron' logged on from 127.0.0.1
+[Jun  3 17:39:01] VERBOSE[24870] logger.c:   == Parsing '/etc/asterisk/manager.conf': [Jun  3 17:39:01] VERBOSE[24870] logger.c: Found
+[Jun  3 17:39:01] VERBOSE[24870] logger.c:   == Manager 'sendcron' logged on from 127.0.0.1
+[Jun  3 17:39:02] VERBOSE[24870] logger.c:   == Manager 'sendcron' logged off from 127.0.0.1
+[Jun  3 17:39:04] VERBOSE[22650] logger.c: Really destroying SIP dialog '5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55' Method: REGISTER
+[Jun  3 17:39:05] VERBOSE[24869] logger.c:   == Manager 'sendcron' logged off from 127.0.0.1
+[Jun  3 17:39:07] VERBOSE[24877] logger.c:   == Parsing '/etc/asterisk/manager.conf': [Jun  3 17:39:07] VERBOSE[24877] logger.c: Found
+[Jun  3 17:39:07] VERBOSE[24877] logger.c:   == Manager 'sendcron' logged on from 127.0.0.1
+[Jun  3 17:39:07] VERBOSE[24877] logger.c:   == Manager 'sendcron' logged off from 127.0.0.1
+[Jun  3 17:39:13] NOTICE[22650] chan_sip.c:    -- Re-registration for  364716410@cbc.eurovoice.ro
+[Jun  3 17:39:13] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 364716410@cbc.eurovoice.ro
+[Jun  3 17:39:13] VERBOSE[22650] logger.c: REGISTER 12 headers, 0 lines
+[Jun  3 17:39:13] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+REGISTER sip:cbc.eurovoice.ro SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK12a045fa;rport
+From: <sip:364716410@cbc.eurovoice.ro>;tag=as49831275
+To: <sip:364716410@cbc.eurovoice.ro>
+Call-ID: 29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55
+CSeq: 158 REGISTER
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Authorization: Digest username="364716410", realm="cbc.eurovoice.ro", algorithm=MD5, uri="sip:cbc.eurovoice.ro", nonce="6a203c82a9d5121a9e985296b7ab025fc423a471", response="ce486381b54ac03a1b20915630e0336b"
+Expires: 60
+Contact: <sip:364716410@10.33.0.55>
+Event: registration
+Content-Length: 0
+
+
+---
+[Jun  3 17:39:13] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK12a045fa;rport=5060
+From: <sip:364716410@cbc.eurovoice.ro>;tag=as49831275
+To: <sip:364716410@cbc.eurovoice.ro>;tag=368a920b54791e73c5efceac446a0340.9876
+Call-ID: 29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55
+CSeq: 158 REGISTER
+WWW-Authenticate: Digest realm="cbc.eurovoice.ro", nonce="6a203caf46c4260eae90275a82d1134691049690", stale=true
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:39:13] VERBOSE[22650] logger.c: --- (9 headers 0 lines) ---
+[Jun  3 17:39:13] VERBOSE[22650] logger.c: Responding to challenge, registration to domain/host name cbc.eurovoice.ro
+[Jun  3 17:39:13] VERBOSE[22650] logger.c: REGISTER 12 headers, 0 lines
+[Jun  3 17:39:13] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+REGISTER sip:cbc.eurovoice.ro SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK5687a581;rport
+From: <sip:364716410@cbc.eurovoice.ro>;tag=as55749809
+To: <sip:364716410@cbc.eurovoice.ro>
+Call-ID: 29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55
+CSeq: 159 REGISTER
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Authorization: Digest username="364716410", realm="cbc.eurovoice.ro", algorithm=MD5, uri="sip:cbc.eurovoice.ro", nonce="6a203caf46c4260eae90275a82d1134691049690", response="c7a0ee4088ca5467fbd82d8a59daa84f"
+Expires: 60
+Contact: <sip:364716410@10.33.0.55>
+Event: registration
+Content-Length: 0
+
+
+---
+[Jun  3 17:39:13] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK5687a581;rport=5060
+From: <sip:364716410@cbc.eurovoice.ro>;tag=as55749809
+To: <sip:364716410@cbc.eurovoice.ro>;tag=368a920b54791e73c5efceac446a0340.ccbe
+Call-ID: 29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55
+CSeq: 159 REGISTER
+Contact: <sip:364716410@10.33.0.55>;expires=60;received="sip:89.238.223.202:5060"
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:39:13] VERBOSE[22650] logger.c: --- (9 headers 0 lines) ---
+[Jun  3 17:39:13] VERBOSE[22650] logger.c: Scheduling destruction of SIP dialog '29b77ff94a14d8ad7046041e2703c5b4@10.33.0.55' in 32000 ms (Method: REGISTER)
+[Jun  3 17:39:13] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for cbc.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:39:13] NOTICE[22650] chan_sip.c:    -- Re-registration for  800008121@green.eurovoice.ro
+[Jun  3 17:39:13] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 800008121@green.eurovoice.ro
+[Jun  3 17:39:13] NOTICE[22650] chan_sip.c:    -- Re-registration for  364710206@small.eurovoice.ro
+[Jun  3 17:39:13] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 364710206@small.eurovoice.ro
+[Jun  3 17:39:13] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for green.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:39:13] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for small.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:39:14] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+OPTIONS sip:proxy.thor.eurovoice.ro;cpd=on SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK7f2d416f;rport
+From: "asterisk" <sip:asterisk@10.33.0.55>;tag=as768f0656
+To: <sip:proxy.thor.eurovoice.ro;cpd=on>
+Contact: <sip:asterisk@10.33.0.55>
+Call-ID: 73383864456854163f05f5cf023f1b4a@10.33.0.55
+CSeq: 102 OPTIONS
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Date: Wed, 03 Jun 2026 14:39:14 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO
+Supported: replaces
+Content-Length: 0
+
+
+---
+[Jun  3 17:39:14] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK7f2d416f;rport=5060
+From: "asterisk" <sip:asterisk@10.33.0.55>;tag=as768f0656
+To: <sip:proxy.thor.eurovoice.ro;cpd=on>;tag=368a920b54791e73c5efceac446a0340.6c7b
+Call-ID: 73383864456854163f05f5cf023f1b4a@10.33.0.55
+CSeq: 102 OPTIONS
+Accept: */*
+Accept-Language: en
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:39:14] VERBOSE[22650] logger.c: --- (10 headers 0 lines) ---
+[Jun  3 17:39:14] VERBOSE[22650] logger.c: Really destroying SIP dialog '73383864456854163f05f5cf023f1b4a@10.33.0.55' Method: OPTIONS
+[Jun  3 17:39:14] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+OPTIONS sip:proxy.thor.eurovoice.ro;cpd=on SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK2f6bb037;rport
+From: "asterisk" <sip:asterisk@10.33.0.55>;tag=as1a849cb6
+To: <sip:proxy.thor.eurovoice.ro;cpd=on>
+Contact: <sip:asterisk@10.33.0.55>
+Call-ID: 64ef9e0f21226e0b6ed9962d2b64ef57@10.33.0.55
+CSeq: 102 OPTIONS
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Date: Wed, 03 Jun 2026 14:39:14 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO
+Supported: replaces
+Content-Length: 0
+
+
+---
+[Jun  3 17:39:14] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+NOTIFY sip:89.238.223.202:5060 SIP/2.0
+Via: SIP/2.0/UDP 89.238.205.74:5060;branch=z9hG4bK7011014
+From: sip:keepalive@89.238.205.74;tag=22f684ac
+To: sip:89.238.223.202:5060
+Call-ID: 423d84bb-597babbb-2bf74ff@89.238.205.74
+CSeq: 1 NOTIFY
+Event: keep-alive
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:39:14] VERBOSE[22650] logger.c: --- (8 headers 0 lines) ---
+[Jun  3 17:39:14] VERBOSE[22650] logger.c: Sending to 89.238.205.74 : 5060 (NAT)
+[Jun  3 17:39:14] VERBOSE[22650] logger.c:
+<--- Transmitting (NAT) to 89.238.205.74:5060 --->
+SIP/2.0 481 No subscription
+Via: SIP/2.0/UDP 89.238.205.74:5060;branch=z9hG4bK7011014;received=89.238.205.74
+From: sip:keepalive@89.238.205.74;tag=22f684ac
+To: sip:89.238.223.202:5060;tag=as48302b49
+Call-ID: 423d84bb-597babbb-2bf74ff@89.238.205.74
+CSeq: 1 NOTIFY
+User-Agent: DialLog.DialLer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO
+Supported: replaces
+Content-Length: 0
+
+
+<------------>
+[Jun  3 17:39:14] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK2f6bb037;rport=5060
+From: "asterisk" <sip:asterisk@10.33.0.55>;tag=as1a849cb6
+To: <sip:proxy.thor.eurovoice.ro;cpd=on>;tag=368a920b54791e73c5efceac446a0340.772f
+Call-ID: 64ef9e0f21226e0b6ed9962d2b64ef57@10.33.0.55
+CSeq: 102 OPTIONS
+Accept: */*
+Accept-Language: en
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:39:14] VERBOSE[22650] logger.c: --- (10 headers 0 lines) ---
+[Jun  3 17:39:14] VERBOSE[22650] logger.c: Really destroying SIP dialog '64ef9e0f21226e0b6ed9962d2b64ef57@10.33.0.55' Method: OPTIONS
+[Jun  3 17:39:15] NOTICE[22650] chan_sip.c:    -- Re-registration for  364716400@cbc.eurovoice.ro
+[Jun  3 17:39:15] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 364716400@cbc.eurovoice.ro
+[Jun  3 17:39:15] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for cbc.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:39:17] NOTICE[22650] chan_sip.c:    -- Re-registration for  377100075@small.eurovoice.ro
+[Jun  3 17:39:17] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 377100075@small.eurovoice.ro
+[Jun  3 17:39:17] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for small.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
+[Jun  3 17:39:17] NOTICE[22650] chan_sip.c:    -- Re-registration for  364710205@small.eurovoice.ro
+[Jun  3 17:39:17] DEBUG[22650] chan_sip.c:    >>> Re-using Auth data for 364710205@small.eurovoice.ro
+[Jun  3 17:39:17] VERBOSE[22650] logger.c: REGISTER 12 headers, 0 lines
+[Jun  3 17:39:17] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+REGISTER sip:small.eurovoice.ro SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK78d56081;rport
+From: <sip:364710205@small.eurovoice.ro>;tag=as556008cb
+To: <sip:364710205@small.eurovoice.ro>
+Call-ID: 5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55
+CSeq: 158 REGISTER
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Authorization: Digest username="364710205", realm="small.eurovoice.ro", algorithm=MD5, uri="sip:small.eurovoice.ro", nonce="6a203c8634d37f712e4967ef059a357b8b46a993", response="0f936773a01d6a0be91f2a7b541f165f"
+Expires: 60
+Contact: <sip:364710205@10.33.0.55>
+Event: registration
+Content-Length: 0
+
+
+---
+[Jun  3 17:39:17] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK78d56081;rport=5060
+From: <sip:364710205@small.eurovoice.ro>;tag=as556008cb
+To: <sip:364710205@small.eurovoice.ro>;tag=a68888ded2e813c6a3c7a78ae013f0f6.4530
+Call-ID: 5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55
+CSeq: 158 REGISTER
+WWW-Authenticate: Digest realm="small.eurovoice.ro", nonce="6a203cb38185a514e24663f9f8663971f6b55cb9", stale=true
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:39:17] VERBOSE[22650] logger.c: --- (9 headers 0 lines) ---
+[Jun  3 17:39:17] VERBOSE[22650] logger.c: Responding to challenge, registration to domain/host name small.eurovoice.ro
+[Jun  3 17:39:17] VERBOSE[22650] logger.c: REGISTER 12 headers, 0 lines
+[Jun  3 17:39:17] VERBOSE[22650] logger.c: Reliably Transmitting (NAT) to 89.238.205.74:5060:
+REGISTER sip:small.eurovoice.ro SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK02048d5d;rport
+From: <sip:364710205@small.eurovoice.ro>;tag=as208ca728
+To: <sip:364710205@small.eurovoice.ro>
+Call-ID: 5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55
+CSeq: 159 REGISTER
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Authorization: Digest username="364710205", realm="small.eurovoice.ro", algorithm=MD5, uri="sip:small.eurovoice.ro", nonce="6a203cb38185a514e24663f9f8663971f6b55cb9", response="552653a6393e5d41fb6d52764efb3fd3"
+Expires: 60
+Contact: <sip:364710205@10.33.0.55>
+Event: registration
+Content-Length: 0
+
+
+---
+[Jun  3 17:39:18] VERBOSE[22650] logger.c:
+<--- SIP read from 89.238.205.74:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;received=89.238.223.202;branch=z9hG4bK02048d5d;rport=5060
+From: <sip:364710205@small.eurovoice.ro>;tag=as208ca728
+To: <sip:364710205@small.eurovoice.ro>;tag=a68888ded2e813c6a3c7a78ae013f0f6.d237
+Call-ID: 5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55
+CSeq: 159 REGISTER
+Contact: <sip:364710205@10.33.0.55>;expires=60;received="sip:89.238.205.74:5060;target=%73%69%70:%38%39.%32%33%38.%32%32%33.%32%30%32:%35%30%36%30"
+Server: SIP Thor on OpenSIPS XS 1.11
+Content-Length: 0
+
+
+<------------->
+[Jun  3 17:39:18] VERBOSE[22650] logger.c: --- (9 headers 0 lines) ---
+[Jun  3 17:39:18] VERBOSE[22650] logger.c: Scheduling destruction of SIP dialog '5617ab9a0e33b0ee76c7c6370d39b087@10.33.0.55' in 32000 ms (Method: REGISTER)
+[Jun  3 17:39:18] NOTICE[22650] chan_sip.c: Outbound Registration: Expiry for small.eurovoice.ro is 60 sec (Scheduling reregistration in 45 s)
