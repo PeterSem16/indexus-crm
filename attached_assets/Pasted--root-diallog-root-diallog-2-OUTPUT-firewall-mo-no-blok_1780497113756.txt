@@ -1,0 +1,28 @@
+[root@diallog ~]#
+[root@diallog ~]# # 2. OUTPUT firewall — možno blokuje odchádzajúce UDP
+[root@diallog ~]# iptables -L OUTPUT -n | head -20
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+[root@diallog ~]#
+[root@diallog ~]# # 3. RTP debug — ukáže kde Asterisk MYSLÍ že má posielať RTP
+[root@diallog ~]# sudo asterisk -rx "rtp set debug on"
+No such command 'rtp set debug on' (type 'help rtp set debug' for other possible commands)
+[Jun  3 17:31:09] VERBOSE[22634] logger.c:     -- Remote UNIX connection
+[root@diallog ~]# sudo tail -f /var/log/asterisk/messages | grep -i "rtp\|send\|recv\|address"[Jun  3 17:31:10] VERBOSE[23832] logger.c:     -- Remote UNIX connection disconnected
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- Executing [364716410@trunkinbound:1] NoOp("SIP/dp_800008121-00000a89", "RO DID 364716410 redirect to from-ro-inbound FROM=491723627488 UNIQUEID=1780497092.13994") in new stack
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- Executing [364716410@trunkinbound:2] Goto("SIP/dp_800008121-00000a89", "from-ro-inbound|364716410|1") in new stack
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- Goto (from-ro-inbound,364716410,1)
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- Executing [364716410@from-ro-inbound:1] NoOp("SIP/dp_800008121-00000a89", "INDEXUS OVERRIDE TO MEDIAGTW RO DID=364716410 FROM=491723627488 UNIQUEID=1780497092.13994") in new stack
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- Executing [364716410@from-ro-inbound:2] Set("SIP/dp_800008121-00000a89", "__DID_INB=364716410") in new stack
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- Executing [364716410@from-ro-inbound:3] Set("SIP/dp_800008121-00000a89", "__DID_Date=03-06-2026 17:31:32") in new stack
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- Executing [364716410@from-ro-inbound:4] Set("SIP/dp_800008121-00000a89", "__CBC_SOURCE_TRUNK=RO") in new stack
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- Executing [364716410@from-ro-inbound:5] Dial("SIP/dp_800008121-00000a89", "SIP/mediagtw/364716410|60") in new stack
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- Called mediagtw/364716410
+[Jun  3 17:31:32] VERBOSE[23864] logger.c:     -- SIP/mediagtw-00000a8a answered SIP/dp_800008121-00000a89
+[Jun  3 17:31:40] VERBOSE[23864] logger.c:   == Spawn extension (from-ro-inbound, 364716410, 5) exited non-zero on 'SIP/dp_800008121-00000a89'
+[Jun  3 17:31:45] VERBOSE[22634] logger.c:     -- Remote UNIX connection
+[Jun  3 17:31:46] VERBOSE[23921] logger.c:     -- Remote UNIX connection disconnected
+[Jun  3 17:31:46] VERBOSE[22634] logger.c:     -- Remote UNIX connection
+[Jun  3 17:31:46] VERBOSE[23927] logger.c:     -- Remote UNIX connection disconnected
+[Jun  3 17:31:46] VERBOSE[22634] logger.c:     -- Remote UNIX connection
+[Jun  3 17:31:47] VERBOSE[23935] logger.c:     -- Remote UNIX connection disconnected
