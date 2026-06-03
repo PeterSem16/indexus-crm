@@ -1,0 +1,73 @@
+[root@diallog ~]# # Na RO serveri — spusti, POTOM urob hovor, POTOM Ctrl+C
+[root@diallog ~]# sudo tcpdump -i eth0 -n udp and portrange 5000-65000 -c 40
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth0, link-type EN10MB (Ethernet), capture size 96 bytes
+17:12:11.694199 IP 10.33.0.55.sip > 89.238.220.26.sip: SIP, length: 626
+17:12:11.713040 IP 89.238.220.26.sip > 10.33.0.55.sip: SIP, length: 505
+17:12:11.713085 IP 10.33.0.55.sip > 89.238.220.26.sip: SIP, length: 626
+17:12:11.733011 IP 89.238.220.26.sip > 10.33.0.55.sip: SIP, length: 529
+17:12:12.463778 IP 10.33.0.107.37104 > 239.255.255.250.ws-discovery: UDP, length 743
+17:12:12.583243 IP 10.33.0.107.35980 > 239.255.255.250.ws-discovery: UDP, length 726
+17:12:12.586628 IP 10.33.0.55.sip > 10.1.2.112.sip: SIP, length: 499
+17:12:12.623260 IP 10.1.2.112.sip > 10.33.0.55.sip: SIP, length: 824
+17:12:13.129126 IP 10.1.2.112.sip > 10.33.0.55.sip: SIP, length: 405
+17:12:13.129214 IP 10.33.0.55.sip > 10.1.2.112.sip: SIP, length: 490
+17:12:16.452106 IP 10.33.0.107.35136 > 239.255.255.250.ws-discovery: UDP, length 743
+17:12:16.721392 IP 10.33.0.107.52941 > 239.255.255.250.ws-discovery: UDP, length 726
+17:12:19.915463 IP 89.238.205.74.sip > 10.33.0.55.sip: SIP, length: 282
+17:12:19.915531 IP 10.33.0.55.sip > 89.238.205.74.sip: SIP, length: 414
+17:12:20.432349 IP 10.33.0.107.52079 > 239.255.255.250.ws-discovery: UDP, length 743
+17:12:20.551852 IP 10.33.0.107.34940 > 239.255.255.250.ws-discovery: UDP, length 726
+17:12:24.462025 IP 10.33.0.107.46908 > 239.255.255.250.ws-discovery: UDP, length 743
+17:12:24.581576 IP 10.33.0.107.52052 > 239.255.255.250.ws-discovery: UDP, length 726
+17:12:25.300224 IP 10.33.0.55.sip > 89.238.220.26.sip: SIP, length: 616
+17:12:25.307307 IP 89.238.220.26.sip > 10.33.0.55.sip: SIP, length: 499
+17:12:25.307343 IP 10.33.0.55.sip > 89.238.220.26.sip: SIP, length: 616
+17:12:25.348323 IP 89.238.220.26.sip > 10.33.0.55.sip: SIP, length: 459
+17:12:26.770484 IP 10.33.5.32.49673 > 255.255.255.255.hlserver: UDP, length 40
+17:12:28.317241 IP 89.238.216.10.sip > 10.33.0.55.sip: SIP, length: 282
+17:12:28.317319 IP 10.33.0.55.sip > 89.238.216.10.sip: SIP, length: 414
+17:12:28.482092 IP 10.33.0.107.59930 > 239.255.255.250.ws-discovery: UDP, length 742
+17:12:28.602766 IP 10.33.0.107.48537 > 239.255.255.250.ws-discovery: UDP, length 725
+17:12:30.807182 IP 10.33.5.32.49673 > 10.33.31.255.hlserver: UDP, length 40
+17:12:31.726391 IP 10.33.0.55.sip > 89.238.205.74.sip: SIP, length: 626
+17:12:31.738194 IP 89.238.205.74.sip > 10.33.0.55.sip: SIP, length: 505
+17:12:31.738235 IP 10.33.0.55.sip > 89.238.205.74.sip: SIP, length: 626
+17:12:31.784698 IP 89.238.205.74.sip > 10.33.0.55.sip: SIP, length: 529
+17:12:32.423615 IP 10.33.0.107.52775 > 239.255.255.250.ws-discovery: UDP, length 742
+17:12:32.543431 IP 10.33.0.107.47271 > 239.255.255.250.ws-discovery: UDP, length 725
+17:12:33.246805 IP 10.33.5.32.52330 > 239.255.255.250.ssdp: UDP, length 137
+17:12:33.247191 IP 10.33.0.5.33386 > 239.255.255.250.ssdp: UDP, length 351
+17:12:33.247192 IP 10.33.0.5.33386 > 239.255.255.250.ssdp: UDP, length 342
+17:12:33.247194 IP 10.33.0.5.33386 > 239.255.255.250.ssdp: UDP, length 394
+17:12:33.247195 IP 10.33.0.5.33386 > 239.255.255.250.ssdp: UDP, length 406
+17:12:33.247197 IP 10.33.0.5.33386 > 239.255.255.250.ssdp: UDP, length 408
+40 packets captured
+41 packets received by filter
+0 packets dropped by kernel
+[root@diallog ~]# sudo grep -A20 "^\[mediagtw\]" /etc/asterisk/sip.conf
+[root@diallog ~]# sudo cat /etc/asterisk/rtp.conf
+;
+; RTP Configuration
+;
+[general]
+;
+; RTP start and RTP end configure start and end addresses
+;
+; Defaults are rtpstart=5000 and rtpend=31000
+;
+rtpstart=10000
+rtpend=20000
+;
+; Whether to enable or disable UDP checksums on RTP traffic
+;
+;rtpchecksums=no
+;
+; The amount of time a DTMF digit with no 'end' marker should be
+; allowed to continue (in 'samples', 1/8000 of a second)
+;
+;dtmftimeout=3000
+; rtcpinterval = 5000 	; Milliseconds between rtcp reports
+			;(min 500, max 60000, default 5000)
+[root@diallog ~]# sudo iptables -L INPUT -n | grep -E "DROP|REJECT|10000|20000|5000"
+[root@diallog ~]#
