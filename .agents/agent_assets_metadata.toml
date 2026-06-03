@@ -132,3 +132,9 @@ id = "z5-JfNPtM7Ja1KmsvvwP5"
 uri = "file://eso_integration_analysis.docx"
 type = "word_document"
 title = "ESO Integrácia — Návrh riešenia"
+
+[[outputs]]
+id = "Bolkokiel2X4SMZZ90WvO"
+uri = "file://attached_assets/INDEXUS_KPI_System_Agenti.xlsx"
+type = "table"
+title = "INDEXUS — KPI Systém Agentov (Nexus Pulse & Missions)"
