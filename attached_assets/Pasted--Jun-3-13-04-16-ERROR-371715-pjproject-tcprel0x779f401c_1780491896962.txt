@@ -1,0 +1,30 @@
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP [2a00:20:73c8:ddca:88e3:bcb1:5b2c:2e9c]: 443/Peer Address Family Mismatch (4)
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:16] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:17] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:17] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:17] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:17] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:17] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:17] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:17] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:19] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:19] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:19] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:19] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+[Jun  3 13:04:19] ERROR[371715]: pjproject: <?>: 	  tcprel0x779f401c6900 .CreatePermission failed for IP 77.72.181.116: 403/Forbidden IP
+    -- PJSIP/trunk-ro-endpoint-0000000f answered PJSIP/4000-0000000e
