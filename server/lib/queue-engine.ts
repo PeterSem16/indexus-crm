@@ -2764,6 +2764,20 @@ export class QueueEngine extends EventEmitter {
 
       console.log(`[QueueEngine] Both channels added to bridge ${bridge.id}`);
 
+      try {
+        const sourceTrunk = await this.ariClient.getChannelVar(pending.callerChannelId, "CBC_SOURCE_TRUNK");
+        if (sourceTrunk === "RO") {
+          console.log(`[QueueEngine] RO trunk channel detected — triggering RTP path refresh via hold/unhold`);
+          await new Promise(resolve => setTimeout(resolve, 400));
+          await this.ariClient.holdChannel(pending.callerChannelId);
+          await new Promise(resolve => setTimeout(resolve, 300));
+          await this.ariClient.unholdChannel(pending.callerChannelId);
+          console.log(`[QueueEngine] RTP path refreshed for RO trunk channel ${pending.callerChannelId}`);
+        }
+      } catch (err: any) {
+        console.warn(`[QueueEngine] RTP refresh (non-critical):`, err.message);
+      }
+
       this.activeBridges.set(pending.callerChannelId, {
         bridgeId: bridge.id,
         callerChannelId: pending.callerChannelId,
@@ -2827,6 +2841,20 @@ export class QueueEngine extends EventEmitter {
         const waitingCall = this.waitingCalls.get(callerChannelId);
         if (waitingCall) {
           waitingCall.bridgeId = bridge.id;
+        }
+
+        try {
+          const sourceTrunk = await this.ariClient.getChannelVar(callerChannelId, "CBC_SOURCE_TRUNK");
+          if (sourceTrunk === "RO") {
+            console.log(`[QueueEngine] RO trunk channel detected — triggering RTP path refresh via hold/unhold`);
+            await new Promise(resolve => setTimeout(resolve, 400));
+            await this.ariClient.holdChannel(callerChannelId);
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await this.ariClient.unholdChannel(callerChannelId);
+            console.log(`[QueueEngine] RTP path refreshed for RO trunk channel ${callerChannelId}`);
+          }
+        } catch (err: any) {
+          console.warn(`[QueueEngine] RTP refresh (non-critical):`, err.message);
         }
       } catch (err) {
         console.error("[QueueEngine] Failed to bridge channels:", err);
