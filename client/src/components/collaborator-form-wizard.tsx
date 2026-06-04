@@ -5556,9 +5556,9 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
 
                           <div className="pt-2 border-t border-muted space-y-2">
                             <div>
-                              <Label>Záložný DID (fallback)</Label>
+                              <Label>{t.collaborators.mobileApp?.callFallbackDidLabel || 'Záložný DID (fallback)'}</Label>
                               <p className="text-xs text-muted-foreground">
-                                Ak PJSIP linka nie je aktívna alebo presmerovaný telefón neodpovedá do 60 s, hovor sa presmeruje na vybraný inbound DID (napr. infolinka / virtuálny asistent).
+                                {t.collaborators.mobileApp?.callFallbackDidDesc || 'Ak PJSIP linka nie je aktívna alebo presmerovaný telefón neodpovedá do 60 s, hovor sa presmeruje na vybraný inbound DID (napr. infolinka / virtuálny asistent).'}
                               </p>
                             </div>
                             <Select
@@ -5566,10 +5566,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                               onValueChange={(v) => setMobileCredentials({ ...mobileCredentials, callFallbackDidId: v === "__none__" ? "" : v })}
                             >
                               <SelectTrigger data-testid="wizard-select-fallback-did" className="w-full">
-                                <SelectValue placeholder="— bez zálohy —" />
+                                <SelectValue placeholder={t.collaborators.mobileApp?.callFallbackDidNone || '— bez zálohy —'} />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="__none__">— bez zálohy —</SelectItem>
+                                <SelectItem value="__none__">{t.collaborators.mobileApp?.callFallbackDidNone || '— bez zálohy —'}</SelectItem>
                                 {didRoutesList.filter((d: any) => d.isActive).map((d: any) => (
                                   <SelectItem key={d.id} value={d.id} data-testid={`wizard-fallback-did-${d.id}`}>
                                     {d.didNumber}{d.name ? ` — ${d.name}` : ""}{d.countryCode ? ` (${d.countryCode})` : ""}

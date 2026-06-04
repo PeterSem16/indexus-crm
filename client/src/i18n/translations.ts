@@ -1552,6 +1552,9 @@ export interface Translations {
       callForwardingActivateDesc: string;
       callForwardingSave: string;
       callForwardingSaved: string;
+      callFallbackDidLabel: string;
+      callFallbackDidDesc: string;
+      callFallbackDidNone: string;
       assignedExtension: string;
     };
     connectDescription: string;
@@ -8381,6 +8384,9 @@ export const translations: Record<Locale, Translations> = {
         callForwardingActivateDesc: 'When enabled, incoming queue calls will be redirected to your mobile number',
         callForwardingSave: 'Save forwarding',
         callForwardingSaved: 'Call forwarding saved',
+        callFallbackDidLabel: 'Fallback DID (fallback)',
+        callFallbackDidDesc: 'If the PJSIP line is inactive or the forwarded phone does not answer within 60 s, the call is redirected to the selected inbound DID (e.g. info line / virtual assistant).',
+        callFallbackDidNone: '— no fallback —',
         assignedExtension: 'Assigned extension',
       },
       connectDescription: 'Call history, visits and activities from INDEXUS Connect',
@@ -14691,6 +14697,9 @@ export const translations: Record<Locale, Translations> = {
         callForwardingActivateDesc: 'Prichádzajúce hovory z fronty budú presmerované na vaše mobilné číslo',
         callForwardingSave: 'Uložiť presmerovanie',
         callForwardingSaved: 'Presmerovanie hovorov uložené',
+        callFallbackDidLabel: 'Záložný DID (fallback)',
+        callFallbackDidDesc: 'Ak PJSIP linka nie je aktívna alebo presmerovaný telefón neodpovedá do 60 s, hovor sa presmeruje na vybraný inbound DID (napr. infolinka / virtuálny asistent).',
+        callFallbackDidNone: '— bez zálohy —',
         assignedExtension: 'Priradená klapka',
       },
       connectDescription: 'História hovorov, návštev a aktivít z INDEXUS Connect',
@@ -20947,6 +20956,9 @@ export const translations: Record<Locale, Translations> = {
         callForwardingActivateDesc: 'Příchozí hovory z fronty budou přesměrovány na vaše mobilní číslo',
         callForwardingSave: 'Uložit přesměrování',
         callForwardingSaved: 'Přesměrování hovorů uloženo',
+        callFallbackDidLabel: 'Záložní DID (fallback)',
+        callFallbackDidDesc: 'Pokud linka PJSIP není aktivní nebo přesměrovaný telefon neodpovídá do 60 s, hovor se přesměruje na vybraný inbound DID (např. infolinka / virtuální asistent).',
+        callFallbackDidNone: '— bez zálohy —',
         assignedExtension: 'Přiřazená klapka',
       },
       connectDescription: 'Historie hovorů, návštěv a aktivit z INDEXUS Connect',
@@ -27161,6 +27173,9 @@ export const translations: Record<Locale, Translations> = {
         callForwardingActivateDesc: 'A várólistáról érkező hívások az Ön mobilszámára lesznek átirányítva',
         callForwardingSave: 'Átirányítás mentése',
         callForwardingSaved: 'Hívásátirányítás mentve',
+        callFallbackDidLabel: 'Tartalék DID (fallback)',
+        callFallbackDidDesc: 'Ha a PJSIP vonal nem aktív, vagy az átirányított telefon 60 mp-en belül nem válaszol, a hívás a kiválasztott bejövő DID-re kerül átirányításra (pl. infóvonal / virtuális asszisztens).',
+        callFallbackDidNone: '— nincs tartalék —',
         assignedExtension: 'Hozzárendelt mellék',
       },
       connectDescription: 'Hívástörténet, látogatások és tevékenységek az INDEXUS Connectből',
@@ -33270,6 +33285,9 @@ export const translations: Record<Locale, Translations> = {
         callForwardingActivateDesc: 'Apelurile primite din coadă vor fi redirecționate la numărul dvs. de mobil',
         callForwardingSave: 'Salvare redirecționare',
         callForwardingSaved: 'Redirecționare apeluri salvată',
+        callFallbackDidLabel: 'DID de rezervă (fallback)',
+        callFallbackDidDesc: 'Dacă linia PJSIP nu este activă sau telefonul redirecționat nu răspunde în 60 s, apelul va fi redirecționat către DID-ul inbound selectat (ex. linie info / asistent virtual).',
+        callFallbackDidNone: '— fără rezervă —',
         assignedExtension: 'Extensie atribuită',
       },
       connectDescription: 'Istoricul apelurilor, vizitelor și activităților din INDEXUS Connect',
@@ -39381,6 +39399,9 @@ export const translations: Record<Locale, Translations> = {
         callForwardingActivateDesc: 'Le chiamate in arrivo dalla coda verranno inoltrate al tuo numero mobile',
         callForwardingSave: 'Salva inoltro',
         callForwardingSaved: 'Inoltro chiamate salvato',
+        callFallbackDidLabel: 'DID di backup (fallback)',
+        callFallbackDidDesc: "Se la linea PJSIP non è attiva o il telefono inoltrato non risponde entro 60 s, la chiamata viene reindirizzata al DID inbound selezionato (es. linea info / assistente virtuale).",
+        callFallbackDidNone: '— nessun fallback —',
         assignedExtension: 'Interno assegnato',
       },
       connectDescription: "Cronologia chiamate, visite e attività da INDEXUS Connect",
@@ -45492,6 +45513,9 @@ export const translations: Record<Locale, Translations> = {
         callForwardingActivateDesc: 'Eingehende Anrufe aus der Warteschlange werden an Ihre Mobilnummer weitergeleitet',
         callForwardingSave: 'Weiterleitung speichern',
         callForwardingSaved: 'Anrufweiterleitung gespeichert',
+        callFallbackDidLabel: 'Fallback-DID (Fallback)',
+        callFallbackDidDesc: 'Wenn die PJSIP-Leitung nicht aktiv ist oder das weitergeleitete Telefon innerhalb von 60 s nicht antwortet, wird der Anruf an die ausgewählte eingehende DID umgeleitet (z.B. Infohotline / virtueller Assistent).',
+        callFallbackDidNone: '— kein Fallback —',
         assignedExtension: 'Zugewiesene Nebenstelle',
       },
       connectDescription: 'Anrufverlauf, Besuche und Aktivitäten aus INDEXUS Connect',
