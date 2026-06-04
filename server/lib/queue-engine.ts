@@ -1044,19 +1044,65 @@ export class QueueEngine extends EventEmitter {
       primaryCtx = "from-internal";
     }
 
+    // Get channel name before continueDialplan (needed for AMI hold/unhold re-INVITE fix below)
+    let channelName: string | null = null;
+    try {
+      const ch = await this.ariClient.getChannel(channelId);
+      channelName = ch.name;
+    } catch {}
+
     const contexts = [primaryCtx, "from-internal", "indexus-outbound"];
+    let forwarded = false;
     for (const ctx of contexts) {
       try {
         console.log(`[QueueEngine] forwardToExternalNumber: continueDialplan ctx=${ctx} exten=${number}`);
         await this.ariClient.continueDialplan(channelId, ctx, number, 1);
         console.log(`[QueueEngine] forwardToExternalNumber: SUCCESS via ${ctx}/${number}/1`);
-        return;
+        forwarded = true;
+        break;
       } catch (err: any) {
         console.log(`[QueueEngine] forwardToExternalNumber: ${ctx} failed: ${err.message}`);
       }
     }
-    console.error(`[QueueEngine] forwardToExternalNumber: all contexts failed for ${number}, hanging up`);
-    try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+
+    if (!forwarded) {
+      console.error(`[QueueEngine] forwardToExternalNumber: all contexts failed for ${number}, hanging up`);
+      try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+      return;
+    }
+
+    // RTP re-sync fix for RO hairpin calls: after continueDialplan the channel transitions
+    // from Stasis to a dialplan Dial() bridge. Asterisk must send a SIP re-INVITE to RO
+    // to inform it of the current RTP port. If no re-INVITE is sent, RO keeps sending to
+    // the Stasis-era port → no RTP received on the channel → rtp_timeout after 60s.
+    // Trigger: AMI "channel request hold/unhold" forces a real SIP re-INVITE through the
+    // channel, identical to a physical hold/unhold from the caller's phone which fixes it.
+    if (sourceTrunk === "RO" && channelName) {
+      const _chName = channelName;
+      (async () => {
+        try {
+          // Wait for collaborator to answer and simple_bridge to be set up (~3s typical)
+          await new Promise(r => setTimeout(r, 3000));
+          const [cfg] = await db.select().from(ariSettings).limit(1);
+          if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) return;
+          const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
+          const sshPort = cfg.sshPort || 22;
+          console.log(`[QueueEngine] RO hairpin RTP fix: hold/unhold on ${_chName}`);
+          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+            Action: "Command",
+            Command: `channel request hold ${_chName}`,
+          });
+          await new Promise(r => setTimeout(r, 600));
+          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+            Action: "Command",
+            Command: `channel request unhold ${_chName}`,
+          });
+          console.log(`[QueueEngine] RO hairpin RTP fix: done for ${_chName}`);
+        } catch (err: any) {
+          console.warn(`[QueueEngine] RO hairpin RTP fix (non-critical):`, err.message);
+        }
+      })();
+    }
   }
 
   private async processForwardedCallRecordingAsync(
