@@ -1014,10 +1014,21 @@ export class QueueEngine extends EventEmitter {
     await this.stopMohForChannel(channelId);
     this.waitingCalls.delete(channelId);
 
-    // Detect country from number prefix → pick country-specific context
+    // If the call originated from RO trunk, always route outbound back via RO (trunk-ro-endpoint).
+    // This keeps the full media path through RO (inbound: EuroVoice→RO→mediagtw, outbound:
+    // mediagtw→RO→collaborator) and allows RO to select the correct egress trunk via
+    // its from-mediagtw routing context — regardless of the collaborator's country.
+    const sourceTrunk = await this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null);
+    console.log(`[QueueEngine] forwardToExternalNumber: channelId=${channelId} sourceTrunk=${sourceTrunk} number=${number}`);
+
     const norm = number.replace(/^\+/, "").replace(/\s/g, "");
     let primaryCtx: string;
-    if (norm.startsWith("421") || /^0[89]/.test(norm) || /^0[2-7]/.test(norm)) {
+
+    if (sourceTrunk === "RO") {
+      // Always hairpin through RO: mediagtw → trunk-ro-endpoint → RO → from-mediagtw → egress trunk
+      primaryCtx = "from-internal-ro";
+      console.log(`[QueueEngine] forwardToExternalNumber: RO inbound → forcing from-internal-ro for ${number}`);
+    } else if (norm.startsWith("421") || /^0[89]/.test(norm) || /^0[2-7]/.test(norm)) {
       primaryCtx = "from-internal-sk";
     } else if (norm.startsWith("420") || /^[67]/.test(norm)) {
       primaryCtx = "from-internal-cz";
