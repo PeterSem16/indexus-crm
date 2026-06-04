@@ -1220,6 +1220,80 @@ export class QueueEngine extends EventEmitter {
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
 
+      // Play ringback on the inbound channel so the caller hears ringing while the
+      // collaborator's phone rings. Started AFTER both channels are in the bridge to
+      // avoid the earlier race condition where stasis-end fired before bridge was ready.
+      // Stopped on first audio from either bridged channel (collaborator answered).
+      const rbChannelId = parentChannelId;
+      let rbActive = true;
+      let rbIteration = 0;
+      let rbCurrentPbId = `rb-${rbChannelId}-0`;
+
+      const stopRingback = (reason: string) => {
+        if (!rbActive) return;
+        rbActive = false;
+        this.ariClient.off("channel-talking-started", onTalking);
+        this.ariClient.off("stasis-end", onStasisEnd);
+        this.ariClient.off("channel-destroyed", onDestroyed);
+        clearTimeout(rbSafetyTimer);
+        // stopPlayback is best-effort — loop exits on next poll tick
+        this.ariClient.stopPlayback(rbCurrentPbId).catch(() => {});
+        console.log(`[QueueEngine] RO hairpin ringback stopped: ${reason}`);
+      };
+
+      const onTalking = (event: AriEvent) => {
+        const chId = event.channel?.id;
+        if (chId === parentChannelId || chId === originatedChannelId) {
+          stopRingback(`ChannelTalkingStarted ch=${chId}`);
+        }
+      };
+      const onStasisEnd = (event: AriEvent) => {
+        const chId = event.channel?.id;
+        if (chId === parentChannelId || chId === originatedChannelId) {
+          stopRingback(`stasis-end ch=${chId}`);
+        }
+      };
+      const onDestroyed = (event: AriEvent) => {
+        const chId = event.channel?.id;
+        if (chId === parentChannelId || chId === originatedChannelId) {
+          stopRingback(`channel-destroyed ch=${chId}`);
+        }
+      };
+      const rbSafetyTimer = setTimeout(() => stopRingback("90s safety"), 90_000);
+
+      this.ariClient.on("channel-talking-started", onTalking);
+      this.ariClient.on("stasis-end", onStasisEnd);
+      this.ariClient.on("channel-destroyed", onDestroyed);
+
+      (async () => {
+        while (rbActive) {
+          const pbId = `rb-${rbChannelId}-${rbIteration++}`;
+          rbCurrentPbId = pbId;
+          try {
+            await this.ariClient.playMedia(rbChannelId, "sound:ring-back", pbId);
+          } catch {
+            break; // channel gone or not playable
+          }
+          // Wait for this playback to finish (or ringback to be stopped)
+          await new Promise<void>(resolve => {
+            let done = false;
+            const finish = () => { if (!done) { done = true; resolve(); } };
+            const onFinished = (e: AriEvent) => {
+              if (e.playback?.id === pbId) {
+                this.ariClient.off("playback-finished", onFinished);
+                finish();
+              }
+            };
+            this.ariClient.on("playback-finished", onFinished);
+            // Also poll in case ringback was stopped externally
+            const poll = setInterval(() => {
+              if (!rbActive) { clearInterval(poll); this.ariClient.off("playback-finished", onFinished); finish(); }
+            }, 200);
+            setTimeout(() => { clearInterval(poll); this.ariClient.off("playback-finished", onFinished); finish(); }, 40_000);
+          });
+        }
+      })().catch(() => {});
+
       // Start MixMonitor recording on the inbound PJSIP channel via AMI.
       // For RO hairpin calls the inbound channel stays in Stasis (ARI bridge) the
       // entire call — it never goes through dialplan, so the INDEXUS_REC_NAME channel
