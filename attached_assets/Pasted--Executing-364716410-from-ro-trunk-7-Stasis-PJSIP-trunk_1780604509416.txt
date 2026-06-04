@@ -1,0 +1,45 @@
+ -- Executing [364716410@from-ro-trunk:7] Stasis("PJSIP/trunk-ro-endpoint-00000078", "indexus-inbound") in new stack
+    -- Called 421948519438@from-internal-sk/n
+    -- Executing [421948519438@from-internal-sk:1] NoOp("Local/421948519438@from-internal-sk-00000025;2", "from-internal-sk 421 forward to 421948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:2] Set("Local/421948519438@from-internal-sk-00000025;2", "OUTNUM=0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:3] NoOp("Local/421948519438@from-internal-sk-00000025;2", "Normalized SK: 0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:4] ExecIf("Local/421948519438@from-internal-sk-00000025;2", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [421948519438@from-internal-sk:5] ExecIf("Local/421948519438@from-internal-sk-00000025;2", "0?Set(CALLERID(name)=)") in new stack
+    -- Executing [421948519438@from-internal-sk:6] ExecIf("Local/421948519438@from-internal-sk-00000025;2", "0?MixMonitor(/var/spool/asterisk/monitor/.wav,v(1)V(1))") in new stack
+    -- Executing [421948519438@from-internal-sk:7] Dial("Local/421948519438@from-internal-sk-00000025;2", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
+    -- PJSIP/trunk-sk-endpoint-00000079 is ringing
+    -- Local/421948519438@from-internal-sk-00000025;1 is ringing
+    -- PJSIP/trunk-sk-endpoint-00000079 is ringing
+    -- PJSIP/trunk-sk-endpoint-00000079 is making progress passing it to Local/421948519438@from-internal-sk-00000025;2
+    -- Local/421948519438@from-internal-sk-00000025;1 is making progress
+[Jun  4 20:19:53] NOTICE[412707][C-00000065]: res_rtp_asterisk.c:6161 process_cn_rfc3389: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 10.33.0.55:14264
+    -- PJSIP/trunk-sk-endpoint-00000079 answered Local/421948519438@from-internal-sk-00000025;2
+    -- Local/421948519438@from-internal-sk-00000025;1 answered
+       > Launching Stasis(indexus-inbound,ro-hairpin,1780604387.345) on Local/421948519438@from-internal-sk-00000025;1
+    -- Channel PJSIP/trunk-sk-endpoint-00000079 joined 'simple_bridge' basic-bridge <9d9a69a7-0403-4418-994c-81650355b9a3>
+    -- Channel Local/421948519438@from-internal-sk-00000025;2 joined 'simple_bridge' basic-bridge <9d9a69a7-0403-4418-994c-81650355b9a3>
+    -- Channel PJSIP/trunk-ro-endpoint-00000078 joined 'simple_bridge' stasis-bridge <5827021f-6bca-4c79-a374-bfbe3f565b19>
+    -- Channel Local/421948519438@from-internal-sk-00000025;1 joined 'simple_bridge' stasis-bridge <5827021f-6bca-4c79-a374-bfbe3f565b19>
+  == Manager 'indexus' logged on from 127.0.0.1
+  == Begin MixMonitor Recording PJSIP/trunk-ro-endpoint-00000078
+  == Manager 'indexus' logged off from 127.0.0.1
+       > Local/421948519438@from-internal-sk-00000025;1 is now talking
+       > Local/421948519438@from-internal-sk-00000025;1 is now silent
+       > Local/421948519438@from-internal-sk-00000025;1 is now talking
+       > Local/421948519438@from-internal-sk-00000025;1 is now silent
+       > Local/421948519438@from-internal-sk-00000025;1 is now talking
+       > Local/421948519438@from-internal-sk-00000025;1 is now silent
+       > Local/421948519438@from-internal-sk-00000025;1 is now talking
+       > Local/421948519438@from-internal-sk-00000025;1 is now silent
+       > Local/421948519438@from-internal-sk-00000025;1 is now talking
+       > Local/421948519438@from-internal-sk-00000025;1 is now silent
+       > Local/421948519438@from-internal-sk-00000025;1 is now talking
+    -- Channel PJSIP/trunk-sk-endpoint-00000079 left 'simple_bridge' basic-bridge <9d9a69a7-0403-4418-994c-81650355b9a3>
+    -- Channel Local/421948519438@from-internal-sk-00000025;2 left 'simple_bridge' basic-bridge <9d9a69a7-0403-4418-994c-81650355b9a3>
+  == Spawn extension (from-internal-sk, 421948519438, 7) exited non-zero on 'Local/421948519438@from-internal-sk-00000025;2'
+    -- Channel Local/421948519438@from-internal-sk-00000025;1 left 'simple_bridge' stasis-bridge <5827021f-6bca-4c79-a374-bfbe3f565b19>
+    -- Channel PJSIP/trunk-ro-endpoint-00000078 left 'simple_bridge' stasis-bridge <5827021f-6bca-4c79-a374-bfbe3f565b19>
+  == MixMonitor close filestream (mixed)
+  == End MixMonitor Recording PJSIP/trunk-ro-endpoint-00000078
+mediagtw*CLI>
