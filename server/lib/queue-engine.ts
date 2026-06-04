@@ -98,7 +98,10 @@ export class QueueEngine extends EventEmitter {
   private pendingOutboundCallerIds: Map<string, { callerIdNumber: string; expiresAt: number }> = new Map();
   private subscribedEndpoints: Set<string> = new Set();
   // RO hairpin: inbound channel stays in Stasis, outbound originated via ARI, bridged in ARI
-  private pendingRoHairpins: Map<string, { parentChannelId: string }> = new Map(); // originatedId → parent
+  // Both upReady AND stasisReady must be true before bridging — ensures Local;1 is in Stasis
+  // before addChannelToBridge is called (channel-state-change Up fires BEFORE StasisStart for
+  // Local channels; bridging before StasisStart means the channel isn't in the ARI app yet).
+  private pendingRoHairpins: Map<string, { parentChannelId: string; upReady: boolean; stasisReady: boolean }> = new Map();
   private roHairpinPairs: Map<string, string> = new Map(); // bidirectional: channelId ↔ peerChannelId
   private forwardedCallTracking: Map<string, {
     callLogId: string;
@@ -141,21 +144,39 @@ export class QueueEngine extends EventEmitter {
         // appArgs format: "ro-hairpin,<parentChannelId>" (comma-separated ARI args)
         if (args[0] === "ro-hairpin") {
           const parentChannelId = args[1];
-          console.log(`[QueueEngine] StasisStart ro-hairpin originated=${event.channel.id} parent=${parentChannelId} state=${event.channel.state}`);
-          // Guard: channel-state-change may have already bridged this pair — don't double-bridge
-          if (this.roHairpinPairs.has(event.channel.id)) {
-            console.log(`[QueueEngine] RO hairpin StasisStart: already bridged via channel-state-change, skipping`);
-            return;
-          }
-          // Remove from pendingRoHairpins (set by forwardToExternalNumber) to prevent
-          // channel-state-change from also triggering handleRoHairpinReady
-          this.pendingRoHairpins.delete(event.channel.id);
-          if (event.channel.state === "Up") {
-            this.handleRoHairpinReady(event.channel.id, parentChannelId).catch(err =>
-              console.error("[QueueEngine] handleRoHairpinReady error:", err instanceof Error ? err.message : err)
-            );
+          const chState = event.channel.state;
+          console.log(`[QueueEngine] StasisStart ro-hairpin originated=${event.channel.id} parent=${parentChannelId} state=${chState}`);
+          // Two-signal gate: bridge only when BOTH Up AND Stasis are confirmed.
+          // channel-state-change(Up) fires BEFORE StasisStart for Local channels —
+          // calling addChannelToBridge before StasisStart means the channel isn't in
+          // the ARI app yet and the bridge won't carry audio.
+          const pending = this.pendingRoHairpins.get(event.channel.id);
+          if (pending) {
+            // Stasis confirmed — mark stasisReady
+            const upReady = pending.upReady || chState === "Up";
+            if (upReady) {
+              // Both conditions met → bridge now
+              this.pendingRoHairpins.delete(event.channel.id);
+              console.log(`[QueueEngine] RO hairpin StasisStart: both signals met, bridging`);
+              this.handleRoHairpinReady(event.channel.id, parentChannelId).catch(err =>
+                console.error("[QueueEngine] handleRoHairpinReady error:", err instanceof Error ? err.message : err)
+              );
+            } else {
+              // Not Up yet — wait for channel-state-change to fire Up (which fires after Stasis for some channels)
+              this.pendingRoHairpins.set(event.channel.id, { parentChannelId, upReady: false, stasisReady: true });
+              console.log(`[QueueEngine] RO hairpin StasisStart: stasisReady set, waiting for Up state`);
+            }
           } else {
-            this.pendingRoHairpins.set(event.channel.id, { parentChannelId });
+            // No pending entry — this means channel-state-change already fired Up BEFORE StasisStart
+            // and we deferred to here. Bridge now (sentinel in handleRoHairpinReady prevents double).
+            if (!this.roHairpinPairs.has(event.channel.id)) {
+              console.log(`[QueueEngine] RO hairpin StasisStart: no pending (Up came first), bridging now`);
+              this.handleRoHairpinReady(event.channel.id, parentChannelId).catch(err =>
+                console.error("[QueueEngine] handleRoHairpinReady error:", err instanceof Error ? err.message : err)
+              );
+            } else {
+              console.log(`[QueueEngine] RO hairpin StasisStart: already bridged, skipping`);
+            }
           }
           return;
         }
@@ -186,13 +207,21 @@ export class QueueEngine extends EventEmitter {
 
     this.ariClient.on("channel-state-change", (event: AriEvent) => {
       if (event.channel && event.channel.state === "Up") {
-        // RO hairpin: originated outbound channel answered
+        // RO hairpin: originated Local;1 channel is now Up
         const roHairpin = this.pendingRoHairpins.get(event.channel.id);
         if (roHairpin) {
-          this.pendingRoHairpins.delete(event.channel.id);
-          this.handleRoHairpinReady(event.channel.id, roHairpin.parentChannelId).catch(err =>
-            console.error("[QueueEngine] handleRoHairpinReady error:", err instanceof Error ? err.message : err)
-          );
+          if (roHairpin.stasisReady) {
+            // Both signals now met (Stasis came first, Up came now) → bridge
+            this.pendingRoHairpins.delete(event.channel.id);
+            console.log(`[QueueEngine] RO hairpin channel-state-change Up: both signals met, bridging`);
+            this.handleRoHairpinReady(event.channel.id, roHairpin.parentChannelId).catch(err =>
+              console.error("[QueueEngine] handleRoHairpinReady error:", err instanceof Error ? err.message : err)
+            );
+          } else {
+            // Up arrived before StasisStart — mark upReady, wait for StasisStart
+            this.pendingRoHairpins.set(event.channel.id, { ...roHairpin, upReady: true });
+            console.log(`[QueueEngine] RO hairpin channel-state-change Up: upReady set, waiting for StasisStart`);
+          }
           return;
         }
         const agentCall = this.pendingAgentCalls.get(event.channel.id);
@@ -1106,12 +1135,13 @@ export class QueueEngine extends EventEmitter {
           callerNumber || undefined
         );
         console.log(`[QueueEngine] RO hairpin Local originated: ${originated.id} (state=${originated.state}) for inbound ${channelId}`);
-        // Local;1 is typically Up immediately; channel-state-change covers the non-Up case
-        if (originated.state !== "Up") {
-          this.pendingRoHairpins.set(originated.id, { parentChannelId: channelId });
-        } else {
-          await this.handleRoHairpinReady(originated.id, channelId);
-        }
+        // Always register in pendingRoHairpins — bridge fires only after BOTH
+        // Up (channel-state-change) AND StasisStart are confirmed, whichever comes last.
+        this.pendingRoHairpins.set(originated.id, {
+          parentChannelId: channelId,
+          upReady: originated.state === "Up",
+          stasisReady: false,
+        });
       } catch (err: any) {
         console.error(`[QueueEngine] RO hairpin originate failed: ${err.message}, hanging up`);
         try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
