@@ -9,6 +9,7 @@ export interface LoginResponse {
     firstName: string;
     lastName: string;
     countryCode: string;
+    avatarUrl?: string | null;
   };
 }
 
@@ -47,7 +48,10 @@ export async function verifyToken(): Promise<boolean> {
     const token = await getItem(TOKEN_KEY);
     if (!token) return false;
 
-    await api.get('/api/mobile/auth/verify');
+    const data = await api.get<{ valid: boolean; collaborator: AuthUser }>('/api/mobile/auth/verify');
+    if (data?.collaborator) {
+      await setItem(USER_KEY, JSON.stringify(data.collaborator));
+    }
     return true;
   } catch {
     return false;
