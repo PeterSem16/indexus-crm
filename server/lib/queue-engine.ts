@@ -2764,6 +2764,37 @@ export class QueueEngine extends EventEmitter {
 
       console.log(`[QueueEngine] Both channels added to bridge ${bridge.id}`);
 
+      // RTP path fix for RO inbound calls: when the ARI softmix bridge is created,
+      // Asterisk may use a different RTP port than what was in the initial 200 OK SDP.
+      // RO (old chan_sip) keeps sending to the original port → Asterisk sees no RTP activity
+      // → rtp_timeout fires → silence. Fix: AMI "channel request hold/unhold" bypasses the
+      // bridge hold layer and sends a real SIP re-INVITE to RO with the current bridge RTP port.
+      const _rtpFixChannelId = pending.callerChannelId;
+      (async () => {
+        try {
+          await new Promise(r => setTimeout(r, 800));
+          const ch = await this.ariClient.getChannel(_rtpFixChannelId);
+          if (!ch.name.startsWith("PJSIP/trunk-ro-endpoint")) return;
+          const [cfg] = await db.select().from(ariSettings).limit(1);
+          if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) return;
+          const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
+          const sshPort = cfg.sshPort || 22;
+          console.log(`[QueueEngine] RTP fix: hold/unhold re-INVITE for ${ch.name}`);
+          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+            Action: "Command",
+            Command: `channel request hold ${ch.name}`,
+          });
+          await new Promise(r => setTimeout(r, 600));
+          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+            Action: "Command",
+            Command: `channel request unhold ${ch.name}`,
+          });
+          console.log(`[QueueEngine] RTP fix: done for ${ch.name}`);
+        } catch (err: any) {
+          console.warn(`[QueueEngine] RTP fix (non-critical):`, err.message);
+        }
+      })();
+
       this.activeBridges.set(pending.callerChannelId, {
         bridgeId: bridge.id,
         callerChannelId: pending.callerChannelId,
