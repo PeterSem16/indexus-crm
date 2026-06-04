@@ -138,9 +138,18 @@ export class QueueEngine extends EventEmitter {
         }
         const args = event.args || [];
         // RO hairpin: originated outbound channel entering Stasis
+        // appArgs format: "ro-hairpin,<parentChannelId>" (comma-separated ARI args)
         if (args[0] === "ro-hairpin") {
           const parentChannelId = args[1];
           console.log(`[QueueEngine] StasisStart ro-hairpin originated=${event.channel.id} parent=${parentChannelId} state=${event.channel.state}`);
+          // Guard: channel-state-change may have already bridged this pair — don't double-bridge
+          if (this.roHairpinPairs.has(event.channel.id)) {
+            console.log(`[QueueEngine] RO hairpin StasisStart: already bridged via channel-state-change, skipping`);
+            return;
+          }
+          // Remove from pendingRoHairpins (set by forwardToExternalNumber) to prevent
+          // channel-state-change from also triggering handleRoHairpinReady
+          this.pendingRoHairpins.delete(event.channel.id);
           if (event.channel.state === "Up") {
             this.handleRoHairpinReady(event.channel.id, parentChannelId).catch(err =>
               console.error("[QueueEngine] handleRoHairpinReady error:", err instanceof Error ? err.message : err)
@@ -1052,7 +1061,7 @@ export class QueueEngine extends EventEmitter {
         const callerNumber = inboundCh?.caller?.number || "";
         const originated = await this.ariClient.originateToStasis(
           `PJSIP/${norm}@trunk-ro-endpoint`,
-          `ro-hairpin:${channelId}`,
+          `ro-hairpin,${channelId}`,
           callerNumber || undefined
         );
         console.log(`[QueueEngine] RO hairpin originated: ${originated.id} (state=${originated.state}) for inbound ${channelId}`);

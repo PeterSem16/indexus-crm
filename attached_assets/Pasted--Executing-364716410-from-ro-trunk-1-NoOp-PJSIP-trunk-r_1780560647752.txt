@@ -1,0 +1,37 @@
+  -- Executing [364716410@from-ro-trunk:1] NoOp("PJSIP/trunk-ro-endpoint-00000012", "INBOUND from RO trunk DID=364716410 CID="491723627488" <491723627488> - normalize to +40364716410") in new stack
+    -- Executing [364716410@from-ro-trunk:2] Set("PJSIP/trunk-ro-endpoint-00000012", "__CBC_SOURCE_TRUNK=RO") in new stack
+    -- Executing [364716410@from-ro-trunk:3] Set("PJSIP/trunk-ro-endpoint-00000012", "__CBC_SOURCE_IP=10.33.0.55") in new stack
+    -- Executing [364716410@from-ro-trunk:4] Set("PJSIP/trunk-ro-endpoint-00000012", "__CBC_DID=40364716410") in new stack
+    -- Executing [364716410@from-ro-trunk:5] Set("PJSIP/trunk-ro-endpoint-00000012", "__CBC_CALLER=491723627488") in new stack
+    -- Executing [364716410@from-ro-trunk:6] NoOp("PJSIP/trunk-ro-endpoint-00000012", "INDEXUS normalized DID=40364716410 caller=491723627488") in new stack
+    -- Executing [364716410@from-ro-trunk:7] Stasis("PJSIP/trunk-ro-endpoint-00000012", "indexus-inbound") in new stack
+    -- Called 421948519438@trunk-ro-endpoint
+    -- PJSIP/trunk-ro-endpoint-00000013 is making progress
+    -- PJSIP/trunk-ro-endpoint-00000013 answered
+       > Launching Stasis(indexus-inbound,ro-hairpin:1780560527.27) on PJSIP/trunk-ro-endpoint-00000013
+    -- Channel PJSIP/trunk-ro-endpoint-00000012 joined 'simple_bridge' stasis-bridge <e1b3efb0-8541-4593-a902-c4ba7ac4c5e9>
+    -- Channel PJSIP/trunk-ro-endpoint-00000013 joined 'simple_bridge' stasis-bridge <e1b3efb0-8541-4593-a902-c4ba7ac4c5e9>
+       > Bridge e1b3efb0-8541-4593-a902-c4ba7ac4c5e9: switching from simple_bridge technology to native_rtp
+       > Locally RTP bridged 'PJSIP/trunk-ro-endpoint-00000013' and 'PJSIP/trunk-ro-endpoint-00000012' in stack
+    -- Channel PJSIP/trunk-ro-endpoint-00000013 left 'native_rtp' stasis-bridge <e1b3efb0-8541-4593-a902-c4ba7ac4c5e9>
+       > Bridge e1b3efb0-8541-4593-a902-c4ba7ac4c5e9: switching from native_rtp technology to simple_bridge
+    -- Channel PJSIP/trunk-ro-endpoint-00000012 left 'simple_bridge' stasis-bridge <e1b3efb0-8541-4593-a902-c4ba7ac4c5e9>
+    -- Executing [364716410@from-ro-trunk:1] NoOp("PJSIP/trunk-ro-endpoint-00000014", "INBOUND from RO trunk DID=364716410 CID="491723627488" <491723627488> - normalize to +40364716410") in new stack
+    -- Executing [364716410@from-ro-trunk:2] Set("PJSIP/trunk-ro-endpoint-00000014", "__CBC_SOURCE_TRUNK=RO") in new stack
+    -- Executing [364716410@from-ro-trunk:3] Set("PJSIP/trunk-ro-endpoint-00000014", "__CBC_SOURCE_IP=10.33.0.55") in new stack
+    -- Executing [364716410@from-ro-trunk:4] Set("PJSIP/trunk-ro-endpoint-00000014", "__CBC_DID=40364716410") in new stack
+    -- Executing [364716410@from-ro-trunk:5] Set("PJSIP/trunk-ro-endpoint-00000014", "__CBC_CALLER=491723627488") in new stack
+    -- Executing [364716410@from-ro-trunk:6] NoOp("PJSIP/trunk-ro-endpoint-00000014", "INDEXUS normalized DID=40364716410 caller=491723627488") in new stack
+    -- Executing [364716410@from-ro-trunk:7] Stasis("PJSIP/trunk-ro-endpoint-00000014", "indexus-inbound") in new stack
+    -- Called 421948519438@trunk-ro-endpoint
+    -- PJSIP/trunk-ro-endpoint-00000015 is making progress
+    -- PJSIP/trunk-ro-endpoint-00000015 answered
+       > Launching Stasis(indexus-inbound,ro-hairpin:1780560608.31) on PJSIP/trunk-ro-endpoint-00000015
+    -- Channel PJSIP/trunk-ro-endpoint-00000014 joined 'simple_bridge' stasis-bridge <13f9bf08-f3d8-4cd2-aa86-50abdae42bb8>
+    -- Channel PJSIP/trunk-ro-endpoint-00000015 joined 'simple_bridge' stasis-bridge <13f9bf08-f3d8-4cd2-aa86-50abdae42bb8>
+       > Bridge 13f9bf08-f3d8-4cd2-aa86-50abdae42bb8: switching from simple_bridge technology to native_rtp
+       > Locally RTP bridged 'PJSIP/trunk-ro-endpoint-00000015' and 'PJSIP/trunk-ro-endpoint-00000014' in stack
+    -- Channel PJSIP/trunk-ro-endpoint-00000015 left 'native_rtp' stasis-bridge <13f9bf08-f3d8-4cd2-aa86-50abdae42bb8>
+       > Bridge 13f9bf08-f3d8-4cd2-aa86-50abdae42bb8: switching from native_rtp technology to simple_bridge
+    -- Channel PJSIP/trunk-ro-endpoint-00000014 left 'simple_bridge' stasis-bridge <13f9bf08-f3d8-4cd2-aa86-50abdae42bb8>
+mediagtw*CLI>
