@@ -1134,6 +1134,47 @@ export class QueueEngine extends EventEmitter {
       this.roHairpinPairs.set(parentChannelId, originatedChannelId);
       this.roHairpinPairs.set(originatedChannelId, parentChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: ${parentChannelId} ↔ ${originatedChannelId}`);
+
+      // RTP re-sync: RO chan_sip doesn't automatically send RTP to the correct Asterisk
+      // mixing port after the ARI bridge is created. A SIP re-INVITE forces RO to
+      // re-negotiate the RTP session and start sending to the correct port.
+      // We do hold then unhold on BOTH legs so RO updates both directions.
+      // Without this, audio is silent until the caller physically does hold/unhold.
+      const _parentId = parentChannelId;
+      const _originatedId = originatedChannelId;
+      (async () => {
+        try {
+          await new Promise(r => setTimeout(r, 1000));
+          const [cfg] = await db.select().from(ariSettings).limit(1);
+          if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) return;
+          const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
+          const sshPort = cfg.sshPort || 22;
+
+          const [parentCh, originatedCh] = await Promise.all([
+            this.ariClient.getChannel(_parentId).catch(() => null),
+            this.ariClient.getChannel(_originatedId).catch(() => null),
+          ]);
+          const names = [parentCh?.name, originatedCh?.name].filter((n): n is string => !!n);
+          console.log(`[QueueEngine] RO hairpin RTP fix: hold/unhold on ${names.join(", ")}`);
+
+          for (const name of names) {
+            await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+              Action: "Command",
+              Command: `channel request hold ${name}`,
+            });
+          }
+          await new Promise(r => setTimeout(r, 600));
+          for (const name of names) {
+            await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+              Action: "Command",
+              Command: `channel request unhold ${name}`,
+            });
+          }
+          console.log(`[QueueEngine] RO hairpin RTP fix: done for ${names.join(", ")}`);
+        } catch (err: any) {
+          console.warn(`[QueueEngine] RO hairpin RTP fix (non-critical):`, err instanceof Error ? err.message : err);
+        }
+      })();
     } catch (err: any) {
       console.error(`[QueueEngine] RO hairpin bridge failed: ${err.message}`);
       try { await this.ariClient.hangupChannel(parentChannelId, "normal"); } catch {}
