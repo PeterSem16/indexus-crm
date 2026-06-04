@@ -1,0 +1,115 @@
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064827, ts 338272, len 000160)
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002258, ts 338432, len 000160)
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064828, ts 338432, len 000160)
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002259, ts 338592, len 000160)
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064829, ts 338592, len 000160)
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002260, ts 338752, len 000160)
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064830, ts 338752, len 000160)
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002261, ts 338912, len 000160)
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064831, ts 338912, len 000160)
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002262, ts 339072, len 000160)
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064832, ts 339072, len 000160)
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002263, ts 339232, len 000160)
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064833, ts 339232, len 000160)
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002264, ts 339392, len 000160)
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064834, ts 339392, len 000160)
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002265, ts 339552, len 000160)
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064835, ts 339552, len 000160)
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002266, ts 339712, len 000160)
+Sent RTP packet to      10.33.0.55:17052 (type 00, seq 064836, ts 339712, len 000160)
+<--- Received SIP request (538 bytes) from UDP:10.33.0.55:5060 --->
+BYE sip:10.1.2.112:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK6925de85;rport
+From: "491723627488" <sip:491723627488@10.33.0.55>;tag=as10b566fa
+To: <sip:364716410@10.1.2.112;cpd=on>;tag=2aac5e84-00a5-4a85-8e01-4c21f65545fe
+Call-ID: 37e099f7339806316685010201272fb7@10.33.0.55
+CSeq: 103 BYE
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Remote-Party-ID: "491723627488" <sip:491723627488@10.33.0.55>;privacy=off;screen=no
+X-Asterisk-HangupCause: Normal Clearing
+X-Asterisk-HangupCauseCode: 16
+Content-Length: 0
+
+
+<--- Transmitting SIP response (368 bytes) to UDP:10.33.0.55:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;rport=5060;received=10.33.0.55;branch=z9hG4bK6925de85
+Call-ID: 37e099f7339806316685010201272fb7@10.33.0.55
+From: "491723627488" <sip:491723627488@10.33.0.55>;tag=as10b566fa
+To: <sip:364716410@10.1.2.112;cpd=on>;tag=2aac5e84-00a5-4a85-8e01-4c21f65545fe
+CSeq: 103 BYE
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+Got  RTP packet from    212.55.232.229:12700 (type 00, seq 002267, ts 339872, len 000160)
+    -- Channel PJSIP/trunk-ro-endpoint-0000001a left 'simple_bridge' basic-bridge <eb807c85-ffe6-4f10-a04c-9aa80a4498a6>
+  == Spawn extension (from-internal-sk, 421948519438, 7) exited non-zero on 'PJSIP/trunk-ro-endpoint-0000001a'
+    -- Channel PJSIP/trunk-sk-endpoint-0000001b left 'simple_bridge' basic-bridge <eb807c85-ffe6-4f10-a04c-9aa80a4498a6>
+  == MixMonitor close filestream (mixed)
+  == End MixMonitor Recording PJSIP/trunk-ro-endpoint-0000001a
+<--- Transmitting SIP request (433 bytes) to UDP:10.9.33.2:5060 --->
+BYE sip:0948519438@10.9.33.2:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.1.2.112:5060;rport;branch=z9hG4bKPj23705f88-7438-4192-b43c-2d4df748f933
+From: "491723627488" <sip:491723627488@10.9.33.2>;tag=4cde96c2-a7ab-443a-a425-61c86989f393
+To: <sip:0948519438@10.9.33.2>;tag=as4e36cf3d
+Call-ID: e37d23c9-6119-463a-a54f-d9dbbf76fd1b
+CSeq: 23945 BYE
+Reason: Q.850;cause=16
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (502 bytes) from UDP:10.9.33.2:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.1.2.112:5060;branch=z9hG4bKPj23705f88-7438-4192-b43c-2d4df748f933;received=10.1.2.112;rport=5060
+From: "491723627488" <sip:491723627488@10.9.33.2>;tag=4cde96c2-a7ab-443a-a425-61c86989f393
+To: <sip:0948519438@10.9.33.2>;tag=as4e36cf3d
+Call-ID: e37d23c9-6119-463a-a54f-d9dbbf76fd1b
+CSeq: 23945 BYE
+Server: DialLog.Dialer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH, MESSAGE
+Supported: replaces, timer
+Content-Length: 0
+
+
+<--- Transmitting SIP request (419 bytes) to UDP:10.9.33.2:5060 --->
+OPTIONS sip:10.9.33.2:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.1.2.112:5060;rport;branch=z9hG4bKPj61b16d89-fb38-4573-80b0-5d1a81de99fd
+From: <sip:trunk-sk-endpoint@10.9.33.2>;tag=467de7f2-b803-47fa-b850-8912fc5cd3d6
+To: <sip:10.9.33.2>
+Contact: <sip:trunk-sk-endpoint@10.1.2.112:5060>
+Call-ID: cea9d4f0-8e41-4fa5-bcfa-69e70b243bea
+CSeq: 2536 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (516 bytes) from UDP:10.9.33.2:5060 --->
+SIP/2.0 404 Not Found
+Via: SIP/2.0/UDP 10.1.2.112:5060;branch=z9hG4bKPj61b16d89-fb38-4573-80b0-5d1a81de99fd;received=10.1.2.112;rport=5060
+From: <sip:trunk-sk-endpoint@10.9.33.2>;tag=467de7f2-b803-47fa-b850-8912fc5cd3d6
+To: <sip:10.9.33.2>;tag=as4a068da9
+Call-ID: cea9d4f0-8e41-4fa5-bcfa-69e70b243bea
+CSeq: 2536 OPTIONS
+Server: DialLog.Dialer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH, MESSAGE
+Supported: replaces, timer
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Transmitting SIP request (405 bytes) to UDP:10.33.0.55:5060 --->
+OPTIONS sip:10.33.0.55:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.1.2.112:5060;rport;branch=z9hG4bKPj250fd36a-43e2-44db-ad83-9cbd763ef336
+From: <sip:mediagtw@10.1.2.112>;tag=a41bb8db-4f7c-4bb2-b527-67c6a543b7b8
+To: <sip:10.33.0.55>
+Contact: <sip:mediagtw@10.1.2.112:5060>
+Call-ID: 3cf6d8bf-cfb9-45d6-a780-c19abf5015c8
+CSeq: 47291 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
