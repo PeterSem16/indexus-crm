@@ -1270,7 +1270,7 @@ export class QueueEngine extends EventEmitter {
           const pbId = `rb-${rbChannelId}-${rbIteration++}`;
           rbCurrentPbId = pbId;
           try {
-            await this.ariClient.playMedia(rbChannelId, "sound:ring-back", pbId);
+            await this.ariClient.playMedia(rbChannelId, "tone:ring", pbId);
           } catch {
             break; // channel gone or not playable
           }
