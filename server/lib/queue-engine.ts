@@ -1220,6 +1220,17 @@ export class QueueEngine extends EventEmitter {
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
 
+      // Enable talk detection on Local;1 so ChannelTalkingStarted fires when
+      // the collaborator answers and audio starts flowing through the Local pair.
+      // Without TALK_DETECT(set), Asterisk never emits ChannelTalkingStarted —
+      // which means the ringback injected below would never stop after answer.
+      try {
+        await this.ariClient.setChannelVariable(originatedChannelId, "TALK_DETECT(set)", "");
+        console.log(`[QueueEngine] RO hairpin TALK_DETECT enabled on Local;1=${originatedChannelId}`);
+      } catch (err: any) {
+        console.warn(`[QueueEngine] RO hairpin TALK_DETECT setup failed (non-fatal): ${err.message}`);
+      }
+
       // Ringback tone: inject a ring tone on the inbound channel while waiting for
       // the collaborator to answer. SK calls hear ringback automatically because the
       // inbound channel leaves Stasis (continueDialplan → Dial()). For RO hairpin the
