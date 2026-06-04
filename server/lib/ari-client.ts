@@ -309,6 +309,12 @@ export class AriClient extends EventEmitter {
       case "ChannelLeftBridge":
         this.emit("channel-left-bridge", event);
         break;
+      case "ChannelTalkingStarted":
+        this.emit("channel-talking-started", event);
+        break;
+      case "ChannelTalkingStopped":
+        this.emit("channel-talking-stopped", event);
+        break;
       default:
         this.emit("event", event);
     }

@@ -1220,6 +1220,70 @@ export class QueueEngine extends EventEmitter {
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
 
+      // Ringback tone: play sound:ring-back on the inbound channel while the caller
+      // waits for the collaborator to answer. The Local;2/Dial() leg does NOT reliably
+      // propagate early-media ringback through the Local pair into the ARI bridge, so
+      // we inject it ourselves. Loop stops when:
+      //   (a) collaborator starts talking → ChannelTalkingStarted on Local;1
+      //   (b) either channel leaves Stasis → stasis-end
+      //   (c) 60 s safety timeout (call not yet answered or no talking detected)
+      const ringbackPbId = `rb-${parentChannelId}`;
+      let ringbackActive = true;
+      let ringbackCleanedUp = false;
+
+      const stopRingback = () => {
+        if (!ringbackActive) return;
+        ringbackActive = false;
+        this.ariClient.stopPlayback(ringbackPbId).catch(() => {});
+      };
+
+      const onRingbackTalking = (event: AriEvent) => {
+        if (event.channel?.id === originatedChannelId) cleanupRingback();
+      };
+      const onRingbackStasisEnd = (event: AriEvent) => {
+        if (event.channel?.id === parentChannelId || event.channel?.id === originatedChannelId) cleanupRingback();
+      };
+      const ringbackSafetyTimer = setTimeout(() => cleanupRingback(), 60_000);
+
+      const cleanupRingback = () => {
+        if (ringbackCleanedUp) return;
+        ringbackCleanedUp = true;
+        clearTimeout(ringbackSafetyTimer);
+        this.ariClient.off("channel-talking-started", onRingbackTalking);
+        this.ariClient.off("stasis-end", onRingbackStasisEnd);
+        stopRingback();
+      };
+
+      this.ariClient.on("channel-talking-started", onRingbackTalking);
+      this.ariClient.on("stasis-end", onRingbackStasisEnd);
+
+      (async () => {
+        while (ringbackActive) {
+          try {
+            await this.ariClient.playMedia(parentChannelId, "sound:ring-back", ringbackPbId);
+          } catch { break; }
+          // Wait for this iteration to finish before looping
+          await new Promise<void>(resolve => {
+            let settled = false;
+            const settle = () => { if (!settled) { settled = true; resolve(); } };
+            const onPbDone = (event: AriEvent) => {
+              if (event.playback?.id === ringbackPbId) {
+                this.ariClient.off("playback-finished", onPbDone);
+                settle();
+              }
+            };
+            this.ariClient.on("playback-finished", onPbDone);
+            // Fallback: resolve after 8 s if playback-finished never fires
+            setTimeout(() => {
+              this.ariClient.off("playback-finished", onPbDone);
+              settle();
+            }, 8000);
+            // If ringback was already stopped, bail immediately
+            if (!ringbackActive) settle();
+          });
+        }
+      })().catch(() => {});
+
       // Start MixMonitor recording on the inbound PJSIP channel via AMI.
       // For RO hairpin calls the inbound channel stays in Stasis (ARI bridge) the
       // entire call — it never goes through dialplan, so the INDEXUS_REC_NAME channel
