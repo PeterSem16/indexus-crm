@@ -1215,8 +1215,38 @@ export class QueueEngine extends EventEmitter {
       await this.stopMohForChannel(parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
-      // Map already set as sentinel above — values are already correct, just log
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
+
+      // RTP path fix: when the ARI softmix bridge is created, Asterisk may use a
+      // different RTP port than what was in the initial 200 OK SDP. RO (old chan_sip,
+      // nat=always) keeps sending to the original port → Receive=0 until a re-INVITE
+      // tells RO the current bridge RTP port. AMI "channel request hold/unhold" sends
+      // a real SIP re-INVITE to RO with the current port — same fix as agent bridge.
+      const _rtpFixId = parentChannelId;
+      (async () => {
+        try {
+          await new Promise(r => setTimeout(r, 800));
+          const ch = await this.ariClient.getChannel(_rtpFixId);
+          if (!ch?.name?.startsWith("PJSIP/trunk-ro-endpoint")) return;
+          const [cfg] = await db.select().from(ariSettings).limit(1);
+          if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) return;
+          const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
+          const sshPort = cfg.sshPort || 22;
+          console.log(`[QueueEngine] RO hairpin RTP fix: hold/unhold re-INVITE for ${ch.name}`);
+          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+            Action: "Command",
+            Command: `channel request hold ${ch.name}`,
+          });
+          await new Promise(r => setTimeout(r, 600));
+          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+            Action: "Command",
+            Command: `channel request unhold ${ch.name}`,
+          });
+          console.log(`[QueueEngine] RO hairpin RTP fix: done for ${ch.name}`);
+        } catch (err: any) {
+          console.warn(`[QueueEngine] RO hairpin RTP fix (non-critical):`, err.message);
+        }
+      })();
     } catch (err: any) {
       console.error(`[QueueEngine] RO hairpin bridge failed: ${err.message}`);
       try { await this.ariClient.hangupChannel(parentChannelId, "normal"); } catch {}
