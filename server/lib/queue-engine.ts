@@ -1220,21 +1220,28 @@ export class QueueEngine extends EventEmitter {
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
 
-      // Ringback tone: play sound:ring-back on the inbound channel while the caller
-      // waits for the collaborator to answer. The Local;2/Dial() leg does NOT reliably
-      // propagate early-media ringback through the Local pair into the ARI bridge, so
-      // we inject it ourselves. Loop stops when:
-      //   (a) collaborator starts talking → ChannelTalkingStarted on Local;1
-      //   (b) either channel leaves Stasis → stasis-end
-      //   (c) 60 s safety timeout (call not yet answered or no talking detected)
-      const ringbackPbId = `rb-${parentChannelId}`;
+      // Ringback tone: inject a ring tone on the inbound channel while waiting for
+      // the collaborator to answer. SK calls hear ringback automatically because the
+      // inbound channel leaves Stasis (continueDialplan → Dial()). For RO hairpin the
+      // channel stays in Stasis/ARI bridge, so Dial() on Local;2 never propagates
+      // ringback back through the Local pair — we must inject it ourselves.
+      //
+      // Uses tone:ring (Asterisk's built-in tone generator, no sound file needed).
+      // tone:ring loops automatically until stopPlayback is called. Falls back to
+      // sound:ring-back loop if tone:ring is unavailable.
+      //
+      // Stops when: (a) collaborator starts talking → ChannelTalkingStarted on Local;1,
+      //             (b) either channel leaves Stasis → stasis-end,
+      //             (c) 60 s safety timeout.
+      const ringbackBaseId = `rb-${parentChannelId}`;
+      let ringbackCurrentId = `${ringbackBaseId}-0`;
       let ringbackActive = true;
       let ringbackCleanedUp = false;
 
       const stopRingback = () => {
         if (!ringbackActive) return;
         ringbackActive = false;
-        this.ariClient.stopPlayback(ringbackPbId).catch(() => {});
+        this.ariClient.stopPlayback(ringbackCurrentId).catch(() => {});
       };
 
       const onRingbackTalking = (event: AriEvent) => {
@@ -1258,28 +1265,34 @@ export class QueueEngine extends EventEmitter {
       this.ariClient.on("stasis-end", onRingbackStasisEnd);
 
       (async () => {
+        // Try tone:ring first — loops automatically, no sound file needed.
+        // If it fails (module unavailable), fall back to sound:ring-back loop.
+        let useTone = true;
+        let iter = 0;
         while (ringbackActive) {
+          const pbId = `${ringbackBaseId}-${iter++}`;
+          ringbackCurrentId = pbId;
+          const media = useTone ? "tone:ring" : "sound:ring-back";
           try {
-            await this.ariClient.playMedia(parentChannelId, "sound:ring-back", ringbackPbId);
-          } catch { break; }
-          // Wait for this iteration to finish before looping
+            await this.ariClient.playMedia(parentChannelId, media, pbId);
+          } catch {
+            if (useTone) { useTone = false; continue; } // retry with sound fallback
+            break;
+          }
+          // Wait for playback-finished (fired by stopPlayback or hangup).
+          // tone:ring loops indefinitely — resolved only via stopPlayback.
+          // sound:ring-back plays one ~5 s cycle then fires playback-finished.
           await new Promise<void>(resolve => {
             let settled = false;
             const settle = () => { if (!settled) { settled = true; resolve(); } };
-            const onPbDone = (event: AriEvent) => {
-              if (event.playback?.id === ringbackPbId) {
-                this.ariClient.off("playback-finished", onPbDone);
-                settle();
-              }
+            const onF = (e: AriEvent) => {
+              if (e.playback?.id === pbId) { this.ariClient.off("playback-finished", onF); settle(); }
             };
-            this.ariClient.on("playback-finished", onPbDone);
-            // Fallback: resolve after 8 s if playback-finished never fires
-            setTimeout(() => {
-              this.ariClient.off("playback-finished", onPbDone);
-              settle();
-            }, 8000);
-            // If ringback was already stopped, bail immediately
-            if (!ringbackActive) settle();
+            this.ariClient.on("playback-finished", onF);
+            // Polling fallback: exit if ringback was stopped externally
+            const poll = setInterval(() => { if (!ringbackActive) { clearInterval(poll); this.ariClient.off("playback-finished", onF); settle(); } }, 250);
+            // Hard cap: 35 s per iteration (covers one full ring-back sound + margin)
+            setTimeout(() => { clearInterval(poll); this.ariClient.off("playback-finished", onF); settle(); }, 35_000);
           });
         }
       })().catch(() => {});
