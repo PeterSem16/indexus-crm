@@ -1213,35 +1213,41 @@ export class QueueEngine extends EventEmitter {
       // sends no audio to RO is < 100ms. Stopping earlier (in forwardToExternalNumber)
       // created a 2-4s gap that caused old RO chan_sip (nat=always) to freeze its RTP.
       await this.stopMohForChannel(parentChannelId);
+
+      // RTP comedia primer: play a very short beep on the inbound channel BEFORE
+      // adding it to the bridge. Asterisk sends a few RTP packets to RO from its
+      // current RTP port. RO (chan_sip, nat=always) uses "comedia" — it learns the
+      // source IP:port of incoming RTP and sends back to that same address. The
+      // port does NOT change when the channel is later added to the ARI bridge
+      // (same channel, same RTP session), so RO's comedia-learned port stays valid.
+      // Result: RO starts sending RTP → Receive > 0 immediately after bridge.
+      const _primePbId = `rtp-prime-${parentChannelId}-${Date.now()}`;
+      try {
+        await this.ariClient.playMedia(parentChannelId, "sound:beep", _primePbId);
+        await new Promise(r => setTimeout(r, 350)); // ~350ms: enough for several RTP packets
+        try { await this.ariClient.stopPlayback(_primePbId); } catch {}
+      } catch (err: any) {
+        console.warn(`[QueueEngine] RO hairpin RTP primer failed (non-critical): ${err.message}`);
+      }
+
       await this.ariClient.addChannelToBridge(bridge.id, parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
 
-      // RTP path fix: when the ARI softmix bridge is created, Asterisk may use a
-      // different RTP port than what was in the initial 200 OK SDP. RO (old chan_sip,
-      // nat=always) keeps sending to the original port → Receive=0 until a re-INVITE
-      // tells RO the current bridge RTP port. AMI "channel request hold/unhold" sends
-      // a real SIP re-INVITE to RO with the current port — same fix as agent bridge.
+      // RTP path fix (backup): ARI hold/unhold sends a proper PJSIP re-INVITE with
+      // the current bridge RTP port in the SDP. If comedia primer above wasn't enough
+      // (e.g. port changed, RO didn't respond in time), this guarantees RO learns
+      // the correct destination and resumes sending after the unhold.
       const _rtpFixId = parentChannelId;
       (async () => {
         try {
           await new Promise(r => setTimeout(r, 800));
           const ch = await this.ariClient.getChannel(_rtpFixId);
           if (!ch?.name?.startsWith("PJSIP/trunk-ro-endpoint")) return;
-          const [cfg] = await db.select().from(ariSettings).limit(1);
-          if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) return;
-          const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
-          const sshPort = cfg.sshPort || 22;
-          console.log(`[QueueEngine] RO hairpin RTP fix: hold/unhold re-INVITE for ${ch.name}`);
-          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-            Action: "Command",
-            Command: `channel request hold ${ch.name}`,
-          });
+          console.log(`[QueueEngine] RO hairpin RTP fix: ARI hold/unhold for ${ch.name}`);
+          await this.ariClient.holdChannel(_rtpFixId);
           await new Promise(r => setTimeout(r, 600));
-          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-            Action: "Command",
-            Command: `channel request unhold ${ch.name}`,
-          });
+          await this.ariClient.unholdChannel(_rtpFixId);
           console.log(`[QueueEngine] RO hairpin RTP fix: done for ${ch.name}`);
         } catch (err: any) {
           console.warn(`[QueueEngine] RO hairpin RTP fix (non-critical):`, err.message);
