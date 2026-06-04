@@ -1135,40 +1135,61 @@ export class QueueEngine extends EventEmitter {
       this.roHairpinPairs.set(originatedChannelId, parentChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: ${parentChannelId} ↔ ${originatedChannelId}`);
 
-      // RTP re-sync: RO chan_sip doesn't automatically send RTP to the correct Asterisk
-      // mixing port after the ARI bridge is created. A SIP re-INVITE forces RO to
-      // re-negotiate the RTP session and start sending to the correct port.
-      // We do hold then unhold on BOTH legs so RO updates both directions.
-      // Without this, audio is silent until the caller physically does hold/unhold.
+      // RTP re-sync: after ARI bridge creation, RO chan_sip may not immediately send RTP
+      // to Asterisk's mixing port. We trigger re-INVITEs in both directions to force RO
+      // to re-negotiate the RTP session.
+      //
+      // Strategy (3 layers):
+      //   1. pjsip send reinvite: clean media-refresh re-INVITE with no hold state
+      //   2. ARI hold → unhold: native ARI hold/unhold on both channels
+      //   3. AMI CLI hold → unhold: fallback via SSH tunnel
       const _parentId = parentChannelId;
       const _originatedId = originatedChannelId;
       (async () => {
         try {
-          await new Promise(r => setTimeout(r, 1000));
-          const [cfg] = await db.select().from(ariSettings).limit(1);
-          if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) return;
-          const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
-          const sshPort = cfg.sshPort || 22;
+          await new Promise(r => setTimeout(r, 800));
 
           const [parentCh, originatedCh] = await Promise.all([
             this.ariClient.getChannel(_parentId).catch(() => null),
             this.ariClient.getChannel(_originatedId).catch(() => null),
           ]);
           const names = [parentCh?.name, originatedCh?.name].filter((n): n is string => !!n);
-          console.log(`[QueueEngine] RO hairpin RTP fix: hold/unhold on ${names.join(", ")}`);
+          const ids = [parentCh ? _parentId : null, originatedCh ? _originatedId : null].filter((n): n is string => !!n);
+          console.log(`[QueueEngine] RO hairpin RTP fix: reinvite+hold/unhold on ${names.join(", ")}`);
 
-          for (const name of names) {
-            await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-              Action: "Command",
-              Command: `channel request hold ${name}`,
-            });
-          }
-          await new Promise(r => setTimeout(r, 600));
-          for (const name of names) {
-            await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-              Action: "Command",
-              Command: `channel request unhold ${name}`,
-            });
+          // Layer 1: pjsip send reinvite (clean refresh re-INVITE, no hold state)
+          const [cfg] = await db.select().from(ariSettings).limit(1);
+          if (cfg?.host && cfg?.sshUsername && cfg?.sshPassword) {
+            const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
+            const sshPort = cfg.sshPort || 22;
+            for (const name of names) {
+              await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+                Action: "Command",
+                Command: `pjsip send reinvite ${name}`,
+              }).catch(() => {});
+            }
+            await new Promise(r => setTimeout(r, 400));
+
+            // Layer 2+3: ARI hold → AMI unhold on both legs
+            for (const id of ids) {
+              await this.ariClient.holdChannel(id).catch(() => {});
+            }
+            await new Promise(r => setTimeout(r, 600));
+            for (const name of names) {
+              await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+                Action: "Command",
+                Command: `channel request unhold ${name}`,
+              }).catch(() => {});
+            }
+          } else {
+            // No SSH config: ARI hold/unhold only
+            for (const id of ids) {
+              await this.ariClient.holdChannel(id).catch(() => {});
+            }
+            await new Promise(r => setTimeout(r, 600));
+            for (const id of ids) {
+              await this.ariClient.unholdChannel(id).catch(() => {});
+            }
           }
           console.log(`[QueueEngine] RO hairpin RTP fix: done for ${names.join(", ")}`);
         } catch (err: any) {
