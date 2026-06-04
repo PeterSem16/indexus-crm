@@ -1,0 +1,73 @@
+Zhrnutie problému s presmerovaným RO hovorom na MediaGTW
+
+Pri testovaní presmerovaného RO hovoru sa ukázalo, že problém pravdepodobne nie je v nastavení RTP/media adresy na trunk-ro-endpoint. Tento endpoint má aktuálne správne parametre:
+
+media_address  : 77.72.181.116
+direct_media   : false
+ice_support    : false
+rtp_symmetric  : true
+force_rport    : true
+rewrite_contact: true
+
+RTP debug zároveň ukazuje, že MediaGTW RTP z RO/provider siete prijíma:
+
+Got RTP packet from 89.238.223.202:12278
+
+Problém je skôr v tom, ako je presmerovaný hovor na MediaGTW bridgovaný. Aktuálny stav podľa core show channels concise ukazuje, že hovor je rozdelený cez Local/ kanál do dvoch oddelených bridge-ov:
+
+PJSIP/trunk-ro-endpoint-0000002a
+ -> Stasis bridge 8b14b965
+ -> Local/421948519438@from-internal-ro;1
+
+Local/421948519438@from-internal-ro;2
+ -> Dial()
+ -> PJSIP/421948519438@trunk-ro-endpoint
+ -> bridge 0f06284c
+
+Teda nejde o jeden priamy bridge medzi inbound a outbound PJSIP kanálom, ale o kombináciu:
+
+PJSIP inbound -> Stasis -> Local channel -> Dial -> PJSIP outbound
+
+pjsip show channelstats potvrdzuje, že outbound vetva RTP prijíma, ale audio sa nevracia späť do pôvodného inbound hovoru:
+
+0f06284c trunk-ro-endpoint  Receive 88   Transmit 1
+8b14b965 trunk-ro-endpoint  Receive 0    Transmit 1
+
+Záver:
+MediaGTW audio z presmerovaného hovoru prijíma, ale cez aktuálnu kombináciu Local/ + Stasis + oddelené bridge-e sa audio nevracia späť do inbound vetvy.
+
+Odporúčané riešenie:
+
+1. Ak sa presmerovanie robí cez Local/ kanál, použiť /n, aby Asterisk neoptimalizoval Local kanál preč:
+
+Local/421948519438@from-internal-ro/n
+
+namiesto:
+
+Local/421948519438@from-internal-ro
+
+2. V ARI aplikácii vytvárať bridge typu mixing, nie iba simple_bridge:
+
+client.bridges.create({
+  type: 'mixing',
+  name: 'indexus-inbound'
+})
+
+3. Ideálne riešenie je úplne obísť Local/ hairpin a vytvoriť outbound kanál priamo cez ARI:
+
+PJSIP/421948519438@trunk-ro-endpoint
+
+a následne vložiť oba PJSIP kanály do jedného ARI mixing bridge:
+
+PJSIP/trunk-ro-endpoint-inbound
+PJSIP/trunk-ro-endpoint-outbound
+
+Cieľový stav má byť jeden spoločný media bridge, nie dva oddelené bridge-e cez Local/.
+
+Na ďalšie overenie počas hovoru použiť:
+
+sudo asterisk -rx "core show channels concise"
+sudo asterisk -rx "pjsip show channelstats"
+sudo asterisk -rx "bridge show all"
+
+Po oprave by mal rásť RX aj TX na oboch relevantných PJSIP vetvách a inbound volajúci by mal počuť audio z presmerovaného RO hovoru.

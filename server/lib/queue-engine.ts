@@ -1042,11 +1042,20 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async forwardToExternalNumber(channelId: string, number: string): Promise<void> {
-    await this.stopMohForChannel(channelId);
-    this.waitingCalls.delete(channelId);
-
+    // Fetch sourceTrunk BEFORE stopping MOH so we know whether to defer the stop.
+    // For RO inbound: MOH must keep playing until the ARI bridge is ready (see below).
     const sourceTrunk = await this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null);
     console.log(`[QueueEngine] forwardToExternalNumber: channelId=${channelId} sourceTrunk=${sourceTrunk} number=${number}`);
+
+    // For RO inbound calls: DO NOT stop MOH here. Stopping MOH creates a 2-4 second
+    // gap where Asterisk sends no audio to RO. Old RO chan_sip (nat=always) freezes its
+    // RTP session during this gap → inbound PJSIP channel receives 0 RTP packets after
+    // the bridge is created. MOH is stopped inside handleRoHairpinReady just before
+    // addChannelToBridge, shrinking the gap to < 100ms.
+    if (sourceTrunk !== "RO") {
+      await this.stopMohForChannel(channelId);
+    }
+    this.waitingCalls.delete(channelId);
 
     const norm = number.replace(/^\+/, "").replace(/\s/g, "");
 
@@ -1170,6 +1179,10 @@ export class QueueEngine extends EventEmitter {
     console.log(`[QueueEngine] RO hairpin ready: bridging inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
     try {
       const bridge = await this.ariClient.createBridge("mixing");
+      // Stop MOH here — just before adding to bridge — so the gap where Asterisk
+      // sends no audio to RO is < 100ms. Stopping earlier (in forwardToExternalNumber)
+      // created a 2-4s gap that caused old RO chan_sip (nat=always) to freeze its RTP.
+      await this.stopMohForChannel(parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       // Map already set as sentinel above — values are already correct, just log
