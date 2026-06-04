@@ -3592,6 +3592,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
     outboundCallerId: (initialData as any)?.outboundCallerId ?? "",
     callForwardingEnabled: (initialData as any)?.callForwardingEnabled ?? false,
     callForwardingNumber: (initialData as any)?.callForwardingNumber ?? "",
+    callFallbackDidId: (initialData as any)?.callFallbackDidId ?? "",
   });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialData?.avatarUrl || null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -3748,6 +3749,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
       return res.json();
     },
     enabled: !!formData.countryCode && mobileCredentials.mobileWebrtcEnabled,
+  });
+
+  const { data: didRoutesList = [] } = useQuery<any[]>({
+    queryKey: ["/api/did-routes"],
   });
 
   // Get representative role IDs
@@ -3980,6 +3985,9 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           mobileData.callRecordingMode = mobileCredentials.callRecordingMode;
           mobileData.mobileCallRecording = mobileCredentials.callRecordingMode !== "off";
           mobileData.outboundCallerId = mobileCredentials.outboundCallerId || null;
+          mobileData.callForwardingEnabled = mobileCredentials.callForwardingEnabled;
+          mobileData.callForwardingNumber = mobileCredentials.callForwardingNumber || null;
+          mobileData.callFallbackDidId = mobileCredentials.callFallbackDidId || null;
         } else {
           mobileData.mobileWebrtcEnabled = false;
           mobileData.mobileSipExtensionId = null;
@@ -5544,6 +5552,31 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                                 <p className="text-xs text-muted-foreground">{t.collaborators.mobileApp?.callForwardingNumberDesc || "Číslo s medzinárodnou predvoľbou, napr. +421900123456"}</p>
                               </div>
                             )}
+                          </div>
+
+                          <div className="pt-2 border-t border-muted space-y-2">
+                            <div>
+                              <Label>Záložný DID (fallback)</Label>
+                              <p className="text-xs text-muted-foreground">
+                                Ak PJSIP linka nie je aktívna alebo presmerovaný telefón neodpovedá do 60 s, hovor sa presmeruje na vybraný inbound DID (napr. infolinka / virtuálny asistent).
+                              </p>
+                            </div>
+                            <Select
+                              value={mobileCredentials.callFallbackDidId || "__none__"}
+                              onValueChange={(v) => setMobileCredentials({ ...mobileCredentials, callFallbackDidId: v === "__none__" ? "" : v })}
+                            >
+                              <SelectTrigger data-testid="wizard-select-fallback-did" className="w-full">
+                                <SelectValue placeholder="— bez zálohy —" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">— bez zálohy —</SelectItem>
+                                {didRoutesList.filter((d: any) => d.isActive).map((d: any) => (
+                                  <SelectItem key={d.id} value={d.id} data-testid={`wizard-fallback-did-${d.id}`}>
+                                    {d.didNumber}{d.name ? ` — ${d.name}` : ""}{d.countryCode ? ` (${d.countryCode})` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                       )}

@@ -763,6 +763,7 @@ export class QueueEngine extends EventEmitter {
         mobileAppEnabled: collaborators.mobileAppEnabled,
         mobileCallRecording: collaborators.mobileCallRecording,
         callRecordingMode: collaborators.callRecordingMode,
+        callFallbackDidId: collaborators.callFallbackDidId,
       }).from(collaborators)
         .where(and(
           eq(collaborators.outboundCallerId, dialedNumber),
@@ -892,6 +893,7 @@ export class QueueEngine extends EventEmitter {
       mobileAppEnabled: boolean;
       mobileCallRecording: boolean | null;
       callRecordingMode: string | null;
+      callFallbackDidId: string | null;
     },
     callerNumber: string,
     callerName: string,
@@ -1034,13 +1036,24 @@ export class QueueEngine extends EventEmitter {
       }
     };
 
+    // Resolve fallback DID number once (used in multiple paths below)
+    let fallbackDidNumber: string | null = null;
+    if (collab.callFallbackDidId) {
+      const [fallbackRoute] = await db.select({ didNumber: didRoutes.didNumber })
+        .from(didRoutes).where(eq(didRoutes.id, collab.callFallbackDidId)).limit(1);
+      if (fallbackRoute?.didNumber) {
+        fallbackDidNumber = fallbackRoute.didNumber;
+        console.log(`[QueueEngine] Collaborator ${collabName} has fallback DID: ${fallbackDidNumber}`);
+      }
+    }
+
     // Priority 1: call forwarding to mobile number (DB setting)
     if (collab.callForwardingEnabled && collab.callForwardingNumber) {
       const fwd = collab.callForwardingNumber.replace(/\s/g, "");
       console.log(`[QueueEngine] Collaborator direct call → forwarding to mobile ${fwd} (collab: ${collabName})`);
       const callLogId = await saveCallRecord(fwd, "forwarded");
       if (callLogId) await startRecordingAndTracking(callLogId);
-      await this.forwardToExternalNumber(channel.id, fwd);
+      await this.forwardToExternalNumber(channel.id, fwd, { fallbackDid: fallbackDidNumber });
       return;
     }
 
@@ -1055,24 +1068,67 @@ export class QueueEngine extends EventEmitter {
           console.log(`[QueueEngine] Collaborator direct call → AstDB forwarding to ${fwd} (ext: ${sipExt.extension})`);
           const callLogId = await saveCallRecord(fwd, "forwarded");
           if (callLogId) await startRecordingAndTracking(callLogId);
-          await this.forwardToExternalNumber(channel.id, fwd);
+          await this.forwardToExternalNumber(channel.id, fwd, { fallbackDid: fallbackDidNumber });
           return;
         }
-        // Priority 3: ring SIP extension directly (SIP recording handled by standard Stasis flow)
+        // Priority 3: ring SIP extension directly
         console.log(`[QueueEngine] Collaborator direct call → SIP PJSIP/${sipExt.extension} (collab: ${collabName})`);
         const callLogId = await saveCallRecord(null, "sip");
         if (callLogId) await startRecordingAndTracking(callLogId);
         const ok = await this.transferCallToEndpoint(channel.id, `PJSIP/${sipExt.extension}`, null as any);
-        if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
+        if (!ok) {
+          if (fallbackDidNumber) {
+            console.log(`[QueueEngine] PJSIP transfer failed for ${collabName}, routing to fallback DID ${fallbackDidNumber}`);
+            await this.routeToFallbackDid(channel.id, fallbackDidNumber);
+          } else {
+            await this.ariClient.hangupChannel(channel.id, "normal");
+          }
+        }
         return;
       }
     }
 
-    console.warn(`[QueueEngine] Collaborator ${collabName} has no forwarding and no SIP extension, hanging up`);
-    await this.ariClient.hangupChannel(channel.id, "normal");
+    // No forwarding and no SIP extension — try fallback DID or hang up
+    if (fallbackDidNumber) {
+      console.log(`[QueueEngine] Collaborator ${collabName} has no forwarding/SIP, routing to fallback DID ${fallbackDidNumber}`);
+      await this.routeToFallbackDid(channel.id, fallbackDidNumber);
+    } else {
+      console.warn(`[QueueEngine] Collaborator ${collabName} has no forwarding and no SIP extension, hanging up`);
+      await this.ariClient.hangupChannel(channel.id, "normal");
+    }
   }
 
-  private async forwardToExternalNumber(channelId: string, number: string): Promise<void> {
+  private async routeToFallbackDid(channelId: string, didNumber: string): Promise<void> {
+    const sourceTrunk = await this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null);
+    console.log(`[QueueEngine] routeToFallbackDid: channelId=${channelId} did=${didNumber} trunk=${sourceTrunk}`);
+    try {
+      await this.ariClient.startMoh(channelId);
+    } catch {}
+    if (sourceTrunk === "RO") {
+      try {
+        await this.ariClient.continueDialplan(channelId, "from-ro-trunk", didNumber, 1);
+        console.log(`[QueueEngine] Fallback DID routed via from-ro-trunk/${didNumber}`);
+      } catch (err: any) {
+        console.error(`[QueueEngine] Fallback DID continueDialplan failed: ${err.message}`);
+        try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+      }
+    } else {
+      try {
+        await this.ariClient.continueDialplan(channelId, "from-internal-indexus", didNumber, 1);
+        console.log(`[QueueEngine] Fallback DID routed via from-internal-indexus/${didNumber}`);
+      } catch {
+        try {
+          await this.ariClient.continueDialplan(channelId, "from-internal", didNumber, 1);
+          console.log(`[QueueEngine] Fallback DID routed via from-internal/${didNumber}`);
+        } catch (err: any) {
+          console.error(`[QueueEngine] Fallback DID continueDialplan failed: ${err.message}`);
+          try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+        }
+      }
+    }
+  }
+
+  private async forwardToExternalNumber(channelId: string, number: string, opts?: { fallbackDid?: string | null }): Promise<void> {
     // Fetch sourceTrunk BEFORE stopping MOH so we know whether to defer the stop.
     // For RO inbound: MOH must keep playing until the ARI bridge is ready (see below).
     const sourceTrunk = await this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null);
@@ -1183,6 +1239,29 @@ export class QueueEngine extends EventEmitter {
           upReady: originated.state === "Up",
           stasisReady: false,
         });
+
+        // No-answer fallback: if originated channel is destroyed before bridge is
+        // created (i.e. Dial() timed out / callee rejected), route to fallback DID.
+        const fallbackDid = opts?.fallbackDid;
+        if (fallbackDid) {
+          const originatedId = originated.id;
+          const onOrigDestroyed = (event: AriEvent) => {
+            if (event.channel?.id !== originatedId) return;
+            this.ariClient.off("channel-destroyed", onOrigDestroyed);
+            if (this.pendingRoHairpins.has(originatedId)) {
+              // Bridge was never created — call was not answered
+              this.pendingRoHairpins.delete(originatedId);
+              stopRingback();
+              console.log(`[QueueEngine] RO hairpin no-answer for inbound=${channelId}, routing to fallback DID ${fallbackDid}`);
+              this.routeToFallbackDid(channelId, fallbackDid).catch(e => {
+                console.error(`[QueueEngine] Fallback DID routing error:`, e instanceof Error ? e.message : e);
+              });
+            }
+          };
+          this.ariClient.on("channel-destroyed", onOrigDestroyed);
+          // Safety cleanup: remove listener after 120s even if event never fires
+          setTimeout(() => this.ariClient.off("channel-destroyed", onOrigDestroyed), 120_000);
+        }
       } catch (err: any) {
         console.error(`[QueueEngine] RO hairpin originate failed: ${err.message}, hanging up`);
         stopRingback();

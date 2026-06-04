@@ -16270,7 +16270,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.put("/api/collaborators/:id/mobile-credentials", requireAuth, async (req, res) => {
     try {
-      const { mobileAppEnabled, mobileUsername, mobilePassword, mobileWebrtcEnabled, mobileSipExtensionId, mobileCallRecording, callRecordingMode, outboundCallerId } = req.body;
+      const { mobileAppEnabled, mobileUsername, mobilePassword, mobileWebrtcEnabled, mobileSipExtensionId, mobileCallRecording, callRecordingMode, outboundCallerId, callForwardingEnabled, callForwardingNumber, callFallbackDidId } = req.body;
       
       if (typeof mobileAppEnabled !== 'boolean') {
         return res.status(400).json({ error: "mobileAppEnabled is required" });
@@ -16314,6 +16314,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
       if (outboundCallerId !== undefined) {
         webrtcUpdate.outboundCallerId = outboundCallerId || null;
+      }
+      if (typeof callForwardingEnabled === 'boolean') {
+        webrtcUpdate.callForwardingEnabled = callForwardingEnabled;
+      }
+      if (callForwardingNumber !== undefined) {
+        webrtcUpdate.callForwardingNumber = callForwardingNumber || null;
+      }
+      if (callFallbackDidId !== undefined) {
+        webrtcUpdate.callFallbackDidId = callFallbackDidId || null;
       }
       if (Object.keys(webrtcUpdate).length > 0) {
         await storage.updateCollaborator(req.params.id, webrtcUpdate);
@@ -16379,6 +16388,27 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to set mobile credentials:", error);
       res.status(500).json({ error: "Failed to set mobile credentials" });
+    }
+  });
+
+  // GET /api/did-routes — list active DID routes for fallback selector
+  app.get("/api/did-routes", requireAuth, async (_req, res) => {
+    try {
+      const routes = await db
+        .select({
+          id: didRoutes.id,
+          didNumber: didRoutes.didNumber,
+          name: didRoutes.name,
+          countryCode: didRoutes.countryCode,
+          action: didRoutes.action,
+          isActive: didRoutes.isActive,
+        })
+        .from(didRoutes)
+        .orderBy(asc(didRoutes.countryCode), asc(didRoutes.didNumber));
+      res.json(routes);
+    } catch (error) {
+      console.error("Failed to fetch DID routes:", error);
+      res.status(500).json({ error: "Failed to fetch DID routes" });
     }
   });
 
