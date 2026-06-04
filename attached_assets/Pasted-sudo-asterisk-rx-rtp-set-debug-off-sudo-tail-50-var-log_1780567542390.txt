@@ -1,0 +1,99 @@
+sudo asterisk -rx "rtp set debug off"
+sudo tail -50 /var/log/asterisk/messages.log
+Local/421948519438@from-internal-sk-00000006;2!from-internal-sk!421948519438!7!Up!Dial!PJSIP/0948519438@trunk-sk-endpoint,60!491723627488!!!3!7!d23f0644-084a-4747-8c67-20b0b4551160!1780567498.125
+Local/421948519438@from-internal-sk-00000006;1!from-internal-sk!421948519438!1!Up!Stasis!indexus-inbound,ro-hairpin,1780567498.123!421948519438!!!3!7!4d85f4d3-fbd4-4cb3-aea5-a85a55ad76c4!1780567498.124
+Local/421948519438@from-internal-sk-00000005;1!from-internal-sk!421948519438!1!Up!Stasis!indexus-inbound,ro-hairpin,1780567423.118!421948519438!!!3!82!e8d9537b-4250-47bb-be7e-f460271a0aa7!1780567423.119
+Local/421948519438@from-internal-sk-00000005;2!from-internal-sk!421948519438!7!Up!Dial!PJSIP/0948519438@trunk-sk-endpoint,60!491723627488!!!3!82!94a4358d-6afa-4848-af02-743660ea697f!1780567423.120
+PJSIP/trunk-ro-endpoint-00000034!from-ro-trunk!364716410!7!Up!Stasis!indexus-inbound!491723627488!!!3!7!4d85f4d3-fbd4-4cb3-aea5-a85a55ad76c4!1780567498.123
+PJSIP/trunk-sk-endpoint-00000033!from-sk-trunk!!1!Up!AppDial!(Outgoing Line)!421948519438!!!3!82!94a4358d-6afa-4848-af02-743660ea697f!1780567423.121
+PJSIP/trunk-sk-endpoint-00000035!from-sk-trunk!!1!Up!AppDial!(Outgoing Line)!421948519438!!!3!7!d23f0644-084a-4747-8c67-20b0b4551160!1780567498.126
+
+                                             ...........Receive......... .........Transmit..........
+ BridgeId ChannelId ........ UpTime.. Codec.   Count    Lost Pct  Jitter   Count    Lost Pct  Jitter RTT....
+ ===========================================================================================================
+
+ 4d85f4d3 trunk-ro-endpoint- 00:00:07 ulaw        0       0    0   0.000    172       0    0   0.000   0.000
+ 94a4358d trunk-sk-endpoint- 00:01:22 ulaw     3901       0    0   0.001    404       2    0   0.000   0.024
+ d23f0644 trunk-sk-endpoint- 00:00:07 ulaw      171       0    0   0.000      0       0    0   0.000   0.000
+
+Objects found: 3
+
+Bridge-ID                            Name                                 Chans Type            Technology      Duration
+0f897dfb-e7f0-4240-9ba1-b2d24cd07491 <unknown>                                0 stasis          simple_bridge   01:13:18
+13f9bf08-f3d8-4cd2-aa86-50abdae42bb8 <unknown>                                0 stasis          simple_bridge   01:54:50
+252c448b-5546-4d4a-ab2d-c990974aa986 <unknown>                                0 stasis          simple_bridge   01:38:13
+2ed38e7d-c8bc-4404-8096-44f015b2a61a <unknown>                                0 stasis          simple_bridge   01:13:18
+3948d9a6-11ca-47c2-8a19-571a6ec82225 <unknown>                                0 stasis          simple_bridge   01:16:48
+3cc409a0-1ab4-4520-bc2d-0a3df8e9b99e <unknown>                                0 stasis          simple_bridge   01:31:03
+3f5ca507-fd52-4fc2-ae35-5f27ac6d64f7 <unknown>                                0 stasis          simple_bridge   01:38:13
+4d85f4d3-fbd4-4cb3-aea5-a85a55ad76c4 <unknown>                                2 stasis          simple_bridge   00:00:03
+54cd61eb-0608-45c9-ab43-782d5ae5de4e <unknown>                                0 stasis          simple_bridge   01:49:46
+5e71683d-df42-46fd-ac93-59df87a5854f <unknown>                                0 stasis          simple_bridge   01:37:10
+6521bf78-9159-4c88-9371-09c5ecd52a6b <unknown>                                0 stasis          simple_bridge   01:49:46
+6546366b-bcb8-4c0c-82dc-4653c6aeb491 <unknown>                                0 stasis          simple_bridge   01:07:50
+69e2784b-49ed-4895-8e7f-7d8071620606 <unknown>                                0 stasis          simple_bridge   00:27:36
+6df3cf78-516d-41fa-8601-b6c771c7f5d0 <unknown>                                0 stasis          simple_bridge   00:13:36
+76683e48-1714-4cef-9d02-091f4a385973 <unknown>                                0 stasis          simple_bridge   00:57:11
+8b14b965-10c6-4c6a-a8db-26d83e1794ff <unknown>                                0 stasis          simple_bridge   00:54:48
+8fd91768-c6d7-4e27-8955-879c98b53d5b <unknown>                                0 stasis          simple_bridge   01:07:50
+913333af-9b74-4e1d-9128-42b99224e43a <unknown>                                0 stasis          simple_bridge   01:16:48
+94a4358d-6afa-4848-af02-743660ea697f <unknown>                                2 basic           simple_bridge   00:01:18
+c3e3ad17-c8ac-4371-9db1-8194a278e634 <unknown>                                0 stasis          simple_bridge   00:50:26
+d23f0644-084a-4747-8c67-20b0b4551160 <unknown>                                2 basic           simple_bridge   00:00:03
+d94b0a86-6c6c-4720-a3fb-53748cdce931 <unknown>                                0 stasis          simple_bridge   01:37:10
+e1b3efb0-8541-4593-a902-c4ba7ac4c5e9 <unknown>                                0 stasis          simple_bridge   01:56:14
+e8d9537b-4250-47bb-be7e-f460271a0aa7 <unknown>                                1 stasis          simple_bridge   00:01:18
+ffb61333-f219-4c89-ba0b-616cadba552f <unknown>                                0 stasis          simple_bridge   01:31:03
+RTP Packet Debugging Enabled
+RTP Packet Debugging Disabled
+[Jun  4 06:52:20] WARNING[388370] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Jun  4 06:52:20] WARNING[388370] loader.c: Some non-required modules failed to load.
+[Jun  4 06:52:20] WARNING[388370] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Jun  4 06:52:20] WARNING[388370] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Jun  4 06:52:20] WARNING[388370] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Jun  4 06:52:20] ERROR[388370] loader.c: cel_tds declined to load.
+[Jun  4 06:52:20] ERROR[388370] loader.c: cdr_radius declined to load.
+[Jun  4 06:52:20] ERROR[388370] loader.c: cdr_tds declined to load.
+[Jun  4 06:52:20] ERROR[388370] loader.c: cdr_sqlite3_custom declined to load.
+[Jun  4 06:52:20] ERROR[388370] loader.c: cel_radius declined to load.
+[Jun  4 06:52:20] ERROR[388370] loader.c: cel_sqlite3_custom declined to load.
+[Jun  4 06:52:20] ERROR[388370] loader.c: cdr_pgsql declined to load.
+[Jun  4 06:52:20] WARNING[388444] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Jun  4 07:11:24] WARNING[388741] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 07:11:24] WARNING[388741] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 07:16:14] NOTICE[388498] res_pjsip_sdp_rtp.c: Disconnecting channel 'PJSIP/trunk-ro-endpoint-00000004' for lack of audio RTP activity in 60 seconds
+[Jun  4 07:29:25] WARNING[395559] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 07:35:44] WARNING[395578] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 07:35:44] WARNING[395578] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 07:53:35] WARNING[396154] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 08:07:39] WARNING[396487] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 08:07:39] WARNING[396487] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 08:14:55] WARNING[397253] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 08:14:55] WARNING[397253] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 08:16:19] NOTICE[388498] res_pjsip_sdp_rtp.c: Disconnecting channel 'PJSIP/trunk-ro-endpoint-00000017' for lack of audio RTP activity in 65 seconds
+[Jun  4 08:26:35] WARNING[397730] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 08:26:35] WARNING[397730] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 08:29:47] ERROR[388468] res_pjsip.c: Endpoint '2030': Could not create dialog to invalid URI '2030'.  Is endpoint registered and reachable?
+[Jun  4 08:29:47] ERROR[388468] chan_pjsip.c: Failed to create outgoing session to endpoint '2030'
+[Jun  4 08:29:47] NOTICE[398476][C-0000000f] app_dial.c: Unable to create channel of type 'PJSIP' (cause 3 - No route to destination)
+[Jun  4 08:33:29] WARNING[397997] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 08:33:29] WARNING[397997] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 08:33:38] ERROR[398832][C-00000011] res_stasis.c: Stasis app 'indexus-inbound' not active
+[Jun  4 08:46:47] NOTICE[388468] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+[Jun  4 08:50:46] WARNING[398835] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 08:50:46] WARNING[398835] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 08:55:45] WARNING[400287] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 08:55:45] WARNING[400287] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 08:55:57] WARNING[400947] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Jun  4 09:07:29] WARNING[400939] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 09:07:29] WARNING[400939] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 09:14:17] WARNING[401623] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 09:14:17] WARNING[401623] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 09:22:14] WARNING[402117] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 09:22:14] WARNING[402117] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 09:51:13] WARNING[402374] res_http_websocket.c: Web socket closed abruptly
+[Jun  4 09:51:13] WARNING[402374] ari/ari_websockets.c: WebSocket read error: Success
+[Jun  4 10:00:50] NOTICE[388468] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+[Jun  4 10:00:57] WARNING[388468] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:cbc.eurovoice.ro' on registration attempt to 'sip:364716411@cbc.eurovoice.ro', retrying in '300' seconds
+[Jun  4 10:02:28] NOTICE[388468] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+seman@mediagtw:~$
