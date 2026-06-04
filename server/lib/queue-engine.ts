@@ -1139,18 +1139,21 @@ export class QueueEngine extends EventEmitter {
    * correctly handles old chan_sip nat=always RTP setup.
    */
   private async handleRoHairpinReady(originatedChannelId: string, parentChannelId: string): Promise<void> {
-    // Guard: StasisStart and HTTP originate response can race — only bridge once
+    // Claim the slot synchronously (before any await) to prevent double-bridging.
+    // StasisStart and channel-state-change can both trigger this concurrently; the
+    // sentinel ensures only the first caller proceeds even across await yield points.
     if (this.roHairpinPairs.has(originatedChannelId)) {
       console.log(`[QueueEngine] RO hairpin already bridged for ${originatedChannelId}, skipping`);
       return;
     }
+    this.roHairpinPairs.set(originatedChannelId, parentChannelId); // sentinel — claimed
+    this.roHairpinPairs.set(parentChannelId, originatedChannelId); // sentinel — claimed
     console.log(`[QueueEngine] RO hairpin ready: bridging inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
     try {
       const bridge = await this.ariClient.createBridge("mixing");
       await this.ariClient.addChannelToBridge(bridge.id, parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
-      this.roHairpinPairs.set(parentChannelId, originatedChannelId);
-      this.roHairpinPairs.set(originatedChannelId, parentChannelId);
+      // Map already set as sentinel above — values are already correct, just log
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
     } catch (err: any) {
       console.error(`[QueueEngine] RO hairpin bridge failed: ${err.message}`);
