@@ -103,9 +103,6 @@ export class QueueEngine extends EventEmitter {
   // Local channels; bridging before StasisStart means the channel isn't in the ARI app yet).
   private pendingRoHairpins: Map<string, { parentChannelId: string; upReady: boolean; stasisReady: boolean }> = new Map();
   private roHairpinPairs: Map<string, string> = new Map(); // bidirectional: channelId ↔ peerChannelId
-  // Ringback stop function keyed by inbound channelId; started at originate time so the
-  // caller hears the ring tone from the moment Local;2 starts Dial(), not after bridge setup.
-  private roHairpinRingbackStop: Map<string, () => void> = new Map();
   private forwardedCallTracking: Map<string, {
     callLogId: string;
     inboundChannelId: string;
@@ -1146,53 +1143,6 @@ export class QueueEngine extends EventEmitter {
           stasisReady: false,
         });
 
-        // Start ringback on the inbound channel immediately after originate — this is
-        // when Local;2 begins Dial() and the collaborator's phone starts ringing.
-        // Starting it later (inside handleRoHairpinReady, after bridge creation) means
-        // the collaborator can answer during the ~300ms bridge-setup latency, causing
-        // TALK_DETECT to fire the instant ringback starts (caller hears only 1 ring).
-        //
-        // MOH is stopped here first. With rtpkeepalive=5 in RO sip.conf the RTP session
-        // stays alive via keepalive packets even without MOH, so the gap is safe.
-        await this.stopMohForChannel(channelId).catch(() => {});
-
-        const rbBaseId = `rb-${channelId}`;
-        let rbCurrentId = `${rbBaseId}-0`;
-        let rbActive = true;
-        const stopEarlyRingback = () => {
-          if (!rbActive) return;
-          rbActive = false;
-          this.ariClient.stopPlayback(rbCurrentId).catch(() => {});
-        };
-        this.roHairpinRingbackStop.set(channelId, stopEarlyRingback);
-
-        (async () => {
-          let iter = 0;
-          let useTone = true;
-          while (rbActive) {
-            const pbId = `${rbBaseId}-${iter++}`;
-            rbCurrentId = pbId;
-            const media = useTone ? "tone:ring" : "sound:ring-back";
-            try {
-              await this.ariClient.playMedia(channelId, media, pbId);
-            } catch {
-              if (useTone) { useTone = false; continue; }
-              break;
-            }
-            await new Promise<void>(resolve => {
-              let settled = false;
-              const settle = () => { if (!settled) { settled = true; resolve(); } };
-              const onF = (e: AriEvent) => {
-                if (e.playback?.id === pbId) { this.ariClient.off("playback-finished", onF); settle(); }
-              };
-              this.ariClient.on("playback-finished", onF);
-              const poll = setInterval(() => { if (!rbActive) { clearInterval(poll); this.ariClient.off("playback-finished", onF); settle(); } }, 250);
-              setTimeout(() => { clearInterval(poll); this.ariClient.off("playback-finished", onF); settle(); }, 35_000);
-            });
-          }
-          this.roHairpinRingbackStop.delete(channelId);
-        })().catch(() => {});
-
       } catch (err: any) {
         console.error(`[QueueEngine] RO hairpin originate failed: ${err.message}, hanging up`);
         try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
@@ -1258,69 +1208,17 @@ export class QueueEngine extends EventEmitter {
     this.roHairpinPairs.set(originatedChannelId, parentChannelId); // sentinel — claimed
     this.roHairpinPairs.set(parentChannelId, originatedChannelId); // sentinel — claimed
     console.log(`[QueueEngine] RO hairpin ready: bridging inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
-
-    // ── Ringback cleanup — registered BEFORE any await so it fires even if bridge
-    // setup fails (addChannelToBridge 400) or Local;1 is destroyed mid-setup.
-    // stopEarlyRingback() was stored in roHairpinRingbackStop at originate time.
-    const stopEarlyRingback = this.roHairpinRingbackStop.get(parentChannelId) ?? (() => {});
-    const bridgeReadyAt = Date.now();
-    let ringbackCleanedUp = false;
-    const cleanupRingback = (reason: string) => {
-      if (ringbackCleanedUp) return;
-      ringbackCleanedUp = true;
-      clearTimeout(ringbackSafetyTimer);
-      this.ariClient.off("channel-talking-started", onRingbackTalking);
-      this.ariClient.off("stasis-end", onRingbackStasisEnd);
-      this.ariClient.off("channel-destroyed", onRingbackChannelDestroyed);
-      console.log(`[QueueEngine] RO hairpin ringback stopped: ${reason}`);
-      stopEarlyRingback();
-    };
-    const onRingbackTalking = (event: AriEvent) => {
-      const chId = event.channel?.id;
-      const chName = event.channel?.name ?? "?";
-      const elapsed = Date.now() - bridgeReadyAt;
-      console.log(`[QueueEngine] ChannelTalkingStarted: id=${chId} name=${chName} elapsed=${elapsed}ms (inbound=${parentChannelId} local1=${originatedChannelId})`);
-      if ((chId === originatedChannelId || chId === parentChannelId) && elapsed >= 3000) {
-        cleanupRingback(`ChannelTalkingStarted ch=${chId} elapsed=${elapsed}ms`);
-      }
-    };
-    const onRingbackStasisEnd = (event: AriEvent) => {
-      const chId = event.channel?.id;
-      if (chId === parentChannelId || chId === originatedChannelId) {
-        console.log(`[QueueEngine] RO hairpin stasis-end ch=${chId}, cleaning up ringback`);
-        cleanupRingback(`stasis-end ch=${chId}`);
-      }
-    };
-    const onRingbackChannelDestroyed = (event: AriEvent) => {
-      const chId = event.channel?.id;
-      if (chId === parentChannelId || chId === originatedChannelId) {
-        console.log(`[QueueEngine] RO hairpin channel-destroyed ch=${chId}, cleaning up ringback`);
-        cleanupRingback(`channel-destroyed ch=${chId}`);
-      }
-    };
-    const ringbackSafetyTimer = setTimeout(() => cleanupRingback("60s safety timeout"), 60_000);
-    this.ariClient.on("channel-talking-started", onRingbackTalking);
-    this.ariClient.on("stasis-end", onRingbackStasisEnd);
-    this.ariClient.on("channel-destroyed", onRingbackChannelDestroyed);
-
     try {
       const bridge = await this.ariClient.createBridge("mixing");
-      // MOH was already stopped in forwardToExternalNumber when ringback was started.
-      // Calling stopMoh here as a safety net for any edge case where it wasn't stopped.
-      await this.stopMohForChannel(parentChannelId).catch(() => {});
+      // Stop MOH just before adding channels to the bridge so the caller hears
+      // whatever audio comes through the bridge (collaborator early media / silence)
+      // rather than hold music during ringing. With rtpkeepalive=5 in RO sip.conf
+      // the RTP session stays alive during the brief gap between MOH stop and bridge.
+      await this.stopMohForChannel(parentChannelId);
 
       await this.ariClient.addChannelToBridge(bridge.id, parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
-
-      // Enable TALK_DETECT on both Local;1 and inbound PJSIP with a low threshold (64)
-      // so ChannelTalkingStarted fires as soon as audio flows after the collaborator answers.
-      for (const chId of [originatedChannelId, parentChannelId]) {
-        try {
-          await this.ariClient.setChannelVariable(chId, "TALK_DETECT(set)", "64,1000");
-        } catch { /* non-fatal */ }
-      }
-      console.log(`[QueueEngine] RO hairpin TALK_DETECT(64) set on Local;1=${originatedChannelId} inbound=${parentChannelId}`);
 
       // Start MixMonitor recording on the inbound PJSIP channel via AMI.
       // For RO hairpin calls the inbound channel stays in Stasis (ARI bridge) the
@@ -1351,7 +1249,6 @@ export class QueueEngine extends EventEmitter {
       }
     } catch (err: any) {
       console.error(`[QueueEngine] RO hairpin bridge failed: ${err.message}`);
-      cleanupRingback(`bridge-failed: ${err.message}`);
       try { await this.ariClient.hangupChannel(parentChannelId, "normal"); } catch {}
       try { await this.ariClient.hangupChannel(originatedChannelId, "normal"); } catch {}
     }
