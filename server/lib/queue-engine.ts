@@ -1068,12 +1068,31 @@ export class QueueEngine extends EventEmitter {
     //   - Inbound channel stays in Stasis throughout (no RTP port change)
     //   - Caller hears ringback from Local;2 early media while collaborator's phone rings
     if (sourceTrunk === "RO") {
-      console.log(`[QueueEngine] forwardToExternalNumber: RO inbound → Local channel to from-internal-ro/${norm}`);
+      // Determine correct outbound context for the collaborator's number.
+      // The inbound RO channel stays in Stasis (no RTP port change), but the
+      // outbound Local;2 leg uses the same country-routing as non-RO calls.
+      let roOutCtx: string;
+      if (norm.startsWith("421") || /^0[89]/.test(norm) || /^0[2-7]/.test(norm)) {
+        roOutCtx = "from-internal-sk";
+      } else if (norm.startsWith("420") || /^[67]/.test(norm)) {
+        roOutCtx = "from-internal-cz";
+      } else if (norm.startsWith("40")) {
+        roOutCtx = "from-internal-ro";
+      } else if (norm.startsWith("36")) {
+        roOutCtx = "from-internal-hu";
+      } else if (norm.startsWith("49")) {
+        roOutCtx = "from-internal-de";
+      } else if (norm.startsWith("39")) {
+        roOutCtx = "from-internal-it";
+      } else {
+        roOutCtx = "from-internal";
+      }
+      console.log(`[QueueEngine] forwardToExternalNumber: RO inbound → Local channel to ${roOutCtx}/${norm}`);
       try {
         const inboundCh = await this.ariClient.getChannel(channelId);
         const callerNumber = inboundCh?.caller?.number || "";
         const originated = await this.ariClient.originateToStasis(
-          `Local/${norm}@from-internal-ro/n`,
+          `Local/${norm}@${roOutCtx}/n`,
           `ro-hairpin,${channelId}`,
           callerNumber || undefined
         );

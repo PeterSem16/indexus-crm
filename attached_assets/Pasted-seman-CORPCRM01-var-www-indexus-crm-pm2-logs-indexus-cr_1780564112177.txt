@@ -1,0 +1,26 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 50 --nostream 2>&1 | grep -E "hairpin|Local|from-internal"
+4|indexus- | [QueueEngine] forwardToExternalNumber: RO inbound → Local channel to from-internal-ro/421948519438
+4|indexus- | [ARI] originateToStasis: endpoint=Local/421948519438@from-internal-ro/n, appArgs=ro-hairpin,1780564068.83, callerId=491723627488
+4|indexus- | [QueueEngine] RO hairpin Local originated: 1780564068.84 (state=Down) for inbound 1780564068.83
+4|indexus- | [QueueEngine] RO hairpin ready: bridging inbound=1780564068.83 ↔ Local;1=1780564068.84
+4|indexus- | [QueueEngine] StasisStart ro-hairpin originated=1780564068.84 parent=1780564068.83 state=Up
+4|indexus- | [QueueEngine] RO hairpin StasisStart: already bridged via channel-state-change, skipping
+4|indexus- | [QueueEngine] RO hairpin bridge 76683e48-1714-4cef-9d02-091f4a385973 active: inbound=1780564068.83 ↔ Local;1=1780564068.84
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 50 --nostream 2>&1 | grep -E "hairpin|Local|from-internal"
+4|indexus- | [QueueEngine] forwardToExternalNumber: RO inbound → Local channel to from-internal-ro/421948519438
+4|indexus- | [ARI] originateToStasis: endpoint=Local/421948519438@from-internal-ro/n, appArgs=ro-hairpin,1780564068.83, callerId=491723627488
+4|indexus- | [QueueEngine] RO hairpin Local originated: 1780564068.84 (state=Down) for inbound 1780564068.83
+4|indexus- | [QueueEngine] RO hairpin ready: bridging inbound=1780564068.83 ↔ Local;1=1780564068.84
+4|indexus- | [QueueEngine] StasisStart ro-hairpin originated=1780564068.84 parent=1780564068.83 state=Up
+4|indexus- | [QueueEngine] RO hairpin StasisStart: already bridged via channel-state-change, skipping
+4|indexus- | [QueueEngine] RO hairpin bridge 76683e48-1714-4cef-9d02-091f4a385973 active: inbound=1780564068.83 ↔ Local;1=1780564068.84
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 50 --nostream 2>&1 | grep -E "hairpin|Local|from-internal"
+4|indexus- | [QueueEngine] forwardToExternalNumber: RO inbound → Local channel to from-internal-ro/421948519438
+4|indexus- | [ARI] originateToStasis: endpoint=Local/421948519438@from-internal-ro/n, appArgs=ro-hairpin,1780564068.83, callerId=491723627488
+4|indexus- | [QueueEngine] RO hairpin Local originated: 1780564068.84 (state=Down) for inbound 1780564068.83
+4|indexus- | [QueueEngine] RO hairpin ready: bridging inbound=1780564068.83 ↔ Local;1=1780564068.84
+4|indexus- | [QueueEngine] StasisStart ro-hairpin originated=1780564068.84 parent=1780564068.83 state=Up
+4|indexus- | [QueueEngine] RO hairpin StasisStart: already bridged via channel-state-change, skipping
+4|indexus- | [QueueEngine] RO hairpin bridge 76683e48-1714-4cef-9d02-091f4a385973 active: inbound=1780564068.83 ↔ Local;1=1780564068.84
+4|indexus- | [QueueEngine] RO hairpin: channel 1780564068.84 destroyed, hanging up peer 1780564068.83
+seman@CORPCRM01:/var/www/indexus-crm$
