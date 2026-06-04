@@ -1,0 +1,23 @@
+seman@mediagtw:~$ sudo asterisk -rx "dialplan show indexus-outbound"
+[ Context 'indexus-outbound' created by 'pbx_config' ]
+  '_X.' =>          1. NoOp(Indexus outbound caller=${CALLERID(num)} dest=${EXTEN}) [extensions.conf:122]
+                    2. Set(ORIG_EXT=${CALLERID(num)})             [extensions.conf:125]
+                    3. Set(COLLAB_CID=${DB(callerid/${ORIG_EXT})}) [extensions.conf:128]
+                    4. ExecIf($[${LEN(${COLLAB_CID})} > 0]?Set(CALLERID(num)=${COLLAB_CID})) [extensions.conf:129]
+                    5. Set(CAMPAIGN_CID=${PJSIP_HEADER(read,X-Campaign-CallerID)}) [extensions.conf:132]
+                    6. ExecIf($[${LEN(${CAMPAIGN_CID})} > 0]?Set(CALLERID(num)=${CAMPAIGN_CID})) [extensions.conf:133]
+                    7. NoOp(Outbound CID: ext=${ORIG_EXT} collab=${COLLAB_CID} campaign=${CAMPAIGN_CID} final=${CALLERID(num)}) [extensions.conf:135]
+                    8. GotoIf($["${ORIG_EXT:0:1}"="2"]?route-sk,${EXTEN},1) [extensions.conf:143]
+                    9. GotoIf($["${ORIG_EXT:0:1}"="3"]?route-cz,${EXTEN},1) [extensions.conf:144]
+                    10. GotoIf($["${ORIG_EXT:0:1}"="4"]?route-ro,${EXTEN},1) [extensions.conf:145]
+                    11. NoOp(No origin-based route matched for ext=${ORIG_EXT}, trying prefix fallback...) [extensions.conf:150]
+                    12. GotoIf($["${EXTEN:0:3}"="420"]?route-cz,${EXTEN},1) [extensions.conf:151]
+                    13. GotoIf($["${EXTEN:0:2}"="36"]?route-hu,${EXTEN},1) [extensions.conf:152]
+                    14. GotoIf($["${EXTEN:0:2}"="40"]?route-ro,${EXTEN},1) [extensions.conf:153]
+                    15. GotoIf($["${EXTEN:0:3}"="421"]?route-sk,${EXTEN},1) [extensions.conf:154]
+                    16. NoOp(No outbound route matched for dest=${EXTEN} ext=${ORIG_EXT}) [extensions.conf:156]
+                    17. Playback(ss-noservice)                    [extensions.conf:157]
+                    18. Hangup()                                  [extensions.conf:158]
+
+-= 1 extension (18 priorities) in 1 context. =-
+seman@mediagtw:~$
