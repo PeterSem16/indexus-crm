@@ -582,6 +582,23 @@ export class AriClient extends EventEmitter {
     return this.ariRequest("POST", `/channels?${query}`);
   }
 
+  /**
+   * Originate a channel directly into the Stasis app (no dialplan context).
+   * Used for RO hairpin calls where the inbound channel stays in Stasis and
+   * the outbound leg is originated and bridged via ARI bridge.
+   */
+  async originateToStasis(endpoint: string, appArgs: string, callerId?: string): Promise<AriChannel> {
+    const params: any = {
+      endpoint,
+      app: this.config.appName,
+      appArgs,
+    };
+    if (callerId) params.callerId = callerId;
+    const query = new URLSearchParams(params).toString();
+    console.log(`[ARI] originateToStasis: endpoint=${endpoint}, appArgs=${appArgs}, callerId=${callerId || 'none'}`);
+    return this.ariRequest("POST", `/channels?${query}`);
+  }
+
   async redirectChannel(channelId: string, endpoint: string): Promise<void> {
     await this.ariRequest("POST", `/channels/${channelId}/redirect?endpoint=${endpoint}`);
   }

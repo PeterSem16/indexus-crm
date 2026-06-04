@@ -97,6 +97,9 @@ export class QueueEngine extends EventEmitter {
   private ringAllPending: Map<string, { callId: string; agentChannelIds: Map<string, string>; agentIds: Set<string> }> = new Map();
   private pendingOutboundCallerIds: Map<string, { callerIdNumber: string; expiresAt: number }> = new Map();
   private subscribedEndpoints: Set<string> = new Set();
+  // RO hairpin: inbound channel stays in Stasis, outbound originated via ARI, bridged in ARI
+  private pendingRoHairpins: Map<string, { parentChannelId: string }> = new Map(); // originatedId → parent
+  private roHairpinPairs: Map<string, string> = new Map(); // bidirectional: channelId ↔ peerChannelId
   private forwardedCallTracking: Map<string, {
     callLogId: string;
     inboundChannelId: string;
@@ -134,6 +137,19 @@ export class QueueEngine extends EventEmitter {
           return;
         }
         const args = event.args || [];
+        // RO hairpin: originated outbound channel entering Stasis
+        if (args[0] === "ro-hairpin") {
+          const parentChannelId = args[1];
+          console.log(`[QueueEngine] StasisStart ro-hairpin originated=${event.channel.id} parent=${parentChannelId} state=${event.channel.state}`);
+          if (event.channel.state === "Up") {
+            this.handleRoHairpinReady(event.channel.id, parentChannelId).catch(err =>
+              console.error("[QueueEngine] handleRoHairpinReady error:", err instanceof Error ? err.message : err)
+            );
+          } else {
+            this.pendingRoHairpins.set(event.channel.id, { parentChannelId });
+          }
+          return;
+        }
         if (args[0] === "agent-call" || args[0] === "transfer") {
           console.log(`[QueueEngine] StasisStart for originated channel ${event.channel.id} (args: ${args.join(',')})`);
           const agentCall = this.pendingAgentCalls.get(event.channel.id);
@@ -161,6 +177,15 @@ export class QueueEngine extends EventEmitter {
 
     this.ariClient.on("channel-state-change", (event: AriEvent) => {
       if (event.channel && event.channel.state === "Up") {
+        // RO hairpin: originated outbound channel answered
+        const roHairpin = this.pendingRoHairpins.get(event.channel.id);
+        if (roHairpin) {
+          this.pendingRoHairpins.delete(event.channel.id);
+          this.handleRoHairpinReady(event.channel.id, roHairpin.parentChannelId).catch(err =>
+            console.error("[QueueEngine] handleRoHairpinReady error:", err instanceof Error ? err.message : err)
+          );
+          return;
+        }
         const agentCall = this.pendingAgentCalls.get(event.channel.id);
         if (agentCall) {
           this.handleAgentChannelAnswer(event.channel.id, agentCall);
@@ -1008,27 +1033,44 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async forwardToExternalNumber(channelId: string, number: string): Promise<void> {
-    // For external number forwarding, use continueDialplan with the number as extension.
-    // Country-specific contexts route directly to correct trunk without relying on CALLERID.
-    // Do NOT use transferCallToEndpoint — that only works for internal SIP extensions.
     await this.stopMohForChannel(channelId);
     this.waitingCalls.delete(channelId);
 
-    // If the call originated from RO trunk, always route outbound back via RO (trunk-ro-endpoint).
-    // This keeps the full media path through RO (inbound: EuroVoice→RO→mediagtw, outbound:
-    // mediagtw→RO→collaborator) and allows RO to select the correct egress trunk via
-    // its from-mediagtw routing context — regardless of the collaborator's country.
     const sourceTrunk = await this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null);
     console.log(`[QueueEngine] forwardToExternalNumber: channelId=${channelId} sourceTrunk=${sourceTrunk} number=${number}`);
 
     const norm = number.replace(/^\+/, "").replace(/\s/g, "");
-    let primaryCtx: string;
 
+    // RO inbound: use ARI originate to keep inbound channel in Stasis and avoid
+    // Stasis→dialplan RTP-port transition that causes silent audio.
+    // The inbound channel (00000010) stays in Stasis; an outbound channel is originated
+    // directly to trunk-ro-endpoint and bridged via ARI. No re-INVITE needed.
     if (sourceTrunk === "RO") {
-      // Always hairpin through RO: mediagtw → trunk-ro-endpoint → RO → from-mediagtw → egress trunk
-      primaryCtx = "from-internal-ro";
-      console.log(`[QueueEngine] forwardToExternalNumber: RO inbound → forcing from-internal-ro for ${number}`);
-    } else if (norm.startsWith("421") || /^0[89]/.test(norm) || /^0[2-7]/.test(norm)) {
+      console.log(`[QueueEngine] forwardToExternalNumber: RO inbound → ARI originate to PJSIP/${norm}@trunk-ro-endpoint`);
+      try {
+        const inboundCh = await this.ariClient.getChannel(channelId);
+        const callerNumber = inboundCh?.caller?.number || "";
+        const originated = await this.ariClient.originateToStasis(
+          `PJSIP/${norm}@trunk-ro-endpoint`,
+          `ro-hairpin:${channelId}`,
+          callerNumber || undefined
+        );
+        console.log(`[QueueEngine] RO hairpin originated: ${originated.id} (state=${originated.state}) for inbound ${channelId}`);
+        // If not yet Up, register as pending; channel-state-change will fire handleRoHairpinReady
+        if (originated.state !== "Up") {
+          this.pendingRoHairpins.set(originated.id, { parentChannelId: channelId });
+        } else {
+          await this.handleRoHairpinReady(originated.id, channelId);
+        }
+      } catch (err: any) {
+        console.error(`[QueueEngine] RO hairpin originate failed: ${err.message}, hanging up`);
+        try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+      }
+      return;
+    }
+
+    let primaryCtx: string;
+    if (norm.startsWith("421") || /^0[89]/.test(norm) || /^0[2-7]/.test(norm)) {
       primaryCtx = "from-internal-sk";
     } else if (norm.startsWith("420") || /^[67]/.test(norm)) {
       primaryCtx = "from-internal-cz";
@@ -1043,13 +1085,6 @@ export class QueueEngine extends EventEmitter {
     } else {
       primaryCtx = "from-internal";
     }
-
-    // Get channel name before continueDialplan (needed for AMI hold/unhold re-INVITE fix below)
-    let channelName: string | null = null;
-    try {
-      const ch = await this.ariClient.getChannel(channelId);
-      channelName = ch.name;
-    } catch {}
 
     const contexts = [primaryCtx, "from-internal", "indexus-outbound"];
     let forwarded = false;
@@ -1068,40 +1103,29 @@ export class QueueEngine extends EventEmitter {
     if (!forwarded) {
       console.error(`[QueueEngine] forwardToExternalNumber: all contexts failed for ${number}, hanging up`);
       try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
-      return;
     }
+  }
 
-    // RTP re-sync fix for RO hairpin calls: after continueDialplan the channel transitions
-    // from Stasis to a dialplan Dial() bridge. Asterisk must send a SIP re-INVITE to RO
-    // to inform it of the current RTP port. If no re-INVITE is sent, RO keeps sending to
-    // the Stasis-era port → no RTP received on the channel → rtp_timeout after 60s.
-    // Trigger: AMI "channel request hold/unhold" forces a real SIP re-INVITE through the
-    // channel, identical to a physical hold/unhold from the caller's phone which fixes it.
-    if (sourceTrunk === "RO" && channelName) {
-      const _chName = channelName;
-      (async () => {
-        try {
-          // Wait for collaborator to answer and simple_bridge to be set up (~3s typical)
-          await new Promise(r => setTimeout(r, 3000));
-          const [cfg] = await db.select().from(ariSettings).limit(1);
-          if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) return;
-          const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
-          const sshPort = cfg.sshPort || 22;
-          console.log(`[QueueEngine] RO hairpin RTP fix: hold/unhold on ${_chName}`);
-          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-            Action: "Command",
-            Command: `channel request hold ${_chName}`,
-          });
-          await new Promise(r => setTimeout(r, 600));
-          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-            Action: "Command",
-            Command: `channel request unhold ${_chName}`,
-          });
-          console.log(`[QueueEngine] RO hairpin RTP fix: done for ${_chName}`);
-        } catch (err: any) {
-          console.warn(`[QueueEngine] RO hairpin RTP fix (non-critical):`, err.message);
-        }
-      })();
+  /**
+   * Called when an RO hairpin originated channel answers (state=Up).
+   * Creates an ARI mixing bridge between the inbound (parent) channel and
+   * the originated outbound channel. Both channels stay in Stasis so the
+   * inbound channel's RTP port never changes — no re-INVITE needed.
+   */
+  private async handleRoHairpinReady(originatedChannelId: string, parentChannelId: string): Promise<void> {
+    console.log(`[QueueEngine] RO hairpin ready: bridging inbound=${parentChannelId} ↔ outbound=${originatedChannelId}`);
+    try {
+      const bridge = await this.ariClient.createBridge("mixing");
+      await this.ariClient.addChannelToBridge(bridge.id, parentChannelId);
+      await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
+      // Track bidirectional so hangup of either side cleans up the other
+      this.roHairpinPairs.set(parentChannelId, originatedChannelId);
+      this.roHairpinPairs.set(originatedChannelId, parentChannelId);
+      console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: ${parentChannelId} ↔ ${originatedChannelId}`);
+    } catch (err: any) {
+      console.error(`[QueueEngine] RO hairpin bridge failed: ${err.message}`);
+      try { await this.ariClient.hangupChannel(parentChannelId, "normal"); } catch {}
+      try { await this.ariClient.hangupChannel(originatedChannelId, "normal"); } catch {}
     }
   }
 
@@ -3045,6 +3069,23 @@ export class QueueEngine extends EventEmitter {
       console.log(`[QueueEngine] Channel ${channelId} destroyed during overflow, skipping cleanup`);
       return;
     }
+
+    // RO hairpin cleanup: if either side hangs up, hang up the peer
+    const hairpinPeer = this.roHairpinPairs.get(channelId);
+    if (hairpinPeer) {
+      this.roHairpinPairs.delete(channelId);
+      this.roHairpinPairs.delete(hairpinPeer);
+      console.log(`[QueueEngine] RO hairpin: channel ${channelId} destroyed, hanging up peer ${hairpinPeer}`);
+      try { await this.ariClient.hangupChannel(hairpinPeer, "normal"); } catch {}
+    }
+    // Also clean up pending hairpin if originated channel is destroyed before answering
+    const pendingHairpin = this.pendingRoHairpins.get(channelId);
+    if (pendingHairpin) {
+      this.pendingRoHairpins.delete(channelId);
+      console.log(`[QueueEngine] RO hairpin originated channel ${channelId} destroyed before answer, hanging up parent ${pendingHairpin.parentChannelId}`);
+      try { await this.ariClient.hangupChannel(pendingHairpin.parentChannelId, "normal"); } catch {}
+    }
+
     this.mohPlaybacks.delete(channelId);
     this.pendingWelcomeCallData.delete(channelId);
     const assignedCallData = this.assignedCalls.get(channelId);
