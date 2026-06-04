@@ -1,0 +1,51 @@
+Verbosity is at least 21
+    -- Executing [364716410@trunkinbound:1] NoOp("SIP/dp_800008121-00000af5", "RO DID 364716410 redirect to from-ro-inbound FROM=491723627488 UNIQUEID=1780557515.14233") in new stack
+    -- Executing [364716410@trunkinbound:2] Goto("SIP/dp_800008121-00000af5", "from-ro-inbound|364716410|1") in new stack
+    -- Goto (from-ro-inbound,364716410,1)
+    -- Executing [364716410@from-ro-inbound:1] NoOp("SIP/dp_800008121-00000af5", "INDEXUS OVERRIDE TO MEDIAGTW RO DID=364716410 FROM=491723627488 UNIQUEID=1780557515.14233") in new stack
+    -- Executing [364716410@from-ro-inbound:2] Set("SIP/dp_800008121-00000af5", "__DID_INB=364716410") in new stack
+    -- Executing [364716410@from-ro-inbound:3] Set("SIP/dp_800008121-00000af5", "__DID_Date=04-06-2026 10:18:35") in new stack
+    -- Executing [364716410@from-ro-inbound:4] Set("SIP/dp_800008121-00000af5", "__CBC_SOURCE_TRUNK=RO") in new stack
+    -- Executing [364716410@from-ro-inbound:5] Dial("SIP/dp_800008121-00000af5", "SIP/mediagtw/364716410|60|b(ro-bridge-fix^s^1)") in new stack
+    -- Called mediagtw/364716410
+    -- SIP/mediagtw-00000af6 answered SIP/dp_800008121-00000af5
+    -- Executing [421948519438@from-mediagtw:1] NoOp("SIP/mediagtw-00000af7", "Call from MediaGTW to RO EXTEN=421948519438 CID_ALL="" <491723627488> CID_NUM=491723627488") in new stack
+    -- Executing [421948519438@from-mediagtw:2] Set("SIP/mediagtw-00000af7", "ORIG_OUTNUM=421948519438") in new stack
+    -- Executing [421948519438@from-mediagtw:3] Set("SIP/mediagtw-00000af7", "OUTNUM=421948519438") in new stack
+    -- Executing [421948519438@from-mediagtw:4] Set("SIP/mediagtw-00000af7", "ORIG_CID=491723627488") in new stack
+    -- Executing [421948519438@from-mediagtw:5] Set("SIP/mediagtw-00000af7", "ROUTE_CID=491723627488") in new stack
+    -- Executing [421948519438@from-mediagtw:6] GotoIf("SIP/mediagtw-00000af7", "0?20") in new stack
+    -- Executing [421948519438@from-mediagtw:7] GotoIf("SIP/mediagtw-00000af7", "0?30") in new stack
+    -- Executing [421948519438@from-mediagtw:8] GotoIf("SIP/mediagtw-00000af7", "0?25") in new stack
+    -- Executing [421948519438@from-mediagtw:9] GotoIf("SIP/mediagtw-00000af7", "1?25") in new stack
+    -- Goto (from-mediagtw,421948519438,25)
+    -- Executing [421948519438@from-mediagtw:25] Set("SIP/mediagtw-00000af7", "OUTNUM=00421948519438") in new stack
+    -- Executing [421948519438@from-mediagtw:26] Goto("SIP/mediagtw-00000af7", "30") in new stack
+    -- Goto (from-mediagtw,421948519438,30)
+    -- Executing [421948519438@from-mediagtw:30] NoOp("SIP/mediagtw-00000af7", "Original number=421948519438 Normalized number=00421948519438") in new stack
+    -- Executing [421948519438@from-mediagtw:31] GotoIf("SIP/mediagtw-00000af7", "0?40") in new stack
+    -- Executing [421948519438@from-mediagtw:32] GotoIf("SIP/mediagtw-00000af7", "0?45") in new stack
+    -- Executing [421948519438@from-mediagtw:33] GotoIf("SIP/mediagtw-00000af7", "0?60") in new stack
+    -- Executing [421948519438@from-mediagtw:34] GotoIf("SIP/mediagtw-00000af7", "0?50") in new stack
+    -- Executing [421948519438@from-mediagtw:35] GotoIf("SIP/mediagtw-00000af7", "0?55") in new stack
+    -- Executing [421948519438@from-mediagtw:36] Goto("SIP/mediagtw-00000af7", "60") in new stack
+    -- Goto (from-mediagtw,421948519438,60)
+    -- Executing [421948519438@from-mediagtw:60] NoOp("SIP/mediagtw-00000af7", "Original CID=491723627488 Normalized routing CID=491723627488") in new stack
+    -- Executing [421948519438@from-mediagtw:61] GotoIf("SIP/mediagtw-00000af7", "0?150") in new stack
+    -- Executing [421948519438@from-mediagtw:62] GotoIf("SIP/mediagtw-00000af7", "0?100") in new stack
+    -- Executing [421948519438@from-mediagtw:63] GotoIf("SIP/mediagtw-00000af7", "0?200") in new stack
+    -- Executing [421948519438@from-mediagtw:64] GotoIf("SIP/mediagtw-00000af7", "0?300") in new stack
+    -- Executing [421948519438@from-mediagtw:65] GotoIf("SIP/mediagtw-00000af7", "0?400") in new stack
+    -- Executing [421948519438@from-mediagtw:66] GotoIf("SIP/mediagtw-00000af7", "0?400") in new stack
+    -- Executing [421948519438@from-mediagtw:67] Goto("SIP/mediagtw-00000af7", "900") in new stack
+    -- Goto (from-mediagtw,421948519438,900)
+    -- Executing [421948519438@from-mediagtw:900] NoOp("SIP/mediagtw-00000af7", "UNKNOWN CID=491723627488| using fallback EUROVOICE trunk=SIP/dp_364710205 OUTNUM=00421948519438") in new stack
+    -- Executing [421948519438@from-mediagtw:901] Set("SIP/mediagtw-00000af7", "CALLERID(num)=364710205") in new stack
+    -- Executing [421948519438@from-mediagtw:902] Dial("SIP/mediagtw-00000af7", "SIP/dp_364710205/00421948519438|60|tToR") in new stack
+    -- Called dp_364710205/00421948519438
+    -- SIP/dp_364710205-00000af8 is making progress passing it to SIP/mediagtw-00000af7
+    -- SIP/dp_364710205-00000af8 is ringing
+    -- SIP/dp_364710205-00000af8 is making progress passing it to SIP/mediagtw-00000af7
+[Jun  4 10:18:37] NOTICE[15159]: rtp.c:849 process_rfc3389: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client IP: 10.1.2.112
+    -- SIP/dp_364710205-00000af8 answered SIP/mediagtw-00000af7
+diallog*CLI>

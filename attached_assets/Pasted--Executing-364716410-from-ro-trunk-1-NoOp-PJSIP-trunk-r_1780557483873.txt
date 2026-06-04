@@ -1,0 +1,19 @@
+   -- Executing [364716410@from-ro-trunk:1] NoOp("PJSIP/trunk-ro-endpoint-00000004", "INBOUND from RO trunk DID=364716410 CID="491723627488" <491723627488> - normalize to +40364716410") in new stack
+    -- Executing [364716410@from-ro-trunk:2] Set("PJSIP/trunk-ro-endpoint-00000004", "__CBC_SOURCE_TRUNK=RO") in new stack
+    -- Executing [364716410@from-ro-trunk:3] Set("PJSIP/trunk-ro-endpoint-00000004", "__CBC_SOURCE_IP=10.33.0.55") in new stack
+    -- Executing [364716410@from-ro-trunk:4] Set("PJSIP/trunk-ro-endpoint-00000004", "__CBC_DID=40364716410") in new stack
+    -- Executing [364716410@from-ro-trunk:5] Set("PJSIP/trunk-ro-endpoint-00000004", "__CBC_CALLER=491723627488") in new stack
+    -- Executing [364716410@from-ro-trunk:6] NoOp("PJSIP/trunk-ro-endpoint-00000004", "INDEXUS normalized DID=40364716410 caller=491723627488") in new stack
+    -- Executing [364716410@from-ro-trunk:7] Stasis("PJSIP/trunk-ro-endpoint-00000004", "indexus-inbound") in new stack
+    -- Executing [421948519438@from-internal-ro:1] NoOp("PJSIP/trunk-ro-endpoint-00000004", "from-internal-ro forward to 421948519438") in new stack
+    -- Executing [421948519438@from-internal-ro:2] ExecIf("PJSIP/trunk-ro-endpoint-00000004", "1?Set(CALLERID(num)=491723627488)") in new stack
+    -- Executing [421948519438@from-internal-ro:3] ExecIf("PJSIP/trunk-ro-endpoint-00000004", "1?Set(CALLERID(name)=491723627488)") in new stack
+    -- Executing [421948519438@from-internal-ro:4] ExecIf("PJSIP/trunk-ro-endpoint-00000004", "1?MixMonitor(/var/spool/asterisk/monitor/fwd_1780557314.6_1780557314483.wav,v(1)V(1))") in new stack
+    -- Executing [421948519438@from-internal-ro:5] Dial("PJSIP/trunk-ro-endpoint-00000004", "PJSIP/421948519438@trunk-ro-endpoint,60") in new stack
+  == Begin MixMonitor Recording PJSIP/trunk-ro-endpoint-00000004
+    -- Called PJSIP/421948519438@trunk-ro-endpoint
+    -- PJSIP/trunk-ro-endpoint-00000005 is making progress passing it to PJSIP/trunk-ro-endpoint-00000004
+    -- PJSIP/trunk-ro-endpoint-00000005 answered PJSIP/trunk-ro-endpoint-00000004
+    -- Channel PJSIP/trunk-ro-endpoint-00000005 joined 'simple_bridge' basic-bridge <15be3d33-f9c9-4dec-9641-0bd1d2218110>
+    -- Channel PJSIP/trunk-ro-endpoint-00000004 joined 'simple_bridge' basic-bridge <15be3d33-f9c9-4dec-9641-0bd1d2218110>
+[Jun  4 07:16:14] NOTICE[388498]: res_pjsip_sdp_rtp.c:146 rtp_check_timeout: Disconnecting channel 'PJSIP/trunk-ro-endpoint-00000004' for lack of audio RTP activity in 60 seconds
