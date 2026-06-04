@@ -1128,6 +1128,47 @@ export class QueueEngine extends EventEmitter {
         roOutCtx = "from-internal";
       }
       console.log(`[QueueEngine] forwardToExternalNumber: RO inbound → Local channel to ${roOutCtx}/${norm}`);
+
+      // Stop MOH and start ringback BEFORE originate so the caller hears
+      // ringing with zero extra delay (originate itself takes 500ms–2s).
+      await this.stopMohForChannel(channelId).catch(() => {});
+
+      let rbActive = true;
+      let rbIter = 0;
+      let rbCurrentPbId = `rb-${channelId}-0`;
+      const stopRingback = () => {
+        if (!rbActive) return;
+        rbActive = false;
+        this.ariClient.stopPlayback(rbCurrentPbId).catch(() => {});
+        this.roHairpinRingbackStop.delete(channelId);
+        console.log(`[QueueEngine] RO hairpin ringback stopped for inbound=${channelId}`);
+      };
+      this.roHairpinRingbackStop.set(channelId, stopRingback);
+
+      (async () => {
+        while (rbActive) {
+          const pbId = `rb-${channelId}-${rbIter++}`;
+          rbCurrentPbId = pbId;
+          try {
+            await this.ariClient.playMedia(channelId, "tone:ring", pbId);
+          } catch {
+            break;
+          }
+          await new Promise<void>(resolve => {
+            let done = false;
+            const settle = () => { if (!done) { done = true; resolve(); } };
+            const onFin = (e: AriEvent) => {
+              if (e.playback?.id === pbId) { this.ariClient.off("playback-finished", onFin); settle(); }
+            };
+            this.ariClient.on("playback-finished", onFin);
+            const poll = setInterval(() => {
+              if (!rbActive) { clearInterval(poll); this.ariClient.off("playback-finished", onFin); settle(); }
+            }, 200);
+            setTimeout(() => { clearInterval(poll); this.ariClient.off("playback-finished", onFin); settle(); }, 40_000);
+          });
+        }
+      })().catch(() => {});
+
       try {
         const inboundCh = await this.ariClient.getChannel(channelId);
         const callerNumber = inboundCh?.caller?.number || "";
@@ -1137,63 +1178,14 @@ export class QueueEngine extends EventEmitter {
           callerNumber || undefined
         );
         console.log(`[QueueEngine] RO hairpin Local originated: ${originated.id} (state=${originated.state}) for inbound ${channelId}`);
-        // Always register in pendingRoHairpins — bridge fires only after BOTH
-        // Up (channel-state-change) AND StasisStart are confirmed, whichever comes last.
         this.pendingRoHairpins.set(originated.id, {
           parentChannelId: channelId,
           upReady: originated.state === "Up",
           stasisReady: false,
         });
-
-        // Stop MOH now — ringback takes over. With rtpkeepalive=5 in RO sip.conf
-        // the RTP session survives the brief gap between MOH stop and first ringback frame.
-        await this.stopMohForChannel(channelId).catch(() => {});
-
-        // Start tone:ring on inbound channel so caller hears ringback while
-        // collaborator's phone is ringing. Stopped at the top of handleRoHairpinReady
-        // (i.e. as soon as collaborator answers and Local;1 enters Stasis).
-        let rbActive = true;
-        let rbIter = 0;
-        let rbCurrentPbId = `rb-${channelId}-0`;
-
-        const stopRingback = () => {
-          if (!rbActive) return;
-          rbActive = false;
-          this.ariClient.stopPlayback(rbCurrentPbId).catch(() => {});
-          this.roHairpinRingbackStop.delete(channelId);
-          console.log(`[QueueEngine] RO hairpin originate ringback stopped for inbound=${channelId}`);
-        };
-        this.roHairpinRingbackStop.set(channelId, stopRingback);
-
-        (async () => {
-          while (rbActive) {
-            const pbId = `rb-${channelId}-${rbIter++}`;
-            rbCurrentPbId = pbId;
-            try {
-              await this.ariClient.playMedia(channelId, "tone:ring", pbId);
-            } catch {
-              break; // channel gone or tone not available
-            }
-            await new Promise<void>(resolve => {
-              let done = false;
-              const settle = () => { if (!done) { done = true; resolve(); } };
-              const onFin = (e: AriEvent) => {
-                if (e.playback?.id === pbId) {
-                  this.ariClient.off("playback-finished", onFin);
-                  settle();
-                }
-              };
-              this.ariClient.on("playback-finished", onFin);
-              const poll = setInterval(() => {
-                if (!rbActive) { clearInterval(poll); this.ariClient.off("playback-finished", onFin); settle(); }
-              }, 200);
-              setTimeout(() => { clearInterval(poll); this.ariClient.off("playback-finished", onFin); settle(); }, 40_000);
-            });
-          }
-        })().catch(() => {});
-
       } catch (err: any) {
         console.error(`[QueueEngine] RO hairpin originate failed: ${err.message}, hanging up`);
+        stopRingback();
         try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
       }
       return;
