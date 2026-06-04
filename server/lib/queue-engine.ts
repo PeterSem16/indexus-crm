@@ -1124,10 +1124,10 @@ export class QueueEngine extends EventEmitter {
   private async handleRoHairpinReady(originatedChannelId: string, parentChannelId: string): Promise<void> {
     console.log(`[QueueEngine] RO hairpin ready: bridging inbound=${parentChannelId} ↔ outbound=${originatedChannelId}`);
     try {
-      // Use mixing,dtmf_events to force Asterisk software mixing and prevent native_rtp bridging.
-      // native_rtp would bypass Asterisk's RTP stack and try to connect the two PJSIP legs directly;
-      // RO chan_sip cannot handle that re-INVITE correctly → silent audio.
-      const bridge = await this.ariClient.createBridge("mixing,dtmf_events");
+      // Use plain mixing bridge. direct_media=no on trunk-ro-endpoint already prevents
+      // native_rtp bridging at the endpoint level — dtmf_events flag is not needed and
+      // can cause audio framing issues in Asterisk 22 with PJSIP channels.
+      const bridge = await this.ariClient.createBridge("mixing");
       await this.ariClient.addChannelToBridge(bridge.id, parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       // Track bidirectional so hangup of either side cleans up the other
