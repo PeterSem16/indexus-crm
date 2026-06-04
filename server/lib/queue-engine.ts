@@ -1268,37 +1268,49 @@ export class QueueEngine extends EventEmitter {
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
 
-      // Enable TALK_DETECT on Local;1 so ChannelTalkingStarted fires when the
-      // collaborator starts speaking (= they answered the call).
-      // The ringback was started at originate time (forwardToExternalNumber) so the
-      // caller has been hearing ring tone since Local;2 began Dial(). Now that the
-      // bridge is ready we attach the stop handlers to that already-running ringback.
-      try {
-        await this.ariClient.setChannelVariable(originatedChannelId, "TALK_DETECT(set)", "");
-        console.log(`[QueueEngine] RO hairpin TALK_DETECT enabled on Local;1=${originatedChannelId}`);
-      } catch (err: any) {
-        console.warn(`[QueueEngine] RO hairpin TALK_DETECT setup failed (non-fatal): ${err.message}`);
+      // Enable TALK_DETECT on both Local;1 and inbound PJSIP with a low threshold (64)
+      // so ChannelTalkingStarted fires as soon as audio flows after the collaborator answers.
+      // Default threshold (512) is often too high for Local channel audio.
+      // Set on both channels because the softmix bridge may fire the event for either one.
+      for (const chId of [originatedChannelId, parentChannelId]) {
+        try {
+          await this.ariClient.setChannelVariable(chId, "TALK_DETECT(set)", "64,1000");
+        } catch { /* non-fatal */ }
       }
+      console.log(`[QueueEngine] RO hairpin TALK_DETECT(64) set on Local;1=${originatedChannelId} inbound=${parentChannelId}`);
 
       // Attach stop handlers to the ringback that was started at originate time.
       // stopEarlyRingback() was stored in roHairpinRingbackStop by forwardToExternalNumber.
       const stopEarlyRingback = this.roHairpinRingbackStop.get(parentChannelId) ?? (() => {});
+      const bridgeReadyAt = Date.now();
       let ringbackCleanedUp = false;
-      const cleanupRingback = () => {
+      const cleanupRingback = (reason: string) => {
         if (ringbackCleanedUp) return;
         ringbackCleanedUp = true;
         clearTimeout(ringbackSafetyTimer);
         this.ariClient.off("channel-talking-started", onRingbackTalking);
         this.ariClient.off("stasis-end", onRingbackStasisEnd);
+        console.log(`[QueueEngine] RO hairpin ringback stopped: ${reason}`);
         stopEarlyRingback();
       };
       const onRingbackTalking = (event: AriEvent) => {
-        if (event.channel?.id === originatedChannelId) cleanupRingback();
+        const chId = event.channel?.id;
+        const chName = event.channel?.name ?? "?";
+        const elapsed = Date.now() - bridgeReadyAt;
+        console.log(`[QueueEngine] ChannelTalkingStarted: id=${chId} name=${chName} elapsed=${elapsed}ms (inbound=${parentChannelId} local1=${originatedChannelId})`);
+        // Accept talking event from either bridge participant.
+        // Guard: ignore events in the first 3 s to avoid false positive from tone:ring
+        // triggering the inbound PJSIP's talk detector immediately.
+        if ((chId === originatedChannelId || chId === parentChannelId) && elapsed >= 3000) {
+          cleanupRingback(`ChannelTalkingStarted ch=${chId} elapsed=${elapsed}ms`);
+        }
       };
       const onRingbackStasisEnd = (event: AriEvent) => {
-        if (event.channel?.id === parentChannelId || event.channel?.id === originatedChannelId) cleanupRingback();
+        if (event.channel?.id === parentChannelId || event.channel?.id === originatedChannelId) {
+          cleanupRingback(`stasis-end ch=${event.channel?.id}`);
+        }
       };
-      const ringbackSafetyTimer = setTimeout(() => cleanupRingback(), 60_000);
+      const ringbackSafetyTimer = setTimeout(() => cleanupRingback("60s safety timeout"), 60_000);
       this.ariClient.on("channel-talking-started", onRingbackTalking);
       this.ariClient.on("stasis-end", onRingbackStasisEnd);
 
