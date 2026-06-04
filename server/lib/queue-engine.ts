@@ -103,6 +103,9 @@ export class QueueEngine extends EventEmitter {
   // Local channels; bridging before StasisStart means the channel isn't in the ARI app yet).
   private pendingRoHairpins: Map<string, { parentChannelId: string; upReady: boolean; stasisReady: boolean }> = new Map();
   private roHairpinPairs: Map<string, string> = new Map(); // bidirectional: channelId ↔ peerChannelId
+  // Ringback stop function keyed by inbound channelId; started at originate time so the
+  // caller hears the ring tone from the moment Local;2 starts Dial(), not after bridge setup.
+  private roHairpinRingbackStop: Map<string, () => void> = new Map();
   private forwardedCallTracking: Map<string, {
     callLogId: string;
     inboundChannelId: string;
@@ -1142,6 +1145,54 @@ export class QueueEngine extends EventEmitter {
           upReady: originated.state === "Up",
           stasisReady: false,
         });
+
+        // Start ringback on the inbound channel immediately after originate — this is
+        // when Local;2 begins Dial() and the collaborator's phone starts ringing.
+        // Starting it later (inside handleRoHairpinReady, after bridge creation) means
+        // the collaborator can answer during the ~300ms bridge-setup latency, causing
+        // TALK_DETECT to fire the instant ringback starts (caller hears only 1 ring).
+        //
+        // MOH is stopped here first. With rtpkeepalive=5 in RO sip.conf the RTP session
+        // stays alive via keepalive packets even without MOH, so the gap is safe.
+        await this.stopMohForChannel(channelId).catch(() => {});
+
+        const rbBaseId = `rb-${channelId}`;
+        let rbCurrentId = `${rbBaseId}-0`;
+        let rbActive = true;
+        const stopEarlyRingback = () => {
+          if (!rbActive) return;
+          rbActive = false;
+          this.ariClient.stopPlayback(rbCurrentId).catch(() => {});
+        };
+        this.roHairpinRingbackStop.set(channelId, stopEarlyRingback);
+
+        (async () => {
+          let iter = 0;
+          let useTone = true;
+          while (rbActive) {
+            const pbId = `${rbBaseId}-${iter++}`;
+            rbCurrentId = pbId;
+            const media = useTone ? "tone:ring" : "sound:ring-back";
+            try {
+              await this.ariClient.playMedia(channelId, media, pbId);
+            } catch {
+              if (useTone) { useTone = false; continue; }
+              break;
+            }
+            await new Promise<void>(resolve => {
+              let settled = false;
+              const settle = () => { if (!settled) { settled = true; resolve(); } };
+              const onF = (e: AriEvent) => {
+                if (e.playback?.id === pbId) { this.ariClient.off("playback-finished", onF); settle(); }
+              };
+              this.ariClient.on("playback-finished", onF);
+              const poll = setInterval(() => { if (!rbActive) { clearInterval(poll); this.ariClient.off("playback-finished", onF); settle(); } }, 250);
+              setTimeout(() => { clearInterval(poll); this.ariClient.off("playback-finished", onF); settle(); }, 35_000);
+            });
+          }
+          this.roHairpinRingbackStop.delete(channelId);
+        })().catch(() => {});
+
       } catch (err: any) {
         console.error(`[QueueEngine] RO hairpin originate failed: ${err.message}, hanging up`);
         try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
@@ -1209,21 +1260,19 @@ export class QueueEngine extends EventEmitter {
     console.log(`[QueueEngine] RO hairpin ready: bridging inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
     try {
       const bridge = await this.ariClient.createBridge("mixing");
-      // Stop MOH here — just before adding to bridge — so the gap where Asterisk
-      // sends no audio to RO is < 100ms. Stopping earlier (in forwardToExternalNumber)
-      // created a 2-4s gap that caused old RO chan_sip (nat=always) to freeze its RTP.
-      // RTP keepalive (rtpkeepalive=5 in RO sip.conf) ensures bidirectional UDP flow
-      // even when EuroVoice doesn't forward caller audio during the queue phase.
-      await this.stopMohForChannel(parentChannelId);
+      // MOH was already stopped in forwardToExternalNumber when ringback was started.
+      // Calling stopMoh here as a safety net for any edge case where it wasn't stopped.
+      await this.stopMohForChannel(parentChannelId).catch(() => {});
 
       await this.ariClient.addChannelToBridge(bridge.id, parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
       console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
 
-      // Enable talk detection on Local;1 so ChannelTalkingStarted fires when
-      // the collaborator answers and audio starts flowing through the Local pair.
-      // Without TALK_DETECT(set), Asterisk never emits ChannelTalkingStarted —
-      // which means the ringback injected below would never stop after answer.
+      // Enable TALK_DETECT on Local;1 so ChannelTalkingStarted fires when the
+      // collaborator starts speaking (= they answered the call).
+      // The ringback was started at originate time (forwardToExternalNumber) so the
+      // caller has been hearing ring tone since Local;2 began Dial(). Now that the
+      // bridge is ready we attach the stop handlers to that already-running ringback.
       try {
         await this.ariClient.setChannelVariable(originatedChannelId, "TALK_DETECT(set)", "");
         console.log(`[QueueEngine] RO hairpin TALK_DETECT enabled on Local;1=${originatedChannelId}`);
@@ -1231,30 +1280,18 @@ export class QueueEngine extends EventEmitter {
         console.warn(`[QueueEngine] RO hairpin TALK_DETECT setup failed (non-fatal): ${err.message}`);
       }
 
-      // Ringback tone: inject a ring tone on the inbound channel while waiting for
-      // the collaborator to answer. SK calls hear ringback automatically because the
-      // inbound channel leaves Stasis (continueDialplan → Dial()). For RO hairpin the
-      // channel stays in Stasis/ARI bridge, so Dial() on Local;2 never propagates
-      // ringback back through the Local pair — we must inject it ourselves.
-      //
-      // Uses tone:ring (Asterisk's built-in tone generator, no sound file needed).
-      // tone:ring loops automatically until stopPlayback is called. Falls back to
-      // sound:ring-back loop if tone:ring is unavailable.
-      //
-      // Stops when: (a) collaborator starts talking → ChannelTalkingStarted on Local;1,
-      //             (b) either channel leaves Stasis → stasis-end,
-      //             (c) 60 s safety timeout.
-      const ringbackBaseId = `rb-${parentChannelId}`;
-      let ringbackCurrentId = `${ringbackBaseId}-0`;
-      let ringbackActive = true;
+      // Attach stop handlers to the ringback that was started at originate time.
+      // stopEarlyRingback() was stored in roHairpinRingbackStop by forwardToExternalNumber.
+      const stopEarlyRingback = this.roHairpinRingbackStop.get(parentChannelId) ?? (() => {});
       let ringbackCleanedUp = false;
-
-      const stopRingback = () => {
-        if (!ringbackActive) return;
-        ringbackActive = false;
-        this.ariClient.stopPlayback(ringbackCurrentId).catch(() => {});
+      const cleanupRingback = () => {
+        if (ringbackCleanedUp) return;
+        ringbackCleanedUp = true;
+        clearTimeout(ringbackSafetyTimer);
+        this.ariClient.off("channel-talking-started", onRingbackTalking);
+        this.ariClient.off("stasis-end", onRingbackStasisEnd);
+        stopEarlyRingback();
       };
-
       const onRingbackTalking = (event: AriEvent) => {
         if (event.channel?.id === originatedChannelId) cleanupRingback();
       };
@@ -1262,51 +1299,8 @@ export class QueueEngine extends EventEmitter {
         if (event.channel?.id === parentChannelId || event.channel?.id === originatedChannelId) cleanupRingback();
       };
       const ringbackSafetyTimer = setTimeout(() => cleanupRingback(), 60_000);
-
-      const cleanupRingback = () => {
-        if (ringbackCleanedUp) return;
-        ringbackCleanedUp = true;
-        clearTimeout(ringbackSafetyTimer);
-        this.ariClient.off("channel-talking-started", onRingbackTalking);
-        this.ariClient.off("stasis-end", onRingbackStasisEnd);
-        stopRingback();
-      };
-
       this.ariClient.on("channel-talking-started", onRingbackTalking);
       this.ariClient.on("stasis-end", onRingbackStasisEnd);
-
-      (async () => {
-        // Try tone:ring first — loops automatically, no sound file needed.
-        // If it fails (module unavailable), fall back to sound:ring-back loop.
-        let useTone = true;
-        let iter = 0;
-        while (ringbackActive) {
-          const pbId = `${ringbackBaseId}-${iter++}`;
-          ringbackCurrentId = pbId;
-          const media = useTone ? "tone:ring" : "sound:ring-back";
-          try {
-            await this.ariClient.playMedia(parentChannelId, media, pbId);
-          } catch {
-            if (useTone) { useTone = false; continue; } // retry with sound fallback
-            break;
-          }
-          // Wait for playback-finished (fired by stopPlayback or hangup).
-          // tone:ring loops indefinitely — resolved only via stopPlayback.
-          // sound:ring-back plays one ~5 s cycle then fires playback-finished.
-          await new Promise<void>(resolve => {
-            let settled = false;
-            const settle = () => { if (!settled) { settled = true; resolve(); } };
-            const onF = (e: AriEvent) => {
-              if (e.playback?.id === pbId) { this.ariClient.off("playback-finished", onF); settle(); }
-            };
-            this.ariClient.on("playback-finished", onF);
-            // Polling fallback: exit if ringback was stopped externally
-            const poll = setInterval(() => { if (!ringbackActive) { clearInterval(poll); this.ariClient.off("playback-finished", onF); settle(); } }, 250);
-            // Hard cap: 35 s per iteration (covers one full ring-back sound + margin)
-            setTimeout(() => { clearInterval(poll); this.ariClient.off("playback-finished", onF); settle(); }, 35_000);
-          });
-        }
-      })().catch(() => {});
 
       // Start MixMonitor recording on the inbound PJSIP channel via AMI.
       // For RO hairpin calls the inbound channel stays in Stasis (ARI bridge) the
