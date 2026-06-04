@@ -1050,22 +1050,35 @@ export class QueueEngine extends EventEmitter {
 
     const norm = number.replace(/^\+/, "").replace(/\s/g, "");
 
-    // RO inbound: use ARI originate to keep inbound channel in Stasis and avoid
-    // Stasis→dialplan RTP-port transition that causes silent audio.
-    // The inbound channel (00000010) stays in Stasis; an outbound channel is originated
-    // directly to trunk-ro-endpoint and bridged via ARI. No re-INVITE needed.
+    // RO inbound: use Local channel originate into Stasis.
+    //
+    // WHY Local channel instead of direct PJSIP originate:
+    //   Direct ARI originate to PJSIP/{num}@trunk-ro-endpoint bypasses Asterisk's
+    //   native Dial() application. Old RO chan_sip (nat=always) has a quirk where
+    //   it only reliably sets up bidirectional RTP when the outbound leg is created
+    //   via Dial() — the same path that SK calls use (continueDialplan → Dial()).
+    //   ARI originate has a different RTP setup lifecycle → silent audio until
+    //   physical hold/unhold from the caller forces a re-INVITE.
+    //
+    // HOW it works:
+    //   - Local;1 enters Stasis immediately (Up state) → bridged with inbound channel
+    //   - Local;2 runs from-internal-ro context → Dial(PJSIP/{num}@trunk-ro-endpoint)
+    //   - Dial() handles RTP setup natively, same as SK calls
+    //   - /n flag prevents Local channel optimization (keeps the pair intact)
+    //   - Inbound channel stays in Stasis throughout (no RTP port change)
+    //   - Caller hears ringback from Local;2 early media while collaborator's phone rings
     if (sourceTrunk === "RO") {
-      console.log(`[QueueEngine] forwardToExternalNumber: RO inbound → ARI originate to PJSIP/${norm}@trunk-ro-endpoint`);
+      console.log(`[QueueEngine] forwardToExternalNumber: RO inbound → Local channel to from-internal-ro/${norm}`);
       try {
         const inboundCh = await this.ariClient.getChannel(channelId);
         const callerNumber = inboundCh?.caller?.number || "";
         const originated = await this.ariClient.originateToStasis(
-          `PJSIP/${norm}@trunk-ro-endpoint`,
+          `Local/${norm}@from-internal-ro/n`,
           `ro-hairpin,${channelId}`,
           callerNumber || undefined
         );
-        console.log(`[QueueEngine] RO hairpin originated: ${originated.id} (state=${originated.state}) for inbound ${channelId}`);
-        // If not yet Up, register as pending; channel-state-change will fire handleRoHairpinReady
+        console.log(`[QueueEngine] RO hairpin Local originated: ${originated.id} (state=${originated.state}) for inbound ${channelId}`);
+        // Local;1 is typically Up immediately; channel-state-change covers the non-Up case
         if (originated.state !== "Up") {
           this.pendingRoHairpins.set(originated.id, { parentChannelId: channelId });
         } else {
@@ -1116,86 +1129,29 @@ export class QueueEngine extends EventEmitter {
   }
 
   /**
-   * Called when an RO hairpin originated channel answers (state=Up).
-   * Creates an ARI mixing bridge between the inbound (parent) channel and
-   * the originated outbound channel. Both channels stay in Stasis so the
-   * inbound channel's RTP port never changes — no re-INVITE needed.
+   * Called when an RO hairpin Local;1 channel enters Stasis (immediately Up).
+   * Bridges the inbound PJSIP channel with Local;1 via an ARI mixing bridge.
+   * Local;2 is running from-internal-ro → Dial(PJSIP/{num}@trunk-ro-endpoint)
+   * which handles RTP setup natively (same as SK calls via continueDialplan).
+   *
+   * No hold/unhold re-INVITE tricks needed — the Local channel pair transparently
+   * passes audio, and the actual PJSIP leg to RO is managed by Dial() which
+   * correctly handles old chan_sip nat=always RTP setup.
    */
   private async handleRoHairpinReady(originatedChannelId: string, parentChannelId: string): Promise<void> {
-    console.log(`[QueueEngine] RO hairpin ready: bridging inbound=${parentChannelId} ↔ outbound=${originatedChannelId}`);
+    // Guard: StasisStart and HTTP originate response can race — only bridge once
+    if (this.roHairpinPairs.has(originatedChannelId)) {
+      console.log(`[QueueEngine] RO hairpin already bridged for ${originatedChannelId}, skipping`);
+      return;
+    }
+    console.log(`[QueueEngine] RO hairpin ready: bridging inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
     try {
-      // Use plain mixing bridge. direct_media=no on trunk-ro-endpoint already prevents
-      // native_rtp bridging at the endpoint level — dtmf_events flag is not needed and
-      // can cause audio framing issues in Asterisk 22 with PJSIP channels.
       const bridge = await this.ariClient.createBridge("mixing");
       await this.ariClient.addChannelToBridge(bridge.id, parentChannelId);
       await this.ariClient.addChannelToBridge(bridge.id, originatedChannelId);
-      // Track bidirectional so hangup of either side cleans up the other
       this.roHairpinPairs.set(parentChannelId, originatedChannelId);
       this.roHairpinPairs.set(originatedChannelId, parentChannelId);
-      console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: ${parentChannelId} ↔ ${originatedChannelId}`);
-
-      // RTP re-sync: after ARI bridge creation, RO chan_sip may not immediately send RTP
-      // to Asterisk's mixing port. We trigger re-INVITEs in both directions to force RO
-      // to re-negotiate the RTP session.
-      //
-      // Strategy (3 layers):
-      //   1. pjsip send reinvite: clean media-refresh re-INVITE with no hold state
-      //   2. ARI hold → unhold: native ARI hold/unhold on both channels
-      //   3. AMI CLI hold → unhold: fallback via SSH tunnel
-      const _parentId = parentChannelId;
-      const _originatedId = originatedChannelId;
-      (async () => {
-        try {
-          await new Promise(r => setTimeout(r, 800));
-
-          const [parentCh, originatedCh] = await Promise.all([
-            this.ariClient.getChannel(_parentId).catch(() => null),
-            this.ariClient.getChannel(_originatedId).catch(() => null),
-          ]);
-          const names = [parentCh?.name, originatedCh?.name].filter((n): n is string => !!n);
-          const ids = [parentCh ? _parentId : null, originatedCh ? _originatedId : null].filter((n): n is string => !!n);
-          console.log(`[QueueEngine] RO hairpin RTP fix: reinvite+hold/unhold on ${names.join(", ")}`);
-
-          // Layer 1: pjsip send reinvite (clean refresh re-INVITE, no hold state)
-          const [cfg] = await db.select().from(ariSettings).limit(1);
-          if (cfg?.host && cfg?.sshUsername && cfg?.sshPassword) {
-            const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
-            const sshPort = cfg.sshPort || 22;
-            for (const name of names) {
-              await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-                Action: "Command",
-                Command: `pjsip send reinvite ${name}`,
-              }).catch(() => {});
-            }
-            await new Promise(r => setTimeout(r, 400));
-
-            // Layer 2+3: ARI hold → AMI unhold on both legs
-            for (const id of ids) {
-              await this.ariClient.holdChannel(id).catch(() => {});
-            }
-            await new Promise(r => setTimeout(r, 600));
-            for (const name of names) {
-              await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-                Action: "Command",
-                Command: `channel request unhold ${name}`,
-              }).catch(() => {});
-            }
-          } else {
-            // No SSH config: ARI hold/unhold only
-            for (const id of ids) {
-              await this.ariClient.holdChannel(id).catch(() => {});
-            }
-            await new Promise(r => setTimeout(r, 600));
-            for (const id of ids) {
-              await this.ariClient.unholdChannel(id).catch(() => {});
-            }
-          }
-          console.log(`[QueueEngine] RO hairpin RTP fix: done for ${names.join(", ")}`);
-        } catch (err: any) {
-          console.warn(`[QueueEngine] RO hairpin RTP fix (non-critical):`, err instanceof Error ? err.message : err);
-        }
-      })();
+      console.log(`[QueueEngine] RO hairpin bridge ${bridge.id} active: inbound=${parentChannelId} ↔ Local;1=${originatedChannelId}`);
     } catch (err: any) {
       console.error(`[QueueEngine] RO hairpin bridge failed: ${err.message}`);
       try { await this.ariClient.hangupChannel(parentChannelId, "normal"); } catch {}
