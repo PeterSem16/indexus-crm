@@ -1,0 +1,24 @@
+== Everyone is busy/congested at this time (1:1/0/0)
+    -- Executing [421948519438@from-internal-sk:8] Hangup("Local/421948519438@from-internal-sk-00000022;2", "") in new stack
+  == Spawn extension (from-internal-sk, 421948519438, 8) exited non-zero on 'Local/421948519438@from-internal-sk-00000022;2'
+  == Endpoint 4000 is now Unreachable
+    -- Contact 4000/sip:2d637215@10.1.2.111:47206;transport=WS;x-ast-orig-host=3g9flobsg8dm.invalid:0 is now Unreachable.  RTT: 0.000 msec
+    -- Executing [364716410@from-ro-trunk:1] NoOp("PJSIP/trunk-ro-endpoint-00000074", "INBOUND from RO trunk DID=364716410 CID="491723627488" <491723627488> - normalize to +40364716410") in new stack
+    -- Executing [364716410@from-ro-trunk:2] Set("PJSIP/trunk-ro-endpoint-00000074", "__CBC_SOURCE_TRUNK=RO") in new stack
+    -- Executing [364716410@from-ro-trunk:3] Set("PJSIP/trunk-ro-endpoint-00000074", "__CBC_SOURCE_IP=10.33.0.55") in new stack
+    -- Executing [364716410@from-ro-trunk:4] Set("PJSIP/trunk-ro-endpoint-00000074", "__CBC_DID=40364716410") in new stack
+    -- Executing [364716410@from-ro-trunk:5] Set("PJSIP/trunk-ro-endpoint-00000074", "__CBC_CALLER=491723627488") in new stack
+    -- Executing [364716410@from-ro-trunk:6] NoOp("PJSIP/trunk-ro-endpoint-00000074", "INDEXUS normalized DID=40364716410 caller=491723627488") in new stack
+    -- Executing [364716410@from-ro-trunk:7] Stasis("PJSIP/trunk-ro-endpoint-00000074", "indexus-inbound") in new stack
+    -- Called 421948519438@from-internal-sk/n
+    -- Executing [421948519438@from-internal-sk:1] NoOp("Local/421948519438@from-internal-sk-00000023;2", "from-internal-sk 421 forward to 421948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:2] Set("Local/421948519438@from-internal-sk-00000023;2", "OUTNUM=0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:3] NoOp("Local/421948519438@from-internal-sk-00000023;2", "Normalized SK: 0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:4] ExecIf("Local/421948519438@from-internal-sk-00000023;2", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [421948519438@from-internal-sk:5] ExecIf("Local/421948519438@from-internal-sk-00000023;2", "0?Set(CALLERID(name)=)") in new stack
+    -- Executing [421948519438@from-internal-sk:6] ExecIf("Local/421948519438@from-internal-sk-00000023;2", "0?MixMonitor(/var/spool/asterisk/monitor/.wav,v(1)V(1))") in new stack
+    -- Executing [421948519438@from-internal-sk:7] Dial("Local/421948519438@from-internal-sk-00000023;2", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
+    -- PJSIP/trunk-sk-endpoint-00000075 is ringing
+    -- Local/421948519438@from-internal-sk-00000023;1 is ringing
+    -- PJSIP/trunk-sk-endpoint-00000075 is ringing
