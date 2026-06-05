@@ -56,7 +56,7 @@ function formatPhoneNumber(value: string): string {
 }
 
 function parsePhoneValue(value: string): { countryCode: string; number: string } {
-  if (!value) return { countryCode: "SK", number: "" };
+  if (!value) return { countryCode: "", number: "" };
   
   for (const country of PHONE_COUNTRIES) {
     if (value.startsWith(country.dialCode)) {
@@ -66,7 +66,7 @@ function parsePhoneValue(value: string): { countryCode: string; number: string }
   }
   
   const digits = value.replace(/\D/g, "");
-  return { countryCode: "SK", number: formatPhoneNumber(digits) };
+  return { countryCode: "", number: formatPhoneNumber(digits) };
 }
 
 export function PhoneNumberField({
@@ -90,7 +90,7 @@ export function PhoneNumberField({
   useEffect(() => {
     const parsed = parsePhoneValue(value);
     if (value) {
-      setSelectedCountry(parsed.countryCode);
+      setSelectedCountry(parsed.countryCode || defaultCountryCode);
       setPhoneNumber(parsed.number);
     } else {
       setSelectedCountry(defaultCountryCode);

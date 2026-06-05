@@ -263,6 +263,16 @@ interface TimelineEntry {
   sentiment?: string | null;
 }
 
+const DIAL_CODE_MAP: Record<string, string> = {
+  SK: "+421", CZ: "+420", HU: "+36", RO: "+40", IT: "+39", DE: "+49",
+};
+
+function buildE164Phone(countryCode: string, localPhone: string): string {
+  if (!localPhone) return "";
+  const dialCode = DIAL_CODE_MAP[countryCode];
+  return dialCode ? `${dialCode} ${localPhone}` : localPhone;
+}
+
 function parseInboundPhone(phone: string): { countryCode: string; localPhone: string } {
   if (!phone) return { countryCode: "", localPhone: "" };
   let cleaned = phone.replace(/[\s\-().]/g, "");
@@ -8790,7 +8800,7 @@ export default function AgentWorkspacePage() {
               <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden border-r">
                 {createFromCallType === "customer" && (
                   <CustomerForm
-                    initialData={{ phone: parsedPhone.localPhone, country: parsedPhone.countryCode } as any}
+                    initialData={{ phone: buildE164Phone(parsedPhone.countryCode, parsedPhone.localPhone), country: parsedPhone.countryCode } as any}
                     isLoading={createIsLoading}
                     onSubmit={async (data) => {
                       setCreateIsLoading(true);
@@ -8836,7 +8846,7 @@ export default function AgentWorkspacePage() {
                   <ClinicFormSheet
                     open={true}
                     onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}
-                    prefillData={{ phone: parsedPhone.localPhone, countryCode: parsedPhone.countryCode }}
+                    prefillData={{ phone: buildE164Phone(parsedPhone.countryCode, parsedPhone.localPhone), countryCode: parsedPhone.countryCode }}
                     mode="inline"
                     onSuccess={() => {
                       setCreateFromCallType(null);
@@ -8851,7 +8861,7 @@ export default function AgentWorkspacePage() {
                 {createFromCallType === "person" && (
                   <CollaboratorFormWizard
                     mode="inline"
-                    prefillData={{ phone: parsedPhone.localPhone, countryCode: parsedPhone.countryCode, countryCodes: parsedPhone.countryCode ? [parsedPhone.countryCode] : [] }}
+                    prefillData={{ phone: buildE164Phone(parsedPhone.countryCode, parsedPhone.localPhone), countryCode: parsedPhone.countryCode, countryCodes: parsedPhone.countryCode ? [parsedPhone.countryCode] : [] }}
                     onSuccess={() => {
                       setCreateFromCallType(null);
                       setPendingUnknownCaller(null);
