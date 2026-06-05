@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Phone, PhoneOff, Save, Loader2, Settings, User, Mail, Shield, PhoneCall, CheckCircle, XCircle, AlertCircle, Activity, Clock, MessageSquare, Smartphone } from "lucide-react";
+import { Phone, PhoneOff, PhoneForwarded, Save, Loader2, Settings, User, Mail, Shield, PhoneCall, CheckCircle, XCircle, AlertCircle, Activity, Clock, MessageSquare, Smartphone } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
@@ -439,6 +439,40 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
   const showSpinner = localRegistering || isRegistering;
   const isGlobalSipEnabled = sipSettings?.isEnabled;
 
+  const [fwdEnabled, setFwdEnabled] = useState(false);
+  const [fwdNumber, setFwdNumber] = useState("");
+  const [savingFwd, setSavingFwd] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`/api/users/${user.id}/call-forwarding`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setFwdEnabled(data.enabled ?? false);
+          setFwdNumber(data.number ?? "");
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
+  const handleSaveForwarding = async () => {
+    if (!user?.id) return;
+    setSavingFwd(true);
+    try {
+      await apiRequest("PUT", `/api/users/${user.id}/call-forwarding`, {
+        enabled: fwdEnabled,
+        number: fwdNumber,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: t.collaborators.mobileApp.callForwardingSaved });
+    } catch (err: any) {
+      toast({ title: t.common.error || "Chyba", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingFwd(false);
+    }
+  };
+
   if (!showSipPhone) {
     return (
       <Card>
@@ -629,6 +663,64 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
           </CardContent>
         </Card>
       )}
+
+      {/* Call Forwarding */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-row items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <PhoneForwarded className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base">{t.collaborators.mobileApp.callForwardingLabel}</CardTitle>
+              <CardDescription className="text-sm">
+                {t.collaborators.mobileApp.callForwardingDesc}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">{t.collaborators.mobileApp.callForwardingActivate}</p>
+              <p className="text-xs text-muted-foreground">
+                {t.collaborators.mobileApp.callForwardingActivateDesc}
+              </p>
+            </div>
+            <Switch
+              checked={fwdEnabled}
+              onCheckedChange={setFwdEnabled}
+              data-testid="switch-user-call-forwarding"
+            />
+          </div>
+
+          {fwdEnabled && (
+            <div className="space-y-2">
+              <Label htmlFor="userFwdNumber">{t.collaborators.mobileApp.callForwardingNumber}</Label>
+              <Input
+                id="userFwdNumber"
+                value={fwdNumber}
+                onChange={(e) => setFwdNumber(e.target.value)}
+                placeholder="+421900123456"
+                type="tel"
+                data-testid="input-user-forwarding-number"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t.collaborators.mobileApp.callForwardingNumberDesc}
+              </p>
+            </div>
+          )}
+
+          <Button
+            onClick={handleSaveForwarding}
+            disabled={savingFwd || (fwdEnabled && !fwdNumber.trim())}
+            data-testid="button-save-user-call-forwarding"
+          >
+            {savingFwd ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            {t.collaborators.mobileApp.callForwardingSave}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
