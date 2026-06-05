@@ -56,6 +56,7 @@ interface HospitalFormWizardProps {
   initialData?: Hospital | null;
   onSuccess: () => void;
   onCancel?: () => void;
+  mode?: "inline";
 }
 
 const WIZARD_STEPS = [
@@ -66,12 +67,13 @@ const WIZARD_STEPS = [
   { id: "review", icon: Check },
 ];
 
-export function HospitalFormWizard({ initialData, onSuccess, onCancel }: HospitalFormWizardProps) {
+export function HospitalFormWizard({ initialData, onSuccess, onCancel, mode }: HospitalFormWizardProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("hospitals");
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [inlineTab, setInlineTab] = useState<"basic" | "address" | "contacts" | "settings">("basic");
   
   const [formData, setFormData] = useState<HospitalFormData>(() =>
     initialData
@@ -251,8 +253,9 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
     return stepDescs[stepId] || "";
   };
 
-  const renderStepContent = () => {
-    switch (currentStep) {
+  const renderStepContent = (stepOverride?: number) => {
+    const step = stepOverride ?? currentStep;
+    switch (step) {
       case 0:
         return (
           <div className="space-y-4">
@@ -696,6 +699,98 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
         return null;
     }
   };
+
+  const INLINE_TABS = [
+    { id: "basic" as const, label: t.hospitals?.title || "Nemocnica", icon: Building2, step: 0 },
+    { id: "address" as const, label: t.customers?.fields?.street || "Adresa", icon: MapPin, step: 1 },
+    { id: "contacts" as const, label: t.hospitals?.contactPerson || "Kontakty", icon: Users, step: 2 },
+    { id: "settings" as const, label: t.settings?.title || "Nastavenia", icon: Settings, step: 3 },
+  ];
+
+  if (mode === "inline") {
+    const activeTabInfo = INLINE_TABS.find(tab => tab.id === inlineTab)!;
+    return (
+      <>
+        <div className="flex h-full overflow-hidden">
+          {/* Left sidebar nav */}
+          <div className="w-40 shrink-0 border-r bg-muted/20 flex flex-col py-1.5 gap-0.5">
+            {INLINE_TABS.map(tab => {
+              const Icon = tab.icon;
+              const isActive = inlineTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setInlineTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors text-left w-full",
+                    isActive
+                      ? "bg-primary/10 text-primary border-l-2 border-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border-l-2 border-transparent"
+                  )}
+                  data-testid={`inline-tab-hospital-${tab.id}`}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Content + footer */}
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {renderStepContent(activeTabInfo.step)}
+            </div>
+            <div className="shrink-0 border-t px-5 py-3 flex justify-between bg-background">
+              <Button variant="ghost" size="sm" onClick={onCancel} data-testid="inline-hospital-cancel">
+                {t.common.cancel}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (!formData.name || !formData.countryCode) {
+                    toast({ title: t.errors.required, variant: "destructive" });
+                    setInlineTab("basic");
+                    return;
+                  }
+                  saveMutation.mutate(formData);
+                }}
+                disabled={saveMutation.isPending}
+                data-testid="inline-hospital-save"
+              >
+                {saveMutation.isPending ? t.common.loading : t.common.save}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                {formData.name || "Nemocnica"} - Poloha na mape
+              </DialogTitle>
+            </DialogHeader>
+            <div className="w-full h-[400px] rounded-lg overflow-hidden border">
+              {formData.latitude && formData.longitude && (
+                <iframe
+                  title="Hospital Location Map"
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  style={{ border: 0 }}
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(formData.longitude) - 0.01}%2C${parseFloat(formData.latitude) - 0.01}%2C${parseFloat(formData.longitude) + 0.01}%2C${parseFloat(formData.latitude) + 0.01}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`}
+                  allowFullScreen
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 
   const currentStepInfo = WIZARD_STEPS[currentStep];
   const StepIcon = currentStepInfo?.icon || Building2;

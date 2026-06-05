@@ -8906,6 +8906,7 @@ export default function AgentWorkspacePage() {
               )}
               {createFromCallType === "hospital" && (
                 <HospitalFormWizard
+                  mode="inline"
                   initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
                   onSuccess={() => {
                     setCreateFromCallType(null);
