@@ -3945,6 +3945,8 @@ function CustomerInfoPanel({
   inboundMatches,
   onSelectMatch,
   wrapUpElapsed,
+  unknownCallerPhone,
+  onCreateFromCall,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
