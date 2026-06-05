@@ -477,8 +477,133 @@ export class QueueEngine extends EventEmitter {
     this.assignedCalls.delete(call.channelId);
     this.updateAgentStatus(agent.userId, "available", null);
 
+    // Set INDEXUS_REC_NAME channel variable BEFORE continueDialplan so the dialplan
+    // picks it up and runs MixMonitor on the call leg before dialling the external number.
+    const recordCalls = queue.recordCalls !== false;
+    const recordingName = `qfwd_${call.channelId.replace(/-/g, "_")}_${Date.now()}`;
+    if (recordCalls) {
+      try {
+        await this.ariClient.setChannelVariable(call.channelId, "INDEXUS_REC_NAME", recordingName);
+        console.log(`[QueueForwardedRec] INDEXUS_REC_NAME=${recordingName} set on ${call.channelId}`);
+      } catch (varErr) {
+        console.warn(`[QueueForwardedRec] Could not set INDEXUS_REC_NAME:`, varErr instanceof Error ? varErr.message : varErr);
+      }
+    }
+
     // Use the proven forwardToExternalNumber which routes via the correct trunk
     await this.forwardToExternalNumber(call.channelId, forwardNumber, { fallbackDid: queue.didNumber });
+
+    // After handing off to dialplan: set up DB tracking + poll loop for recording/transcript
+    if (recordCalls) {
+      this.setupQueueForwardedCallTracking(call, agent.userId, agentUser, queue, forwardNumber, recordingName)
+        .catch(e => console.warn("[QueueForwardedRec] Tracking setup failed:", e instanceof Error ? e.message : e));
+    }
+  }
+
+  private async setupQueueForwardedCallTracking(
+    call: any,
+    agentUserId: string,
+    agentUser: any,
+    queue: any,
+    forwardNumber: string,
+    recordingName: string,
+  ): Promise<void> {
+    // 1. Create callLogs entry so the recording can be linked and shown in Missions
+    let callLogId: string | null = null;
+    try {
+      const [callLog] = await db.insert(callLogs).values({
+        userId: agentUserId,
+        customerId: call.customerId || null,
+        phoneNumber: call.callerNumber,
+        direction: "inbound",
+        status: "forwarded",
+        startedAt: new Date(),
+        isForwarded: true,
+        forwardedToNumber: forwardNumber,
+        inboundQueueId: queue.id,
+        inboundQueueName: queue.name,
+        inboundCallLogId: call.id,
+        sipCallId: call.channelId,
+        metadata: JSON.stringify({ queueForwarded: true, agentName: agentUser.fullName }),
+      } as any).returning({ id: callLogs.id });
+      callLogId = callLog?.id || null;
+      if (callLogId) {
+        console.log(`[QueueForwardedRec] callLogs entry created: ${callLogId}`);
+        // Back-link inboundCallLogs → callLogs so history queries can find recordings
+        db.update(inboundCallLogs)
+          .set({ callLogId })
+          .where(eq(inboundCallLogs.id, call.id))
+          .catch(() => {});
+      }
+    } catch (err) {
+      console.warn("[QueueForwardedRec] Failed to create callLogs entry:", err instanceof Error ? err.message : err);
+      return;
+    }
+
+    if (!callLogId) return;
+
+    // 2. Load ARI/SSH settings for post-call recording download
+    const [cfg] = await db.select().from(ariSettings).limit(1);
+    const sshInfo = (cfg?.host && cfg?.sshUsername && cfg?.sshPassword)
+      ? {
+          host: cfg.host,
+          sshPort: cfg.sshPort || 22,
+          sshUsername: cfg.sshUsername,
+          sshPassword: cfg.sshPassword,
+          amiUsername: cfg.username || "",
+          amiPassword: cfg.password || "",
+        }
+      : null;
+
+    const amiFilePath = `/var/spool/asterisk/monitor/${recordingName}`;
+
+    // 3. Register in forwardedCallTracking — reuses processForwardedCallRecordingAsync
+    const tracking = {
+      callLogId,
+      inboundChannelId: call.channelId,
+      startTime: new Date(),
+      recordingName,
+      amiFilePath,
+      sshInfo,
+      collaboratorId: agentUserId, // used as userId in callRecordings table
+      customerId: call.customerId || null,
+      callerNumber: call.callerNumber,
+      callRecordingMode: "full",
+    };
+    this.forwardedCallTracking.set(call.channelId, tracking);
+
+    // 4. Poll for channel hangup — continueDialplan exits Stasis so there is no
+    //    channel-destroyed event in ARI; polling getChannel is the reliable signal.
+    const channelId = call.channelId;
+    const pollForHangup = async () => {
+      const maxMs = 4 * 60 * 60 * 1000; // 4-hour safety cap
+      while (Date.now() - tracking.startTime.getTime() < maxMs) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        try {
+          await this.ariClient.getChannel(channelId);
+          // Still alive — keep polling
+        } catch (err: any) {
+          const msg = String(err?.message || err);
+          if (msg.includes("404") || msg.includes("not found") || msg.toLowerCase().includes("channel not found")) {
+            const t = this.forwardedCallTracking.get(channelId);
+            if (!t) return;
+            this.forwardedCallTracking.delete(channelId);
+            const durationSeconds = Math.max(0, Math.round((Date.now() - t.startTime.getTime()) / 1000));
+            console.log(`[QueueForwardedRec] Channel ${channelId} gone, duration=${durationSeconds}s — starting recording processing`);
+            this.processForwardedCallRecordingAsync(t, durationSeconds).catch(e =>
+              console.error(`[QueueForwardedRec] Processing error:`, e instanceof Error ? e.message : e),
+            );
+            return;
+          }
+          // Transient ARI error — keep polling
+        }
+      }
+      console.warn(`[QueueForwardedRec] Poll timeout for channel ${channelId}, cleaning up`);
+      this.forwardedCallTracking.delete(channelId);
+    };
+
+    pollForHangup().catch(e => console.error(`[QueueForwardedRec] Poll fatal:`, e instanceof Error ? e.message : e));
+    console.log(`[QueueForwardedRec] Tracking active: channelId=${channelId}, callLogId=${callLogId}, ami=${amiFilePath}.wav`);
   }
 
   private async startMohForChannel(channelId: string, queueId: string): Promise<void> {
