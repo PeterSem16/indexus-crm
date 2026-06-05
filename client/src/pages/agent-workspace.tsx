@@ -71,6 +71,7 @@ import {
   Hash,
   Megaphone,
   ArrowRight,
+  ArrowLeft,
   CircleDot,
   Info,
   Zap,
@@ -167,6 +168,7 @@ import { CustomerDetailsContent } from "@/pages/customers";
 import { StatusBadge } from "@/components/status-badge";
 import { CallRecordingPlayer } from "@/components/call-recording-player";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
+import { CustomerFormWizard } from "@/components/customer-form-wizard";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
@@ -5951,6 +5953,7 @@ export default function AgentWorkspacePage() {
   const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[]; callId?: string } | null>(null);
   const [pendingUnknownCaller, setPendingUnknownCaller] = useState<{ phone: string } | null>(null);
   const [createFromCallType, setCreateFromCallType] = useState<"customer" | "hospital" | "clinic" | "person" | null>(null);
+  const [createIsLoading, setCreateIsLoading] = useState(false);
   const [contractWizardStep, setContractWizardStep] = useState(1);
   const [contractForm, setContractForm] = useState({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
   const [inboundCalls, setInboundCalls] = useState<Array<{
@@ -8835,44 +8838,148 @@ export default function AgentWorkspacePage() {
           }}
         />
 
-        <CustomerInfoPanel
-          contact={currentContact}
-          campaign={selectedCampaign}
-          callNotes={callNotes}
-          onAddNote={handleAddNote}
-          onDisposition={handleDisposition}
-          onQuickAction={handleQuickAction}
-          rightTab={rightTab}
-          onRightTabChange={setRightTab}
-          contactHistory={contactHistory}
-          dispositions={campaignDispositions}
-          currentUserId={user?.id}
-          onOpenDispositionModal={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
-          callState={callContext.callState}
-          callDuration={callContext.callDuration}
-          ringDuration={ringDuration}
-          hungUpBy={callContext.callTiming.hungUpBy}
-          onEndCall={() => callContext.endCallFn.current?.()}
-          onOpenDispositionFromCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
-          isMuted={callContext.isMuted}
-          isOnHold={callContext.isOnHold}
-          volume={callContext.volume}
-          micVolume={callContext.micVolume}
-          onToggleMute={() => callContext.toggleMuteFn.current?.()}
-          onToggleHold={() => callContext.toggleHoldFn.current?.()}
-          onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
-          onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
-          onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
-          callerNumber={callContext.callInfo?.phoneNumber || ""}
-          onEditCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("card"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
-          onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
-          onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
-          wrapUpElapsed={wrapUpElapsed}
-          inboundMatches={inboundPhoneMatches}
-          onSelectMatch={handleSelectInboundMatch}
-          unknownCallerPhone={pendingUnknownCaller?.phone}
-          onCreateFromCall={(type) => setCreateFromCallType(type)}
-        />
+        {createFromCallType !== null ? (
+          /* ── Inline create form for unknown inbound caller ── */
+          <div className="flex flex-col h-full overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-2 border-b bg-muted/40 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 text-muted-foreground"
+                onClick={() => setCreateFromCallType(null)}
+                data-testid="button-inline-create-back"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Späť
+              </Button>
+              <div className="flex items-center gap-1.5 text-sm">
+                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="font-mono text-foreground">{pendingUnknownCaller?.phone}</span>
+              </div>
+              <Badge variant="outline" className="ml-auto">
+                {createFromCallType === "customer" ? "Zákazník"
+                  : createFromCallType === "hospital" ? "Nemocnica"
+                  : createFromCallType === "clinic" ? "Ambulancia"
+                  : "Osoba"}
+              </Badge>
+            </div>
+            {/* Form */}
+            <div className="flex-1 overflow-y-auto">
+              {createFromCallType === "customer" && (
+                <CustomerFormWizard
+                  initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
+                  isLoading={createIsLoading}
+                  onSubmit={async (data) => {
+                    setCreateIsLoading(true);
+                    try {
+                      const res = await apiRequest("POST", "/api/customers", data);
+                      const created = await res.json();
+                      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+                      setCreateFromCallType(null);
+                      setPendingUnknownCaller(null);
+                      if (created?.id) {
+                        const custRes = await fetch(`/api/customers/${created.id}`, { credentials: "include" });
+                        if (custRes.ok) setCurrentContact(await custRes.json());
+                      }
+                      setDispositionChannelFilter("phone");
+                      setMandatoryDisposition(true);
+                      setDispositionModalOpen(true);
+                    } catch (e: any) {
+                      toast({ title: "Chyba", description: e?.message || "Zákazníka sa nepodarilo vytvoriť", variant: "destructive" });
+                    } finally {
+                      setCreateIsLoading(false);
+                    }
+                  }}
+                  onCancel={() => setCreateFromCallType(null)}
+                />
+              )}
+              {createFromCallType === "hospital" && (
+                <HospitalFormWizard
+                  initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
+                  onSuccess={() => {
+                    setCreateFromCallType(null);
+                    setPendingUnknownCaller(null);
+                    queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+                    setDispositionChannelFilter("phone");
+                    setMandatoryDisposition(true);
+                    setDispositionModalOpen(true);
+                  }}
+                  onCancel={() => setCreateFromCallType(null)}
+                />
+              )}
+              {createFromCallType === "clinic" && (
+                <ClinicFormSheet
+                  open={true}
+                  onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}
+                  prefillData={{ phone: pendingUnknownCaller?.phone || "" }}
+                  mode="inline"
+                  onSuccess={() => {
+                    setCreateFromCallType(null);
+                    setPendingUnknownCaller(null);
+                    queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+                    setDispositionChannelFilter("phone");
+                    setMandatoryDisposition(true);
+                    setDispositionModalOpen(true);
+                  }}
+                />
+              )}
+              {createFromCallType === "person" && (
+                <CollaboratorFormWizard
+                  prefillData={{ phone: pendingUnknownCaller?.phone || "" }}
+                  onSuccess={() => {
+                    setCreateFromCallType(null);
+                    setPendingUnknownCaller(null);
+                    queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+                    setDispositionChannelFilter("phone");
+                    setMandatoryDisposition(true);
+                    setDispositionModalOpen(true);
+                  }}
+                  onCancel={() => setCreateFromCallType(null)}
+                />
+              )}
+            </div>
+          </div>
+        ) : (
+          <CustomerInfoPanel
+            contact={currentContact}
+            campaign={selectedCampaign}
+            callNotes={callNotes}
+            onAddNote={handleAddNote}
+            onDisposition={handleDisposition}
+            onQuickAction={handleQuickAction}
+            rightTab={rightTab}
+            onRightTabChange={setRightTab}
+            contactHistory={contactHistory}
+            dispositions={campaignDispositions}
+            currentUserId={user?.id}
+            onOpenDispositionModal={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
+            callState={callContext.callState}
+            callDuration={callContext.callDuration}
+            ringDuration={ringDuration}
+            hungUpBy={callContext.callTiming.hungUpBy}
+            onEndCall={() => callContext.endCallFn.current?.()}
+            onOpenDispositionFromCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+            isMuted={callContext.isMuted}
+            isOnHold={callContext.isOnHold}
+            volume={callContext.volume}
+            micVolume={callContext.micVolume}
+            onToggleMute={() => callContext.toggleMuteFn.current?.()}
+            onToggleHold={() => callContext.toggleHoldFn.current?.()}
+            onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
+            onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
+            onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
+            callerNumber={callContext.callInfo?.phoneNumber || ""}
+            onEditCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("card"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
+            onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
+            onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
+            wrapUpElapsed={wrapUpElapsed}
+            inboundMatches={inboundPhoneMatches}
+            onSelectMatch={handleSelectInboundMatch}
+            unknownCallerPhone={pendingUnknownCaller?.phone}
+            onCreateFromCall={(type) => setCreateFromCallType(type)}
+          />
+        )}
       </div>
 
       <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
@@ -10433,102 +10540,6 @@ export default function AgentWorkspacePage() {
               </Button>
             )}
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create new record from unknown inbound call — Customer */}
-      <Dialog open={createFromCallType === "customer"} onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
-          <DialogHeader className="px-6 pt-5 pb-0 shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5 text-blue-600" />
-              Nový zákazník
-            </DialogTitle>
-            <DialogDescription>Volajúce číslo: <span className="font-mono font-semibold">{pendingUnknownCaller?.phone}</span></DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
-            <CustomerForm
-              initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
-              onSubmit={async (data: CustomerFormData) => {
-                try {
-                  const res = await apiRequest("POST", "/api/customers", data);
-                  const created = await res.json();
-                  queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-                  setCreateFromCallType(null);
-                  setPendingUnknownCaller(null);
-                  if (created?.id) {
-                    const custRes = await fetch(`/api/customers/${created.id}`, { credentials: "include" });
-                    if (custRes.ok) setCurrentContact(await custRes.json());
-                  }
-                } catch (e: any) {
-                  toast({ title: "Chyba", description: e?.message || "Zákazníka sa nepodarilo vytvoriť", variant: "destructive" });
-                }
-              }}
-              onCancel={() => setCreateFromCallType(null)}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create new record from unknown inbound call — Hospital */}
-      <Dialog open={createFromCallType === "hospital"} onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
-          <DialogHeader className="px-6 pt-5 pb-0 shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-purple-600" />
-              Nová nemocnica
-            </DialogTitle>
-            <DialogDescription>Volajúce číslo: <span className="font-mono font-semibold">{pendingUnknownCaller?.phone}</span></DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto pt-2">
-            <HospitalFormWizard
-              initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
-              onSuccess={() => { setCreateFromCallType(null); setPendingUnknownCaller(null); queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] }); }}
-              onCancel={() => setCreateFromCallType(null)}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create new record from unknown inbound call — Clinic */}
-      <Dialog open={createFromCallType === "clinic"} onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
-          <DialogHeader className="px-6 pt-5 pb-0 shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5 text-teal-600" />
-              Nová ambulancia
-            </DialogTitle>
-            <DialogDescription>Volajúce číslo: <span className="font-mono font-semibold">{pendingUnknownCaller?.phone}</span></DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto">
-            <ClinicFormSheet
-              open={true}
-              onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}
-              prefillData={{ phone: pendingUnknownCaller?.phone || "" }}
-              mode="inline"
-              onSuccess={() => { setCreateFromCallType(null); setPendingUnknownCaller(null); queryClient.invalidateQueries({ queryKey: ["/api/clinics"] }); }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create new record from unknown inbound call — Person (collaborator) */}
-      <Dialog open={createFromCallType === "person"} onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
-          <DialogHeader className="px-6 pt-5 pb-0 shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-amber-600" />
-              Nová osoba
-            </DialogTitle>
-            <DialogDescription>Volajúce číslo: <span className="font-mono font-semibold">{pendingUnknownCaller?.phone}</span></DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto">
-            <CollaboratorFormWizard
-              prefillData={{ phone: pendingUnknownCaller?.phone || "" }}
-              onSuccess={() => { setCreateFromCallType(null); setPendingUnknownCaller(null); queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] }); }}
-              onCancel={() => setCreateFromCallType(null)}
-            />
-          </div>
         </DialogContent>
       </Dialog>
 
