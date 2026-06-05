@@ -2984,9 +2984,12 @@ export class QueueEngine extends EventEmitter {
     });
 
     const [agentUser] = await db.select({
+      id: users.id,
       sipExtension: users.sipExtension,
       sipEnabled: users.sipEnabled,
       fullName: users.fullName,
+      callForwardingEnabled: users.callForwardingEnabled,
+      callForwardingNumber: users.callForwardingNumber,
     }).from(users).where(eq(users.id, agent.userId)).limit(1);
 
     this.assignedCalls.set(call.channelId, {
