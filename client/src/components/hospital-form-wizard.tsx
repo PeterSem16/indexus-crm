@@ -54,6 +54,7 @@ interface HospitalFormData {
 
 interface HospitalFormWizardProps {
   initialData?: Hospital | null;
+  prefillData?: Partial<HospitalFormData>;
   onSuccess: () => void;
   onCancel?: () => void;
   mode?: "inline";
@@ -67,55 +68,58 @@ const WIZARD_STEPS = [
   { id: "review", icon: Check },
 ];
 
-export function HospitalFormWizard({ initialData, onSuccess, onCancel, mode }: HospitalFormWizardProps) {
+export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode }: HospitalFormWizardProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("hospitals");
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [inlineTab, setInlineTab] = useState<"basic" | "address" | "contacts" | "settings">("basic");
-  
-  const [formData, setFormData] = useState<HospitalFormData>(() =>
-    initialData
+
+  const emptyForm: HospitalFormData = {
+    legacyId: "",
+    isActive: true,
+    name: "",
+    fullName: "",
+    streetNumber: "",
+    representativeId: "",
+    city: "",
+    laboratoryId: "",
+    postalCode: "",
+    autoRecruiting: false,
+    region: "",
+    responsiblePersonId: "",
+    countryCode: "",
+    contactPerson: "",
+    svetZdravia: false,
+    latitude: "",
+    longitude: "",
+  };
+
+  const [formData, setFormData] = useState<HospitalFormData>(() => {
+    const base = initialData
       ? {
           legacyId: initialData.legacyId || "",
-          isActive: initialData.isActive,
-          name: initialData.name,
+          isActive: initialData.isActive ?? true,
+          name: initialData.name || "",
           fullName: initialData.fullName || "",
           streetNumber: initialData.streetNumber || "",
           representativeId: initialData.representativeId || "",
           city: initialData.city || "",
           laboratoryId: initialData.laboratoryId || "",
           postalCode: initialData.postalCode || "",
-          autoRecruiting: initialData.autoRecruiting,
+          autoRecruiting: initialData.autoRecruiting ?? false,
           region: initialData.region || "",
           responsiblePersonId: initialData.responsiblePersonId || "",
-          countryCode: initialData.countryCode,
+          countryCode: initialData.countryCode || "",
           contactPerson: initialData.contactPerson || "",
-          svetZdravia: initialData.svetZdravia,
+          svetZdravia: initialData.svetZdravia ?? false,
           latitude: initialData.latitude || "",
           longitude: initialData.longitude || "",
         }
-      : {
-          legacyId: "",
-          isActive: true,
-          name: "",
-          fullName: "",
-          streetNumber: "",
-          representativeId: "",
-          city: "",
-          laboratoryId: "",
-          postalCode: "",
-          autoRecruiting: false,
-          region: "",
-          responsiblePersonId: "",
-          countryCode: "",
-          contactPerson: "",
-          svetZdravia: false,
-          latitude: "",
-          longitude: "",
-        }
-  );
+      : { ...emptyForm };
+    return { ...base, ...(prefillData || {}) };
+  });
   
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);

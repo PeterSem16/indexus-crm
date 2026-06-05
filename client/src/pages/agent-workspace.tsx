@@ -265,7 +265,12 @@ interface TimelineEntry {
 
 function parseInboundPhone(phone: string): { countryCode: string; localPhone: string } {
   if (!phone) return { countryCode: "", localPhone: "" };
-  const cleaned = phone.replace(/\s/g, "");
+  let cleaned = phone.replace(/[\s\-().]/g, "");
+
+  // Normalize 00XXXX → +XXXX
+  if (cleaned.startsWith("00")) cleaned = "+" + cleaned.slice(2);
+
+  // Sorted longest-prefix-first to avoid partial matches (421 before 40, 420 before 40)
   const prefixMap: { prefix: string; countryCode: string }[] = [
     { prefix: "+421", countryCode: "SK" },
     { prefix: "+420", countryCode: "CZ" },
@@ -274,11 +279,33 @@ function parseInboundPhone(phone: string): { countryCode: string; localPhone: st
     { prefix: "+39", countryCode: "IT" },
     { prefix: "+49", countryCode: "DE" },
   ];
+
+  // Try direct match with + prefix
   for (const { prefix, countryCode } of prefixMap) {
     if (cleaned.startsWith(prefix)) {
       return { countryCode, localPhone: cleaned.slice(prefix.length) };
     }
   }
+
+  // Try without leading 0 (national format: 0 + country-code + number)
+  if (cleaned.startsWith("0")) {
+    const withoutZero = cleaned.slice(1);
+    for (const { prefix, countryCode } of prefixMap) {
+      const digits = prefix.slice(1); // strip the +
+      if (withoutZero.startsWith(digits)) {
+        return { countryCode, localPhone: withoutZero.slice(digits.length) };
+      }
+    }
+  }
+
+  // Try matching raw digits (no leading 0, no +)
+  for (const { prefix, countryCode } of prefixMap) {
+    const digits = prefix.slice(1);
+    if (cleaned.startsWith(digits)) {
+      return { countryCode, localPhone: cleaned.slice(digits.length) };
+    }
+  }
+
   return { countryCode: "", localPhone: cleaned };
 }
 
@@ -8793,7 +8820,7 @@ export default function AgentWorkspacePage() {
                 {createFromCallType === "hospital" && (
                   <HospitalFormWizard
                     mode="inline"
-                    initialData={{ countryCode: parsedPhone.countryCode } as any}
+                    prefillData={{ countryCode: parsedPhone.countryCode }}
                     onSuccess={() => {
                       setCreateFromCallType(null);
                       setPendingUnknownCaller(null);
@@ -8823,6 +8850,7 @@ export default function AgentWorkspacePage() {
                 )}
                 {createFromCallType === "person" && (
                   <CollaboratorFormWizard
+                    mode="inline"
                     prefillData={{ phone: parsedPhone.localPhone, countryCode: parsedPhone.countryCode, countryCodes: parsedPhone.countryCode ? [parsedPhone.countryCode] : [] }}
                     onSuccess={() => {
                       setCreateFromCallType(null);

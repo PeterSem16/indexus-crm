@@ -264,6 +264,7 @@ interface CollaboratorFormWizardProps {
   hideSvetZdravia?: boolean;
   prefillData?: Partial<CollaboratorFormData>;
   onCreated?: (collab: { id: string }) => void | Promise<void>;
+  mode?: "inline";
 }
 
 // Pending address for Add mode (before collaborator is saved)
@@ -3563,7 +3564,7 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
   );
 }
 
-export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated }: CollaboratorFormWizardProps) {
+export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated, mode }: CollaboratorFormWizardProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
@@ -5676,7 +5677,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
           {wizardSteps.map((step, index) => {
             const isCompleted = completedSteps.has(index);
             const isCurrent = index === currentStep;
-            const isClickable = isEditMode || index <= currentStep || isCompleted || completedSteps.has(index - 1);
+            const isClickable = mode === "inline" || isEditMode || index <= currentStep || isCompleted || completedSteps.has(index - 1);
             const Icon = step.icon;
 
             return (
