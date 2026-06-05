@@ -73,7 +73,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
               {t.activityReports.title}
             </TabsTrigger>
             <TabsTrigger value="sip" data-testid="tab-user-sip">
-              {t.settings.sipProfile.title}
+              {"Phone Profile"}
             </TabsTrigger>
             <TabsTrigger value="connect" data-testid="tab-user-connect">
               {"INDEXUS Connect"}
@@ -640,30 +640,6 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
         </CardContent>
       </Card>
 
-      {sipSettings && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t.settings.sipProfile.serverInfo}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t.settings.sipProfile.server}:</span>
-                <span className="font-mono">{sipSettings.server || "-"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t.settings.sipProfile.port}:</span>
-                <span className="font-mono">{sipSettings.port || 443}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t.settings.sipProfile.transport}:</span>
-                <span className="font-mono">{sipSettings.transport || "WSS"}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Call Forwarding */}
       <Card>
         <CardHeader className="pb-3">
@@ -721,6 +697,30 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
           </Button>
         </CardContent>
       </Card>
+
+      {sipSettings && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t.settings.sipProfile.serverInfo}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t.settings.sipProfile.server}:</span>
+                <span className="font-mono">{sipSettings.server || "-"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t.settings.sipProfile.port}:</span>
+                <span className="font-mono">{sipSettings.port || 443}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t.settings.sipProfile.transport}:</span>
+                <span className="font-mono">{sipSettings.transport || "WSS"}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
