@@ -2700,38 +2700,30 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   );
 
   if (mode === "inline") {
-    if (initialData) {
-      return (
-        <>
-          <div className="flex flex-col h-full overflow-hidden relative" data-testid="clinic-card-tabbed-inline">
-            {editorBody}
-          </div>
-          {mapDialog}
-          {nestedClinicForm && (
-            <Sheet open={true} onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}>
-              <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
-                <SheetHeader className="px-6 py-4 border-b">
-                  <SheetTitle>{(t.clinics as any).addNewDoctor || (t.collaborators as any).addPerson || "Add new doctor"}</SheetTitle>
-                </SheetHeader>
-                <div className="h-[calc(100vh-65px)] overflow-hidden">
-                  <CollaboratorFormWizard
-                    prefillData={{ lastName: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" }}
-                    onSuccess={() => setNestedClinicForm(null)}
-                    onCancel={() => setNestedClinicForm(null)}
-                    onCreated={async (created) => { await handleNestedPersonCreatedForClinic(created); setNestedClinicForm(null); }}
-                  />
-                </div>
-              </SheetContent>
-            </Sheet>
-          )}
-        </>
-      );
-    }
     return (
-      <div className="flex flex-col h-full overflow-y-auto">
-        {formContent}
+      <>
+        <div className="flex flex-col h-full overflow-hidden relative" data-testid="clinic-card-tabbed-inline">
+          {editorBody}
+        </div>
         {mapDialog}
-      </div>
+        {nestedClinicForm && (
+          <Sheet open={true} onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}>
+            <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+              <SheetHeader className="px-6 py-4 border-b">
+                <SheetTitle>{(t.clinics as any).addNewDoctor || (t.collaborators as any).addPerson || "Add new doctor"}</SheetTitle>
+              </SheetHeader>
+              <div className="h-[calc(100vh-65px)] overflow-hidden">
+                <CollaboratorFormWizard
+                  prefillData={{ lastName: nestedClinicForm.prefillName, countryCode: formData.countryCode || "SK" }}
+                  onSuccess={() => setNestedClinicForm(null)}
+                  onCancel={() => setNestedClinicForm(null)}
+                  onCreated={async (created) => { await handleNestedPersonCreatedForClinic(created); setNestedClinicForm(null); }}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        )}
+      </>
     );
   }
 

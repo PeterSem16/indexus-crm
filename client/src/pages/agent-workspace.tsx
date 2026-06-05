@@ -168,7 +168,6 @@ import { CustomerDetailsContent } from "@/pages/customers";
 import { StatusBadge } from "@/components/status-badge";
 import { CallRecordingPlayer } from "@/components/call-recording-player";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
-import { CustomerFormWizard } from "@/components/customer-form-wizard";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
@@ -691,6 +690,7 @@ function TaskListPanel({
   onOpenTasksModal,
   onCancelTask,
   agentStatus,
+  contactsDisabled,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -716,6 +716,7 @@ function TaskListPanel({
   onOpenTasksModal: () => void;
   onCancelTask: (taskId: string) => void;
   agentStatus: AgentStatus;
+  contactsDisabled?: boolean;
 }) {
   const { t } = useI18n();
   const filteredCampaigns = useMemo(() => {
@@ -977,7 +978,12 @@ function TaskListPanel({
       </div>
 
       {selectedCampaignId && (
-        <div className="border-t flex flex-col flex-1 min-h-0">
+        <div className={`border-t flex flex-col flex-1 min-h-0 relative ${contactsDisabled ? "pointer-events-none" : ""}`}>
+          {contactsDisabled && (
+            <div className="absolute inset-0 bg-background/70 z-10 flex items-center justify-center rounded-sm">
+              <p className="text-xs text-muted-foreground font-medium px-3 text-center">Najprv uložte záznam</p>
+            </div>
+          )}
           <div
             className="px-3 py-2 flex items-center justify-between gap-1 rounded-md mx-1 mt-1"
             data-testid="contacts-header"
@@ -8727,6 +8733,7 @@ export default function AgentWorkspacePage() {
           onOpenTasksModal={() => setTasksModalOpen(true)}
           onCancelTask={handleCancelTask}
           agentStatus={agentSession.status}
+          contactsDisabled={createFromCallType !== null}
         />
 
         <CommunicationCanvas
@@ -8867,32 +8874,35 @@ export default function AgentWorkspacePage() {
             {/* Form */}
             <div className="flex-1 overflow-y-auto">
               {createFromCallType === "customer" && (
-                <CustomerFormWizard
-                  initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
-                  isLoading={createIsLoading}
-                  onSubmit={async (data) => {
-                    setCreateIsLoading(true);
-                    try {
-                      const res = await apiRequest("POST", "/api/customers", data);
-                      const created = await res.json();
-                      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-                      setCreateFromCallType(null);
-                      setPendingUnknownCaller(null);
-                      if (created?.id) {
-                        const custRes = await fetch(`/api/customers/${created.id}`, { credentials: "include" });
-                        if (custRes.ok) setCurrentContact(await custRes.json());
+                <div className="px-4 pb-4">
+                  <CustomerForm
+                    initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
+                    isLoading={createIsLoading}
+                    onSubmit={async (data) => {
+                      setCreateIsLoading(true);
+                      try {
+                        const res = await apiRequest("POST", "/api/customers", data);
+                        const created = await res.json();
+                        queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+                        setCreateFromCallType(null);
+                        setPendingUnknownCaller(null);
+                        if (created?.id) {
+                          const custRes = await fetch(`/api/customers/${created.id}`, { credentials: "include" });
+                          if (custRes.ok) setCurrentContact(await custRes.json());
+                        }
+                        setDispositionChannelFilter("phone");
+                        setMandatoryDisposition(true);
+                        setDispositionModalOpen(true);
+                      } catch (e: any) {
+                        toast({ title: "Chyba", description: e?.message || "Zákazníka sa nepodarilo vytvoriť", variant: "destructive" });
+                      } finally {
+                        setCreateIsLoading(false);
                       }
-                      setDispositionChannelFilter("phone");
-                      setMandatoryDisposition(true);
-                      setDispositionModalOpen(true);
-                    } catch (e: any) {
-                      toast({ title: "Chyba", description: e?.message || "Zákazníka sa nepodarilo vytvoriť", variant: "destructive" });
-                    } finally {
-                      setCreateIsLoading(false);
-                    }
-                  }}
-                  onCancel={() => setCreateFromCallType(null)}
-                />
+                    }}
+                    onCancel={() => setCreateFromCallType(null)}
+                    useCardLayout
+                  />
+                </div>
               )}
               {createFromCallType === "hospital" && (
                 <HospitalFormWizard
