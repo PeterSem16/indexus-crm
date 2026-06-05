@@ -8790,7 +8790,7 @@ export default function AgentWorkspacePage() {
               <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden border-r">
                 {createFromCallType === "customer" && (
                   <CustomerForm
-                    initialData={{ phone: parsedPhone.localPhone, countryCode: parsedPhone.countryCode } as any}
+                    initialData={{ phone: parsedPhone.localPhone, country: parsedPhone.countryCode } as any}
                     isLoading={createIsLoading}
                     onSubmit={async (data) => {
                       setCreateIsLoading(true);

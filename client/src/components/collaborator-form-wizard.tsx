@@ -4128,7 +4128,13 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
     if (index === currentStep) {
       return;
     }
-    
+
+    // Inline create-from-call mode: free navigation, no wizard restriction
+    if (mode === "inline") {
+      setCurrentStep(index);
+      return;
+    }
+
     // When editing existing collaborator, allow clicking on any step
     if (initialData) {
       setCurrentStep(index);
