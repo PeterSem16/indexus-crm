@@ -3980,6 +3980,8 @@ function CustomerInfoPanel({
   onOpenHistoryDetail?: (entry: ContactHistory) => void;
   inboundMatches?: PhoneMatch[];
   onSelectMatch?: (match: PhoneMatch, mode: "card" | "details" | "open") => void;
+  unknownCallerPhone?: string | null;
+  onCreateFromCall?: (type: "customer" | "hospital" | "clinic" | "person") => void;
 }) {
   const { t, locale } = useI18n();
   const callContext = useCall();
@@ -4015,6 +4017,41 @@ function CustomerInfoPanel({
   };
 
   if (!contact) {
+    if (unknownCallerPhone) {
+      return (
+        <div className="w-64 border-l bg-card flex flex-col shrink-0">
+          <div className="p-4 border-b border-border bg-amber-50 dark:bg-amber-950/20">
+            <div className="flex items-center gap-2 mb-1">
+              <PhoneIncoming className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Neznámy volajúci</span>
+            </div>
+            <p className="text-sm font-mono font-bold text-foreground">{unknownCallerPhone}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Vyberte typ záznamu, ktorý chcete vytvoriť</p>
+          </div>
+          <div className="p-3 flex flex-col gap-2">
+            {([
+              { type: "customer" as const, label: "Zákazník", icon: <User className="h-5 w-5" />, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50 border-blue-200 dark:border-blue-800" },
+              { type: "hospital" as const, label: "Nemocnica", icon: <Building2 className="h-5 w-5" />, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-950/50 border-purple-200 dark:border-purple-800" },
+              { type: "clinic" as const, label: "Ambulancia", icon: <Stethoscope className="h-5 w-5" />, color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-950/30 hover:bg-teal-100 dark:hover:bg-teal-950/50 border-teal-200 dark:border-teal-800" },
+              { type: "person" as const, label: "Osoba", icon: <Users className="h-5 w-5" />, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50 border-amber-200 dark:border-amber-800" },
+            ]).map(({ type, label, icon, color, bg }) => (
+              <button
+                key={type}
+                onClick={() => onCreateFromCall?.(type)}
+                data-testid={`btn-create-from-call-${type}`}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors text-left ${bg}`}
+              >
+                <span className={color}>{icon}</span>
+                <div>
+                  <p className={`text-sm font-semibold ${color}`}>{label}</p>
+                  <p className="text-[11px] text-muted-foreground">Vytvoriť nový záznam</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="w-64 border-l bg-card flex items-center justify-center shrink-0">
         <div className="text-center p-6">
@@ -5910,6 +5947,8 @@ export default function AgentWorkspacePage() {
   const [selectedLoginQueueIds, setSelectedLoginQueueIds] = useState<string[]>([]);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
   const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[]; callId?: string } | null>(null);
+  const [pendingUnknownCaller, setPendingUnknownCaller] = useState<{ phone: string } | null>(null);
+  const [createFromCallType, setCreateFromCallType] = useState<"customer" | "hospital" | "clinic" | "person" | null>(null);
   const [contractWizardStep, setContractWizardStep] = useState(1);
   const [contractForm, setContractForm] = useState({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
   const [inboundCalls, setInboundCalls] = useState<Array<{
@@ -8060,12 +8099,15 @@ export default function AgentWorkspacePage() {
       }
 
       if (!anyFound) {
+        setPendingUnknownCaller({ phone: callerNumber });
         setTimeline([{
           id: `sys-inbound-${Date.now()}`,
           type: "system",
           timestamp: new Date(),
           content: `Prichádzajúci hovor od ${callerNumber} (neznámy kontakt)`,
         }]);
+      } else {
+        setPendingUnknownCaller(null);
       }
     };
 
@@ -8826,6 +8868,8 @@ export default function AgentWorkspacePage() {
           wrapUpElapsed={wrapUpElapsed}
           inboundMatches={inboundPhoneMatches}
           onSelectMatch={handleSelectInboundMatch}
+          unknownCallerPhone={pendingUnknownCaller?.phone}
+          onCreateFromCall={(type) => setCreateFromCallType(type)}
         />
       </div>
 
@@ -10387,6 +10431,102 @@ export default function AgentWorkspacePage() {
               </Button>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create new record from unknown inbound call — Customer */}
+      <Dialog open={createFromCallType === "customer"} onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-5 pb-0 shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-blue-600" />
+              Nový zákazník
+            </DialogTitle>
+            <DialogDescription>Volajúce číslo: <span className="font-mono font-semibold">{pendingUnknownCaller?.phone}</span></DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
+            <CustomerForm
+              initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
+              onSubmit={async (data: CustomerFormData) => {
+                try {
+                  const res = await apiRequest("POST", "/api/customers", data);
+                  const created = await res.json();
+                  queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+                  setCreateFromCallType(null);
+                  setPendingUnknownCaller(null);
+                  if (created?.id) {
+                    const custRes = await fetch(`/api/customers/${created.id}`, { credentials: "include" });
+                    if (custRes.ok) setCurrentContact(await custRes.json());
+                  }
+                } catch (e: any) {
+                  toast({ title: "Chyba", description: e?.message || "Zákazníka sa nepodarilo vytvoriť", variant: "destructive" });
+                }
+              }}
+              onCancel={() => setCreateFromCallType(null)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create new record from unknown inbound call — Hospital */}
+      <Dialog open={createFromCallType === "hospital"} onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-5 pb-0 shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-purple-600" />
+              Nová nemocnica
+            </DialogTitle>
+            <DialogDescription>Volajúce číslo: <span className="font-mono font-semibold">{pendingUnknownCaller?.phone}</span></DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pt-2">
+            <HospitalFormWizard
+              initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
+              onSuccess={() => { setCreateFromCallType(null); setPendingUnknownCaller(null); queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] }); }}
+              onCancel={() => setCreateFromCallType(null)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create new record from unknown inbound call — Clinic */}
+      <Dialog open={createFromCallType === "clinic"} onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-5 pb-0 shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Stethoscope className="h-5 w-5 text-teal-600" />
+              Nová ambulancia
+            </DialogTitle>
+            <DialogDescription>Volajúce číslo: <span className="font-mono font-semibold">{pendingUnknownCaller?.phone}</span></DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            <ClinicFormSheet
+              open={true}
+              onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}
+              prefillData={{ phone: pendingUnknownCaller?.phone || "" }}
+              mode="inline"
+              onSuccess={() => { setCreateFromCallType(null); setPendingUnknownCaller(null); queryClient.invalidateQueries({ queryKey: ["/api/clinics"] }); }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create new record from unknown inbound call — Person (collaborator) */}
+      <Dialog open={createFromCallType === "person"} onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-5 pb-0 shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-amber-600" />
+              Nová osoba
+            </DialogTitle>
+            <DialogDescription>Volajúce číslo: <span className="font-mono font-semibold">{pendingUnknownCaller?.phone}</span></DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            <CollaboratorFormWizard
+              prefillData={{ phone: pendingUnknownCaller?.phone || "" }}
+              onSuccess={() => { setCreateFromCallType(null); setPendingUnknownCaller(null); queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] }); }}
+              onCancel={() => setCreateFromCallType(null)}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
