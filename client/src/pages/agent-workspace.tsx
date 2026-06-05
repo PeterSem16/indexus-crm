@@ -523,7 +523,7 @@ function TopBar({
                 onClick={onToggleInboundRingtone}
                 data-testid="button-toggle-inbound-ringtone"
                 aria-pressed={!!inboundRingtoneEnabled}
-                title={"Inbound calls are forwarded to an external number"}
+                title={`Inbound calls forwarded → ${fwdData?.number}`}
                 className="gap-1 text-orange-600 border-orange-400/60 dark:text-orange-400 dark:border-orange-500/40"
               >
                 <PhoneForwarded className="h-3.5 w-3.5" />
