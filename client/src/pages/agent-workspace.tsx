@@ -263,6 +263,25 @@ interface TimelineEntry {
   sentiment?: string | null;
 }
 
+function parseInboundPhone(phone: string): { countryCode: string; localPhone: string } {
+  if (!phone) return { countryCode: "", localPhone: "" };
+  const cleaned = phone.replace(/\s/g, "");
+  const prefixMap: { prefix: string; countryCode: string }[] = [
+    { prefix: "+421", countryCode: "SK" },
+    { prefix: "+420", countryCode: "CZ" },
+    { prefix: "+36", countryCode: "HU" },
+    { prefix: "+40", countryCode: "RO" },
+    { prefix: "+39", countryCode: "IT" },
+    { prefix: "+49", countryCode: "DE" },
+  ];
+  for (const { prefix, countryCode } of prefixMap) {
+    if (cleaned.startsWith(prefix)) {
+      return { countryCode, localPhone: cleaned.slice(prefix.length) };
+    }
+  }
+  return { countryCode: "", localPhone: cleaned };
+}
+
 function getEntityDisplayInfo(cc: EnrichedCampaignContact): { name: string; initials: string; subtitle: string; type: string } | null {
   if (cc.contactType === "hospital" && cc.hospital) {
     const h = cc.hospital as any;
@@ -8736,147 +8755,15 @@ export default function AgentWorkspacePage() {
           contactsDisabled={createFromCallType !== null}
         />
 
-        <CommunicationCanvas
-          contact={currentContact}
-          campaign={selectedCampaign}
-          activeChannel={activeChannel}
-          onChannelChange={setActiveChannel}
-          timeline={timeline}
-          onSendEmail={handleSendEmail}
-          onSendSms={handleSendSms}
-          isSendingEmail={sendEmailMutation.isPending}
-          isSendingSms={sendSmsMutation.isPending}
-          onMakeCall={handleMakeCall}
-          isSipRegistered={isSipRegistered}
-          onOpenScriptModal={() => setScriptModalOpen(true)}
-          onUpdateContact={(data) => updateContactMutation.mutate(data)}
-          isUpdatingContact={updateContactMutation.isPending}
-          externalPhoneSubTab={phoneSubTabOverride}
-          callState={callContext.callState}
-          callDuration={callContext.callDuration}
-          ringDuration={ringDuration}
-          hungUpBy={callContext.callTiming.hungUpBy}
-          isMuted={callContext.isMuted}
-          isOnHold={callContext.isOnHold}
-          volume={callContext.volume}
-          micVolume={callContext.micVolume}
-          onEndCall={() => callContext.endCallFn.current?.()}
-          onOpenDisposition={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
-          onToggleMute={() => callContext.toggleMuteFn.current?.()}
-          onToggleHold={() => callContext.toggleHoldFn.current?.()}
-          onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
-          onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
-          onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
-          callerNumber={callContext.callInfo?.phoneNumber || ""}
-          contactHistory={contactHistory}
-          onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
-          onCreateContract={handleOpenContractWizard}
-          contactType={currentContactType}
-          hospitalData={currentHospitalData}
-          clinicData={currentClinicData}
-          collaboratorData={currentCollaboratorData}
-          campaignContactId={currentCampaignContactId}
-          initialScriptStepId={currentCampaignContact?.currentScriptStepId || null}
-          pendingEmailTemplateId={pendingEmailTemplateId}
-          onPendingEmailTemplateHandled={() => setPendingEmailTemplateId(null)}
-          onScriptAction={(action, data) => {
-            if (action === "openEmail") {
-              setActiveChannel("email");
-              if (data?.emailTemplateId) {
-                setPendingEmailTemplateId(data.emailTemplateId);
-              }
-            } else if (action === "openPhone" || action === "makeCall") {
-              setActiveChannel("phone");
-            } else if (action === "openDisposition") {
-              setDispositionChannelFilter(null);
-              setDispositionModalOpen(true);
-            } else if (action === "openEmailDisposition") {
-              setDispositionChannelFilter("email");
-              setDispositionModalOpen(true);
-            } else if (action === "openPhoneDisposition") {
-              setDispositionChannelFilter("phone");
-              setDispositionModalOpen(true);
-            } else if (action === "scheduleCallbackOnly" && data?.dispositionCode) {
-              try {
-                const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
-                const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
-                if (disp?.callbackOffsetDays && currentCampaignContactId && selectedCampaignId) {
-                  const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
-                  cbDate.setHours(9, 0, 0, 0);
-                  apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${currentCampaignContactId}`, {
-                    status: "callback_scheduled",
-                    callbackDate: cbDate.toISOString(),
-                    dispositionCode: data.dispositionCode,
-                    assignedTo: user?.id || null,
-                    lastAttemptAt: new Date().toISOString(),
-                  }).then(() => {
-                    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
-                    queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
-                    queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-                    toast({ title: t.agentWorkspace.contactFinished, description: `Callback: ${cbDate.toLocaleDateString()}` });
-                  }).catch(() => {});
-                }
-              } catch {}
-            } else if (action === "setDisposition" && data?.dispositionCode) {
-              try {
-                const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
-                const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
-                const isCallbackType = disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms"
-                  || parentDisp?.actionType === "callback" || parentDisp?.actionType === "schedule_email" || parentDisp?.actionType === "schedule_sms";
-                if (isCallbackType) {
-                  if (disp?.callbackOffsetDays) {
-                    const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
-                    cbDate.setHours(9, 0, 0, 0);
-                    handleDisposition(data.dispositionCode, parentDisp?.code, cbDate.toISOString(), user?.id || null);
-                  } else {
-                    setModalSelectedParent(parentDisp?.id || disp?.id || null);
-                    const tomorrow = new Date();
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
-                    setModalCallbackTime("09:00");
-                    setDispositionChannelFilter(null);
-                    setDispositionModalOpen(true);
-                  }
-                } else {
-                  handleDisposition(data.dispositionCode, parentDisp?.code);
-                }
-              } catch {}
-            }
-          }}
-        />
-
-        {createFromCallType !== null ? (
-          /* ── Inline create form for unknown inbound caller ── */
-          <div className="flex flex-col h-full overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-2 border-b bg-muted/40 shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1 text-muted-foreground"
-                onClick={() => setCreateFromCallType(null)}
-                data-testid="button-inline-create-back"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Späť
-              </Button>
-              <div className="flex items-center gap-1.5 text-sm">
-                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-mono text-foreground">{pendingUnknownCaller?.phone}</span>
-              </div>
-              <Badge variant="outline" className="ml-auto">
-                {createFromCallType === "customer" ? "Zákazník"
-                  : createFromCallType === "hospital" ? "Nemocnica"
-                  : createFromCallType === "clinic" ? "Ambulancia"
-                  : "Osoba"}
-              </Badge>
-            </div>
-            {/* Form */}
-            <div className="flex-1 overflow-y-auto">
-              {createFromCallType === "customer" && (
-                <div className="px-4 pb-4">
+        {(() => {
+          const parsedPhone = parseInboundPhone(pendingUnknownCaller?.phone || "");
+          if (createFromCallType !== null) {
+            /* ── Inline create form — shown in CENTER panel ── */
+            return (
+              <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden border-r">
+                {createFromCallType === "customer" && (
                   <CustomerForm
-                    initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
+                    initialData={{ phone: parsedPhone.localPhone, countryCode: parsedPhone.countryCode } as any}
                     isLoading={createIsLoading}
                     onSubmit={async (data) => {
                       setCreateIsLoading(true);
@@ -8902,95 +8789,205 @@ export default function AgentWorkspacePage() {
                     onCancel={() => setCreateFromCallType(null)}
                     useCardLayout
                   />
-                </div>
-              )}
-              {createFromCallType === "hospital" && (
-                <HospitalFormWizard
-                  mode="inline"
-                  initialData={{ phone: pendingUnknownCaller?.phone || "" } as any}
-                  onSuccess={() => {
-                    setCreateFromCallType(null);
-                    setPendingUnknownCaller(null);
-                    queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
-                    setDispositionChannelFilter("phone");
-                    setMandatoryDisposition(true);
-                    setDispositionModalOpen(true);
-                  }}
-                  onCancel={() => setCreateFromCallType(null)}
-                />
-              )}
-              {createFromCallType === "clinic" && (
-                <ClinicFormSheet
-                  open={true}
-                  onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}
-                  prefillData={{ phone: pendingUnknownCaller?.phone || "" }}
-                  mode="inline"
-                  onSuccess={() => {
-                    setCreateFromCallType(null);
-                    setPendingUnknownCaller(null);
-                    queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
-                    setDispositionChannelFilter("phone");
-                    setMandatoryDisposition(true);
-                    setDispositionModalOpen(true);
-                  }}
-                />
-              )}
-              {createFromCallType === "person" && (
-                <CollaboratorFormWizard
-                  prefillData={{ phone: pendingUnknownCaller?.phone || "" }}
-                  onSuccess={() => {
-                    setCreateFromCallType(null);
-                    setPendingUnknownCaller(null);
-                    queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
-                    setDispositionChannelFilter("phone");
-                    setMandatoryDisposition(true);
-                    setDispositionModalOpen(true);
-                  }}
-                  onCancel={() => setCreateFromCallType(null)}
-                />
-              )}
-            </div>
-          </div>
-        ) : (
-          <CustomerInfoPanel
-            contact={currentContact}
-            campaign={selectedCampaign}
-            callNotes={callNotes}
-            onAddNote={handleAddNote}
-            onDisposition={handleDisposition}
-            onQuickAction={handleQuickAction}
-            rightTab={rightTab}
-            onRightTabChange={setRightTab}
-            contactHistory={contactHistory}
-            dispositions={campaignDispositions}
-            currentUserId={user?.id}
-            onOpenDispositionModal={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
-            callState={callContext.callState}
-            callDuration={callContext.callDuration}
-            ringDuration={ringDuration}
-            hungUpBy={callContext.callTiming.hungUpBy}
-            onEndCall={() => callContext.endCallFn.current?.()}
-            onOpenDispositionFromCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
-            isMuted={callContext.isMuted}
-            isOnHold={callContext.isOnHold}
-            volume={callContext.volume}
-            micVolume={callContext.micVolume}
-            onToggleMute={() => callContext.toggleMuteFn.current?.()}
-            onToggleHold={() => callContext.toggleHoldFn.current?.()}
-            onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
-            onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
-            onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
-            callerNumber={callContext.callInfo?.phoneNumber || ""}
-            onEditCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("card"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
-            onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
-            onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
-            wrapUpElapsed={wrapUpElapsed}
-            inboundMatches={inboundPhoneMatches}
-            onSelectMatch={handleSelectInboundMatch}
-            unknownCallerPhone={pendingUnknownCaller?.phone}
-            onCreateFromCall={(type) => setCreateFromCallType(type)}
-          />
-        )}
+                )}
+                {createFromCallType === "hospital" && (
+                  <HospitalFormWizard
+                    mode="inline"
+                    initialData={{ countryCode: parsedPhone.countryCode } as any}
+                    onSuccess={() => {
+                      setCreateFromCallType(null);
+                      setPendingUnknownCaller(null);
+                      queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+                      setDispositionChannelFilter("phone");
+                      setMandatoryDisposition(true);
+                      setDispositionModalOpen(true);
+                    }}
+                    onCancel={() => setCreateFromCallType(null)}
+                  />
+                )}
+                {createFromCallType === "clinic" && (
+                  <ClinicFormSheet
+                    open={true}
+                    onOpenChange={(open) => { if (!open) setCreateFromCallType(null); }}
+                    prefillData={{ phone: parsedPhone.localPhone, countryCode: parsedPhone.countryCode }}
+                    mode="inline"
+                    onSuccess={() => {
+                      setCreateFromCallType(null);
+                      setPendingUnknownCaller(null);
+                      queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+                      setDispositionChannelFilter("phone");
+                      setMandatoryDisposition(true);
+                      setDispositionModalOpen(true);
+                    }}
+                  />
+                )}
+                {createFromCallType === "person" && (
+                  <CollaboratorFormWizard
+                    prefillData={{ phone: parsedPhone.localPhone, countryCode: parsedPhone.countryCode, countryCodes: parsedPhone.countryCode ? [parsedPhone.countryCode] : [] }}
+                    onSuccess={() => {
+                      setCreateFromCallType(null);
+                      setPendingUnknownCaller(null);
+                      queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+                      setDispositionChannelFilter("phone");
+                      setMandatoryDisposition(true);
+                      setDispositionModalOpen(true);
+                    }}
+                    onCancel={() => setCreateFromCallType(null)}
+                  />
+                )}
+              </div>
+            );
+          }
+          return (
+            <CommunicationCanvas
+              contact={currentContact}
+              campaign={selectedCampaign}
+              activeChannel={activeChannel}
+              onChannelChange={setActiveChannel}
+              timeline={timeline}
+              onSendEmail={handleSendEmail}
+              onSendSms={handleSendSms}
+              isSendingEmail={sendEmailMutation.isPending}
+              isSendingSms={sendSmsMutation.isPending}
+              onMakeCall={handleMakeCall}
+              isSipRegistered={isSipRegistered}
+              onOpenScriptModal={() => setScriptModalOpen(true)}
+              onUpdateContact={(data) => updateContactMutation.mutate(data)}
+              isUpdatingContact={updateContactMutation.isPending}
+              externalPhoneSubTab={phoneSubTabOverride}
+              callState={callContext.callState}
+              callDuration={callContext.callDuration}
+              ringDuration={ringDuration}
+              hungUpBy={callContext.callTiming.hungUpBy}
+              isMuted={callContext.isMuted}
+              isOnHold={callContext.isOnHold}
+              volume={callContext.volume}
+              micVolume={callContext.micVolume}
+              onEndCall={() => callContext.endCallFn.current?.()}
+              onOpenDisposition={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
+              onToggleMute={() => callContext.toggleMuteFn.current?.()}
+              onToggleHold={() => callContext.toggleHoldFn.current?.()}
+              onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
+              onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
+              onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
+              callerNumber={callContext.callInfo?.phoneNumber || ""}
+              contactHistory={contactHistory}
+              onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
+              onCreateContract={handleOpenContractWizard}
+              contactType={currentContactType}
+              hospitalData={currentHospitalData}
+              clinicData={currentClinicData}
+              collaboratorData={currentCollaboratorData}
+              campaignContactId={currentCampaignContactId}
+              initialScriptStepId={currentCampaignContact?.currentScriptStepId || null}
+              pendingEmailTemplateId={pendingEmailTemplateId}
+              onPendingEmailTemplateHandled={() => setPendingEmailTemplateId(null)}
+              onScriptAction={(action, data) => {
+                if (action === "openEmail") {
+                  setActiveChannel("email");
+                  if (data?.emailTemplateId) {
+                    setPendingEmailTemplateId(data.emailTemplateId);
+                  }
+                } else if (action === "openPhone" || action === "makeCall") {
+                  setActiveChannel("phone");
+                } else if (action === "openDisposition") {
+                  setDispositionChannelFilter(null);
+                  setDispositionModalOpen(true);
+                } else if (action === "openEmailDisposition") {
+                  setDispositionChannelFilter("email");
+                  setDispositionModalOpen(true);
+                } else if (action === "openPhoneDisposition") {
+                  setDispositionChannelFilter("phone");
+                  setDispositionModalOpen(true);
+                } else if (action === "scheduleCallbackOnly" && data?.dispositionCode) {
+                  try {
+                    const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
+                    const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
+                    if (disp?.callbackOffsetDays && currentCampaignContactId && selectedCampaignId) {
+                      const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
+                      cbDate.setHours(9, 0, 0, 0);
+                      apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${currentCampaignContactId}`, {
+                        status: "callback_scheduled",
+                        callbackDate: cbDate.toISOString(),
+                        dispositionCode: data.dispositionCode,
+                        assignedTo: user?.id || null,
+                        lastAttemptAt: new Date().toISOString(),
+                      }).then(() => {
+                        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
+                        queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+                        queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                        toast({ title: t.agentWorkspace.contactFinished, description: `Callback: ${cbDate.toLocaleDateString()}` });
+                      }).catch(() => {});
+                    }
+                  } catch {}
+                } else if (action === "setDisposition" && data?.dispositionCode) {
+                  try {
+                    const disp = campaignDispositions.find((d: any) => d.code === data.dispositionCode);
+                    const parentDisp = disp?.parentId ? campaignDispositions.find((d: any) => d.id === disp.parentId) : undefined;
+                    const isCallbackType = disp?.actionType === "callback" || disp?.actionType === "schedule_email" || disp?.actionType === "schedule_sms"
+                      || parentDisp?.actionType === "callback" || parentDisp?.actionType === "schedule_email" || parentDisp?.actionType === "schedule_sms";
+                    if (isCallbackType) {
+                      if (disp?.callbackOffsetDays) {
+                        const cbDate = addBusinessDays(new Date(), disp.callbackOffsetDays);
+                        cbDate.setHours(9, 0, 0, 0);
+                        handleDisposition(data.dispositionCode, parentDisp?.code, cbDate.toISOString(), user?.id || null);
+                      } else {
+                        setModalSelectedParent(parentDisp?.id || disp?.id || null);
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+                        setModalCallbackTime("09:00");
+                        setDispositionChannelFilter(null);
+                        setDispositionModalOpen(true);
+                      }
+                    } else {
+                      handleDisposition(data.dispositionCode, parentDisp?.code);
+                    }
+                  } catch {}
+                }
+              }}
+            />
+          );
+        })()}
+
+        <CustomerInfoPanel
+          contact={currentContact}
+          campaign={selectedCampaign}
+          callNotes={callNotes}
+          onAddNote={handleAddNote}
+          onDisposition={handleDisposition}
+          onQuickAction={handleQuickAction}
+          rightTab={rightTab}
+          onRightTabChange={setRightTab}
+          contactHistory={contactHistory}
+          dispositions={campaignDispositions}
+          currentUserId={user?.id}
+          onOpenDispositionModal={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
+          callState={callContext.callState}
+          callDuration={callContext.callDuration}
+          ringDuration={ringDuration}
+          hungUpBy={callContext.callTiming.hungUpBy}
+          onEndCall={() => callContext.endCallFn.current?.()}
+          onOpenDispositionFromCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+          isMuted={callContext.isMuted}
+          isOnHold={callContext.isOnHold}
+          volume={callContext.volume}
+          micVolume={callContext.micVolume}
+          onToggleMute={() => callContext.toggleMuteFn.current?.()}
+          onToggleHold={() => callContext.toggleHoldFn.current?.()}
+          onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
+          onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
+          onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
+          callerNumber={callContext.callInfo?.phoneNumber || ""}
+          onEditCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("card"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
+          onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
+          onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
+          wrapUpElapsed={wrapUpElapsed}
+          inboundMatches={inboundPhoneMatches}
+          onSelectMatch={handleSelectInboundMatch}
+          unknownCallerPhone={pendingUnknownCaller?.phone}
+          onCreateFromCall={(type) => setCreateFromCallType(type)}
+        />
       </div>
 
       <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
