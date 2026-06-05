@@ -1,0 +1,50 @@
+"attached_assets/Sni\314\201mka_obrazovky_2026-06-05_o_9.45.57_1780645863500.png"  | Bin 0 -> 183877 bytes
+ "attached_assets/Sni\314\201mka_obrazovky_2026-06-05_o_9.45.57_1780646418635.png"  | Bin 0 -> 183877 bytes
+ client/src/components/user-settings-dialog.tsx                                     | 107 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--------
+ client/src/pages/agent-workspace.tsx                                               |  46 +++++++++++++++++++++++++---------
+ server/lib/queue-engine.ts                                                         |  49 ++++++++++++++++++++++++++++++++++---
+ 9 files changed, 180 insertions(+), 26 deletions(-)
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-06-05_o_10.00.34_1780646442672.png"
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-06-05_o_10.06.58_1780647067352.png"
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-06-05_o_10.09.18_1780647060826.png"
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-06-05_o_9.45.57_1780645863500.png"
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-06-05_o_9.45.57_1780646418635.png"
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@azure/msal-node@1.18.4',
+npm warn EBADENGINE   required: { node: '10 || 12 || 14 || 16 || 18' },
+npm warn EBADENGINE   current: { node: 'v20.20.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+
+up to date, audited 1503 packages in 7s
+
+219 packages are looking for funding
+  run `npm fund` for details
+
+50 vulnerabilities (1 low, 20 moderate, 27 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+> rest-express@1.0.0 db:push
+> drizzle-kit push
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/var/www/indexus-crm/drizzle.config.ts'
+Using 'pg' driver for database querying
+[✓] Pulling schema from database...
+ Warning  Found data-loss statements:
+· You're about to delete type column in trunks table with 7 items
+
+THIS ACTION WILL CAUSE DATA LOSS AND CANNOT BE REVERTED
+
+Do you still want to push changes?
+❯ No, abort
+  Yes, I want to remove 1 column,

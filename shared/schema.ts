@@ -7586,6 +7586,7 @@ export type InsertNexuspointSettings = z.infer<typeof insertNexuspointSettingsSc
 export const trunks = pgTable("trunks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(), // Contract code / name
+  type: text("type"), // Legacy type field (preserved for backward compatibility)
   serviceType: text("service_type").notNull().default("SIP Trunk"), // Eurovoice, SIP Trunk, vPBX, ISDN, OTHER
   location: text("location"), // Physical address (Locatie)
   contractDate: text("contract_date"), // Data semnarii Contractului
