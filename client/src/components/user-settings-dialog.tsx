@@ -65,7 +65,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
         </DialogHeader>
 
         <Tabs defaultValue="sip" className="mt-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general" data-testid="tab-user-general">
               {t.common.detail}
             </TabsTrigger>
@@ -74,9 +74,6 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
             </TabsTrigger>
             <TabsTrigger value="sip" data-testid="tab-user-sip">
               {"Phone Profile"}
-            </TabsTrigger>
-            <TabsTrigger value="connect" data-testid="tab-user-connect">
-              {"INDEXUS Connect"}
             </TabsTrigger>
           </TabsList>
 
@@ -90,10 +87,6 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
 
           <TabsContent value="sip" className="mt-4">
             <UserSipProfileTab showSipPhone={showSipPhone} />
-          </TabsContent>
-
-          <TabsContent value="connect" className="mt-4">
-            <UserConnectTab />
           </TabsContent>
         </Tabs>
       </DialogContent>

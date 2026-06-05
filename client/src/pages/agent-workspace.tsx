@@ -439,6 +439,14 @@ function TopBar({
 }) {
   const STATUS_CONFIG = getStatusConfig(t);
   const config = STATUS_CONFIG[status];
+  const { user: topBarUser } = useAuth();
+  const { data: fwdData } = useQuery<{ enabled: boolean; number: string | null }>({
+    queryKey: ["/api/users", topBarUser?.id, "call-forwarding"],
+    queryFn: () => fetch(`/api/users/${topBarUser!.id}/call-forwarding`, { credentials: "include" }).then(r => r.json()),
+    enabled: !!topBarUser?.id && !!isSessionActive,
+    staleTime: 30000,
+  });
+  const callForwardingActive = !!(fwdData?.enabled && fwdData?.number);
 
   return (
     <div className="shrink-0">
@@ -508,17 +516,31 @@ function TopBar({
           )}
 
           {isSessionActive && onToggleInboundRingtone && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onToggleInboundRingtone}
-              data-testid="button-toggle-inbound-ringtone"
-              aria-pressed={!!inboundRingtoneEnabled}
-              title={inboundRingtoneEnabled ? t.agentWorkspace.inboundRingtoneOn : t.agentWorkspace.inboundRingtoneOff}
-              className={`gap-1 ${inboundRingtoneEnabled ? "text-green-600 border-green-500/40 dark:text-green-400" : "text-muted-foreground"}`}
-            >
-              {inboundRingtoneEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-            </Button>
+            callForwardingActive ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onToggleInboundRingtone}
+                data-testid="button-toggle-inbound-ringtone"
+                aria-pressed={!!inboundRingtoneEnabled}
+                title={"Inbound calls are forwarded to an external number"}
+                className="gap-1 text-orange-600 border-orange-400/60 dark:text-orange-400 dark:border-orange-500/40"
+              >
+                <PhoneForwarded className="h-3.5 w-3.5" />
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onToggleInboundRingtone}
+                data-testid="button-toggle-inbound-ringtone"
+                aria-pressed={!!inboundRingtoneEnabled}
+                title={inboundRingtoneEnabled ? t.agentWorkspace.inboundRingtoneOn : t.agentWorkspace.inboundRingtoneOff}
+                className={`gap-1 ${inboundRingtoneEnabled ? "text-green-600 border-green-500/40 dark:text-green-400" : "text-muted-foreground"}`}
+              >
+                {inboundRingtoneEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+              </Button>
+            )
           )}
 
           {isOnBreak && activeBreakName && (() => {
