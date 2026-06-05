@@ -461,75 +461,24 @@ export class QueueEngine extends EventEmitter {
     call: any, agent: any, agentUser: any, queue: any, waitDuration: number
   ): Promise<void> {
     const forwardNumber = (agentUser.callForwardingNumber as string).replace(/\s/g, "");
-    console.log(`[QueueEngine] === FORWARDING CALL TO MOBILE ===`);
+    console.log(`[QueueEngine] === FORWARDING QUEUE CALL TO EXTERNAL ===`);
     console.log(`[QueueEngine]   Agent: ${agentUser.fullName} (ext: ${agentUser.sipExtension})`);
     console.log(`[QueueEngine]   Forwarding to: ${forwardNumber}`);
+    console.log(`[QueueEngine]   Caller channel: ${call.channelId}`);
     console.log(`[QueueEngine]   Original caller: ${call.callerNumber}`);
 
-    // Create call log entry for the forwarded call
-    try {
-      await this.storage.createCallLog({
-        userId: agentUser.id,
-        customerId: call.customerId || null,
-        phoneNumber: call.callerNumber,
-        direction: "inbound",
-        status: "forwarded",
-        startedAt: new Date(),
-        isForwarded: true,
-        forwardedToNumber: forwardNumber,
-        inboundQueueId: queue.id,
-        inboundQueueName: queue.name,
-        sipCallId: call.channelId,
-        metadata: JSON.stringify({ forwardedFrom: "queue", queueId: queue.id, callerName: call.callerName }),
-      } as any);
-    } catch (err) {
-      console.warn(`[QueueEngine] Failed to create forwarded call log:`, err instanceof Error ? err.message : err);
-    }
+    // Update inbound call log to forwarded
+    db.update(inboundCallLogs)
+      .set({ status: "forwarded", transferredTo: forwardNumber, answeredAt: new Date() })
+      .where(eq(inboundCallLogs.id, call.id))
+      .catch(e => console.warn("[QueueEngine] handleForwardedAgentCall: call log update failed:", e instanceof Error ? e.message : e));
 
-    // Sync forwarding number to Asterisk AstDB so the dialplan can use it
-    if (agentUser.sipExtension) {
-      await this.syncForwardingToAsteriskDB(agentUser.sipExtension, forwardNumber);
-    }
+    // Release agent assignment — call is being forwarded, agent stays available
+    this.assignedCalls.delete(call.channelId);
+    this.updateAgentStatus(agent.userId, "available", null);
 
-    // Originate outbound call to the mobile number via Local channel → from-internal context
-    // The 'from-internal' context in Asterisk handles outbound routing via configured trunks
-    const forwardEndpoint = `Local/${forwardNumber}@from-internal`;
-    try {
-      const agentChannel = await this.ariClient.originateChannel(
-        forwardEndpoint,
-        forwardNumber,
-        "from-internal",
-        call.callerNumber, // Original caller's number shown on agent's mobile
-        `agent-call,${agent.userId},${call.channelId}`
-      );
-
-      console.log(`[QueueEngine] Forwarded call channel created: ${agentChannel.id} → ${forwardNumber}`);
-
-      // Track as pending agent call so bridge/hangup logic works normally
-      this.pendingAgentCalls.set(agentChannel.id, {
-        callerChannelId: call.channelId,
-        callId: call.id,
-        agentId: agent.userId,
-        queueId: queue.id,
-        callerNumber: call.callerNumber,
-        callerName: call.callerName,
-        customerId: call.customerId,
-        waitDuration,
-        queueName: queue.name,
-        enteredAt: call.enteredAt,
-      });
-
-      // Start recording on the caller's channel (inbound leg)
-      const recordingName = `forwarded_${call.channelId}_${Date.now()}`;
-      try {
-        await this.ariClient.startRecording(call.channelId, recordingName, "wav");
-        console.log(`[QueueEngine] Recording started for forwarded call: ${recordingName}`);
-      } catch (recErr) {
-        console.warn(`[QueueEngine] Could not start recording for forwarded call:`, recErr instanceof Error ? recErr.message : recErr);
-      }
-    } catch (err) {
-      console.error(`[QueueEngine] Failed to originate forwarded call to ${forwardNumber}:`, err instanceof Error ? err.message : err);
-    }
+    // Use the proven forwardToExternalNumber which routes via the correct trunk
+    await this.forwardToExternalNumber(call.channelId, forwardNumber, { fallbackDid: queue.didNumber });
   }
 
   private async startMohForChannel(channelId: string, queueId: string): Promise<void> {
