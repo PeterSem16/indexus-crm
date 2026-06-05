@@ -458,6 +458,7 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
         number: fwdNumber,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "call-forwarding"] });
       toast({ title: t.collaborators.mobileApp.callForwardingSaved });
     } catch (err: any) {
       toast({ title: t.common.error || "Chyba", description: err.message, variant: "destructive" });
@@ -748,6 +749,7 @@ function UserConnectTab() {
         number: fwdNumber,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "call-forwarding"] });
       toast({ title: t.collaborators.mobileApp.callForwardingSaved });
     } catch (err: any) {
       toast({ title: t.common.error || "Chyba", description: err.message, variant: "destructive" });

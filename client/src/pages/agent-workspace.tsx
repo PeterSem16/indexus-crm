@@ -444,7 +444,8 @@ function TopBar({
     queryKey: ["/api/users", topBarUser?.id, "call-forwarding"],
     queryFn: () => fetch(`/api/users/${topBarUser!.id}/call-forwarding`, { credentials: "include" }).then(r => r.json()),
     enabled: !!topBarUser?.id && !!isSessionActive,
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
   const callForwardingActive = !!(fwdData?.enabled && fwdData?.number);
 
@@ -524,9 +525,10 @@ function TopBar({
                 data-testid="button-toggle-inbound-ringtone"
                 aria-pressed={!!inboundRingtoneEnabled}
                 title={`Inbound calls forwarded → ${fwdData?.number}`}
-                className="gap-1 text-orange-600 border-orange-400/60 dark:text-orange-400 dark:border-orange-500/40"
+                className="gap-1.5 text-orange-600 border-orange-400/60 dark:text-orange-400 dark:border-orange-500/40"
               >
-                <PhoneForwarded className="h-3.5 w-3.5" />
+                <PhoneForwarded className="h-3.5 w-3.5 shrink-0" />
+                <span className="text-[10px] font-mono leading-none max-w-[80px] truncate hidden sm:inline">{fwdData?.number}</span>
               </Button>
             ) : (
               <Button
