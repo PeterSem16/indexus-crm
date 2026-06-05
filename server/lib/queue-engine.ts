@@ -105,6 +105,8 @@ export class QueueEngine extends EventEmitter {
   private roHairpinPairs: Map<string, string> = new Map(); // bidirectional: channelId ↔ peerChannelId
   // Keyed by inbound channelId — stops the tone:ring loop started at originate time.
   private roHairpinRingbackStop: Map<string, () => void> = new Map();
+  // Track direct pjsip_user DID route calls (channelId → inboundCallLog.id) for completion on hangup
+  private pjsipDirectCalls: Map<string, string> = new Map();
   private forwardedCallTracking: Map<string, {
     callLogId: string;
     inboundChannelId: string;
@@ -268,6 +270,16 @@ export class QueueEngine extends EventEmitter {
           this.handleChannelLeftStasis(chId).catch(err => {
             console.error("[QueueEngine] handleChannelLeftStasis error:", err instanceof Error ? err.message : err);
           });
+        }
+        // Complete pjsip_user direct/forwarded call log
+        const directLogId = this.pjsipDirectCalls.get(chId);
+        if (directLogId) {
+          const now = new Date();
+          db.update(inboundCallLogs)
+            .set({ status: "completed", completedAt: now, answeredAt: now })
+            .where(eq(inboundCallLogs.id, directLogId))
+            .catch(e => console.warn("[QueueEngine] pjsipDirect log completion failed:", e instanceof Error ? e.message : e));
+          this.pjsipDirectCalls.delete(chId);
         }
       }
     });
@@ -1678,6 +1690,9 @@ export class QueueEngine extends EventEmitter {
               callForwardingNumber: users.callForwardingNumber,
             }).from(users).where(eq(users.id, route.targetUserId)).limit(1);
             if (targetUser?.sipEnabled && targetUser.sipExtension) {
+              // Customer lookup by ANI for call attribution
+              const customerId = await this.lookupCustomer(callerNumber);
+
               // Check AstDB first (set by mobile app), then fall back to user's own forwarding setting
               const astDbForward = await this.ariClient.getAsteriskDB("callforward", targetUser.sipExtension);
               const forwardTo = astDbForward || ((targetUser as any).callForwardingEnabled && (targetUser as any).callForwardingNumber
@@ -1686,10 +1701,38 @@ export class QueueEngine extends EventEmitter {
               try {
                 await this.ariClient.answerChannel(channel.id);
               } catch {}
-              if (forwardTo) {
-                const fwd = forwardTo.replace(/\s/g, "");
+
+              const isForwarding = !!forwardTo;
+              const fwd = isForwarding ? (forwardTo as string).replace(/\s/g, "") : null;
+
+              // Create inbound call log so the call appears in DID line history
+              try {
+                const [logEntry] = await db.insert(inboundCallLogs).values({
+                  callerNumber,
+                  callerName,
+                  customerId,
+                  assignedAgentId: route.targetUserId,
+                  ariChannelId: channel.id,
+                  didNumber: route.didNumber,
+                  status: isForwarding ? "forwarded" : "ringing",
+                  enteredQueueAt: new Date(),
+                  transferredTo: isForwarding ? fwd : null,
+                  metadata: JSON.stringify({
+                    routeType: "pjsip_user",
+                    routeId: route.id,
+                    routeName: route.name,
+                    sipExtension: targetUser.sipExtension,
+                    ...(isForwarding ? { forwardedTo: fwd } : {}),
+                  }),
+                }).returning();
+                this.pjsipDirectCalls.set(channel.id, logEntry.id);
+              } catch (logErr) {
+                console.warn(`[QueueEngine] pjsip_user: failed to create inbound call log:`, logErr instanceof Error ? logErr.message : logErr);
+              }
+
+              if (isForwarding) {
                 console.log(`[QueueEngine] DID pjsip_user → call forwarding to ${fwd} (ext: ${targetUser.sipExtension})`);
-                await this.forwardToExternalNumber(channel.id, fwd);
+                await this.forwardToExternalNumber(channel.id, fwd!);
               } else {
                 const ok = await this.transferCallToEndpoint(channel.id, `PJSIP/${targetUser.sipExtension}`, null as any);
                 if (!ok) await this.ariClient.hangupChannel(channel.id, "normal");
