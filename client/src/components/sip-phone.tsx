@@ -1042,9 +1042,12 @@ export function SipPhone({
       setCurrentCallLogId(callLogData.id);
       
       const realm = sipConfig.realm || sipConfig.server;
-      const targetUri = UserAgent.makeURI(`sip:${phoneNumber}@${realm}`);
+      const cleanedPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+      console.log(`[SIP] makeCall → raw="${phoneNumber}" cleaned="${cleanedPhone}" realm="${realm}"`);
+      const targetUri = UserAgent.makeURI(`sip:${cleanedPhone}@${realm}`);
       if (!targetUri) {
-        throw new Error("Invalid target URI");
+        console.error(`[SIP] Invalid target URI: sip:${cleanedPhone}@${realm}`);
+        throw new Error(`Invalid target URI: sip:${cleanedPhone}@${realm}`);
       }
 
       const inviterOptions: any = {
@@ -1211,7 +1214,8 @@ export function SipPhone({
 
       await inviter.invite();
     } catch (error) {
-      console.error("Call error:", error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("[SIP] Call error:", errMsg, error);
       if (currentCallLogId) {
         updateCallLogMutation.mutate({
           id: currentCallLogId,
