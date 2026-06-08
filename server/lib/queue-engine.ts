@@ -26,7 +26,6 @@ import {
   type InboundCallLog,
 } from "@shared/schema";
 import { sendAmiActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./ami-client";
-import { sendEmail } from "../email";
 import { storage } from "../storage";
 import { getValidAccessToken, sendEmail as ms365SendEmail } from "./ms365";
 import { STORAGE_PATHS } from "../config/storage-paths";
@@ -4827,19 +4826,18 @@ export class QueueEngine extends EventEmitter {
       }
     }
 
+    if (!ms365Token) {
+      console.error(`[MissedCallEmail] No M365 system connection for country "${queueCountry}" — email NOT sent. Configure M365 system mailbox for this country.`);
+      return;
+    }
+
     let sentCount = 0;
     for (const u of eligibleUsers) {
-      console.log(`[MissedCallEmail] Sending to ${u.email} (${u.fullName || "—"})`);
+      console.log(`[MissedCallEmail] Sending via M365 to ${u.email} (${u.fullName || "—"})`);
       try {
-        if (ms365Token) {
-          await ms365SendEmail(ms365Token, [u.email], subject, html, true);
-          console.log(`[MissedCallEmail] Sent via M365 to ${u.email}`);
-          sentCount++;
-        } else {
-          const ok = await sendEmail({ to: u.email, subject, html });
-          if (ok) sentCount++;
-          else console.warn(`[MissedCallEmail] sendEmail returned false for ${u.email}`);
-        }
+        await ms365SendEmail(ms365Token, [u.email], subject, html, true);
+        console.log(`[MissedCallEmail] Sent via M365 to ${u.email}`);
+        sentCount++;
       } catch (err) {
         console.error(`[MissedCallEmail] Exception sending to ${u.email}:`, err instanceof Error ? err.message : err);
       }
