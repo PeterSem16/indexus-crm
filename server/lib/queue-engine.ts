@@ -4746,13 +4746,17 @@ export class QueueEngine extends EventEmitter {
     const dateStr = callTime.toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" });
     const timeStr = callTime.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-    const reasonMap: Record<string, string> = {
-      caller_hangup: "Volající zavěsil / Caller hung up",
-      timeout: "Překročení časového limitu / Queue timeout",
-      overflow: "Přetečení fronty / Queue overflow",
-      no_agents: "Žádný dostupný agent / No available agent",
+    const lang = { SK: "sk", CZ: "cs", HU: "hu", RO: "ro", AT: "de", DE: "de", IT: "it" }[queueCountry] || "en";
+    const reasonMaps: Record<string, Record<string, string>> = {
+      sk: { caller_hangup: "Volajúci zavesil", timeout: "Prekročenie limitu fronty", overflow: "Preplnenie fronty", no_agents: "Žiadny dostupný agent" },
+      cs: { caller_hangup: "Volající zavěsil", timeout: "Překročení časového limitu", overflow: "Přetečení fronty", no_agents: "Žádný dostupný agent" },
+      hu: { caller_hangup: "Hívó letette", timeout: "Várakozási idő lejárt", overflow: "Várólistán túlcsordulás", no_agents: "Nem elérhető agent" },
+      ro: { caller_hangup: "Apelantul a închis", timeout: "Depășire timp așteptare", overflow: "Depășire coadă", no_agents: "Niciun agent disponibil" },
+      it: { caller_hangup: "Il chiamante ha riagganciato", timeout: "Timeout coda superato", overflow: "Overflow coda", no_agents: "Nessun agente disponibile" },
+      de: { caller_hangup: "Anrufer hat aufgelegt", timeout: "Warteschlangen-Timeout", overflow: "Warteschlange überlaufen", no_agents: "Kein Agent verfügbar" },
+      en: { caller_hangup: "Caller hung up", timeout: "Queue timeout", overflow: "Queue overflow", no_agents: "No available agent" },
     };
-    const reasonLabel = reasonMap[data.reason] || data.reason;
+    const reasonLabel = (reasonMaps[lang] || reasonMaps.en)[data.reason] || data.reason;
 
     const totalSecs = waitDurationSeconds || 0;
     const waitFormatted =
@@ -4778,7 +4782,12 @@ export class QueueEngine extends EventEmitter {
       queueCountry,
     });
 
-    const subject = `⚠️ Zmeškaný hovor — ${queueDisplayName || data.callerNumber}`;
+    const subjectTitles: Record<string, string> = {
+      sk: "Zmeškaný hovor", cs: "Zmeškaný hovor", hu: "Nem fogadott hívás",
+      ro: "Apel ratat", it: "Chiamata persa", de: "Verpasster Anruf", en: "Missed Call",
+    };
+    const subjectTitle = subjectTitles[lang] || "Missed Call";
+    const subject = `⚠️ ${subjectTitle} — ${queueDisplayName || data.callerNumber}`;
 
     for (const u of eligibleUsers) {
       await sendEmail({ to: u.email, subject, html }).catch((err) =>
@@ -4805,15 +4814,68 @@ function buildMissedCallEmailHtml(params: {
   const { queueName, callerDisplay, dateStr, timeStr, didNumber, waitFormatted, reasonLabel, queueCountry } = params;
 
   const countryFlag: Record<string, string> = {
-    CZ: "🇨🇿",
-    SK: "🇸🇰",
-    HU: "🇭🇺",
-    PL: "🇵🇱",
-    RO: "🇷🇴",
-    AT: "🇦🇹",
-    DE: "🇩🇪",
+    CZ: "🇨🇿", SK: "🇸🇰", HU: "🇭🇺", PL: "🇵🇱", RO: "🇷🇴", AT: "🇦🇹", DE: "🇩🇪", IT: "🇮🇹",
   };
   const flag = countryFlag[queueCountry] || "";
+
+  const langCode = ({ SK: "sk", CZ: "cs", HU: "hu", RO: "ro", AT: "de", DE: "de", IT: "it" } as Record<string, string>)[queueCountry] || "en";
+
+  const labels: Record<string, {
+    title: string; queue: string; details: string; caller: string; date: string;
+    time: string; called: string; wait: string; reason: string; callback: string; footer: string;
+  }> = {
+    sk: {
+      title: "Zmeškaný hovor", queue: "Fronta", details: "Detaily hovoru",
+      caller: "Volajúci", date: "Dátum", time: "Čas", called: "Volané číslo",
+      wait: "Čakacia doba", reason: "Dôvod",
+      callback: "Prosíme o spätné kontaktovanie volajúceho, ak je to potrebné.",
+      footer: "Toto je automaticky generovaný e-mail. Neodpovedajte na túto správu.",
+    },
+    cs: {
+      title: "Zmeškaný hovor", queue: "Fronta", details: "Detaily hovoru",
+      caller: "Volající", date: "Datum", time: "Čas", called: "Volané číslo",
+      wait: "Čekací doba", reason: "Důvod",
+      callback: "Prosíme o zpětné kontaktování volajícího, pokud je to potřeba.",
+      footer: "Toto je automaticky generovaný e-mail. Neodpovídejte na tuto zprávu.",
+    },
+    hu: {
+      title: "Nem fogadott hívás", queue: "Várólistán", details: "Hívás adatai",
+      caller: "Hívó", date: "Dátum", time: "Idő", called: "Hívott szám",
+      wait: "Várakozási idő", reason: "Ok",
+      callback: "Kérjük, hívja vissza a hívót, ha szükséges.",
+      footer: "Ez egy automatikusan generált e-mail. Kérjük, ne válaszoljon erre az üzenetre.",
+    },
+    ro: {
+      title: "Apel ratat", queue: "Coadă", details: "Detalii apel",
+      caller: "Apelant", date: "Dată", time: "Oră", called: "Număr apelat",
+      wait: "Timp așteptare", reason: "Motiv",
+      callback: "Vă rugăm să contactați apelantul dacă este necesar.",
+      footer: "Acesta este un e-mail generat automat. Vă rugăm să nu răspundeți la acest mesaj.",
+    },
+    it: {
+      title: "Chiamata persa", queue: "Coda", details: "Dettagli chiamata",
+      caller: "Chiamante", date: "Data", time: "Ora", called: "Numero chiamato",
+      wait: "Tempo di attesa", reason: "Motivo",
+      callback: "Si prega di richiamare il chiamante se necessario.",
+      footer: "Questa è una e-mail generata automaticamente. Non rispondere a questo messaggio.",
+    },
+    de: {
+      title: "Verpasster Anruf", queue: "Warteschlange", details: "Anrufdetails",
+      caller: "Anrufer", date: "Datum", time: "Uhrzeit", called: "Angerufene Nummer",
+      wait: "Wartezeit", reason: "Grund",
+      callback: "Bitte rufen Sie den Anrufer zurück, wenn nötig.",
+      footer: "Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese Nachricht.",
+    },
+    en: {
+      title: "Missed Call", queue: "Queue", details: "Call Details",
+      caller: "Caller", date: "Date", time: "Time", called: "Called number",
+      wait: "Wait time", reason: "Reason",
+      callback: "Please call back the caller if necessary.",
+      footer: "This is an automatically generated email. Please do not reply.",
+    },
+  };
+
+  const L = labels[langCode] || labels.en;
 
   const row = (label: string, value: string) => `
     <tr>
@@ -4822,8 +4884,8 @@ function buildMissedCallEmailHtml(params: {
     </tr>`;
 
   return `<!DOCTYPE html>
-<html lang="cs">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Zmeškaný hovor</title></head>
+<html lang="${langCode}">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${L.title}</title></head>
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;padding:32px 16px;">
     <tr><td align="center">
@@ -4843,9 +4905,9 @@ function buildMissedCallEmailHtml(params: {
             <table cellpadding="0" cellspacing="0" width="100%">
               <tr>
                 <td>
-                  <p style="margin:0;color:#dc2626;font-size:16px;font-weight:700;">📵 Zmeškaný hovor / Missed Call</p>
+                  <p style="margin:0;color:#dc2626;font-size:16px;font-weight:700;">📵 ${L.title}</p>
                   <p style="margin:4px 0 0;color:#6b7280;font-size:13px;">
-                    Fronta / Queue: <strong style="color:#374151;">${flag} ${queueName || "—"}</strong>
+                    ${L.queue}: <strong style="color:#374151;">${flag} ${queueName || "—"}</strong>
                   </p>
                 </td>
               </tr>
@@ -4856,15 +4918,15 @@ function buildMissedCallEmailHtml(params: {
         <!-- Details table -->
         <tr>
           <td style="padding:24px 32px 8px;">
-            <p style="margin:0 0 12px;color:#374151;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Detaily hovoru / Call Details</p>
+            <p style="margin:0 0 12px;color:#374151;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">${L.details}</p>
             <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
               <tbody>
-                ${row("📞 Volající / Caller", callerDisplay)}
-                ${row("📅 Datum / Date", dateStr)}
-                ${row("🕐 Čas / Time", timeStr)}
-                ${didNumber ? row("📲 Volané číslo / Called", didNumber) : ""}
-                ${row("⏱ Čekací doba / Wait time", waitFormatted)}
-                ${row("❓ Důvod / Reason", reasonLabel)}
+                ${row("📞 " + L.caller, callerDisplay)}
+                ${row("📅 " + L.date, dateStr)}
+                ${row("🕐 " + L.time, timeStr)}
+                ${didNumber ? row("📲 " + L.called, didNumber) : ""}
+                ${row("⏱ " + L.wait, waitFormatted)}
+                ${row("❓ " + L.reason, reasonLabel)}
               </tbody>
             </table>
           </td>
@@ -4875,8 +4937,7 @@ function buildMissedCallEmailHtml(params: {
           <td style="padding:16px 32px 8px;">
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px 20px;">
               <p style="margin:0;color:#1d4ed8;font-size:13px;line-height:1.6;">
-                💡 Prosíme o zpětné kontaktování volajícího, pokud je to potřeba.<br>
-                <span style="color:#3b82f6;">Please call back the caller if necessary.</span>
+                💡 ${L.callback}
               </p>
             </div>
           </td>
@@ -4886,8 +4947,7 @@ function buildMissedCallEmailHtml(params: {
         <tr>
           <td style="padding:24px 32px;text-align:center;border-top:1px solid #f1f5f9;margin-top:16px;">
             <p style="margin:0;color:#94a3b8;font-size:12px;font-weight:600;">INDEXUS CRM — Cord Blood Center</p>
-            <p style="margin:4px 0 0;color:#cbd5e1;font-size:11px;">Toto je automaticky generovaný e-mail. Neodpovídejte na tuto zprávu.</p>
-            <p style="margin:2px 0 0;color:#cbd5e1;font-size:11px;">This is an automatically generated email. Please do not reply.</p>
+            <p style="margin:4px 0 0;color:#cbd5e1;font-size:11px;">${L.footer}</p>
           </td>
         </tr>
 

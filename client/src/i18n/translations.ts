@@ -1556,6 +1556,12 @@ export interface Translations {
       callFallbackDidDesc: string;
       callFallbackDidNone: string;
       assignedExtension: string;
+      missedCallEmailLabel: string;
+      missedCallEmailDesc: string;
+      missedCallEmailToggle: string;
+      missedCallEmailToggleDesc: string;
+      missedCallEmailEnabled: string;
+      missedCallEmailSaved: string;
     };
     connectDescription: string;
     connectTab: {
@@ -8397,6 +8403,12 @@ export const translations: Record<Locale, Translations> = {
         callFallbackDidDesc: 'If the PJSIP line is inactive or the forwarded phone does not answer within 60 s, the call is redirected to the selected inbound DID (e.g. info line / virtual assistant).',
         callFallbackDidNone: '— no fallback —',
         assignedExtension: 'Assigned extension',
+        missedCallEmailLabel: 'Missed call notifications',
+        missedCallEmailDesc: 'You will receive an email after each missed queue call at',
+        missedCallEmailToggle: 'Send email for missed calls',
+        missedCallEmailToggleDesc: 'You will receive an email with caller number, time, queue and wait duration',
+        missedCallEmailEnabled: 'Notifications enabled — you will receive an email immediately after a missed call',
+        missedCallEmailSaved: 'Notification preferences saved',
       },
       connectDescription: 'Call history, visits and activities from INDEXUS Connect',
       connectTab: {
@@ -14719,6 +14731,12 @@ export const translations: Record<Locale, Translations> = {
         callFallbackDidDesc: 'Ak PJSIP linka nie je aktívna alebo presmerovaný telefón neodpovedá do 60 s, hovor sa presmeruje na vybraný inbound DID (napr. infolinka / virtuálny asistent).',
         callFallbackDidNone: '— bez zálohy —',
         assignedExtension: 'Priradená klapka',
+        missedCallEmailLabel: 'Email notifikácie — zmeškaný hovor',
+        missedCallEmailDesc: 'Po každom zmeškanom hovore vo fronte dostanete email na',
+        missedCallEmailToggle: 'Posielať email pri zmeškanom hovore',
+        missedCallEmailToggleDesc: 'Dostanete email s číslom volajúceho, časom hovoru, frontou a dĺžkou čakania',
+        missedCallEmailEnabled: 'Notifikácie sú zapnuté — email dostanete ihneď po zmeškanom hovore',
+        missedCallEmailSaved: 'Nastavenia notifikácií uložené',
       },
       connectDescription: 'História hovorov, návštev a aktivít z INDEXUS Connect',
       connectTab: {
@@ -20987,6 +21005,12 @@ export const translations: Record<Locale, Translations> = {
         callFallbackDidDesc: 'Pokud linka PJSIP není aktivní nebo přesměrovaný telefon neodpovídá do 60 s, hovor se přesměruje na vybraný inbound DID (např. infolinka / virtuální asistent).',
         callFallbackDidNone: '— bez zálohy —',
         assignedExtension: 'Přiřazená klapka',
+        missedCallEmailLabel: 'E-mailové notifikace — zmeškaný hovor',
+        missedCallEmailDesc: 'Po každém zmeškaném hovoru ve frontě obdržíte e-mail na',
+        missedCallEmailToggle: 'Odesílat e-mail při zmeškaném hovoru',
+        missedCallEmailToggleDesc: 'Obdržíte e-mail s číslem volajícího, časem hovoru, frontou a délkou čekání',
+        missedCallEmailEnabled: 'Notifikace jsou zapnuty — e-mail obdržíte ihned po zmeškaném hovoru',
+        missedCallEmailSaved: 'Nastavení notifikací uloženo',
       },
       connectDescription: 'Historie hovorů, návštěv a aktivit z INDEXUS Connect',
       connectTab: {
@@ -27213,6 +27237,12 @@ export const translations: Record<Locale, Translations> = {
         callFallbackDidDesc: 'Ha a PJSIP vonal nem aktív, vagy az átirányított telefon 60 mp-en belül nem válaszol, a hívás a kiválasztott bejövő DID-re kerül átirányításra (pl. infóvonal / virtuális asszisztens).',
         callFallbackDidNone: '— nincs tartalék —',
         assignedExtension: 'Hozzárendelt mellék',
+        missedCallEmailLabel: 'E-mail értesítések — nem fogadott hívás',
+        missedCallEmailDesc: 'Minden nem fogadott várólistás hívás után e-mailt kap erre a címre:',
+        missedCallEmailToggle: 'E-mail küldése nem fogadott hívásnál',
+        missedCallEmailToggleDesc: 'E-mailt kap a hívó számával, hívás idejével, várólistával és várakozási idővel',
+        missedCallEmailEnabled: 'Értesítések bekapcsolva — azonnal e-mailt kap a nem fogadott hívás után',
+        missedCallEmailSaved: 'Értesítési beállítások mentve',
       },
       connectDescription: 'Hívástörténet, látogatások és tevékenységek az INDEXUS Connectből',
       connectTab: {
@@ -33332,6 +33362,12 @@ export const translations: Record<Locale, Translations> = {
         callFallbackDidDesc: 'Dacă linia PJSIP nu este activă sau telefonul redirecționat nu răspunde în 60 s, apelul va fi redirecționat către DID-ul inbound selectat (ex. linie info / asistent virtual).',
         callFallbackDidNone: '— fără rezervă —',
         assignedExtension: 'Extensie atribuită',
+        missedCallEmailLabel: 'Notificări e-mail — apel ratat',
+        missedCallEmailDesc: 'Primiți un e-mail după fiecare apel ratat din coadă la adresa',
+        missedCallEmailToggle: 'Trimite e-mail pentru apeluri ratate',
+        missedCallEmailToggleDesc: 'Primiți un e-mail cu numărul apelantului, ora apelului, coada și durata așteptării',
+        missedCallEmailEnabled: 'Notificările sunt activate — veți primi un e-mail imediat după apelul ratat',
+        missedCallEmailSaved: 'Preferințe notificări salvate',
       },
       connectDescription: 'Istoricul apelurilor, vizitelor și activităților din INDEXUS Connect',
       connectTab: {
@@ -39453,6 +39489,12 @@ export const translations: Record<Locale, Translations> = {
         callFallbackDidDesc: "Se la linea PJSIP non è attiva o il telefono inoltrato non risponde entro 60 s, la chiamata viene reindirizzata al DID inbound selezionato (es. linea info / assistente virtuale).",
         callFallbackDidNone: '— nessun fallback —',
         assignedExtension: 'Interno assegnato',
+        missedCallEmailLabel: 'Notifiche e-mail — chiamata persa',
+        missedCallEmailDesc: 'Ricevi una e-mail dopo ogni chiamata persa dalla coda all\'indirizzo',
+        missedCallEmailToggle: 'Invia e-mail per le chiamate perse',
+        missedCallEmailToggleDesc: 'Riceverai una e-mail con numero chiamante, orario, coda e durata attesa',
+        missedCallEmailEnabled: 'Notifiche attive — riceverai una e-mail subito dopo una chiamata persa',
+        missedCallEmailSaved: 'Preferenze notifiche salvate',
       },
       connectDescription: "Cronologia chiamate, visite e attività da INDEXUS Connect",
       connectTab: {
@@ -45574,6 +45616,12 @@ export const translations: Record<Locale, Translations> = {
         callFallbackDidDesc: 'Wenn die PJSIP-Leitung nicht aktiv ist oder das weitergeleitete Telefon innerhalb von 60 s nicht antwortet, wird der Anruf an die ausgewählte eingehende DID umgeleitet (z.B. Infohotline / virtueller Assistent).',
         callFallbackDidNone: '— kein Fallback —',
         assignedExtension: 'Zugewiesene Nebenstelle',
+        missedCallEmailLabel: 'E-Mail-Benachrichtigungen — verpasster Anruf',
+        missedCallEmailDesc: 'Sie erhalten eine E-Mail nach jedem verpassten Anruf aus der Warteschlange an',
+        missedCallEmailToggle: 'E-Mail bei verpasstem Anruf senden',
+        missedCallEmailToggleDesc: 'Sie erhalten eine E-Mail mit Anrufernummer, Uhrzeit, Warteschlange und Wartezeit',
+        missedCallEmailEnabled: 'Benachrichtigungen aktiviert — Sie erhalten sofort nach einem verpassten Anruf eine E-Mail',
+        missedCallEmailSaved: 'Benachrichtigungseinstellungen gespeichert',
       },
       connectDescription: 'Anrufverlauf, Besuche und Aktivitäten aus INDEXUS Connect',
       connectTab: {

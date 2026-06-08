@@ -2332,6 +2332,20 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/users/:id/missed-call-notification", requireAuth, async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      const user = await storage.updateUser(req.params.id, {
+        missedCallEmailNotification: Boolean(enabled),
+      } as any);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json({ enabled: (user as any).missedCallEmailNotification ?? false });
+    } catch (error) {
+      console.error("Error updating missed call notification:", error);
+      res.status(500).json({ error: "Failed to update notification settings" });
+    }
+  });
+
   // User avatar upload
   app.post("/api/users/:id/avatar", requireAuth, uploadAvatar.single("avatar"), async (req, res) => {
     try {

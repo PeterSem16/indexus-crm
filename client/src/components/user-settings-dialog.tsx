@@ -478,10 +478,10 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
     if (!user?.id) return;
     setSavingMissedCall(true);
     try {
-      await apiRequest("PATCH", `/api/users/${user.id}`, { missedCallEmailNotification: value });
+      await apiRequest("PUT", `/api/users/${user.id}/missed-call-notification`, { enabled: value });
       setMissedCallEmailNotif(value);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({ title: value ? "Email notifikácie zapnuté" : "Email notifikácie vypnuté" });
+      toast({ title: t.collaborators.mobileApp.missedCallEmailSaved });
     } catch (err: any) {
       toast({ title: t.common.error || "Chyba", description: err.message, variant: "destructive" });
     } finally {
@@ -767,6 +767,8 @@ function MissedCallEmailCard({
   onChange: (val: boolean) => void;
   userEmail?: string;
 }) {
+  const { t } = useI18n();
+  const ma = t.collaborators.mobileApp;
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -775,9 +777,9 @@ function MissedCallEmailCard({
             <Mail className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base">Email notifikácie — zmeškaný hovor</CardTitle>
+            <CardTitle className="text-base">{ma.missedCallEmailLabel}</CardTitle>
             <CardDescription className="text-sm">
-              Po každom zmeškanom hovore vo fronte dostanete email na <strong>{userEmail || "váš email"}</strong>
+              {ma.missedCallEmailDesc} <strong>{userEmail || "—"}</strong>
             </CardDescription>
           </div>
         </div>
@@ -785,10 +787,8 @@ function MissedCallEmailCard({
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
-            <p className="text-sm font-medium">Posielať email pri zmeškanom hovore</p>
-            <p className="text-xs text-muted-foreground">
-              Dostanete email s číslom volajúceho, časom hovoru, frontou a dĺžkou čakania
-            </p>
+            <p className="text-sm font-medium">{ma.missedCallEmailToggle}</p>
+            <p className="text-xs text-muted-foreground">{ma.missedCallEmailToggleDesc}</p>
           </div>
           <Switch
             checked={enabled}
@@ -801,7 +801,7 @@ function MissedCallEmailCard({
           <div className="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-3">
             <p className="text-xs text-green-700 dark:text-green-300 flex items-center gap-2">
               <CheckCircle className="h-3.5 w-3.5 shrink-0" />
-              Notifikácie sú zapnuté — email dostanete ihneď po zmeškanom hovore
+              {ma.missedCallEmailEnabled}
             </p>
           </div>
         )}
