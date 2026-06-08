@@ -5989,15 +5989,20 @@ export default function AgentWorkspacePage() {
           status: "active",
           direction: "inbound",
         };
-        setTasks((prev) => [...prev, newTask]);
-        setActiveTaskId(newTask.id);
-        setTimeline([{
-          id: `sys-inbound-${Date.now()}`,
-          type: "system",
-          timestamp: new Date(),
-          content: `Prichádzajúci hovor od ${match.name} (${inboundTaskContext.callerNumber || ""})`,
-          details: "Inbound call",
-        }]);
+        const dupTask1 = tasks.find(t => !t.campaignContactId && t.contact?.id === contact.id);
+        if (dupTask1) {
+          setActiveTaskId(dupTask1.id);
+        } else {
+          setTasks((prev) => [...prev, newTask]);
+          setActiveTaskId(newTask.id);
+          setTimeline([{
+            id: `sys-inbound-${Date.now()}`,
+            type: "system",
+            timestamp: new Date(),
+            content: `Prichádzajúci hovor od ${match.name} (${inboundTaskContext.callerNumber || ""})`,
+            details: "Inbound call",
+          }]);
+        }
       }
     } catch (e) {
       console.error("Error loading inbound match entity:", e);
@@ -6581,6 +6586,7 @@ export default function AgentWorkspacePage() {
   const { data: rawCampaignContacts = [] } = useQuery<EnrichedCampaignContact[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "contacts"],
     enabled: !!selectedCampaignId && !!hasAccess,
+    refetchInterval: 30000,
   });
 
   const pendingCampaignContacts = useMemo(() => {
@@ -7499,18 +7505,26 @@ export default function AgentWorkspacePage() {
       hospitalData: resolvedHospitalData,
       collaboratorData: resolvedCollaboratorData,
     };
-    setTasks((prev) => [...prev, newTask]);
-    setActiveTaskId(newTask.id);
-
-    setTimeline([
-      {
-        id: `sys-start-${Date.now()}`,
-        type: "system",
-        timestamp: new Date(),
-        content: `Konverzácia začatá s ${customer.firstName} ${customer.lastName}`,
-        details: `Kampaň: ${selectedCampaign?.name || ""}`,
-      },
-    ]);
+    const dupTask2 = tasks.find(t =>
+      newTask.campaignContactId
+        ? t.campaignContactId === newTask.campaignContactId
+        : !t.campaignContactId && t.contact?.id === customer.id
+    );
+    if (dupTask2) {
+      setActiveTaskId(dupTask2.id);
+    } else {
+      setTasks((prev) => [...prev, newTask]);
+      setActiveTaskId(newTask.id);
+      setTimeline([
+        {
+          id: `sys-start-${Date.now()}`,
+          type: "system",
+          timestamp: new Date(),
+          content: `Konverzácia začatá s ${customer.firstName} ${customer.lastName}`,
+          details: `Kampaň: ${selectedCampaign?.name || ""}`,
+        },
+      ]);
+    }
   };
 
   const handleNextContact = (skipStatusCheck = false) => {
@@ -7814,17 +7828,25 @@ export default function AgentWorkspacePage() {
         hospitalData: _hospitalEntity,
         collaboratorData: _collaboratorEntity,
       };
-      setTasks((prev) => [...prev, newTask]);
-      setActiveTaskId(newTask.id);
-
-      setTimeline([
-        {
-          id: `start-${Date.now()}`,
-          type: "note",
-          timestamp: new Date(),
-          content: `Kontakt otvorený z naplánovanej fronty (${channel === "phone" ? "spätné volanie" : channel})`,
-        },
-      ]);
+      const dupTask3 = tasks.find(t =>
+        newTask.campaignContactId
+          ? t.campaignContactId === newTask.campaignContactId
+          : !t.campaignContactId && t.contact?.id === customer.id
+      );
+      if (dupTask3) {
+        setActiveTaskId(dupTask3.id);
+      } else {
+        setTasks((prev) => [...prev, newTask]);
+        setActiveTaskId(newTask.id);
+        setTimeline([
+          {
+            id: `start-${Date.now()}`,
+            type: "note",
+            timestamp: new Date(),
+            content: `Kontakt otvorený z naplánovanej fronty (${channel === "phone" ? "spätné volanie" : channel})`,
+          },
+        ]);
+      }
     } catch (err) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.contactLoadError, variant: "destructive" });
     }
@@ -8163,15 +8185,20 @@ export default function AgentWorkspacePage() {
                   status: "active",
                   direction: "inbound",
                 };
-                setTasks((prev) => [...prev, newTask]);
-                setActiveTaskId(newTask.id);
-                setTimeline([{
-                  id: `sys-inbound-${Date.now()}`,
-                  type: "system",
-                  timestamp: new Date(),
-                  content: `Prichádzajúci hovor od ${m.name} (${callerNumber})`,
-                  details: "Inbound call",
-                }]);
+                const dupTask4 = tasks.find(t => !t.campaignContactId && t.contact?.id === customer.id);
+                if (dupTask4) {
+                  setActiveTaskId(dupTask4.id);
+                } else {
+                  setTasks((prev) => [...prev, newTask]);
+                  setActiveTaskId(newTask.id);
+                  setTimeline([{
+                    id: `sys-inbound-${Date.now()}`,
+                    type: "system",
+                    timestamp: new Date(),
+                    content: `Prichádzajúci hovor od ${m.name} (${callerNumber})`,
+                    details: "Inbound call",
+                  }]);
+                }
               }
             } else {
               // Hospital / clinic / collaborator — use handleSelectInboundMatch style inline
