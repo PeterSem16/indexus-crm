@@ -15614,7 +15614,7 @@ function PermissionsRolesTab() {
   const { user } = useAuth();
   const [selectedRole, setSelectedRole] = useState<RoleWithPermissions | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [copyRoleName, setCopyRoleName] = useState("");
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
@@ -15784,7 +15784,7 @@ function PermissionsRolesTab() {
       apiRequest("PATCH", `/api/roles/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/roles"] });
-      setIsEditing(false);
+      setEditingRoleId(null);
       form.reset();
       toast({ title: t.konfigurator.roleUpdated });
     },
@@ -15856,8 +15856,8 @@ function PermissionsRolesTab() {
   });
 
   const handleSubmit = (data: RoleFormData) => {
-    if (isEditing && selectedRole) {
-      updateMutation.mutate({ ...data, id: selectedRole.id });
+    if (editingRoleId) {
+      updateMutation.mutate({ ...data, id: editingRoleId });
     } else {
       createMutation.mutate(data);
     }
@@ -15865,14 +15865,14 @@ function PermissionsRolesTab() {
 
   const handleEditClick = (role: Role) => {
     setSelectedRole(role as RoleWithPermissions);
+    setEditingRoleId(role.id);
     form.reset({
       name: role.name,
       description: role.description || "",
       department: role.department || "",
-      defaultLandingPage: (role as any).defaultLandingPage || null,
+      defaultLandingPage: (role as any).defaultLandingPage ?? null,
       isActive: role.isActive,
     });
-    setIsEditing(true);
     setIsFormOpen(true);
   };
 
@@ -15976,7 +15976,7 @@ function PermissionsRolesTab() {
             <Button size="sm" variant="outline" onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending} data-testid="button-seed-roles">
               {t.konfigurator.createDefaultRoles}
             </Button>
-            <Button size="sm" onClick={() => { setIsEditing(false); form.reset(); setIsFormOpen(true); }} data-testid="button-add-role">
+            <Button size="sm" onClick={() => { setEditingRoleId(null); form.reset(); setIsFormOpen(true); }} data-testid="button-add-role">
               <Plus className="h-4 w-4 mr-1" />
               {t.konfigurator.addRole}
             </Button>
@@ -16221,7 +16221,7 @@ function PermissionsRolesTab() {
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isEditing ? t.konfigurator.editRole : t.konfigurator.addRole}</DialogTitle>
+            <DialogTitle>{editingRoleId ? t.konfigurator.editRole : t.konfigurator.addRole}</DialogTitle>
             <DialogDescription>{t.konfigurator.permissionsRolesDescription}</DialogDescription>
           </DialogHeader>
           <Form {...form}>
