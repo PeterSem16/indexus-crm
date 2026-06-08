@@ -2617,13 +2617,7 @@ function CommunicationCanvas({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-gradient-to-br from-rose-50 via-orange-50/80 to-amber-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-10 -left-10 w-[420px] h-[420px] rounded-[60%_40%_30%_70%/60%_30%_70%_40%] bg-gradient-to-br from-rose-300/20 via-pink-200/15 to-rose-400/10 dark:from-rose-700/8 dark:via-pink-700/5 dark:to-rose-600/4 blur-3xl" />
-        <div className="absolute top-[15%] right-[5%] w-[380px] h-[380px] rounded-[40%_60%_70%_30%/50%_60%_30%_60%] bg-gradient-to-bl from-orange-300/18 via-amber-200/12 to-yellow-300/10 dark:from-orange-700/6 dark:via-amber-700/4 dark:to-yellow-700/3 blur-3xl" />
-        <div className="absolute bottom-[0%] left-[10%] w-[450px] h-[450px] rounded-[50%_60%_30%_60%/40%_70%_50%_60%] bg-gradient-to-tr from-amber-300/15 via-orange-200/12 to-rose-300/10 dark:from-amber-700/5 dark:via-orange-700/4 dark:to-rose-700/3 blur-3xl" />
-        <div className="absolute top-[55%] right-[20%] w-[350px] h-[350px] rounded-[60%_40%_60%_40%/50%_60%_30%_70%] bg-gradient-to-tl from-pink-300/15 via-rose-200/10 to-orange-200/8 dark:from-pink-700/5 dark:via-rose-700/3 dark:to-orange-700/2 blur-3xl" />
-      </div>
+    <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-background dark:bg-slate-900">
       <div className="h-12 border-b bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0 relative z-10">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="flex items-center gap-2 shrink-0">
