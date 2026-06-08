@@ -4799,25 +4799,38 @@ export class QueueEngine extends EventEmitter {
     const subject = `⚠️ ${subjectTitle} — ${queueDisplayName || data.callerNumber}`;
 
     const resolveMs365Token = async (conn: { accessToken: string; tokenExpiresAt?: Date | null; refreshToken?: string | null; countryCode: string } | undefined): Promise<string | null> => {
-      if (!conn?.accessToken) return null;
+      if (!conn?.accessToken) {
+        console.warn("[MissedCallEmail] resolveMs365Token: no accessToken on connection");
+        return null;
+      }
       try {
+        const expiresAt = conn.tokenExpiresAt;
+        const isExpired = expiresAt ? new Date() >= new Date(expiresAt) : false;
+        console.log(`[MissedCallEmail] Token for ${conn.countryCode}: expiresAt=${expiresAt?.toISOString() ?? "unknown"} isExpired=${isExpired}`);
         const tokenResult = await getValidAccessToken(
           conn.accessToken,
           conn.tokenExpiresAt ?? null,
           conn.refreshToken ?? null,
         );
-        if (!tokenResult?.accessToken) return null;
+        if (!tokenResult?.accessToken) {
+          console.warn(`[MissedCallEmail] getValidAccessToken returned no token for ${conn.countryCode}`);
+          return null;
+        }
         if (tokenResult.refreshed) {
+          console.log(`[MissedCallEmail] Token refreshed for ${conn.countryCode}`);
           try {
             await storage.updateSystemMs365Connection(conn.countryCode, {
               accessToken: tokenResult.accessToken,
               refreshToken: tokenResult.refreshToken ?? conn.refreshToken ?? undefined,
               tokenExpiresAt: tokenResult.expiresOn ?? undefined,
             } as any);
-          } catch {}
+          } catch (saveErr) {
+            console.warn(`[MissedCallEmail] Failed to save refreshed token for ${conn.countryCode}:`, saveErr instanceof Error ? saveErr.message : saveErr);
+          }
         }
         return tokenResult.accessToken;
-      } catch {
+      } catch (err) {
+        console.error(`[MissedCallEmail] resolveMs365Token error for ${conn.countryCode}:`, err instanceof Error ? err.message : err);
         return null;
       }
     };
@@ -4826,17 +4839,24 @@ export class QueueEngine extends EventEmitter {
     try {
       if (queueCountry) {
         const conn = await storage.getSystemMs365Connection(queueCountry);
+        console.log(`[MissedCallEmail] System M365 connection for country "${queueCountry}": ${conn ? `found (email: ${conn.email})` : "NOT FOUND"}`);
         if (conn) {
           ms365Token = await resolveMs365Token({ ...conn, countryCode: queueCountry });
-          if (ms365Token) console.log(`[MissedCallEmail] Using M365 system connection for country ${queueCountry}`);
+          if (ms365Token) console.log(`[MissedCallEmail] Token resolved for country ${queueCountry}`);
         }
+      } else {
+        console.log(`[MissedCallEmail] queueCountry is empty — skipping country-specific lookup`);
       }
       if (!ms365Token) {
         const allConns = await db.select().from(systemMs365Connections).limit(1);
+        console.log(`[MissedCallEmail] Fallback: total system M365 connections = ${allConns.length}`);
         if (allConns.length > 0) {
           const conn = allConns[0];
+          console.log(`[MissedCallEmail] Using fallback M365 connection: country=${conn.countryCode} email=${conn.email}`);
           ms365Token = await resolveMs365Token({ ...conn, countryCode: conn.countryCode });
-          if (ms365Token) console.log(`[MissedCallEmail] Using M365 fallback connection (country: ${allConns[0].countryCode}) for queue country "${queueCountry}"`);
+          if (ms365Token) console.log(`[MissedCallEmail] Fallback token resolved for country ${conn.countryCode}`);
+        } else {
+          console.error(`[MissedCallEmail] No system M365 connections exist in DB at all — go to Settings > System M365 and connect a mailbox`);
         }
       }
     } catch (err) {
@@ -4844,7 +4864,7 @@ export class QueueEngine extends EventEmitter {
     }
 
     if (!ms365Token) {
-      console.error(`[MissedCallEmail] No M365 system connection available — email NOT sent. Configure M365 system mailbox in Settings.`);
+      console.error(`[MissedCallEmail] FAILED — no valid M365 token. Check pm2 logs above for details.`);
       return;
     }
 

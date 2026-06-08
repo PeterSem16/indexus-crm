@@ -362,7 +362,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
       const { UserAgent, Registerer, RegistererState } = await import("sip.js");
 
       const serverHost = sipSettings!.server;
-      const serverPort = sipSettings!.wsPort || sipSettings!.port || 8089;
+      const serverPort = sipSettings!.port || 443;
       const wsPath = sipSettings!.wsPath || "/ws";
       const realm = sipSettings!.realm || sipSettings!.server;
       const wsProtocolLog = sipSettings!.transport === "ws" ? "ws" : "wss";
