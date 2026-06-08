@@ -27,6 +27,8 @@ import {
 } from "@shared/schema";
 import { sendAmiActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./ami-client";
 import { sendEmail } from "../email";
+import { storage } from "../storage";
+import { getValidAccessToken, sendEmail as ms365SendEmail } from "./ms365";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 
@@ -4796,13 +4798,48 @@ export class QueueEngine extends EventEmitter {
     const subjectTitle = subjectTitles[lang] || "Missed Call";
     const subject = `⚠️ ${subjectTitle} — ${queueDisplayName || data.callerNumber}`;
 
+    let ms365Token: string | null = null;
+    if (queueCountry) {
+      try {
+        const ms365Conn = await storage.getSystemMs365Connection(queueCountry);
+        if (ms365Conn?.accessToken) {
+          const tokenResult = await getValidAccessToken(
+            ms365Conn.accessToken,
+            ms365Conn.tokenExpiresAt ?? null,
+            ms365Conn.refreshToken ?? null,
+          );
+          if (tokenResult?.accessToken) {
+            ms365Token = tokenResult.accessToken;
+            if (tokenResult.refreshed) {
+              try {
+                await storage.updateSystemMs365Connection(queueCountry, {
+                  accessToken: tokenResult.accessToken,
+                  refreshToken: tokenResult.refreshToken ?? ms365Conn.refreshToken ?? undefined,
+                  tokenExpiresAt: tokenResult.expiresOn ?? undefined,
+                } as any);
+              } catch {}
+            }
+            console.log(`[MissedCallEmail] Using M365 system connection for country ${queueCountry}`);
+          }
+        }
+      } catch (err) {
+        console.warn("[MissedCallEmail] M365 token lookup failed:", err instanceof Error ? err.message : err);
+      }
+    }
+
     let sentCount = 0;
     for (const u of eligibleUsers) {
       console.log(`[MissedCallEmail] Sending to ${u.email} (${u.fullName || "—"})`);
       try {
-        const ok = await sendEmail({ to: u.email, subject, html });
-        if (ok) sentCount++;
-        else console.warn(`[MissedCallEmail] sendEmail returned false for ${u.email}`);
+        if (ms365Token) {
+          await ms365SendEmail(ms365Token, [u.email], subject, html, true);
+          console.log(`[MissedCallEmail] Sent via M365 to ${u.email}`);
+          sentCount++;
+        } else {
+          const ok = await sendEmail({ to: u.email, subject, html });
+          if (ok) sentCount++;
+          else console.warn(`[MissedCallEmail] sendEmail returned false for ${u.email}`);
+        }
       } catch (err) {
         console.error(`[MissedCallEmail] Exception sending to ${u.email}:`, err instanceof Error ? err.message : err);
       }

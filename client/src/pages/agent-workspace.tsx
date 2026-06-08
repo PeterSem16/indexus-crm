@@ -6033,6 +6033,7 @@ export default function AgentWorkspacePage() {
   inboundCallsRef.current = inboundCalls;
   const sessionQueueIdsRef = useRef<string[]>([]);
   const cancelledCallIdsRef = useRef<Set<string>>(new Set());
+  const openingContactsRef = useRef<Set<string>>(new Set());
   const filteredCallerNumbersRef = useRef<Map<string, number>>(new Map());
   const acceptingCallRef = useRef(false);
   const wasInboundCallRef = useRef(false);
@@ -7705,6 +7706,10 @@ export default function AgentWorkspacePage() {
   };
 
   const handleOpenScheduledContact = async (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string) => {
+    const lockKey = campaignContactId || contactId;
+    if (openingContactsRef.current.has(lockKey)) return;
+    openingContactsRef.current.add(lockKey);
+    try {
     const existingTask = tasks.find(t =>
       campaignContactId
         ? t.campaignContactId === campaignContactId
@@ -7854,6 +7859,9 @@ export default function AgentWorkspacePage() {
       }
     } catch (err) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.contactLoadError, variant: "destructive" });
+    }
+    } finally {
+      openingContactsRef.current.delete(lockKey);
     }
   };
 
