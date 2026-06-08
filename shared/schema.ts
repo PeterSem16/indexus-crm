@@ -2873,6 +2873,7 @@ export const roles = pgTable("roles", {
   description: text("description"),
   department: text("department"), // management, sales, operations, finance, customer_service, it, medical
   legacyRole: text("legacy_role"), // Maps to legacy role enum (admin, manager, user) for backward compatibility
+  defaultLandingPage: text("default_landing_page"), // URL path user is redirected to after login
   isActive: boolean("is_active").notNull().default(true),
   isSystem: boolean("is_system").notNull().default(false), // system roles cannot be deleted
   createdAt: timestamp("created_at").notNull().default(sql`now()`),

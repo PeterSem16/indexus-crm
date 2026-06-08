@@ -3718,6 +3718,7 @@ export interface Translations {
     loadDefaultTemplate: string;
     permissionsRoles: string;
     permissionsRolesDescription: string;
+    defaultLandingPage: string;
     roles: string;
     addRole: string;
     editRole: string;
@@ -10578,6 +10579,7 @@ export const translations: Record<Locale, Translations> = {
       loadDefaultTemplate: 'Load Template',
       permissionsRoles: 'Permissions & Roles',
       permissionsRolesDescription: 'Manage user roles and access permissions',
+      defaultLandingPage: 'Default Landing Page',
       roles: 'Roles',
       addRole: 'Add Role',
       editRole: 'Edit Role',
@@ -16857,6 +16859,7 @@ export const translations: Record<Locale, Translations> = {
       loadDefaultTemplate: 'Načítať šablónu',
       permissionsRoles: 'Oprávnenia a role',
       permissionsRolesDescription: 'Správa používateľských rolí a prístupových oprávnení',
+      defaultLandingPage: 'Predvolená stránka po prihlásení',
       roles: 'Role',
       addRole: 'Pridať rolu',
       editRole: 'Upraviť rolu',
@@ -23122,6 +23125,7 @@ export const translations: Record<Locale, Translations> = {
       loadDefaultTemplate: 'Načíst šablonu',
       permissionsRoles: 'Oprávnění a role',
       permissionsRolesDescription: 'Správa uživatelských rolí a přístupových oprávnění',
+      defaultLandingPage: 'Výchozí stránka po přihlášení',
       roles: 'Role',
       addRole: 'Přidat roli',
       editRole: 'Upravit roli',
@@ -29343,6 +29347,7 @@ export const translations: Record<Locale, Translations> = {
       loadDefaultTemplate: 'Sablon betöltése',
       permissionsRoles: 'Jogosultságok és szerepkörök',
       permissionsRolesDescription: 'Felhasználói szerepkörök és hozzáférési jogok kezelése',
+      defaultLandingPage: 'Alapértelmezett céloldal',
       roles: 'Szerepkörök',
       addRole: 'Szerepkör hozzáadása',
       editRole: 'Szerepkör szerkesztése',
@@ -35459,6 +35464,7 @@ export const translations: Record<Locale, Translations> = {
       loadDefaultTemplate: 'Încărcare șablon',
       permissionsRoles: 'Permisiuni și roluri',
       permissionsRolesDescription: 'Gestionarea rolurilor utilizatorilor și permisiunilor de acces',
+      defaultLandingPage: 'Pagina implicită după autentificare',
       roles: 'Roluri',
       addRole: 'Adaugă rol',
       editRole: 'Editează rol',
@@ -41577,6 +41583,7 @@ export const translations: Record<Locale, Translations> = {
       loadDefaultTemplate: 'Carica modello',
       permissionsRoles: 'Permessi e ruoli',
       permissionsRolesDescription: 'Gestione dei ruoli utente e dei permessi di accesso',
+      defaultLandingPage: 'Pagina predefinita dopo il login',
       roles: 'Ruoli',
       addRole: 'Aggiungi ruolo',
       editRole: 'Modifica ruolo',
@@ -47682,6 +47689,7 @@ export const translations: Record<Locale, Translations> = {
       loadDefaultTemplate: 'Vorlage laden',
       permissionsRoles: 'Berechtigungen & Rollen',
       permissionsRolesDescription: 'Benutzerrollen und Zugriffsberechtigungen verwalten',
+      defaultLandingPage: 'Standard-Startseite nach der Anmeldung',
       roles: 'Rollen',
       addRole: 'Rolle hinzufügen',
       editRole: 'Rolle bearbeiten',

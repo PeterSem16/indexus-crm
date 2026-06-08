@@ -1893,8 +1893,16 @@ export async function registerRoutes(
         }
       }
       
+      // Resolve role's default landing page if user has a roleId
+      let roleLandingPage: string | null = null;
+      if ((user as any).roleId) {
+        const role = await storage.getRole((user as any).roleId);
+        roleLandingPage = (role as any)?.defaultLandingPage || null;
+      }
+
       const { passwordHash, ...safeUser } = user;
-      req.session.user = safeUser;
+      const sessionUser = { ...safeUser, roleLandingPage };
+      req.session.user = sessionUser;
       
       // Create login session record
       const userSession = await storage.createUserSession(user.id, req.ip || undefined, req.headers['user-agent'] || undefined);
@@ -1904,7 +1912,7 @@ export async function registerRoutes(
       console.log(`[Auth] User logged in via classic auth: ${user.username} (${user.fullName})`);
       await logActivity(user.id, "login", "user", user.id, `${user.fullName} (classic auth)`, undefined, req.ip);
       
-      res.json({ user: safeUser });
+      res.json({ user: sessionUser });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Validation error", details: error.errors });

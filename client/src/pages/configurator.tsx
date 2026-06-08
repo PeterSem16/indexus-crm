@@ -14504,10 +14504,29 @@ function EmailRouterTab() {
   );
 }
 
+const LANDING_PAGE_OPTIONS = [
+  { value: "/", label: "Dashboard" },
+  { value: "/pipeline", label: "Pipeline" },
+  { value: "/reports", label: "Reports" },
+  { value: "/customers", label: "Customers" },
+  { value: "/campaigns", label: "NEXUS Missions" },
+  { value: "/agent-workspace", label: "Agent Shift Login (NEXUS Pulse)" },
+  { value: "/email", label: "NEXUS Omni" },
+  { value: "/hospitals", label: "Hospitals & Clinics" },
+  { value: "/medical-partner-network", label: "Medical Partner Network" },
+  { value: "/contracts", label: "Contracts" },
+  { value: "/collections", label: "Collections" },
+  { value: "/customer-invoices", label: "Customer Invoices" },
+  { value: "/users", label: "Users" },
+  { value: "/settings", label: "Settings" },
+  { value: "/configurator", label: "Configurator" },
+];
+
 const roleFormSchema = z.object({
   name: z.string().min(1, "Role name is required"),
   description: z.string().optional(),
   department: z.string().optional(),
+  defaultLandingPage: z.string().optional().nullable(),
   isActive: z.boolean().default(true),
 });
 
@@ -15633,6 +15652,7 @@ function PermissionsRolesTab() {
       name: "",
       description: "",
       department: "",
+      defaultLandingPage: null,
       isActive: true,
     },
   });
@@ -15849,6 +15869,7 @@ function PermissionsRolesTab() {
       name: role.name,
       description: role.description || "",
       department: role.department || "",
+      defaultLandingPage: (role as any).defaultLandingPage || null,
       isActive: role.isActive,
     });
     setIsEditing(true);
@@ -16248,6 +16269,30 @@ function PermissionsRolesTab() {
                         {dbDepartments.map((dept) => (
                           <SelectItem key={dept.id} value={dept.id}>
                             {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="defaultLandingPage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.konfigurator.defaultLandingPage ?? "Default Landing Page"}</FormLabel>
+                    <Select value={field.value || "/"} onValueChange={(val) => field.onChange(val)}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-default-landing-page">
+                          <SelectValue placeholder="Select default page" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {LANDING_PAGE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
                           </SelectItem>
                         ))}
                       </SelectContent>

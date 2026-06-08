@@ -160,7 +160,8 @@ export default function LandingPage() {
       }
       
       if (result.user) {
-        setLocation("/");
+        const landing = (result.user as any).roleLandingPage;
+        setLocation(landing && landing !== "/" ? landing : "/");
       }
     } catch (error: any) {
       toast({
