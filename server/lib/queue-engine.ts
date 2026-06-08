@@ -908,6 +908,7 @@ export class QueueEngine extends EventEmitter {
       const hasAgents = await this.hasLoggedInAgentsDb(queue.id);
       if (!hasAgents) {
         console.log(`[QueueEngine] No agents logged in for queue "${queue.name}", action: ${noAgentsAction}`);
+        this.emit("call-abandoned", { queueId: queue.id, callerNumber, callerName, queueName: queue.name, reason: "no_agents" });
         await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
         return;
       }
@@ -2470,6 +2471,7 @@ export class QueueEngine extends EventEmitter {
       const hasAgents = await this.hasLoggedInAgentsDb(queue.id);
       if (!hasAgents) {
         console.log(`[QueueEngine] No agents logged in (DB check) for queue "${queue.name}", action: ${noAgentsAction}`);
+        this.emit("call-abandoned", { queueId: queue.id, callerNumber, callerName, queueName: queue.name, reason: "no_agents" });
         await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
         return;
       }
@@ -2623,6 +2625,7 @@ export class QueueEngine extends EventEmitter {
               waitDurationSeconds: Math.floor(waitTime),
             })
             .where(eq(inboundCallLogs.id, call.id));
+          this.emit("call-abandoned", { callId: call.id, queueId: queue.id, callerNumber: call.callerNumber, callerName: call.callerName, queueName: queue.name, reason: "no_agents" });
           await this.handleNoAgents(call.channelId, queue, call.callerNumber, call.callerName || "");
         }
         continue;
@@ -4317,6 +4320,7 @@ export class QueueEngine extends EventEmitter {
           await db.update(inboundCallLogs)
             .set({ status: "no_agents", completedAt: new Date(), abandonReason: "no_agents", waitDurationSeconds: Math.floor(waitTime) })
             .where(eq(inboundCallLogs.id, call.id));
+          this.emit("call-abandoned", { callId: call.id, queueId: queue.id, callerNumber: call.callerNumber, callerName: call.callerName, queueName: queue.name, reason: "no_agents" });
           await this.handleNoAgents(channelId, queue, call.callerNumber, call.callerName || "");
           continue;
         }
