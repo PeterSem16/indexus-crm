@@ -4673,6 +4673,8 @@ export interface Translations {
     scheduledToday: string;
     scheduledTomorrow: string;
     scheduledNoData: string;
+    callForwardingActive: string;
+    callForwardingWarning: string;
   };
   contractsModule: {
     title: string;
@@ -11546,6 +11548,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Today',
       scheduledTomorrow: 'Tomorrow',
       scheduledNoData: 'No scheduled calls',
+      callForwardingActive: 'Call Forwarding Active',
+      callForwardingWarning: 'Inbound calls will be redirected to',
     },
     contractsModule: {
       title: 'Contracts',
@@ -17826,6 +17830,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Dnes',
       scheduledTomorrow: 'Zajtra',
       scheduledNoData: 'Žiadne naplánované hovory',
+      callForwardingActive: 'Presmerovanie hovorov aktívne',
+      callForwardingWarning: 'Prichádzajúce hovory budú presmerované na',
     },
     callBar: {
       connecting: 'Pripájam...',
@@ -24055,6 +24061,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Dnes',
       scheduledTomorrow: 'Zítra',
       scheduledNoData: 'Žádné naplánované hovory',
+      callForwardingActive: 'Přesměrování hovorů aktivní',
+      callForwardingWarning: 'Příchozí hovory budou přesměrovány na',
     },
     callBar: {
       connecting: 'Připojuji...',
@@ -30252,6 +30260,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Ma',
       scheduledTomorrow: 'Holnap',
       scheduledNoData: 'Nincsenek tervezett hívások',
+      callForwardingActive: 'Hívásátirányítás aktív',
+      callForwardingWarning: 'A bejövő hívások ide lesznek átirányítva',
     },
     callBar: {
       connecting: 'Csatlakozás...',
@@ -36369,6 +36379,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Azi',
       scheduledTomorrow: 'Mâine',
       scheduledNoData: 'Niciun apel programat',
+      callForwardingActive: 'Redirecționare apeluri activă',
+      callForwardingWarning: 'Apelurile primite vor fi redirecționate la',
     },
     callBar: {
       connecting: 'Se conectează...',
@@ -42488,6 +42500,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Oggi',
       scheduledTomorrow: 'Domani',
       scheduledNoData: 'Nessuna chiamata programmata',
+      callForwardingActive: 'Deviazione chiamate attiva',
+      callForwardingWarning: 'Le chiamate in entrata verranno deviate al',
     },
     callBar: {
       connecting: 'Connessione...',
@@ -48594,6 +48608,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Heute',
       scheduledTomorrow: 'Morgen',
       scheduledNoData: 'Keine geplanten Anrufe',
+      callForwardingActive: 'Anrufweiterleitung aktiv',
+      callForwardingWarning: 'Eingehende Anrufe werden weitergeleitet an',
     },
     callBar: {
       connecting: 'Verbindung wird hergestellt...',

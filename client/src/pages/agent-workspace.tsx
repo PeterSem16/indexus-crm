@@ -8363,442 +8363,434 @@ export default function AgentWorkspacePage() {
         />
       )}
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden gap-0">
+        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden gap-0 flex flex-col max-h-[90vh]">
           <DialogTitle className="sr-only">{t.agentSession.shiftLogin}</DialogTitle>
 
-          {/* ── Hlavička ── */}
-          <div className="relative px-7 pt-6 pb-5 overflow-hidden bg-gradient-to-br from-card via-card to-muted/40 dark:from-card dark:to-muted/20">
+          {/* ── Hlavička — kompaktná ── */}
+          <div className="relative px-5 pt-4 pb-4 shrink-0 overflow-hidden bg-gradient-to-br from-card via-card to-muted/40 dark:from-card dark:to-muted/20">
             <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, hsl(355 85% 42% / 0.08) 0%, transparent 70%)" }} />
             <div className="absolute bottom-0 left-0 w-36 h-20 pointer-events-none" style={{ background: "radial-gradient(ellipse, hsl(355 85% 42% / 0.05) 0%, transparent 70%)" }} />
-
-            {/* Ikona + nadpis */}
-            <div className="relative z-10 flex items-center gap-4 mb-4">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm shrink-0 bg-card border border-border">
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0 bg-card border border-border">
                 <Headphones className="h-5 w-5 text-primary" />
               </div>
-              <div>
-                <h2 className="font-bold text-base leading-tight text-foreground">{t.agentSession.shiftLogin}</h2>
-                <p className="text-xs mt-0.5 text-muted-foreground">{t.agentSession.shiftLoginDesc}</p>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-bold text-sm leading-tight text-foreground">{t.agentSession.shiftLogin}</h2>
+                <p className="text-[11px] mt-0.5 text-muted-foreground">{t.agentSession.shiftLoginDesc}</p>
+              </div>
+              {/* User info inline v hlavičke */}
+              <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-3 py-2 shrink-0">
+                <div className="relative shrink-0">
+                  <Avatar className="h-7 w-7 border border-border">
+                    {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={(user as any)?.fullName || user?.username || ""} />}
+                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
+                      {((user as any)?.fullName || user?.username || "").split(" ").filter(Boolean).map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-card bg-green-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground leading-tight truncate max-w-[140px]">{(user as any)?.fullName || user?.username || "—"}</p>
+                  <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{user?.email || ""}</p>
+                </div>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">{t.agentSession.onlineStatus}</span>
               </div>
             </div>
+          </div>
 
-            {/* Agent karta */}
-            {(() => {
-              const selectedCamps = loginCampaigns.filter(c => selectedLoginCampaignIds.includes(c.id));
-              const maxCallQuota = selectedCamps.length > 0
-                ? selectedCamps.reduce((m, c) => {
-                    const q = shiftData?.campaignData?.[c.id]?.dailyCallQuota ?? 0;
-                    return Math.max(m, q);
-                  }, 0) || null
-                : null;
-              const maxContactsQuota = selectedCamps.length > 0
-                ? selectedCamps.reduce((m, c) => {
-                    const q = shiftData?.campaignData?.[c.id]?.maxContactsPerDay ?? 0;
-                    return Math.max(m, q);
-                  }, 0) || null
-                : null;
-              const conversionGoalPct = selectedCamps.length > 0
-                ? selectedCamps.reduce((m, c) => {
-                    const g = shiftData?.campaignData?.[c.id]?.conversionGoal ?? 0;
-                    return Math.max(m, g);
-                  }, 0)
-                : 0;
-              const contactsVal = shiftData?.contactsHandled ?? 0;
-              const callsVal = shiftData?.totalCallsToday ?? 0;
-              const convsVal = shiftData?.conversionsToday ?? 0;
-              const breakOver = (shiftData?.totalBreakMinutes || 0) >= 60;
-              const totalH = Math.floor((shiftData?.totalWorkMinutes || 0) / 60);
-              const totalM = (shiftData?.totalWorkMinutes || 0) % 60;
+          {/* ── Telo — 2 stĺpce ── */}
+          <div className="grid grid-cols-2 flex-1 min-h-0 overflow-hidden divide-x divide-border">
 
-              // Conversion targets
-              const convTarget = conversionGoalPct > 0 && maxContactsQuota
-                ? Math.round(conversionGoalPct / 100 * maxContactsQuota)
-                : null;
-              const convRateActual = contactsVal > 0 ? (convsVal / contactsVal) * 100 : 0;
+            {/* ─── Ľavý stĺpec: Today's Activities + Scheduled Calls ─── */}
+            <div className="overflow-y-auto px-4 py-4 bg-muted/10 dark:bg-muted/5">
+              {(() => {
+                const selectedCamps = loginCampaigns.filter(c => selectedLoginCampaignIds.includes(c.id));
+                const maxCallQuota = selectedCamps.length > 0
+                  ? selectedCamps.reduce((m, c) => { const q = shiftData?.campaignData?.[c.id]?.dailyCallQuota ?? 0; return Math.max(m, q); }, 0) || null
+                  : null;
+                const maxContactsQuota = selectedCamps.length > 0
+                  ? selectedCamps.reduce((m, c) => { const q = shiftData?.campaignData?.[c.id]?.maxContactsPerDay ?? 0; return Math.max(m, q); }, 0) || null
+                  : null;
+                const conversionGoalPct = selectedCamps.length > 0
+                  ? selectedCamps.reduce((m, c) => { const g = shiftData?.campaignData?.[c.id]?.conversionGoal ?? 0; return Math.max(m, g); }, 0)
+                  : 0;
+                const contactsVal = shiftData?.contactsHandled ?? 0;
+                const callsVal = shiftData?.totalCallsToday ?? 0;
+                const convsVal = shiftData?.conversionsToday ?? 0;
+                const breakOver = (shiftData?.totalBreakMinutes || 0) >= 60;
+                const totalH = Math.floor((shiftData?.totalWorkMinutes || 0) / 60);
+                const totalM = (shiftData?.totalWorkMinutes || 0) % 60;
+                const convTarget = conversionGoalPct > 0 && maxContactsQuota ? Math.round(conversionGoalPct / 100 * maxContactsQuota) : null;
+                const convRateActual = contactsVal > 0 ? (convsVal / contactsVal) * 100 : 0;
+                const hasTodayData = shiftData && (contactsVal > 0 || callsVal > 0 || (shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) > 0 || shiftData.dispositionsToday > 0 || shiftData.totalCallMinutes > 0 || convsVal > 0);
 
-              const hasTodayData = shiftData && (contactsVal > 0 || callsVal > 0 || (shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) > 0 || shiftData.dispositionsToday > 0 || shiftData.totalCallMinutes > 0 || convsVal > 0);
+                const KpiBar = ({ label, value, quota, suffix = "", color = "hsl(355 85% 42%)" }: { label: string; value: number; quota: number | null; suffix?: string; color?: string }) => {
+                  const pct = quota ? Math.min(100, Math.round((value / quota) * 100)) : 0;
+                  const fmt = (v: number) => suffix === "%" ? v.toFixed(1) + "%" : String(v);
+                  return (
+                    <div className="mb-2 last:mb-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[10px] text-muted-foreground">{label}</span>
+                        <span className="text-[10px] font-semibold text-foreground">
+                          {fmt(value)}{quota !== null && <span className="text-muted-foreground">/{suffix === "%" ? fmt(quota) : quota}</span>}
+                        </span>
+                      </div>
+                      <div className="h-1 rounded-full bg-muted">
+                        <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+                      </div>
+                    </div>
+                  );
+                };
 
-              // KPI bar helper
-              const KpiBar = ({ label, value, quota, suffix = "", color = "hsl(355 85% 42%)" }: { label: string; value: number; quota: number | null; suffix?: string; color?: string }) => {
-                const pct = quota ? Math.min(100, Math.round((value / quota) * 100)) : 0;
-                const fmt = (v: number) => suffix === "%" ? v.toFixed(1) + "%" : String(v);
                 return (
-                  <div className="mb-2 last:mb-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[10px] text-muted-foreground">{label}</span>
-                      <span className="text-[10px] font-semibold text-foreground">
-                        {fmt(value)}
-                        {quota !== null && <span className="text-muted-foreground">/{suffix === "%" ? fmt(quota) : quota}</span>}
-                      </span>
-                    </div>
-                    <div className="h-1 rounded-full bg-muted">
-                      <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
-                    </div>
-                  </div>
-                );
-              };
-
-              return (
-                <div className="relative z-10 rounded-xl overflow-hidden bg-card border border-border" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-                  <div className="flex items-center gap-3 px-3.5 py-2.5">
-                    <div className="relative shrink-0">
-                      <Avatar className="h-9 w-9 border border-border">
-                        {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={(user as any)?.fullName || user?.username || ""} />}
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                          {((user as any)?.fullName || user?.username || "").split(" ").filter(Boolean).map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground">{(user as any)?.fullName || user?.username || "—"}</p>
-                      <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
-                    </div>
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">{t.agentSession.onlineStatus}</span>
-                  </div>
-                  {shiftData && (
-                    <div className="px-3.5 pb-3 border-t border-border">
-                      {/* Čas prihlásenia + refresh — vždy */}
-                      <div className="flex items-center justify-between mt-2" style={{ marginBottom: hasTodayData ? "0.625rem" : 0 }}>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentSession.dailyTargetReached}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground">
-                            {totalH > 0 ? `${totalH}h ` : ""}{totalM}m {t.agentSession.workLabel}
-                          </span>
-                          <button
-                            onClick={() => refetchShiftData()}
-                            className="flex items-center gap-1 px-1 py-0.5 rounded-md transition-colors hover:bg-muted text-muted-foreground"
-                            title="Refresh shift data"
-                          >
+                  <>
+                    {/* Sekcia: Today's Progress */}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentSession.dailyTargetReached}</p>
+                      {shiftData && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground">{totalH > 0 ? `${totalH}h ` : ""}{totalM}m {t.agentSession.workLabel}</span>
+                          <button onClick={() => refetchShiftData()} className="flex items-center gap-1 px-1 py-0.5 rounded-md transition-colors hover:bg-muted text-muted-foreground" title="Refresh shift data">
                             <RotateCw className="h-3 w-3" />
                           </button>
                         </div>
+                      )}
+                    </div>
+
+                    {hasTodayData ? (
+                      <div className="grid grid-cols-2 gap-x-3 mb-1">
+                        <KpiBar label={t.agentSession.contactsToday} value={contactsVal} quota={maxContactsQuota} />
+                        <KpiBar label={t.agentSession.callsToday} value={callsVal} quota={maxCallQuota} />
+                        <KpiBar label={t.agentSession.conversionsToday} value={convsVal} quota={convTarget} color="#16A34A" />
+                        <KpiBar label={t.agentSession.conversionRate} value={convRateActual} quota={conversionGoalPct > 0 ? conversionGoalPct : null} suffix="%" color="#7C3AED" />
                       </div>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground italic mb-3">—</p>
+                    )}
 
-                      {/* KPI bary — len keď sú nenulové */}
-                      {hasTodayData && (
-                        <div className="grid grid-cols-2 gap-x-3 mt-2.5">
-                          <KpiBar label={t.agentSession.contactsToday} value={contactsVal} quota={maxContactsQuota} />
-                          <KpiBar label={t.agentSession.callsToday} value={callsVal} quota={maxCallQuota} />
-                          <KpiBar label={t.agentSession.conversionsToday} value={convsVal} quota={convTarget} color="#16A34A" />
-                          <KpiBar label={t.agentSession.conversionRate} value={convRateActual} quota={conversionGoalPct > 0 ? conversionGoalPct : null} suffix="%" color="#7C3AED" />
+                    {/* Prestávka */}
+                    {shiftData && ((shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) > 0) && (
+                      <div className="mt-1 pt-2 border-t border-border">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[10px] text-muted-foreground">{t.agentSession.breakTimeUsed}</span>
+                          <span className={`text-[10px] font-semibold ${breakOver ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+                            {shiftData.totalBreakMinutes > 0 ? `${shiftData.totalBreakMinutes} min` : `${shiftData.totalBreakSeconds ?? 0} s`}
+                          </span>
                         </div>
-                      )}
-
-                      {/* Prestávka — len keď > 0 sekúnd */}
-                      {((shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) > 0) && (
-                        <div className="mt-2 pt-2 border-t border-border">
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-[10px] text-muted-foreground">{t.agentSession.breakTimeUsed}</span>
-                            <span className={`text-[10px] font-semibold ${breakOver ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
-                              {shiftData.totalBreakMinutes > 0
-                                ? `${shiftData.totalBreakMinutes} min`
-                                : `${shiftData.totalBreakSeconds ?? 0} s`}
-                            </span>
-                          </div>
-                          <div className="h-1 rounded-full bg-muted">
-                            <div className="h-1 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round(((shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) / 3600) * 100))}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
-                          </div>
+                        <div className="h-1 rounded-full bg-muted">
+                          <div className="h-1 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round(((shiftData.totalBreakSeconds ?? shiftData.totalBreakMinutes * 60) / 3600) * 100))}%`, background: breakOver ? "#DC2626" : "#F97316" }} />
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* ── Scheduled Calls Forecast ── */}
-                      {(() => {
-                        const byDate = scheduledForecast?.byDate ?? {};
-                        const today = new Date();
-                        const days: { key: string; label: string; count: number }[] = [];
-                        for (let i = 0; i < 7; i++) {
-                          const d = new Date(today);
-                          d.setDate(today.getDate() + i);
-                          const key = d.toISOString().slice(0, 10);
+                    {/* Scheduled Calls Forecast — 3 pracovné dni */}
+                    {(() => {
+                      const byDate = scheduledForecast?.byDate ?? {};
+                      const todayBase = new Date();
+                      const todayDow = todayBase.getDay();
+                      const workDays: { key: string; label: string; count: number }[] = [];
+                      const iter = new Date(todayBase);
+                      let calOffset = 0;
+                      while (workDays.length < 3) {
+                        const dow = iter.getDay();
+                        if (dow !== 0 && dow !== 6) {
+                          const key = iter.toISOString().slice(0, 10);
                           const count = byDate[key] ?? 0;
                           let label: string;
-                          if (i === 0) label = t.agentSession.scheduledToday;
-                          else if (i === 1) label = t.agentSession.scheduledTomorrow;
-                          else label = d.toLocaleDateString(undefined, { weekday: "short", month: "numeric", day: "numeric" });
-                          days.push({ key, label, count });
+                          if (calOffset === 0) label = t.agentSession.scheduledToday;
+                          else if (calOffset === 1 && todayDow >= 1 && todayDow <= 4) label = t.agentSession.scheduledTomorrow;
+                          else label = iter.toLocaleDateString(undefined, { weekday: "short", month: "numeric", day: "numeric" });
+                          workDays.push({ key, label, count });
                         }
-                        const totalForecast = days.reduce((s, d) => s + d.count, 0);
-                        const maxCount = Math.max(...days.map(d => d.count), 1);
-                        return (
-                          <div className="mt-2 pt-2 border-t border-border">
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t.agentSession.scheduledCallsTitle}</span>
-                              <span className="text-[10px] font-bold text-foreground">{totalForecast}</span>
+                        iter.setDate(iter.getDate() + 1);
+                        calOffset++;
+                      }
+                      const totalForecast = workDays.reduce((s, d) => s + d.count, 0);
+                      const maxCount = Math.max(...workDays.map(d => d.count), 1);
+                      return (
+                        <div className="mt-2 pt-2 border-t border-border">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t.agentSession.scheduledCallsTitle}</span>
+                            <span className="text-[10px] font-bold text-foreground">{totalForecast}</span>
+                          </div>
+                          {totalForecast === 0 ? (
+                            <p className="text-[10px] text-muted-foreground italic">{t.agentSession.scheduledNoData}</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {workDays.map(({ key, label, count }) => (
+                                <div key={key}>
+                                  <div className="flex items-center justify-between mb-0.5">
+                                    <span className="text-[10px] text-muted-foreground">{label}</span>
+                                    <span className="text-[10px] font-semibold text-foreground">{count}</span>
+                                  </div>
+                                  <div className="h-1 rounded-full bg-muted">
+                                    <div className="h-1 rounded-full transition-all" style={{ width: count > 0 ? `${Math.round((count / maxCount) * 100)}%` : "0%", background: "#3B82F6" }} />
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            {totalForecast === 0 ? (
-                              <p className="text-[10px] text-muted-foreground italic">{t.agentSession.scheduledNoData}</p>
-                            ) : (
-                              <div className="space-y-1">
-                                {days.map(({ key, label, count }) => (
-                                  <div key={key}>
-                                    <div className="flex items-center justify-between mb-0.5">
-                                      <span className="text-[10px] text-muted-foreground">{label}</span>
-                                      <span className="text-[10px] font-semibold text-foreground">{count}</span>
-                                    </div>
-                                    <div className="h-1 rounded-full bg-muted">
-                                      <div
-                                        className="h-1 rounded-full transition-all"
-                                        style={{
-                                          width: count > 0 ? `${Math.round((count / maxCount) * 100)}%` : "0%",
-                                          background: "#3B82F6",
-                                        }}
-                                      />
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* ─── Pravý stĺpec: Kampane + Inbound + Prihlásenie ─── */}
+            <div className="flex flex-col min-h-0">
+
+              {/* Scrollovateľná časť */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+
+                {/* Upozornenie na presmerovanie hovoru */}
+                {callForwardingActive && (
+                  <div className="rounded-xl px-3 py-2.5 flex items-start gap-2.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                    <PhoneForwarded className="h-4 w-4 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-blue-800 dark:text-blue-400">{t.agentSession.callForwardingActive}</p>
+                      <p className="text-[11px] mt-0.5 text-blue-700 dark:text-blue-500">
+                        {t.agentSession.callForwardingWarning} <span className="font-mono font-semibold">{fwdData?.number}</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kampane */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentWorkspace.campaigns}</span>
+                    {selectedLoginCampaignIds.length > 0 && (
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "hsl(355 85% 42% / 0.10)", color: "hsl(355 85% 42%)" }}>
+                        {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? t.agentSession.selectedOne : t.agentSession.selected}
+                      </span>
+                    )}
+                  </div>
+                  <ScrollArea className="max-h-56">
+                    <div className="space-y-1.5 pr-1">
+                      {loginCampaigns.length === 0 ? (
+                        <div className="text-center py-5">
+                          <Megaphone className="h-7 w-7 mx-auto text-muted-foreground/30 mb-2" />
+                          <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "Žiadne kampane"}</p>
+                        </div>
+                      ) : (
+                        loginCampaigns.map((campaign) => {
+                          const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
+                          const ChIcon = chConfig.icon;
+                          const isChecked = selectedLoginCampaignIds.includes(campaign.id);
+                          const channelHex: Record<string, string> = { phone: "#3B82F6", email: "#22C55E", sms: "#F97316", mixed: "#A855F7" };
+                          const barColor = channelHex[campaign.channel] || "#3B82F6";
+                          return (
+                            <div
+                              key={campaign.id}
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                              style={{
+                                background: isChecked ? "hsl(var(--primary) / 0.06)" : "hsl(var(--card))",
+                                border: `1px solid ${isChecked ? "hsl(var(--primary) / 0.3)" : "hsl(var(--border))"}`,
+                                boxShadow: isChecked ? "inset 0 0 0 1px #E8C8C840" : "none",
+                              }}
+                              onClick={() => setSelectedLoginCampaignIds(prev => prev.includes(campaign.id) ? prev.filter(id => id !== campaign.id) : [...prev, campaign.id])}
+                              data-testid={`login-campaign-${campaign.id}`}
+                            >
+                              <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isChecked ? "hsl(355 85% 42%)" : barColor, minHeight: 28 }} />
+                              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))" }}>
+                                <ChIcon className="h-3.5 w-3.5" style={{ color: isChecked ? "hsl(355 85% 42%)" : barColor }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-sm font-semibold text-foreground leading-tight">{campaign.name}</p>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))", color: isChecked ? "hsl(355 85% 42%)" : barColor }}>{chConfig.label}</span>
+                                    <div className="rounded flex items-center justify-center transition-colors" style={{ width: 18, height: 18, background: isChecked ? "hsl(355 85% 42%)" : "transparent", border: `2px solid ${isChecked ? "hsl(355 85% 42%)" : "hsl(var(--border))"}` }}
+                                         data-testid={`checkbox-login-campaign-${campaign.id}`}>
+                                      {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
                                     </div>
                                   </div>
-                                ))}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                  {campaign.countryCodes && campaign.countryCodes.length > 0 && (
+                                    <span className="text-[10px]">{campaign.countryCodes.map((code: string) => getCountryFlag(code)).join(" ")}</span>
+                                  )}
+                                  {campaign.startDate && (
+                                    <span className="text-[10px] text-muted-foreground">{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
+                                  )}
+                                </div>
+                                {(() => {
+                                  const cd = shiftData?.campaignData?.[campaign.id];
+                                  const wStart = cd?.workingHoursStart || "09:00";
+                                  const wEnd = cd?.workingHoursEnd || "17:00";
+                                  const quota = cd?.dailyCallQuota ?? null;
+                                  const callerId = campaign.callerIdNumber ?? null;
+                                  return (
+                                    <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+                                      <div className="flex items-center gap-1">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                        <span className="text-[10px] font-medium text-muted-foreground">{wStart} – {wEnd}</span>
+                                      </div>
+                                      {callerId && (
+                                        <div className="flex items-center gap-1">
+                                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                          <span className="text-[10px] font-medium text-muted-foreground">{callerId}</span>
+                                        </div>
+                                      )}
+                                      {quota !== null && (
+                                        <div className="flex items-center gap-1">
+                                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                          <span className="text-[10px] font-medium text-muted-foreground">
+                                            {quota} {t.agentSession.calls}{t.agentSession.perDay}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
-                            )}
-                          </div>
-                        );
-                      })()}
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
-                  )}
+                  </ScrollArea>
                 </div>
-              );
-            })()}
-          </div>
 
-          {/* ── Telo ── */}
-          <div className="px-6 py-4 space-y-4 bg-muted/20 dark:bg-muted/10">
-
-            {/* Kampane */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentWorkspace.campaigns}</span>
-                {selectedLoginCampaignIds.length > 0 && (
-                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "hsl(355 85% 42% / 0.10)", color: "hsl(355 85% 42%)" }}>
-                    {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? t.agentSession.selectedOne : t.agentSession.selected}
-                  </span>
-                )}
-              </div>
-              <ScrollArea className="max-h-56">
-                <div className="space-y-1.5 pr-1">
-                  {loginCampaigns.length === 0 ? (
-                    <div className="text-center py-5">
-                      <Megaphone className="h-7 w-7 mx-auto text-muted-foreground/30 mb-2" />
-                      <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "Žiadne kampane"}</p>
+                {/* Inbound fronty */}
+                {myQueues.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentSession.inboundQueues}</span>
+                      {selectedLoginQueueIds.length > 0 && (
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400">
+                          {selectedLoginQueueIds.length} {selectedLoginQueueIds.length === 1 ? t.agentSession.selectedOne : t.agentSession.selected}
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    loginCampaigns.map((campaign) => {
-                      const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
-                      const ChIcon = chConfig.icon;
-                      const isChecked = selectedLoginCampaignIds.includes(campaign.id);
-                      const channelHex: Record<string, string> = { phone: "#3B82F6", email: "#22C55E", sms: "#F97316", mixed: "#A855F7" };
-                      const barColor = channelHex[campaign.channel] || "#3B82F6";
-                      return (
-                        <div
-                          key={campaign.id}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
-                          style={{
-                            background: isChecked ? "hsl(var(--primary) / 0.06)" : "hsl(var(--card))",
-                            border: `1px solid ${isChecked ? "hsl(var(--primary) / 0.3)" : "hsl(var(--border))"}`,
-                            boxShadow: isChecked ? "inset 0 0 0 1px #E8C8C840" : "none",
-                          }}
-                          onClick={() => setSelectedLoginCampaignIds(prev => prev.includes(campaign.id) ? prev.filter(id => id !== campaign.id) : [...prev, campaign.id])}
-                          data-testid={`login-campaign-${campaign.id}`}
-                        >
-                          <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isChecked ? "hsl(355 85% 42%)" : barColor, minHeight: 28 }} />
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))" }}>
-                            <ChIcon className="h-3.5 w-3.5" style={{ color: isChecked ? "hsl(355 85% 42%)" : barColor }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm font-semibold text-foreground leading-tight">{campaign.name}</p>
+                    <ScrollArea className="max-h-44">
+                      <div className="space-y-1.5 pr-1">
+                        {myQueues.map((queue) => {
+                          const isChecked = selectedLoginQueueIds.includes(queue.id);
+                          const isAfterHours = (() => {
+                            if (!queue.activeTo) return false;
+                            const [h, m] = queue.activeTo.split(":").map(Number);
+                            const endMin = h * 60 + m;
+                            const now = new Date();
+                            const nowMin = now.getHours() * 60 + now.getMinutes();
+                            return nowMin >= endMin;
+                          })();
+                          const afterHoursLabel = (() => {
+                            if (!isAfterHours || !queue.afterHoursAction) return null;
+                            if (queue.afterHoursAction === "voicemail") return queue.afterHoursVoicemailBoxName ? `Voicemail → ${queue.afterHoursVoicemailBoxName}` : "Voicemail";
+                            if (queue.afterHoursAction === "hangup") return "Zavesiť";
+                            if (queue.afterHoursAction === "transfer") return queue.afterHoursTarget ? `Presmerovat → ${queue.afterHoursTarget}` : "Presmerovat";
+                            if (queue.afterHoursAction === "queue") return queue.afterHoursTarget ? `Fronta → ${queue.afterHoursTarget}` : "Iná fronta";
+                            return queue.afterHoursAction;
+                          })();
+                          return (
+                            <div
+                              key={queue.id}
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                              style={{
+                                background: isChecked ? (isAfterHours ? "hsl(48 96% 53% / 0.12)" : "hsl(143 71% 52% / 0.08)") : "hsl(var(--card))",
+                                border: `1px solid ${isChecked ? (isAfterHours ? "hsl(48 96% 53% / 0.5)" : "hsl(143 71% 52% / 0.5)") : "hsl(var(--border))"}`,
+                              }}
+                              onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
+                              data-testid={`login-queue-${queue.id}`}
+                            >
+                              <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isAfterHours ? "#D97706" : "#16A34A", minHeight: 28 }} />
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isChecked ? (isAfterHours ? "bg-amber-100 dark:bg-amber-950/40" : "bg-green-100 dark:bg-green-950/40") : (isAfterHours ? "bg-amber-50 dark:bg-amber-950/20" : "bg-green-50 dark:bg-green-950/20")}`}>
+                                <PhoneIncoming className={`h-3.5 w-3.5 ${isAfterHours ? "text-amber-600" : "text-green-600"}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold truncate text-foreground">{queue.name}</p>
+                                <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
+                                  {queue.activeFrom && queue.activeTo && <span>{queue.activeFrom} – {queue.activeTo}</span>}
+                                  {queue.didNumber && <><span className="text-muted-foreground/50">·</span><span>{queue.didNumber}</span></>}
+                                </div>
+                                {isAfterHours && (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400">
+                                      mimo pracovných hodín
+                                    </span>
+                                    {afterHoursLabel && (
+                                      <span className="text-[10px] truncate text-amber-700 dark:text-amber-500">{afterHoursLabel}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))", color: isChecked ? "hsl(355 85% 42%)" : barColor }}>{chConfig.label}</span>
-                                <div className="rounded flex items-center justify-center transition-colors" style={{ width: 18, height: 18, background: isChecked ? "hsl(355 85% 42%)" : "transparent", border: `2px solid ${isChecked ? "hsl(355 85% 42%)" : "hsl(var(--border))"}` }}
-                                     data-testid={`checkbox-login-campaign-${campaign.id}`}>
+                                {queue.waiting > 0 && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400">{queue.waiting} {t.agentSession.waiting}</span>
+                                )}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isAfterHours ? "bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400" : "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400"}`}>{queue.activeAgents} {t.agentSession.online}</span>
+                                <div className="rounded flex items-center justify-center ml-0.5" style={{ width: 18, height: 18, background: isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "transparent", border: `2px solid ${isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "hsl(var(--border))"}` }}
+                                     data-testid={`checkbox-login-queue-${queue.id}`}>
                                   {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              {campaign.countryCodes && campaign.countryCodes.length > 0 && (
-                                <span className="text-[10px]">{campaign.countryCodes.map((code: string) => getCountryFlag(code)).join(" ")}</span>
-                              )}
-                              {campaign.startDate && (
-                                <span className="text-[10px] text-muted-foreground">{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
-                              )}
-                            </div>
-                            {(() => {
-                              const cd = shiftData?.campaignData?.[campaign.id];
-                              const wStart = cd?.workingHoursStart || "09:00";
-                              const wEnd = cd?.workingHoursEnd || "17:00";
-                              const quota = cd?.dailyCallQuota ?? null;
-                              const callerId = campaign.callerIdNumber ?? null;
-                              return (
-                                <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
-                                  <div className="flex items-center gap-1">
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                    <span className="text-[10px] font-medium text-muted-foreground">{wStart} – {wEnd}</span>
-                                  </div>
-                                  {callerId && (
-                                    <div className="flex items-center gap-1">
-                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                                      <span className="text-[10px] font-medium text-muted-foreground">{callerId}</span>
-                                    </div>
-                                  )}
-                                  {quota !== null && (
-                                    <div className="flex items-center gap-1">
-                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                                      <span className="text-[10px] font-medium text-muted-foreground">
-                                        {quota} {t.agentSession.calls}{t.agentSession.perDay}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-
-            {/* Inbound fronty */}
-            {myQueues.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentSession.inboundQueues}</span>
-                  {selectedLoginQueueIds.length > 0 && (
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400">
-                      {selectedLoginQueueIds.length} {selectedLoginQueueIds.length === 1 ? t.agentSession.selectedOne : t.agentSession.selected}
-                    </span>
-                  )}
-                </div>
-                <ScrollArea className="max-h-44">
-                  <div className="space-y-1.5 pr-1">
-                    {myQueues.map((queue) => {
-                      const isChecked = selectedLoginQueueIds.includes(queue.id);
-                      const isAfterHours = (() => {
-                        if (!queue.activeTo) return false;
-                        const [h, m] = queue.activeTo.split(":").map(Number);
-                        const endMin = h * 60 + m;
-                        const now = new Date();
-                        const nowMin = now.getHours() * 60 + now.getMinutes();
-                        return nowMin >= endMin;
-                      })();
-                      const afterHoursLabel = (() => {
-                        if (!isAfterHours || !queue.afterHoursAction) return null;
-                        if (queue.afterHoursAction === "voicemail") return queue.afterHoursVoicemailBoxName ? `Voicemail → ${queue.afterHoursVoicemailBoxName}` : "Voicemail";
-                        if (queue.afterHoursAction === "hangup") return "Zavesiť";
-                        if (queue.afterHoursAction === "transfer") return queue.afterHoursTarget ? `Presmerovat → ${queue.afterHoursTarget}` : "Presmerovat";
-                        if (queue.afterHoursAction === "queue") return queue.afterHoursTarget ? `Fronta → ${queue.afterHoursTarget}` : "Iná fronta";
-                        return queue.afterHoursAction;
-                      })();
-                      return (
-                        <div
-                          key={queue.id}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
-                          style={{
-                            background: isChecked ? (isAfterHours ? "hsl(48 96% 53% / 0.12)" : "hsl(143 71% 52% / 0.08)") : "hsl(var(--card))",
-                            border: `1px solid ${isChecked ? (isAfterHours ? "hsl(48 96% 53% / 0.5)" : "hsl(143 71% 52% / 0.5)") : "hsl(var(--border))"}`,
-                          }}
-                          onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
-                          data-testid={`login-queue-${queue.id}`}
-                        >
-                          <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isAfterHours ? "#D97706" : "#16A34A", minHeight: 28 }} />
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isChecked ? (isAfterHours ? "bg-amber-100 dark:bg-amber-950/40" : "bg-green-100 dark:bg-green-950/40") : (isAfterHours ? "bg-amber-50 dark:bg-amber-950/20" : "bg-green-50 dark:bg-green-950/20")}`}>
-                            <PhoneIncoming className={`h-3.5 w-3.5 ${isAfterHours ? "text-amber-600" : "text-green-600"}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate text-foreground">{queue.name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
-                              {queue.activeFrom && queue.activeTo && <span>{queue.activeFrom} – {queue.activeTo}</span>}
-                              {queue.didNumber && <><span className="text-muted-foreground/50">·</span><span>{queue.didNumber}</span></>}
-                            </div>
-                            {isAfterHours && (
-                              <div className="flex items-center gap-1 mt-1">
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400">
-                                  mimo pracovných hodín
-                                </span>
-                                {afterHoursLabel && (
-                                  <span className="text-[10px] truncate text-amber-700 dark:text-amber-500">{afterHoursLabel}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {queue.waiting > 0 && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400">{queue.waiting} {t.agentSession.waiting}</span>
-                            )}
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isAfterHours ? "bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400" : "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400"}`}>{queue.activeAgents} {t.agentSession.online}</span>
-                            <div className="rounded flex items-center justify-center ml-0.5" style={{ width: 18, height: 18, background: isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "transparent", border: `2px solid ${isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "hsl(var(--border))"}` }}
-                                 data-testid={`checkbox-login-queue-${queue.id}`}>
-                              {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
                   </div>
-                </ScrollArea>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* ── Päta ── */}
-          <div className="px-6 pb-5 pt-1 bg-muted/20 dark:bg-muted/10">
-            {(() => {
-              const parseHHMM = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
-              const now = new Date();
-              const nowMin = now.getHours() * 60 + now.getMinutes();
-              const WARN_THRESHOLD = 30;
+              {/* Fixná päta — upozornenie + prihlásenie */}
+              <div className="px-4 pb-4 pt-3 shrink-0 border-t border-border bg-card/60">
+                {(() => {
+                  const parseHHMM = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+                  const now = new Date();
+                  const nowMin = now.getHours() * 60 + now.getMinutes();
+                  const WARN_THRESHOLD = 30;
+                  const campWarnings = selectedLoginCampaignIds.flatMap(id => {
+                    const cd = shiftData?.campaignData?.[id];
+                    if (!cd?.workingHoursEnd) return [];
+                    const endMin = parseHHMM(cd.workingHoursEnd);
+                    const remaining = endMin - nowMin;
+                    if (remaining < 0 || remaining >= WARN_THRESHOLD) return [];
+                    return [{ name: loginCampaigns.find(c => c.id === id)?.name || id, remaining, endTime: cd.workingHoursEnd, kind: "mission" as const }];
+                  });
+                  const queueWarnings = selectedLoginQueueIds.flatMap(id => {
+                    const q = myQueues.find(q => q.id === id);
+                    if (!q?.activeTo) return [];
+                    const endMin = parseHHMM(q.activeTo);
+                    const remaining = endMin - nowMin;
+                    if (remaining < 0 || remaining >= WARN_THRESHOLD) return [];
+                    return [{ name: q.name, remaining, endTime: q.activeTo, kind: "inbound" as const }];
+                  });
+                  const allWarnings = [...campWarnings, ...queueWarnings];
+                  if (allWarnings.length === 0) return null;
+                  const minRemaining = Math.min(...allWarnings.map(w => w.remaining));
+                  const names = allWarnings.map(w => w.name).join(", ");
+                  return (
+                    <div className="mb-3 rounded-xl px-3 py-2.5 flex items-start gap-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800" data-testid="shift-end-warning">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-400">{t.agentSession.shiftEndingSoon}</p>
+                        <p className="text-[11px] mt-0.5 leading-relaxed text-amber-700 dark:text-amber-500">
+                          {t.agentSession.shiftEndingWarn} <span className="font-medium">{names}</span> {t.agentSession.shiftEndingRemains} <span className="font-semibold">{minRemaining}{t.agentSession.shiftEndingSuffix}</span>
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
-              const campWarnings = selectedLoginCampaignIds.flatMap(id => {
-                const cd = shiftData?.campaignData?.[id];
-                if (!cd?.workingHoursEnd) return [];
-                const endMin = parseHHMM(cd.workingHoursEnd);
-                const remaining = endMin - nowMin;
-                if (remaining < 0 || remaining >= WARN_THRESHOLD) return [];
-                return [{ name: loginCampaigns.find(c => c.id === id)?.name || id, remaining, endTime: cd.workingHoursEnd, kind: "mission" as const }];
-              });
-
-              const queueWarnings = selectedLoginQueueIds.flatMap(id => {
-                const q = myQueues.find(q => q.id === id);
-                if (!q?.activeTo) return [];
-                const endMin = parseHHMM(q.activeTo);
-                const remaining = endMin - nowMin;
-                if (remaining < 0 || remaining >= WARN_THRESHOLD) return [];
-                return [{ name: q.name, remaining, endTime: q.activeTo, kind: "inbound" as const }];
-              });
-
-              const allWarnings = [...campWarnings, ...queueWarnings];
-              if (allWarnings.length === 0) return null;
-
-              const minRemaining = Math.min(...allWarnings.map(w => w.remaining));
-              const names = allWarnings.map(w => w.name).join(", ");
-
-              return (
-                <div className="mb-3 rounded-xl px-3 py-2.5 flex items-start gap-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800" data-testid="shift-end-warning">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-400">{t.agentSession.shiftEndingSoon}</p>
-                    <p className="text-[11px] mt-0.5 leading-relaxed text-amber-700 dark:text-amber-500">
-                      {t.agentSession.shiftEndingWarn} <span className="font-medium">{names}</span> {t.agentSession.shiftEndingRemains} <span className="font-semibold">{minRemaining}{t.agentSession.shiftEndingSuffix}</span>
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
-
-            <Button
-              className="w-full gap-2 h-11 font-semibold"
-              onClick={handleStartSession}
-              disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0}
-              data-testid="button-start-session"
-            >
-              <Headphones className="h-4 w-4" />
-              {t.agentSession.startShift}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && (
-              <p className="text-center text-[11px] mt-2 text-muted-foreground">{t.agentSession.selectAtLeastOne}</p>
-            )}
+                <Button
+                  className="w-full gap-2 h-11 font-semibold"
+                  onClick={handleStartSession}
+                  disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0}
+                  data-testid="button-start-session"
+                >
+                  <Headphones className="h-4 w-4" />
+                  {t.agentSession.startShift}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && (
+                  <p className="text-center text-[11px] mt-2 text-muted-foreground">{t.agentSession.selectAtLeastOne}</p>
+                )}
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
