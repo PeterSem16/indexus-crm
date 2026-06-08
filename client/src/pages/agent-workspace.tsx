@@ -8937,9 +8937,12 @@ export default function AgentWorkspacePage() {
                           const custRes = await fetch(`/api/customers/${created.id}`, { credentials: "include" });
                           if (custRes.ok) setCurrentContact(await custRes.json());
                         }
-                        setDispositionChannelFilter("phone");
-                        setMandatoryDisposition(true);
-                        setDispositionModalOpen(true);
+                        // Open disposition only if call already ended; otherwise let the call-end handler do it
+                        if (!["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
+                          setDispositionChannelFilter("phone");
+                          setMandatoryDisposition(true);
+                          setDispositionModalOpen(true);
+                        }
                       } catch (e: any) {
                         toast({ title: "Chyba", description: e?.message || "Zákazníka sa nepodarilo vytvoriť", variant: "destructive" });
                       } finally {
@@ -8958,9 +8961,11 @@ export default function AgentWorkspacePage() {
                       setCreateFromCallType(null);
                       setPendingUnknownCaller(null);
                       queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
-                      setDispositionChannelFilter("phone");
-                      setMandatoryDisposition(true);
-                      setDispositionModalOpen(true);
+                      if (!["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
+                        setDispositionChannelFilter("phone");
+                        setMandatoryDisposition(true);
+                        setDispositionModalOpen(true);
+                      }
                     }}
                     onCancel={() => setCreateFromCallType(null)}
                   />
@@ -8975,9 +8980,11 @@ export default function AgentWorkspacePage() {
                       setCreateFromCallType(null);
                       setPendingUnknownCaller(null);
                       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
-                      setDispositionChannelFilter("phone");
-                      setMandatoryDisposition(true);
-                      setDispositionModalOpen(true);
+                      if (!["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
+                        setDispositionChannelFilter("phone");
+                        setMandatoryDisposition(true);
+                        setDispositionModalOpen(true);
+                      }
                     }}
                   />
                 )}
@@ -8989,9 +8996,11 @@ export default function AgentWorkspacePage() {
                       setCreateFromCallType(null);
                       setPendingUnknownCaller(null);
                       queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
-                      setDispositionChannelFilter("phone");
-                      setMandatoryDisposition(true);
-                      setDispositionModalOpen(true);
+                      if (!["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
+                        setDispositionChannelFilter("phone");
+                        setMandatoryDisposition(true);
+                        setDispositionModalOpen(true);
+                      }
                     }}
                     onCancel={() => setCreateFromCallType(null)}
                   />
