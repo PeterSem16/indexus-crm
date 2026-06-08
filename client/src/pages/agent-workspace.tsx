@@ -8428,16 +8428,16 @@ export default function AgentWorkspacePage() {
                   <div className="flex items-center gap-3 px-3.5 py-2.5">
                     <div className="relative shrink-0">
                       <Avatar className="h-9 w-9 border border-border">
-                        {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} />}
+                        {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={(user as any)?.fullName || user?.username || ""} />}
                         <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                          {user?.firstName?.[0]}{user?.lastName?.[0]}
+                          {((user as any)?.fullName || user?.username || "").split(" ").filter(Boolean).map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground">{user?.firstName} {user?.lastName}</p>
-                      <p className="text-xs text-muted-foreground">{user?.role === "admin" ? t.agentSession.administrator : t.agentSession.operator}</p>
+                      <p className="text-sm font-semibold text-foreground">{(user as any)?.fullName || user?.username || "—"}</p>
+                      <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
                     </div>
                     <span className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">{t.agentSession.onlineStatus}</span>
                   </div>
