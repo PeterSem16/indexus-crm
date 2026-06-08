@@ -7536,6 +7536,10 @@ export default function AgentWorkspacePage() {
   };
 
   const handleSelectCampaignContact = (enrichedContact: EnrichedCampaignContact) => {
+    const lockKey = String(enrichedContact.id);
+    if (openingContactsRef.current.has(lockKey)) return;
+    openingContactsRef.current.add(lockKey);
+    setTimeout(() => openingContactsRef.current.delete(lockKey), 800);
     const currentStatus = agentSession.status;
     if (currentStatus === "wrap_up" || currentStatus === "break") return;
     setCurrentCampaignContactId(enrichedContact.id);
