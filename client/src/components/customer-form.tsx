@@ -66,7 +66,7 @@ const customerFormSchema = z.object({
   mobile: z.string().optional(),
   mobile2: z.string().optional(),
   otherContact: z.string().optional(),
-  email: z.string().email("Nesprávny formát emailu"),
+  email: z.union([z.string().email("Nesprávny formát emailu"), z.literal(""), z.undefined()]).optional(),
   email2: z.string().optional(),
   nationalId: z.string().optional(),
   idCardNumber: z.string().optional(),
@@ -385,7 +385,23 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+      <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+        const sectionFields: Record<string, string[]> = {
+          personal: ["firstName", "lastName", "maidenName", "titleBefore", "titleAfter", "dateOfBirth", "nationalId", "idCardNumber"],
+          contact: ["phone", "mobile", "mobile2", "email", "email2", "otherContact"],
+          addresses: ["country", "city", "address", "postalCode", "region", "district"],
+          marketing: ["complaintTypeId", "cooperationTypeId", "vipStatusId"],
+          finance: ["bankAccount", "bankCode", "bankName", "bankSwift", "healthInsuranceId"],
+          notes: ["notes"],
+          status: ["clientStatus", "status", "serviceType", "registrationSource", "newsletter"],
+        };
+        for (const [section, fields] of Object.entries(sectionFields)) {
+          if (fields.some(f => f in errors)) {
+            setActiveSection(section);
+            break;
+          }
+        }
+      })} className="flex flex-col h-full">
         <div className="shrink-0 space-y-0">
           {regSource && (
             <div className={`flex items-center gap-2 px-4 py-2 ${regSource.bgColor} border-b ${regSource.borderColor}`}>
