@@ -909,7 +909,19 @@ export class QueueEngine extends EventEmitter {
       const hasAgents = await this.hasLoggedInAgentsDb(queue.id);
       if (!hasAgents) {
         console.log(`[QueueEngine] No agents logged in for queue "${queue.name}", action: ${noAgentsAction}`);
-        this.emit("call-abandoned", { queueId: queue.id, callerNumber, callerName, queueName: queue.name, reason: "no_agents" });
+        const customerId = await this.lookupCustomer(callerNumber);
+        const [noAgentLog] = await db.insert(inboundCallLogs).values({
+          queueId: queue.id,
+          callerNumber,
+          callerName: callerName || null,
+          customerId: customerId || null,
+          ariChannelId: channel.id,
+          didNumber: dialedNumber || queue.didNumber || "",
+          status: "no_agents",
+          abandonReason: "no_agents",
+          completedAt: new Date(),
+        } as any).returning();
+        this.emit("call-abandoned", { callId: noAgentLog?.id, queueId: queue.id, callerNumber, callerName, queueName: queue.name, reason: "no_agents" });
         await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
         return;
       }
@@ -2472,7 +2484,19 @@ export class QueueEngine extends EventEmitter {
       const hasAgents = await this.hasLoggedInAgentsDb(queue.id);
       if (!hasAgents) {
         console.log(`[QueueEngine] No agents logged in (DB check) for queue "${queue.name}", action: ${noAgentsAction}`);
-        this.emit("call-abandoned", { queueId: queue.id, callerNumber, callerName, queueName: queue.name, reason: "no_agents" });
+        const customerId = await this.lookupCustomer(callerNumber);
+        const [noAgentLog] = await db.insert(inboundCallLogs).values({
+          queueId: queue.id,
+          callerNumber,
+          callerName: callerName || null,
+          customerId: customerId || null,
+          ariChannelId: channel.id,
+          didNumber: queue.didNumber || "",
+          status: "no_agents",
+          abandonReason: "no_agents",
+          completedAt: new Date(),
+        } as any).returning();
+        this.emit("call-abandoned", { callId: noAgentLog?.id, queueId: queue.id, callerNumber, callerName, queueName: queue.name, reason: "no_agents" });
         await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
         return;
       }
