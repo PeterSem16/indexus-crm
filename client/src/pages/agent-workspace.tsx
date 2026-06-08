@@ -156,6 +156,7 @@ import {
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getInboundRingtonePreset } from "@/lib/inbound-ringtones";
 import { useToast } from "@/hooks/use-toast";
@@ -5247,25 +5248,21 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
           <RotateCcw className="h-4 w-4 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-3" align="end">
+      <PopoverContent className="w-auto p-3" align="end">
         <div className="space-y-3">
           <p className="text-sm font-medium">{t.agentWorkspace.reschedule}</p>
-          <div className="space-y-2">
-            <Input
-              type="date"
-              value={dateVal}
-              onChange={(e) => setDateVal(e.target.value)}
-              className="h-8 text-sm"
-              data-testid={`input-reschedule-date-${item.id}`}
-            />
-            <Input
-              type="time"
-              value={timeVal}
-              onChange={(e) => setTimeVal(e.target.value)}
-              className="h-8 text-sm"
-              data-testid={`input-reschedule-time-${item.id}`}
-            />
-          </div>
+          <DateTimePicker
+            value={dateVal && timeVal ? `${dateVal}T${timeVal}` : ""}
+            onChange={(val) => {
+              if (val) {
+                const [dp, tp] = val.split("T");
+                setDateVal(dp);
+                setTimeVal((tp || "09:00").substring(0, 5));
+              }
+            }}
+            includeTime
+            data-testid={`input-reschedule-datetime-${item.id}`}
+          />
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -9555,11 +9552,11 @@ export default function AgentWorkspacePage() {
                           return (
                             <div
                               key={child.id}
-                              role="checkbox"
+                              role="radio"
                               aria-checked={isChecked}
                               tabIndex={0}
-                              onClick={() => setChecklistSelectedCodes(prev => isChecked ? prev.filter(c => c !== child.code) : [...prev, child.code])}
-                              onKeyDown={(e) => e.key === " " && setChecklistSelectedCodes(prev => isChecked ? prev.filter(c => c !== child.code) : [...prev, child.code])}
+                              onClick={() => setChecklistSelectedCodes(isChecked ? [] : [child.code])}
+                              onKeyDown={(e) => e.key === " " && setChecklistSelectedCodes(isChecked ? [] : [child.code])}
                               className="relative flex items-center cursor-pointer rounded-xl overflow-hidden transition-all duration-150 group select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               style={{
                                 border: `1.5px solid ${isChecked ? accentHex : "hsl(var(--border))"}`,
@@ -9607,16 +9604,21 @@ export default function AgentWorkspacePage() {
                       return (
                         <div className="space-y-3 rounded-md border p-3 bg-card">
                           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.statusEngine.disp.scheduleCallback}</div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-xs text-muted-foreground">{t.statusEngine.disp.dateLabel}</label>
-                              <Input type="date" value={checklistCallbackDate} onChange={(e) => setChecklistCallbackDate(e.target.value)} min={new Date().toISOString().split("T")[0]} data-testid="input-checklist-callback-date-full" />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground">{t.statusEngine.disp.timeLabel}</label>
-                              <Input type="time" value={checklistCallbackTime} onChange={(e) => setChecklistCallbackTime(e.target.value)} data-testid="input-checklist-callback-time-full" />
-                            </div>
-                          </div>
+                          <DateTimePicker
+                            value={checklistCallbackDate && checklistCallbackTime ? `${checklistCallbackDate}T${checklistCallbackTime}` : ""}
+                            onChange={(val) => {
+                              if (val) {
+                                const [dp, tp] = val.split("T");
+                                setChecklistCallbackDate(dp);
+                                setChecklistCallbackTime((tp || "09:00").substring(0, 5));
+                              } else {
+                                setChecklistCallbackDate("");
+                                setChecklistCallbackTime("09:00");
+                              }
+                            }}
+                            includeTime
+                            data-testid="input-checklist-callback-datetime"
+                          />
                           <div className="flex flex-wrap gap-1.5">
                             {[
                               { label: t.statusEngine.disp.tomorrow, days: 1 },
@@ -9689,16 +9691,21 @@ export default function AgentWorkspacePage() {
                     {needsCallback && (
                       <div className="space-y-3 rounded-md border p-3 bg-card">
                         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.statusEngine.disp.scheduleCallback}</div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs text-muted-foreground">{t.statusEngine.disp.dateLabel}</label>
-                            <Input type="date" value={modalCallbackDate} onChange={(e) => setModalCallbackDate(e.target.value)} min={new Date().toISOString().split("T")[0]} data-testid="input-modal-callback-date" />
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">{t.statusEngine.disp.timeLabel}</label>
-                            <Input type="time" value={modalCallbackTime} onChange={(e) => setModalCallbackTime(e.target.value)} data-testid="input-modal-callback-time" />
-                          </div>
-                        </div>
+                        <DateTimePicker
+                          value={modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : ""}
+                          onChange={(val) => {
+                            if (val) {
+                              const [dp, tp] = val.split("T");
+                              setModalCallbackDate(dp);
+                              setModalCallbackTime((tp || "09:00").substring(0, 5));
+                            } else {
+                              setModalCallbackDate("");
+                              setModalCallbackTime("09:00");
+                            }
+                          }}
+                          includeTime
+                          data-testid="input-modal-callback-datetime"
+                        />
                         <div className="flex flex-wrap gap-1.5">
                           {[
                             { label: t.statusEngine.disp.tomorrow, days: 1 },
