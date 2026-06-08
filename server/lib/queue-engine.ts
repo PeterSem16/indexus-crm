@@ -4969,77 +4969,124 @@ function buildMissedCallEmailHtml(params: {
 
   const L = labels[langCode] || labels.en;
 
-  const row = (label: string, value: string) => `
+  const countryNames: Record<string, string> = {
+    SK: "Slovakia", CZ: "Czech Republic", HU: "Hungary", RO: "Romania",
+    AT: "Austria", DE: "Germany", IT: "Italy", PL: "Poland",
+  };
+  const countryName = countryNames[queueCountry] || queueCountry;
+
+  const row = (label: string, value: string, last = false) => `
     <tr>
-      <td style="padding:10px 16px;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:42%;white-space:nowrap;">${label}</td>
-      <td style="padding:10px 16px;color:#0f172a;font-size:14px;font-weight:600;border-bottom:1px solid #f1f5f9;">${value}</td>
+      <td style="padding:13px 20px;color:#6b7280;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.6px;width:38%;${last ? "" : "border-bottom:1px solid #f3f4f6;"}">${label}</td>
+      <td style="padding:13px 20px;color:#111827;font-size:14px;font-weight:600;${last ? "" : "border-bottom:1px solid #f3f4f6;"}">${value}</td>
     </tr>`;
+
+  const rows = [
+    row(L.caller, callerDisplay),
+    row(L.date, dateStr),
+    row(L.time, timeStr),
+    ...(didNumber ? [row(L.called, didNumber)] : []),
+    row(L.wait, waitFormatted),
+    row(L.reason, reasonLabel, true),
+  ].join("");
 
   return `<!DOCTYPE html>
 <html lang="${langCode}">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${L.title}</title></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;padding:32px 16px;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>${L.title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;padding:40px 16px;">
     <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+      <table width="580" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;width:100%;">
 
-        <!-- Header -->
+        <!-- Top logo bar -->
         <tr>
-          <td style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);padding:28px 32px;text-align:center;">
-            <p style="margin:0;color:#94a3b8;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:600;">INDEXUS CRM</p>
-            <p style="margin:6px 0 0;color:#e2e8f0;font-size:12px;">Cord Blood Center</p>
-          </td>
-        </tr>
-
-        <!-- Alert banner -->
-        <tr>
-          <td style="background:#fef2f2;border-left:4px solid #ef4444;padding:16px 32px;">
-            <table cellpadding="0" cellspacing="0" width="100%">
+          <td style="padding:0 0 24px 0;" align="center">
+            <table cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td>
-                  <p style="margin:0;color:#dc2626;font-size:16px;font-weight:700;">📵 ${L.title}</p>
-                  <p style="margin:4px 0 0;color:#6b7280;font-size:13px;">
-                    ${L.queue}: <strong style="color:#374151;">${flag} ${queueName || "—"}</strong>
-                  </p>
+                <td style="background:#0f172a;border-radius:8px;padding:10px 20px;">
+                  <span style="color:#f8fafc;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">INDEXUS</span>
+                  <span style="color:#475569;font-size:14px;font-weight:400;letter-spacing:1px;"> &nbsp;CRM</span>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
 
-        <!-- Details table -->
+        <!-- Main card -->
         <tr>
-          <td style="padding:24px 32px 8px;">
-            <p style="margin:0 0 12px;color:#374151;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">${L.details}</p>
-            <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
-              <tbody>
-                ${row("📞 " + L.caller, callerDisplay)}
-                ${row("📅 " + L.date, dateStr)}
-                ${row("🕐 " + L.time, timeStr)}
-                ${didNumber ? row("📲 " + L.called, didNumber) : ""}
-                ${row("⏱ " + L.wait, waitFormatted)}
-                ${row("❓ " + L.reason, reasonLabel)}
-              </tbody>
-            </table>
-          </td>
-        </tr>
+          <td style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.06);">
 
-        <!-- CTA -->
-        <tr>
-          <td style="padding:16px 32px 8px;">
-            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px 20px;">
-              <p style="margin:0;color:#1d4ed8;font-size:13px;line-height:1.6;">
-                💡 ${L.callback}
-              </p>
-            </div>
+            <!-- Red top stripe -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="background:#dc2626;height:4px;font-size:0;line-height:0;">&nbsp;</td>
+              </tr>
+            </table>
+
+            <!-- Header section -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:32px 36px 28px;">
+                  <table cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="background:#fef2f2;border-radius:6px;padding:6px 14px;display:inline-block;">
+                        <span style="color:#dc2626;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${L.title}</span>
+                      </td>
+                    </tr>
+                  </table>
+                  <p style="margin:16px 0 4px;color:#111827;font-size:22px;font-weight:700;line-height:1.3;">${queueName || "—"}</p>
+                  <p style="margin:0;color:#6b7280;font-size:13px;">${countryName}</p>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Divider -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td style="border-top:1px solid #f3f4f6;font-size:0;line-height:0;">&nbsp;</td></tr>
+            </table>
+
+            <!-- Details section -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:8px 36px 4px;">
+                  <p style="margin:16px 0 12px;color:#9ca3af;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;">${L.details}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0 28px 8px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f9fafb;border-radius:10px;border:1px solid #f3f4f6;">
+                    <tbody>${rows}</tbody>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Callback note -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:16px 36px 32px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+                    <tr>
+                      <td style="padding:4px 0 0 16px;width:4px;border-left:3px solid #16a34a;">&nbsp;</td>
+                      <td style="padding:14px 16px;color:#15803d;font-size:13px;font-weight:500;line-height:1.6;">${L.callback}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
           </td>
         </tr>
 
         <!-- Footer -->
         <tr>
-          <td style="padding:24px 32px;text-align:center;border-top:1px solid #f1f5f9;margin-top:16px;">
-            <p style="margin:0;color:#94a3b8;font-size:12px;font-weight:600;">INDEXUS CRM — Cord Blood Center</p>
-            <p style="margin:4px 0 0;color:#cbd5e1;font-size:11px;">${L.footer}</p>
+          <td style="padding:24px 0 0;text-align:center;">
+            <p style="margin:0;color:#94a3b8;font-size:11px;line-height:1.7;">${L.footer}</p>
+            <p style="margin:6px 0 0;color:#cbd5e1;font-size:11px;">INDEXUS CRM &nbsp;&middot;&nbsp; Cord Blood Center</p>
           </td>
         </tr>
 
