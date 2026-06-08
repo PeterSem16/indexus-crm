@@ -238,7 +238,7 @@ function AuthenticatedApp() {
                       </ErrorBoundary>
                     </Route>
                     <Route path="/login">
-                      <Redirect to="/" />
+                      <Redirect to={(user as any)?.roleLandingPage || "/"} />
                     </Route>
                     <Route component={NotFound} />
                   </Switch>
