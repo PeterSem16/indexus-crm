@@ -21836,7 +21836,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.patch("/api/roles/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { modulePermissions, fieldPermissions, ...roleData } = req.body;
+      const { modulePermissions, fieldPermissions, id: _bodyId, ...roleData } = req.body;
       
       const role = await storage.updateRole(id, roleData);
       
