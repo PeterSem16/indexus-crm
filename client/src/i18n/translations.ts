@@ -4668,6 +4668,10 @@ export interface Translations {
     shiftEndingWarn: string;
     shiftEndingRemains: string;
     shiftEndingSuffix: string;
+    scheduledCallsTitle: string;
+    scheduledToday: string;
+    scheduledTomorrow: string;
+    scheduledNoData: string;
   };
   contractsModule: {
     title: string;
@@ -11536,6 +11540,10 @@ export const translations: Record<Locale, Translations> = {
       shiftEndingWarn: 'Until end of',
       shiftEndingRemains: 'only',
       shiftEndingSuffix: ' min remaining. Focus on the most important calls.',
+      scheduledCallsTitle: 'Scheduled Calls',
+      scheduledToday: 'Today',
+      scheduledTomorrow: 'Tomorrow',
+      scheduledNoData: 'No scheduled calls',
     },
     contractsModule: {
       title: 'Contracts',
@@ -17811,6 +17819,10 @@ export const translations: Record<Locale, Translations> = {
       shiftEndingWarn: 'Do konca',
       shiftEndingRemains: 'zostáva iba',
       shiftEndingSuffix: ' min. Venujte sa len najdôležitejším hovorom.',
+      scheduledCallsTitle: 'Naplánované hovory',
+      scheduledToday: 'Dnes',
+      scheduledTomorrow: 'Zajtra',
+      scheduledNoData: 'Žiadne naplánované hovory',
     },
     callBar: {
       connecting: 'Pripájam...',
@@ -24035,6 +24047,10 @@ export const translations: Record<Locale, Translations> = {
       shiftEndingWarn: 'Do konce',
       shiftEndingRemains: 'zbývá pouze',
       shiftEndingSuffix: ' min. Věnujte se jen nejdůležitějším hovorům.',
+      scheduledCallsTitle: 'Naplánované hovory',
+      scheduledToday: 'Dnes',
+      scheduledTomorrow: 'Zítra',
+      scheduledNoData: 'Žádné naplánované hovory',
     },
     callBar: {
       connecting: 'Připojuji...',
@@ -30227,6 +30243,10 @@ export const translations: Record<Locale, Translations> = {
       shiftEndingWarn: 'Vége:',
       shiftEndingRemains: 'csak',
       shiftEndingSuffix: ' perc múlva. Összpontosítson a legfontosabb hívásokra.',
+      scheduledCallsTitle: 'Tervezett hívások',
+      scheduledToday: 'Ma',
+      scheduledTomorrow: 'Holnap',
+      scheduledNoData: 'Nincsenek tervezett hívások',
     },
     callBar: {
       connecting: 'Csatlakozás...',
@@ -36339,6 +36359,10 @@ export const translations: Record<Locale, Translations> = {
       shiftEndingWarn: 'Până la sfârșitul',
       shiftEndingRemains: 'mai rămân doar',
       shiftEndingSuffix: ' min. Concentrați-vă pe cele mai importante apeluri.',
+      scheduledCallsTitle: 'Apeluri programate',
+      scheduledToday: 'Azi',
+      scheduledTomorrow: 'Mâine',
+      scheduledNoData: 'Niciun apel programat',
     },
     callBar: {
       connecting: 'Se conectează...',
@@ -42453,6 +42477,10 @@ export const translations: Record<Locale, Translations> = {
       shiftEndingWarn: 'Alla fine del turno',
       shiftEndingRemains: 'rimangono solo',
       shiftEndingSuffix: ' min. Concentrati sulle chiamate più importanti.',
+      scheduledCallsTitle: 'Chiamate programmate',
+      scheduledToday: 'Oggi',
+      scheduledTomorrow: 'Domani',
+      scheduledNoData: 'Nessuna chiamata programmata',
     },
     callBar: {
       connecting: 'Connessione...',
@@ -48554,6 +48582,10 @@ export const translations: Record<Locale, Translations> = {
       shiftEndingWarn: 'Bis zum Ende von',
       shiftEndingRemains: 'verbleiben nur noch',
       shiftEndingSuffix: ' Min. Konzentrieren Sie sich auf die wichtigsten Anrufe.',
+      scheduledCallsTitle: 'Geplante Anrufe',
+      scheduledToday: 'Heute',
+      scheduledTomorrow: 'Morgen',
+      scheduledNoData: 'Keine geplanten Anrufe',
     },
     callBar: {
       connecting: 'Verbindung wird hergestellt...',

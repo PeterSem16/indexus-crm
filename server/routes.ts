@@ -22466,6 +22466,51 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Scheduled calls forecast — counts grouped by day for next 7 days
+  app.get("/api/agent/scheduled-forecast", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const todayStart = startOfDay(new Date());
+      const forecastEnd = new Date(todayStart.getTime() + 8 * 24 * 60 * 60 * 1000);
+
+      const campaignIdsParam = (req.query.campaignIds as string) || "";
+      const campaignIds = campaignIdsParam.split(",").filter(Boolean);
+
+      const conditions: any[] = [
+        eq(campaignContacts.status, "callback_scheduled"),
+        isNotNull(campaignContacts.callbackDate),
+        gte(campaignContacts.callbackDate, todayStart),
+        lte(campaignContacts.callbackDate, forecastEnd),
+        or(
+          eq(campaignContacts.assignedTo, user.id),
+          eq(campaignContacts.assignedTo, "all"),
+          isNull(campaignContacts.assignedTo)
+        ),
+      ];
+      if (campaignIds.length > 0) {
+        conditions.push(inArray(campaignContacts.campaignId, campaignIds));
+      }
+
+      const rows = await db
+        .select({ callbackDate: campaignContacts.callbackDate })
+        .from(campaignContacts)
+        .where(and(...conditions));
+
+      const byDate: Record<string, number> = {};
+      for (const row of rows) {
+        if (!row.callbackDate) continue;
+        const d = new Date(row.callbackDate);
+        const key = d.toISOString().slice(0, 10);
+        byDate[key] = (byDate[key] || 0) + 1;
+      }
+
+      res.json({ byDate });
+    } catch (error) {
+      console.error("Failed to fetch scheduled forecast:", error);
+      res.status(500).json({ error: "Failed to fetch scheduled forecast" });
+    }
+  });
+
   // ============= Campaigns Routes =============
 
   app.get("/api/campaigns", requireAuth, async (req, res) => {

@@ -6443,9 +6443,17 @@ export default function AgentWorkspacePage() {
     refetchInterval: agentSession.isSessionActive ? 30000 : false,
   });
 
+  const { data: scheduledForecast, refetch: refetchForecast } = useQuery<{ byDate: Record<string, number> }>({
+    queryKey: [`/api/agent/scheduled-forecast?campaignIds=${shiftDataCampaignIds}`],
+    enabled: !!hasAccess,
+    refetchOnMount: true,
+    staleTime: 0,
+  });
+
   useEffect(() => {
     if (sessionLoginOpen && !agentSession.isSessionActive) {
       refetchShiftData();
+      refetchForecast();
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/my-queues"] });
     }
@@ -8493,6 +8501,57 @@ export default function AgentWorkspacePage() {
                           </div>
                         </div>
                       )}
+
+                      {/* ── Scheduled Calls Forecast ── */}
+                      {(() => {
+                        const byDate = scheduledForecast?.byDate ?? {};
+                        const today = new Date();
+                        const days: { key: string; label: string; count: number }[] = [];
+                        for (let i = 0; i < 7; i++) {
+                          const d = new Date(today);
+                          d.setDate(today.getDate() + i);
+                          const key = d.toISOString().slice(0, 10);
+                          const count = byDate[key] ?? 0;
+                          let label: string;
+                          if (i === 0) label = t.agentSession.scheduledToday;
+                          else if (i === 1) label = t.agentSession.scheduledTomorrow;
+                          else label = d.toLocaleDateString(undefined, { weekday: "short", month: "numeric", day: "numeric" });
+                          days.push({ key, label, count });
+                        }
+                        const totalForecast = days.reduce((s, d) => s + d.count, 0);
+                        const maxCount = Math.max(...days.map(d => d.count), 1);
+                        return (
+                          <div className="mt-2 pt-2 border-t border-border">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t.agentSession.scheduledCallsTitle}</span>
+                              <span className="text-[10px] font-bold text-foreground">{totalForecast}</span>
+                            </div>
+                            {totalForecast === 0 ? (
+                              <p className="text-[10px] text-muted-foreground italic">{t.agentSession.scheduledNoData}</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {days.map(({ key, label, count }) => (
+                                  <div key={key}>
+                                    <div className="flex items-center justify-between mb-0.5">
+                                      <span className="text-[10px] text-muted-foreground">{label}</span>
+                                      <span className="text-[10px] font-semibold text-foreground">{count}</span>
+                                    </div>
+                                    <div className="h-1 rounded-full bg-muted">
+                                      <div
+                                        className="h-1 rounded-full transition-all"
+                                        style={{
+                                          width: count > 0 ? `${Math.round((count / maxCount) * 100)}%` : "0%",
+                                          background: "#3B82F6",
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
