@@ -22399,6 +22399,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const stepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.ccId,
+          campaignContactId: row.ccId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
           contactId,
           contactName,
@@ -22447,6 +22448,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const sStepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.sessionId,
+          campaignContactId: row.sessionCampaignContactId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
           contactId: sContactId,
           contactName: sContactName,

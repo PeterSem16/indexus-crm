@@ -5200,6 +5200,7 @@ function CustomerInfoPanel({
 
 interface ScheduledItem {
   id: string;
+  campaignContactId: string;
   type: "callback" | "email" | "sms";
   contactId: string;
   contactName: string;
@@ -5271,7 +5272,7 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
               onClick={() => {
                 if (dateVal && timeVal) {
                   const newDate = `${dateVal}T${timeVal}:00`;
-                  onReschedule(item.id, item.campaignId, newDate);
+                  onReschedule(item.campaignContactId, item.campaignId, newDate);
                   setPopOpen(false);
                 }
               }}
@@ -5585,7 +5586,7 @@ function ScheduledQueuePanel({
                                 onClick={() => {
                                   if (onOpenContact) {
                                     const channel = item.type === "callback" ? "phone" : item.type;
-                                    onOpenContact(item.contactId, item.campaignId, item.id, channel as "phone" | "email" | "sms", item.contactType);
+                                    onOpenContact(item.contactId, item.campaignId, item.campaignContactId, channel as "phone" | "email" | "sms", item.contactType);
                                     onOpenChange(false);
                                   }
                                 }}
@@ -5686,7 +5687,7 @@ function ScheduledQueuePanel({
                               data-testid={`btn-scheduled-call-${item.id}`}
                               onClick={() => {
                                 if (onOpenContact) {
-                                  onOpenContact(item.contactId, item.campaignId, item.id, "phone", item.contactType);
+                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, "phone", item.contactType);
                                   onOpenChange(false);
                                 }
                               }}
@@ -5703,7 +5704,7 @@ function ScheduledQueuePanel({
                               data-testid={`btn-scheduled-send-${item.id}`}
                               onClick={() => {
                                 if (onOpenContact) {
-                                  onOpenContact(item.contactId, item.campaignId, item.id, item.type as "email" | "sms", item.contactType);
+                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, item.type as "email" | "sms", item.contactType);
                                   onOpenChange(false);
                                 }
                               }}
