@@ -27,6 +27,7 @@ function forceDtlsActive(description: RTCSessionDescriptionInit): Promise<RTCSes
 interface SipSettingsData {
   server?: string;
   port?: number;
+  wsPort?: number;
   wsPath?: string;
   realm?: string;
   transport?: string;
@@ -361,9 +362,11 @@ export function SipProvider({ children }: { children: ReactNode }) {
       const { UserAgent, Registerer, RegistererState } = await import("sip.js");
 
       const serverHost = sipSettings!.server;
-      const serverPort = sipSettings!.port || 443;
+      const serverPort = sipSettings!.wsPort || sipSettings!.port || 8089;
       const wsPath = sipSettings!.wsPath || "/ws";
       const realm = sipSettings!.realm || sipSettings!.server;
+      const wsProtocolLog = sipSettings!.transport === "ws" ? "ws" : "wss";
+      console.log(`[SIP] Registering: ${wsProtocolLog}://${serverHost}:${serverPort}${wsPath} ext=${(user as any).sipExtension} realm=${realm}`);
       const sipExtension = (user as any).sipExtension;
       const sipPassword = (user as any).sipPassword;
       const sipDisplayName = (user as any).sipDisplayName || sipExtension;
