@@ -148,6 +148,7 @@ import {
 import type { CSSProperties } from "react";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
