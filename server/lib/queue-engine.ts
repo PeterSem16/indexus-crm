@@ -4781,8 +4781,8 @@ export class QueueEngine extends EventEmitter {
       if (!didNumber) didNumber = queue.didNumber || "";
     }
 
-    const dateStr = callTime.toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const timeStr = callTime.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const dateStr = callTime.toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Bratislava" });
+    const timeStr = callTime.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Europe/Bratislava" });
 
     const lang = { SK: "sk", CZ: "cs", HU: "hu", RO: "ro", AT: "de", DE: "de", IT: "it" }[queueCountry] || "en";
     const reasonMaps: Record<string, Record<string, string>> = {
