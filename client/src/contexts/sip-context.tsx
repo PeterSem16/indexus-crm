@@ -361,12 +361,13 @@ export function SipProvider({ children }: { children: ReactNode }) {
 
       const { UserAgent, Registerer, RegistererState } = await import("sip.js");
 
-      const serverHost = sipSettings!.server;
-      const serverPort = sipSettings!.port || 443;
-      const wsPath = sipSettings!.wsPath || "/ws";
       const realm = sipSettings!.realm || sipSettings!.server;
-      const wsProtocolLog = sipSettings!.transport === "ws" ? "ws" : "wss";
-      console.log(`[SIP] Registering: ${wsProtocolLog}://${serverHost}:${serverPort}${wsPath} ext=${(user as any).sipExtension} realm=${realm}`);
+      // Always route through the INDEXUS built-in WS proxy (/wss-asterisk/)
+      // which internally connects to the Asterisk media gateway on the private network.
+      // Direct browser → mediagtw connection is blocked by the external firewall.
+      const wsProxyProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const wsProxyUrl = `${wsProxyProtocol}://${window.location.host}/wss-asterisk/`;
+      console.log(`[SIP] Registering via proxy: ${wsProxyUrl} realm=${realm}`);
       const sipExtension = (user as any).sipExtension;
       const sipPassword = (user as any).sipPassword;
       const sipDisplayName = (user as any).sipDisplayName || sipExtension;
@@ -376,9 +377,8 @@ export function SipProvider({ children }: { children: ReactNode }) {
         throw new Error("Invalid SIP URI");
       }
 
-      const wsProtocol = sipSettings!.transport === "ws" ? "ws" : "wss";
       const transportOptions = {
-        server: `${wsProtocol}://${serverHost}:${serverPort}${wsPath}`,
+        server: wsProxyUrl,
         keepAliveInterval: 10,
         connectionTimeout: 15,
         traceSip: false,
