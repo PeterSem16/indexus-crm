@@ -4879,8 +4879,10 @@ export class QueueEngine extends EventEmitter {
         await ms365SendEmail(ms365Token, [u.email], subject, html, true);
         console.log(`[MissedCallEmail] Sent via M365 to ${u.email}`);
         sentCount++;
-      } catch (err) {
-        console.error(`[MissedCallEmail] Exception sending to ${u.email}:`, err instanceof Error ? err.message : err);
+      } catch (err: any) {
+        const errMsg = err?.message || err?.statusCode || JSON.stringify(err) || String(err);
+        const errBody = err?.body ? (typeof err.body === "string" ? err.body : JSON.stringify(err.body)) : "";
+        console.error(`[MissedCallEmail] Exception sending to ${u.email}: [${err?.statusCode ?? "?"}] ${errMsg} ${errBody}`);
       }
     }
 
