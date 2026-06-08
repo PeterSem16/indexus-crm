@@ -98,6 +98,7 @@ app.use((req, res, next) => {
       ALTER TABLE tasks ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
       ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
       ALTER TABLE clinics ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS missed_call_email_notification boolean NOT NULL DEFAULT false;
     `);
     console.log('[migration] Customer columns ensured');
 

@@ -26,6 +26,7 @@ import {
   type InboundCallLog,
 } from "@shared/schema";
 import { sendAmiActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./ami-client";
+import { sendEmail } from "../email";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 
@@ -123,6 +124,19 @@ export class QueueEngine extends EventEmitter {
   constructor(ariClient: AriClient) {
     super();
     this.ariClient = ariClient;
+    this.on("call-abandoned", (data: {
+      callId?: string;
+      queueId?: string;
+      callerNumber: string;
+      callerName?: string;
+      queueName?: string;
+      reason: string;
+      assignedAgentId?: string;
+    }) => {
+      this.sendMissedCallNotifications(data).catch(err =>
+        console.error("[QueueEngine] Missed call notification error:", err instanceof Error ? err.message : err)
+      );
+    });
     this.setupAriHandlers();
   }
 
@@ -4663,6 +4677,225 @@ export class QueueEngine extends EventEmitter {
   getAllAgentStates(): AgentState[] {
     return Array.from(this.agentStates.values());
   }
+
+  private async sendMissedCallNotifications(data: {
+    callId?: string;
+    queueId?: string;
+    callerNumber: string;
+    callerName?: string;
+    queueName?: string;
+    reason: string;
+    assignedAgentId?: string;
+  }): Promise<void> {
+    if (!data.queueId) return;
+
+    const members = await db
+      .select({ userId: queueMembers.userId })
+      .from(queueMembers)
+      .where(and(eq(queueMembers.queueId, data.queueId), eq(queueMembers.isActive, true)));
+
+    if (members.length === 0) return;
+
+    const userIds = members.map((m) => m.userId);
+
+    const eligibleUsers = await db
+      .select({ id: users.id, email: users.email, fullName: users.fullName })
+      .from(users)
+      .where(
+        and(
+          inArray(users.id, userIds),
+          eq((users as any).missedCallEmailNotification, true),
+          eq(users.isActive, true)
+        )
+      );
+
+    if (eligibleUsers.length === 0) return;
+
+    let didNumber = "";
+    let waitDurationSeconds = 0;
+    let callTime = new Date();
+
+    if (data.callId) {
+      const [callLog] = await db
+        .select({
+          didNumber: inboundCallLogs.didNumber,
+          waitDurationSeconds: inboundCallLogs.waitDurationSeconds,
+          enteredQueueAt: inboundCallLogs.enteredQueueAt,
+        })
+        .from(inboundCallLogs)
+        .where(eq(inboundCallLogs.id, data.callId))
+        .limit(1);
+      if (callLog) {
+        didNumber = callLog.didNumber || "";
+        waitDurationSeconds = callLog.waitDurationSeconds || 0;
+        callTime = callLog.enteredQueueAt;
+      }
+    }
+
+    let queueCountry = "";
+    const [queue] = await db
+      .select({ countryCode: inboundQueues.countryCode, didNumber: inboundQueues.didNumber, name: inboundQueues.name })
+      .from(inboundQueues)
+      .where(eq(inboundQueues.id, data.queueId))
+      .limit(1);
+    if (queue) {
+      queueCountry = queue.countryCode || "";
+      if (!didNumber) didNumber = queue.didNumber || "";
+    }
+
+    const dateStr = callTime.toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const timeStr = callTime.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+    const reasonMap: Record<string, string> = {
+      caller_hangup: "Volající zavěsil / Caller hung up",
+      timeout: "Překročení časového limitu / Queue timeout",
+      overflow: "Přetečení fronty / Queue overflow",
+      no_agents: "Žádný dostupný agent / No available agent",
+    };
+    const reasonLabel = reasonMap[data.reason] || data.reason;
+
+    const totalSecs = waitDurationSeconds || 0;
+    const waitFormatted =
+      totalSecs >= 60
+        ? `${Math.floor(totalSecs / 60)} min ${totalSecs % 60} s`
+        : totalSecs > 0
+        ? `${totalSecs} s`
+        : "< 1 s";
+
+    const queueDisplayName = data.queueName || queue?.name || "";
+    const callerDisplay = data.callerName
+      ? `${data.callerNumber} (${data.callerName})`
+      : data.callerNumber;
+
+    const html = buildMissedCallEmailHtml({
+      queueName: queueDisplayName,
+      callerDisplay,
+      dateStr,
+      timeStr,
+      didNumber,
+      waitFormatted,
+      reasonLabel,
+      queueCountry,
+    });
+
+    const subject = `⚠️ Zmeškaný hovor — ${queueDisplayName || data.callerNumber}`;
+
+    for (const u of eligibleUsers) {
+      await sendEmail({ to: u.email, subject, html }).catch((err) =>
+        console.error(`[QueueEngine] Failed to send missed call email to ${u.email}:`, err instanceof Error ? err.message : err)
+      );
+    }
+
+    console.log(
+      `[QueueEngine] Missed call notifications sent to ${eligibleUsers.length} user(s) for call from ${data.callerNumber}`
+    );
+  }
+}
+
+function buildMissedCallEmailHtml(params: {
+  queueName: string;
+  callerDisplay: string;
+  dateStr: string;
+  timeStr: string;
+  didNumber: string;
+  waitFormatted: string;
+  reasonLabel: string;
+  queueCountry: string;
+}): string {
+  const { queueName, callerDisplay, dateStr, timeStr, didNumber, waitFormatted, reasonLabel, queueCountry } = params;
+
+  const countryFlag: Record<string, string> = {
+    CZ: "🇨🇿",
+    SK: "🇸🇰",
+    HU: "🇭🇺",
+    PL: "🇵🇱",
+    RO: "🇷🇴",
+    AT: "🇦🇹",
+    DE: "🇩🇪",
+  };
+  const flag = countryFlag[queueCountry] || "";
+
+  const row = (label: string, value: string) => `
+    <tr>
+      <td style="padding:10px 16px;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;width:42%;white-space:nowrap;">${label}</td>
+      <td style="padding:10px 16px;color:#0f172a;font-size:14px;font-weight:600;border-bottom:1px solid #f1f5f9;">${value}</td>
+    </tr>`;
+
+  return `<!DOCTYPE html>
+<html lang="cs">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Zmeškaný hovor</title></head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);padding:28px 32px;text-align:center;">
+            <p style="margin:0;color:#94a3b8;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:600;">INDEXUS CRM</p>
+            <p style="margin:6px 0 0;color:#e2e8f0;font-size:12px;">Cord Blood Center</p>
+          </td>
+        </tr>
+
+        <!-- Alert banner -->
+        <tr>
+          <td style="background:#fef2f2;border-left:4px solid #ef4444;padding:16px 32px;">
+            <table cellpadding="0" cellspacing="0" width="100%">
+              <tr>
+                <td>
+                  <p style="margin:0;color:#dc2626;font-size:16px;font-weight:700;">📵 Zmeškaný hovor / Missed Call</p>
+                  <p style="margin:4px 0 0;color:#6b7280;font-size:13px;">
+                    Fronta / Queue: <strong style="color:#374151;">${flag} ${queueName || "—"}</strong>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Details table -->
+        <tr>
+          <td style="padding:24px 32px 8px;">
+            <p style="margin:0 0 12px;color:#374151;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Detaily hovoru / Call Details</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+              <tbody>
+                ${row("📞 Volající / Caller", callerDisplay)}
+                ${row("📅 Datum / Date", dateStr)}
+                ${row("🕐 Čas / Time", timeStr)}
+                ${didNumber ? row("📲 Volané číslo / Called", didNumber) : ""}
+                ${row("⏱ Čekací doba / Wait time", waitFormatted)}
+                ${row("❓ Důvod / Reason", reasonLabel)}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+
+        <!-- CTA -->
+        <tr>
+          <td style="padding:16px 32px 8px;">
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px 20px;">
+              <p style="margin:0;color:#1d4ed8;font-size:13px;line-height:1.6;">
+                💡 Prosíme o zpětné kontaktování volajícího, pokud je to potřeba.<br>
+                <span style="color:#3b82f6;">Please call back the caller if necessary.</span>
+              </p>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:24px 32px;text-align:center;border-top:1px solid #f1f5f9;margin-top:16px;">
+            <p style="margin:0;color:#94a3b8;font-size:12px;font-weight:600;">INDEXUS CRM — Cord Blood Center</p>
+            <p style="margin:4px 0 0;color:#cbd5e1;font-size:11px;">Toto je automaticky generovaný e-mail. Neodpovídejte na tuto zprávu.</p>
+            <p style="margin:2px 0 0;color:#cbd5e1;font-size:11px;">This is an automatically generated email. Please do not reply.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
 let queueEngineInstance: QueueEngine | null = null;

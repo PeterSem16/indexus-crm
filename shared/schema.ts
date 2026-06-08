@@ -190,6 +190,7 @@ export const users = pgTable("users", {
   phone: text("phone"), // Phone number for notifications/alerts
   callForwardingEnabled: boolean("call_forwarding_enabled").notNull().default(false),
   callForwardingNumber: text("call_forwarding_number"), // Mobile number to forward incoming calls to
+  missedCallEmailNotification: boolean("missed_call_email_notification").notNull().default(false), // Send email on missed inbound call
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

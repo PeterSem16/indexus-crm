@@ -467,21 +467,51 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
     }
   };
 
+  const [missedCallEmailNotif, setMissedCallEmailNotif] = useState(false);
+  const [savingMissedCall, setSavingMissedCall] = useState(false);
+
+  useEffect(() => {
+    setMissedCallEmailNotif((user as any)?.missedCallEmailNotification ?? false);
+  }, [user]);
+
+  const handleSaveMissedCallNotif = async (value: boolean) => {
+    if (!user?.id) return;
+    setSavingMissedCall(true);
+    try {
+      await apiRequest("PATCH", `/api/users/${user.id}`, { missedCallEmailNotification: value });
+      setMissedCallEmailNotif(value);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: value ? "Email notifikácie zapnuté" : "Email notifikácie vypnuté" });
+    } catch (err: any) {
+      toast({ title: t.common.error || "Chyba", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingMissedCall(false);
+    }
+  };
+
   if (!showSipPhone) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-              <Phone className="h-5 w-5 text-muted-foreground" />
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                <Phone className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-base">{t.settings.sipProfile.title}</CardTitle>
+                <CardDescription>{"SIP phone is not enabled for your account"}</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-base">{t.settings.sipProfile.title}</CardTitle>
-              <CardDescription>{"SIP phone is not enabled for your account"}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+          </CardHeader>
+        </Card>
+        <MissedCallEmailCard
+          enabled={missedCallEmailNotif}
+          saving={savingMissedCall}
+          onChange={handleSaveMissedCallNotif}
+          userEmail={(user as any)?.email}
+        />
+      </div>
     );
   }
 
@@ -715,7 +745,68 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
           </CardContent>
         </Card>
       )}
+
+      <MissedCallEmailCard
+        enabled={missedCallEmailNotif}
+        saving={savingMissedCall}
+        onChange={handleSaveMissedCallNotif}
+        userEmail={(user as any)?.email}
+      />
     </div>
+  );
+}
+
+function MissedCallEmailCard({
+  enabled,
+  saving,
+  onChange,
+  userEmail,
+}: {
+  enabled: boolean;
+  saving: boolean;
+  onChange: (val: boolean) => void;
+  userEmail?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex flex-row items-center gap-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Mail className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base">Email notifikácie — zmeškaný hovor</CardTitle>
+            <CardDescription className="text-sm">
+              Po každom zmeškanom hovore vo fronte dostanete email na <strong>{userEmail || "váš email"}</strong>
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <p className="text-sm font-medium">Posielať email pri zmeškanom hovore</p>
+            <p className="text-xs text-muted-foreground">
+              Dostanete email s číslom volajúceho, časom hovoru, frontou a dĺžkou čakania
+            </p>
+          </div>
+          <Switch
+            checked={enabled}
+            disabled={saving}
+            onCheckedChange={onChange}
+            data-testid="switch-missed-call-email-notif"
+          />
+        </div>
+        {enabled && (
+          <div className="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-3">
+            <p className="text-xs text-green-700 dark:text-green-300 flex items-center gap-2">
+              <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+              Notifikácie sú zapnuté — email dostanete ihneď po zmeškanom hovore
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
