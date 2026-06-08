@@ -8388,7 +8388,7 @@ export default function AgentWorkspacePage() {
                 <p className="text-[11px] mt-0.5 text-muted-foreground">{t.agentSession.shiftLoginDesc}</p>
               </div>
               {/* User info inline v hlavičke */}
-              <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-3 py-2 shrink-0">
+              <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-3 py-2 shrink-0 mr-6">
                 <div className="relative shrink-0">
                   <Avatar className="h-7 w-7 border border-border">
                     {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={(user as any)?.fullName || user?.username || ""} />}
