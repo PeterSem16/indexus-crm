@@ -29,6 +29,7 @@ import {
 import { sendAmiActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./ami-client";
 import { storage } from "../storage";
 import { getValidAccessToken, sendEmail as ms365SendEmail } from "./ms365";
+import { decryptTokenSafe } from "./token-crypto";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 
@@ -4811,10 +4812,12 @@ export class QueueEngine extends EventEmitter {
         const expiresAt = conn.tokenExpiresAt;
         const isExpired = expiresAt ? new Date() >= new Date(expiresAt) : false;
         console.log(`[MissedCallEmail] Token for ${conn.countryCode}: expiresAt=${expiresAt?.toISOString() ?? "unknown"} isExpired=${isExpired}`);
+        const plainAccessToken = decryptTokenSafe(conn.accessToken);
+        const plainRefreshToken = conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null;
         const tokenResult = await getValidAccessToken(
-          conn.accessToken,
+          plainAccessToken,
           conn.tokenExpiresAt ?? null,
-          conn.refreshToken ?? null,
+          plainRefreshToken,
         );
         if (!tokenResult?.accessToken) {
           console.warn(`[MissedCallEmail] getValidAccessToken returned no token for ${conn.countryCode}`);
