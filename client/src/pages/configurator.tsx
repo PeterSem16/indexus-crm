@@ -16283,13 +16283,14 @@ function PermissionsRolesTab() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t.konfigurator.defaultLandingPage ?? "Default Landing Page"}</FormLabel>
-                    <Select value={field.value || "/"} onValueChange={(val) => field.onChange(val)}>
+                    <Select value={field.value ?? "/"} onValueChange={(val) => field.onChange(val === "__none__" ? null : val)}>
                       <FormControl>
                         <SelectTrigger data-testid="select-default-landing-page">
                           <SelectValue placeholder="Select default page" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="__none__">— Default (Dashboard) —</SelectItem>
                         {LANDING_PAGE_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
                             {opt.label}
