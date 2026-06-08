@@ -8397,7 +8397,7 @@ export default function AgentWorkspacePage() {
         />
       )}
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
-        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden gap-0 flex flex-col max-h-[90vh]">
+        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden gap-0 flex flex-col max-h-[90vh]" hideCloseButton>
           <DialogTitle className="sr-only">{t.agentSession.shiftLogin}</DialogTitle>
 
           {/* ── Hlavička — kompaktná ── */}
@@ -8413,7 +8413,7 @@ export default function AgentWorkspacePage() {
                 <p className="text-[11px] mt-0.5 text-muted-foreground">{t.agentSession.shiftLoginDesc}</p>
               </div>
               {/* User info inline v hlavičke */}
-              <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-3 py-2 shrink-0 mr-6">
+              <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-3 py-2 shrink-0">
                 <div className="relative shrink-0">
                   <Avatar className="h-7 w-7 border border-border">
                     {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={(user as any)?.fullName || user?.username || ""} />}
@@ -8429,6 +8429,11 @@ export default function AgentWorkspacePage() {
                 </div>
                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">{t.agentSession.onlineStatus}</span>
               </div>
+              {/* X button — priamo v flex riadku, vždy klikateľný */}
+              <DialogClose className="shrink-0 rounded-md p-1.5 opacity-70 hover:opacity-100 hover:bg-accent transition-opacity focus:outline-none focus:ring-2 focus:ring-ring">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
             </div>
           </div>
 
