@@ -5233,7 +5233,10 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const useDate = d > new Date() ? d : tomorrow;
-      setDateVal(useDate.toISOString().split("T")[0]);
+      const yyyy = useDate.getFullYear();
+      const mm = String(useDate.getMonth() + 1).padStart(2, "0");
+      const dd = String(useDate.getDate()).padStart(2, "0");
+      setDateVal(`${yyyy}-${mm}-${dd}`);
       setTimeVal(useDate.getHours().toString().padStart(2, "0") + ":" + useDate.getMinutes().toString().padStart(2, "0"));
     }
   }, [popOpen, item.scheduledAt]);
@@ -5272,7 +5275,7 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
               data-testid={`btn-confirm-reschedule-${item.id}`}
               onClick={() => {
                 if (dateVal && timeVal) {
-                  const newDate = `${dateVal}T${timeVal}:00`;
+                  const newDate = new Date(`${dateVal}T${timeVal}:00`).toISOString();
                   onReschedule(item.campaignContactId, item.campaignId, newDate);
                   setPopOpen(false);
                 }
@@ -7708,6 +7711,15 @@ export default function AgentWorkspacePage() {
   };
 
   const handleOpenScheduledContact = async (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string) => {
+    const existingTask = tasks.find(t =>
+      campaignContactId
+        ? t.campaignContactId === campaignContactId
+        : t.contact?.id === contactId
+    );
+    if (existingTask) {
+      setActiveTaskId(existingTask.id);
+      return;
+    }
     try {
       const quotaType = channel === "phone" ? "calls" : channel === "email" ? "emails" : "sms";
       let blocked = false;
@@ -10002,7 +10014,7 @@ export default function AgentWorkspacePage() {
                         handleDisposition(
                           clConfirmParent.code, undefined,
                           needsCallbackDate && checklistCallbackDate && checklistCallbackTime
-                            ? `${checklistCallbackDate}T${checklistCallbackTime}` : undefined,
+                            ? new Date(`${checklistCallbackDate}T${checklistCallbackTime}:00`).toISOString() : undefined,
                           clAssignTo ?? undefined, undefined, undefined, checklistSelectedCodes
                         );
                       }
