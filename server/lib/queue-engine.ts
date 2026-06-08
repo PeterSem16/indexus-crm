@@ -887,6 +887,16 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
+    const noAgentsAction = queue.noAgentsAction || "wait";
+    if (noAgentsAction !== "wait") {
+      const hasAgents = await this.hasLoggedInAgentsDb(queue.id);
+      if (!hasAgents) {
+        console.log(`[QueueEngine] No agents logged in for queue "${queue.name}", action: ${noAgentsAction}`);
+        await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
+        return;
+      }
+    }
+
     try {
       await this.ariClient.answerChannel(channel.id);
     } catch (err) {
