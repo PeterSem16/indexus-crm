@@ -6,6 +6,7 @@ import { eq, and, inArray, isNotNull, asc, desc, sql, gt } from "drizzle-orm";
 import {
   inboundQueues,
   queueMembers,
+  systemMs365Connections,
   agentQueueStatus,
   inboundCallLogs,
   ivrMessages,
@@ -4797,37 +4798,53 @@ export class QueueEngine extends EventEmitter {
     const subjectTitle = subjectTitles[lang] || "Missed Call";
     const subject = `⚠️ ${subjectTitle} — ${queueDisplayName || data.callerNumber}`;
 
-    let ms365Token: string | null = null;
-    if (queueCountry) {
+    const resolveMs365Token = async (conn: { accessToken: string; tokenExpiresAt?: Date | null; refreshToken?: string | null; countryCode: string } | undefined): Promise<string | null> => {
+      if (!conn?.accessToken) return null;
       try {
-        const ms365Conn = await storage.getSystemMs365Connection(queueCountry);
-        if (ms365Conn?.accessToken) {
-          const tokenResult = await getValidAccessToken(
-            ms365Conn.accessToken,
-            ms365Conn.tokenExpiresAt ?? null,
-            ms365Conn.refreshToken ?? null,
-          );
-          if (tokenResult?.accessToken) {
-            ms365Token = tokenResult.accessToken;
-            if (tokenResult.refreshed) {
-              try {
-                await storage.updateSystemMs365Connection(queueCountry, {
-                  accessToken: tokenResult.accessToken,
-                  refreshToken: tokenResult.refreshToken ?? ms365Conn.refreshToken ?? undefined,
-                  tokenExpiresAt: tokenResult.expiresOn ?? undefined,
-                } as any);
-              } catch {}
-            }
-            console.log(`[MissedCallEmail] Using M365 system connection for country ${queueCountry}`);
-          }
+        const tokenResult = await getValidAccessToken(
+          conn.accessToken,
+          conn.tokenExpiresAt ?? null,
+          conn.refreshToken ?? null,
+        );
+        if (!tokenResult?.accessToken) return null;
+        if (tokenResult.refreshed) {
+          try {
+            await storage.updateSystemMs365Connection(conn.countryCode, {
+              accessToken: tokenResult.accessToken,
+              refreshToken: tokenResult.refreshToken ?? conn.refreshToken ?? undefined,
+              tokenExpiresAt: tokenResult.expiresOn ?? undefined,
+            } as any);
+          } catch {}
         }
-      } catch (err) {
-        console.warn("[MissedCallEmail] M365 token lookup failed:", err instanceof Error ? err.message : err);
+        return tokenResult.accessToken;
+      } catch {
+        return null;
       }
+    };
+
+    let ms365Token: string | null = null;
+    try {
+      if (queueCountry) {
+        const conn = await storage.getSystemMs365Connection(queueCountry);
+        if (conn) {
+          ms365Token = await resolveMs365Token({ ...conn, countryCode: queueCountry });
+          if (ms365Token) console.log(`[MissedCallEmail] Using M365 system connection for country ${queueCountry}`);
+        }
+      }
+      if (!ms365Token) {
+        const allConns = await db.select().from(systemMs365Connections).limit(1);
+        if (allConns.length > 0) {
+          const conn = allConns[0];
+          ms365Token = await resolveMs365Token({ ...conn, countryCode: conn.countryCode });
+          if (ms365Token) console.log(`[MissedCallEmail] Using M365 fallback connection (country: ${allConns[0].countryCode}) for queue country "${queueCountry}"`);
+        }
+      }
+    } catch (err) {
+      console.warn("[MissedCallEmail] M365 token lookup failed:", err instanceof Error ? err.message : err);
     }
 
     if (!ms365Token) {
-      console.error(`[MissedCallEmail] No M365 system connection for country "${queueCountry}" — email NOT sent. Configure M365 system mailbox for this country.`);
+      console.error(`[MissedCallEmail] No M365 system connection available — email NOT sent. Configure M365 system mailbox in Settings.`);
       return;
     }
 

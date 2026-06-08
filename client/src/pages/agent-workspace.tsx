@@ -6034,6 +6034,7 @@ export default function AgentWorkspacePage() {
   const sessionQueueIdsRef = useRef<string[]>([]);
   const cancelledCallIdsRef = useRef<Set<string>>(new Set());
   const openingContactsRef = useRef<Set<string>>(new Set());
+  const pendingCcIdRef = useRef<string | null>(null);
   const filteredCallerNumbersRef = useRef<Map<string, number>>(new Map());
   const acceptingCallRef = useRef(false);
   const wasInboundCallRef = useRef(false);
@@ -6861,6 +6862,7 @@ export default function AgentWorkspacePage() {
         setAutoCountdown(null);
         const next = sortedPendingContacts[0];
         if (next?.customer) {
+          pendingCcIdRef.current = next.id ? String(next.id) : null;
           setCurrentCampaignContactId(next.id);
           loadContact(next.customer);
         }
@@ -7475,6 +7477,11 @@ export default function AgentWorkspacePage() {
     overrideHospitalData?: Hospital | null,
     overrideCollaboratorData?: Collaborator | null,
   ) => {
+    const lcLockKey = `lc-${customer.id}`;
+    if (openingContactsRef.current.has(lcLockKey)) return;
+    openingContactsRef.current.add(lcLockKey);
+    setTimeout(() => openingContactsRef.current.delete(lcLockKey), 1000);
+
     setCurrentContact(customer);
     agentSession.updateStatus("busy").catch(() => {});
     setCallNotes("");
@@ -7487,13 +7494,14 @@ export default function AgentWorkspacePage() {
     const resolvedHospitalData = overrideHospitalData !== undefined ? overrideHospitalData : currentHospitalData;
     const resolvedCollaboratorData = overrideCollaboratorData !== undefined ? overrideCollaboratorData : currentCollaboratorData;
 
+    const effectiveCcId = pendingCcIdRef.current ?? currentCampaignContactId;
     const campaignChannel = (selectedCampaign?.channel || "phone") as ChannelType;
     const newTask: TaskItem = {
       id: `task-${Date.now()}`,
       contact: customer,
       campaignId: selectedCampaignId!,
       campaignName: selectedCampaign?.name || "",
-      campaignContactId: currentCampaignContactId,
+      campaignContactId: effectiveCcId,
       channel: campaignChannel,
       startedAt: new Date(),
       status: "active",
@@ -7503,8 +7511,8 @@ export default function AgentWorkspacePage() {
       collaboratorData: resolvedCollaboratorData,
     };
     const dupTask2 = tasks.find(t =>
-      newTask.campaignContactId
-        ? t.campaignContactId === newTask.campaignContactId
+      effectiveCcId
+        ? t.campaignContactId === effectiveCcId
         : !t.campaignContactId && t.contact?.id === customer.id
     );
     if (dupTask2) {
@@ -7536,12 +7544,9 @@ export default function AgentWorkspacePage() {
   };
 
   const handleSelectCampaignContact = (enrichedContact: EnrichedCampaignContact) => {
-    const lockKey = String(enrichedContact.id);
-    if (openingContactsRef.current.has(lockKey)) return;
-    openingContactsRef.current.add(lockKey);
-    setTimeout(() => openingContactsRef.current.delete(lockKey), 800);
     const currentStatus = agentSession.status;
     if (currentStatus === "wrap_up" || currentStatus === "break") return;
+    pendingCcIdRef.current = enrichedContact.id ? String(enrichedContact.id) : null;
     setCurrentCampaignContactId(enrichedContact.id);
     setCurrentHospitalData(null);
     setCurrentClinicData(null);
