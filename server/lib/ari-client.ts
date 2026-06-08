@@ -511,14 +511,6 @@ export class AriClient extends EventEmitter {
     await this.ariRequest("DELETE", `/channels/${channelId}/mute?direction=${direction}`);
   }
 
-  async holdChannel(channelId: string): Promise<void> {
-    await this.ariRequest("POST", `/channels/${channelId}/hold`);
-  }
-
-  async unholdChannel(channelId: string): Promise<void> {
-    await this.ariRequest("DELETE", `/channels/${channelId}/hold`);
-  }
-
   async startMoh(channelId: string, mohClass?: string): Promise<void> {
     const params = mohClass ? `?mohClass=${mohClass}` : "";
     await this.ariRequest("POST", `/channels/${channelId}/moh${params}`);
