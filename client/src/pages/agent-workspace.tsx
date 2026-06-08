@@ -6475,6 +6475,15 @@ export default function AgentWorkspacePage() {
     enabled: !!selectedCampaignId,
   });
 
+  const { data: fwdDataPage } = useQuery<{ enabled: boolean; number: string | null }>({
+    queryKey: ["/api/users", user?.id, "call-forwarding"],
+    queryFn: () => fetch(`/api/users/${user!.id}/call-forwarding`, { credentials: "include" }).then(r => r.json()),
+    enabled: !!user?.id,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const callForwardingActive = !!(fwdDataPage?.enabled && fwdDataPage?.number);
+
   // Use NexusPulse ONLY when assigned statuses exist AND no legacy parent dispositions
   // (same logic as campaign-detail AgentPreview previewUseNexus)
   const legacyActiveParents = useMemo(
@@ -8551,7 +8560,7 @@ export default function AgentWorkspacePage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-blue-800 dark:text-blue-400">{t.agentSession.callForwardingActive}</p>
                       <p className="text-[11px] mt-0.5 text-blue-700 dark:text-blue-500">
-                        {t.agentSession.callForwardingWarning} <span className="font-mono font-semibold">{fwdData?.number}</span>
+                        {t.agentSession.callForwardingWarning} <span className="font-mono font-semibold">{fwdDataPage?.number}</span>
                       </p>
                     </div>
                   </div>
