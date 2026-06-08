@@ -5836,6 +5836,8 @@ export default function AgentWorkspacePage() {
 
   const [showOnlyAssigned, setShowOnlyAssigned] = useState(false);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const tasksRef = useRef<TaskItem[]>([]);
+  tasksRef.current = tasks;
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isAutoMode, setIsAutoMode] = useState(false);
@@ -5985,7 +5987,7 @@ export default function AgentWorkspacePage() {
           status: "active",
           direction: "inbound",
         };
-        const dupTask1 = tasks.find(t => !t.campaignContactId && t.contact?.id === contact.id);
+        const dupTask1 = tasksRef.current.find(t => !t.campaignContactId && t.contact?.id === contact.id);
         if (dupTask1) {
           setActiveTaskId(dupTask1.id);
         } else {
@@ -7510,7 +7512,7 @@ export default function AgentWorkspacePage() {
       hospitalData: resolvedHospitalData,
       collaboratorData: resolvedCollaboratorData,
     };
-    const dupTask2 = tasks.find(t =>
+    const dupTask2 = tasksRef.current.find(t =>
       effectiveCcId
         ? t.campaignContactId === effectiveCcId
         : !t.campaignContactId && t.contact?.id === customer.id
@@ -7719,7 +7721,7 @@ export default function AgentWorkspacePage() {
     if (openingContactsRef.current.has(lockKey)) return;
     openingContactsRef.current.add(lockKey);
     try {
-    const existingTask = tasks.find(t =>
+    const existingTask = tasksRef.current.find(t =>
       campaignContactId
         ? t.campaignContactId === campaignContactId
         : t.contact?.id === contactId
@@ -7847,7 +7849,7 @@ export default function AgentWorkspacePage() {
         hospitalData: _hospitalEntity,
         collaboratorData: _collaboratorEntity,
       };
-      const dupTask3 = tasks.find(t =>
+      const dupTask3 = tasksRef.current.find(t =>
         newTask.campaignContactId
           ? t.campaignContactId === newTask.campaignContactId
           : !t.campaignContactId && t.contact?.id === customer.id
@@ -8207,7 +8209,7 @@ export default function AgentWorkspacePage() {
                   status: "active",
                   direction: "inbound",
                 };
-                const dupTask4 = tasks.find(t => !t.campaignContactId && t.contact?.id === customer.id);
+                const dupTask4 = tasksRef.current.find(t => !t.campaignContactId && t.contact?.id === customer.id);
                 if (dupTask4) {
                   setActiveTaskId(dupTask4.id);
                 } else {
