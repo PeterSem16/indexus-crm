@@ -4687,13 +4687,19 @@ export class QueueEngine extends EventEmitter {
     reason: string;
     assignedAgentId?: string;
   }): Promise<void> {
-    if (!data.queueId) return;
+    console.log(`[MissedCallEmail] Triggered — caller: ${data.callerNumber}, queueId: ${data.queueId}, reason: ${data.reason}`);
+
+    if (!data.queueId) {
+      console.log("[MissedCallEmail] Skipped — no queueId");
+      return;
+    }
 
     const members = await db
       .select({ userId: queueMembers.userId })
       .from(queueMembers)
       .where(and(eq(queueMembers.queueId, data.queueId), eq(queueMembers.isActive, true)));
 
+    console.log(`[MissedCallEmail] Queue members found: ${members.length}`);
     if (members.length === 0) return;
 
     const userIds = members.map((m) => m.userId);
@@ -4704,11 +4710,12 @@ export class QueueEngine extends EventEmitter {
       .where(
         and(
           inArray(users.id, userIds),
-          eq((users as any).missedCallEmailNotification, true),
+          eq(users.missedCallEmailNotification, true),
           eq(users.isActive, true)
         )
       );
 
+    console.log(`[MissedCallEmail] Eligible users (notification enabled): ${eligibleUsers.length}${eligibleUsers.length > 0 ? " — " + eligibleUsers.map(u => u.email).join(", ") : ""}`);
     if (eligibleUsers.length === 0) return;
 
     let didNumber = "";
@@ -4789,15 +4796,19 @@ export class QueueEngine extends EventEmitter {
     const subjectTitle = subjectTitles[lang] || "Missed Call";
     const subject = `⚠️ ${subjectTitle} — ${queueDisplayName || data.callerNumber}`;
 
+    let sentCount = 0;
     for (const u of eligibleUsers) {
-      await sendEmail({ to: u.email, subject, html }).catch((err) =>
-        console.error(`[QueueEngine] Failed to send missed call email to ${u.email}:`, err instanceof Error ? err.message : err)
-      );
+      console.log(`[MissedCallEmail] Sending to ${u.email} (${u.fullName || "—"})`);
+      try {
+        const ok = await sendEmail({ to: u.email, subject, html });
+        if (ok) sentCount++;
+        else console.warn(`[MissedCallEmail] sendEmail returned false for ${u.email}`);
+      } catch (err) {
+        console.error(`[MissedCallEmail] Exception sending to ${u.email}:`, err instanceof Error ? err.message : err);
+      }
     }
 
-    console.log(
-      `[QueueEngine] Missed call notifications sent to ${eligibleUsers.length} user(s) for call from ${data.callerNumber}`
-    );
+    console.log(`[MissedCallEmail] Done — sent: ${sentCount}/${eligibleUsers.length} for caller ${data.callerNumber}`);
   }
 }
 
