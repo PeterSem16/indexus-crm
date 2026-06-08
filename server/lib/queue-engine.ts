@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import * as fs from "fs";
 import * as path from "path";
 import { db } from "../db";
-import { eq, and, inArray, isNotNull, asc, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, isNotNull, asc, desc, sql, gt } from "drizzle-orm";
 import {
   inboundQueues,
   queueMembers,
@@ -2280,8 +2280,12 @@ export class QueueEngine extends EventEmitter {
 
   private async hasLoggedInAgentsDb(queueId: string): Promise<boolean> {
     try {
+      const staleThreshold = new Date(Date.now() - 2 * 60 * 1000);
       const activeSessions = await db.select().from(agentSessions)
-        .where(inArray(agentSessions.status, ["available", "break", "busy"]));
+        .where(and(
+          inArray(agentSessions.status, ["available", "break", "busy"]),
+          gt(agentSessions.lastActiveAt, staleThreshold),
+        ));
       const members = await db.select().from(queueMembers)
         .where(and(eq(queueMembers.queueId, queueId), eq(queueMembers.isActive, true)));
       const memberUserIds = new Set(members.map(m => m.userId));
@@ -2294,6 +2298,7 @@ export class QueueEngine extends EventEmitter {
         }
       }
       const allCandidateIds = [...new Set([...memberUserIds, ...sessionAgentIdsForQueue])];
+      console.log(`[QueueEngine] hasLoggedInAgentsDb queue=${queueId}: activeSessions=${activeSessions.length} forQueue=${sessionAgentIdsForQueue.size} candidates=${allCandidateIds.length}`);
       for (const userId of allCandidateIds) {
         if (activeSessionUserIds.has(userId) && sessionAgentIdsForQueue.has(userId)) {
           return true;
