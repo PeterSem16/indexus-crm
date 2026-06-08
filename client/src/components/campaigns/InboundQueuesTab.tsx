@@ -384,6 +384,7 @@ export function InboundQueuesTab() {
       overflowUserId: queue.overflowUserId || null,
       overflowVoicemailBoxId: queue.overflowVoicemailBoxId || null,
       overflowMessageId: queue.overflowMessageId || null,
+      overflowIvrMenuId: (queue as any).overflowIvrMenuId || null,
       announcePosition: queue.announcePosition,
       announceWaitTime: queue.announceWaitTime,
       announceFrequency: queue.announceFrequency,

@@ -2306,7 +2306,7 @@ export class QueueEngine extends EventEmitter {
 
     const customerId = await this.lookupCustomer(callerNumber);
 
-    const messageId = queue.noAgentsMessageId;
+    const messageId = action !== "announcement" ? queue.noAgentsMessageId : null;
     if (messageId) {
       try {
         const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, messageId)).limit(1);
