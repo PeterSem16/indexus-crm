@@ -7267,6 +7267,13 @@ export default function AgentWorkspacePage() {
         setSelectedCampaignId(loginIds[0]);
         fetchQuotaCheck(loginIds[0]);
       }
+      // Auto-set "Only Assigned" filter based on campaign settings
+      const shouldDefaultOnlyAssigned = loginCampaigns
+        .filter(c => loginIds.includes(c.id))
+        .some(c => {
+          try { return !!(c.settings && JSON.parse(c.settings).defaultOnlyAssigned); } catch { return false; }
+        });
+      if (shouldDefaultOnlyAssigned) setShowOnlyAssigned(true);
       setSessionLoginOpen(false);
       toast({ title: t.agentSession.shiftStarted, description: t.agentSession.shiftStartedDesc });
     } catch (error) {

@@ -2184,6 +2184,8 @@ export interface Translations {
       queueDisplayModeDesc: string;
       queueDisplayModeStep: string;
       queueDisplayModeLastStatus: string;
+      defaultOnlyAssignedTitle: string;
+      defaultOnlyAssignedDesc: string;
       assignedOperators: string;
       assignedOperatorsDesc: string;
       noOperatorsAvailable: string;
@@ -9007,6 +9009,8 @@ export const translations: Record<Locale, Translations> = {
         queueDisplayModeDesc: 'Choose what to display in the "Step" column of the scheduled queue.',
         queueDisplayModeStep: 'Show current script step',
         queueDisplayModeLastStatus: 'Show last entered status',
+        defaultOnlyAssignedTitle: 'Default "Only Assigned" filter',
+        defaultOnlyAssignedDesc: 'When enabled, the "Only Assigned" filter in the agent queue will be pre-checked automatically each time an agent logs into this mission.',
         assignedOperators: 'Assigned operators',
         assignedOperatorsDesc: 'Select operators who will work on this campaign',
         noOperatorsAvailable: 'No operators available. Create users with "Call Center" role first.',
@@ -15328,6 +15332,8 @@ export const translations: Record<Locale, Translations> = {
         queueDisplayModeDesc: 'Vyberte, čo sa zobrazí v stĺpci „Krok" plánovanej fronty.',
         queueDisplayModeStep: 'Zobraziť aktuálny krok scriptu',
         queueDisplayModeLastStatus: 'Zobraziť posledný zadaný status',
+        defaultOnlyAssignedTitle: 'Predvolený filter „Len priradené"',
+        defaultOnlyAssignedDesc: 'Keď je zapnuté, filter „Len priradené" v rade agenta bude automaticky zaškrtnutý pri každom prihlásení agenta do tejto misie.',
         assignedOperators: 'Priradení operátori',
         assignedOperatorsDesc: 'Vyberte operátorov, ktorí budú pracovať na tejto kampani',
         noOperatorsAvailable: 'Žiadni operátori nie sú k dispozícii. Najprv vytvorte používateľov s rolou "Call Center".',
@@ -21587,6 +21593,8 @@ export const translations: Record<Locale, Translations> = {
         queueDisplayModeDesc: 'Vyberte, co se zobrazí ve sloupci „Krok" plánované fronty.',
         queueDisplayModeStep: 'Zobrazit aktuální krok scriptu',
         queueDisplayModeLastStatus: 'Zobrazit poslední zadaný status',
+        defaultOnlyAssignedTitle: 'Výchozí filtr „Pouze přiřazené"',
+        defaultOnlyAssignedDesc: 'Pokud je zapnuto, filtr „Pouze přiřazené" ve frontě agenta bude automaticky zaškrtnut při každém přihlášení agenta do této mise.',
         assignedOperators: 'Přiřazení operátoři',
         assignedOperatorsDesc: 'Vyberte operátory, kteří budou pracovat na této kampani',
         noOperatorsAvailable: 'Žádní operátoři nejsou k dispozici. Nejprve vytvořte uživatele s rolí "Call Center".',
