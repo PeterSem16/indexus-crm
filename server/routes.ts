@@ -29779,6 +29779,22 @@ Rules:
       needHelp: "Potrebujete pomoc?", needHelpDesc: "Kontaktujte administr\u00e1tora alebo nap\u00ed\u0161te na ",
       footerGenerated: "Automaticky vygenerovan\u00e9 syst\u00e9mom",
       emailSubjectPrefix: "INDEXUS CRM - Vitajte",
+      pulseLabel: "Pracovisko agenta", pulseRoleBadge: "Agent / Reprezentant",
+      pulseIntro: "Ako agent alebo reprezentant bud\u00edte pracova\u0165 v prostred\u00ed NEXUS Pulse \u2014 agentskom pracovisku pre riadenie hovorov, kampa\u0148\u00ed a zmien. Ni\u017e\u0161ie n\u00e1jdete z\u00e1kladn\u00e9 inform\u00e1cie pre r\u00fdchly \u0161tart.",
+      pulseLoginTitle: "Prihl\u00e1senie do Pulse",
+      pulseLoginStep1: "1. Otvorte INDEXUS a v \u013eavom menu kliknite na <strong style=\"color:#D4AF37;\">NEXUS Pulse</strong>.",
+      pulseLoginStep2: "2. Vyberte kampa\u0148 a kliknite <strong style=\"color:#D4AF37;\">Za\u010da\u0165 zmenu</strong>.",
+      pulseLoginStep3: "3. Po ukon\u010den\u00ed zmeny kliknite <strong style=\"color:#D4AF37;\">Ukon\u010di\u0165 zmenu</strong> \u2014 syst\u00e9m zaznamena odpracovan\u00fd \u010das.",
+      pulseBreaksTitle: "Typy prest\u00e1vok",
+      pulseBreak1Name: "Kr\u00e1tka prest\u00e1vka", pulseBreak1Desc: "5\u201315 min \u2014 k\u00e1va, WC",
+      pulseBreak2Name: "Obed", pulseBreak2Desc: "30 min \u2014 obedn\u00e1 prest\u00e1vka",
+      pulseBreak3Name: "Tr\u00e9ning", pulseBreak3Desc: "\u0160kolenie alebo kou\u010ding",
+      pulseBreak4Name: "Tech. probl\u00e9m", pulseBreak4Desc: "V\u00fdpadok linky alebo PC",
+      pulseForwardTitle: "Presmerovanie hovorov",
+      pulseForwardStep1: "1. Kliknite na v\u00e1\u0161 avatar vpravo hore \u2192 <strong style=\"color:#D4AF37;\">Profil</strong>.",
+      pulseForwardStep2: "2. Prejdite na z\u00e1lo\u017eku <strong style=\"color:#D4AF37;\">Presmerovanie hovorov</strong>.",
+      pulseForwardStep3: "3. Zadajte mobiln\u00e9 \u010d\u00edslo a aktivujte prep\u00edna\u010d \u2014 prich\u00e1dzaj\u00face hovory bud\u00fa presmerovan\u00e9 na v\u00e1\u0161 mobil.",
+      pulseForwardNote: "Presmerovanie aktivujte iba ke\u010f nie ste pri po\u010d\u00edta\u010di. Ke\u010f ste v syst\u00e9me prihl\u00e1sen\u00fd, hovory id\u00fa cez SIP linku.",
     },
     cs: {
       lang: "cs", welcome: "V\u00edtejte", greeting: "Dobr\u00fd den",
@@ -29815,6 +29831,22 @@ Rules:
       needHelp: "Pot\u0159ebujete pomoc?", needHelpDesc: "Kontaktujte administr\u00e1tora nebo napi\u0161te na ",
       footerGenerated: "Automaticky vygenerov\u00e1no syst\u00e9mem",
       emailSubjectPrefix: "INDEXUS CRM - V\u00edtejte",
+      pulseLabel: "Pracovi\u0161t\u011b agenta", pulseRoleBadge: "Agent / Reprezentant",
+      pulseIntro: "Jako agent nebo reprezentant budete pracovat v prost\u0159ed\u00ed NEXUS Pulse \u2014 agentsk\u00e9m pracovi\u0161ti pro \u0159\u00edzen\u00ed hovor\u016f, kampa\u0148\u00ed a sm\u011bn. N\u00ed\u017ee najdete z\u00e1kladn\u00ed informace pro rychl\u00fd start.",
+      pulseLoginTitle: "P\u0159ihl\u00e1\u0161en\u00ed do Pulse",
+      pulseLoginStep1: "1. Otev\u0159ete INDEXUS a v lev\u00e9m menu klikn\u011bte na <strong style=\"color:#D4AF37;\">NEXUS Pulse</strong>.",
+      pulseLoginStep2: "2. Vyberte kampa\u0148 a klikn\u011bte <strong style=\"color:#D4AF37;\">Zahájit sm\u011bnu</strong>.",
+      pulseLoginStep3: "3. Po ukon\u010den\u00ed sm\u011bny klikn\u011bte <strong style=\"color:#D4AF37;\">Ukon\u010dit sm\u011bnu</strong> \u2014 syst\u00e9m zaznamená odpracovaný \u010das.",
+      pulseBreaksTitle: "Typy p\u0159est\u00e1vek",
+      pulseBreak1Name: "Kr\u00e1tk\u00e1 p\u0159est\u00e1vka", pulseBreak1Desc: "5\u201315 min \u2014 k\u00e1va, WC",
+      pulseBreak2Name: "Ob\u011bd", pulseBreak2Desc: "30 min \u2014 ob\u011bdov\u00e1 p\u0159est\u00e1vka",
+      pulseBreak3Name: "Tr\u00e9nink", pulseBreak3Desc: "\u0160kolen\u00ed nebo kou\u010dink",
+      pulseBreak4Name: "Tech. probl\u00e9m", pulseBreak4Desc: "V\u00fdpadek linky nebo PC",
+      pulseForwardTitle: "P\u0159esm\u011brov\u00e1n\u00ed hovor\u016f",
+      pulseForwardStep1: "1. Klikn\u011bte na sv\u016fj avatar vpravo naho\u0159e \u2192 <strong style=\"color:#D4AF37;\">Profil</strong>.",
+      pulseForwardStep2: "2. P\u0159ejd\u011bte na z\u00e1lo\u017eku <strong style=\"color:#D4AF37;\">P\u0159esm\u011brov\u00e1n\u00ed hovor\u016f</strong>.",
+      pulseForwardStep3: "3. Zadejte mobiln\u00ed \u010d\u00edslo a aktivujte p\u0159ep\u00edna\u010d \u2014 p\u0159\u00edchoz\u00ed hovory budou p\u0159esm\u011brov\u00e1ny na v\u00e1\u0161 mobil.",
+      pulseForwardNote: "P\u0159esm\u011brov\u00e1n\u00ed aktivujte pouze kdy\u017e nejste u po\u010d\u00edta\u010de. Kdy\u017e jste p\u0159ihl\u00e1\u0161eni v syst\u00e9mu, hovory jdou p\u0159es SIP linku.",
     },
     ro: {
       lang: "ro", welcome: "Bine a\u021bi venit", greeting: "Bun\u0103 ziua",
@@ -29851,6 +29883,22 @@ Rules:
       needHelp: "Ave\u021bi nevoie de ajutor?", needHelpDesc: "Contacta\u021bi administratorul sau scrie\u021bi la ",
       footerGenerated: "Generat automat de sistemul",
       emailSubjectPrefix: "INDEXUS CRM - Bine a\u021bi venit",
+      pulseLabel: "Spa\u021biu de lucru agent", pulseRoleBadge: "Agent / Reprezentant",
+      pulseIntro: "Ca agent sau reprezentant ve\u021bi lucra \u00een mediul NEXUS Pulse \u2014 spa\u021biul de lucru pentru gestionarea apelurilor, campaniilor \u015fi schimburilor. Mai jos g\u0103si\u021bi informa\u021biile de baz\u0103 pentru un start rapid.",
+      pulseLoginTitle: "Autentificare \u00een Pulse",
+      pulseLoginStep1: "1. Deschide\u021bi INDEXUS \u015fi \u00een meniul din st\u00e2nga face\u021bi clic pe <strong style=\"color:#D4AF37;\">NEXUS Pulse</strong>.",
+      pulseLoginStep2: "2. Selecta\u021bi campania \u015fi face\u021bi clic pe <strong style=\"color:#D4AF37;\">\u00cencepe\u021bi schimbul</strong>.",
+      pulseLoginStep3: "3. La sf\u00e2r\u015fitul schimbului face\u021bi clic pe <strong style=\"color:#D4AF37;\">\u00cencheia\u021bi schimbul</strong> \u2014 sistemul \u00eenregistreaz\u0103 orele lucrate.",
+      pulseBreaksTitle: "Tipuri de pauz\u0103",
+      pulseBreak1Name: "Pauz\u0103 scurt\u0103", pulseBreak1Desc: "5\u201315 min \u2014 cafea, WC",
+      pulseBreak2Name: "Pranz", pulseBreak2Desc: "30 min \u2014 pauz\u0103 de pr\u00e2nz",
+      pulseBreak3Name: "Training", pulseBreak3Desc: "Instruire sau coaching",
+      pulseBreak4Name: "Probl. tehnic\u0103", pulseBreak4Desc: "C\u0103dere linie sau PC",
+      pulseForwardTitle: "Redirijare apeluri",
+      pulseForwardStep1: "1. Face\u021bi clic pe avatarul dvs. dreapta sus \u2192 <strong style=\"color:#D4AF37;\">Profil</strong>.",
+      pulseForwardStep2: "2. Merge\u021bi la fila <strong style=\"color:#D4AF37;\">Redirijare apeluri</strong>.",
+      pulseForwardStep3: "3. Introduce\u021bi num\u0103rul de mobil \u015fi activa\u021bi comutatorul \u2014 apelurile primite vor fi redirijate.",
+      pulseForwardNote: "Activa\u021bi redirijarea numai c\u00e2nd nu sunte\u021bi la calculator. C\u00e2nd sunte\u021bi autentificat, apelurile merg prin linia SIP.",
     },
     hu: {
       lang: "hu", welcome: "\u00dcdv\u00f6z\u00f6lj\u00fck", greeting: "J\u00f3 napot",
@@ -29887,6 +29935,22 @@ Rules:
       needHelp: "Seg\u00edts\u00e9gre van sz\u00fcks\u00e9ge?", needHelpDesc: "L\u00e9pjen kapcsolatba az adminisztr\u00e1torral, vagy \u00edrjon a ",
       footerGenerated: "Automatikusan gener\u00e1lta a rendszer:",
       emailSubjectPrefix: "INDEXUS CRM - \u00dcdv\u00f6z\u00f6lj\u00fck",
+      pulseLabel: "\u00dcgyn\u00f6ki munkahely", pulseRoleBadge: "\u00dcgyn\u00f6k / K\u00e9pvisel\u0151",
+      pulseIntro: "\u00dcgyn\u00f6kk\u00e9nt vagy k\u00e9pvisel\u0151k\u00e9nt a NEXUS Pulse k\u00f6rnyezetben fog dolgozni \u2014 ez az h\u00edv\u00e1sok, kamp\u00e1nyok \u00e9s m\u0171szakok kezel\u00e9s\u00e9re szolg\u00e1l\u00f3 \u00fcgyn\u00f6ki munkahely. Alul tal\u00e1lja a gyors induláshoz sz\u00fcks\u00e9ges alapinform\u00e1ci\u00f3kat.",
+      pulseLoginTitle: "Bejelentkez\u00e9s a Pulse-ba",
+      pulseLoginStep1: "1. Nyissa meg az INDEXUS-t, majd a bal oldali men\u00fcben kattintson a <strong style=\"color:#D4AF37;\">NEXUS Pulse</strong> elemre.",
+      pulseLoginStep2: "2. V\u00e1lasszon kamp\u00e1nyt, majd kattintson a <strong style=\"color:#D4AF37;\">M\u0171szak ind\u00edt\u00e1sa</strong> gombra.",
+      pulseLoginStep3: "3. A m\u0171szak v\u00e9g\u00e9n kattintson a <strong style=\"color:#D4AF37;\">M\u0171szak befejez\u00e9se</strong> gombra \u2014 a rendszer r\u00f6gz\u00edti a ledolgozott id\u0151t.",
+      pulseBreaksTitle: "Sz\u00fcnetek t\u00edpusai",
+      pulseBreak1Name: "R\u00f6vid sz\u00fcnet", pulseBreak1Desc: "5\u201315 perc \u2014 k\u00e1v\u00e9, WC",
+      pulseBreak2Name: "Eb\u00e9d", pulseBreak2Desc: "30 perc \u2014 eb\u00e9dszünet",
+      pulseBreak3Name: "Tr\u00e9ning", pulseBreak3Desc: "K\u00e9pz\u00e9s vagy coaching",
+      pulseBreak4Name: "Tech. probl\u00e9ma", pulseBreak4Desc: "Vonalhibaoder PC-hiba",
+      pulseForwardTitle: "H\u00edv\u00e1s\u00e1tir\u00e1ny\u00edt\u00e1s",
+      pulseForwardStep1: "1. Kattintson az avatarj\u00e1ra jobb fent \u2192 <strong style=\"color:#D4AF37;\">Profil</strong>.",
+      pulseForwardStep2: "2. Menjen a <strong style=\"color:#D4AF37;\">H\u00edv\u00e1s\u00e1tir\u00e1ny\u00edt\u00e1s</strong> f\u00fclre.",
+      pulseForwardStep3: "3. Adja meg mobilsz\u00e1m\u00e1t \u00e9s kapcsolja be a kapcsol\u00f3t \u2014 a bej\u00f6v\u0151 h\u00edv\u00e1sok \u00e1tir\u00e1ny\u00edtódnak a mobiljára.",
+      pulseForwardNote: "Csak akkor aktiválja az átirányt\u00edtást, ha nem tartózkodik a sz\u00e1m\u00edt\u00f3g\u00e9pnél. Ha be van jelentkezve a rendszerbe, a hívások a SIP vonalon mennek.",
     },
     it: {
       lang: "it", welcome: "Benvenuto", greeting: "Buongiorno",
@@ -29923,6 +29987,22 @@ Rules:
       needHelp: "Ha bisogno di aiuto?", needHelpDesc: "Contatti l'amministratore o scriva a ",
       footerGenerated: "Generato automaticamente dal sistema",
       emailSubjectPrefix: "INDEXUS CRM - Benvenuto",
+      pulseLabel: "Postazione agente", pulseRoleBadge: "Agente / Rappresentante",
+      pulseIntro: "Come agente o rappresentante lavorerete nell'ambiente NEXUS Pulse \u2014 la postazione per la gestione delle chiamate, delle campagne e dei turni. Di seguito troverete le informazioni di base per un avvio rapido.",
+      pulseLoginTitle: "Accesso a Pulse",
+      pulseLoginStep1: "1. Aprire INDEXUS e nel menu di sinistra fare clic su <strong style=\"color:#D4AF37;\">NEXUS Pulse</strong>.",
+      pulseLoginStep2: "2. Selezionare la campagna e fare clic su <strong style=\"color:#D4AF37;\">Avvia turno</strong>.",
+      pulseLoginStep3: "3. Al termine del turno fare clic su <strong style=\"color:#D4AF37;\">Termina turno</strong> \u2014 il sistema registra le ore lavorate.",
+      pulseBreaksTitle: "Tipi di pausa",
+      pulseBreak1Name: "Pausa breve", pulseBreak1Desc: "5\u201315 min \u2014 caff\u00e8, WC",
+      pulseBreak2Name: "Pranzo", pulseBreak2Desc: "30 min \u2014 pausa pranzo",
+      pulseBreak3Name: "Formazione", pulseBreak3Desc: "Training o coaching",
+      pulseBreak4Name: "Probl. tecnico", pulseBreak4Desc: "Guasto linea o PC",
+      pulseForwardTitle: "Inoltro chiamate",
+      pulseForwardStep1: "1. Fare clic sul proprio avatar in alto a destra \u2192 <strong style=\"color:#D4AF37;\">Profilo</strong>.",
+      pulseForwardStep2: "2. Andare alla scheda <strong style=\"color:#D4AF37;\">Inoltro chiamate</strong>.",
+      pulseForwardStep3: "3. Inserire il numero di cellulare e attivare l'interruttore \u2014 le chiamate in arrivo verranno inoltrate al cellulare.",
+      pulseForwardNote: "Attivare l'inoltro solo quando non si \u00e8 al computer. Quando si \u00e8 connessi al sistema, le chiamate passano attraverso la linea SIP.",
     },
     de: {
       lang: "de", welcome: "Willkommen", greeting: "Guten Tag",
@@ -29959,6 +30039,22 @@ Rules:
       needHelp: "Brauchen Sie Hilfe?", needHelpDesc: "Kontaktieren Sie den Administrator oder schreiben Sie an ",
       footerGenerated: "Automatisch generiert vom System",
       emailSubjectPrefix: "INDEXUS CRM - Willkommen",
+      pulseLabel: "Agenten-Arbeitsplatz", pulseRoleBadge: "Agent / Repr\u00e4sentant",
+      pulseIntro: "Als Agent oder Repr\u00e4sentant arbeiten Sie in der NEXUS Pulse-Umgebung \u2014 dem Agenten-Arbeitsplatz f\u00fcr die Verwaltung von Anrufen, Kampagnen und Schichten. Nachfolgend finden Sie die grundlegenden Informationen f\u00fcr einen schnellen Einstieg.",
+      pulseLoginTitle: "Anmeldung in Pulse",
+      pulseLoginStep1: "1. \u00d6ffnen Sie INDEXUS und klicken Sie im linken Men\u00fc auf <strong style=\"color:#D4AF37;\">NEXUS Pulse</strong>.",
+      pulseLoginStep2: "2. W\u00e4hlen Sie eine Kampagne und klicken Sie auf <strong style=\"color:#D4AF37;\">Schicht starten</strong>.",
+      pulseLoginStep3: "3. Am Ende der Schicht klicken Sie auf <strong style=\"color:#D4AF37;\">Schicht beenden</strong> \u2014 das System erfasst die geleistete Arbeitszeit.",
+      pulseBreaksTitle: "Pausentypen",
+      pulseBreak1Name: "Kurze Pause", pulseBreak1Desc: "5\u201315 Min \u2014 Kaffee, WC",
+      pulseBreak2Name: "Mittagspause", pulseBreak2Desc: "30 Min \u2014 Mittagspause",
+      pulseBreak3Name: "Training", pulseBreak3Desc: "Schulung oder Coaching",
+      pulseBreak4Name: "Tech. Problem", pulseBreak4Desc: "Leitungsausfall oder PC-Fehler",
+      pulseForwardTitle: "Anrufweiterleitung",
+      pulseForwardStep1: "1. Klicken Sie auf Ihren Avatar oben rechts \u2192 <strong style=\"color:#D4AF37;\">Profil</strong>.",
+      pulseForwardStep2: "2. Wechseln Sie zur Registerkarte <strong style=\"color:#D4AF37;\">Anrufweiterleitung</strong>.",
+      pulseForwardStep3: "3. Geben Sie Ihre Mobilnummer ein und aktivieren Sie den Schalter \u2014 eingehende Anrufe werden an Ihr Handy weitergeleitet.",
+      pulseForwardNote: "Aktivieren Sie die Weiterleitung nur, wenn Sie nicht am Computer sind. Wenn Sie im System angemeldet sind, gehen Anrufe \u00fcber die SIP-Leitung.",
     },
     en: {
       lang: "en", welcome: "Welcome", greeting: "Hello",
@@ -29995,6 +30091,22 @@ Rules:
       needHelp: "Need help?", needHelpDesc: "Contact your administrator or write to ",
       footerGenerated: "Automatically generated by",
       emailSubjectPrefix: "INDEXUS CRM - Welcome",
+      pulseLabel: "Agent Workspace", pulseRoleBadge: "Agent / Representative",
+      pulseIntro: "As an agent or representative you will work in the NEXUS Pulse environment \u2014 the agent workspace for managing calls, campaigns and shifts. Below you will find the basic information for a quick start.",
+      pulseLoginTitle: "Logging into Pulse",
+      pulseLoginStep1: "1. Open INDEXUS and in the left menu click on <strong style=\"color:#D4AF37;\">NEXUS Pulse</strong>.",
+      pulseLoginStep2: "2. Select a campaign and click <strong style=\"color:#D4AF37;\">Start Shift</strong>.",
+      pulseLoginStep3: "3. At the end of the shift click <strong style=\"color:#D4AF37;\">End Shift</strong> \u2014 the system records your working hours.",
+      pulseBreaksTitle: "Break types",
+      pulseBreak1Name: "Short break", pulseBreak1Desc: "5\u201315 min \u2014 coffee, WC",
+      pulseBreak2Name: "Lunch", pulseBreak2Desc: "30 min \u2014 lunch break",
+      pulseBreak3Name: "Training", pulseBreak3Desc: "Training or coaching session",
+      pulseBreak4Name: "Tech. issue", pulseBreak4Desc: "Line or PC failure",
+      pulseForwardTitle: "Call forwarding",
+      pulseForwardStep1: "1. Click your avatar top right \u2192 <strong style=\"color:#D4AF37;\">Profile</strong>.",
+      pulseForwardStep2: "2. Go to the <strong style=\"color:#D4AF37;\">Call Forwarding</strong> tab.",
+      pulseForwardStep3: "3. Enter your mobile number and enable the toggle \u2014 incoming calls will be forwarded to your phone.",
+      pulseForwardNote: "Enable forwarding only when you are away from your computer. When logged into the system, calls go through your SIP line.",
     },
   };
 
@@ -30035,6 +30147,34 @@ Rules:
     } else {
       html = html.replace(/<!-- IF_MS365 -->[\s\S]*?<!-- ENDIF_MS365 -->/g, "");
       html = html.replace(/<!-- IF_LOCAL -->/g, "").replace(/<!-- ENDIF_LOCAL -->/g, "");
+    }
+
+    // Detect if user is a NEXUS Pulse user (call center agent or representative)
+    let isPulseUser = false;
+    if (user.roleId) {
+      try {
+        const userRole = await storage.getRole(user.roleId);
+        if (userRole && (userRole.department === "sales" || userRole.department === "customer_service")) {
+          isPulseUser = true;
+        }
+        // Also check by role name keywords
+        if (!isPulseUser && userRole && userRole.name) {
+          const roleName = userRole.name.toLowerCase();
+          if (roleName.includes("agent") || roleName.includes("represent") || roleName.includes("pulse")) {
+            isPulseUser = true;
+          }
+        }
+      } catch (_) {}
+    }
+    // Fallback: SIP-enabled users are typically agents
+    if (!isPulseUser && (user as any).sipEnabled) {
+      isPulseUser = true;
+    }
+
+    if (isPulseUser) {
+      html = html.replace(/<!-- IF_PULSE_USER -->/g, "").replace(/<!-- ENDIF_PULSE_USER -->/g, "");
+    } else {
+      html = html.replace(/<!-- IF_PULSE_USER -->[\s\S]*?<!-- ENDIF_PULSE_USER -->/g, "");
     }
 
     const loginUsername = user.username || user.email;
