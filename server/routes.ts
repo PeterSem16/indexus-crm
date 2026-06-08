@@ -21786,39 +21786,60 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.post("/api/roles", requireAuth, async (req, res) => {
     try {
-      const { modulePermissions, fieldPermissions, ...roleData } = req.body;
+      const { modulePermissions, fieldPermissions, id: _bodyId, ...roleData } = req.body;
       
       const validatedRole = insertRoleSchema.parse({
         ...roleData,
         createdBy: req.session.user!.id,
       });
       
-      const role = await storage.createRole(validatedRole);
-      
-      if (modulePermissions && modulePermissions.length > 0) {
-        const validModulePerms = modulePermissions.map((p: any) => ({
-          roleId: role.id,
-          moduleKey: p.moduleKey,
-          access: p.access,
-          canAdd: p.canAdd ?? true,
-          canEdit: p.canEdit ?? true,
-        }));
-        await storage.setRoleModulePermissions(role.id, validModulePerms);
+      let role: any;
+      let wasUpdated = false;
+      try {
+        role = await storage.createRole(validatedRole);
+      } catch (createErr: any) {
+        // Duplicate name — find existing role and update it instead
+        if (createErr?.code === "23505" && createErr?.constraint === "roles_name_unique") {
+          const allRoles = await storage.getAllRoles();
+          const existing = allRoles.find(r => r.name === validatedRole.name);
+          if (existing) {
+            const { name: _n, createdBy: _cb, ...updateData } = validatedRole as any;
+            role = await storage.updateRole(existing.id, updateData);
+            wasUpdated = true;
+          } else {
+            throw createErr;
+          }
+        } else {
+          throw createErr;
+        }
       }
-      
-      if (fieldPermissions && fieldPermissions.length > 0) {
-        const validFieldPerms = fieldPermissions.map((p: any) => ({
-          roleId: role.id,
-          moduleKey: p.moduleKey,
-          fieldKey: p.fieldKey,
-          permission: p.permission,
-        }));
-        await storage.setRoleFieldPermissions(role.id, validFieldPerms);
+
+      if (!wasUpdated) {
+        if (modulePermissions && modulePermissions.length > 0) {
+          const validModulePerms = modulePermissions.map((p: any) => ({
+            roleId: role.id,
+            moduleKey: p.moduleKey,
+            access: p.access,
+            canAdd: p.canAdd ?? true,
+            canEdit: p.canEdit ?? true,
+          }));
+          await storage.setRoleModulePermissions(role.id, validModulePerms);
+        }
+        
+        if (fieldPermissions && fieldPermissions.length > 0) {
+          const validFieldPerms = fieldPermissions.map((p: any) => ({
+            roleId: role.id,
+            moduleKey: p.moduleKey,
+            fieldKey: p.fieldKey,
+            permission: p.permission,
+          }));
+          await storage.setRoleFieldPermissions(role.id, validFieldPerms);
+        }
       }
 
       await logActivity(
         req.session.user!.id,
-        "created_role",
+        wasUpdated ? "updated_role" : "created_role",
         "role",
         role.id,
         role.name,
@@ -21826,7 +21847,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         req.ip
       );
       
-      res.status(201).json(role);
+      res.status(wasUpdated ? 200 : 201).json(role);
     } catch (error) {
       console.error("Failed to create role:", error);
       res.status(500).json({ error: "Failed to create role" });

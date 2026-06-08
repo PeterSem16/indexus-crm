@@ -1,0 +1,60 @@
+lUIiO6E2FZLHpMAQrLgABZH9I1gAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+4|indexus-crm  | [REQUEST] POST /api/roles | session: 67467ce3-7a44-4f67-a3d3-6a251e2991e5 | body-keys: name,description,department,defaultLandingPage,isActive
+4|indexus-crm  | Failed to create role: error: duplicate key value violates unique constraint "roles_name_unique"
+4|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus-crm  |     at async /var/www/indexus-crm/dist/index.cjs:70:38119
+4|indexus-crm  |     at async fI.createRole (/var/www/indexus-crm/dist/index.cjs:177:13201)
+4|indexus-crm  |     at async /var/www/indexus-crm/dist/index.cjs:1123:51571 {
+4|indexus-crm  |   length: 207,
+4|indexus-crm  |   severity: 'ERROR',
+4|indexus-crm  |   code: '23505',
+4|indexus-crm  |   detail: 'Key (name)=(Representant) already exists.',
+4|indexus-crm  |   hint: undefined,
+4|indexus-crm  |   position: undefined,
+4|indexus-crm  |   internalPosition: undefined,
+4|indexus-crm  |   internalQuery: undefined,
+4|indexus-crm  |   where: undefined,
+4|indexus-crm  |   schema: 'public',
+4|indexus-crm  |   table: 'roles',
+4|indexus-crm  |   column: undefined,
+4|indexus-crm  |   dataType: undefined,
+4|indexus-crm  |   constraint: 'roles_name_unique',
+4|indexus-crm  |   file: 'nbtinsert.c',
+4|indexus-crm  |   line: '666',
+4|indexus-crm  |   routine: '_bt_check_unique'
+4|indexus-crm  | }
+4|indexus-crm  | 10:50:35 AM [express] POST /api/roles 500 in 6ms :: {"error":"Failed to create role"}
+4|indexus-crm  | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABZH9I1gAAAA==: sentiment=neutral, alert=none
+4|indexus-crm  | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABZH9I0QAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+4|indexus-crm  | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABZH9I0QAAAA==: sentiment=neutral, alert=none
+4|indexus-crm  | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABZH9I0AAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+4|indexus-crm  | [REQUEST] POST /api/roles | session: 67467ce3-7a44-4f67-a3d3-6a251e2991e5 | body-keys: name,description,department,defaultLandingPage,isActive
+4|indexus-crm  | Failed to create role: error: duplicate key value violates unique constraint "roles_name_unique"
+4|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus-crm  |     at async /var/www/indexus-crm/dist/index.cjs:70:38119
+4|indexus-crm  |     at async fI.createRole (/var/www/indexus-crm/dist/index.cjs:177:13201)
+4|indexus-crm  |     at async /var/www/indexus-crm/dist/index.cjs:1123:51571 {
+4|indexus-crm  |   length: 207,
+4|indexus-crm  |   severity: 'ERROR',
+4|indexus-crm  |   code: '23505',
+4|indexus-crm  |   detail: 'Key (name)=(Representant) already exists.',
+4|indexus-crm  |   hint: undefined,
+4|indexus-crm  |   position: undefined,
+4|indexus-crm  |   internalPosition: undefined,
+4|indexus-crm  |   internalQuery: undefined,
+4|indexus-crm  |   where: undefined,
+4|indexus-crm  |   schema: 'public',
+4|indexus-crm  |   table: 'roles',
+4|indexus-crm  |   column: undefined,
+4|indexus-crm  |   dataType: undefined,
+4|indexus-crm  |   constraint: 'roles_name_unique',
+4|indexus-crm  |   file: 'nbtinsert.c',
+4|indexus-crm  |   line: '666',
+4|indexus-crm  |   routine: '_bt_check_unique'
+4|indexus-crm  | }
+4|indexus-crm  | 10:50:39 AM [express] POST /api/roles 500 in 6ms :: {"error":"Failed to create role"}
+4|indexus-crm  | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABZH9I0AAAAA==: sentiment=neutral, alert=none
+4|indexus-crm  | [EmailMonitor] Analyzing new email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABZH9IzwAAAA== for user 7ac88279-644f-42f3-b16e-35ad9f404dee
+4|indexus-crm  | [EmailMonitor] Email AQMkADUyMGI2YWQ0LTY5MTItNDA4Mi05NzMyLTZkYWEAMmJjYTgwZGIARgAAA3XyZmkBLMJIs2P1FjLJxd4HANkxX9rwbiVAuQzewxUxe0IAAANvAAAAiXWlUIiO6E2FZLHpMAQrLgABZH9IzwAAAA==: sentiment=neutral, alert=none
