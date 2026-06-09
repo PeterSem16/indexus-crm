@@ -751,6 +751,8 @@ function TaskListPanel({
   contactsDisabled,
   callContactId,
   callIsActive,
+  inboundCallbacks,
+  onMarkInboundCallbackDone,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -779,6 +781,8 @@ function TaskListPanel({
   contactsDisabled?: boolean;
   callContactId?: string | null;
   callIsActive?: boolean;
+  inboundCallbacks?: InboundCb[];
+  onMarkInboundCallbackDone?: (id: number) => void;
 }) {
   const { t } = useI18n();
   const filteredCampaigns = useMemo(() => {
@@ -1135,7 +1139,7 @@ function TaskListPanel({
                   },
                 ].filter(g => g.items.length > 0);
 
-                if (contactGroups.length === 0) {
+                if (contactGroups.length === 0 && (!inboundCallbacks || inboundCallbacks.length === 0)) {
                   return (
                     <div className="text-center py-6">
                       <Users className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
@@ -1143,6 +1147,7 @@ function TaskListPanel({
                     </div>
                   );
                 }
+                if (contactGroups.length === 0) return null;
 
                 const typeIconMap: Record<string, typeof User> = {
                   hospital: Building2,
@@ -1286,6 +1291,94 @@ function TaskListPanel({
               })()}
             </div>
           </ScrollArea>
+        </div>
+      )}
+
+      {/* Mimo misie — out-of-mission inbound callbacks */}
+      {inboundCallbacks && inboundCallbacks.length > 0 && (
+        <div className="border-t px-2 py-2 shrink-0">
+          {(() => {
+            const ac = "#C45A11";
+            const isOpen = expandedGroups.has("mimo-misie");
+            return (
+              <div
+                className="rounded-2xl overflow-hidden"
+                style={{ background: "hsl(var(--card))", border: `1.5px solid ${ac}40`, boxShadow: `0 2px 10px ${ac}15` }}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleGroup("mimo-misie")}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors duration-150"
+                  style={{ background: isOpen ? `${ac}14` : `${ac}08`, borderBottom: isOpen ? `1px solid ${ac}30` : "none" }}
+                >
+                  <div className="h-9 w-9 rounded-2xl flex items-center justify-center shrink-0" style={{ background: ac, boxShadow: `0 2px 6px ${ac}40` }}>
+                    <PhoneIncoming className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-xs text-foreground">Mimo misie</div>
+                    <div className="text-[10px] mt-0.5 text-muted-foreground">{inboundCallbacks.length} {inboundCallbacks.length === 1 ? "callback" : inboundCallbacks.length >= 2 && inboundCallbacks.length <= 4 ? "callbacky" : "callbackov"}</div>
+                  </div>
+                  <span className="text-xs font-bold min-w-[26px] h-6 flex items-center justify-center rounded-full px-1.5 shrink-0" style={{ background: ac, color: "#fff" }}>
+                    {inboundCallbacks.length}
+                  </span>
+                  {isOpen ? <ChevronUp className="h-3.5 w-3.5 shrink-0" style={{ color: ac }} /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: ac }} />}
+                </button>
+                {isOpen && (
+                  <div className="p-2 space-y-1.5" style={{ background: "hsl(var(--card))" }}>
+                    {inboundCallbacks.map(cb => {
+                      const cbDate = cb.callbackDate ? format(new Date(cb.callbackDate), "dd.MM. HH:mm") : null;
+                      const isOverdue = cb.callbackDate && new Date(cb.callbackDate) < new Date();
+                      return (
+                        <div
+                          key={cb.id}
+                          className="rounded-xl px-2.5 py-2 transition-all duration-200"
+                          style={{ background: "hsl(var(--background))", border: `1px solid ${ac}25`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
+                          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${ac}60`; el.style.boxShadow = `0 4px 10px ${ac}18`; }}
+                          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${ac}25`; el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)"; }}
+                          data-testid={`inbound-cb-item-${cb.id}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ background: `${ac}15`, border: `1.5px solid ${ac}30` }}>
+                              <PhoneIncoming className="h-3.5 w-3.5" style={{ color: ac }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>{cb.name || cb.phone}</p>
+                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                {cb.name && <span className="text-[10px] text-muted-foreground truncate">{cb.phone}</span>}
+                                {cbDate && (
+                                  <>
+                                    <Calendar className="h-2.5 w-2.5 shrink-0" style={{ color: isOverdue ? "#ef4444" : "currentColor" }} />
+                                    <span className="text-[10px]" style={{ color: isOverdue ? "#ef4444" : "hsl(var(--muted-foreground))" }}>{cbDate}</span>
+                                  </>
+                                )}
+                              </div>
+                              {cb.notes && (
+                                <p className="text-[9px] mt-0.5 truncate italic text-muted-foreground" title={cb.notes}>📝 {cb.notes}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                title="Označiť ako vybavené"
+                                className="h-6 w-6 rounded-lg flex items-center justify-center transition-all duration-150"
+                                style={{ background: "#16a34a20", color: "#16a34a" }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "#16a34a30")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "#16a34a20")}
+                                onClick={e => { e.stopPropagation(); onMarkInboundCallbackDone?.(cb.id); }}
+                                data-testid={`btn-icb-done-${cb.id}`}
+                              >
+                                <Check className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -5278,6 +5371,22 @@ interface ScheduledItem {
   dispositionChecklistCodes?: string[] | null;
   dispositionChecklistNames?: string[] | null;
   campaignQueueDisplayMode?: string | null;
+  isOutsideMission?: boolean;
+  inboundCallbackId?: number;
+}
+
+interface InboundCb {
+  id: number;
+  userId: string;
+  assignedTo: string | null;
+  customerId: string | null;
+  phone: string;
+  name: string | null;
+  campaignId: string | null;
+  callbackDate: string | null;
+  notes: string | null;
+  calledBack: boolean;
+  createdAt: string;
 }
 
 function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onReschedule: (id: string, campaignId: string, newDate: string) => void; t: any }) {
@@ -5733,10 +5842,17 @@ function ScheduledQueuePanel({
                         </div>
 
                         <div className="text-[11px] text-muted-foreground truncate">
-                          <span className="flex items-center gap-1">
-                            <Megaphone className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{item.campaignName}</span>
-                          </span>
+                          {item.isOutsideMission ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
+                              <PhoneIncoming className="h-2.5 w-2.5 shrink-0" />
+                              Mimo misie
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <Megaphone className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{item.campaignName}</span>
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-end gap-0.5">
@@ -5779,12 +5895,18 @@ function ScheduledQueuePanel({
                             t={t}
                             onReschedule={async (contactId, campaignId, newDate) => {
                               try {
-                                await apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}`, {
-                                  callbackDate: newDate,
-                                  status: "callback_scheduled",
-                                });
-                                queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-                                queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
+                                if (item.isOutsideMission && item.inboundCallbackId) {
+                                  await apiRequest("PATCH", `/api/agent/inbound-callbacks/${item.inboundCallbackId}`, { callbackDate: newDate });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/agent/inbound-callbacks"] });
+                                } else {
+                                  await apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}`, {
+                                    callbackDate: newDate,
+                                    status: "callback_scheduled",
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
+                                }
                                 toast({ title: t.agentWorkspace.reschedule, description: format(new Date(newDate), "dd.MM.yyyy HH:mm") });
                               } catch (e) {
                                 toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
@@ -5799,13 +5921,19 @@ function ScheduledQueuePanel({
                             data-testid={`btn-scheduled-cancel-${item.id}`}
                             onClick={async () => {
                               try {
-                                await apiRequest("PATCH", `/api/campaigns/${item.campaignId}/contacts/${item.id}`, {
-                                  status: "pending",
-                                  callbackDate: null,
-                                  assignedTo: null,
-                                });
-                                queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-                                queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
+                                if (item.isOutsideMission && item.inboundCallbackId) {
+                                  await apiRequest("DELETE", `/api/agent/inbound-callbacks/${item.inboundCallbackId}`, {});
+                                  queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/agent/inbound-callbacks"] });
+                                } else {
+                                  await apiRequest("PATCH", `/api/campaigns/${item.campaignId}/contacts/${item.id}`, {
+                                    status: "pending",
+                                    callbackDate: null,
+                                    assignedTo: null,
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", item.campaignId, "contacts"] });
+                                }
                                 toast({ title: t.agentWorkspace.cancelItem, description: t.agentWorkspace.itemCancelled });
                               } catch (e) {
                                 toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
@@ -6258,6 +6386,16 @@ export default function AgentWorkspacePage() {
     const overdue = scheduledQueueItems.filter(item => new Date(item.scheduledAt) < now);
     return { total: scheduledQueueItems.length, overdue: overdue.length };
   }, [scheduledQueueItems]);
+
+  const { data: agentInboundCallbacks = [] } = useQuery<InboundCb[]>({
+    queryKey: ["/api/agent/inbound-callbacks"],
+    queryFn: async () => {
+      const res = await fetch("/api/agent/inbound-callbacks", { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!hasAccess && agentSession.isSessionActive,
+    refetchInterval: 30000,
+  });
 
   useEffect(() => {
     if (quotaCheckIntervalRef.current) {
@@ -7115,6 +7253,24 @@ export default function AgentWorkspacePage() {
         callMeta,
         checklistCodes,
       });
+    }
+
+    // Create out-of-mission inbound callback when: no campaign contact, inbound call, and callback was scheduled
+    if (!effectiveCampaignContactId && wasInboundCallRef.current && callbackDateTime) {
+      const inboundPhone = (callContext.callInfo as any)?.phoneNumber || (currentContact as any)?.phone || "";
+      const inboundName = currentContact ? `${(currentContact as any).firstName || ""} ${(currentContact as any).lastName || ""}`.trim() : "";
+      apiRequest("POST", "/api/agent/inbound-callbacks", {
+        customerId: currentContact?.id ? String(currentContact.id) : undefined,
+        phone: inboundPhone || "unknown",
+        name: inboundName || undefined,
+        campaignId: effectiveCampaignId || undefined,
+        callbackDate: callbackDateTime,
+        assignedTo: callbackAssignedTo || user?.id || undefined,
+        notes: callbackNote || undefined,
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/agent/inbound-callbacks"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+      }).catch(console.error);
     }
 
     toast({
@@ -9019,6 +9175,16 @@ export default function AgentWorkspacePage() {
           contactsDisabled={createFromCallType !== null}
           callContactId={callActiveContactId}
           callIsActive={["active", "on_hold", "connecting", "ringing"].includes(callContext.callState)}
+          inboundCallbacks={agentInboundCallbacks}
+          onMarkInboundCallbackDone={async (id) => {
+            try {
+              await apiRequest("PATCH", `/api/agent/inbound-callbacks/${id}`, { calledBack: true });
+              queryClient.invalidateQueries({ queryKey: ["/api/agent/inbound-callbacks"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+            } catch (e) {
+              console.error("Failed to mark inbound callback done:", e);
+            }
+          }}
         />
 
         {(() => {

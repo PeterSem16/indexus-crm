@@ -7613,3 +7613,21 @@ export const trunks = pgTable("trunks", {
 export const insertTrunkSchema = createInsertSchema(trunks).omit({ id: true, createdAt: true, updatedAt: true });
 export type Trunk = typeof trunks.$inferSelect;
 export type InsertTrunk = z.infer<typeof insertTrunkSchema>;
+
+// =================== Inbound Callbacks (Out-of-Mission) ===================
+export const inboundCallbacks = pgTable("inbound_callbacks", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  assignedTo: text("assigned_to"),
+  customerId: text("customer_id"),
+  phone: text("phone").notNull(),
+  name: text("name"),
+  campaignId: text("campaign_id"),
+  callbackDate: timestamp("callback_date"),
+  notes: text("notes"),
+  calledBack: boolean("called_back").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+export const insertInboundCallbackSchema = createInsertSchema(inboundCallbacks).omit({ id: true, createdAt: true });
+export type InboundCallback = typeof inboundCallbacks.$inferSelect;
+export type InsertInboundCallback = z.infer<typeof insertInboundCallbackSchema>;

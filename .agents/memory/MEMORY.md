@@ -1,3 +1,5 @@
 - [Email template drawer](email-template-drawer.md) — Sheet drawer replaces Dialog for email templates; SYSTEM_VARIABLES uses new {label,color,description,vars[]} structure.
 - [RO inbound audio fix](ro-audio-fix.md) — media_address in pjsip.conf for trunk-ro-endpoint must be 10.1.2.112 (private), not 77.72.181.116 (public); RO nat=always sends RTP to SIP source IP, not SDP IP.
 - [RO hairpin two-signal gate](ro-hairpin-gate.md) — Local;1 ARI bridge must wait for BOTH channel-state-change(Up) AND StasisStart before bridging; Up fires before StasisStart for Local channels.
+- [Queue cache invalidation](queue-cache-invalidation.md) — Reschedule/cancel handlers must use the item's own campaignId, not the outer selectedCampaignId closure variable; inbound callbacks use /api/agent/inbound-callbacks instead of campaigns API.
+- [Inbound callbacks mimo-misie](inbound-callbacks.md) — Out-of-mission callbacks stored in inbound_callbacks table; created automatically in handleDisposition when inbound call + no campaignContactId + callbackDateTime; shown in left panel "Mimo misie" group and queue modal with isOutsideMission flag.

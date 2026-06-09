@@ -54,6 +54,8 @@ import {
   trunks,
   insertTrunkSchema,
   didRoutes,
+  inboundCallbacks,
+  insertInboundCallbackSchema,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -22502,12 +22504,127 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
 
+      // Include inbound callbacks (out-of-mission) in the queue
+      const inboundCbs = await db
+        .select()
+        .from(inboundCallbacks)
+        .where(
+          and(
+            eq(inboundCallbacks.calledBack, false),
+            isNotNull(inboundCallbacks.callbackDate),
+            or(
+              eq(inboundCallbacks.userId, user.id),
+              eq(inboundCallbacks.assignedTo, user.id)
+            )
+          )
+        );
+      for (const cb of inboundCbs) {
+        items.push({
+          id: `icb-${cb.id}`,
+          campaignContactId: "",
+          type: "callback",
+          contactId: cb.customerId || "",
+          contactName: cb.name || cb.phone,
+          contactPhone: cb.phone,
+          contactEmail: "",
+          contactType: "customer",
+          campaignId: cb.campaignId || "",
+          campaignName: "Mimo misie",
+          scheduledAt: cb.callbackDate,
+          notes: cb.notes || "",
+          status: "pending",
+          stepName: null,
+          stepIndex: null,
+          dispositionCode: null,
+          dispositionChecklistCodes: [],
+          isOutsideMission: true,
+          inboundCallbackId: cb.id,
+        });
+      }
+
       items.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-      console.log(`[ScheduledQueue] User ${user.id}: ${scheduledContacts.length} contacts, ${scheduledSessions.length} sessions, ${items.length} total items`);
+      console.log(`[ScheduledQueue] User ${user.id}: ${scheduledContacts.length} contacts, ${scheduledSessions.length} sessions, ${inboundCbs.length} inbound callbacks, ${items.length} total items`);
       res.json(items);
     } catch (error) {
       console.error("Failed to fetch scheduled queue:", error);
       res.status(500).json({ error: "Failed to fetch scheduled queue" });
+    }
+  });
+
+  // =================== Inbound Callbacks (out-of-mission) CRUD ===================
+  app.get("/api/agent/inbound-callbacks", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const rows = await db
+        .select()
+        .from(inboundCallbacks)
+        .where(
+          and(
+            eq(inboundCallbacks.calledBack, false),
+            or(
+              eq(inboundCallbacks.userId, user.id),
+              eq(inboundCallbacks.assignedTo, user.id)
+            )
+          )
+        )
+        .orderBy(asc(inboundCallbacks.callbackDate));
+      res.json(rows);
+    } catch (error) {
+      console.error("Failed to fetch inbound callbacks:", error);
+      res.status(500).json({ error: "Failed to fetch inbound callbacks" });
+    }
+  });
+
+  app.post("/api/agent/inbound-callbacks", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const parsed = insertInboundCallbackSchema.safeParse({ ...req.body, userId: user.id });
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      const [created] = await db.insert(inboundCallbacks).values(parsed.data).returning();
+      res.json(created);
+    } catch (error) {
+      console.error("Failed to create inbound callback:", error);
+      res.status(500).json({ error: "Failed to create inbound callback" });
+    }
+  });
+
+  app.patch("/api/agent/inbound-callbacks/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const id = parseInt(req.params.id, 10);
+      const row = await db.select().from(inboundCallbacks).where(eq(inboundCallbacks.id, id)).limit(1);
+      if (!row.length) return res.status(404).json({ error: "Not found" });
+      if (row[0].userId !== user.id && row[0].assignedTo !== user.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const { calledBack, callbackDate, notes, assignedTo } = req.body;
+      const updates: Partial<typeof inboundCallbacks.$inferInsert> = {};
+      if (calledBack !== undefined) updates.calledBack = Boolean(calledBack);
+      if (callbackDate !== undefined) updates.callbackDate = callbackDate ? new Date(callbackDate) : null;
+      if (notes !== undefined) updates.notes = notes;
+      if (assignedTo !== undefined) updates.assignedTo = assignedTo;
+      const [updated] = await db.update(inboundCallbacks).set(updates).where(eq(inboundCallbacks.id, id)).returning();
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update inbound callback:", error);
+      res.status(500).json({ error: "Failed to update inbound callback" });
+    }
+  });
+
+  app.delete("/api/agent/inbound-callbacks/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const id = parseInt(req.params.id, 10);
+      const row = await db.select().from(inboundCallbacks).where(eq(inboundCallbacks.id, id)).limit(1);
+      if (!row.length) return res.status(404).json({ error: "Not found" });
+      if (row[0].userId !== user.id && row[0].assignedTo !== user.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      await db.delete(inboundCallbacks).where(eq(inboundCallbacks.id, id));
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Failed to delete inbound callback:", error);
+      res.status(500).json({ error: "Failed to delete inbound callback" });
     }
   });
 
