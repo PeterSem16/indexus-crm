@@ -2195,6 +2195,7 @@ export interface Translations {
       keepContactOpenAfterDispositionOn: string;
       keepContactOpenAfterDispositionOff: string;
       acwCloseTask: string;
+      inboundContactLoading: string;
       queueDisplayModeTitle: string;
       queueDisplayModeDesc: string;
       queueDisplayModeStep: string;
@@ -9042,6 +9043,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionOn: 'Enabled — agent closes task manually after ACW',
         keepContactOpenAfterDispositionOff: 'Disabled — task closes automatically after disposition',
         acwCloseTask: 'Close task',
+        inboundContactLoading: 'Loading contact...',
         queueDisplayModeTitle: 'Scheduled Queue Column',
         queueDisplayModeDesc: 'Choose what to display in the "Step" column of the scheduled queue.',
         queueDisplayModeStep: 'Show current script step',
@@ -15387,6 +15389,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionOn: 'Zapnuté — agent uzavrie task manuálne po ACW',
         keepContactOpenAfterDispositionOff: 'Vypnuté — task sa uzavrie automaticky po dispozícii',
         acwCloseTask: 'Zatvoriť task',
+        inboundContactLoading: 'Kontakt sa načítava...',
         queueDisplayModeTitle: 'Stĺpec plánovanej fronty',
         queueDisplayModeDesc: 'Vyberte, čo sa zobrazí v stĺpci „Krok" plánovanej fronty.',
         queueDisplayModeStep: 'Zobraziť aktuálny krok scriptu',
@@ -21670,6 +21673,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionOn: 'Zapnuto — agent uzavře task manuálně po ACW',
         keepContactOpenAfterDispositionOff: 'Vypnuto — task se uzavře automaticky po dispozici',
         acwCloseTask: 'Zavřít task',
+        inboundContactLoading: 'Načítání kontaktu...',
         queueDisplayModeTitle: 'Sloupec plánované fronty',
         queueDisplayModeDesc: 'Vyberte, co se zobrazí ve sloupci „Krok" plánované fronty.',
         queueDisplayModeStep: 'Zobrazit aktuální krok scriptu',
@@ -27911,6 +27915,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionOn: 'Engedélyezve — az ügynök manuálisan zárja be a feladatot ACW után',
         keepContactOpenAfterDispositionOff: 'Letiltva — a feladat automatikusan bezárul a diszpozíció után',
         acwCloseTask: 'Feladat bezárása',
+        inboundContactLoading: 'Névjegy betöltése...',
         queueDisplayModeTitle: 'Ütemezett sor oszlopa',
         queueDisplayModeDesc: 'Válassza ki, mi jelenjen meg az ütemezett sor „Lépés" oszlopában.',
         queueDisplayModeStep: 'Aktuális script lépés megjelenítése',
@@ -34045,6 +34050,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionOn: 'Activat — agentul închide task-ul manual după ACW',
         keepContactOpenAfterDispositionOff: 'Dezactivat — task-ul se închide automat după dispoziție',
         acwCloseTask: 'Închide task',
+        inboundContactLoading: 'Se încarcă contactul...',
         queueDisplayModeTitle: 'Coloana cozii programate',
         queueDisplayModeDesc: 'Alegeți ce să afișați în coloana „Pas" a cozii programate.',
         queueDisplayModeStep: 'Afișare pas curent al scriptului',
@@ -40181,6 +40187,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionOn: 'Abilitato — l\'agente chiude il task manualmente dopo ACW',
         keepContactOpenAfterDispositionOff: 'Disabilitato — il task si chiude automaticamente dopo la disposizione',
         acwCloseTask: 'Chiudi task',
+        inboundContactLoading: 'Caricamento contatto...',
         queueDisplayModeTitle: 'Colonna coda programmata',
         queueDisplayModeDesc: 'Scegliere cosa visualizzare nella colonna "Passo" della coda programmata.',
         queueDisplayModeStep: 'Mostra il passo corrente dello script',
@@ -46317,6 +46324,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionOn: 'Aktiviert — Agent schließt Aufgabe manuell nach ACW',
         keepContactOpenAfterDispositionOff: 'Deaktiviert — Aufgabe schließt automatisch nach Disposition',
         acwCloseTask: 'Aufgabe schließen',
+        inboundContactLoading: 'Kontakt wird geladen...',
         queueDisplayModeTitle: 'Spalte der geplanten Warteschlange',
         queueDisplayModeDesc: 'Wählen Sie, was in der Spalte „Schritt" der geplanten Warteschlange angezeigt wird.',
         queueDisplayModeStep: 'Aktuellen Script-Schritt anzeigen',

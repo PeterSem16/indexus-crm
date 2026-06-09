@@ -9315,7 +9315,7 @@ export default function AgentWorkspacePage() {
                 </div>
               </div>
               <div className="flex flex-col items-center gap-2">
-                <p className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>Kontakt sa načítava...</p>
+                <p className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>{t.agentWorkspace.inboundContactLoading}</p>
                 <div className="flex items-center gap-1.5">
                   {[0, 1, 2, 3].map(i => (
                     <span

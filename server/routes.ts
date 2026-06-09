@@ -11360,7 +11360,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   // Shared contact-history builder — works for customers, hospitals, clinics, collaborators, persons
   const buildContactHistory = async (entityId: string, includeAgentLogs = false): Promise<any[]> => {
-    const [fetchedCallLogs, messages, campaignHistory, allUsers, inboundLogs] = await Promise.all([
+    const [fetchedCallLogs, messages, campaignHistory, allUsers, inboundLogs, inboundCbs] = await Promise.all([
       storage.getCallLogsByCustomer(entityId),
       storage.getCommunicationMessagesByCustomer(entityId),
       storage.getCampaignContactHistoryByCustomer(entityId),
@@ -11372,6 +11372,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
         .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
         .where(eq(inboundCallLogs.customerId, entityId))
         .orderBy(desc(inboundCallLogs.enteredQueueAt)),
+      db.select().from(inboundCallbacks)
+        .where(and(eq(inboundCallbacks.customerId, entityId), isNotNull(inboundCallbacks.callbackDate)))
+        .orderBy(desc(inboundCallbacks.createdAt)),
     ]);
 
     // For collaborators/persons: also include calls they made as agents
@@ -11453,6 +11456,29 @@ Return ONLY valid JSON, no markdown code blocks.`,
           notes: inLog.abandonReason === "caller_hangup" ? "Zákazník ukončil hovor" : null,
           queueName: queueName || null,
           inboundCallLogId: inLog.id,
+        });
+      }
+
+      for (const cb of inboundCbs) {
+        const agentName = cb.userId ? (userMap.get(cb.userId) || "Neznámy") : "Neznámy";
+        const cbDateStr = cb.callbackDate ? new Date(cb.callbackDate).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
+        historyItems.push({
+          id: `icb-${cb.id}`,
+          type: "disposition",
+          direction: "inbound",
+          timestamp: cb.createdAt,
+          status: cb.calledBack ? "Spätne zavolané" : "Callback naplánovaný",
+          statusCode: cb.calledBack ? "called_back" : "callback_scheduled",
+          agentName,
+          agentId: cb.userId,
+          content: cbDateStr ? `Prichádzajúci hovor — callback naplánovaný na ${cbDateStr}` : "Prichádzajúci hovor — callback naplánovaný",
+          details: cb.notes || null,
+          dispositionCode: "callback_scheduled",
+          dispositionName: cb.calledBack ? "Spätne zavolané" : "Callback naplánovaný",
+          dispositionColor: cb.calledBack ? "#22c55e" : "#f59e0b",
+          action: "callback_set",
+          inboundCallbackId: cb.id,
+          callbackDate: cb.callbackDate,
         });
       }
 
@@ -22582,7 +22608,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.post("/api/agent/inbound-callbacks", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      const parsed = insertInboundCallbackSchema.safeParse({ ...req.body, userId: user.id });
+      const body = { ...req.body, userId: user.id };
+      if (body.callbackDate && typeof body.callbackDate === "string") {
+        body.callbackDate = new Date(body.callbackDate);
+      }
+      const parsed = insertInboundCallbackSchema.safeParse(body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
       const [created] = await db.insert(inboundCallbacks).values(parsed.data).returning();
       res.json(created);
