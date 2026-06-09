@@ -2692,7 +2692,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
       </div>
 
       <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
-        <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic-drawer">{t.common.cancel}</Button>
+        {mode !== "inline" && (
+          <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic-drawer">{t.common.cancel}</Button>
+        )}
         <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-clinic-drawer">
           {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
           {t.common.save}

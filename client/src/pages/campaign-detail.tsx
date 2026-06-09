@@ -6116,6 +6116,46 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
+                          <CardTitle>Auto-otvoriť dispozíciu po hovore</CardTitle>
+                          <CardDescription>
+                            Keď agent zavesí, dispozícia sa otvorí automaticky. Ak vypnete, agent ju otvorí ručne kliknutím na tlačidlo.
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-3">
+                            <Switch
+                              checked={(() => {
+                                try {
+                                  const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                  return s.autoOpenDisposition !== false;
+                                } catch { return true; }
+                              })()}
+                              onCheckedChange={(v) => {
+                                let existing: any = {};
+                                try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                                const merged = { ...existing, autoOpenDisposition: v };
+                                apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                  .then(() => {
+                                    toast({ title: t.campaigns.detail.settingsSaved });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                  })
+                                  .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                              }}
+                              data-testid="switch-auto-open-disposition"
+                            />
+                            <Label className="text-sm">
+                              {(() => {
+                                try {
+                                  const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                  return s.autoOpenDisposition !== false ? "Zapnuté (odporúčané)" : "Vypnuté — agent otvára ručne";
+                                } catch { return "Zapnuté (odporúčané)"; }
+                              })()}
+                            </Label>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
                           <CardTitle>{t.campaigns.detail.queueDisplayModeTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.queueDisplayModeDesc}

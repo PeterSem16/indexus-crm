@@ -749,6 +749,8 @@ function TaskListPanel({
   onCancelTask,
   agentStatus,
   contactsDisabled,
+  callContactId,
+  callIsActive,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -775,6 +777,8 @@ function TaskListPanel({
   onCancelTask: (taskId: string) => void;
   agentStatus: AgentStatus;
   contactsDisabled?: boolean;
+  callContactId?: string | null;
+  callIsActive?: boolean;
 }) {
   const { t } = useI18n();
   const filteredCampaigns = useMemo(() => {
@@ -854,6 +858,7 @@ function TaskListPanel({
               {tasks.map((task) => {
                 const ChIcon = CHANNEL_CONFIG[task.channel].icon;
                 const isActive = activeTaskId === task.id;
+                const isOnCall = !!(callIsActive && callContactId && task.contact.id === callContactId);
                 const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1000);
                 const mins = Math.floor(elapsed / 60);
                 const taskAc = task.channel === "phone" ? "#B5622E" : task.channel === "email" ? "#5B4FCF" : task.channel === "sms" ? "#2E75B6" : "#5A7A5A";
@@ -893,7 +898,7 @@ function TaskListPanel({
                     >
                       <ChIcon className="h-4 w-4 text-white" />
                       {task.status === "active" && (
-                        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border border-white animate-pulse" />
+                        <span className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white animate-pulse ${isOnCall ? "bg-red-500" : "bg-green-500"}`} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -6350,9 +6355,12 @@ export default function AgentWorkspacePage() {
         setCallEndTimestamp(Date.now());
         setDispositionChannelFilter("phone");
         setMandatoryDisposition(true);
-        // When the CALLER hangs up, don't auto-open disposition — agent initiates it manually.
-        // When the AGENT hangs up, auto-open so they can immediately log the outcome.
-        if (callContext.callTiming.hungUpBy !== "customer") {
+        // Auto-open disposition based on: (1) campaign setting autoOpenDisposition (default true),
+        // AND (2) agent hung up (not customer). Both must be true to auto-open.
+        const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
+        const autoOpenDisposition = campSettings.autoOpenDisposition !== false;
+        const agentHungUp = callContext.callTiming.hungUpBy !== "customer";
+        if (autoOpenDisposition && agentHungUp) {
           setDispositionModalOpen(true);
         }
       }
@@ -8986,6 +8994,8 @@ export default function AgentWorkspacePage() {
           onCancelTask={handleCancelTask}
           agentStatus={agentSession.status}
           contactsDisabled={createFromCallType !== null}
+          callContactId={currentContact?.id}
+          callIsActive={["active", "on_hold", "connecting", "ringing"].includes(callContext.callState)}
         />
 
         {(() => {
@@ -9485,6 +9495,7 @@ export default function AgentWorkspacePage() {
                   const chConfig = CHANNEL_CONFIG[task.channel];
                   const ChIcon = chConfig.icon;
                   const isActive = activeTaskId === task.id;
+                  const isOnCall = !!(callIsActive && callContactId && task.contact.id === callContactId);
                   const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1000);
                   const mins = Math.floor(elapsed / 60);
                   const secs = elapsed % 60;
@@ -9524,7 +9535,7 @@ export default function AgentWorkspacePage() {
                       >
                         <ChIcon className="h-5 w-5 text-white" />
                         {task.status === "active" && (
-                          <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white animate-pulse" />
+                          <span className={`absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white animate-pulse ${isOnCall ? "bg-red-500" : "bg-green-500"}`} />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
