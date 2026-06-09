@@ -1572,7 +1572,13 @@ export function SipPhone({
   }, [currentCallLogId, updateCallLogMutation]);
 
   const forceResetCall = useCallback(() => {
-    forceIdleRef.current = true;
+    // Only arm the forceIdle flag when there is an active SIP session.
+    // If called without a session (e.g. at session end with no live call),
+    // leaving the flag true would cause the NEXT call's onTerminated to
+    // early-return and never fire setCallState("ended").
+    if (sessionRef.current) {
+      forceIdleRef.current = true;
+    }
 
     if (currentCallLogId) {
       const duration = callStartTimeRef.current 
