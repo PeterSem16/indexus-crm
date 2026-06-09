@@ -6355,12 +6355,11 @@ export default function AgentWorkspacePage() {
         setCallEndTimestamp(Date.now());
         setDispositionChannelFilter("phone");
         setMandatoryDisposition(true);
-        // Auto-open disposition based on: (1) campaign setting autoOpenDisposition (default true),
-        // AND (2) agent hung up (not customer). Both must be true to auto-open.
+        // Auto-open disposition based on campaign setting autoOpenDisposition (default true).
+        // Opens regardless of who hung up — the agent always needs to record the call outcome.
         const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
         const autoOpenDisposition = campSettings.autoOpenDisposition !== false;
-        const agentHungUp = callContext.callTiming.hungUpBy !== "customer";
-        if (autoOpenDisposition && agentHungUp) {
+        if (autoOpenDisposition) {
           setDispositionModalOpen(true);
         }
       }
@@ -7996,9 +7995,9 @@ export default function AgentWorkspacePage() {
               }];
             });
           } else if (data.type === "call-hangup") {
-            // Server confirmed caller hung up — force call UI to reset
-            console.log("[AgentWS] Server-side call-hangup received, ending call UI");
-            callContext.endCallFn.current?.();
+            // Server confirmed caller hung up — terminate SIP session WITHOUT marking agent as hanger-upper
+            console.log("[AgentWS] Server-side call-hangup received, triggering remote hangup");
+            callContext.remoteHangupFn.current?.();
           } else if (data.type === "call-cancelled") {
             const cancelledNum = data.callerNumber?.replace(/[\s\-\(\)]/g, "");
             setInboundCalls(prev => prev.filter(c => {

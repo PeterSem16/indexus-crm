@@ -1503,6 +1503,30 @@ export function SipPhone({
     }
   };
 
+  const remoteHangup = useCallback(() => {
+    console.log("[SIP-INBOUND] remoteHangup called (caller/server initiated), session state:", sessionRef.current?.state);
+    if (sessionRef.current) {
+      try {
+        if (sessionRef.current.state === SessionState.Established) {
+          console.log("[SIP-INBOUND] remoteHangup: sending BYE");
+          sessionRef.current.bye();
+        }
+      } catch (error) {
+        console.error("Error in remoteHangup:", error);
+      }
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+        micGainNodeRef.current = null;
+      } catch (e) {}
+    }
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+    }
+  }, []);
+
   const endCall = useCallback(() => {
     console.log("[SIP-INBOUND] endCall called, session state:", sessionRef.current?.state);
     userHungUpRef.current = true;
@@ -1663,10 +1687,11 @@ export function SipPhone({
   useEffect(() => {
     const ctx = callContextRef.current;
     ctx.endCallFn.current = endCall;
+    ctx.remoteHangupFn.current = remoteHangup;
     ctx.forceResetCallFn.current = forceResetCall;
     ctx.toggleMuteFn.current = toggleMute;
     ctx.toggleHoldFn.current = toggleHold;
-  }, [endCall, forceResetCall, toggleMute, toggleHold]);
+  }, [endCall, remoteHangup, forceResetCall, toggleMute, toggleHold]);
 
   useEffect(() => {
     const ctx = callContextRef.current;
