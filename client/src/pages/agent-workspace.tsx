@@ -6276,6 +6276,7 @@ export default function AgentWorkspacePage() {
     contactId: string | null;
     campaignContactId: string | null;
     campaignId: string | null;
+    isInboundCall: boolean;
   } | null>(null);
 
   const [inboundRingtoneEnabled, setInboundRingtoneEnabled] = useState<boolean>(() => {
@@ -6521,6 +6522,7 @@ export default function AgentWorkspacePage() {
           contactId: currentContact?.id ?? null,
           campaignContactId: currentCampaignContactId,
           campaignId: selectedCampaignId,
+          isInboundCall: isInboundCall,
         };
         setCallEndTimestamp(Date.now());
         setDispositionChannelFilter("phone");
@@ -7291,7 +7293,7 @@ export default function AgentWorkspacePage() {
     }
 
     // Create out-of-mission inbound callback when: no campaign contact, inbound call, and callback was scheduled
-    if (!effectiveCampaignContactId && wasInboundCallRef.current && callbackDateTime) {
+    if (!effectiveCampaignContactId && (dCtx?.isInboundCall || wasInboundCallRef.current) && callbackDateTime) {
       const inboundPhone = (callContext.callInfo as any)?.phoneNumber || (currentContact as any)?.phone || "";
       const inboundName = currentContact ? `${(currentContact as any).firstName || ""} ${(currentContact as any).lastName || ""}`.trim() : "";
       apiRequest("POST", "/api/agent/inbound-callbacks", {
