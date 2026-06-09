@@ -153,6 +153,15 @@ class InboundCallWebSocketService {
     const agents = this.agents.get(userId) || [];
     return agents.some((a) => a.ws.readyState === WebSocket.OPEN);
   }
+
+  notifyCallHangup(agentUserId: string, callId: string, callerNumber?: string) {
+    console.log(`[InboundCallWS] Notifying agent ${agentUserId} of caller hangup (callId=${callId}, caller=${callerNumber || "?"}`);
+    this.sendToAgent(agentUserId, {
+      type: "call-hangup",
+      callId,
+      callerNumber,
+    });
+  }
 }
 
 export const inboundCallWs = new InboundCallWebSocketService();

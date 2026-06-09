@@ -7982,6 +7982,10 @@ export default function AgentWorkspacePage() {
                 isQueueWaiting: data.isQueueWaiting ?? false,
               }];
             });
+          } else if (data.type === "call-hangup") {
+            // Server confirmed caller hung up — force call UI to reset
+            console.log("[AgentWS] Server-side call-hangup received, ending call UI");
+            callContext.endCallFn.current?.();
           } else if (data.type === "call-cancelled") {
             const cancelledNum = data.callerNumber?.replace(/[\s\-\(\)]/g, "");
             setInboundCalls(prev => prev.filter(c => {

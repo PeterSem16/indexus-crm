@@ -32,6 +32,7 @@ import { getValidAccessToken, sendEmail as ms365SendEmail } from "./ms365";
 import { decryptTokenSafe } from "./token-crypto";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
+import { inboundCallWs } from "./inbound-call-ws";
 
 export interface QueuedCall {
   id: string;
@@ -3576,15 +3577,22 @@ export class QueueEngine extends EventEmitter {
 
     const bridge = this.activeBridges.get(channelId);
     if (bridge) {
-      console.log(`[QueueEngine] Channel ${channelId} in active bridge destroyed, completing call ${bridge.callId}`);
+      const isCallerHangup = channelId === bridge.callerChannelId;
+      console.log(`[QueueEngine] Channel ${channelId} in active bridge destroyed, completing call ${bridge.callId} (callerHangup=${isCallerHangup})`);
       this.activeBridges.delete(bridge.callerChannelId);
       this.activeBridges.delete(bridge.agentChannelId);
 
-      const otherChannelId = channelId === bridge.callerChannelId ? bridge.agentChannelId : bridge.callerChannelId;
+      const otherChannelId = isCallerHangup ? bridge.agentChannelId : bridge.callerChannelId;
       try { await this.ariClient.hangupChannel(otherChannelId, "normal"); } catch {}
       try { await this.ariClient.destroyBridge(bridge.bridgeId); } catch {}
 
       this.agentCompletedCall(bridge.callId, bridge.agentId);
+
+      // Server-side hangup notification: if caller hung up, push WebSocket event to agent
+      // so the SIP.js UI resets even if the BYE was missed by the browser
+      if (isCallerHangup) {
+        inboundCallWs.notifyCallHangup(bridge.agentId, bridge.callId);
+      }
       return;
     }
 
