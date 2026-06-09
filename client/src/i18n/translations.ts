@@ -2194,6 +2194,7 @@ export interface Translations {
       keepContactOpenAfterDispositionDesc: string;
       keepContactOpenAfterDispositionOn: string;
       keepContactOpenAfterDispositionOff: string;
+      acwCloseTask: string;
       queueDisplayModeTitle: string;
       queueDisplayModeDesc: string;
       queueDisplayModeStep: string;
@@ -9040,6 +9041,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'When enabled, the contact remains open as a task after disposition is saved. The agent can still make edits or notes before closing. Time between disposition and task close is tracked as ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Enabled — agent closes task manually after ACW',
         keepContactOpenAfterDispositionOff: 'Disabled — task closes automatically after disposition',
+        acwCloseTask: 'Close task',
         queueDisplayModeTitle: 'Scheduled Queue Column',
         queueDisplayModeDesc: 'Choose what to display in the "Step" column of the scheduled queue.',
         queueDisplayModeStep: 'Show current script step',
@@ -15384,6 +15386,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Keď je zapnuté, kontakt zostane otvorený ako task po zadaní dispozície. Agent môže ešte vykonať úpravy alebo poznámky pred uzavretím. Čas od dispozície po uzavretie tasku sa sleduje ako ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Zapnuté — agent uzavrie task manuálne po ACW',
         keepContactOpenAfterDispositionOff: 'Vypnuté — task sa uzavrie automaticky po dispozícii',
+        acwCloseTask: 'Zatvoriť task',
         queueDisplayModeTitle: 'Stĺpec plánovanej fronty',
         queueDisplayModeDesc: 'Vyberte, čo sa zobrazí v stĺpci „Krok" plánovanej fronty.',
         queueDisplayModeStep: 'Zobraziť aktuálny krok scriptu',
@@ -21666,6 +21669,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Pokud je zapnuto, kontakt zůstane otevřený jako task po zadání dispozice. Agent může ještě provést úpravy nebo poznámky před uzavřením. Čas od dispozice po uzavření tasku se sleduje jako ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Zapnuto — agent uzavře task manuálně po ACW',
         keepContactOpenAfterDispositionOff: 'Vypnuto — task se uzavře automaticky po dispozici',
+        acwCloseTask: 'Zavřít task',
         queueDisplayModeTitle: 'Sloupec plánované fronty',
         queueDisplayModeDesc: 'Vyberte, co se zobrazí ve sloupci „Krok" plánované fronty.',
         queueDisplayModeStep: 'Zobrazit aktuální krok scriptu',
@@ -27906,6 +27910,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Ha engedélyezve van, a névjegy feladatként nyitva marad a diszpozíció mentése után. Az ügynök még végezhet módosításokat vagy megjegyzéseket zárás előtt. A diszpozíció és a manuális zárás közötti idő ACW-ként (After Call Work) kerül rögzítésre.',
         keepContactOpenAfterDispositionOn: 'Engedélyezve — az ügynök manuálisan zárja be a feladatot ACW után',
         keepContactOpenAfterDispositionOff: 'Letiltva — a feladat automatikusan bezárul a diszpozíció után',
+        acwCloseTask: 'Feladat bezárása',
         queueDisplayModeTitle: 'Ütemezett sor oszlopa',
         queueDisplayModeDesc: 'Válassza ki, mi jelenjen meg az ütemezett sor „Lépés" oszlopában.',
         queueDisplayModeStep: 'Aktuális script lépés megjelenítése',
@@ -34039,6 +34044,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Când este activat, contactul rămâne deschis ca task după salvarea dispoziției. Agentul poate efectua modificări sau notițe înainte de închidere. Timpul de la dispoziție până la închiderea manuală este urmărit ca ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Activat — agentul închide task-ul manual după ACW',
         keepContactOpenAfterDispositionOff: 'Dezactivat — task-ul se închide automat după dispoziție',
+        acwCloseTask: 'Închide task',
         queueDisplayModeTitle: 'Coloana cozii programate',
         queueDisplayModeDesc: 'Alegeți ce să afișați în coloana „Pas" a cozii programate.',
         queueDisplayModeStep: 'Afișare pas curent al scriptului',
@@ -40174,6 +40180,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Se abilitato, il contatto rimane aperto come task dopo il salvataggio della disposizione. L\'agente può ancora apportare modifiche o note prima della chiusura. Il tempo dalla disposizione alla chiusura manuale è tracciato come ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Abilitato — l\'agente chiude il task manualmente dopo ACW',
         keepContactOpenAfterDispositionOff: 'Disabilitato — il task si chiude automaticamente dopo la disposizione',
+        acwCloseTask: 'Chiudi task',
         queueDisplayModeTitle: 'Colonna coda programmata',
         queueDisplayModeDesc: 'Scegliere cosa visualizzare nella colonna "Passo" della coda programmata.',
         queueDisplayModeStep: 'Mostra il passo corrente dello script',
@@ -46309,6 +46316,7 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Wenn aktiviert, bleibt der Kontakt als Aufgabe nach dem Speichern der Disposition geöffnet. Der Agent kann noch Änderungen oder Notizen vornehmen. Die Zeit zwischen Disposition und manuellem Schließen wird als ACW (After Call Work) erfasst.',
         keepContactOpenAfterDispositionOn: 'Aktiviert — Agent schließt Aufgabe manuell nach ACW',
         keepContactOpenAfterDispositionOff: 'Deaktiviert — Aufgabe schließt automatisch nach Disposition',
+        acwCloseTask: 'Aufgabe schließen',
         queueDisplayModeTitle: 'Spalte der geplanten Warteschlange',
         queueDisplayModeDesc: 'Wählen Sie, was in der Spalte „Schritt" der geplanten Warteschlange angezeigt wird.',
         queueDisplayModeStep: 'Aktuellen Script-Schritt anzeigen',

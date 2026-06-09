@@ -3771,9 +3771,9 @@ function CommunicationCanvas({
               )}
               <Button
                 className="w-full gap-2"
-                disabled={answeredCount === 0 || requiredUnanswered.length > 0 || isSavingChecklist || !campaignContactId || !campaign?.id}
+                disabled={answeredCount === 0 || requiredUnanswered.length > 0 || isSavingChecklist || !campaign?.id}
                 onClick={async () => {
-                  if (!campaign?.id || !campaignContactId) return;
+                  if (!campaign?.id) return;
                   setIsSavingChecklist(true);
                   const mapItemPayload = (item: WsCLItem) => ({ id: item.id, label: item.label, type: item.type, checked: item.type === "checkbox" ? clChecked.has(item.id) : false, answer: item.type === "yes_no" ? (clYesNo[item.id] || null) : null, value: item.type === "text" ? (clTextValues[item.id] || "") : null, note: clNotes[item.id] || "" });
                   const payload = {
@@ -3790,6 +3790,11 @@ function CommunicationCanvas({
                       })),
                     })),
                   };
+                  if (!campaignContactId) {
+                    setIsSavingChecklist(false);
+                    toast({ title: "Checklist uložený" });
+                    return;
+                  }
                   try {
                     await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/checklist-response`, payload);
                     queryClient.invalidateQueries({ queryKey: ["/api/entity-history", contact?.id] });
@@ -4181,7 +4186,7 @@ function CustomerInfoPanel({
   const [selectedNote, setSelectedNote] = useState<{ content: string; userName: string; createdAt: string } | null>(null);
 
   const { data: customerNotes = [], refetch: refetchNotes } = useQuery<Array<{ id: string; content: string; userId: string; userName: string; createdAt: string }>>({
-    queryKey: ["/api/customers", contact?.id, "notes"],
+    queryKey: [`/api/customers/${contact?.id}/notes`],
     enabled: !!contact?.id,
     staleTime: 0,
   });
@@ -4262,15 +4267,6 @@ function CustomerInfoPanel({
               <Badge className="text-[10px] border-0 font-medium bg-muted text-muted-foreground">
                 {contact.status || "Nový"}
               </Badge>
-              <div className="flex items-center gap-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-2.5 w-2.5 ${i < stars ? "fill-amber-500" : ""}`}
-                    style={{ color: i < stars ? "#D97706" : "#CFC8BE" }}
-                  />
-                ))}
-              </div>
             </div>
           </div>
         </div>
@@ -4294,7 +4290,7 @@ function CustomerInfoPanel({
                 data-testid="button-close-acw-task"
                 className="shrink-0 text-[11px] font-medium px-2 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white transition-colors"
               >
-                Zatvoriť task
+                {t.agentWorkspace.acwCloseTask || "Zatvoriť task"}
               </button>
             )}
           </div>
@@ -7780,7 +7776,7 @@ export default function AgentWorkspacePage() {
       userName: user?.name || user?.username || "Ja",
       createdAt: new Date().toISOString(),
     };
-    const notesKey = ["/api/customers", currentContact.id, "notes"];
+    const notesKey = [`/api/customers/${currentContact.id}/notes`];
     queryClient.setQueryData(notesKey, (old: any) => [tempNote, ...(old || [])]);
     try {
       await apiRequest("POST", `/api/customers/${currentContact.id}/notes`, { content: note });
@@ -10712,6 +10708,7 @@ export default function AgentWorkspacePage() {
                                 if (custRes.ok) {
                                   const customer = await custRes.json();
                                   setCurrentContact(customer);
+                                  setCurrentContactType("customer");
                                   setCurrentCampaignContactId(null);
                                   setRightTab("actions");
                                 }
@@ -10726,6 +10723,7 @@ export default function AgentWorkspacePage() {
                                     if (custRes.ok) {
                                       const customer = await custRes.json();
                                       setCurrentContact(customer);
+                                      setCurrentContactType("customer");
                                       setCurrentCampaignContactId(null);
                                       setRightTab("actions");
                                     }
@@ -10737,6 +10735,7 @@ export default function AgentWorkspacePage() {
                               phoneNumber: phoneNum,
                               customerName: call.customerName || call.callerName || undefined,
                               customerId: call.customerId || undefined,
+                              callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined,
                             });
                             if (!isSipRegistered && !isSipRegistering) {
                               sipRegister();
