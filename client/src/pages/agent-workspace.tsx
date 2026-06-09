@@ -7721,6 +7721,8 @@ export default function AgentWorkspacePage() {
         content: note,
       },
     ]);
+    // Notes API only exists for customers — skip for hospital/clinic/collaborator virtual contacts
+    if (currentContactType !== "customer") return;
     const tempNote = {
       id: `temp-${Date.now()}`,
       content: note,
@@ -7866,6 +7868,10 @@ export default function AgentWorkspacePage() {
     } else if (enrichedContact.customer) {
       setCurrentContactType("customer");
       loadContact(enrichedContact.customer, "customer", null, null, null);
+    }
+    // Pre-fill call notes with callback note if present (overrides the "" set by loadContact)
+    if ((enrichedContact as any).callbackNote) {
+      setCallNotes((enrichedContact as any).callbackNote);
     }
   };
 
