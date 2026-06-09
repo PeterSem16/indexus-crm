@@ -4007,6 +4007,9 @@ function CustomerInfoPanel({
   wrapUpElapsed,
   unknownCallerPhone,
   onCreateFromCall,
+  forwardedCallActive,
+  onOpenDispositionFromForwardedCall,
+  onEndForwardedCall,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -4044,6 +4047,9 @@ function CustomerInfoPanel({
   onSelectMatch?: (match: PhoneMatch, mode: "card" | "details" | "open") => void;
   unknownCallerPhone?: string | null;
   onCreateFromCall?: (type: "customer" | "hospital" | "clinic" | "person") => void;
+  forwardedCallActive?: { callId: string; callerNumber: string; callerName?: string; startedAt: Date } | null;
+  onOpenDispositionFromForwardedCall?: () => void;
+  onEndForwardedCall?: () => void;
 }) {
   const { t, locale } = useI18n();
   const callContext = useCall();
@@ -4061,6 +4067,14 @@ function CustomerInfoPanel({
   const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
+
+  const [forwardedElapsed, setForwardedElapsed] = useState(0);
+  useEffect(() => {
+    if (!forwardedCallActive) { setForwardedElapsed(0); return; }
+    setForwardedElapsed(Math.floor((Date.now() - forwardedCallActive.startedAt.getTime()) / 1000));
+    const iv = setInterval(() => setForwardedElapsed(Math.floor((Date.now() - forwardedCallActive.startedAt.getTime()) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [forwardedCallActive]);
 
   const [selectedNote, setSelectedNote] = useState<{ content: string; userName: string; createdAt: string } | null>(null);
 
@@ -4399,6 +4413,45 @@ function CustomerInfoPanel({
               </Button>
             </div>
           )}
+        </div>
+      )}
+
+      {!hasCall && forwardedCallActive && (
+        <div className="border-b px-3 py-2 space-y-2 bg-green-50 dark:bg-green-950/30" data-testid="forwarded-call-panel">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2.5 h-2.5 rounded-full shrink-0 bg-green-500 animate-pulse" />
+              <span className="text-xs font-semibold truncate text-green-800 dark:text-green-300">Presmerovaný hovor</span>
+            </div>
+            <span className="font-mono text-sm font-bold tabular-nums shrink-0 text-green-800 dark:text-green-300">
+              {fmtTime(forwardedElapsed)}
+            </span>
+          </div>
+          {forwardedCallActive.callerNumber && (
+            <div className="text-[11px] text-muted-foreground font-mono">{forwardedCallActive.callerNumber}</div>
+          )}
+          <div className="flex gap-1.5 pt-0.5">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 gap-1 text-xs h-7"
+              onClick={onOpenDispositionFromForwardedCall}
+              data-testid="button-forwarded-disposition"
+            >
+              <FileText className="h-3 w-3 shrink-0" />
+              Dispozícia
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 gap-1 text-xs h-7 border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+              onClick={onEndForwardedCall}
+              data-testid="button-forwarded-end-work"
+            >
+              <PhoneOff className="h-3 w-3 shrink-0" />
+              Ukončiť prácu
+            </Button>
+          </div>
         </div>
       )}
 
@@ -6033,6 +6086,12 @@ export default function AgentWorkspacePage() {
   }>>([]);
   const inboundCallsRef = useRef(inboundCalls);
   inboundCallsRef.current = inboundCalls;
+
+  const [forwardedCallActive, setForwardedCallActive] = useState<{
+    callId: string; callerNumber: string; callerName?: string; startedAt: Date;
+  } | null>(null);
+  const forwardedCallActiveRef = useRef(forwardedCallActive);
+  forwardedCallActiveRef.current = forwardedCallActive;
   const sessionQueueIdsRef = useRef<string[]>([]);
   const cancelledCallIdsRef = useRef<Set<string>>(new Set());
   const openingContactsRef = useRef<Set<string>>(new Set());
@@ -7932,6 +7991,13 @@ export default function AgentWorkspacePage() {
               if (cancelledNum && c.callerNumber?.replace(/[\s\-\(\)]/g, "") === cancelledNum && c.queueId === (data.queueId || c.queueId)) return false;
               return true;
             }));
+            // If this was a forwarded call the agent was working on, prompt disposition
+            if (forwardedCallActiveRef.current?.callId === data.callId) {
+              setForwardedCallActive(null);
+              setDispositionChannelFilter("phone");
+              setMandatoryDisposition(true);
+              setDispositionModalOpen(true);
+            }
             queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
             const reason = data.reason || "caller_hangup";
             const wasQueueWaiting = inboundCallsRef.current.find(c => c.callId === data.callId)?.isQueueWaiting;
@@ -8368,6 +8434,7 @@ export default function AgentWorkspacePage() {
           toast({ title: t.agentWorkspace.callAccepted });
           removeCall();
           await setupCallContext();
+          setForwardedCallActive({ callId: call.callId, callerNumber, callerName: call.callerName, startedAt: new Date() });
         }
       }
     } catch (err: any) {
@@ -9157,6 +9224,9 @@ export default function AgentWorkspacePage() {
           onSelectMatch={handleSelectInboundMatch}
           unknownCallerPhone={pendingUnknownCaller?.phone}
           onCreateFromCall={(type) => setCreateFromCallType(type)}
+          forwardedCallActive={forwardedCallActive}
+          onOpenDispositionFromForwardedCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+          onEndForwardedCall={() => { setForwardedCallActive(null); setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
         />
       </div>
 
