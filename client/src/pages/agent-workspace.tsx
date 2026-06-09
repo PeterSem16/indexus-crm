@@ -916,15 +916,17 @@ function TaskListPanel({
                         </span>
                       )}
                       {!isOnCall && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${taskAc}18`, color: taskAc }}>{mins}m</span>}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); onCancelTask(task.id); }}
-                        data-testid={`btn-cancel-task-${task.id}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                      {!isOnCall && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); onCancelTask(task.id); }}
+                          data-testid={`btn-cancel-task-${task.id}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
