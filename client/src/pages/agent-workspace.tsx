@@ -4102,6 +4102,8 @@ function CustomerInfoPanel({
   forwardedCallActive,
   onOpenDispositionFromForwardedCall,
   onEndForwardedCall,
+  acwStartedAt,
+  onCloseAcwTask,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
