@@ -6856,6 +6856,20 @@ export default function AgentWorkspacePage() {
     return rawCampaignContacts.find(cc => cc.id === currentCampaignContactId) || null;
   }, [rawCampaignContacts, currentCampaignContactId]);
 
+  // When currentCampaignContactId is null (e.g. inbound call matched to a contact),
+  // try to find the campaign contact by matching the current contact's ID against rawCampaignContacts.
+  const effectiveCampaignContactId = useMemo(() => {
+    if (currentCampaignContactId) return currentCampaignContactId;
+    if (!currentContact?.id || !selectedCampaignId) return null;
+    const matched = rawCampaignContacts.find((cc: any) => {
+      if (currentContactType === "hospital") return cc.hospitalId === currentContact.id;
+      if (currentContactType === "clinic") return cc.clinicId === currentContact.id;
+      if (currentContactType === "collaborator") return cc.collaboratorId === currentContact.id;
+      return cc.customerId === currentContact.id;
+    });
+    return matched?.id || null;
+  }, [currentCampaignContactId, currentContact?.id, currentContactType, rawCampaignContacts, selectedCampaignId]);
+
   const selectedCampaign = useMemo(() => {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
@@ -9378,7 +9392,7 @@ export default function AgentWorkspacePage() {
               hospitalData={currentHospitalData}
               clinicData={currentClinicData}
               collaboratorData={currentCollaboratorData}
-              campaignContactId={currentCampaignContactId}
+              campaignContactId={effectiveCampaignContactId}
               initialScriptStepId={currentCampaignContact?.currentScriptStepId || null}
               pendingEmailTemplateId={pendingEmailTemplateId}
               onPendingEmailTemplateHandled={() => setPendingEmailTemplateId(null)}
