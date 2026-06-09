@@ -910,7 +910,12 @@ function TaskListPanel({
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${taskAc}18`, color: taskAc }}>{mins}m</span>
+                      {isOnCall && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse" style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444" }}>
+                          In Call
+                        </span>
+                      )}
+                      {!isOnCall && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${taskAc}18`, color: taskAc }}>{mins}m</span>}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1101,14 +1106,14 @@ function TaskListPanel({
                   {
                     id: "my-cb",
                     label: t.agentWorkspace.groupMyCb,
-                    items: campaignContacts.filter(cc => isCb(cc) && isMine(cc) && !isDue(cc)).sort(sortByDate),
+                    items: campaignContacts.filter(cc => isCb(cc) && (isMine(cc) || isTeam(cc)) && !isDue(cc)).sort(sortByDate),
                     ac: "#5B4FCF",
                     Icon: Clock,
                   },
                   {
                     id: "team-cb",
                     label: t.agentWorkspace.groupTeamCb,
-                    items: campaignContacts.filter(cc => isCb(cc) && isTeam(cc) && !isDue(cc)).sort(sortByDate),
+                    items: campaignContacts.filter(cc => isCb(cc) && cc.assignedTo && !isMine(cc) && !isDue(cc)).sort(sortByDate),
                     ac: "#2E75B6",
                     Icon: Users,
                   },
@@ -5777,6 +5782,7 @@ function ScheduledQueuePanel({
                                   status: "callback_scheduled",
                                 });
                                 queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
                                 toast({ title: t.agentWorkspace.reschedule, description: format(new Date(newDate), "dd.MM.yyyy HH:mm") });
                               } catch (e) {
                                 toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
@@ -5797,6 +5803,7 @@ function ScheduledQueuePanel({
                                   assignedTo: null,
                                 });
                                 queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
                                 toast({ title: t.agentWorkspace.cancelItem, description: t.agentWorkspace.itemCancelled });
                               } catch (e) {
                                 toast({ title: t.agentWorkspace.errorLabel, description: String(e), variant: "destructive" });
@@ -6066,6 +6073,8 @@ export default function AgentWorkspacePage() {
   const callWasActiveRef = useRef(false);
   const [ringDuration, setRingDuration] = useState(0);
   const ringTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [callActiveContactId, setCallActiveContactId] = useState<string | number | null>(null);
+  const callActiveContactIdSetRef = useRef(false);
   const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
@@ -6400,6 +6409,19 @@ export default function AgentWorkspacePage() {
     prevCallStateRef.current = curr;
   }, [callContext.callState, callContext.callDirection, currentContact, currentCampaignContactId]);
 
+  // Track which contact is on the active call — set once when call goes active, cleared on idle.
+  // Uses a guard ref to prevent re-setting when agent switches tasks mid-call.
+  useEffect(() => {
+    const isActive = ["active", "on_hold", "connecting", "ringing"].includes(callContext.callState);
+    if (isActive && currentContact && !callActiveContactIdSetRef.current) {
+      setCallActiveContactId(currentContact.id);
+      callActiveContactIdSetRef.current = true;
+    } else if (callContext.callState === "idle") {
+      setCallActiveContactId(null);
+      callActiveContactIdSetRef.current = false;
+    }
+  }, [callContext.callState, currentContact?.id]);
+
   // Post-call wrap-up timer: count seconds elapsed since call ended, until disposition is submitted
   useEffect(() => {
     if (callEndTimestamp !== null && mandatoryDisposition) {
@@ -6655,7 +6677,7 @@ export default function AgentWorkspacePage() {
   const { data: rawCampaignContacts = [] } = useQuery<EnrichedCampaignContact[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "contacts"],
     enabled: !!selectedCampaignId && !!hasAccess,
-    refetchInterval: 30000,
+    refetchInterval: 10000,
   });
 
   const pendingCampaignContacts = useMemo(() => {
@@ -8993,7 +9015,7 @@ export default function AgentWorkspacePage() {
           onCancelTask={handleCancelTask}
           agentStatus={agentSession.status}
           contactsDisabled={createFromCallType !== null}
-          callContactId={currentContact?.id}
+          callContactId={callActiveContactId}
           callIsActive={["active", "on_hold", "connecting", "ringing"].includes(callContext.callState)}
         />
 
