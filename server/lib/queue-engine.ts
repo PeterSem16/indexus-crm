@@ -4871,14 +4871,17 @@ export class QueueEngine extends EventEmitter {
     const timeStr = callTime.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Europe/Bratislava" });
 
     const lang = { SK: "sk", CZ: "cs", HU: "hu", RO: "ro", AT: "de", DE: "de", IT: "it" }[queueCountry] || "en";
+
+    const queueDisplayName = data.queueName || queue?.name || "";
+
     const reasonMaps: Record<string, Record<string, string>> = {
-      sk: { caller_hangup: "Volajúci zavesil", timeout: "Prekročenie limitu fronty", overflow: "Preplnenie fronty", no_agents: "Žiadny dostupný agent" },
-      cs: { caller_hangup: "Volající zavěsil", timeout: "Překročení časového limitu", overflow: "Přetečení fronty", no_agents: "Žádný dostupný agent" },
-      hu: { caller_hangup: "Hívó letette", timeout: "Várakozási idő lejárt", overflow: "Várólistán túlcsordulás", no_agents: "Nem elérhető agent" },
-      ro: { caller_hangup: "Apelantul a închis", timeout: "Depășire timp așteptare", overflow: "Depășire coadă", no_agents: "Niciun agent disponibil" },
-      it: { caller_hangup: "Il chiamante ha riagganciato", timeout: "Timeout coda superato", overflow: "Overflow coda", no_agents: "Nessun agente disponibile" },
-      de: { caller_hangup: "Anrufer hat aufgelegt", timeout: "Warteschlangen-Timeout", overflow: "Warteschlange überlaufen", no_agents: "Kein Agent verfügbar" },
-      en: { caller_hangup: "Caller hung up", timeout: "Queue timeout", overflow: "Queue overflow", no_agents: "No available agent" },
+      sk: { caller_hangup: "Volajúci zavesil", timeout: "Prekročenie limitu fronty", overflow: "Preplnenie fronty", no_agents: `Koordinátor nebol prihlásený do ${queueDisplayName}` },
+      cs: { caller_hangup: "Volající zavěsil", timeout: "Překročení časového limitu", overflow: "Přetečení fronty", no_agents: `Koordinátor nebyl přihlášen do ${queueDisplayName}` },
+      hu: { caller_hangup: "Hívó letette", timeout: "Várakozási idő lejárt", overflow: "Várólistán túlcsordulás", no_agents: `Koordinátor nem volt bejelentkezve a(z) ${queueDisplayName} misszióba` },
+      ro: { caller_hangup: "Apelantul a închis", timeout: "Depășire timp așteptare", overflow: "Depășire coadă", no_agents: `Coordonatorul nu era conectat la misiunea ${queueDisplayName}` },
+      it: { caller_hangup: "Il chiamante ha riagganciato", timeout: "Timeout coda superato", overflow: "Overflow coda", no_agents: `Il coordinatore non era connesso alla missione ${queueDisplayName}` },
+      de: { caller_hangup: "Anrufer hat aufgelegt", timeout: "Warteschlangen-Timeout", overflow: "Warteschlange überlaufen", no_agents: `Koordinator war nicht in der Mission ${queueDisplayName} eingeloggt` },
+      en: { caller_hangup: "Caller hung up", timeout: "Queue timeout", overflow: "Queue overflow", no_agents: `Coordinator was not logged into ${queueDisplayName}` },
     };
     const reasonLabel = (reasonMaps[lang] || reasonMaps.en)[data.reason] || data.reason;
 
@@ -4889,8 +4892,6 @@ export class QueueEngine extends EventEmitter {
         : totalSecs > 0
         ? `${totalSecs} s`
         : "< 1 s";
-
-    const queueDisplayName = data.queueName || queue?.name || "";
 
     const entityTypeLabels: Record<string, Record<string, string>> = {
       sk: { customer: "Klient", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník" },
