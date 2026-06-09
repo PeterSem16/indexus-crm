@@ -2624,6 +2624,55 @@ export class QueueEngine extends EventEmitter {
     return null;
   }
 
+  private async lookupCallerIdentity(phoneNumber: string): Promise<{ name: string; entityType: "customer" | "hospital" | "clinic" | "collaborator" } | null> {
+    try {
+      const clean = phoneNumber.replace(/[^0-9+]/g, "");
+      const suffix = "%" + clean.slice(-9);
+
+      const [custResult, hospResult, clinicResult, collabResult] = await Promise.all([
+        db.execute(sql`
+          SELECT first_name || ' ' || last_name AS name, 'customer' AS entity_type
+          FROM customers
+          WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', '') LIKE ${suffix}
+             OR REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', '') LIKE ${suffix}
+          LIMIT 1
+        `),
+        db.execute(sql`
+          SELECT name, 'hospital' AS entity_type
+          FROM hospitals
+          WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', '') LIKE ${suffix}
+          LIMIT 1
+        `),
+        db.execute(sql`
+          SELECT name, 'clinic' AS entity_type
+          FROM clinics
+          WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', '') LIKE ${suffix}
+             OR REPLACE(REPLACE(REPLACE(phone2, ' ', ''), '-', ''), '(', '') LIKE ${suffix}
+             OR REPLACE(REPLACE(REPLACE(phone3, ' ', ''), '-', ''), '(', '') LIKE ${suffix}
+          LIMIT 1
+        `),
+        db.execute(sql`
+          SELECT first_name || ' ' || last_name AS name, 'collaborator' AS entity_type
+          FROM collaborators
+          WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', '') LIKE ${suffix}
+             OR REPLACE(REPLACE(REPLACE(mobile, ' ', ''), '-', ''), '(', '') LIKE ${suffix}
+          LIMIT 1
+        `),
+      ]);
+
+      const all = [custResult, hospResult, clinicResult, collabResult];
+      for (const r of all) {
+        if (r.rows && r.rows.length > 0) {
+          const row = r.rows[0] as any;
+          return { name: row.name || "", entityType: row.entity_type as any };
+        }
+      }
+    } catch (err) {
+      console.warn("[MissedCallEmail] lookupCallerIdentity error:", err instanceof Error ? err.message : err);
+    }
+    return null;
+  }
+
   private getQueueSize(queueId: string): number {
     let count = 0;
     for (const call of this.waitingCalls.values()) {
@@ -4842,9 +4891,27 @@ export class QueueEngine extends EventEmitter {
         : "< 1 s";
 
     const queueDisplayName = data.queueName || queue?.name || "";
-    const callerDisplay = data.callerName
-      ? `${data.callerNumber} (${data.callerName})`
-      : data.callerNumber;
+
+    const entityTypeLabels: Record<string, Record<string, string>> = {
+      sk: { customer: "Klient", hospital: "Nemocnica", clinic: "Klinika", collaborator: "Spolupracovník" },
+      cs: { customer: "Klient", hospital: "Nemocnice", clinic: "Klinika", collaborator: "Spolupracovník" },
+      hu: { customer: "Ügyfél", hospital: "Kórház", clinic: "Klinika", collaborator: "Partner" },
+      ro: { customer: "Client", hospital: "Spital", clinic: "Clinică", collaborator: "Colaborator" },
+      it: { customer: "Cliente", hospital: "Ospedale", clinic: "Clinica", collaborator: "Collaboratore" },
+      de: { customer: "Kunde", hospital: "Krankenhaus", clinic: "Klinik", collaborator: "Partner" },
+      en: { customer: "Customer", hospital: "Hospital", clinic: "Clinic", collaborator: "Collaborator" },
+    };
+
+    const callerIdentity = await this.lookupCallerIdentity(data.callerNumber);
+    let callerDisplay: string;
+    if (callerIdentity) {
+      const typeLabel = (entityTypeLabels[lang] || entityTypeLabels.en)[callerIdentity.entityType] || callerIdentity.entityType;
+      callerDisplay = `${data.callerNumber} — ${callerIdentity.name} (${typeLabel})`;
+    } else if (data.callerName) {
+      callerDisplay = `${data.callerNumber} (${data.callerName})`;
+    } else {
+      callerDisplay = data.callerNumber;
+    }
 
     const html = buildMissedCallEmailHtml({
       queueName: queueDisplayName,
