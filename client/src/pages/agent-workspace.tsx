@@ -3000,7 +3000,7 @@ function CommunicationCanvas({
                     key={hospitalData.id}
                     mode="inline"
                     initialData={hospitalData}
-                    onSuccess={() => setPhoneSubTab("details")}
+                    onSuccess={() => {}}
                   />
                 </div>
               ) : contactType === "clinic" && clinicData ? (
@@ -3008,9 +3008,9 @@ function CommunicationCanvas({
                   <ClinicFormSheet
                     key={clinicData.id}
                     open={true}
-                    onOpenChange={() => setPhoneSubTab("details")}
+                    onOpenChange={() => {}}
                     initialData={clinicData}
-                    onSuccess={() => setPhoneSubTab("details")}
+                    onSuccess={() => {}}
                     mode="inline"
                   />
                 </div>
@@ -3020,7 +3020,7 @@ function CommunicationCanvas({
                     key={collaboratorData.id}
                     mode="inline"
                     initialData={collaboratorData}
-                    onSuccess={() => setPhoneSubTab("details")}
+                    onSuccess={() => {}}
                   />
                 </div>
               ) : (
