@@ -8521,7 +8521,7 @@ export default function AgentWorkspacePage() {
           queueIds={sessionInboundQueueIds}
           onCallback={(phoneNumber) => {
             if (makeCall) {
-              makeCall({ target: phoneNumber, displayName: phoneNumber });
+              makeCall({ phoneNumber });
             }
           }}
         />
@@ -10455,8 +10455,9 @@ export default function AgentWorkspacePage() {
                               } catch (e) { console.error("Failed to lookup customer:", e); }
                             }
                             makeCall({
-                              target: phoneNum,
-                              displayName: call.customerName || call.callerName || phoneNum,
+                              phoneNumber: phoneNum,
+                              customerName: call.customerName || call.callerName || undefined,
+                              customerId: call.customerId || undefined,
                             });
                             if (!isSipRegistered && !isSipRegistering) {
                               sipRegister();
