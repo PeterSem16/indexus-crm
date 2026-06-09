@@ -267,7 +267,7 @@ interface CustomerFormProps {
   initialData?: Customer;
   onSubmit: (data: CustomerFormData) => void;
   isLoading?: boolean;
-  onCancel: () => void;
+  onCancel?: () => void;
   useCardLayout?: boolean;
 }
 
@@ -1162,9 +1162,11 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
         </div>
 
         <div className="shrink-0 border-t px-5 py-2 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-customer">
-            {t.common.cancel}
-          </Button>
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-customer">
+              {t.common.cancel}
+            </Button>
+          )}
           <Button type="submit" disabled={isLoading} data-testid="button-submit-customer">
             {isLoading ? t.customers.fields.saving : initialData ? t.customers.fields.update : t.customers.fields.createClient}
           </Button>

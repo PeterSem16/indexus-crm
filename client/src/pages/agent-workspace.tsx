@@ -2875,7 +2875,6 @@ function CommunicationCanvas({
                     key={hospitalData.id}
                     initialData={hospitalData}
                     onSuccess={() => setPhoneSubTab("details")}
-                    onCancel={() => setPhoneSubTab("details")}
                   />
                 </div>
               ) : contactType === "clinic" && clinicData ? (
@@ -2895,7 +2894,6 @@ function CommunicationCanvas({
                     key={collaboratorData.id}
                     initialData={collaboratorData}
                     onSuccess={() => setPhoneSubTab("details")}
-                    onCancel={() => setPhoneSubTab("details")}
                   />
                 </div>
               ) : (
@@ -2906,7 +2904,6 @@ function CommunicationCanvas({
                       initialData={contact}
                       onSubmit={(data) => onUpdateContact?.(data)}
                       isLoading={isUpdatingContact}
-                      onCancel={() => setPhoneSubTab("details")}
                       useCardLayout
                     />
                   </div>
@@ -9016,7 +9013,6 @@ export default function AgentWorkspacePage() {
                         setCreateIsLoading(false);
                       }
                     }}
-                    onCancel={() => setCreateFromCallType(null)}
                     useCardLayout
                   />
                 )}
@@ -9034,7 +9030,6 @@ export default function AgentWorkspacePage() {
                         setDispositionModalOpen(true);
                       }
                     }}
-                    onCancel={() => setCreateFromCallType(null)}
                   />
                 )}
                 {createFromCallType === "clinic" && (
@@ -9069,7 +9064,6 @@ export default function AgentWorkspacePage() {
                         setDispositionModalOpen(true);
                       }
                     }}
-                    onCancel={() => setCreateFromCallType(null)}
                   />
                 )}
               </div>

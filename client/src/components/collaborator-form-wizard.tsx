@@ -5673,9 +5673,11 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onCancel} data-testid="wizard-button-close">
-          <X className="h-4 w-4" />
-        </Button>
+        {onCancel && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onCancel} data-testid="wizard-button-close">
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-1 min-h-0">
@@ -5724,9 +5726,11 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
 
           <div className="shrink-0 border-t bg-background/95 backdrop-blur-sm px-6 py-3 flex items-center justify-end shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={onCancel} data-testid="wizard-button-cancel">
-                {t.common.cancel}
-              </Button>
+              {onCancel && (
+                <Button variant="outline" size="sm" onClick={onCancel} data-testid="wizard-button-cancel">
+                  {t.common.cancel}
+                </Button>
+              )}
               <Button
                 variant="default"
                 size="sm"

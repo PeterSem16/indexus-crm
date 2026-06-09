@@ -747,9 +747,11 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
               {renderStepContent(activeTabInfo.step)}
             </div>
             <div className="shrink-0 border-t px-5 py-3 flex justify-between bg-background">
-              <Button variant="ghost" size="sm" onClick={onCancel} data-testid="inline-hospital-cancel">
-                {t.common.cancel}
-              </Button>
+              {onCancel && (
+                <Button variant="ghost" size="sm" onClick={onCancel} data-testid="inline-hospital-cancel">
+                  {t.common.cancel}
+                </Button>
+              )}
               <Button
                 size="sm"
                 onClick={() => {
