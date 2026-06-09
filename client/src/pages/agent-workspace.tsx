@@ -6090,6 +6090,7 @@ export default function AgentWorkspacePage() {
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [pendingEmailTemplateId, setPendingEmailTemplateId] = useState<string | null>(null);
   const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
+  const [isNonMissionInboundDisposition, setIsNonMissionInboundDisposition] = useState(false);
   const [callEndTimestamp, setCallEndTimestamp] = useState<number | null>(null);
   const [wrapUpElapsed, setWrapUpElapsed] = useState(0);
   const wrapUpTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -6527,7 +6528,10 @@ export default function AgentWorkspacePage() {
         };
         setCallEndTimestamp(Date.now());
         setDispositionChannelFilter("phone");
-        setMandatoryDisposition(true);
+        const isNMInbound = isInboundCall && !currentCampaignContactId;
+        setIsNonMissionInboundDisposition(isNMInbound);
+        // Non-mission inbound with no campaign: not mandatory (agent uses dedicated scheduler)
+        setMandatoryDisposition(!isNMInbound);
         // Auto-open disposition based on campaign setting autoOpenDisposition (default true).
         // Opens regardless of who hung up — the agent always needs to record the call outcome.
         const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
@@ -9908,7 +9912,7 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; if (open && !dispositionOpenedAt) setDispositionOpenedAt(Date.now()); setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); setChecklistParentId(null); setChecklistSelectedCodes([]); setChecklistCallbackAssign("me"); } }}>
+      <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; if (open && !dispositionOpenedAt) setDispositionOpenedAt(Date.now()); setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); setChecklistParentId(null); setChecklistSelectedCodes([]); setChecklistCallbackAssign("me"); setIsNonMissionInboundDisposition(false); } }}>
         <SheetContent
           side="right"
           className={`w-full sm:max-w-[720px] p-0 flex flex-col gap-0 ${mandatoryDisposition ? "[&>button]:hidden" : ""}`}
@@ -10369,6 +10373,82 @@ export default function AgentWorkspacePage() {
                   </div>
                 );
               })()}
+
+              {/* Dedicated callback scheduler for non-mission inbound calls */}
+              {isNonMissionInboundDisposition && !modalSelectedParent && !checklistParentId && (
+                <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#B5622E" }}>
+                      <CalendarPlus className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-sm font-semibold">Naplánovať spätné volanie</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Dátum</label>
+                      <input
+                        type="date"
+                        value={modalCallbackDate}
+                        onChange={(e) => setModalCallbackDate(e.target.value)}
+                        className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                        data-testid="input-inbound-cb-date"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Čas</label>
+                      <input
+                        type="time"
+                        value={modalCallbackTime}
+                        onChange={(e) => setModalCallbackTime(e.target.value)}
+                        className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                        data-testid="input-inbound-cb-time"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant={modalCallbackAssign === "me" ? "default" : "outline"} className="flex-1 gap-1 text-xs h-8" onClick={() => setModalCallbackAssign("me")} disabled={!user?.id} data-testid="btn-inbound-cb-assign-me">
+                      <User className="h-3 w-3" /> Mne
+                    </Button>
+                    <Button size="sm" variant={modalCallbackAssign === "all" ? "default" : "outline"} className="flex-1 gap-1 text-xs h-8" onClick={() => setModalCallbackAssign("all")} data-testid="btn-inbound-cb-assign-all">
+                      <Users className="h-3 w-3" /> Všetkým
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={modalCallbackNote}
+                    onChange={(e) => setModalCallbackNote(e.target.value)}
+                    placeholder="Poznámka k hovoru (voliteľné)..."
+                    className="min-h-[50px] max-h-[100px] text-sm"
+                    data-testid="input-inbound-cb-note"
+                  />
+                  <Button
+                    className="w-full"
+                    disabled={!modalCallbackDate}
+                    onClick={() => {
+                      const cbAssignTo = modalCallbackAssign === "me" ? (user?.id || null) : null;
+                      handleDisposition("callback", undefined, `${modalCallbackDate}T${modalCallbackTime}`, cbAssignTo, modalCallbackNote || undefined);
+                    }}
+                    data-testid="btn-inbound-cb-confirm"
+                  >
+                    <CalendarPlus className="h-4 w-4 mr-1" /> Naplánovať callback
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => {
+                      setIsNonMissionInboundDisposition(false);
+                      setDispositionModalOpen(false);
+                      setModalCallbackDate("");
+                      setModalCallbackTime("09:00");
+                      setModalCallbackAssign("me");
+                      setModalCallbackNote("");
+                    }}
+                    data-testid="btn-inbound-cb-skip"
+                  >
+                    Zatvoriť bez preplanovania
+                  </Button>
+                </div>
+              )}
 
               {/* Notes always visible (both main list and parent-detail) */}
               {campaignDispositions.length > 0 && (() => {
