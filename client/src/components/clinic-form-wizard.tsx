@@ -1659,10 +1659,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
           )}
 
           <div className="sticky bottom-0 bg-background border-t px-6 py-3 flex justify-between">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic">
-              {t.common.cancel}
-            </Button>
-            <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-clinic">
+            {mode !== "inline" && (
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic">
+                {t.common.cancel}
+              </Button>
+            )}
+            <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-clinic" className={mode === "inline" ? "ml-auto" : ""}>
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               {t.common.save}
             </Button>

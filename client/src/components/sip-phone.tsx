@@ -201,6 +201,7 @@ export function SipPhone({
   const forceIdleRef = useRef<boolean>(false);
   const activeInboundMetaRef = useRef<{ queueId?: string; queueName?: string; direction?: string } | null>(null);
   const inboundTerminatedListenerRef = useRef<{ session: any; listener: (state: any) => void } | null>(null);
+  const hangupPollRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingContextRef = useRef<AudioContext | null>(null);
@@ -762,10 +763,14 @@ export function SipPhone({
     // Stores end metadata if call terminates before createCallLogMutation resolves (race condition)
     const pendingEndMetaRef = { current: null as { duration: number; hungUpBy: string; endedAt: string; customerId?: string } | null };
 
+    let terminatedHandled = false;
     const onTerminated = (state: any) => {
       const stateStr = String(state);
       console.log("[SIP-INBOUND] Session state changed:", stateStr);
       if (stateStr !== "Terminated" && state !== SessionState.Terminated) return;
+      if (terminatedHandled) { console.log("[SIP-INBOUND] onTerminated already handled, skipping duplicate"); return; }
+      terminatedHandled = true;
+      if (hangupPollRef.current) { clearInterval(hangupPollRef.current); hangupPollRef.current = null; }
       if (forceIdleRef.current) { forceIdleRef.current = false; return; }
       console.log("[SIP-INBOUND] === CALL TERMINATED ===");
       inboundTerminatedListenerRef.current = null;
@@ -839,6 +844,17 @@ export function SipPhone({
       onTerminated(SessionState.Terminated);
     } else {
       console.log("[SIP-INBOUND] Session state at setup:", currentSessionState);
+      if (hangupPollRef.current) clearInterval(hangupPollRef.current);
+      hangupPollRef.current = setInterval(() => {
+        if (terminatedHandled) { clearInterval(hangupPollRef.current!); hangupPollRef.current = null; return; }
+        const pollState = String(session.state);
+        if (pollState === "Terminated") {
+          console.warn("[SIP-INBOUND] Hang-up detected via poll fallback (stateChange may have been missed)");
+          clearInterval(hangupPollRef.current!);
+          hangupPollRef.current = null;
+          onTerminated(SessionState.Terminated);
+        }
+      }, 2000);
     }
 
     // For inbound calls, always look up the caller by phone number to get the correct
@@ -933,6 +949,7 @@ export function SipPhone({
         try { inboundTerminatedListenerRef.current.session.stateChange.removeListener(inboundTerminatedListenerRef.current.listener); } catch {}
         inboundTerminatedListenerRef.current = null;
       }
+      if (hangupPollRef.current) { clearInterval(hangupPollRef.current); hangupPollRef.current = null; }
       if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
     };
   }, []);
