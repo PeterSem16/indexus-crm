@@ -2893,6 +2893,7 @@ function CommunicationCanvas({
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   <CollaboratorFormWizard
                     key={collaboratorData.id}
+                    mode="inline"
                     initialData={collaboratorData}
                     onSuccess={() => setPhoneSubTab("details")}
                   />
@@ -6349,7 +6350,11 @@ export default function AgentWorkspacePage() {
         setCallEndTimestamp(Date.now());
         setDispositionChannelFilter("phone");
         setMandatoryDisposition(true);
-        setDispositionModalOpen(true);
+        // When the CALLER hangs up, don't auto-open disposition — agent initiates it manually.
+        // When the AGENT hangs up, auto-open so they can immediately log the outcome.
+        if (callContext.callTiming.hungUpBy !== "customer") {
+          setDispositionModalOpen(true);
+        }
       }
       if (pendingCallbackAbandonedIdRef.current) {
         const abandonedId = pendingCallbackAbandonedIdRef.current;

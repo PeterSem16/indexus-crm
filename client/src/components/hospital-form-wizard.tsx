@@ -747,7 +747,7 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
               {renderStepContent(activeTabInfo.step)}
             </div>
             <div className="shrink-0 border-t px-5 py-3 flex justify-between bg-background">
-              {onCancel && (
+              {onCancel && mode !== "inline" && (
                 <Button variant="ghost" size="sm" onClick={onCancel} data-testid="inline-hospital-cancel">
                   {t.common.cancel}
                 </Button>
@@ -865,7 +865,7 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
       {/* Footer */}
       <div className="shrink-0 flex justify-between gap-2 border-t px-5 py-3 bg-background">
         <div>
-          {onCancel && (
+          {onCancel && mode !== "inline" && (
             <Button variant="ghost" size="sm" onClick={onCancel} data-testid="wizard-button-cancel">
               {t.common.cancel}
             </Button>
