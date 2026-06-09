@@ -5588,7 +5588,7 @@ function ScheduledQueuePanel({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogContent className="sm:max-w-5xl max-h-[85vh] !flex !flex-col overflow-hidden p-0">
         <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -6037,6 +6037,7 @@ export default function AgentWorkspacePage() {
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
   const [abandonedCallsOpen, setAbandonedCallsOpen] = useState(false);
+  const [missedCallNotifs, setMissedCallNotifs] = useState<Array<{ id: number; title: string; description: string }>>([]);
   const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
@@ -8206,11 +8207,13 @@ export default function AgentWorkspacePage() {
               } else if (reason === "no_agents") {
                 description = `${callerDisplay}${queueDisplay} ${t.agentWorkspace.redirectedNoAgents}`;
               }
-              toast({
+              const notifId = Date.now();
+              setMissedCallNotifs(prev => [...prev, {
+                id: notifId,
                 title: reason === "caller_hangup" ? t.agentWorkspace.missedCallToast : t.agentWorkspace.redirectedCallToast,
                 description,
-                variant: "destructive",
-              });
+              }]);
+              setTimeout(() => setMissedCallNotifs(prev => prev.filter(n => n.id !== notifId)), 15000);
             } else {
               console.log("[AgentWS] call-cancelled WS: suppressing toast, reason:", reason, "wasQueueWaiting:", wasQueueWaiting);
             }
@@ -8672,6 +8675,38 @@ export default function AgentWorkspacePage() {
         agentStatus={agentSession.status}
         activeCallState={callContext.callState}
       />
+      {missedCallNotifs.length > 0 && (
+        <div className="fixed bottom-4 left-4 z-[200] flex flex-col gap-2 max-w-xs w-full pointer-events-none" data-testid="missed-call-notifs">
+          {missedCallNotifs.map(notif => (
+            <div
+              key={notif.id}
+              className="pointer-events-auto animate-in slide-in-from-bottom-3 duration-300 rounded-xl overflow-hidden shadow-2xl border border-red-800/40"
+              style={{ background: "linear-gradient(135deg, #1a0a0a 0%, #2d0f0f 60%, #1f0808 100%)" }}
+              data-testid={`missed-call-notif-${notif.id}`}
+            >
+              <div className="flex items-start gap-3 px-4 py-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-0.5" style={{ background: "rgba(239,68,68,0.18)", border: "1px solid rgba(239,68,68,0.35)" }}>
+                  <PhoneOff className="h-4 w-4 text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold text-red-300 leading-tight">{notif.title}</p>
+                  <p className="text-[11px] text-red-400/80 mt-0.5 leading-snug">{notif.description}</p>
+                </div>
+                <button
+                  onClick={() => setMissedCallNotifs(prev => prev.filter(n => n.id !== notif.id))}
+                  className="shrink-0 mt-0.5 p-1 rounded-md text-red-500/60 hover:text-red-300 hover:bg-red-900/40 transition-colors"
+                  data-testid={`btn-close-notif-${notif.id}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="h-[2px] w-full bg-red-900/30">
+                <div className="h-full bg-red-500/60 animate-[shrink_15s_linear_forwards]" style={{ width: "100%" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {agentSession.isSessionActive && (
         <VoicemailNotifications
           queueIds={sessionInboundQueueIds}
@@ -10476,7 +10511,7 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={abandonedCallsOpen} onOpenChange={setAbandonedCallsOpen}>
+      <Dialog open={abandonedCallsOpen} onOpenChange={setAbandonedCallsOpen} modal={false}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
