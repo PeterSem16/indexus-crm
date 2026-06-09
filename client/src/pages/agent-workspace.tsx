@@ -6052,6 +6052,7 @@ export default function AgentWorkspacePage() {
   const tasksRef = useRef<TaskItem[]>([]);
   tasksRef.current = tasks;
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [isLoadingInboundContact, setIsLoadingInboundContact] = useState(false);
   const [acwStartedAt, setAcwStartedAt] = useState<number | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isAutoMode, setIsAutoMode] = useState(false);
@@ -8493,6 +8494,7 @@ export default function AgentWorkspacePage() {
     }
     acceptingCallRef.current = true;
     wasInboundCallRef.current = true;
+    setIsLoadingInboundContact(true);
 
     const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
     const callerNumber = call.callerNumber;
@@ -8587,6 +8589,7 @@ export default function AgentWorkspacePage() {
       } else {
         setPendingUnknownCaller(null);
       }
+      setIsLoadingInboundContact(false);
     };
 
     try {
@@ -8710,6 +8713,7 @@ export default function AgentWorkspacePage() {
     } catch (err: any) {
       console.error("[AgentWS] Error accepting call:", err);
       toast({ title: t.agentWorkspace.errorLabel, description: err.message || t.agentWorkspace.callAcceptError, variant: "destructive" });
+      setIsLoadingInboundContact(false);
     } finally {
       acceptingCallRef.current = false;
     }
@@ -9255,7 +9259,7 @@ export default function AgentWorkspacePage() {
         onToggleInboundRingtone={toggleInboundRingtone}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
         <TaskListPanel
           tasks={tasks}
           activeTaskId={activeTaskId}
@@ -9295,6 +9299,40 @@ export default function AgentWorkspacePage() {
             }
           }}
         />
+
+        <div className="flex flex-1 overflow-hidden relative" style={{ minHeight: 0 }}>
+
+        {isLoadingInboundContact && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-6 select-none">
+              <div className="relative flex items-center justify-center">
+                <span className="absolute inline-flex h-24 w-24 rounded-full opacity-30 animate-ping" style={{ background: "hsl(var(--primary))", animationDuration: "1.4s" }} />
+                <span className="absolute inline-flex h-16 w-16 rounded-full opacity-20 animate-ping" style={{ background: "hsl(var(--primary))", animationDuration: "1.0s", animationDelay: "0.2s" }} />
+                <div className="relative flex items-center justify-center h-14 w-14 rounded-full shadow-2xl" style={{ background: "hsl(var(--primary))" }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.07 11.9a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3 1.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>Kontakt sa načítava...</p>
+                <div className="flex items-center gap-1.5">
+                  {[0, 1, 2, 3].map(i => (
+                    <span
+                      key={i}
+                      className="inline-block h-1.5 w-1.5 rounded-full"
+                      style={{
+                        background: "hsl(var(--primary))",
+                        animation: "inboundDot 1.2s ease-in-out infinite",
+                        animationDelay: `${i * 0.18}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {(() => {
           const parsedPhone = parseInboundPhone(pendingUnknownCaller?.phone || "");
@@ -9541,6 +9579,7 @@ export default function AgentWorkspacePage() {
           acwStartedAt={acwStartedAt}
           onCloseAcwTask={handleCloseAcwTask}
         />
+        </div>{/* end center+right relative wrapper */}
       </div>
 
       <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
