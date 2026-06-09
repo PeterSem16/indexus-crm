@@ -9495,7 +9495,8 @@ export default function AgentWorkspacePage() {
                   const chConfig = CHANNEL_CONFIG[task.channel];
                   const ChIcon = chConfig.icon;
                   const isActive = activeTaskId === task.id;
-                  const isOnCall = !!(callIsActive && callContactId && task.contact.id === callContactId);
+                  const _mCallIsActive = ["active", "on_hold", "connecting", "ringing"].includes(callContext.callState);
+                  const isOnCall = !!(_mCallIsActive && currentContact?.id && task.contact.id === currentContact.id);
                   const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1000);
                   const mins = Math.floor(elapsed / 60);
                   const secs = elapsed % 60;

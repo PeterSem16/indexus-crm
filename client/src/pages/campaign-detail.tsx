@@ -6116,10 +6116,8 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
-                          <CardTitle>Auto-otvoriť dispozíciu po hovore</CardTitle>
-                          <CardDescription>
-                            Keď agent zavesí, dispozícia sa otvorí automaticky. Ak vypnete, agent ju otvorí ručne kliknutím na tlačidlo.
-                          </CardDescription>
+                          <CardTitle>{t.campaigns.detail.autoOpenDispositionTitle}</CardTitle>
+                          <CardDescription>{t.campaigns.detail.autoOpenDispositionDesc}</CardDescription>
                         </CardHeader>
                         <CardContent>
                           <div className="flex items-center gap-3">
@@ -6147,8 +6145,8 @@ export default function CampaignDetailPage() {
                               {(() => {
                                 try {
                                   const s = campaign.settings ? JSON.parse(campaign.settings) : {};
-                                  return s.autoOpenDisposition !== false ? "Zapnuté (odporúčané)" : "Vypnuté — agent otvára ručne";
-                                } catch { return "Zapnuté (odporúčané)"; }
+                                  return s.autoOpenDisposition !== false ? t.campaigns.detail.autoOpenDispositionOn : t.campaigns.detail.autoOpenDispositionOff;
+                                } catch { return t.campaigns.detail.autoOpenDispositionOn; }
                               })()}
                             </Label>
                           </div>

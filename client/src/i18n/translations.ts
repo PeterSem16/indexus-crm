@@ -2186,6 +2186,10 @@ export interface Translations {
       dispositionModeScript: string;
       dispositionModeEndCallDesc: string;
       dispositionModeScriptDesc: string;
+      autoOpenDispositionTitle: string;
+      autoOpenDispositionDesc: string;
+      autoOpenDispositionOn: string;
+      autoOpenDispositionOff: string;
       queueDisplayModeTitle: string;
       queueDisplayModeDesc: string;
       queueDisplayModeStep: string;
@@ -9024,6 +9028,10 @@ export const translations: Record<Locale, Translations> = {
         dispositionModeScript: 'Script selection (disposition from choice)',
         dispositionModeEndCallDesc: 'Disposition is selected manually after the call via the standard end call button.',
         dispositionModeScriptDesc: 'Disposition is set automatically when selecting an option in the call script. Assign dispositions to individual options in the script builder.',
+        autoOpenDispositionTitle: 'Auto-open disposition after call',
+        autoOpenDispositionDesc: 'When the agent hangs up, the disposition window opens automatically. When disabled, the agent opens it manually.',
+        autoOpenDispositionOn: 'Enabled (recommended)',
+        autoOpenDispositionOff: 'Disabled — agent opens manually',
         queueDisplayModeTitle: 'Scheduled Queue Column',
         queueDisplayModeDesc: 'Choose what to display in the "Step" column of the scheduled queue.',
         queueDisplayModeStep: 'Show current script step',
@@ -15360,6 +15368,10 @@ export const translations: Record<Locale, Translations> = {
         dispositionModeScript: 'Výber v call scripte (dispozícia z voľby)',
         dispositionModeEndCallDesc: 'Dispozícia sa vyberá manuálne po ukončení hovoru cez štandardné tlačidlo.',
         dispositionModeScriptDesc: 'Dispozícia sa nastaví automaticky pri výbere možnosti v call scripte. Priraďte dispozície k jednotlivým možnostiam v script builderi.',
+        autoOpenDispositionTitle: 'Auto-otvoriť dispozíciu po hovore',
+        autoOpenDispositionDesc: 'Keď agent zavesí, dispozícia sa otvorí automaticky. Ak vypnete, agent ju otvorí ručne kliknutím na tlačidlo.',
+        autoOpenDispositionOn: 'Zapnuté (odporúčané)',
+        autoOpenDispositionOff: 'Vypnuté — agent otvára ručne',
         queueDisplayModeTitle: 'Stĺpec plánovanej fronty',
         queueDisplayModeDesc: 'Vyberte, čo sa zobrazí v stĺpci „Krok" plánovanej fronty.',
         queueDisplayModeStep: 'Zobraziť aktuálny krok scriptu',
@@ -21634,6 +21646,10 @@ export const translations: Record<Locale, Translations> = {
         dispositionModeScript: 'Výběr v call scriptu (dispozice z volby)',
         dispositionModeEndCallDesc: 'Dispozice se vybírá manuálně po ukončení hovoru přes standardní tlačítko.',
         dispositionModeScriptDesc: 'Dispozice se nastaví automaticky při výběru možnosti v call scriptu. Přiřaďte dispozice k jednotlivým možnostem ve script builderu.',
+        autoOpenDispositionTitle: 'Automaticky otevřít dispozici po hovoru',
+        autoOpenDispositionDesc: 'Když agent zavěsí, okno dispozice se otevře automaticky. Pokud vypnete, agent ho otevře ručně.',
+        autoOpenDispositionOn: 'Zapnuto (doporučeno)',
+        autoOpenDispositionOff: 'Vypnuto — agent otevírá ručně',
         queueDisplayModeTitle: 'Sloupec plánované fronty',
         queueDisplayModeDesc: 'Vyberte, co se zobrazí ve sloupci „Krok" plánované fronty.',
         queueDisplayModeStep: 'Zobrazit aktuální krok scriptu',
@@ -27866,6 +27882,10 @@ export const translations: Record<Locale, Translations> = {
         dispositionModeScript: 'Script kiválasztás (diszpozíció a választásból)',
         dispositionModeEndCallDesc: 'A diszpozíciót manuálisan kell kiválasztani a hívás befejezése után a szabványos gombon keresztül.',
         dispositionModeScriptDesc: 'A diszpozíció automatikusan beállításra kerül a call scriptben lévő lehetőség kiválasztásakor. Rendelje hozzá a diszpozíciókat az egyes opciókhoz a script builderben.',
+        autoOpenDispositionTitle: 'Diszpozíció automatikus megnyitása hívás után',
+        autoOpenDispositionDesc: 'Ha az ügynök leteszi a telefont, a diszpozíció ablak automatikusan megnyílik. Ha letiltja, az ügynök manuálisan nyitja meg.',
+        autoOpenDispositionOn: 'Bekapcsolva (ajánlott)',
+        autoOpenDispositionOff: 'Kikapcsolva — az ügynök manuálisan nyitja meg',
         queueDisplayModeTitle: 'Ütemezett sor oszlopa',
         queueDisplayModeDesc: 'Válassza ki, mi jelenjen meg az ütemezett sor „Lépés" oszlopában.',
         queueDisplayModeStep: 'Aktuális script lépés megjelenítése',
@@ -33991,6 +34011,10 @@ export const translations: Record<Locale, Translations> = {
         dispositionModeScript: 'Selecție din script (dispoziție din alegere)',
         dispositionModeEndCallDesc: 'Dispoziția se selectează manual după terminarea apelului prin butonul standard.',
         dispositionModeScriptDesc: 'Dispoziția este setată automat la selectarea unei opțiuni în scriptul de apel. Atribuiți dispoziții opțiunilor individuale în constructorul de script.',
+        autoOpenDispositionTitle: 'Deschidere automată dispoziție după apel',
+        autoOpenDispositionDesc: 'Când agentul închide, fereastra de dispoziție se deschide automat. Dacă dezactivați, agentul o deschide manual.',
+        autoOpenDispositionOn: 'Activat (recomandat)',
+        autoOpenDispositionOff: 'Dezactivat — agentul deschide manual',
         queueDisplayModeTitle: 'Coloana cozii programate',
         queueDisplayModeDesc: 'Alegeți ce să afișați în coloana „Pas" a cozii programate.',
         queueDisplayModeStep: 'Afișare pas curent al scriptului',
@@ -40118,6 +40142,10 @@ export const translations: Record<Locale, Translations> = {
         dispositionModeScript: 'Selezione script (disposizione dalla scelta)',
         dispositionModeEndCallDesc: 'La disposizione viene selezionata manualmente dopo la chiamata tramite il pulsante standard.',
         dispositionModeScriptDesc: 'La disposizione viene impostata automaticamente quando si seleziona un\'opzione nello script. Assegnare le disposizioni alle singole opzioni nel builder degli script.',
+        autoOpenDispositionTitle: 'Apertura automatica disposizione dopo la chiamata',
+        autoOpenDispositionDesc: 'Quando l\'agente riaggancia, la finestra di disposizione si apre automaticamente. Se disabilitato, l\'agente la apre manualmente.',
+        autoOpenDispositionOn: 'Abilitato (consigliato)',
+        autoOpenDispositionOff: 'Disabilitato — l\'agente apre manualmente',
         queueDisplayModeTitle: 'Colonna coda programmata',
         queueDisplayModeDesc: 'Scegliere cosa visualizzare nella colonna "Passo" della coda programmata.',
         queueDisplayModeStep: 'Mostra il passo corrente dello script',
@@ -46245,6 +46273,10 @@ export const translations: Record<Locale, Translations> = {
         dispositionModeScript: 'Script-Auswahl (Disposition aus der Wahl)',
         dispositionModeEndCallDesc: 'Die Disposition wird nach dem Gespräch manuell über die Standard-Schaltfläche ausgewählt.',
         dispositionModeScriptDesc: 'Die Disposition wird automatisch gesetzt, wenn eine Option im Call-Script ausgewählt wird. Weisen Sie Dispositionen den einzelnen Optionen im Script-Builder zu.',
+        autoOpenDispositionTitle: 'Disposition nach Gespräch automatisch öffnen',
+        autoOpenDispositionDesc: 'Wenn der Agent auflegt, öffnet sich das Dispositionsfenster automatisch. Bei Deaktivierung öffnet der Agent es manuell.',
+        autoOpenDispositionOn: 'Aktiviert (empfohlen)',
+        autoOpenDispositionOff: 'Deaktiviert — Agent öffnet manuell',
         queueDisplayModeTitle: 'Spalte der geplanten Warteschlange',
         queueDisplayModeDesc: 'Wählen Sie, was in der Spalte „Schritt" der geplanten Warteschlange angezeigt wird.',
         queueDisplayModeStep: 'Aktuellen Script-Schritt anzeigen',
