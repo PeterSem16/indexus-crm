@@ -4174,9 +4174,17 @@ function CustomerInfoPanel({
   forwardedCallActive?: { callId: string; callerNumber: string; callerName?: string; startedAt: Date } | null;
   onOpenDispositionFromForwardedCall?: () => void;
   onEndForwardedCall?: () => void;
+  acwStartedAt?: number | null;
+  onCloseAcwTask?: () => void;
 }) {
   const { t, locale } = useI18n();
   const callContext = useCall();
+  const [acwElapsed, setAcwElapsed] = useState(0);
+  useEffect(() => {
+    if (!acwStartedAt) { setAcwElapsed(0); return; }
+    const iv = setInterval(() => setAcwElapsed(Math.floor((Date.now() - acwStartedAt) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [acwStartedAt]);
   const [newNote, setNewNote] = useState("");
   const [showDialpad, setShowDialpad] = useState(false);
   const [showVolume, setShowVolume] = useState(false);
@@ -4297,6 +4305,31 @@ function CustomerInfoPanel({
           </div>
         </div>
       </div>
+
+      {acwStartedAt && !hasCall && (
+        <div className="border-b px-3 py-2 bg-amber-50 dark:bg-amber-950/30" data-testid="acw-banner">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">ACW — After Call Work</p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                  {String(Math.floor(acwElapsed / 60)).padStart(2, "0")}:{String(acwElapsed % 60).padStart(2, "0")}
+                </p>
+              </div>
+            </div>
+            {onCloseAcwTask && (
+              <button
+                onClick={onCloseAcwTask}
+                data-testid="button-close-acw-task"
+                className="shrink-0 text-[11px] font-medium px-2 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+              >
+                Zatvoriť task
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {hasCall && (
         <div className={`border-b px-3 py-2 space-y-2 ${
@@ -6053,6 +6086,7 @@ export default function AgentWorkspacePage() {
   const tasksRef = useRef<TaskItem[]>([]);
   tasksRef.current = tasks;
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [acwStartedAt, setAcwStartedAt] = useState<number | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
@@ -7322,6 +7356,10 @@ export default function AgentWorkspacePage() {
     setCallEndTimestamp(null);
     setRingDuration(0);
 
+    const keepContactOpenAfterDisposition = (() => {
+      try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings).keepContactOpenAfterDisposition === true : false; } catch { return false; }
+    })();
+
     if (!isNewContactActive) {
       callContext.resetCallTiming();
       callContext.setCallState("idle");
@@ -7329,37 +7367,65 @@ export default function AgentWorkspacePage() {
       agentSession.updateStatus("wrap_up").catch(() => {});
     }
 
-    if (effectiveTaskId) {
-      setTasks((prev) => prev.filter((t) => t.id !== effectiveTaskId));
-      if (activeTaskId === effectiveTaskId) setActiveTaskId(null);
-    }
-
     if (effectiveCampaignContactId) {
       setDisposedContactIds(prev => new Set(prev).add(effectiveCampaignContactId));
     }
 
-    if (!isNewContactActive) {
-      setCurrentContact(null);
-      setCurrentCampaignContactId(null);
-      setCallNotes("");
-      setTimeline([]);
-      setActiveChannel("phone");
-    }
-
-    if (!isNewContactActive) {
-      const isAuto = isAutoMode || campaignAutoSettings.autoMode;
-      const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
-
-      setTimeout(async () => {
-        try {
-          await agentSession.updateStatus("available");
-          if (isAuto) {
-            handleNextContact(true);
-          }
-        } catch {}
-      }, wrapUpDelay);
+    if (keepContactOpenAfterDisposition && !isNewContactActive) {
+      setAcwStartedAt(Date.now());
+    } else {
+      if (effectiveTaskId) {
+        setTasks((prev) => prev.filter((t) => t.id !== effectiveTaskId));
+        if (activeTaskId === effectiveTaskId) setActiveTaskId(null);
+      }
+      if (!isNewContactActive) {
+        setCurrentContact(null);
+        setCurrentCampaignContactId(null);
+        setCallNotes("");
+        setTimeline([]);
+        setActiveChannel("phone");
+      }
+      if (!isNewContactActive) {
+        const isAuto = isAutoMode || campaignAutoSettings.autoMode;
+        const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
+        setTimeout(async () => {
+          try {
+            await agentSession.updateStatus("available");
+            if (isAuto) handleNextContact(true);
+          } catch {}
+        }, wrapUpDelay);
+      }
     }
   };
+
+  const handleCloseAcwTask = useCallback(async () => {
+    const acwSeconds = acwStartedAt ? Math.round((Date.now() - acwStartedAt) / 1000) : null;
+    setAcwStartedAt(null);
+    if (currentCampaignContactId && selectedCampaignId && acwSeconds !== null) {
+      try {
+        await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${currentCampaignContactId}`, {
+          callMeta: { acwDurationSeconds: acwSeconds },
+        });
+      } catch { /* ignore — non-critical */ }
+    }
+    if (activeTaskId) {
+      setTasks((prev) => prev.filter((t) => t.id !== activeTaskId));
+      setActiveTaskId(null);
+    }
+    setCurrentContact(null);
+    setCurrentCampaignContactId(null);
+    setCallNotes("");
+    setTimeline([]);
+    setActiveChannel("phone");
+    const isAuto = isAutoMode || campaignAutoSettings.autoMode;
+    const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
+    setTimeout(async () => {
+      try {
+        await agentSession.updateStatus("available");
+        if (isAuto) handleNextContact(true);
+      } catch {}
+    }, wrapUpDelay);
+  }, [acwStartedAt, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings]);
 
   const sendEmailMutation = useMutation({
     mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null }) => {
@@ -9504,6 +9570,8 @@ export default function AgentWorkspacePage() {
           forwardedCallActive={forwardedCallActive}
           onOpenDispositionFromForwardedCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
           onEndForwardedCall={() => { setForwardedCallActive(null); setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+          acwStartedAt={acwStartedAt}
+          onCloseAcwTask={handleCloseAcwTask}
         />
       </div>
 

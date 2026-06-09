@@ -6154,6 +6154,46 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
+                          <CardTitle>{t.campaigns.detail.keepContactOpenAfterDispositionTitle}</CardTitle>
+                          <CardDescription>{t.campaigns.detail.keepContactOpenAfterDispositionDesc}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-3">
+                            <Switch
+                              checked={(() => {
+                                try {
+                                  const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                  return s.keepContactOpenAfterDisposition === true;
+                                } catch { return false; }
+                              })()}
+                              onCheckedChange={(v) => {
+                                let existing: any = {};
+                                try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                                const merged = { ...existing, keepContactOpenAfterDisposition: v };
+                                apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                  .then(() => {
+                                    toast({ title: t.campaigns.detail.settingsSaved });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                  })
+                                  .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                              }}
+                              data-testid="switch-keep-contact-open-after-disposition"
+                            />
+                            <Label className="text-sm">
+                              {(() => {
+                                try {
+                                  const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                  return s.keepContactOpenAfterDisposition === true
+                                    ? t.campaigns.detail.keepContactOpenAfterDispositionOn
+                                    : t.campaigns.detail.keepContactOpenAfterDispositionOff;
+                                } catch { return t.campaigns.detail.keepContactOpenAfterDispositionOff; }
+                              })()}
+                            </Label>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
                           <CardTitle>{t.campaigns.detail.queueDisplayModeTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.queueDisplayModeDesc}

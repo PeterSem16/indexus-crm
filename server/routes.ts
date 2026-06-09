@@ -25322,7 +25322,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         });
 
         // Persist disposition timing fields into the most recent callLog for this contact
-        if ((callMeta?.dispositionDurationSeconds || callMeta?.dispositionFormDurationSeconds) && req.params.contactId) {
+        if ((callMeta?.dispositionDurationSeconds || callMeta?.dispositionFormDurationSeconds || callMeta?.acwDurationSeconds) && req.params.contactId) {
           try {
             const [latestLog] = await db.select().from(callLogs)
               .where(eq(callLogs.campaignContactId, req.params.contactId))
@@ -25334,6 +25334,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               const metaUpdate: Record<string, any> = { ...existingMeta };
               if (callMeta.dispositionDurationSeconds) metaUpdate.dispositionDurationSeconds = callMeta.dispositionDurationSeconds;
               if (callMeta.dispositionFormDurationSeconds) metaUpdate.dispositionFormDurationSeconds = callMeta.dispositionFormDurationSeconds;
+              if (callMeta.acwDurationSeconds) metaUpdate.acwDurationSeconds = callMeta.acwDurationSeconds;
               await db.update(callLogs)
                 .set({ metadata: JSON.stringify(metaUpdate) })
                 .where(eq(callLogs.id, latestLog.id));
@@ -25412,6 +25413,24 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
       
+      // Persist ACW duration into the most recent callLog (for ACW-only PATCHes without status change)
+      if (callMeta?.acwDurationSeconds && !updatePayload.status && req.params.contactId) {
+        try {
+          const [latestLog] = await db.select().from(callLogs)
+            .where(eq(callLogs.campaignContactId, req.params.contactId))
+            .orderBy(desc(callLogs.createdAt))
+            .limit(1);
+          if (latestLog) {
+            let existingMeta: Record<string, any> = {};
+            try { existingMeta = latestLog.metadata ? JSON.parse(latestLog.metadata) : {}; } catch {}
+            const metaUpdate: Record<string, any> = { ...existingMeta, acwDurationSeconds: callMeta.acwDurationSeconds };
+            await db.update(callLogs)
+              .set({ metadata: JSON.stringify(metaUpdate) })
+              .where(eq(callLogs.id, latestLog.id));
+          }
+        } catch {}
+      }
+
       if (updatePayload.dispositionCode && updatePayload.dispositionCode !== existingContact.dispositionCode) {
         await logCampaignTimeline(
           existingContact, campaign, campaignChannel, "disposition_set",

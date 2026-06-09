@@ -2190,6 +2190,10 @@ export interface Translations {
       autoOpenDispositionDesc: string;
       autoOpenDispositionOn: string;
       autoOpenDispositionOff: string;
+      keepContactOpenAfterDispositionTitle: string;
+      keepContactOpenAfterDispositionDesc: string;
+      keepContactOpenAfterDispositionOn: string;
+      keepContactOpenAfterDispositionOff: string;
       queueDisplayModeTitle: string;
       queueDisplayModeDesc: string;
       queueDisplayModeStep: string;
@@ -9032,6 +9036,10 @@ export const translations: Record<Locale, Translations> = {
         autoOpenDispositionDesc: 'When the agent hangs up, the disposition window opens automatically. When disabled, the agent opens it manually.',
         autoOpenDispositionOn: 'Enabled (recommended)',
         autoOpenDispositionOff: 'Disabled — agent opens manually',
+        keepContactOpenAfterDispositionTitle: 'Keep contact open after disposition (ACW)',
+        keepContactOpenAfterDispositionDesc: 'When enabled, the contact remains open as a task after disposition is saved. The agent can still make edits or notes before closing. Time between disposition and task close is tracked as ACW (After Call Work).',
+        keepContactOpenAfterDispositionOn: 'Enabled — agent closes task manually after ACW',
+        keepContactOpenAfterDispositionOff: 'Disabled — task closes automatically after disposition',
         queueDisplayModeTitle: 'Scheduled Queue Column',
         queueDisplayModeDesc: 'Choose what to display in the "Step" column of the scheduled queue.',
         queueDisplayModeStep: 'Show current script step',
@@ -15372,6 +15380,10 @@ export const translations: Record<Locale, Translations> = {
         autoOpenDispositionDesc: 'Keď agent zavesí, dispozícia sa otvorí automaticky. Ak vypnete, agent ju otvorí ručne kliknutím na tlačidlo.',
         autoOpenDispositionOn: 'Zapnuté (odporúčané)',
         autoOpenDispositionOff: 'Vypnuté — agent otvára ručne',
+        keepContactOpenAfterDispositionTitle: 'Ponechať kontakt otvorený po dispozícii (ACW)',
+        keepContactOpenAfterDispositionDesc: 'Keď je zapnuté, kontakt zostane otvorený ako task po zadaní dispozície. Agent môže ešte vykonať úpravy alebo poznámky pred uzavretím. Čas od dispozície po uzavretie tasku sa sleduje ako ACW (After Call Work).',
+        keepContactOpenAfterDispositionOn: 'Zapnuté — agent uzavrie task manuálne po ACW',
+        keepContactOpenAfterDispositionOff: 'Vypnuté — task sa uzavrie automaticky po dispozícii',
         queueDisplayModeTitle: 'Stĺpec plánovanej fronty',
         queueDisplayModeDesc: 'Vyberte, čo sa zobrazí v stĺpci „Krok" plánovanej fronty.',
         queueDisplayModeStep: 'Zobraziť aktuálny krok scriptu',
@@ -21650,6 +21662,10 @@ export const translations: Record<Locale, Translations> = {
         autoOpenDispositionDesc: 'Když agent zavěsí, okno dispozice se otevře automaticky. Pokud vypnete, agent ho otevře ručně.',
         autoOpenDispositionOn: 'Zapnuto (doporučeno)',
         autoOpenDispositionOff: 'Vypnuto — agent otevírá ručně',
+        keepContactOpenAfterDispositionTitle: 'Ponechat kontakt otevřený po dispozici (ACW)',
+        keepContactOpenAfterDispositionDesc: 'Pokud je zapnuto, kontakt zůstane otevřený jako task po zadání dispozice. Agent může ještě provést úpravy nebo poznámky před uzavřením. Čas od dispozice po uzavření tasku se sleduje jako ACW (After Call Work).',
+        keepContactOpenAfterDispositionOn: 'Zapnuto — agent uzavře task manuálně po ACW',
+        keepContactOpenAfterDispositionOff: 'Vypnuto — task se uzavře automaticky po dispozici',
         queueDisplayModeTitle: 'Sloupec plánované fronty',
         queueDisplayModeDesc: 'Vyberte, co se zobrazí ve sloupci „Krok" plánované fronty.',
         queueDisplayModeStep: 'Zobrazit aktuální krok scriptu',
@@ -27886,6 +27902,10 @@ export const translations: Record<Locale, Translations> = {
         autoOpenDispositionDesc: 'Ha az ügynök leteszi a telefont, a diszpozíció ablak automatikusan megnyílik. Ha letiltja, az ügynök manuálisan nyitja meg.',
         autoOpenDispositionOn: 'Bekapcsolva (ajánlott)',
         autoOpenDispositionOff: 'Kikapcsolva — az ügynök manuálisan nyitja meg',
+        keepContactOpenAfterDispositionTitle: 'Névjegy nyitva tartása diszpozíció után (ACW)',
+        keepContactOpenAfterDispositionDesc: 'Ha engedélyezve van, a névjegy feladatként nyitva marad a diszpozíció mentése után. Az ügynök még végezhet módosításokat vagy megjegyzéseket zárás előtt. A diszpozíció és a manuális zárás közötti idő ACW-ként (After Call Work) kerül rögzítésre.',
+        keepContactOpenAfterDispositionOn: 'Engedélyezve — az ügynök manuálisan zárja be a feladatot ACW után',
+        keepContactOpenAfterDispositionOff: 'Letiltva — a feladat automatikusan bezárul a diszpozíció után',
         queueDisplayModeTitle: 'Ütemezett sor oszlopa',
         queueDisplayModeDesc: 'Válassza ki, mi jelenjen meg az ütemezett sor „Lépés" oszlopában.',
         queueDisplayModeStep: 'Aktuális script lépés megjelenítése',
@@ -34015,6 +34035,10 @@ export const translations: Record<Locale, Translations> = {
         autoOpenDispositionDesc: 'Când agentul închide, fereastra de dispoziție se deschide automat. Dacă dezactivați, agentul o deschide manual.',
         autoOpenDispositionOn: 'Activat (recomandat)',
         autoOpenDispositionOff: 'Dezactivat — agentul deschide manual',
+        keepContactOpenAfterDispositionTitle: 'Menținere contact deschis după dispoziție (ACW)',
+        keepContactOpenAfterDispositionDesc: 'Când este activat, contactul rămâne deschis ca task după salvarea dispoziției. Agentul poate efectua modificări sau notițe înainte de închidere. Timpul de la dispoziție până la închiderea manuală este urmărit ca ACW (After Call Work).',
+        keepContactOpenAfterDispositionOn: 'Activat — agentul închide task-ul manual după ACW',
+        keepContactOpenAfterDispositionOff: 'Dezactivat — task-ul se închide automat după dispoziție',
         queueDisplayModeTitle: 'Coloana cozii programate',
         queueDisplayModeDesc: 'Alegeți ce să afișați în coloana „Pas" a cozii programate.',
         queueDisplayModeStep: 'Afișare pas curent al scriptului',
@@ -40146,6 +40170,10 @@ export const translations: Record<Locale, Translations> = {
         autoOpenDispositionDesc: 'Quando l\'agente riaggancia, la finestra di disposizione si apre automaticamente. Se disabilitato, l\'agente la apre manualmente.',
         autoOpenDispositionOn: 'Abilitato (consigliato)',
         autoOpenDispositionOff: 'Disabilitato — l\'agente apre manualmente',
+        keepContactOpenAfterDispositionTitle: 'Mantieni contatto aperto dopo la disposizione (ACW)',
+        keepContactOpenAfterDispositionDesc: 'Se abilitato, il contatto rimane aperto come task dopo il salvataggio della disposizione. L\'agente può ancora apportare modifiche o note prima della chiusura. Il tempo dalla disposizione alla chiusura manuale è tracciato come ACW (After Call Work).',
+        keepContactOpenAfterDispositionOn: 'Abilitato — l\'agente chiude il task manualmente dopo ACW',
+        keepContactOpenAfterDispositionOff: 'Disabilitato — il task si chiude automaticamente dopo la disposizione',
         queueDisplayModeTitle: 'Colonna coda programmata',
         queueDisplayModeDesc: 'Scegliere cosa visualizzare nella colonna "Passo" della coda programmata.',
         queueDisplayModeStep: 'Mostra il passo corrente dello script',
@@ -46277,6 +46305,10 @@ export const translations: Record<Locale, Translations> = {
         autoOpenDispositionDesc: 'Wenn der Agent auflegt, öffnet sich das Dispositionsfenster automatisch. Bei Deaktivierung öffnet der Agent es manuell.',
         autoOpenDispositionOn: 'Aktiviert (empfohlen)',
         autoOpenDispositionOff: 'Deaktiviert — Agent öffnet manuell',
+        keepContactOpenAfterDispositionTitle: 'Kontakt nach Disposition offen halten (ACW)',
+        keepContactOpenAfterDispositionDesc: 'Wenn aktiviert, bleibt der Kontakt als Aufgabe nach dem Speichern der Disposition geöffnet. Der Agent kann noch Änderungen oder Notizen vornehmen. Die Zeit zwischen Disposition und manuellem Schließen wird als ACW (After Call Work) erfasst.',
+        keepContactOpenAfterDispositionOn: 'Aktiviert — Agent schließt Aufgabe manuell nach ACW',
+        keepContactOpenAfterDispositionOff: 'Deaktiviert — Aufgabe schließt automatisch nach Disposition',
         queueDisplayModeTitle: 'Spalte der geplanten Warteschlange',
         queueDisplayModeDesc: 'Wählen Sie, was in der Spalte „Schritt" der geplanten Warteschlange angezeigt wird.',
         queueDisplayModeStep: 'Aktuellen Script-Schritt anzeigen',
