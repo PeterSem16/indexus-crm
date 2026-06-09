@@ -2873,6 +2873,7 @@ function CommunicationCanvas({
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   <HospitalFormWizard
                     key={hospitalData.id}
+                    mode="inline"
                     initialData={hospitalData}
                     onSuccess={() => setPhoneSubTab("details")}
                   />
