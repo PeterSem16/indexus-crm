@@ -844,17 +844,69 @@ export function SipPhone({
       onTerminated(SessionState.Terminated);
     } else {
       console.log("[SIP-INBOUND] Session state at setup:", currentSessionState);
+
+      // Helper to trigger hangup via a named mechanism (avoids duplicate firing)
+      const triggerHangupDetection = (source: string) => {
+        if (terminatedHandled) return;
+        console.warn(`[SIP-INBOUND] Hang-up detected via: ${source}`);
+        terminatedHandled = true;
+        if (hangupPollRef.current) { clearInterval(hangupPollRef.current); hangupPollRef.current = null; }
+        onTerminated(SessionState.Terminated);
+      };
+
+      // Poll: check SIP session state + PeerConnection state every second
       if (hangupPollRef.current) clearInterval(hangupPollRef.current);
       hangupPollRef.current = setInterval(() => {
         if (terminatedHandled) { clearInterval(hangupPollRef.current!); hangupPollRef.current = null; return; }
         const pollState = String(session.state);
-        if (pollState === "Terminated") {
-          console.warn("[SIP-INBOUND] Hang-up detected via poll fallback (stateChange may have been missed)");
-          clearInterval(hangupPollRef.current!);
-          hangupPollRef.current = null;
-          onTerminated(SessionState.Terminated);
+        if (pollState === "Terminated") { triggerHangupDetection("SIP stateChange poll"); return; }
+        // Also poll the WebRTC PeerConnection state directly
+        const sdhNow = session.sessionDescriptionHandler;
+        const pcNow: RTCPeerConnection | null = sdhNow ? (sdhNow as any).peerConnection : null;
+        if (pcNow) {
+          const connState = pcNow.connectionState;
+          const iceState = pcNow.iceConnectionState;
+          console.log(`[SIP-INBOUND] Poll: sipState=${pollState} pcConn=${connState} ice=${iceState}`);
+          if (connState === "closed" || connState === "failed" || iceState === "closed" || iceState === "failed") {
+            triggerHangupDetection(`PC/ICE poll (conn=${connState} ice=${iceState})`);
+          }
         }
-      }, 2000);
+      }, 1000);
+
+      // Attach PeerConnection event listeners as soon as it's available
+      const attachPcMonitoring = (attempt: number = 1) => {
+        if (terminatedHandled) return;
+        const sdh2 = session.sessionDescriptionHandler;
+        const pc2: RTCPeerConnection | null = sdh2 ? (sdh2 as any).peerConnection : null;
+        if (!pc2) {
+          if (attempt < 15) setTimeout(() => attachPcMonitoring(attempt + 1), 400);
+          return;
+        }
+        console.log("[SIP-INBOUND] PeerConnection monitoring attached (attempt", attempt, ")");
+
+        pc2.addEventListener("connectionstatechange", () => {
+          const s = pc2.connectionState;
+          console.log("[SIP-INBOUND] PC connectionstatechange:", s);
+          if (s === "closed" || s === "failed") triggerHangupDetection(`PC connectionstatechange=${s}`);
+        });
+        pc2.addEventListener("iceconnectionstatechange", () => {
+          const s = pc2.iceConnectionState;
+          console.log("[SIP-INBOUND] PC iceconnectionstatechange:", s);
+          if (s === "closed" || s === "failed") triggerHangupDetection(`ICE iceconnectionstatechange=${s}`);
+        });
+
+        // Monitor remote audio track "ended" event
+        const attachTrackEndedListener = (track: MediaStreamTrack) => {
+          if (track.kind !== "audio") return;
+          track.addEventListener("ended", () => {
+            console.log("[SIP-INBOUND] Remote audio track ended");
+            triggerHangupDetection("remote audio track ended");
+          });
+        };
+        pc2.getReceivers().forEach(r => { if (r.track) attachTrackEndedListener(r.track); });
+        pc2.addEventListener("track", (ev: RTCTrackEvent) => attachTrackEndedListener(ev.track));
+      };
+      attachPcMonitoring();
     }
 
     // For inbound calls, always look up the caller by phone number to get the correct
