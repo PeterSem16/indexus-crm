@@ -22505,45 +22505,49 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
 
       // Include inbound callbacks (out-of-mission) in the queue
-      const inboundCbs = await db
-        .select()
-        .from(inboundCallbacks)
-        .where(
-          and(
-            eq(inboundCallbacks.calledBack, false),
-            isNotNull(inboundCallbacks.callbackDate),
-            or(
-              eq(inboundCallbacks.userId, user.id),
-              eq(inboundCallbacks.assignedTo, user.id)
+      try {
+        const inboundCbs = await db
+          .select()
+          .from(inboundCallbacks)
+          .where(
+            and(
+              eq(inboundCallbacks.calledBack, false),
+              isNotNull(inboundCallbacks.callbackDate),
+              or(
+                eq(inboundCallbacks.userId, user.id),
+                eq(inboundCallbacks.assignedTo, user.id)
+              )
             )
-          )
-        );
-      for (const cb of inboundCbs) {
-        items.push({
-          id: `icb-${cb.id}`,
-          campaignContactId: "",
-          type: "callback",
-          contactId: cb.customerId || "",
-          contactName: cb.name || cb.phone,
-          contactPhone: cb.phone,
-          contactEmail: "",
-          contactType: "customer",
-          campaignId: cb.campaignId || "",
-          campaignName: "Mimo misie",
-          scheduledAt: cb.callbackDate,
-          notes: cb.notes || "",
-          status: "pending",
-          stepName: null,
-          stepIndex: null,
-          dispositionCode: null,
-          dispositionChecklistCodes: [],
-          isOutsideMission: true,
-          inboundCallbackId: cb.id,
-        });
+          );
+        for (const cb of inboundCbs) {
+          items.push({
+            id: `icb-${cb.id}`,
+            campaignContactId: "",
+            type: "callback",
+            contactId: cb.customerId || "",
+            contactName: cb.name || cb.phone,
+            contactPhone: cb.phone,
+            contactEmail: "",
+            contactType: "customer",
+            campaignId: cb.campaignId || "",
+            campaignName: "Mimo misie",
+            scheduledAt: cb.callbackDate,
+            notes: cb.notes || "",
+            status: "pending",
+            stepName: null,
+            stepIndex: null,
+            dispositionCode: null,
+            dispositionChecklistCodes: [],
+            isOutsideMission: true,
+            inboundCallbackId: cb.id,
+          });
+        }
+      } catch (inboundErr) {
+        console.error("[ScheduledQueue] Failed to load inbound callbacks (non-fatal):", inboundErr);
       }
 
       items.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-      console.log(`[ScheduledQueue] User ${user.id}: ${scheduledContacts.length} contacts, ${scheduledSessions.length} sessions, ${inboundCbs.length} inbound callbacks, ${items.length} total items`);
+      console.log(`[ScheduledQueue] User ${user.id}: ${scheduledContacts.length} contacts, ${scheduledSessions.length} sessions, ${items.length} total items`);
       res.json(items);
     } catch (error) {
       console.error("Failed to fetch scheduled queue:", error);
