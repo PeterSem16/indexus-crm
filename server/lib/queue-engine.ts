@@ -261,6 +261,21 @@ export class QueueEngine extends EventEmitter {
       }
     });
 
+    // channel-left-bridge fires BEFORE channel-destroyed when a caller hangs up.
+    // We use it to immediately hang up the agent channel without waiting for channel-destroyed.
+    // activeBridges deletion in handleActiveBridgeHangup acts as guard against double-firing.
+    this.ariClient.on("channel-left-bridge", (event: AriEvent) => {
+      const channelId = event.channel?.id;
+      if (!channelId) return;
+      const bridge = this.activeBridges.get(channelId);
+      if (!bridge) return;
+      if (channelId !== bridge.callerChannelId) return; // only react to CALLER leaving
+      console.log(`[QueueEngine] channel-left-bridge: caller ${channelId} left bridge ${bridge.bridgeId} — hanging up agent ${bridge.agentChannelId} immediately`);
+      this.handleActiveBridgeHangup(bridge).catch(err => {
+        console.error("[QueueEngine] handleActiveBridgeHangup (left-bridge) error:", err instanceof Error ? err.message : err);
+      });
+    });
+
     this.ariClient.on("channel-hangup-request", (event: AriEvent) => {
       if (event.channel) {
         this.handleCallerHangup(event.channel.id);
@@ -3491,6 +3506,33 @@ export class QueueEngine extends EventEmitter {
     });
   }
 
+  // Shared hangup logic called from both channel-left-bridge (immediate) and channel-destroyed (fallback).
+  // activeBridges deletion acts as a mutex — whichever event fires first "wins" and the second is a no-op.
+  private async handleActiveBridgeHangup(
+    bridge: { bridgeId: string; callerChannelId: string; agentChannelId: string; callId: string; agentId: string },
+    hungUpSide: "caller" | "agent" = "caller"
+  ): Promise<void> {
+    // Guard: if already deleted (other event fired first), bail out
+    if (!this.activeBridges.has(bridge.callerChannelId) && !this.activeBridges.has(bridge.agentChannelId)) {
+      console.log(`[QueueEngine] handleActiveBridgeHangup: bridge ${bridge.bridgeId} already cleaned up, skipping`);
+      return;
+    }
+    this.activeBridges.delete(bridge.callerChannelId);
+    this.activeBridges.delete(bridge.agentChannelId);
+
+    console.log(`[QueueEngine] handleActiveBridgeHangup: callId=${bridge.callId} hungUpSide=${hungUpSide}, hanging up other channel`);
+    const otherChannelId = hungUpSide === "caller" ? bridge.agentChannelId : bridge.callerChannelId;
+    try { await this.ariClient.hangupChannel(otherChannelId, "normal"); } catch {}
+    try { await this.ariClient.destroyBridge(bridge.bridgeId); } catch {}
+
+    this.agentCompletedCall(bridge.callId, bridge.agentId);
+
+    // Notify agent's browser immediately so "In Call" resets without waiting for SIP BYE
+    if (hungUpSide === "caller") {
+      inboundCallWs.notifyCallHangup(bridge.agentId, bridge.callId);
+    }
+  }
+
   private async handleChannelDestroyed(channelId: string): Promise<void> {
     if (this.overflowInProgress.has(channelId)) {
       console.log(`[QueueEngine] Channel ${channelId} destroyed during overflow, skipping cleanup`);
@@ -3578,21 +3620,8 @@ export class QueueEngine extends EventEmitter {
     const bridge = this.activeBridges.get(channelId);
     if (bridge) {
       const isCallerHangup = channelId === bridge.callerChannelId;
-      console.log(`[QueueEngine] Channel ${channelId} in active bridge destroyed, completing call ${bridge.callId} (callerHangup=${isCallerHangup})`);
-      this.activeBridges.delete(bridge.callerChannelId);
-      this.activeBridges.delete(bridge.agentChannelId);
-
-      const otherChannelId = isCallerHangup ? bridge.agentChannelId : bridge.callerChannelId;
-      try { await this.ariClient.hangupChannel(otherChannelId, "normal"); } catch {}
-      try { await this.ariClient.destroyBridge(bridge.bridgeId); } catch {}
-
-      this.agentCompletedCall(bridge.callId, bridge.agentId);
-
-      // Server-side hangup notification: if caller hung up, push WebSocket event to agent
-      // so the SIP.js UI resets even if the BYE was missed by the browser
-      if (isCallerHangup) {
-        inboundCallWs.notifyCallHangup(bridge.agentId, bridge.callId);
-      }
+      console.log(`[QueueEngine] channel-destroyed: channel ${channelId} in active bridge (callerHangup=${isCallerHangup})`);
+      await this.handleActiveBridgeHangup(bridge, isCallerHangup ? "caller" : "agent");
       return;
     }
 

@@ -1,0 +1,26 @@
+[Jun  9 08:03:45] WARNING[443867]: ari/ari_websockets.c:228 session_read: WebSocket read error: Success
+ Deactivating Stasis app 'indexus-inbound'
+ Activating Stasis app 'indexus-inbound'
+    -- Added contact 'sip:4j0jhhr6@10.1.2.111:46948;transport=WS;x-ast-orig-host=0sa2pqhjcrth.invalid:0' to AOR '2001' with expiration of 300 seconds
+  == Endpoint 2001 is now Reachable
+    -- Contact 2001/sip:4j0jhhr6@10.1.2.111:46948;transport=WS;x-ast-orig-host=0sa2pqhjcrth.invalid:0 is now Reachable.  RTT: 32.487 msec
+    -- Executing [0232399030@from-sk-trunk:1] NoOp("PJSIP/trunk-sk-endpoint-00000123", "INBOUND from SK trunk DID=0232399030 CID="" <0491723627488>") in new stack
+    -- Executing [0232399030@from-sk-trunk:2] Set("PJSIP/trunk-sk-endpoint-00000123", "__CBC_SOURCE_TRUNK=SK") in new stack
+    -- Executing [0232399030@from-sk-trunk:3] Set("PJSIP/trunk-sk-endpoint-00000123", "__CBC_SOURCE_IP=10.9.33.2") in new stack
+    -- Executing [0232399030@from-sk-trunk:4] Set("PJSIP/trunk-sk-endpoint-00000123", "__CBC_DID=0232399030") in new stack
+    -- Executing [0232399030@from-sk-trunk:5] Set("PJSIP/trunk-sk-endpoint-00000123", "__CBC_CALLER=0491723627488") in new stack
+    -- Executing [0232399030@from-sk-trunk:6] Stasis("PJSIP/trunk-sk-endpoint-00000123", "indexus-inbound") in new stack
+    -- <PJSIP/trunk-sk-endpoint-00000123> Playing 'custom/uvod-medicat-coopretion-sk.slin' (language 'en')
+    -- <PJSIP/trunk-sk-endpoint-00000123> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+    -- Called 2001
+    -- PJSIP/2001-00000124 is ringing
+    -- PJSIP/2001-00000124 answered
+       > Launching Stasis(indexus-inbound,agent-call,67467ce3-7a44-4f67-a3d3-6a251e2991e5,1780992261.659) on PJSIP/2001-00000124
+[Jun  9 08:04:39] NOTICE[443909][C-000000db]: res_stasis_playback.c:277 playback_final_update: 1780992261.659: Playback stopped for sound:custom/moh-slow-jazz
+    -- Channel PJSIP/trunk-sk-endpoint-00000123 joined 'simple_bridge' stasis-bridge <95d4e243-0beb-4e78-8215-577f0b9e0ea8>
+    -- Channel PJSIP/2001-00000124 joined 'simple_bridge' stasis-bridge <95d4e243-0beb-4e78-8215-577f0b9e0ea8>
+    -- Started music on hold, class 'default', on channel 'PJSIP/trunk-sk-endpoint-00000123'
+    -- Stopped music on hold on PJSIP/trunk-sk-endpoint-00000123
+    -- Channel PJSIP/trunk-sk-endpoint-00000123 left 'simple_bridge' stasis-bridge <95d4e243-0beb-4e78-8215-577f0b9e0ea8>
+    -- Channel PJSIP/2001-00000124 left 'simple_bridge' stasis-bridge <95d4e243-0beb-4e78-8215-577f0b9e0ea8>
+mediagtw*CLI>
