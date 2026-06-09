@@ -1019,12 +1019,32 @@ function TaskListPanel({
                         {campaign.callerIdNumber}
                       </span>
                     )}
-                    {inboundDids.map((did, i) => (
-                      <span key={i} className="flex items-center gap-0.5 text-[9px]" style={{ color: isSelected ? "rgba(255,255,255,0.70)" : "#4A7A5A" }}>
-                        <PhoneIncoming width={8} height={8} strokeWidth={2.5} />
-                        {did}
-                      </span>
-                    ))}
+                    {inboundDids.length > 0 && (
+                      inboundDids.length === 1 ? (
+                        <span
+                          className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
+                          style={isSelected
+                            ? { background: "rgba(134,239,172,0.25)", color: "#bbf7d0", border: "1px solid rgba(134,239,172,0.35)" }
+                            : { background: "#dcfce7", color: "#15803d", border: "1px solid #86efac" }
+                          }
+                        >
+                          <PhoneIncoming width={8} height={8} strokeWidth={2.5} />
+                          Inbound line: {inboundDids[0]}
+                        </span>
+                      ) : (
+                        <span
+                          className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
+                          style={isSelected
+                            ? { background: "rgba(134,239,172,0.25)", color: "#bbf7d0", border: "1px solid rgba(134,239,172,0.35)" }
+                            : { background: "#dcfce7", color: "#15803d", border: "1px solid #86efac" }
+                          }
+                          title={inboundDids.join(", ")}
+                        >
+                          <PhoneIncoming width={8} height={8} strokeWidth={2.5} />
+                          Inbound lines: {inboundDids.join(", ")}
+                        </span>
+                      )
+                    )}
                   </div>
                 )}
               </div>
