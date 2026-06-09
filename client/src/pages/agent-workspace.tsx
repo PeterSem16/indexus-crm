@@ -5979,7 +5979,7 @@ export default function AgentWorkspacePage() {
         setCurrentClinicData(null);
         setCurrentCollaboratorData(null);
         setActiveChannel("phone");
-        setPhoneSubTabOverride("details");
+        setPhoneSubTabOverride(mode === "card" ? "card" : "details");
         setTimeout(() => setPhoneSubTabOverride(null), 100);
       } else if (match.entityType === "clinic") {
         const res = await fetch(`/api/clinics/${match.id}`, { credentials: "include" });
@@ -5998,7 +5998,7 @@ export default function AgentWorkspacePage() {
         setCurrentClinicData(clinic);
         setCurrentCollaboratorData(null);
         setActiveChannel("phone");
-        setPhoneSubTabOverride("details");
+        setPhoneSubTabOverride(mode === "card" ? "card" : "details");
         setTimeout(() => setPhoneSubTabOverride(null), 100);
       } else if (match.entityType === "collaborator") {
         const res = await fetch(`/api/collaborators/${match.id}`, { credentials: "include" });
@@ -6017,7 +6017,7 @@ export default function AgentWorkspacePage() {
         setCurrentClinicData(null);
         setCurrentCollaboratorData(collaborator);
         setActiveChannel("phone");
-        setPhoneSubTabOverride("details");
+        setPhoneSubTabOverride(mode === "card" ? "card" : "details");
         setTimeout(() => setPhoneSubTabOverride(null), 100);
       }
 
@@ -8289,14 +8289,13 @@ export default function AgentWorkspacePage() {
                 }
               }
             } else {
-              // Hospital / clinic / collaborator — use handleSelectInboundMatch style inline
-              setTimeline([{
-                id: `sys-inbound-${Date.now()}`,
-                type: "system",
-                timestamp: new Date(),
-                content: `Prichádzajúci hovor od ${m.name} (${callerNumber})`,
-                details: "Inbound call",
-              }]);
+              // Hospital / clinic / collaborator — load entity, set card, and create task
+              await handleSelectInboundMatch(m, "card", {
+                callId: call.callId,
+                campaignId: selectedCampaignId || "",
+                campaignName: selectedCampaign?.name || "Inbound",
+                callerNumber,
+              });
             }
           }
         }
