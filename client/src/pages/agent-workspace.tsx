@@ -10708,163 +10708,188 @@ export default function AgentWorkspacePage() {
       </Dialog>
 
       <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) setAbandonedCallsFilter("all"); }} modal={false}>
-        <DialogContent className="sm:max-w-4xl max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0">
+        <DialogContent className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0">
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ background: "linear-gradient(135deg, #1e1e2e 0%, #2d1b1b 100%)" }}>
+          <div className="flex items-start justify-between px-5 pt-5 pb-4 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#C0392B", boxShadow: "0 2px 8px #C0392B55" }}>
-                <PhoneOff className="h-4 w-4 text-white" />
+              <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
+                <PhoneOff className="h-5 w-5 text-red-500 dark:text-red-400" />
               </div>
               <div>
-                <DialogTitle className="text-sm font-bold text-white leading-tight">{t.agentWorkspace.missedCallsTitle}</DialogTitle>
-                <p className="text-[11px] text-white/50 mt-0.5">
-                  {abandonedCalls.filter((c: any) => !c.calledBack).length} {t.agentWorkspace.missedStatus?.toLowerCase() || "čakajúcich"} · {abandonedCalls.filter((c: any) => !!c.calledBack).length} {t.agentWorkspace.calledBack?.toLowerCase() || "vybavených"}
+                <DialogTitle className="text-lg font-bold leading-tight">{t.agentWorkspace.missedCallsTitle}</DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {abandonedCalls.filter((c: any) => !c.calledBack).length} nevybavených · {abandonedCalls.filter((c: any) => !!c.calledBack).length} vybavených
                 </p>
               </div>
             </div>
-            {/* Filter tabs */}
-            <div className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5">
-              {(["all", "pending", "handled"] as const).map((f) => {
-                const labels = { all: "Všetky", pending: "Čakajúce", handled: "Vybavené" };
-                const count = f === "all" ? abandonedCalls.length : f === "pending" ? abandonedCalls.filter((c: any) => !c.calledBack).length : abandonedCalls.filter((c: any) => !!c.calledBack).length;
-                return (
-                  <button key={f} onClick={() => setAbandonedCallsFilter(f)}
-                    className={`px-3 py-1 rounded-md text-[11px] font-medium transition-all ${abandonedCallsFilter === f ? "bg-white text-gray-900" : "text-white/70 hover:text-white"}`}
-                  >
-                    {labels[f]} {count > 0 && <span className={`ml-1 text-[10px] ${abandonedCallsFilter === f ? "text-gray-500" : "text-white/40"}`}>{count}</span>}
-                  </button>
-                );
-              })}
-            </div>
+            <DialogClose className="rounded-md p-1.5 opacity-70 hover:opacity-100 hover:bg-accent transition-opacity focus:outline-none focus:ring-2 focus:ring-ring mt-0.5">
+              <X className="h-4 w-4" />
+            </DialogClose>
           </div>
 
-          {/* Column headers */}
-          <div className="grid items-center gap-3 px-4 py-2 border-b bg-muted/40 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
-            style={{ gridTemplateColumns: "32px 1fr 160px 110px 100px auto" }}>
-            <span />
-            <span>Kontakt</span>
-            <span>Fronta</span>
-            <span>Čas · Čakanie</span>
-            <span>Stav</span>
-            <span className="text-right pr-1">Akcia</span>
+          {/* Filter tabs */}
+          <div className="flex items-center gap-1.5 px-5 pb-3 border-b shrink-0">
+            {(["all", "pending", "handled"] as const).map((f) => {
+              const labels = { all: "Všetky", pending: "Čakajúce", handled: "Vybavené" };
+              const count = f === "all" ? abandonedCalls.length : f === "pending" ? abandonedCalls.filter((c: any) => !c.calledBack).length : abandonedCalls.filter((c: any) => !!c.calledBack).length;
+              return (
+                <button key={f} onClick={() => setAbandonedCallsFilter(f)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                    abandonedCallsFilter === f
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+                  }`}
+                >
+                  {labels[f]}{count > 0 ? ` ${count}` : ""}
+                </button>
+              );
+            })}
           </div>
 
-          {/* List */}
+          {/* Sections */}
           <ScrollArea className="flex-1 min-h-0">
             {(() => {
-              const filtered = abandonedCalls.filter((c: any) =>
+              const allFiltered = abandonedCalls.filter((c: any) =>
                 abandonedCallsFilter === "all" ? true
                 : abandonedCallsFilter === "pending" ? !c.calledBack
                 : !!c.calledBack
               );
-              if (filtered.length === 0) return (
+              const pendingCalls = allFiltered.filter((c: any) => !c.calledBack);
+              const handledCalls = allFiltered.filter((c: any) => !!c.calledBack);
+
+              const renderCallRow = (call: any) => {
+                const isCalledBack = !!call.calledBack;
+                const waitSec = call.waitDurationSeconds || 0;
+                const waitStr = waitSec > 0 ? (waitSec >= 60 ? `${Math.floor(waitSec / 60)}m ${waitSec % 60}s` : `${waitSec}s`) : null;
+                const callTs = call.completedAt || call.enteredQueueAt || call.createdAt;
+                const missedTime = callTs ? (() => { try { return format(new Date(callTs), "HH:mm"); } catch { return ""; } })() : "";
+                const timeAgo = (() => {
+                  if (!callTs) return "";
+                  const diff = Date.now() - new Date(callTs).getTime();
+                  if (isNaN(diff) || diff < 0) return "";
+                  const mins = Math.floor(diff / 60000);
+                  if (mins < 60) return `${mins}${t.agentWorkspace.agoMinutes}`;
+                  return `${Math.floor(mins / 60)}${t.agentWorkspace.agoHours} ${mins % 60}${t.agentWorkspace.agoMinutes}`;
+                })();
+                return (
+                  <div
+                    key={call.id}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card hover:bg-muted/30 transition-colors"
+                    data-testid={`abandoned-call-${call.id}`}
+                  >
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${isCalledBack ? "bg-green-100 dark:bg-green-900/30" : "bg-red-50 dark:bg-red-900/20"}`}>
+                      {isCalledBack
+                        ? <PhoneForwarded className="h-3.5 w-3.5 text-green-500 dark:text-green-400" />
+                        : <PhoneOff className="h-3.5 w-3.5 text-red-400 dark:text-red-300" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm truncate leading-tight">
+                        {call.customerName || call.callerName || call.callerNumber}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground font-mono">{call.callerNumber}</span>
+                        {call.queueName && (
+                          <span className="text-[10px] text-muted-foreground/60 truncate">· {call.queueName}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        <div className="text-xs font-mono tabular-nums text-foreground">{missedTime}</div>
+                        <div className="text-[10px] text-muted-foreground leading-tight">{timeAgo}</div>
+                      </div>
+                      {waitStr && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hidden sm:inline">
+                          {waitStr}
+                        </span>
+                      )}
+                      {isCalledBack ? (
+                        <span className="flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400 font-medium shrink-0">
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          {call.calledBackByUserName ? call.calledBackByUserName : t.agentWorkspace.handledBy}
+                        </span>
+                      ) : (
+                        <Button size="sm" variant="default" className="h-7 text-xs gap-1 px-2.5 shrink-0"
+                          onClick={async () => {
+                            const phoneNum = call.customerPhone || call.callerNumber;
+                            if (!phoneNum || !makeCall) return;
+                            pendingCallbackAbandonedIdRef.current = call.id;
+                            if (call.customerId) {
+                              try {
+                                const custRes = await fetch(`/api/customers/${call.customerId}`, { credentials: "include" });
+                                if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); }
+                              } catch (e) { console.error("Failed to load customer:", e); }
+                            } else {
+                              try {
+                                const lookupRes = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
+                                if (lookupRes.ok) { const matched = await lookupRes.json(); if (matched?.id) { const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" }); if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); } } }
+                              } catch (e) { console.error("Failed to lookup customer:", e); }
+                            }
+                            makeCall({ phoneNumber: phoneNum, customerName: call.customerName || call.callerName || undefined, customerId: call.customerId || undefined, callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined });
+                            if (!isSipRegistered && !isSipRegistering) sipRegister();
+                            setAbandonedCallsOpen(false);
+                          }}
+                          data-testid={`btn-callback-${call.id}`}
+                        >
+                          <Phone className="h-3 w-3" /> {t.agentWorkspace.callBackBtn}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              };
+
+              if (allFiltered.length === 0) return (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                   <CheckCircle className="h-12 w-12 mb-3 text-green-500/40" />
                   <p className="font-medium text-sm">{abandonedCallsFilter === "handled" ? "Žiadne vybavené hovory" : t.agentWorkspace.noMissedCalls}</p>
                   <p className="text-xs mt-1 text-muted-foreground/70">{t.agentWorkspace.allCallsHandled}</p>
                 </div>
               );
+
               return (
-                <div>
-                  {filtered.map((call: any) => {
-                    const isCalledBack = !!call.calledBack;
-                    const waitSec = call.waitDurationSeconds || 0;
-                    const waitStr = waitSec > 0 ? (waitSec >= 60 ? `${Math.floor(waitSec / 60)}m ${waitSec % 60}s` : `${waitSec}s`) : null;
-                    const callTs = call.completedAt || call.enteredQueueAt || call.createdAt;
-                    const missedTime = callTs ? (() => { try { return format(new Date(callTs), "HH:mm"); } catch { return ""; } })() : "";
-                    const timeAgo = (() => {
-                      if (!callTs) return "";
-                      const diff = Date.now() - new Date(callTs).getTime();
-                      if (isNaN(diff) || diff < 0) return "";
-                      const mins = Math.floor(diff / 60000);
-                      if (mins < 60) return `${mins}${t.agentWorkspace.agoMinutes}`;
-                      return `${Math.floor(mins / 60)}${t.agentWorkspace.agoHours} ${mins % 60}${t.agentWorkspace.agoMinutes}`;
-                    })();
-                    const statusLabel = isCalledBack ? t.agentWorkspace.calledBack
-                      : call.status === "abandoned" ? (call.abandonReason === "caller_hangup" ? t.agentWorkspace.callerHangup : t.agentWorkspace.missedStatus)
-                      : call.status === "timeout" ? t.agentWorkspace.timeoutStatus
-                      : call.status === "overflow" ? t.agentWorkspace.overflowStatus
-                      : t.agentWorkspace.missedStatus;
-                    return (
-                      <div
-                        key={call.id}
-                        className={`grid items-center gap-3 px-4 py-2.5 border-b transition-colors hover:bg-muted/30 ${isCalledBack ? "bg-green-50/60 dark:bg-green-950/20" : ""}`}
-                        style={{ gridTemplateColumns: "32px 1fr 160px 110px 100px auto" }}
-                        data-testid={`abandoned-call-${call.id}`}
-                      >
-                        {/* Icon */}
-                        <div className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center ${isCalledBack ? "bg-green-100 dark:bg-green-900/40" : "bg-red-100 dark:bg-red-900/30"}`}>
-                          {isCalledBack
-                            ? <PhoneForwarded className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                            : <PhoneOff className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
+                <div className="pb-4">
+                  {/* Pending section */}
+                  {pendingCalls.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-3 mx-4 mt-4 mb-2 p-3 rounded-xl bg-red-50 dark:bg-red-950/30">
+                        <div className="h-9 w-9 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+                          <PhoneOff className="h-4 w-4 text-white" />
                         </div>
-                        {/* Contact */}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-sm font-semibold truncate leading-tight">{call.customerName || call.callerName || call.callerNumber}</span>
-                            {isCalledBack && call.calledBackByUserName && (
-                              <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:block">· {call.calledBackByUserName}</span>
-                            )}
-                          </div>
-                          <span className="text-[11px] text-muted-foreground font-mono">{call.callerNumber}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-red-900 dark:text-red-200">Nevybavené hovory</p>
+                          <p className="text-xs text-red-700/70 dark:text-red-300/70">{pendingCalls.length} {pendingCalls.length === 1 ? "hovor" : pendingCalls.length < 5 ? "hovory" : "hovorov"}</p>
                         </div>
-                        {/* Queue */}
-                        <div className="min-w-0">
-                          <span className="text-xs truncate block">{call.queueName || "—"}</span>
-                          {waitStr && <span className="text-[10px] text-muted-foreground">{t.agentWorkspace.waitedInQueue} {waitStr}</span>}
-                        </div>
-                        {/* Time */}
-                        <div>
-                          <span className="text-xs font-mono tabular-nums">{missedTime}</span>
-                          <span className="text-[10px] text-muted-foreground block">{timeAgo}</span>
-                        </div>
-                        {/* Status badge */}
-                        <div>
-                          <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            isCalledBack ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
-                            : call.status === "timeout" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                          }`}>
-                            {statusLabel}
-                          </span>
-                        </div>
-                        {/* Action */}
-                        <div className="flex justify-end">
-                          {isCalledBack ? (
-                            <span className="flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400 font-medium">
-                              <CheckCircle className="h-3.5 w-3.5 shrink-0" />
-                              <span className="hidden sm:block">{t.agentWorkspace.handledBy}</span>
-                            </span>
-                          ) : (
-                            <Button size="sm" variant="default" className="h-7 text-xs gap-1 px-2.5"
-                              onClick={async () => {
-                                const phoneNum = call.customerPhone || call.callerNumber;
-                                if (!phoneNum || !makeCall) return;
-                                pendingCallbackAbandonedIdRef.current = call.id;
-                                if (call.customerId) {
-                                  try {
-                                    const custRes = await fetch(`/api/customers/${call.customerId}`, { credentials: "include" });
-                                    if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); }
-                                  } catch (e) { console.error("Failed to load customer:", e); }
-                                } else {
-                                  try {
-                                    const lookupRes = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
-                                    if (lookupRes.ok) { const matched = await lookupRes.json(); if (matched?.id) { const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" }); if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); } } }
-                                  } catch (e) { console.error("Failed to lookup customer:", e); }
-                                }
-                                makeCall({ phoneNumber: phoneNum, customerName: call.customerName || call.callerName || undefined, customerId: call.customerId || undefined, callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined });
-                                if (!isSipRegistered && !isSipRegistering) sipRegister();
-                                setAbandonedCallsOpen(false);
-                              }}
-                              data-testid={`btn-callback-${call.id}`}
-                            >
-                              <Phone className="h-3 w-3" /> {t.agentWorkspace.callBackBtn}
-                            </Button>
-                          )}
+                        <div className="h-7 w-7 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                          {pendingCalls.length}
                         </div>
                       </div>
-                    );
-                  })}
+                      <div className="space-y-1.5 px-4">
+                        {pendingCalls.map((call: any) => renderCallRow(call))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Handled section */}
+                  {handledCalls.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-3 mx-4 mt-4 mb-2 p-3 rounded-xl bg-green-50 dark:bg-green-950/30">
+                        <div className="h-9 w-9 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                          <PhoneForwarded className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-green-900 dark:text-green-200">Vybavené hovory</p>
+                          <p className="text-xs text-green-700/70 dark:text-green-300/70">{handledCalls.length} {handledCalls.length === 1 ? "hovor" : handledCalls.length < 5 ? "hovory" : "hovorov"}</p>
+                        </div>
+                        <div className="h-7 w-7 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                          {handledCalls.length}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 px-4">
+                        {handledCalls.map((call: any) => renderCallRow(call))}
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })()}
