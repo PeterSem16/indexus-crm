@@ -3355,6 +3355,7 @@ function CommunicationCanvas({
                     </button>
                   </div>
                   {emailIsHtml ? (
+                    <>
                     <div className="border rounded-md flex-1 flex flex-col overflow-hidden" data-testid="wysiwyg-email-message">
                       <div className="flex items-center gap-1 px-2 py-1 border-b bg-muted/30">
                         <button
@@ -3429,6 +3430,7 @@ function CommunicationCanvas({
                         </DialogContent>
                       </Dialog>
                     )}
+                    </>
                   ) : (
                     <textarea
                       className="flex-1 w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
