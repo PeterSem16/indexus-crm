@@ -22629,12 +22629,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.post("/api/agent/inbound-callbacks", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      const body = { ...req.body, userId: user.id };
+      const body = { ...req.body, userId: user.id, calledBack: false };
       if (body.callbackDate && typeof body.callbackDate === "string") {
-        body.callbackDate = new Date(body.callbackDate);
+        body.callbackDate = new Date(body.callbackDate + (body.callbackDate.length === 16 ? ":00" : ""));
       }
       const parsed = insertInboundCallbackSchema.safeParse(body);
-      if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      if (!parsed.success) {
+        console.error("[InboundCallback] Validation error:", JSON.stringify(parsed.error.flatten()));
+        return res.status(400).json({ error: parsed.error.flatten() });
+      }
       const [created] = await db.insert(inboundCallbacks).values(parsed.data).returning();
       res.json(created);
     } catch (error) {

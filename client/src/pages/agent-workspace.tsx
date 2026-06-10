@@ -2581,7 +2581,8 @@ function CommunicationCanvas({
   const applyEmailTemplate = useCallback((template: any) => {
     const subject = replaceTemplateVars(template.subject || "");
     const hasHtmlContent = !!(template.contentHtml && template.contentHtml.trim().length > 0);
-    const isHtml = template.format === "html" || hasHtmlContent;
+    const contentLooksLikeHtml = !!(template.content && /<[a-zA-Z][^>]*>/.test(template.content));
+    const isHtml = template.format === "html" || hasHtmlContent || contentLooksLikeHtml;
     const rawContent = isHtml ? (template.contentHtml || template.content || "") : (template.content || "");
     const content = replaceTemplateVars(rawContent);
     setEmailSubject(subject);
@@ -5524,7 +5525,7 @@ function MyActivityPanel({
   onOpenChange: (open: boolean) => void;
   stats: { calls: number; emails: number; sms: number };
 }) {
-  const { data: calls = [], isLoading } = useQuery<any[]>({
+  const { data: calls = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["/api/agent/today-calls"],
     queryFn: async () => {
       const res = await fetch("/api/agent/today-calls", { credentials: "include" });
@@ -5571,6 +5572,10 @@ function MyActivityPanel({
             <DialogTitle className="text-base font-semibold">Moje hovory dnes</DialogTitle>
             <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(), "EEEE d. MMMM yyyy", { locale: sk })}</p>
           </div>
+          <button onClick={() => refetch()} className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:bg-muted transition-colors mr-1" title="Obnoviť" data-testid="btn-my-activity-refresh">
+            <RotateCcw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Obnoviť</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-4 gap-3 px-5 py-3 border-b flex-shrink-0 bg-muted/20">
@@ -5842,49 +5847,64 @@ function ScheduledQueuePanel({
           </div>
         </div>
 
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div className="flex items-center gap-1.5 px-4 py-2 border-b flex-shrink-0 flex-wrap">
-            {timeFilters.map(tf => {
-              const Icon = tf.icon;
-              const isActive = timeFilter === tf.key;
-              return (
-                <button
-                  key={tf.key}
-                  onClick={() => setTimeFilter(tf.key)}
-                  data-testid={`btn-time-filter-${tf.key}`}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors ${
-                    isActive ? "bg-primary text-primary-foreground font-medium" : "bg-muted hover:bg-muted/60 text-foreground"
-                  }`}
-                >
-                  <Icon className={`h-3 w-3 ${isActive ? "" : tf.color}`} />
-                  {tf.label}
-                  {tf.count > 0 && (
-                    <span className={`text-[10px] font-medium ${isActive ? "opacity-80" : "text-muted-foreground"}`}>{tf.count}</span>
-                  )}
-                </button>
-              );
-            })}
-            <div className="w-px h-5 bg-border mx-1 self-center" />
-            {(["all", "callback", "email", "sms"] as const).map(type => {
-              const isActive = filterType === type;
-              const count = type === "all" ? scheduledItems.length : counts[type];
-              return (
-                <button
-                  key={type}
-                  onClick={() => setFilterType(type)}
-                  data-testid={`btn-scheduled-filter-${type}`}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors ${
-                    isActive ? "bg-accent font-medium" : "bg-muted hover:bg-muted/60"
-                  }`}
-                >
-                  {type === "all" ? <CalendarClock className="h-3 w-3 text-muted-foreground" /> : getTypeIcon(type)}
-                  {type === "all" ? t.agentWorkspace.scheduledAll : type === "callback" ? t.agentWorkspace.scheduledCalls : type === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}
-                  <span className="text-[10px] text-muted-foreground">{count}</span>
-                </button>
-              );
-            })}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="w-48 border-r bg-muted/30 flex-shrink-0 flex flex-col py-2 px-2 overflow-y-auto">
+            <div className="space-y-0.5 mb-3">
+              {timeFilters.map(tf => {
+                const Icon = tf.icon;
+                const isActive = timeFilter === tf.key;
+                return (
+                  <button
+                    key={tf.key}
+                    onClick={() => setTimeFilter(tf.key)}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                      isActive ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-foreground"
+                    }`}
+                    data-testid={`btn-time-filter-${tf.key}`}
+                  >
+                    <Icon className={`h-3.5 w-3.5 ${isActive ? "" : tf.color}`} />
+                    <span className="flex-1 text-left truncate">{tf.label}</span>
+                    {tf.count > 0 && (
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                        isActive ? "bg-primary-foreground/20 text-primary-foreground"
+                          : tf.key === "overdue" ? "bg-destructive/10 text-destructive"
+                          : "bg-muted-foreground/10 text-muted-foreground"
+                      }`}>
+                        {tf.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <Separator className="mb-3" />
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2.5 mb-1.5">{t.agentWorkspace.scheduledType}</p>
+            <div className="space-y-0.5">
+              {(["all", "callback", "email", "sms"] as const).map(type => {
+                const isActive = filterType === type;
+                const count = type === "all" ? scheduledItems.length : counts[type];
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setFilterType(type)}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                      isActive ? "bg-accent font-medium" : "hover:bg-muted"
+                    }`}
+                    data-testid={`btn-scheduled-filter-${type}`}
+                  >
+                    {type === "all" ? <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" /> : getTypeIcon(type)}
+                    <span className="flex-1 text-left">
+                      {type === "all" ? t.agentWorkspace.scheduledAll : type === "callback" ? t.agentWorkspace.scheduledCalls : type === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b flex-shrink-0">
+
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b flex-shrink-0">
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -5943,18 +5963,14 @@ function ScheduledQueuePanel({
                 </div>
               ) : (
                 <div>
-                  {filteredItems.map((item) => {
+                  {filteredItems.map((item, idx) => {
                     const itemOverdue = isOverdue(item.scheduledAt);
                     return (
                       <div
                         key={item.id}
                         data-testid={`scheduled-item-${item.id}`}
-                        className={`grid grid-cols-1 sm:grid-cols-[1fr_140px_80px_120px_90px] gap-x-2 gap-y-0.5 items-center px-4 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30 ${
-                          itemOverdue
-                            ? "border-l-destructive bg-destructive/[0.02]"
-                            : item.isOutsideMission
-                              ? "border-l-orange-400 bg-orange-50/20 dark:bg-orange-950/10"
-                              : "border-l-transparent"
+                        className={`grid grid-cols-1 sm:grid-cols-[1fr_140px_80px_120px_90px] gap-x-2 gap-y-0.5 items-center px-4 py-2.5 border-b transition-colors hover:bg-muted/30 ${
+                          itemOverdue ? "bg-destructive/[0.03]" : idx % 2 === 0 ? "" : "bg-muted/20"
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -6171,6 +6187,7 @@ function ScheduledQueuePanel({
                 {filterType !== "all" && <span className="ml-1">· {filterType === "callback" ? t.agentWorkspace.scheduledCalls : filterType === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}</span>}
               </p>
             </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
