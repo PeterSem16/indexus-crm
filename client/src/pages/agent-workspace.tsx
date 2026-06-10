@@ -10710,27 +10710,22 @@ export default function AgentWorkspacePage() {
       <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) setAbandonedCallsFilter("all"); }} modal={false}>
         <DialogContent className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0">
           {/* Header */}
-          <div className="flex items-start justify-between px-5 pt-5 pb-4 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
-                <PhoneOff className="h-5 w-5 text-red-500 dark:text-red-400" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-bold leading-tight">{t.agentWorkspace.missedCallsTitle}</DialogTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {abandonedCalls.filter((c: any) => !c.calledBack).length} nevybavených · {abandonedCalls.filter((c: any) => !!c.calledBack).length} vybavených
-                </p>
-              </div>
+          <div className="flex items-center gap-3 px-5 pt-4 pb-4 pr-12 shrink-0">
+            <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
+              <PhoneOff className="h-5 w-5 text-red-500 dark:text-red-400" />
             </div>
-            <DialogClose className="rounded-md p-1.5 opacity-70 hover:opacity-100 hover:bg-accent transition-opacity focus:outline-none focus:ring-2 focus:ring-ring mt-0.5">
-              <X className="h-4 w-4" />
-            </DialogClose>
+            <div>
+              <DialogTitle className="text-lg font-bold leading-tight">{t.agentWorkspace.missedCallsTitle}</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {abandonedCalls.filter((c: any) => !c.calledBack).length} {t.agentWorkspace.missedUnhandledCount} · {abandonedCalls.filter((c: any) => !!c.calledBack).length} {t.agentWorkspace.missedHandledCount}
+              </p>
+            </div>
           </div>
 
           {/* Filter tabs */}
           <div className="flex items-center gap-1.5 px-5 pb-3 border-b shrink-0">
             {(["all", "pending", "handled"] as const).map((f) => {
-              const labels = { all: "Všetky", pending: "Čakajúce", handled: "Vybavené" };
+              const labels = { all: t.agentWorkspace.filterAll, pending: t.agentWorkspace.filterPending, handled: t.agentWorkspace.filterHandled };
               const count = f === "all" ? abandonedCalls.length : f === "pending" ? abandonedCalls.filter((c: any) => !c.calledBack).length : abandonedCalls.filter((c: any) => !!c.calledBack).length;
               return (
                 <button key={f} onClick={() => setAbandonedCallsFilter(f)}
@@ -10747,7 +10742,7 @@ export default function AgentWorkspacePage() {
           </div>
 
           {/* Sections */}
-          <ScrollArea className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {(() => {
               const allFiltered = abandonedCalls.filter((c: any) =>
                 abandonedCallsFilter === "all" ? true
@@ -10859,7 +10854,7 @@ export default function AgentWorkspacePage() {
               if (allFiltered.length === 0) return (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                   <CheckCircle className="h-12 w-12 mb-3 text-green-500/40" />
-                  <p className="font-medium text-sm">{abandonedCallsFilter === "handled" ? "Žiadne vybavené hovory" : t.agentWorkspace.noMissedCalls}</p>
+                  <p className="font-medium text-sm">{abandonedCallsFilter === "handled" ? t.agentWorkspace.noHandledCalls : t.agentWorkspace.noMissedCalls}</p>
                   <p className="text-xs mt-1 text-muted-foreground/70">{t.agentWorkspace.allCallsHandled}</p>
                 </div>
               );
@@ -10874,8 +10869,8 @@ export default function AgentWorkspacePage() {
                           <PhoneOff className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm text-red-900 dark:text-red-200">Nevybavené hovory</p>
-                          <p className="text-xs text-red-700/70 dark:text-red-300/70">{pendingCalls.length} {pendingCalls.length === 1 ? "hovor" : pendingCalls.length < 5 ? "hovory" : "hovorov"}</p>
+                          <p className="font-bold text-sm text-red-900 dark:text-red-200">{t.agentWorkspace.sectionUnhandled}</p>
+                          <p className="text-xs text-red-700/70 dark:text-red-300/70">{pendingCalls.length} {t.agentWorkspace.callsCount}</p>
                         </div>
                         <div className="h-7 w-7 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
                           {pendingCalls.length}
@@ -10895,8 +10890,8 @@ export default function AgentWorkspacePage() {
                           <PhoneForwarded className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm text-green-900 dark:text-green-200">Vybavené hovory</p>
-                          <p className="text-xs text-green-700/70 dark:text-green-300/70">{handledCalls.length} {handledCalls.length === 1 ? "hovor" : handledCalls.length < 5 ? "hovory" : "hovorov"}</p>
+                          <p className="font-bold text-sm text-green-900 dark:text-green-200">{t.agentWorkspace.sectionHandled}</p>
+                          <p className="text-xs text-green-700/70 dark:text-green-300/70">{handledCalls.length} {t.agentWorkspace.callsCount}</p>
                         </div>
                         <div className="h-7 w-7 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
                           {handledCalls.length}
@@ -10910,7 +10905,7 @@ export default function AgentWorkspacePage() {
                 </div>
               );
             })()}
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 
