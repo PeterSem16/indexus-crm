@@ -6036,9 +6036,9 @@ function ScheduledQueuePanel({
                             {itemOverdue ? <AlertTriangle className="h-3.5 w-3.5" /> : getTypeIcon(item.type)}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-baseline gap-1.5">
                               <button
-                                className="text-sm font-medium truncate text-left hover:underline cursor-pointer leading-tight"
+                                className="text-sm font-medium line-clamp-2 break-words text-left hover:underline cursor-pointer leading-tight"
                                 data-testid={`text-scheduled-name-${item.id}`}
                                 onClick={() => {
                                   if (onOpenContact) {
