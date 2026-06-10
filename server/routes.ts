@@ -11360,6 +11360,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   // Shared contact-history builder — works for customers, hospitals, clinics, collaborators, persons
   const buildContactHistory = async (entityId: string, includeAgentLogs = false): Promise<any[]> => {
+    // Look up entity phone number — inbound call logs may store callerNumber without customerId
+    const [entityPhoneRow] = await db.select({ phone: customers.phone })
+      .from(customers).where(eq(customers.id, entityId)).limit(1);
+    const entityPhone = entityPhoneRow?.phone ?? null;
+
     const [fetchedCallLogs, messages, campaignHistory, allUsers, inboundLogs, inboundCbs] = await Promise.all([
       storage.getCallLogsByCustomer(entityId),
       storage.getCommunicationMessagesByCustomer(entityId),
@@ -11370,10 +11375,24 @@ Return ONLY valid JSON, no markdown code blocks.`,
         queueName: inboundQueues.name,
       }).from(inboundCallLogs)
         .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
-        .where(eq(inboundCallLogs.customerId, entityId))
+        .where(
+          entityPhone
+            ? or(
+                eq(inboundCallLogs.customerId, entityId),
+                and(eq(inboundCallLogs.callerNumber, entityPhone), isNull(inboundCallLogs.customerId))
+              )
+            : eq(inboundCallLogs.customerId, entityId)
+        )
         .orderBy(desc(inboundCallLogs.enteredQueueAt)),
       db.select().from(inboundCallbacks)
-        .where(and(eq(inboundCallbacks.customerId, entityId), isNotNull(inboundCallbacks.callbackDate)))
+        .where(
+          entityPhone
+            ? and(
+                or(eq(inboundCallbacks.customerId, entityId), eq(inboundCallbacks.phone, entityPhone)),
+                isNotNull(inboundCallbacks.callbackDate)
+              )
+            : and(eq(inboundCallbacks.customerId, entityId), isNotNull(inboundCallbacks.callbackDate))
+        )
         .orderBy(desc(inboundCallbacks.createdAt)),
     ]);
 
@@ -22593,7 +22612,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             eq(inboundCallbacks.calledBack, false),
             or(
               eq(inboundCallbacks.userId, user.id),
-              eq(inboundCallbacks.assignedTo, user.id)
+              eq(inboundCallbacks.assignedTo, user.id),
+              eq(inboundCallbacks.assignedTo, "all")
             )
           )
         )

@@ -6058,6 +6058,7 @@ export default function AgentWorkspacePage() {
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
   const [abandonedCallsOpen, setAbandonedCallsOpen] = useState(false);
+  const [abandonedCallsFilter, setAbandonedCallsFilter] = useState<"all" | "pending" | "handled">("all");
   const [missedCallNotifs, setMissedCallNotifs] = useState<Array<{ id: number; title: string; description: string }>>([]);
   const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
@@ -10706,175 +10707,167 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={abandonedCallsOpen} onOpenChange={setAbandonedCallsOpen} modal={false}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
-          <DialogHeader className="shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <PhoneOff className="h-5 w-5 text-destructive" />
-              {t.agentWorkspace.missedCallsTitle}
-            </DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="flex-1 min-h-0 overflow-auto" style={{ maxHeight: "calc(80vh - 80px)" }}>
-            {abandonedCalls.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <CheckCircle className="h-12 w-12 mb-3 text-green-500/50" />
-                <p className="font-medium">{t.agentWorkspace.noMissedCalls}</p>
-                <p className="text-sm">{t.agentWorkspace.allCallsHandled}</p>
+      <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) setAbandonedCallsFilter("all"); }} modal={false}>
+        <DialogContent className="sm:max-w-4xl max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ background: "linear-gradient(135deg, #1e1e2e 0%, #2d1b1b 100%)" }}>
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#C0392B", boxShadow: "0 2px 8px #C0392B55" }}>
+                <PhoneOff className="h-4 w-4 text-white" />
               </div>
-            ) : (
-              <div className="space-y-2 p-1 pr-3">
-                {abandonedCalls.map((call: any) => {
-                  const waitMin = call.waitDurationSeconds ? Math.floor(call.waitDurationSeconds / 60) : 0;
-                  const waitSec = call.waitDurationSeconds ? call.waitDurationSeconds % 60 : 0;
-                  const timeAgo = (() => {
-                    const ts = call.enteredQueueAt || call.completedAt || call.createdAt;
-                    if (!ts) return "";
-                    const diff = Date.now() - new Date(ts).getTime();
-                    if (isNaN(diff) || diff < 0) return "";
-                    const mins = Math.floor(diff / 60000);
-                    if (mins < 60) return `${mins} ${t.agentWorkspace.agoMinutes}`;
-                    const hrs = Math.floor(mins / 60);
-                    return `${hrs}${t.agentWorkspace.agoHours} ${mins % 60}${t.agentWorkspace.agoMinutes}`;
-                  })();
-                  const missedTime = call.completedAt ? (() => { try { return format(new Date(call.completedAt), "HH:mm"); } catch { return null; } })() : null;
-                  const statusLabel = call.status === "abandoned"
-                    ? (call.abandonReason === "caller_hangup" ? t.agentWorkspace.callerHangup : t.agentWorkspace.missedStatus)
-                    : call.status === "timeout" ? t.agentWorkspace.timeoutStatus
-                    : call.status === "overflow" ? t.agentWorkspace.overflowStatus
-                    : call.status === "no_agents" ? t.agentWorkspace.noAgentsStatus
-                    : t.agentWorkspace.missedStatus;
-                  const statusColor = call.status === "abandoned" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+              <div>
+                <DialogTitle className="text-sm font-bold text-white leading-tight">{t.agentWorkspace.missedCallsTitle}</DialogTitle>
+                <p className="text-[11px] text-white/50 mt-0.5">
+                  {abandonedCalls.filter((c: any) => !c.calledBack).length} {t.agentWorkspace.missedStatus?.toLowerCase() || "čakajúcich"} · {abandonedCalls.filter((c: any) => !!c.calledBack).length} {t.agentWorkspace.calledBack?.toLowerCase() || "vybavených"}
+                </p>
+              </div>
+            </div>
+            {/* Filter tabs */}
+            <div className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5">
+              {(["all", "pending", "handled"] as const).map((f) => {
+                const labels = { all: "Všetky", pending: "Čakajúce", handled: "Vybavené" };
+                const count = f === "all" ? abandonedCalls.length : f === "pending" ? abandonedCalls.filter((c: any) => !c.calledBack).length : abandonedCalls.filter((c: any) => !!c.calledBack).length;
+                return (
+                  <button key={f} onClick={() => setAbandonedCallsFilter(f)}
+                    className={`px-3 py-1 rounded-md text-[11px] font-medium transition-all ${abandonedCallsFilter === f ? "bg-white text-gray-900" : "text-white/70 hover:text-white"}`}
+                  >
+                    {labels[f]} {count > 0 && <span className={`ml-1 text-[10px] ${abandonedCallsFilter === f ? "text-gray-500" : "text-white/40"}`}>{count}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-                  const isCalledBack = !!call.calledBack;
+          {/* Column headers */}
+          <div className="grid items-center gap-3 px-4 py-2 border-b bg-muted/40 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+            style={{ gridTemplateColumns: "32px 1fr 160px 110px 100px auto" }}>
+            <span />
+            <span>Kontakt</span>
+            <span>Fronta</span>
+            <span>Čas · Čakanie</span>
+            <span>Stav</span>
+            <span className="text-right pr-1">Akcia</span>
+          </div>
 
-                  return (
-                    <div
-                      key={call.id}
-                      className={`flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors ${
-                        isCalledBack
-                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                          : "bg-card hover:bg-accent/50"
-                      }`}
-                      data-testid={`abandoned-call-${call.id}`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                          isCalledBack
-                            ? "bg-green-100 dark:bg-green-900/30"
-                            : "bg-red-100 dark:bg-red-900/30"
-                        }`}>
+          {/* List */}
+          <ScrollArea className="flex-1 min-h-0">
+            {(() => {
+              const filtered = abandonedCalls.filter((c: any) =>
+                abandonedCallsFilter === "all" ? true
+                : abandonedCallsFilter === "pending" ? !c.calledBack
+                : !!c.calledBack
+              );
+              if (filtered.length === 0) return (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <CheckCircle className="h-12 w-12 mb-3 text-green-500/40" />
+                  <p className="font-medium text-sm">{abandonedCallsFilter === "handled" ? "Žiadne vybavené hovory" : t.agentWorkspace.noMissedCalls}</p>
+                  <p className="text-xs mt-1 text-muted-foreground/70">{t.agentWorkspace.allCallsHandled}</p>
+                </div>
+              );
+              return (
+                <div>
+                  {filtered.map((call: any) => {
+                    const isCalledBack = !!call.calledBack;
+                    const waitSec = call.waitDurationSeconds || 0;
+                    const waitStr = waitSec > 0 ? (waitSec >= 60 ? `${Math.floor(waitSec / 60)}m ${waitSec % 60}s` : `${waitSec}s`) : null;
+                    const callTs = call.completedAt || call.enteredQueueAt || call.createdAt;
+                    const missedTime = callTs ? (() => { try { return format(new Date(callTs), "HH:mm"); } catch { return ""; } })() : "";
+                    const timeAgo = (() => {
+                      if (!callTs) return "";
+                      const diff = Date.now() - new Date(callTs).getTime();
+                      if (isNaN(diff) || diff < 0) return "";
+                      const mins = Math.floor(diff / 60000);
+                      if (mins < 60) return `${mins}${t.agentWorkspace.agoMinutes}`;
+                      return `${Math.floor(mins / 60)}${t.agentWorkspace.agoHours} ${mins % 60}${t.agentWorkspace.agoMinutes}`;
+                    })();
+                    const statusLabel = isCalledBack ? t.agentWorkspace.calledBack
+                      : call.status === "abandoned" ? (call.abandonReason === "caller_hangup" ? t.agentWorkspace.callerHangup : t.agentWorkspace.missedStatus)
+                      : call.status === "timeout" ? t.agentWorkspace.timeoutStatus
+                      : call.status === "overflow" ? t.agentWorkspace.overflowStatus
+                      : t.agentWorkspace.missedStatus;
+                    return (
+                      <div
+                        key={call.id}
+                        className={`grid items-center gap-3 px-4 py-2.5 border-b transition-colors hover:bg-muted/30 ${isCalledBack ? "bg-green-50/60 dark:bg-green-950/20" : ""}`}
+                        style={{ gridTemplateColumns: "32px 1fr 160px 110px 100px auto" }}
+                        data-testid={`abandoned-call-${call.id}`}
+                      >
+                        {/* Icon */}
+                        <div className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center ${isCalledBack ? "bg-green-100 dark:bg-green-900/40" : "bg-red-100 dark:bg-red-900/30"}`}>
+                          {isCalledBack
+                            ? <PhoneForwarded className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                            : <PhoneOff className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
+                        </div>
+                        {/* Contact */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm font-semibold truncate leading-tight">{call.customerName || call.callerName || call.callerNumber}</span>
+                            {isCalledBack && call.calledBackByUserName && (
+                              <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:block">· {call.calledBackByUserName}</span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-muted-foreground font-mono">{call.callerNumber}</span>
+                        </div>
+                        {/* Queue */}
+                        <div className="min-w-0">
+                          <span className="text-xs truncate block">{call.queueName || "—"}</span>
+                          {waitStr && <span className="text-[10px] text-muted-foreground">{t.agentWorkspace.waitedInQueue} {waitStr}</span>}
+                        </div>
+                        {/* Time */}
+                        <div>
+                          <span className="text-xs font-mono tabular-nums">{missedTime}</span>
+                          <span className="text-[10px] text-muted-foreground block">{timeAgo}</span>
+                        </div>
+                        {/* Status badge */}
+                        <div>
+                          <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            isCalledBack ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                            : call.status === "timeout" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                          }`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        {/* Action */}
+                        <div className="flex justify-end">
                           {isCalledBack ? (
-                            <PhoneForwarded className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            <span className="flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400 font-medium">
+                              <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                              <span className="hidden sm:block">{t.agentWorkspace.handledBy}</span>
+                            </span>
                           ) : (
-                            <PhoneOff className="h-4 w-4 text-red-600 dark:text-red-400" />
+                            <Button size="sm" variant="default" className="h-7 text-xs gap-1 px-2.5"
+                              onClick={async () => {
+                                const phoneNum = call.customerPhone || call.callerNumber;
+                                if (!phoneNum || !makeCall) return;
+                                pendingCallbackAbandonedIdRef.current = call.id;
+                                if (call.customerId) {
+                                  try {
+                                    const custRes = await fetch(`/api/customers/${call.customerId}`, { credentials: "include" });
+                                    if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); }
+                                  } catch (e) { console.error("Failed to load customer:", e); }
+                                } else {
+                                  try {
+                                    const lookupRes = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
+                                    if (lookupRes.ok) { const matched = await lookupRes.json(); if (matched?.id) { const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" }); if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); } } }
+                                  } catch (e) { console.error("Failed to lookup customer:", e); }
+                                }
+                                makeCall({ phoneNumber: phoneNum, customerName: call.customerName || call.callerName || undefined, customerId: call.customerId || undefined, callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined });
+                                if (!isSipRegistered && !isSipRegistering) sipRegister();
+                                setAbandonedCallsOpen(false);
+                              }}
+                              data-testid={`btn-callback-${call.id}`}
+                            >
+                              <Phone className="h-3 w-3" /> {t.agentWorkspace.callBackBtn}
+                            </Button>
                           )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm truncate">
-                              {call.customerName || call.callerName || call.callerNumber}
-                            </span>
-                            {isCalledBack ? (
-                              <>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                  {t.agentWorkspace.calledBack}
-                                </Badge>
-                                {call.calledBackByUserName && (
-                                  <span className="text-[10px] text-muted-foreground">
-                                    {call.calledBackByUserName}
-                                  </span>
-                                )}
-                              </>
-                            ) : (
-                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusColor}`}>
-                                {statusLabel}
-                              </Badge>
-                            )}
-                            {call.waitDurationSeconds > 0 && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                                {t.agentWorkspace.waitedInQueue} {waitMin > 0 ? `${waitMin}m ` : ""}{waitSec}s
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                            <span>{call.callerNumber}</span>
-                            {call.queueName && (
-                              <>
-                                <span className="text-muted-foreground/50">|</span>
-                                <span>{call.queueName}</span>
-                              </>
-                            )}
-                            <span className="text-muted-foreground/50">|</span>
-                            <span>{missedTime ? `${missedTime} | ${timeAgo}` : timeAgo}</span>
-                          </div>
-                        </div>
                       </div>
-                      {isCalledBack ? (
-                        <Badge variant="outline" className="shrink-0 gap-1 text-green-600 dark:text-green-400 border-green-300 dark:border-green-700">
-                          <CheckCircle className="h-3.5 w-3.5" />
-                          {t.agentWorkspace.handledBy} – {call.calledBackByUserName || ""}
-                        </Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="shrink-0 gap-1.5"
-                          onClick={async () => {
-                            const phoneNum = call.customerPhone || call.callerNumber;
-                            if (!phoneNum || !makeCall) return;
-                            pendingCallbackAbandonedIdRef.current = call.id;
-                            if (call.customerId) {
-                              try {
-                                const custRes = await fetch(`/api/customers/${call.customerId}`, { credentials: "include" });
-                                if (custRes.ok) {
-                                  const customer = await custRes.json();
-                                  setCurrentContact(customer);
-                                  setCurrentContactType("customer");
-                                  setCurrentCampaignContactId(null);
-                                  setRightTab("actions");
-                                }
-                              } catch (e) { console.error("Failed to load customer:", e); }
-                            } else {
-                              try {
-                                const lookupRes = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
-                                if (lookupRes.ok) {
-                                  const matched = await lookupRes.json();
-                                  if (matched?.id) {
-                                    const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" });
-                                    if (custRes.ok) {
-                                      const customer = await custRes.json();
-                                      setCurrentContact(customer);
-                                      setCurrentContactType("customer");
-                                      setCurrentCampaignContactId(null);
-                                      setRightTab("actions");
-                                    }
-                                  }
-                                }
-                              } catch (e) { console.error("Failed to lookup customer:", e); }
-                            }
-                            makeCall({
-                              phoneNumber: phoneNum,
-                              customerName: call.customerName || call.callerName || undefined,
-                              customerId: call.customerId || undefined,
-                              callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined,
-                            });
-                            if (!isSipRegistered && !isSipRegistering) {
-                              sipRegister();
-                            }
-                            setAbandonedCallsOpen(false);
-                          }}
-                          disabled={false}
-                          data-testid={`btn-callback-${call.id}`}
-                        >
-                          <Phone className="h-3.5 w-3.5" />
-                          {t.agentWorkspace.callBackBtn}
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </ScrollArea>
         </DialogContent>
       </Dialog>
