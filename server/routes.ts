@@ -22765,6 +22765,62 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Today's agent activity — calls, with customer names
+  app.get("/api/agent/today-calls", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const todayStart = startOfDay(new Date());
+      const todayEnd = endOfDay(new Date());
+
+      const calls = await db
+        .select({
+          id: callLogs.id,
+          direction: callLogs.direction,
+          status: callLogs.status,
+          phoneNumber: callLogs.phoneNumber,
+          durationSeconds: callLogs.durationSeconds,
+          startedAt: callLogs.startedAt,
+          answeredAt: callLogs.answeredAt,
+          endedAt: callLogs.endedAt,
+          campaignId: callLogs.campaignId,
+          customerId: callLogs.customerId,
+          inboundQueueName: callLogs.inboundQueueName,
+          hungUpBy: callLogs.hungUpBy,
+        })
+        .from(callLogs)
+        .where(
+          and(
+            eq(callLogs.userId, user.id),
+            gte(callLogs.startedAt, todayStart),
+            lte(callLogs.startedAt, todayEnd)
+          )
+        )
+        .orderBy(desc(callLogs.startedAt))
+        .limit(200);
+
+      const customerIds = [...new Set(calls.filter(c => c.customerId).map(c => c.customerId as string))];
+      let customerMap: Record<string, string> = {};
+      if (customerIds.length > 0) {
+        const custs = await db
+          .select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName })
+          .from(customers)
+          .where(inArray(customers.id, customerIds));
+        for (const c of custs) {
+          customerMap[c.id] = `${c.firstName || ""} ${c.lastName || ""}`.trim();
+        }
+      }
+
+      const enriched = calls.map(c => ({
+        ...c,
+        customerName: c.customerId ? (customerMap[c.customerId] || null) : null,
+      }));
+      res.json(enriched);
+    } catch (error) {
+      console.error("Failed to fetch today's calls:", error);
+      res.status(500).json({ error: "Failed to fetch today's calls" });
+    }
+  });
+
   // Scheduled calls forecast — counts grouped by day for next 7 days
   app.get("/api/agent/scheduled-forecast", requireAuth, async (req, res) => {
     try {

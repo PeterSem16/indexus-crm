@@ -110,6 +110,7 @@ import {
   CalendarClock,
   PhoneForwarded,
   PhoneIncoming,
+  PhoneMissed,
   MailPlus,
   MessageSquarePlus,
   RotateCcw,
@@ -469,6 +470,7 @@ function TopBar({
   scheduledQueueCounts,
   abandonedCallsCount,
   onOpenAbandonedCalls,
+  onOpenMyActivity,
   inboundRingtoneEnabled,
   onToggleInboundRingtone,
 }: {
@@ -493,6 +495,7 @@ function TopBar({
   scheduledQueueCounts?: { total: number; overdue: number };
   abandonedCallsCount?: number;
   onOpenAbandonedCalls?: () => void;
+  onOpenMyActivity?: () => void;
   inboundRingtoneEnabled?: boolean;
   onToggleInboundRingtone?: () => void;
 }) {
@@ -713,6 +716,21 @@ function TopBar({
                     {abandonedCallsCount}
                   </Badge>
                 )}
+              </Button>
+            </>
+          )}
+          {onOpenMyActivity && (
+            <>
+              <Separator orientation="vertical" className="h-6 mx-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenMyActivity}
+                className="gap-1.5"
+                data-testid="btn-open-my-activity"
+              >
+                <History className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs hidden xl:inline">Moje hovory</span>
               </Button>
             </>
           )}
@@ -2562,7 +2580,8 @@ function CommunicationCanvas({
 
   const applyEmailTemplate = useCallback((template: any) => {
     const subject = replaceTemplateVars(template.subject || "");
-    const isHtml = template.format === "html";
+    const hasHtmlContent = !!(template.contentHtml && template.contentHtml.trim().length > 0);
+    const isHtml = template.format === "html" || hasHtmlContent;
     const rawContent = isHtml ? (template.contentHtml || template.content || "") : (template.content || "");
     const content = replaceTemplateVars(rawContent);
     setEmailSubject(subject);
@@ -5496,6 +5515,179 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
   );
 }
 
+function MyActivityPanel({
+  open,
+  onOpenChange,
+  stats,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  stats: { calls: number; emails: number; sms: number };
+}) {
+  const { data: calls = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/agent/today-calls"],
+    queryFn: async () => {
+      const res = await fetch("/api/agent/today-calls", { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: open,
+    refetchInterval: open ? 30000 : false,
+  });
+
+  const getStatusInfo = (call: any) => {
+    const s = call.status;
+    const isIn = call.direction === "inbound";
+    if (s === "answered" || s === "completed") {
+      return { label: isIn ? "Zodvihnutý" : "Dokončený", color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30", icon: isIn ? <PhoneIncoming className="h-3 w-3" /> : <PhoneCall className="h-3 w-3" /> };
+    }
+    if (s === "no_answer") return { label: "Nedvíhal", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30", icon: <PhoneMissed className="h-3 w-3" /> };
+    if (s === "busy") return { label: "Obsadené", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30", icon: <PhoneOff className="h-3 w-3" /> };
+    if (s === "failed" || s === "cancelled") return { label: isIn ? "Zrušený" : "Zlyhalo", color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30", icon: <PhoneOff className="h-3 w-3" /> };
+    if (s === "initiated" || s === "ringing") return { label: "Vyzvánanie", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30", icon: <Phone className="h-3 w-3" /> };
+    return { label: s, color: "text-muted-foreground", bg: "bg-muted", icon: <Phone className="h-3 w-3" /> };
+  };
+
+  const formatDuration = (secs: number | null) => {
+    if (!secs || secs <= 0) return null;
+    if (secs < 60) return `${secs}s`;
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  };
+
+  const inbound = calls.filter(c => c.direction === "inbound");
+  const outbound = calls.filter(c => c.direction === "outbound");
+  const answered = calls.filter(c => c.status === "answered" || c.status === "completed");
+  const totalDur = answered.reduce((sum, c) => sum + (c.durationSeconds || 0), 0);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] !flex !flex-col p-0">
+        <div className="flex items-center gap-3 pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+            <History className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <DialogTitle className="text-base font-semibold">Moje hovory dnes</DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(), "EEEE d. MMMM yyyy", { locale: sk })}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-3 px-5 py-3 border-b flex-shrink-0 bg-muted/20">
+          <div className="text-center">
+            <div className="text-xl font-bold text-foreground">{calls.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Všetky hovory</div>
+          </div>
+          <div className="text-center border-l">
+            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{inbound.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Prichádzajúce</div>
+          </div>
+          <div className="text-center border-l">
+            <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{outbound.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Odchádzajúce</div>
+          </div>
+          <div className="text-center border-l">
+            <div className="text-xl font-bold text-green-600 dark:text-green-400">{formatDuration(totalDur) || "0s"}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Čas v hovore</div>
+          </div>
+        </div>
+
+        {(stats.emails > 0 || stats.sms > 0) && (
+          <div className="flex items-center gap-4 px-5 py-2 border-b flex-shrink-0 bg-muted/10">
+            {stats.emails > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Mail className="h-3.5 w-3.5 text-blue-500" />
+                <span className="font-medium text-foreground">{stats.emails}</span> emailov odoslaných
+              </div>
+            )}
+            {stats.sms > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MessageSquare className="h-3.5 w-3.5 text-green-500" />
+                <span className="font-medium text-foreground">{stats.sms}</span> SMS odoslaných
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : calls.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Phone className="h-10 w-10 mx-auto mb-3 opacity-15" />
+              <p className="text-sm font-medium">Žiadne hovory dnes</p>
+              <p className="text-xs mt-1 opacity-70">Vaše hovory sa zobrazia tu po uskutočnení</p>
+            </div>
+          ) : (
+            <div>
+              {calls.map((call) => {
+                const info = getStatusInfo(call);
+                const dur = formatDuration(call.durationSeconds);
+                const isIn = call.direction === "inbound";
+                const displayName = call.customerName || call.phoneNumber;
+                return (
+                  <div
+                    key={call.id}
+                    data-testid={`my-call-${call.id}`}
+                    className={`flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30 ${
+                      isIn ? "border-l-blue-400" : "border-l-indigo-400"
+                    }`}
+                  >
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${info.bg} ${info.color}`}>
+                      {isIn ? <PhoneIncoming className="h-4 w-4" /> : <PhoneCall className="h-4 w-4" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate">{displayName}</span>
+                        {call.customerName && (
+                          <span className="text-[11px] text-muted-foreground truncate">{call.phoneNumber}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${info.bg} ${info.color}`}>
+                          {info.icon}
+                          {info.label}
+                        </span>
+                        {isIn && call.inboundQueueName && (
+                          <span className="text-[10px] text-muted-foreground">
+                            <span className="opacity-60">Fronta:</span> {call.inboundQueueName}
+                          </span>
+                        )}
+                        {dur && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                            <Clock className="h-2.5 w-2.5" />
+                            {dur}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-xs font-medium text-foreground">
+                        {format(new Date(call.startedAt), "HH:mm")}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {isIn ? "Prichádzajúci" : "Odchádzajúci"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-2 border-t bg-muted/20 flex-shrink-0">
+          <p className="text-[11px] text-muted-foreground">
+            {calls.length} hovor{calls.length === 1 ? "" : calls.length >= 2 && calls.length <= 4 ? "y" : "ov"} · {answered.length} zodvihnutých
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ScheduledQueuePanel({
   open,
   onOpenChange,
@@ -6060,6 +6252,7 @@ export default function AgentWorkspacePage() {
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
   const [abandonedCallsOpen, setAbandonedCallsOpen] = useState(false);
+  const [myActivityOpen, setMyActivityOpen] = useState(false);
   const [abandonedCallsFilter, setAbandonedCallsFilter] = useState<"all" | "pending" | "handled">("all");
   const [missedCallNotifs, setMissedCallNotifs] = useState<Array<{ id: number; title: string; description: string }>>([]);
   const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
@@ -9280,6 +9473,7 @@ export default function AgentWorkspacePage() {
         scheduledQueueCounts={scheduledQueueCounts}
         abandonedCallsCount={abandonedCalls.filter((c: any) => !c.calledBack).length}
         onOpenAbandonedCalls={() => setAbandonedCallsOpen(true)}
+        onOpenMyActivity={() => setMyActivityOpen(true)}
         inboundRingtoneEnabled={inboundRingtoneEnabled}
         onToggleInboundRingtone={toggleInboundRingtone}
       />
@@ -10648,6 +10842,7 @@ export default function AgentWorkspacePage() {
       </Sheet>
 
       <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
+      <MyActivityPanel open={myActivityOpen} onOpenChange={setMyActivityOpen} stats={stats} />
 
       <Dialog open={createTaskDialogOpen} onOpenChange={setCreateTaskDialogOpen}>
         <DialogContent className="sm:max-w-md">
