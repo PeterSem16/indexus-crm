@@ -2182,6 +2182,7 @@ function CommunicationCanvas({
   const { toast } = useToast();
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
+  const [emailIsHtml, setEmailIsHtml] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
@@ -2226,6 +2227,7 @@ function CommunicationCanvas({
     setSelectedPhones(contact?.phone ? [contact.phone] : []);
     setEmailSubject("");
     setEmailMessage("");
+    setEmailIsHtml(false);
     setSmsMessage("");
     setSelectedFromAccount("");
     setEmailAttachment(null);
@@ -2560,10 +2562,12 @@ function CommunicationCanvas({
 
   const applyEmailTemplate = useCallback((template: any) => {
     const subject = replaceTemplateVars(template.subject || "");
-    const rawHtml = template.contentHtml || "";
-    const content = replaceTemplateVars(rawHtml || template.content || "");
+    const isHtml = template.format === "html";
+    const rawContent = isHtml ? (template.contentHtml || template.content || "") : (template.content || "");
+    const content = replaceTemplateVars(rawContent);
     setEmailSubject(subject);
     setEmailMessage(content);
+    setEmailIsHtml(isHtml);
     setSelectedEmailTemplateName(template.name);
     setEmailTemplateSearch("");
     setEmailTemplatePopoverOpen(false);
@@ -2651,6 +2655,7 @@ function CommunicationCanvas({
     });
     setEmailSubject("");
     setEmailMessage("");
+    setEmailIsHtml(false);
     setSelectedEmails([]);
     setEmailAttachment(null);
     setTemplateAttachments([]);
@@ -3298,24 +3303,35 @@ function CommunicationCanvas({
                 </div>
                 <div className="space-y-1.5 flex-1 flex flex-col">
                   <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.message || "Message"}</Label>
-                  <div className="border rounded-md flex-1" data-testid="wysiwyg-email-message">
-                    <ReactQuill
-                      theme="snow"
+                  {emailIsHtml ? (
+                    <div className="border rounded-md flex-1" data-testid="wysiwyg-email-message">
+                      <ReactQuill
+                        theme="snow"
+                        value={emailMessage}
+                        onChange={setEmailMessage}
+                        placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
+                        modules={{ toolbar: [
+                          ['bold', 'italic', 'underline'],
+                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                          ['link'],
+                          ['clean']
+                        ]}}
+                        style={{ minHeight: '200px' }}
+                      />
+                    </div>
+                  ) : (
+                    <textarea
+                      className="flex-1 w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       value={emailMessage}
-                      onChange={setEmailMessage}
+                      onChange={(e) => setEmailMessage(e.target.value)}
                       placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
-                      modules={{ toolbar: [
-                        ['bold', 'italic', 'underline'],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['link'],
-                        ['clean']
-                      ]}}
-                      style={{ minHeight: '200px' }}
+                      disabled={isSendingEmail}
+                      data-testid="textarea-email-message"
                     />
-                  </div>
+                  )}
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
+                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsHtml(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
                     {t.common?.cancel || "Cancel"}
                   </Button>
                   <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} data-testid="btn-send-email">
