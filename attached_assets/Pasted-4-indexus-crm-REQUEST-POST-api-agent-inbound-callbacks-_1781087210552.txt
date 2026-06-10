@@ -1,0 +1,33 @@
+4|indexus-crm  | [REQUEST] POST /api/agent/inbound-callbacks | session: 67467ce3-7a44-4f67-a3d3-6a251e2991e5 | body-keys: customerId,phone,name,campaignId,callbackDate,assignedTo
+4|indexus-crm  | [InboundCallback] POST body: {"customerId":"ff36487f-dbc3-46e2-80f1-b6f6437ebf6e","phone":"421948519438","name":"Laura Bosniková","campaignId":"a65e7775-885c-4413-b2be-e63c92decd3d","callbackDate":"2026-06-11T07:00:00.000Z","assignedTo":"67467ce3-7a44-4f67-a3d3-6a251e2991e5"}
+4|indexus-crm  | [InboundCallback] Normalized body: {"customerId":"ff36487f-dbc3-46e2-80f1-b6f6437ebf6e","phone":"421948519438","name":"Laura Bosniková","campaignId":"a65e7775-885c-4413-b2be-e63c92decd3d","callbackDate":"2026-06-11T07:00:00.000Z","assignedTo":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","calledBack":false}
+4|indexus-crm  | [REQUEST] PATCH /api/agent-sessions/59bd92f8-314a-4aaa-9303-0977af78dfb3/status | session: 67467ce3-7a44-4f67-a3d3-6a251e2991e5 | body-keys: status
+4|indexus-crm  | Failed to create inbound callback: error: relation "inbound_callbacks" does not exist
+4|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus-crm  |     at async /var/www/indexus-crm/dist/index.cjs:70:38117
+4|indexus-crm  |     at async /var/www/indexus-crm/dist/index.cjs:1255:66712 {
+4|indexus-crm  |   length: 116,
+4|indexus-crm  |   severity: 'ERROR',
+4|indexus-crm  |   code: '42P01',
+4|indexus-crm  |   detail: undefined,
+4|indexus-crm  |   hint: undefined,
+4|indexus-crm  |   position: '13',
+4|indexus-crm  |   internalPosition: undefined,
+4|indexus-crm  |   internalQuery: undefined,
+4|indexus-crm  |   where: undefined,
+4|indexus-crm  |   schema: undefined,
+4|indexus-crm  |   table: undefined,
+4|indexus-crm  |   column: undefined,
+4|indexus-crm  |   dataType: undefined,
+4|indexus-crm  |   constraint: undefined,
+4|indexus-crm  |   file: 'parse_relation.c',
+4|indexus-crm  |   line: '1449',
+4|indexus-crm  |   routine: 'parserOpenTable'
+4|indexus-crm  | }
+4|indexus-crm  | 10:26:20 AM [express] POST /api/agent/inbound-callbacks 500 in 6ms :: {"error":"Failed to create inbound callback"}
+4|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → wrap_up, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+4|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → wrap_up
+4|indexus-crm  | [AgentStatus] Persisted status 'wrap_up' for agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 directly to DB
+4|indexus-crm  | 10:26:20 AM [express] PATCH /api/agent-sessions/59bd92f8-314a-4aaa-9303-0977af78dfb3/status 200 in 9ms :: {"id":"59bd92f8-314a-4aaa-9303-0977af78dfb3","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","status":"wrap_up","campaignId":"a65e7775-885c-4413-b2be-e63c92decd3d","campaignIds":["a65e7775-885c-4413-b2be-e63c92decd3d"],"inboundQueueIds":["0106e99f-6a0f-475a-b22e-99eea1b82f60"],"startedAt":"2026-06-10T10:23:47.864Z","endedAt":null,"lastActiveAt":"2026-06-10T10:26:20.763Z","totalWorkTime":0,"totalBreakTime":0,"totalCallTime":0,"totalEmailTime":0,"totalSmsTime":0,"totalWrapUpTime":0,"contactsHandled":0,"metadata":null}
+4|indexus-crm

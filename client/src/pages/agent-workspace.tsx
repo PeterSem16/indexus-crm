@@ -731,7 +731,7 @@ function TopBar({
                 data-testid="btn-open-my-activity"
               >
                 <History className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs hidden xl:inline">{t.todayCallsButtonLabel || 'Moje hovory'}</span>
+                <span className="text-xs hidden xl:inline">{t.agentWorkspace.todayCallsButtonLabel}</span>
               </Button>
             </>
           )}
@@ -2222,6 +2222,7 @@ function CommunicationCanvas({
   const [smsTemplatePopoverOpen, setSmsTemplatePopoverOpen] = useState(false);
   const [selectedEmailTemplateName, setSelectedEmailTemplateName] = useState("");
   const [selectedSmsTemplateName, setSelectedSmsTemplateName] = useState("");
+  const [emailHtmlEditMode, setEmailHtmlEditMode] = useState(false);
   const [emailTemplateLangs, setEmailTemplateLangs] = useState<Set<string>>(new Set());
   const [smsTemplateLangs, setSmsTemplateLangs] = useState<Set<string>>(new Set());
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -2591,6 +2592,7 @@ function CommunicationCanvas({
     setEmailSubject(subject);
     setEmailMessage(content);
     setEmailIsHtml(isHtml);
+    setEmailHtmlEditMode(false);
     setSelectedEmailTemplateName(template.name);
     setEmailTemplateSearch("");
     setEmailTemplatePopoverOpen(false);
@@ -3339,20 +3341,38 @@ function CommunicationCanvas({
                     </button>
                   </div>
                   {emailIsHtml ? (
-                    <div className="border rounded-md flex-1" data-testid="wysiwyg-email-message">
-                      <ReactQuill
-                        theme="snow"
-                        value={emailMessage}
-                        onChange={setEmailMessage}
-                        placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
-                        modules={{ toolbar: [
-                          ['bold', 'italic', 'underline'],
-                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                          ['link'],
-                          ['clean']
-                        ]}}
-                        style={{ minHeight: '200px' }}
-                      />
+                    <div className="border rounded-md flex-1 flex flex-col overflow-hidden" data-testid="wysiwyg-email-message">
+                      <div className="flex items-center gap-1 px-2 py-1 border-b bg-muted/30">
+                        <button
+                          type="button"
+                          onClick={() => setEmailHtmlEditMode(false)}
+                          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                        >
+                          Preview
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEmailHtmlEditMode(true)}
+                          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                        >
+                          Edit HTML
+                        </button>
+                      </div>
+                      {emailHtmlEditMode ? (
+                        <textarea
+                          className="flex-1 w-full min-h-[200px] px-3 py-2 text-xs font-mono resize-none focus-visible:outline-none bg-background"
+                          value={emailMessage}
+                          onChange={(e) => setEmailMessage(e.target.value)}
+                          spellCheck={false}
+                        />
+                      ) : (
+                        <iframe
+                          srcDoc={emailMessage}
+                          sandbox="allow-same-origin"
+                          className="flex-1 w-full min-h-[200px] bg-white"
+                          title="Email preview"
+                        />
+                      )}
                     </div>
                   ) : (
                     <textarea
@@ -3366,7 +3386,7 @@ function CommunicationCanvas({
                   )}
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsHtml(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
+                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsHtml(false); setEmailHtmlEditMode(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
                     {t.common?.cancel || "Cancel"}
                   </Button>
                   <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} data-testid="btn-send-email">
