@@ -22846,6 +22846,103 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Today activity — unified feed: calls + emails + SMS for My Shift panel
+  app.get("/api/agent/today-activity", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const todayStart = startOfDay(new Date());
+      const todayEnd = endOfDay(new Date());
+
+      // 1. Fetch calls
+      const calls = await db
+        .select({
+          id: callLogs.id,
+          direction: callLogs.direction,
+          status: callLogs.status,
+          phoneNumber: callLogs.phoneNumber,
+          durationSeconds: callLogs.durationSeconds,
+          startedAt: callLogs.startedAt,
+          campaignId: callLogs.campaignId,
+          customerId: callLogs.customerId,
+          campaignContactId: callLogs.campaignContactId,
+          inboundQueueName: callLogs.inboundQueueName,
+        })
+        .from(callLogs)
+        .where(and(eq(callLogs.userId, user.id), gte(callLogs.startedAt, todayStart), lte(callLogs.startedAt, todayEnd)))
+        .orderBy(desc(callLogs.startedAt))
+        .limit(200);
+
+      const customerIds = [...new Set(calls.filter(c => c.customerId).map(c => c.customerId as string))];
+      let customerMap: Record<string, string> = {};
+      if (customerIds.length > 0) {
+        const custs = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName }).from(customers).where(inArray(customers.id, customerIds));
+        for (const c of custs) customerMap[c.id] = `${c.firstName || ""} ${c.lastName || ""}`.trim();
+      }
+
+      const ccIds = [...new Set(calls.filter(c => c.campaignContactId).map(c => c.campaignContactId as string))];
+      let dispositionMap: Record<string, string | null> = {};
+      if (ccIds.length > 0) {
+        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode }).from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
+        for (const cc of ccRows) dispositionMap[cc.id] = cc.dispositionCode;
+      }
+
+      const callItems = calls.map(c => ({
+        id: c.id,
+        itemType: "call" as const,
+        direction: c.direction,
+        status: c.status,
+        phoneNumber: c.phoneNumber,
+        durationSeconds: c.durationSeconds,
+        startedAt: c.startedAt,
+        sortTime: c.startedAt,
+        customerName: c.customerId ? (customerMap[c.customerId] || null) : null,
+        dispositionCode: c.campaignContactId ? (dispositionMap[c.campaignContactId] ?? null) : null,
+        inboundQueueName: c.inboundQueueName,
+      }));
+
+      // 2. Fetch email + SMS from activity logs
+      const activities = await db
+        .select({
+          id: activityLogsTable.id,
+          action: activityLogsTable.action,
+          entityName: activityLogsTable.entityName,
+          details: activityLogsTable.details,
+          createdAt: activityLogsTable.createdAt,
+        })
+        .from(activityLogsTable)
+        .where(and(
+          eq(activityLogsTable.userId, user.id),
+          inArray(activityLogsTable.action, ["send_email", "send_sms"]),
+          gte(activityLogsTable.createdAt, todayStart),
+          lte(activityLogsTable.createdAt, todayEnd)
+        ))
+        .orderBy(desc(activityLogsTable.createdAt))
+        .limit(200);
+
+      const commItems = activities.map(a => {
+        let parsedDetails: any = null;
+        try { parsedDetails = a.details ? JSON.parse(a.details) : null; } catch {}
+        return {
+          id: a.id,
+          itemType: a.action === "send_email" ? "email" as const : "sms" as const,
+          entityName: a.entityName,
+          subject: parsedDetails?.subject || null,
+          sortTime: a.createdAt,
+        };
+      });
+
+      // 3. Combine and sort chronologically
+      const combined = [...callItems, ...commItems].sort((a, b) =>
+        new Date(b.sortTime!).getTime() - new Date(a.sortTime!).getTime()
+      );
+
+      res.json(combined);
+    } catch (error) {
+      console.error("Failed to fetch today activity:", error);
+      res.status(500).json({ error: "Failed to fetch today activity" });
+    }
+  });
+
   // Scheduled calls forecast — counts grouped by day for next 7 days
   app.get("/api/agent/scheduled-forecast", requireAuth, async (req, res) => {
     try {

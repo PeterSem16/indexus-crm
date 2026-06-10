@@ -1388,7 +1388,7 @@ function TaskListPanel({
                                 {isDone ? (
                                   <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
                                     <Check className="h-2.5 w-2.5" />
-                                    Vybavené
+                                    {t.agentWorkspace.inboundCallbackDone}
                                   </span>
                                 ) : (
                                   <>
@@ -2236,6 +2236,7 @@ function CommunicationCanvas({
   const [selectedEmailTemplateName, setSelectedEmailTemplateName] = useState("");
   const [selectedSmsTemplateName, setSelectedSmsTemplateName] = useState("");
   const [emailHtmlEditMode, setEmailHtmlEditMode] = useState(false);
+  const [emailPreviewExpanded, setEmailPreviewExpanded] = useState(false);
   const [emailTemplateLangs, setEmailTemplateLangs] = useState<Set<string>>(new Set());
   const [smsTemplateLangs, setSmsTemplateLangs] = useState<Set<string>>(new Set());
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -3370,6 +3371,16 @@ function CommunicationCanvas({
                         >
                           Edit HTML
                         </button>
+                        <div className="flex-1" />
+                        <button
+                          type="button"
+                          title="Zobraziť na celú obrazovku"
+                          onClick={() => setEmailPreviewExpanded(true)}
+                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                          data-testid="btn-email-preview-expand"
+                        >
+                          <Maximize2 className="h-3 w-3" />
+                        </button>
                       </div>
                       {emailHtmlEditMode ? (
                         <textarea
@@ -3387,6 +3398,37 @@ function CommunicationCanvas({
                         />
                       )}
                     </div>
+                    {emailPreviewExpanded && (
+                      <Dialog open={emailPreviewExpanded} onOpenChange={setEmailPreviewExpanded}>
+                        <DialogContent className="max-w-5xl w-full h-[90vh] !flex !flex-col p-0 gap-0">
+                          <div className="flex items-center gap-2 px-4 py-3 border-b flex-shrink-0">
+                            <Mail className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-semibold flex-1 truncate">{emailSubject || "Email preview"}</span>
+                            <div className="flex items-center gap-1">
+                              <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${!emailHtmlEditMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Preview</button>
+                              <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${emailHtmlEditMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Edit HTML</button>
+                            </div>
+                          </div>
+                          <div className="flex-1 min-h-0 overflow-hidden">
+                            {emailHtmlEditMode ? (
+                              <textarea
+                                className="h-full w-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-background"
+                                value={emailMessage}
+                                onChange={(e) => setEmailMessage(e.target.value)}
+                                spellCheck={false}
+                              />
+                            ) : (
+                              <iframe
+                                srcDoc={emailMessage}
+                                sandbox="allow-same-origin"
+                                className="h-full w-full bg-white"
+                                title="Email preview expanded"
+                              />
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
                   ) : (
                     <textarea
                       className="flex-1 w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -5575,27 +5617,26 @@ function MyActivityPanel({
   stats: { calls: number; emails: number; sms: number };
 }) {
   const { t } = useI18n();
-  const { data: calls = [], isLoading, refetch } = useQuery<any[]>({
-    queryKey: ["/api/agent/today-calls"],
+  const [filterType, setFilterType] = useState<"all" | "call" | "email" | "sms" | "missed">("all");
+
+  const { data: items = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["/api/agent/today-activity"],
     queryFn: async () => {
-      const res = await fetch("/api/agent/today-calls", { credentials: "include" });
+      const res = await fetch("/api/agent/today-activity", { credentials: "include" });
       return res.ok ? res.json() : [];
     },
     enabled: open,
     refetchInterval: open ? 30000 : false,
   });
 
-  const getStatusInfo = (call: any) => {
-    const s = call.status;
-    const isIn = call.direction === "inbound";
-    if (s === "answered" || s === "completed") {
-      return { label: isIn ? "Zodvihnutý" : "Dokončený", color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30", icon: isIn ? <PhoneIncoming className="h-3 w-3" /> : <PhoneCall className="h-3 w-3" /> };
-    }
-    if (s === "no_answer") return { label: "Nedvíhal", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30", icon: <PhoneMissed className="h-3 w-3" /> };
-    if (s === "busy") return { label: "Obsadené", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30", icon: <PhoneOff className="h-3 w-3" /> };
-    if (s === "failed" || s === "cancelled") return { label: isIn ? "Zrušený" : "Zlyhalo", color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30", icon: <PhoneOff className="h-3 w-3" /> };
-    if (s === "initiated" || s === "ringing") return { label: "Vyzvánanie", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30", icon: <Phone className="h-3 w-3" /> };
-    return { label: s, color: "text-muted-foreground", bg: "bg-muted", icon: <Phone className="h-3 w-3" /> };
+  const getCallInfo = (item: any) => {
+    const s = item.status;
+    const isIn = item.direction === "inbound";
+    if (s === "answered" || s === "completed") return { label: isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30", icon: isIn ? <PhoneIncoming className="h-3 w-3" /> : <PhoneCall className="h-3 w-3" /> };
+    if (s === "no_answer") return { label: t.agentWorkspace.myShiftFilterMissed, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30", icon: <PhoneMissed className="h-3 w-3" /> };
+    if (s === "busy") return { label: "Busy", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30", icon: <PhoneOff className="h-3 w-3" /> };
+    if (s === "failed" || s === "cancelled") return { label: isIn ? "Cancelled" : "Failed", color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30", icon: <PhoneOff className="h-3 w-3" /> };
+    return { label: s || "—", color: "text-muted-foreground", bg: "bg-muted", icon: <Phone className="h-3 w-3" /> };
   };
 
   const formatDuration = (secs: number | null) => {
@@ -5606,10 +5647,26 @@ function MyActivityPanel({
     return s > 0 ? `${m}m ${s}s` : `${m}m`;
   };
 
-  const inbound = calls.filter(c => c.direction === "inbound");
-  const outbound = calls.filter(c => c.direction === "outbound");
-  const answered = calls.filter(c => c.status === "answered" || c.status === "completed");
-  const totalDur = answered.reduce((sum, c) => sum + (c.durationSeconds || 0), 0);
+  const callItems = items.filter(i => i.itemType === "call");
+  const emailItems = items.filter(i => i.itemType === "email");
+  const smsItems = items.filter(i => i.itemType === "sms");
+  const missedItems = callItems.filter(i => i.status === "no_answer" || i.status === "busy");
+  const answeredCalls = callItems.filter(i => i.status === "answered" || i.status === "completed");
+  const totalDur = answeredCalls.reduce((sum: number, c: any) => sum + (c.durationSeconds || 0), 0);
+
+  const filtered = filterType === "all" ? items
+    : filterType === "call" ? callItems
+    : filterType === "email" ? emailItems
+    : filterType === "sms" ? smsItems
+    : missedItems;
+
+  const filterTabs: { key: typeof filterType; label: string; count: number }[] = [
+    { key: "all", label: t.agentWorkspace.myShiftFilterAll, count: items.length },
+    { key: "call", label: t.agentWorkspace.myShiftFilterCalls, count: callItems.length },
+    { key: "email", label: t.agentWorkspace.myShiftFilterEmail, count: emailItems.length },
+    { key: "sms", label: t.agentWorkspace.myShiftFilterSms, count: smsItems.length },
+    { key: "missed", label: t.agentWorkspace.myShiftFilterMissed, count: missedItems.length },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
@@ -5630,16 +5687,16 @@ function MyActivityPanel({
 
         <div className="grid grid-cols-4 gap-3 px-5 py-3 border-b flex-shrink-0 bg-muted/20">
           <div className="text-center">
-            <div className="text-xl font-bold text-foreground">{calls.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.todayCallsAll}</div>
+            <div className="text-xl font-bold text-foreground">{callItems.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.myShiftFilterCalls}</div>
           </div>
           <div className="text-center border-l">
-            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{inbound.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.todayCallsInbound}</div>
+            <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{missedItems.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.myShiftFilterMissed}</div>
           </div>
           <div className="text-center border-l">
-            <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{outbound.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.todayCallsOutbound}</div>
+            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{emailItems.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.myShiftFilterEmail}</div>
           </div>
           <div className="text-center border-l">
             <div className="text-xl font-bold text-green-600 dark:text-green-400">{formatDuration(totalDur) || "0s"}</div>
@@ -5647,93 +5704,120 @@ function MyActivityPanel({
           </div>
         </div>
 
-        {(stats.emails > 0 || stats.sms > 0) && (
-          <div className="flex items-center gap-4 px-5 py-2 border-b flex-shrink-0 bg-muted/10">
-            {stats.emails > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Mail className="h-3.5 w-3.5 text-blue-500" />
-                <span className="font-medium text-foreground">{stats.emails}</span> {t.agentWorkspace.todayEmailsSent}
-              </div>
-            )}
-            {stats.sms > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MessageSquare className="h-3.5 w-3.5 text-green-500" />
-                <span className="font-medium text-foreground">{stats.sms}</span> {t.agentWorkspace.todaySmsSent}
-              </div>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-1 px-4 py-2 border-b flex-shrink-0 bg-muted/10 overflow-x-auto">
+          {filterTabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setFilterType(tab.key)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${filterType === tab.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              data-testid={`btn-shift-filter-${tab.key}`}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className={`px-1 rounded text-[10px] ${filterType === tab.key ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : calls.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
-              <Phone className="h-10 w-10 mx-auto mb-3 opacity-15" />
+              <History className="h-10 w-10 mx-auto mb-3 opacity-15" />
               <p className="text-sm font-medium">{t.agentWorkspace.todayCallsEmpty}</p>
               <p className="text-xs mt-1 opacity-70">{t.agentWorkspace.todayCallsEmptyHint}</p>
             </div>
           ) : (
             <div>
-              {calls.map((call) => {
-                const info = getStatusInfo(call);
-                const dur = formatDuration(call.durationSeconds);
-                const isIn = call.direction === "inbound";
-                const displayName = call.customerName || call.phoneNumber;
-                return (
-                  <div
-                    key={call.id}
-                    data-testid={`my-call-${call.id}`}
-                    className={`flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30 ${
-                      isIn ? "border-l-blue-400" : "border-l-indigo-400"
-                    }`}
-                  >
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${info.bg} ${info.color}`}>
-                      {isIn ? <PhoneIncoming className="h-4 w-4" /> : <PhoneCall className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium truncate">{displayName}</span>
-                        {call.customerName && (
-                          <span className="text-[11px] text-muted-foreground truncate">{call.phoneNumber}</span>
-                        )}
+              {filtered.map((item) => {
+                const sortTime = item.startedAt || item.sortTime;
+                if (item.itemType === "call") {
+                  const info = getCallInfo(item);
+                  const dur = formatDuration(item.durationSeconds);
+                  const isIn = item.direction === "inbound";
+                  const displayName = item.customerName || item.phoneNumber;
+                  return (
+                    <div
+                      key={item.id}
+                      data-testid={`my-shift-call-${item.id}`}
+                      className={`flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30 ${isIn ? "border-l-blue-400" : "border-l-indigo-400"}`}
+                    >
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${info.bg} ${info.color}`}>
+                        {isIn ? <PhoneIncoming className="h-4 w-4" /> : <PhoneCall className="h-4 w-4" />}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${info.bg} ${info.color}`}>
-                          {info.icon}
-                          {info.label}
-                        </span>
-                        {isIn && call.inboundQueueName && (
-                          <span className="text-[10px] text-muted-foreground">
-                            <span className="opacity-60">{t.agentWorkspace.todayCallsQueue}</span> {call.inboundQueueName}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium truncate">{displayName}</span>
+                          {item.customerName && <span className="text-[11px] text-muted-foreground truncate">{item.phoneNumber}</span>}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${info.bg} ${info.color}`}>
+                            {info.icon}{info.label}
                           </span>
-                        )}
-                        {dur && (
-                          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                            <Clock className="h-2.5 w-2.5" />
-                            {dur}
-                          </span>
-                        )}
-                        {call.dispositionCode && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
-                            <FileText className="h-2.5 w-2.5" />
-                            {call.dispositionCode}
-                          </span>
-                        )}
+                          {isIn && item.inboundQueueName && (
+                            <span className="text-[10px] text-muted-foreground"><span className="opacity-60">{t.agentWorkspace.todayCallsQueue}</span> {item.inboundQueueName}</span>
+                          )}
+                          {dur && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                              <Clock className="h-2.5 w-2.5" />{dur}
+                            </span>
+                          )}
+                          {item.dispositionCode && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
+                              <FileText className="h-2.5 w-2.5" />{item.dispositionCode}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-normal ${isIn ? "border-blue-300 text-blue-600 dark:text-blue-400" : "border-indigo-300 text-indigo-600 dark:text-indigo-400"}`}>
+                          {isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                      <div className="text-xs font-medium text-foreground">
-                        {format(new Date(call.startedAt), "HH:mm")}
+                  );
+                }
+                if (item.itemType === "email") {
+                  return (
+                    <div key={item.id} data-testid={`my-shift-email-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 border-l-blue-300 transition-colors hover:bg-muted/30">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                        <Mail className="h-4 w-4" />
                       </div>
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-normal ${isIn ? "border-blue-300 text-blue-600 dark:text-blue-400" : "border-indigo-300 text-indigo-600 dark:text-indigo-400"}`}>
-                        {isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge}
-                      </Badge>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{item.entityName || "—"}</div>
+                        {item.subject && <div className="text-[11px] text-muted-foreground truncate mt-0.5">📧 {item.subject}</div>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal border-blue-300 text-blue-600 dark:text-blue-400 mt-0.5">Email</Badge>
+                      </div>
                     </div>
-                  </div>
-                );
+                  );
+                }
+                if (item.itemType === "sms") {
+                  return (
+                    <div key={item.id} data-testid={`my-shift-sms-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 border-l-green-300 transition-colors hover:bg-muted/30">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                        <MessageSquare className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{item.entityName || "—"}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal border-green-300 text-green-600 dark:text-green-400 mt-0.5">SMS</Badge>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
               })}
             </div>
           )}
@@ -5741,7 +5825,9 @@ function MyActivityPanel({
 
         <div className="px-5 py-2 border-t bg-muted/20 flex-shrink-0">
           <p className="text-[11px] text-muted-foreground">
-            {calls.length} {calls.length === 1 ? t.agentWorkspace.todayCallsWord1 : calls.length >= 2 && calls.length <= 4 ? t.agentWorkspace.todayCallsWord234 : t.agentWorkspace.todayCallsWord5plus} · {answered.length} {t.agentWorkspace.todayCallsAnswered}
+            {callItems.length} {callItems.length === 1 ? t.agentWorkspace.todayCallsWord1 : callItems.length >= 2 && callItems.length <= 4 ? t.agentWorkspace.todayCallsWord234 : t.agentWorkspace.todayCallsWord5plus} · {answeredCalls.length} {t.agentWorkspace.todayCallsAnswered}
+            {emailItems.length > 0 && ` · ${emailItems.length} ${t.agentWorkspace.todayEmailsSent}`}
+            {smsItems.length > 0 && ` · ${smsItems.length} ${t.agentWorkspace.todaySmsSent}`}
           </p>
         </div>
       </DialogContent>
@@ -6137,7 +6223,7 @@ function ScheduledQueuePanel({
                           {item.isOutsideMission ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
                               <PhoneIncoming className="h-2.5 w-2.5 shrink-0" />
-                              Mimo misie
+                              {t.agentWorkspace.outsideMissionLabel}
                             </span>
                           ) : (
                             <span className="flex items-center gap-1">
