@@ -5487,7 +5487,7 @@ function ScheduledQueuePanel({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string) => void;
+  onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string, contactPhone?: string) => void;
 }) {
   const [filterType, setFilterType] = useState<"all" | "callback" | "email" | "sms">("all");
   const [timeFilter, setTimeFilter] = useState<"all" | "overdue" | "today" | "thisWeek" | "nextWeek" | "later">("all");
@@ -5609,7 +5609,7 @@ function ScheduledQueuePanel({
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogContent className="sm:max-w-5xl max-h-[85vh] !flex !flex-col overflow-hidden p-0">
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b flex-shrink-0">
+        <div className="flex items-center justify-between pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
               <CalendarClock className="h-5 w-5 text-primary" />
@@ -5776,7 +5776,7 @@ function ScheduledQueuePanel({
                                 onClick={() => {
                                   if (onOpenContact) {
                                     const channel = item.type === "callback" ? "phone" : item.type;
-                                    onOpenContact(item.contactId, item.campaignId, item.campaignContactId, channel as "phone" | "email" | "sms", item.contactType);
+                                    onOpenContact(item.contactId, item.campaignId, item.campaignContactId, channel as "phone" | "email" | "sms", item.contactType, item.isOutsideMission ? item.contactPhone : undefined);
                                     onOpenChange(false);
                                   }
                                 }}
@@ -5884,7 +5884,7 @@ function ScheduledQueuePanel({
                               data-testid={`btn-scheduled-call-${item.id}`}
                               onClick={() => {
                                 if (onOpenContact) {
-                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, "phone", item.contactType);
+                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, "phone", item.contactType, item.isOutsideMission ? item.contactPhone : undefined);
                                   onOpenChange(false);
                                 }
                               }}
@@ -5901,7 +5901,7 @@ function ScheduledQueuePanel({
                               data-testid={`btn-scheduled-send-${item.id}`}
                               onClick={() => {
                                 if (onOpenContact) {
-                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, item.type as "email" | "sms", item.contactType);
+                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, item.type as "email" | "sms", item.contactType, item.isOutsideMission ? item.contactPhone : undefined);
                                   onOpenChange(false);
                                 }
                               }}
@@ -7076,6 +7076,11 @@ export default function AgentWorkspacePage() {
   const { data: persistentHistory = [] } = useQuery<any[]>({
     queryKey: ["/api/entity-history", currentContact?.id],
     queryFn: async () => {
+      const inboundPhone = (currentContact as any)?._inboundPhone as string | undefined;
+      if (inboundPhone) {
+        const res = await fetch(`/api/agent/inbound-history?phone=${encodeURIComponent(inboundPhone)}`, { credentials: "include" });
+        return res.ok ? res.json() : [];
+      }
       const pathMap: Record<string, string> = {
         hospital: "hospitals", clinic: "clinics",
         collaborator: "collaborators", person: "collaborators",
@@ -7084,7 +7089,7 @@ export default function AgentWorkspacePage() {
       const res = await fetch(`/api/${seg}/${currentContact!.id}/contact-history`, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
-    enabled: !!currentContact?.id,
+    enabled: !!currentContact?.id || !!(currentContact as any)?._inboundPhone,
     refetchInterval: 30000,
   });
 
@@ -8046,7 +8051,7 @@ export default function AgentWorkspacePage() {
     }
   };
 
-  const handleOpenScheduledContact = async (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string) => {
+  const handleOpenScheduledContact = async (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string, contactPhone?: string) => {
     const lockKey = campaignContactId || contactId;
     if (openingContactsRef.current.has(lockKey)) return;
     openingContactsRef.current.add(lockKey);
@@ -8142,6 +8147,19 @@ export default function AgentWorkspacePage() {
           displayName: `${collab.firstName || ""} ${collab.lastName || ""}`.trim(),
           _contactType: "collaborator",
           _collaboratorId: collab.id,
+        };
+      } else if (!contactId && contactPhone) {
+        // Virtual contact: inbound caller with no customer record
+        customer = {
+          id: "",
+          firstName: contactPhone,
+          lastName: "",
+          phone: contactPhone,
+          email: "",
+          displayName: contactPhone,
+          _contactType: "customer",
+          _isVirtual: true,
+          _inboundPhone: contactPhone,
         };
       } else {
         const res = await fetch(`/api/customers/${contactId}`, { credentials: "include" });
@@ -10137,7 +10155,7 @@ export default function AgentWorkspacePage() {
                 /* ---- Detail parent (children + callback form) ---- */
                 const parent = campaignDispositions.find(d => d.id === modalSelectedParent);
                 const children = campaignDispositions.filter((d: any) => d.parentId === modalSelectedParent && d.isActive && dispChannelAllowed(d, dispositionChannelFilter));
-                const cbAssignTo = modalCallbackAssign === "me" && user?.id ? user.id : null;
+                const cbAssignTo = modalCallbackAssign === "me" && user?.id ? user.id : "all";
                 const needsCallback = parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms"
                   || children.some(c => c.actionType === "callback" || c.actionType === "schedule_email" || c.actionType === "schedule_sms");
 

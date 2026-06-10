@@ -22560,7 +22560,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               isNotNull(inboundCallbacks.callbackDate),
               or(
                 eq(inboundCallbacks.userId, user.id),
-                eq(inboundCallbacks.assignedTo, user.id)
+                eq(inboundCallbacks.assignedTo, user.id),
+                eq(inboundCallbacks.assignedTo, "all")
               )
             )
           );
@@ -22679,6 +22680,88 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to delete inbound callback:", error);
       res.status(500).json({ error: "Failed to delete inbound callback" });
+    }
+  });
+
+  // Phone-based inbound history — for callers with no customer record
+  app.get("/api/agent/inbound-history", requireAuth, async (req, res) => {
+    try {
+      const phone = ((req.query.phone as string) || "").trim();
+      if (!phone) return res.status(400).json({ error: "phone required" });
+
+      const [inboundLogs, inboundCbs, allUsers] = await Promise.all([
+        db.select({ log: inboundCallLogs, queueName: inboundQueues.name })
+          .from(inboundCallLogs)
+          .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+          .where(eq(inboundCallLogs.callerNumber, phone))
+          .orderBy(desc(inboundCallLogs.enteredQueueAt))
+          .limit(50),
+        db.select().from(inboundCallbacks)
+          .where(eq(inboundCallbacks.phone, phone))
+          .orderBy(desc(inboundCallbacks.createdAt))
+          .limit(30),
+        storage.getAllUsers(),
+      ]);
+
+      const userMap = new Map(allUsers.map(u => [u.id, `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username]));
+      const historyItems: any[] = [];
+
+      const inboundStatusLabels: Record<string, string> = {
+        queued: "Vo fronte", ringing: "Zvonenie", answered: "Zodvihnutý",
+        completed: "Dokončený", abandoned: "Zrušený volajúcim", timeout: "Časový limit",
+        overflow: "Pretečenie", transferred: "Presmerovaný",
+      };
+
+      for (const { log: inLog, queueName } of inboundLogs) {
+        const agentName = inLog.assignedAgentId ? (userMap.get(inLog.assignedAgentId) || "Neznámy") : null;
+        const talkDur = inLog.talkDurationSeconds || 0;
+        const durationStr = talkDur > 0 ? `${Math.floor(talkDur / 60)}:${String(talkDur % 60).padStart(2, "0")}` : null;
+        historyItems.push({
+          id: `inbound-${inLog.id}`,
+          type: "call",
+          direction: "inbound",
+          timestamp: inLog.enteredQueueAt || inLog.createdAt,
+          status: inboundStatusLabels[inLog.status] || inLog.status,
+          statusCode: inLog.status,
+          agentName,
+          agentId: inLog.assignedAgentId,
+          content: `Prichádzajúci hovor: ${inLog.callerNumber}${queueName ? ` → ${queueName}` : ""}`,
+          details: durationStr ? `Trvanie: ${durationStr}` : null,
+          duration: talkDur || null,
+          notes: null,
+          queueName: queueName || null,
+          inboundCallLogId: inLog.id,
+        });
+      }
+
+      for (const cb of inboundCbs) {
+        const agentName = cb.userId ? (userMap.get(cb.userId) || "Neznámy") : "Neznámy";
+        const cbDateStr = cb.callbackDate ? new Date(cb.callbackDate).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
+        historyItems.push({
+          id: `icb-${cb.id}`,
+          type: "disposition",
+          direction: "inbound",
+          timestamp: cb.createdAt,
+          status: cb.calledBack ? "Spätne zavolané" : "Callback naplánovaný",
+          statusCode: cb.calledBack ? "called_back" : "callback_scheduled",
+          agentName,
+          agentId: cb.userId,
+          content: cbDateStr ? `Prichádzajúci hovor — callback naplánovaný na ${cbDateStr}` : "Prichádzajúci hovor — callback naplánovaný",
+          details: cb.notes || null,
+          dispositionCode: "callback_scheduled",
+          dispositionName: cb.calledBack ? "Spätne zavolané" : "Callback naplánovaný",
+          dispositionColor: cb.calledBack ? "#22c55e" : "#f59e0b",
+          action: "callback_set",
+          inboundCallbackId: cb.id,
+          callbackDate: cb.callbackDate,
+        });
+      }
+
+      historyItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      res.json(historyItems);
+    } catch (err) {
+      console.error("[InboundHistory]", err);
+      res.status(500).json({ error: "Failed to load inbound history" });
     }
   });
 
