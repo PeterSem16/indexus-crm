@@ -10786,11 +10786,28 @@ export default function AgentWorkspacePage() {
                       <div className="font-semibold text-sm truncate leading-tight">
                         {call.customerName || call.callerName || call.callerNumber}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted-foreground font-mono">{call.callerNumber}</span>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground font-mono shrink-0">{call.callerNumber}</span>
                         {call.queueName && (
                           <span className="text-[10px] text-muted-foreground/60 truncate">· {call.queueName}</span>
                         )}
+                        {!isCalledBack && (() => {
+                          const s = call.status;
+                          const r = call.abandonReason;
+                          const label = s === "no_agents" ? t.agentWorkspace.noAgentsStatus
+                            : s === "timeout" ? t.agentWorkspace.timeoutStatus
+                            : s === "overflow" ? t.agentWorkspace.overflowStatus
+                            : r === "caller_hangup" ? t.agentWorkspace.callerHangup
+                            : t.agentWorkspace.missedStatus;
+                          const color = s === "no_agents" ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                            : s === "timeout" || s === "overflow" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
+                            : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300";
+                          return (
+                            <span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${color}`}>
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
