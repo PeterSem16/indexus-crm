@@ -145,6 +145,7 @@ import {
   Tag,
   Layers,
   type LucideIcon,
+  Code2,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import {
@@ -3322,7 +3323,19 @@ function CommunicationCanvas({
                   <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder={t.customers?.details?.emailSubjectPlaceholder || "Email subject..."} disabled={isSendingEmail} data-testid="input-email-subject" />
                 </div>
                 <div className="space-y-1.5 flex-1 flex flex-col">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.message || "Message"}</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.message || "Message"}</Label>
+                    <button
+                      type="button"
+                      onClick={() => setEmailIsHtml(v => !v)}
+                      data-testid="btn-toggle-html"
+                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${emailIsHtml ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border hover:bg-muted/80"}`}
+                      title={emailIsHtml ? "Prepnúť na plain text" : "Prepnúť na HTML editor"}
+                    >
+                      <Code2 className="h-3 w-3" />
+                      HTML
+                    </button>
+                  </div>
                   {emailIsHtml ? (
                     <div className="border rounded-md flex-1" data-testid="wysiwyg-email-message">
                       <ReactQuill
@@ -5525,6 +5538,7 @@ function MyActivityPanel({
   onOpenChange: (open: boolean) => void;
   stats: { calls: number; emails: number; sms: number };
 }) {
+  const { t } = useI18n();
   const { data: calls = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["/api/agent/today-calls"],
     queryFn: async () => {
@@ -5569,31 +5583,31 @@ function MyActivityPanel({
             <History className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <DialogTitle className="text-base font-semibold">Moje hovory dnes</DialogTitle>
+            <DialogTitle className="text-base font-semibold">{t.agentWorkspace.todayCallsPanelTitle}</DialogTitle>
             <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(), "EEEE d. MMMM yyyy", { locale: sk })}</p>
           </div>
-          <button onClick={() => refetch()} className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:bg-muted transition-colors mr-1" title="Obnoviť" data-testid="btn-my-activity-refresh">
+          <button onClick={() => refetch()} className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:bg-muted transition-colors mr-1" title={t.agentWorkspace.todayCallsRefresh} data-testid="btn-my-activity-refresh">
             <RotateCcw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Obnoviť</span>
+            <span className="hidden sm:inline">{t.agentWorkspace.todayCallsRefresh}</span>
           </button>
         </div>
 
         <div className="grid grid-cols-4 gap-3 px-5 py-3 border-b flex-shrink-0 bg-muted/20">
           <div className="text-center">
             <div className="text-xl font-bold text-foreground">{calls.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Všetky hovory</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.todayCallsAll}</div>
           </div>
           <div className="text-center border-l">
             <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{inbound.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Prichádzajúce</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.todayCallsInbound}</div>
           </div>
           <div className="text-center border-l">
             <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{outbound.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Odchádzajúce</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.todayCallsOutbound}</div>
           </div>
           <div className="text-center border-l">
             <div className="text-xl font-bold text-green-600 dark:text-green-400">{formatDuration(totalDur) || "0s"}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Čas v hovore</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.todayCallsDuration}</div>
           </div>
         </div>
 
@@ -5602,13 +5616,13 @@ function MyActivityPanel({
             {stats.emails > 0 && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Mail className="h-3.5 w-3.5 text-blue-500" />
-                <span className="font-medium text-foreground">{stats.emails}</span> emailov odoslaných
+                <span className="font-medium text-foreground">{stats.emails}</span> {t.agentWorkspace.todayEmailsSent}
               </div>
             )}
             {stats.sms > 0 && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <MessageSquare className="h-3.5 w-3.5 text-green-500" />
-                <span className="font-medium text-foreground">{stats.sms}</span> SMS odoslaných
+                <span className="font-medium text-foreground">{stats.sms}</span> {t.agentWorkspace.todaySmsSent}
               </div>
             )}
           </div>
@@ -5622,8 +5636,8 @@ function MyActivityPanel({
           ) : calls.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Phone className="h-10 w-10 mx-auto mb-3 opacity-15" />
-              <p className="text-sm font-medium">Žiadne hovory dnes</p>
-              <p className="text-xs mt-1 opacity-70">Vaše hovory sa zobrazia tu po uskutočnení</p>
+              <p className="text-sm font-medium">{t.agentWorkspace.todayCallsEmpty}</p>
+              <p className="text-xs mt-1 opacity-70">{t.agentWorkspace.todayCallsEmptyHint}</p>
             </div>
           ) : (
             <div>
@@ -5657,7 +5671,7 @@ function MyActivityPanel({
                         </span>
                         {isIn && call.inboundQueueName && (
                           <span className="text-[10px] text-muted-foreground">
-                            <span className="opacity-60">Fronta:</span> {call.inboundQueueName}
+                            <span className="opacity-60">{t.agentWorkspace.todayCallsQueue}</span> {call.inboundQueueName}
                           </span>
                         )}
                         {dur && (
@@ -5668,13 +5682,13 @@ function MyActivityPanel({
                         )}
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 flex flex-col items-end gap-1">
                       <div className="text-xs font-medium text-foreground">
                         {format(new Date(call.startedAt), "HH:mm")}
                       </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                        {isIn ? "Prichádzajúci" : "Odchádzajúci"}
-                      </div>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-normal ${isIn ? "border-blue-300 text-blue-600 dark:text-blue-400" : "border-indigo-300 text-indigo-600 dark:text-indigo-400"}`}>
+                        {isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge}
+                      </Badge>
                     </div>
                   </div>
                 );
@@ -6765,6 +6779,8 @@ export default function AgentWorkspacePage() {
       }
     }
     if (callWasActiveRef.current && curr === "idle") {
+      const wasInbound = wasInboundCallRef.current;
+      const prevState = prevCallStateRef.current;
       callWasActiveRef.current = false;
       if (ringTimerRef.current) {
         clearInterval(ringTimerRef.current);
@@ -6779,6 +6795,26 @@ export default function AgentWorkspacePage() {
         }).then(() => {
           queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
         }).catch(console.error);
+      }
+      // Direct active→idle transition (caller hung up via remoteHangupFn, skipping "ended")
+      // Trigger disposition the same way the normal "ended" path does.
+      if (prevState !== "ended" && (wasInbound || callContext.callDirection === "inbound")) {
+        dispositionContextRef.current = {
+          taskId: activeTaskId,
+          contactId: currentContact?.id ?? null,
+          campaignContactId: currentCampaignContactId,
+          campaignId: selectedCampaignId,
+          isInboundCall: true,
+        };
+        setCallEndTimestamp(Date.now());
+        setDispositionChannelFilter("phone");
+        const isNMInbound = !currentCampaignContactId;
+        setIsNonMissionInboundDisposition(isNMInbound);
+        setMandatoryDisposition(!isNMInbound);
+        const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
+        if (campSettings.autoOpenDisposition !== false) {
+          setDispositionModalOpen(true);
+        }
       }
     }
     // Always clear inbound tracking on idle regardless of callWasActiveRef gate

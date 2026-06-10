@@ -3235,6 +3235,19 @@ export interface Translations {
     historyRecordPlural: string;
     historySmsTitle: string;
     historyFor: string;
+    todayCallsPanelTitle: string;
+    todayCallsAll: string;
+    todayCallsInbound: string;
+    todayCallsOutbound: string;
+    todayCallsDuration: string;
+    todayEmailsSent: string;
+    todaySmsSent: string;
+    todayCallsEmpty: string;
+    todayCallsEmptyHint: string;
+    todayCallsQueue: string;
+    todayCallsInboundBadge: string;
+    todayCallsOutboundBadge: string;
+    todayCallsRefresh: string;
   };
   sop: {
     title: string;
@@ -10087,6 +10100,19 @@ export const translations: Record<Locale, Translations> = {
       historyRecordPlural: 'records',
       historySmsTitle: 'SMS message',
       historyFor: 'for',
+      todayCallsPanelTitle: 'My calls today',
+      todayCallsAll: 'All calls',
+      todayCallsInbound: 'Incoming',
+      todayCallsOutbound: 'Outgoing',
+      todayCallsDuration: 'Talk time',
+      todayEmailsSent: 'emails sent',
+      todaySmsSent: 'SMS sent',
+      todayCallsEmpty: 'No calls today',
+      todayCallsEmptyHint: 'Your calls will appear here after you make them',
+      todayCallsQueue: 'Queue:',
+      todayCallsInboundBadge: 'Incoming',
+      todayCallsOutboundBadge: 'Outgoing',
+      todayCallsRefresh: 'Refresh',
     },
     sop: {
         title: 'SOP & Procedures',
@@ -16394,6 +16420,19 @@ export const translations: Record<Locale, Translations> = {
       historyRecordPlural: 'záznamov',
       historySmsTitle: 'SMS správa',
       historyFor: 'pre',
+      todayCallsPanelTitle: 'Moje hovory dnes',
+      todayCallsAll: 'Všetky hovory',
+      todayCallsInbound: 'Prichádzajúce',
+      todayCallsOutbound: 'Odchádzajúce',
+      todayCallsDuration: 'Čas v hovore',
+      todayEmailsSent: 'emailov odoslaných',
+      todaySmsSent: 'SMS odoslaných',
+      todayCallsEmpty: 'Žiadne hovory dnes',
+      todayCallsEmptyHint: 'Vaše hovory sa zobrazia tu po uskutočnení',
+      todayCallsQueue: 'Fronta:',
+      todayCallsInboundBadge: 'Prichádzajúci',
+      todayCallsOutboundBadge: 'Odchádzajúci',
+      todayCallsRefresh: 'Obnoviť',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -22687,6 +22726,19 @@ export const translations: Record<Locale, Translations> = {
       historyRecordPlural: 'záznamů',
       historySmsTitle: 'SMS zpráva',
       historyFor: 'pro',
+      todayCallsPanelTitle: 'Moje hovory dnes',
+      todayCallsAll: 'Všechny hovory',
+      todayCallsInbound: 'Příchozí',
+      todayCallsOutbound: 'Odchozí',
+      todayCallsDuration: 'Čas v hovoru',
+      todayEmailsSent: 'emailů odesláno',
+      todaySmsSent: 'SMS odesláno',
+      todayCallsEmpty: 'Žádné hovory dnes',
+      todayCallsEmptyHint: 'Vaše hovory se zobrazí zde po uskutečnění',
+      todayCallsQueue: 'Fronta:',
+      todayCallsInboundBadge: 'Příchozí',
+      todayCallsOutboundBadge: 'Odchozí',
+      todayCallsRefresh: 'Obnovit',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -28936,6 +28988,19 @@ export const translations: Record<Locale, Translations> = {
       historyRecordPlural: 'bejegyzés',
       historySmsTitle: 'SMS üzenet',
       historyFor: 'erre',
+      todayCallsPanelTitle: 'Mai hívásaim',
+      todayCallsAll: 'Összes hívás',
+      todayCallsInbound: 'Bejövő',
+      todayCallsOutbound: 'Kimenő',
+      todayCallsDuration: 'Hívás idő',
+      todayEmailsSent: 'email elküldve',
+      todaySmsSent: 'SMS elküldve',
+      todayCallsEmpty: 'Nincs mai hívás',
+      todayCallsEmptyHint: 'Hívásai itt jelennek meg, miután elvégezte azokat',
+      todayCallsQueue: 'Sor:',
+      todayCallsInboundBadge: 'Bejövő',
+      todayCallsOutboundBadge: 'Kimenő',
+      todayCallsRefresh: 'Frissítés',
     },
     sop: {
         title: 'SOP & Eljárások',
@@ -35080,6 +35145,19 @@ export const translations: Record<Locale, Translations> = {
       historyRecordPlural: 'înregistrări',
       historySmsTitle: 'Mesaj SMS',
       historyFor: 'pentru',
+      todayCallsPanelTitle: 'Apelurile mele azi',
+      todayCallsAll: 'Toate apelurile',
+      todayCallsInbound: 'Primite',
+      todayCallsOutbound: 'Efectuate',
+      todayCallsDuration: 'Timp în convorbire',
+      todayEmailsSent: 'emailuri trimise',
+      todaySmsSent: 'SMS trimise',
+      todayCallsEmpty: 'Niciun apel azi',
+      todayCallsEmptyHint: 'Apelurile dvs. vor apărea aici după efectuare',
+      todayCallsQueue: 'Coadă:',
+      todayCallsInboundBadge: 'Primit',
+      todayCallsOutboundBadge: 'Efectuat',
+      todayCallsRefresh: 'Reîncărcați',
     },
     sop: {
         title: 'SOP & Proceduri',
@@ -41226,6 +41304,19 @@ export const translations: Record<Locale, Translations> = {
       historyRecordPlural: 'record',
       historySmsTitle: 'Messaggio SMS',
       historyFor: 'per',
+      todayCallsPanelTitle: 'Le mie chiamate oggi',
+      todayCallsAll: 'Tutte le chiamate',
+      todayCallsInbound: 'In entrata',
+      todayCallsOutbound: 'In uscita',
+      todayCallsDuration: 'Tempo in chiamata',
+      todayEmailsSent: 'email inviate',
+      todaySmsSent: 'SMS inviati',
+      todayCallsEmpty: 'Nessuna chiamata oggi',
+      todayCallsEmptyHint: 'Le chiamate appariranno qui dopo averle effettuate',
+      todayCallsQueue: 'Coda:',
+      todayCallsInboundBadge: 'In entrata',
+      todayCallsOutboundBadge: 'In uscita',
+      todayCallsRefresh: 'Aggiorna',
     },
     sop: {
         title: 'SOP & Procedure',
@@ -47372,6 +47463,19 @@ export const translations: Record<Locale, Translations> = {
       historyRecordPlural: 'Einträge',
       historySmsTitle: 'SMS-Nachricht',
       historyFor: 'für',
+      todayCallsPanelTitle: 'Meine heutigen Anrufe',
+      todayCallsAll: 'Alle Anrufe',
+      todayCallsInbound: 'Eingehend',
+      todayCallsOutbound: 'Ausgehend',
+      todayCallsDuration: 'Gesprächszeit',
+      todayEmailsSent: 'E-Mails gesendet',
+      todaySmsSent: 'SMS gesendet',
+      todayCallsEmpty: 'Keine Anrufe heute',
+      todayCallsEmptyHint: 'Ihre Anrufe erscheinen hier nach der Durchführung',
+      todayCallsQueue: 'Warteschlange:',
+      todayCallsInboundBadge: 'Eingehend',
+      todayCallsOutboundBadge: 'Ausgehend',
+      todayCallsRefresh: 'Aktualisieren',
     },
     sop: {
         title: 'SOP & Verfahren',
