@@ -146,6 +146,7 @@ import {
   Layers,
   type LucideIcon,
   Code2,
+  CheckCheck,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import {
@@ -1366,49 +1367,61 @@ function TaskListPanel({
                   <div className="p-2 space-y-1.5" style={{ background: "hsl(var(--card))" }}>
                     {inboundCallbacks.map(cb => {
                       const cbDate = cb.callbackDate ? format(new Date(cb.callbackDate), "dd.MM. HH:mm") : null;
-                      const isOverdue = cb.callbackDate && new Date(cb.callbackDate) < new Date();
+                      const isOverdue = !cb.calledBack && cb.callbackDate && new Date(cb.callbackDate) < new Date();
+                      const isDone = cb.calledBack;
                       return (
                         <div
                           key={cb.id}
-                          className="rounded-xl px-2.5 py-2 transition-all duration-200"
-                          style={{ background: "hsl(var(--background))", border: `1px solid ${ac}25`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
-                          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${ac}60`; el.style.boxShadow = `0 4px 10px ${ac}18`; }}
-                          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${ac}25`; el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)"; }}
+                          className={`rounded-xl px-2.5 py-2 transition-all duration-200 ${isDone ? "opacity-50" : ""}`}
+                          style={{ background: isDone ? "hsl(var(--muted))" : "hsl(var(--background))", border: `1px solid ${isDone ? "#16a34a40" : `${ac}25`}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
+                          onMouseEnter={e => { if (!isDone) { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${ac}60`; el.style.boxShadow = `0 4px 10px ${ac}18`; } }}
+                          onMouseLeave={e => { if (!isDone) { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${ac}25`; el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)"; } }}
                           data-testid={`inbound-cb-item-${cb.id}`}
                         >
                           <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ background: `${ac}15`, border: `1.5px solid ${ac}30` }}>
-                              <PhoneIncoming className="h-3.5 w-3.5" style={{ color: ac }} />
+                            <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ background: isDone ? "#16a34a15" : `${ac}15`, border: `1.5px solid ${isDone ? "#16a34a40" : `${ac}30`}` }}>
+                              {isDone ? <CheckCheck className="h-3.5 w-3.5 text-green-600" /> : <PhoneIncoming className="h-3.5 w-3.5" style={{ color: ac }} />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>{cb.name || cb.phone}</p>
+                              <p className={`text-xs font-semibold truncate ${isDone ? "line-through text-muted-foreground" : ""}`} style={isDone ? {} : { color: "hsl(var(--foreground))" }}>{cb.name || cb.phone}</p>
                               <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                {cb.name && <span className="text-[10px] text-muted-foreground truncate">{cb.phone}</span>}
-                                {cbDate && (
+                                {isDone ? (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
+                                    <Check className="h-2.5 w-2.5" />
+                                    Vybavené
+                                  </span>
+                                ) : (
                                   <>
-                                    <Calendar className="h-2.5 w-2.5 shrink-0" style={{ color: isOverdue ? "#ef4444" : "currentColor" }} />
-                                    <span className="text-[10px]" style={{ color: isOverdue ? "#ef4444" : "hsl(var(--muted-foreground))" }}>{cbDate}</span>
+                                    {cb.name && <span className="text-[10px] text-muted-foreground truncate">{cb.phone}</span>}
+                                    {cbDate && (
+                                      <>
+                                        <Calendar className="h-2.5 w-2.5 shrink-0" style={{ color: isOverdue ? "#ef4444" : "currentColor" }} />
+                                        <span className="text-[10px]" style={{ color: isOverdue ? "#ef4444" : "hsl(var(--muted-foreground))" }}>{cbDate}</span>
+                                      </>
+                                    )}
                                   </>
                                 )}
                               </div>
-                              {cb.notes && (
+                              {cb.notes && !isDone && (
                                 <p className="text-[9px] mt-0.5 truncate italic text-muted-foreground" title={cb.notes}>📝 {cb.notes}</p>
                               )}
                             </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                title="Označiť ako vybavené"
-                                className="h-6 w-6 rounded-lg flex items-center justify-center transition-all duration-150"
-                                style={{ background: "#16a34a20", color: "#16a34a" }}
-                                onMouseEnter={e => (e.currentTarget.style.background = "#16a34a30")}
-                                onMouseLeave={e => (e.currentTarget.style.background = "#16a34a20")}
-                                onClick={e => { e.stopPropagation(); onMarkInboundCallbackDone?.(cb.id); }}
-                                data-testid={`btn-icb-done-${cb.id}`}
-                              >
-                                <Check className="h-3 w-3" />
-                              </button>
-                            </div>
+                            {!isDone && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  title="Označiť ako vybavené"
+                                  className="h-6 w-6 rounded-lg flex items-center justify-center transition-all duration-150"
+                                  style={{ background: "#16a34a20", color: "#16a34a" }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = "#16a34a30")}
+                                  onMouseLeave={e => (e.currentTarget.style.background = "#16a34a20")}
+                                  onClick={e => { e.stopPropagation(); onMarkInboundCallbackDone?.(cb.id); }}
+                                  data-testid={`btn-icb-done-${cb.id}`}
+                                >
+                                  <Check className="h-3 w-3" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -5463,6 +5476,7 @@ interface ScheduledItem {
   campaignQueueDisplayMode?: string | null;
   isOutsideMission?: boolean;
   inboundCallbackId?: number;
+  calledBack?: boolean;
 }
 
 interface InboundCb {
@@ -5727,7 +5741,7 @@ function MyActivityPanel({
 
         <div className="px-5 py-2 border-t bg-muted/20 flex-shrink-0">
           <p className="text-[11px] text-muted-foreground">
-            {calls.length} hovor{calls.length === 1 ? "" : calls.length >= 2 && calls.length <= 4 ? "y" : "ov"} · {answered.length} zodvihnutých
+            {calls.length} {calls.length === 1 ? t.agentWorkspace.todayCallsWord1 : calls.length >= 2 && calls.length <= 4 ? t.agentWorkspace.todayCallsWord234 : t.agentWorkspace.todayCallsWord5plus} · {answered.length} {t.agentWorkspace.todayCallsAnswered}
           </p>
         </div>
       </DialogContent>
@@ -6066,6 +6080,12 @@ function ScheduledQueuePanel({
                           </div>
                         </div>
 
+                        {item.calledBack && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
+                            <Check className="h-2.5 w-2.5" />
+                            {t.agentWorkspace.inboundCallbackDone}
+                          </span>
+                        )}
                         <div className={`text-xs ${itemOverdue ? "text-destructive font-medium" : "text-foreground"}`}>
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3 shrink-0" />

@@ -3250,6 +3250,11 @@ export interface Translations {
     todayCallsRefresh: string;
     todayCallsButtonLabel: string;
     todayCallsDisposition: string;
+    todayCallsWord1: string;
+    todayCallsWord234: string;
+    todayCallsWord5plus: string;
+    todayCallsAnswered: string;
+    inboundCallbackDone: string;
   };
   sop: {
     title: string;
@@ -10117,6 +10122,11 @@ export const translations: Record<Locale, Translations> = {
       todayCallsRefresh: 'Refresh',
       todayCallsButtonLabel: 'My calls',
       todayCallsDisposition: 'Disposition',
+      todayCallsWord1: 'call',
+      todayCallsWord234: 'calls',
+      todayCallsWord5plus: 'calls',
+      todayCallsAnswered: 'answered',
+      inboundCallbackDone: 'Done',
     },
     sop: {
         title: 'SOP & Procedures',
@@ -16439,6 +16449,11 @@ export const translations: Record<Locale, Translations> = {
       todayCallsRefresh: 'Obnoviť',
       todayCallsButtonLabel: 'Moje hovory',
       todayCallsDisposition: 'Dispozícia',
+      todayCallsWord1: 'hovor',
+      todayCallsWord234: 'hovory',
+      todayCallsWord5plus: 'hovorov',
+      todayCallsAnswered: 'zodvihnutých',
+      inboundCallbackDone: 'Vybavené',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -22747,6 +22762,11 @@ export const translations: Record<Locale, Translations> = {
       todayCallsRefresh: 'Obnovit',
       todayCallsButtonLabel: 'Moje hovory',
       todayCallsDisposition: 'Dispozice',
+      todayCallsWord1: 'hovor',
+      todayCallsWord234: 'hovory',
+      todayCallsWord5plus: 'hovorů',
+      todayCallsAnswered: 'přijatých',
+      inboundCallbackDone: 'Vybaveno',
     },
     sop: {
         title: 'SOP & Postupy',

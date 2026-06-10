@@ -22556,7 +22556,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           .from(inboundCallbacks)
           .where(
             and(
-              eq(inboundCallbacks.calledBack, false),
+              gte(inboundCallbacks.createdAt, startOfDay(new Date())),
               isNotNull(inboundCallbacks.callbackDate),
               or(
                 eq(inboundCallbacks.userId, user.id),
@@ -22586,6 +22586,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             dispositionChecklistCodes: [],
             isOutsideMission: true,
             inboundCallbackId: cb.id,
+            calledBack: cb.calledBack,
           });
         }
       } catch (inboundErr) {
@@ -22610,7 +22611,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .from(inboundCallbacks)
         .where(
           and(
-            eq(inboundCallbacks.calledBack, false),
+            gte(inboundCallbacks.createdAt, startOfDay(new Date())),
             or(
               eq(inboundCallbacks.userId, user.id),
               eq(inboundCallbacks.assignedTo, user.id),
