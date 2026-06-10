@@ -731,7 +731,7 @@ function TopBar({
                 data-testid="btn-open-my-activity"
               >
                 <History className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs hidden xl:inline">Moje hovory</span>
+                <span className="text-xs hidden xl:inline">{t.todayCallsButtonLabel || 'Moje hovory'}</span>
               </Button>
             </>
           )}
@@ -2583,7 +2583,9 @@ function CommunicationCanvas({
     const subject = replaceTemplateVars(template.subject || "");
     const hasHtmlContent = !!(template.contentHtml && template.contentHtml.trim().length > 0);
     const contentLooksLikeHtml = !!(template.content && /<[a-zA-Z][^>]*>/.test(template.content));
-    const isHtml = template.format === "html" || hasHtmlContent || contentLooksLikeHtml;
+    const formatIsHtml = !!(template.format && template.format.toLowerCase() === "html");
+    const isHtml = formatIsHtml || hasHtmlContent || contentLooksLikeHtml;
+    // Prefer contentHtml if present; otherwise fall back to content (may contain HTML tags)
     const rawContent = isHtml ? (template.contentHtml || template.content || "") : (template.content || "");
     const content = replaceTemplateVars(rawContent);
     setEmailSubject(subject);
@@ -5680,6 +5682,12 @@ function MyActivityPanel({
                             {dur}
                           </span>
                         )}
+                        {call.dispositionCode && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
+                            <FileText className="h-2.5 w-2.5" />
+                            {call.dispositionCode}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right shrink-0 flex flex-col items-end gap-1">
@@ -6841,7 +6849,7 @@ export default function AgentWorkspacePage() {
 
   // Post-call wrap-up timer: count seconds elapsed since call ended, until disposition is submitted
   useEffect(() => {
-    if (callEndTimestamp !== null && mandatoryDisposition) {
+    if (callEndTimestamp !== null) {
       const startMs = callEndTimestamp;
       setWrapUpElapsed(Math.floor((Date.now() - startMs) / 1000));
       wrapUpTimerRef.current = setInterval(() => {
@@ -6860,7 +6868,7 @@ export default function AgentWorkspacePage() {
       }
       setWrapUpElapsed(0);
     }
-  }, [callEndTimestamp, mandatoryDisposition]);
+  }, [callEndTimestamp]);
 
   // Gentle beep alert at exactly 10 seconds of post-call wait
   useEffect(() => {

@@ -3248,6 +3248,8 @@ export interface Translations {
     todayCallsInboundBadge: string;
     todayCallsOutboundBadge: string;
     todayCallsRefresh: string;
+    todayCallsButtonLabel: string;
+    todayCallsDisposition: string;
   };
   sop: {
     title: string;
@@ -10113,6 +10115,8 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'Incoming',
       todayCallsOutboundBadge: 'Outgoing',
       todayCallsRefresh: 'Refresh',
+      todayCallsButtonLabel: 'My calls',
+      todayCallsDisposition: 'Disposition',
     },
     sop: {
         title: 'SOP & Procedures',
@@ -16433,6 +16437,8 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'Prichádzajúci',
       todayCallsOutboundBadge: 'Odchádzajúci',
       todayCallsRefresh: 'Obnoviť',
+      todayCallsButtonLabel: 'Moje hovory',
+      todayCallsDisposition: 'Dispozícia',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -22739,6 +22745,8 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'Příchozí',
       todayCallsOutboundBadge: 'Odchozí',
       todayCallsRefresh: 'Obnovit',
+      todayCallsButtonLabel: 'Moje hovory',
+      todayCallsDisposition: 'Dispozice',
     },
     sop: {
         title: 'SOP & Postupy',

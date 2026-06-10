@@ -22629,16 +22629,22 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.post("/api/agent/inbound-callbacks", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      const body = { ...req.body, userId: user.id, calledBack: false };
+      console.log("[InboundCallback] POST body:", JSON.stringify(req.body));
+      const body: any = { ...req.body, userId: user.id, calledBack: false };
+      // Normalize callbackDate string to Date object (drizzle-zod expects Date for timestamp columns)
       if (body.callbackDate && typeof body.callbackDate === "string") {
-        body.callbackDate = new Date(body.callbackDate + (body.callbackDate.length === 16 ? ":00" : ""));
+        const dateStr = body.callbackDate.length === 16 ? body.callbackDate + ":00" : body.callbackDate;
+        const parsedDate = new Date(dateStr);
+        body.callbackDate = isNaN(parsedDate.getTime()) ? null : parsedDate;
       }
+      console.log("[InboundCallback] Normalized body:", JSON.stringify({ ...body, callbackDate: body.callbackDate?.toISOString?.() }));
       const parsed = insertInboundCallbackSchema.safeParse(body);
       if (!parsed.success) {
         console.error("[InboundCallback] Validation error:", JSON.stringify(parsed.error.flatten()));
         return res.status(400).json({ error: parsed.error.flatten() });
       }
       const [created] = await db.insert(inboundCallbacks).values(parsed.data).returning();
+      console.log("[InboundCallback] Created:", created.id, "callbackDate:", created.callbackDate);
       res.json(created);
     } catch (error) {
       console.error("Failed to create inbound callback:", error);
@@ -22787,6 +22793,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           endedAt: callLogs.endedAt,
           campaignId: callLogs.campaignId,
           customerId: callLogs.customerId,
+          campaignContactId: callLogs.campaignContactId,
           inboundQueueName: callLogs.inboundQueueName,
           hungUpBy: callLogs.hungUpBy,
         })
@@ -22813,9 +22820,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
 
+      // Fetch dispositionCode from campaignContacts for calls that have campaignContactId
+      const ccIds = [...new Set(calls.filter(c => c.campaignContactId).map(c => c.campaignContactId as string))];
+      let dispositionMap: Record<string, { code: string | null; campaignId: string }> = {};
+      if (ccIds.length > 0) {
+        const ccRows = await db
+          .select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, campaignId: campaignContacts.campaignId })
+          .from(campaignContacts)
+          .where(inArray(campaignContacts.id, ccIds));
+        for (const cc of ccRows) {
+          dispositionMap[cc.id] = { code: cc.dispositionCode, campaignId: cc.campaignId };
+        }
+      }
+
       const enriched = calls.map(c => ({
         ...c,
         customerName: c.customerId ? (customerMap[c.customerId] || null) : null,
+        dispositionCode: c.campaignContactId ? (dispositionMap[c.campaignContactId]?.code || null) : null,
       }));
       res.json(enriched);
     } catch (error) {
