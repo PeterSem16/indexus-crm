@@ -190,6 +190,9 @@ const SL: Record<string, Record<string, string>> = {
   qLogicLbl:       { sk: "Logika skupiny", en: "Group logic", cs: "Logika skupiny", hu: "Csoport logikája", ro: "Logica grupului", it: "Logica del gruppo", de: "Gruppenlogik" },
   qGotoLbl:        { sk: "Pri zaškrtnutí → skočiť na", en: "On check → jump to", cs: "Po zaškrtnutí → přejít na", hu: "Bejelöléskor → ugrás ide", ro: "La bifat → salt la", it: "Al check → vai a", de: "Bei Haken → springe zu" },
   qGotoNone:       { sk: "— žiadne —", en: "— none —", cs: "— žádné —", hu: "— nincs —", ro: "— niciunul —", it: "— nessuno —", de: "— keines —" },
+  qGotoStepsGrp:   { sk: "Kroky statusového zoznamu", en: "Status list steps", cs: "Kroky stavového seznamu", hu: "Állapotlista lépései", ro: "Pași din lista de stare", it: "Passi della lista stati", de: "Status-Liste-Schritte" },
+  qGotoQsGrp:      { sk: "Otázky", en: "Questions", cs: "Otázky", hu: "Kérdések", ro: "Întrebări", it: "Domande", de: "Fragen" },
+  qGotoNoOptions:  { sk: "Pridajte ďalšie otázky pre vetvenie", en: "Add more questions to enable branching", cs: "Přidejte další otázky pro větvení", hu: "Adjon hozzá több kérdést az elágazáshoz", ro: "Adăugați mai multe întrebări pentru ramificare", it: "Aggiungi domande per abilitare la ramificazione", de: "Weitere Fragen für Verzweigungen hinzufügen" },
   qSaved:          { sk: "Otázka uložená", en: "Question saved", cs: "Otázka uložena", hu: "Kérdés mentve", ro: "Întrebare salvată", it: "Domanda salvata", de: "Frage gespeichert" },
   qAdded:          { sk: "Otázka pridaná", en: "Question added", cs: "Otázka přidána", hu: "Kérdés hozzáadva", ro: "Întrebare adăugată", it: "Domanda aggiunta", de: "Frage hinzugefügt" },
   qDeleted:        { sk: "Otázka zmazaná", en: "Question deleted", cs: "Otázka smazána", hu: "Kérdés törölve", ro: "Întrebare ștearsă", it: "Domanda eliminata", de: "Frage gelöscht" },
@@ -236,10 +239,12 @@ function PreviewQuestions({
         next.add(q.id);
         if (q.gotoQuestionId) {
           setHighlightedId(q.gotoQuestionId);
-          setTimeout(() => {
-            const el = questionRefs.get(q.gotoQuestionId!);
-            el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }, 50);
+          if (!q.gotoQuestionId.startsWith("step:")) {
+            setTimeout(() => {
+              const el = questionRefs.get(q.gotoQuestionId!);
+              el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }, 50);
+          }
         }
       }
       return next;
@@ -247,6 +252,11 @@ function PreviewQuestions({
   }
 
   function findGotoText(gotoId: string): string {
+    if (gotoId.startsWith("step:")) {
+      const stepId = gotoId.slice(5);
+      const step = allItems.find(it => it.stepId === stepId);
+      return step ? `→ ${step.stepId}: ${step.label}` : `→ ${stepId}`;
+    }
     for (const item of allItems) {
       const target = (item.questions ?? []).find(q => q.id === gotoId);
       if (target) return target.questionText;
@@ -719,12 +729,13 @@ function AutomationForm({
 
 
 function QuestionEditor({
-  question, itemId, campaignId, existingQuestions, onSaved, onCancel,
+  question, itemId, campaignId, existingQuestions, allItems, onSaved, onCancel,
 }: {
   question?: StatusListQuestion;
   itemId: string;
   campaignId: string;
   existingQuestions: StatusListQuestion[];
+  allItems?: StatusListItem[];
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -764,7 +775,11 @@ function QuestionEditor({
   });
 
   const groupNames = [...new Set(existingQuestions.map(q => q.groupName).filter(Boolean))] as string[];
-  const otherQuestions = existingQuestions.filter(q => q.id !== question?.id);
+  // Build cross-item question list with step labels for goto selector
+  const allQuestions = allItems
+    ? allItems.flatMap(it => (it.questions ?? []).map(q => ({ ...q, _stepId: it.stepId, _stepLabel: it.label })))
+    : existingQuestions.map(q => ({ ...q, _stepId: "", _stepLabel: "" }));
+  const otherQuestions = allQuestions.filter(q => q.id !== question?.id);
 
   return (
     <div className="border rounded-lg p-3 space-y-2.5 bg-blue-50/30 dark:bg-blue-950/10 border-blue-200/50 dark:border-blue-800/30">
@@ -822,17 +837,59 @@ function QuestionEditor({
             value={form.gotoQuestionId || "__none__"}
             onValueChange={v => setForm(f => ({ ...f, gotoQuestionId: v === "__none__" ? "" : v }))}
           >
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={sl("qGotoNone", locale)} /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">{sl("qGotoNone", locale)}</SelectItem>
-              {otherQuestions.map(q => (
-                <SelectItem key={q.id} value={q.id}>
-                  <span className="text-xs">
-                    {q.groupName ? <span className="text-muted-foreground mr-1">{q.groupName} →</span> : null}
-                    {q.questionText.length > 38 ? q.questionText.slice(0, 38) + "…" : q.questionText}
-                  </span>
-                </SelectItem>
-              ))}
+
+              {/* ── Status-list steps ── */}
+              {(allItems ?? []).length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-t mt-1">
+                    {sl("qGotoStepsGrp", locale)}
+                  </div>
+                  {(allItems ?? []).map(it => (
+                    <SelectItem key={`step-${it.id}`} value={`step:${it.stepId}`}>
+                      <span className="flex items-center gap-1.5 text-xs">
+                        <span className="font-mono text-[10px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 shrink-0">
+                          {it.stepId}
+                        </span>
+                        <span className="truncate">{it.label.length > 32 ? it.label.slice(0, 32) + "…" : it.label}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+
+              {/* ── Questions from all items ── */}
+              {otherQuestions.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-t mt-1">
+                    {sl("qGotoQsGrp", locale)}
+                  </div>
+                  {otherQuestions.map(q => (
+                    <SelectItem key={q.id} value={q.id}>
+                      <span className="flex items-center gap-1.5 text-xs">
+                        {(q as any)._stepId && (
+                          <span className="font-mono text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                            {(q as any)._stepId}
+                          </span>
+                        )}
+                        {q.groupName && (
+                          <span className="text-muted-foreground shrink-0">{q.groupName} /</span>
+                        )}
+                        <span className="truncate">{q.questionText.length > 32 ? q.questionText.slice(0, 32) + "…" : q.questionText}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+
+              {/* Empty state when no other questions yet */}
+              {otherQuestions.length === 0 && (allItems ?? []).length === 0 && (
+                <div className="px-2 py-2 text-xs text-muted-foreground italic">
+                  {sl("qGotoNoOptions", locale)}
+                </div>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -862,10 +919,11 @@ function QuestionEditor({
 }
 
 function StatusListItemRow({
-  item, campaignId, onDeleted,
+  item, campaignId, allItems, onDeleted,
 }: {
   item: StatusListItem;
   campaignId: string;
+  allItems: StatusListItem[];
   onDeleted: () => void;
 }) {
   const { toast } = useToast();
@@ -1167,6 +1225,7 @@ function StatusListItemRow({
                                 itemId={item.id}
                                 campaignId={campaignId}
                                 existingQuestions={item.questions ?? []}
+                                allItems={allItems}
                                 onSaved={() => setEditingQuestionId(null)}
                                 onCancel={() => setEditingQuestionId(null)}
                               />
@@ -1212,6 +1271,7 @@ function StatusListItemRow({
                 itemId={item.id}
                 campaignId={campaignId}
                 existingQuestions={item.questions ?? []}
+                allItems={allItems}
                 onSaved={() => setAddingQuestion(false)}
                 onCancel={() => setAddingQuestion(false)}
               />
@@ -1517,6 +1577,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
               key={item.id}
               item={item}
               campaignId={campaignId}
+              allItems={items}
               onDeleted={() => {}}
             />
           ))}
