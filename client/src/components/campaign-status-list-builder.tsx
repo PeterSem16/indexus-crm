@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CLA_TEMPLATE, ROLE_BADGE_MAP } from "@/data/cla-template";
+import { CLA_TEMPLATE, CLB_TEMPLATE, ROLE_BADGE_MAP, getStepLabel, getAutoLabel } from "@/data/cla-template";
 import { useI18n } from "@/i18n";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
@@ -51,60 +51,167 @@ type StatusListItem = {
   automations: StatusListAutomation[];
 };
 
-const ACTION_TYPE_OPTIONS = [
-  { value: "assign_task", label: "Priradiť úlohu", icon: ClipboardList, color: "text-blue-500" },
-  { value: "send_email_group", label: "Email skupne", icon: Mail, color: "text-green-500" },
-  { value: "send_sms", label: "SMS zákazníkovi", icon: MessageSquare, color: "text-yellow-500" },
-  { value: "set_contact_status", label: "Nastaviť status", icon: Tag, color: "text-purple-500" },
-  { value: "notify_role", label: "Notifikovať rolu", icon: Bell, color: "text-orange-500" },
-  { value: "sys_webhook", label: "Systémový webhook", icon: Webhook, color: "text-rose-500" },
-];
-
-const ROLE_OPTIONS = [
-  { value: "role:back_office", label: "Back Office" },
-  { value: "role:coordinator", label: "Koordinátor (KO)" },
-  { value: "role:admin", label: "Administrator (DB Admin)" },
-  { value: "role:manager", label: "Manager" },
-  { value: "sys", label: "Systém (SYS)" },
-];
-
-const DEADLINE_OPTIONS = [
-  { value: "+1h", label: "+1 hodina" },
-  { value: "+4h", label: "+4 hodiny" },
-  { value: "+24h", label: "+24 hodín (1 deň)" },
-  { value: "+2d", label: "+2 dni" },
-  { value: "+3d", label: "+3 dni" },
-  { value: "+7d", label: "+7 dní" },
-  { value: "+14d", label: "+14 dní" },
-];
-
-const PRIORITY_OPTIONS = [
-  { value: "low", label: "Nízka" },
-  { value: "medium", label: "Stredná" },
-  { value: "high", label: "Vysoká" },
-  { value: "urgent", label: "Urgentná" },
-];
-
-const CONFIRM_TYPE_OPTIONS = [
-  { value: "checkbox", label: "Zaškrtávacie políčko", icon: CheckSquare },
-  { value: "radio", label: "Výber (Radio)", icon: Radio },
-  { value: "info", label: "Informácia (len čítanie)", icon: Info },
-];
-
-const SL_LABELS: Record<string, Record<string, string>> = {
+const SL: Record<string, Record<string, string>> = {
   nextStep:       { sk: "Nasledujúci krok", en: "Next step", cs: "Další krok", hu: "Következő lépés", ro: "Pasul următor", it: "Passo successivo", de: "Nächster Schritt" },
   nextStepPh:     { sk: "napr. CLA-04 alebo —", en: "e.g. CLA-04 or —", cs: "např. CLA-04 nebo —", hu: "pl. CLA-04 vagy —", ro: "ex. CLA-04 sau —", it: "es. CLA-04 o —", de: "z.B. CLA-04 oder —" },
   restrictions:   { sk: "Obmedzenia / FC pravidlá", en: "Restrictions / FC rules", cs: "Omezení / FC pravidla", hu: "Korlátozások / FC szabályok", ro: "Restricții / Reguli FC", it: "Restrizioni / Regole FC", de: "Einschränkungen / FC-Regeln" },
   restrictionsPh: { sk: "FC podmienky, pravidlá, výnimky...", en: "FC conditions, rules, exceptions...", cs: "FC podmínky, pravidla, výjimky...", hu: "FC feltételek, szabályok, kivételek...", ro: "Condiții FC, reguli, excepții...", it: "Condizioni FC, regole, eccezioni...", de: "FC-Bedingungen, Regeln, Ausnahmen..." },
-  disposition:    { sk: "Disposícia / Status kontaktu", en: "Disposition / Contact status", cs: "Dispozice / Stav kontaktu", hu: "Diszpozíció / Kontakt állapota", ro: "Dispoziție / Status contact", it: "Disposizione / Stato contatto", de: "Disposition / Kontaktstatus" },
-  selectDisp:     { sk: "Vybrať disposíciu...", en: "Select disposition...", cs: "Vybrat dispozici...", hu: "Diszpozíció kiválasztása...", ro: "Selectați dispoziția...", it: "Seleziona disposizione...", de: "Disposition auswählen..." },
+  disposition:    { sk: "Dispozícia / Status kontaktu", en: "Disposition / Contact status", cs: "Dispozice / Stav kontaktu", hu: "Diszpozíció / Kontakt állapota", ro: "Dispoziție / Status contact", it: "Disposizione / Stato contatto", de: "Disposition / Kontaktstatus" },
+  selectDisp:     { sk: "Vybrať dispozíciu...", en: "Select disposition...", cs: "Vybrat dispozici...", hu: "Diszpozíció kiválasztása...", ro: "Selectați dispoziția...", it: "Seleziona disposizione...", de: "Disposition auswählen..." },
   emailTemplate:  { sk: "Šablóna emailu", en: "Email template", cs: "E-mailová šablona", hu: "E-mail sablon", ro: "Șablon email", it: "Modello email", de: "E-Mail-Vorlage" },
   selectEmail:    { sk: "Vybrať šablónu...", en: "Select template...", cs: "Vybrat šablonu...", hu: "Sablon kiválasztása...", ro: "Selectați șablonul...", it: "Seleziona modello...", de: "Vorlage auswählen..." },
   restrictionsFC: { sk: "Obmedzenia (FC)", en: "Restrictions (FC)", cs: "Omezení (FC)", hu: "Korlátozások (FC)", ro: "Restricții (FC)", it: "Restrizioni (FC)", de: "Einschränkungen (FC)" },
+
+  at_assign_task:        { sk: "Priradiť úlohu", en: "Assign task", cs: "Přiřadit úkol", hu: "Feladat hozzárendelése", ro: "Atribuire sarcină", it: "Assegna compito", de: "Aufgabe zuweisen" },
+  at_send_email_group:   { sk: "Email skupne", en: "Group email", cs: "Skupinový e-mail", hu: "Csoportos e-mail", ro: "Email de grup", it: "Email di gruppo", de: "Gruppen-E-Mail" },
+  at_send_sms:           { sk: "SMS zákazníkovi", en: "SMS to contact", cs: "SMS zákazníkovi", hu: "SMS ügyfélnek", ro: "SMS clientului", it: "SMS al contatto", de: "SMS an Kontakt" },
+  at_set_contact_status: { sk: "Nastaviť status", en: "Set contact status", cs: "Nastavit stav", hu: "Kontakt státusz beállítása", ro: "Setare status contact", it: "Imposta stato contatto", de: "Kontaktstatus setzen" },
+  at_notify_role:        { sk: "Notifikovať rolu", en: "Notify role", cs: "Upozornit roli", hu: "Szerepkör értesítése", ro: "Notifică rolul", it: "Notifica ruolo", de: "Rolle benachrichtigen" },
+  at_sys_webhook:        { sk: "Systémový webhook", en: "System webhook", cs: "Systémový webhook", hu: "Rendszer webhook", ro: "Webhook sistem", it: "Webhook di sistema", de: "System-Webhook" },
+
+  rl_back_office:  { sk: "Back Office", en: "Back Office", cs: "Back Office", hu: "Back Office", ro: "Back Office", it: "Back Office", de: "Back Office" },
+  rl_coordinator:  { sk: "Koordinátor (KO)", en: "Coordinator (KO)", cs: "Koordinátor (KO)", hu: "Koordinátor (KO)", ro: "Coordonator (KO)", it: "Coordinatore (KO)", de: "Koordinator (KO)" },
+  rl_admin:        { sk: "Administrator (DB Admin)", en: "Administrator (DB Admin)", cs: "Administrátor (DB Admin)", hu: "Adminisztrátor (DB Admin)", ro: "Administrator (DB Admin)", it: "Amministratore (DB Admin)", de: "Administrator (DB Admin)" },
+  rl_manager:      { sk: "Manager", en: "Manager", cs: "Manager", hu: "Menedzser", ro: "Manager", it: "Manager", de: "Manager" },
+  rl_sys:          { sk: "Systém (SYS)", en: "System (SYS)", cs: "Systém (SYS)", hu: "Rendszer (SYS)", ro: "Sistem (SYS)", it: "Sistema (SYS)", de: "System (SYS)" },
+
+  dl_1h:   { sk: "+1 hodina", en: "+1 hour", cs: "+1 hodina", hu: "+1 óra", ro: "+1 oră", it: "+1 ora", de: "+1 Stunde" },
+  dl_4h:   { sk: "+4 hodiny", en: "+4 hours", cs: "+4 hodiny", hu: "+4 óra", ro: "+4 ore", it: "+4 ore", de: "+4 Stunden" },
+  dl_24h:  { sk: "+24 hodín (1 deň)", en: "+24 hours (1 day)", cs: "+24 hodin (1 den)", hu: "+24 óra (1 nap)", ro: "+24 ore (1 zi)", it: "+24 ore (1 giorno)", de: "+24 Stunden (1 Tag)" },
+  dl_2d:   { sk: "+2 dni", en: "+2 days", cs: "+2 dny", hu: "+2 nap", ro: "+2 zile", it: "+2 giorni", de: "+2 Tage" },
+  dl_3d:   { sk: "+3 dni", en: "+3 days", cs: "+3 dny", hu: "+3 nap", ro: "+3 zile", it: "+3 giorni", de: "+3 Tage" },
+  dl_7d:   { sk: "+7 dní", en: "+7 days", cs: "+7 dní", hu: "+7 nap", ro: "+7 zile", it: "+7 giorni", de: "+7 Tage" },
+  dl_14d:  { sk: "+14 dní", en: "+14 days", cs: "+14 dní", hu: "+14 nap", ro: "+14 zile", it: "+14 giorni", de: "+14 Tage" },
+
+  pr_low:    { sk: "Nízka", en: "Low", cs: "Nízká", hu: "Alacsony", ro: "Scăzut", it: "Bassa", de: "Niedrig" },
+  pr_medium: { sk: "Stredná", en: "Medium", cs: "Střední", hu: "Közepes", ro: "Mediu", it: "Media", de: "Mittel" },
+  pr_high:   { sk: "Vysoká", en: "High", cs: "Vysoká", hu: "Magas", ro: "Ridicat", it: "Alta", de: "Hoch" },
+  pr_urgent: { sk: "Urgentná", en: "Urgent", cs: "Urgentní", hu: "Sürgős", ro: "Urgent", it: "Urgente", de: "Dringend" },
+
+  ct_checkbox: { sk: "Zaškrtávacie políčko", en: "Checkbox", cs: "Zaškrtávací políčko", hu: "Jelölőnégyzet", ro: "Casetă de bifare", it: "Casella di spunta", de: "Kontrollkästchen" },
+  ct_radio:    { sk: "Výber (Radio)", en: "Radio selection", cs: "Výběr (Radio)", hu: "Rádiógomb", ro: "Selecție (Radio)", it: "Selezione (Radio)", de: "Auswahl (Radio)" },
+  ct_info:     { sk: "Informácia (len čítanie)", en: "Information (read-only)", cs: "Informace (jen čtení)", hu: "Tájékoztató (csak olvasható)", ro: "Informație (doar citire)", it: "Informazione (sola lettura)", de: "Information (nur lesen)" },
+
+  ctr_SK: { sk: "Slovensko (SK)", en: "Slovakia (SK)", cs: "Slovensko (SK)", hu: "Szlovákia (SK)", ro: "Slovacia (SK)", it: "Slovacchia (SK)", de: "Slowakei (SK)" },
+  ctr_CZ: { sk: "Česko (CZ)", en: "Czech Republic (CZ)", cs: "Česko (CZ)", hu: "Csehország (CZ)", ro: "Cehia (CZ)", it: "Repubblica Ceca (CZ)", de: "Tschechien (CZ)" },
+  ctr_HU: { sk: "Maďarsko (HU)", en: "Hungary (HU)", cs: "Maďarsko (HU)", hu: "Magyarország (HU)", ro: "Ungaria (HU)", it: "Ungheria (HU)", de: "Ungarn (HU)" },
+  ctr_RO: { sk: "Rumunsko (RO)", en: "Romania (RO)", cs: "Rumunsko (RO)", hu: "Románia (RO)", ro: "România (RO)", it: "Romania (RO)", de: "Rumänien (RO)" },
+  ctr_AT: { sk: "Rakúsko (AT)", en: "Austria (AT)", cs: "Rakousko (AT)", hu: "Ausztria (AT)", ro: "Austria (AT)", it: "Austria (AT)", de: "Österreich (AT)" },
+  ctr_DE: { sk: "Nemecko (DE)", en: "Germany (DE)", cs: "Německo (DE)", hu: "Németország (DE)", ro: "Germania (DE)", it: "Germania (DE)", de: "Deutschland (DE)" },
+  ctr_IT: { sk: "Taliansko (IT)", en: "Italy (IT)", cs: "Itálie (IT)", hu: "Olaszország (IT)", ro: "Italia (IT)", it: "Italia (IT)", de: "Italien (IT)" },
+  ctr_US: { sk: "USA (US)", en: "USA (US)", cs: "USA (US)", hu: "USA (US)", ro: "SUA (US)", it: "USA (US)", de: "USA (US)" },
+
+  editAction:    { sk: "Upraviť akciu", en: "Edit action", cs: "Upravit akci", hu: "Akció szerkesztése", ro: "Editare acțiune", it: "Modifica azione", de: "Aktion bearbeiten" },
+  newAction:     { sk: "Nová akcia", en: "New action", cs: "Nová akce", hu: "Új akció", ro: "Acțiune nouă", it: "Nuova azione", de: "Neue Aktion" },
+  thenLabel:     { sk: "POTOM", en: "THEN", cs: "PAK", hu: "EKKOR", ro: "ATUNCI", it: "POI", de: "DANN" },
+  thenSub:       { sk: "Akcia ktorá sa vykoná", en: "Action to be executed", cs: "Akce, která se provede", hu: "Végrehajtandó akció", ro: "Acțiunea care se va executa", it: "Azione da eseguire", de: "Auszuführende Aktion" },
+  actionTypeLbl: { sk: "Typ akcie", en: "Action type", cs: "Typ akce", hu: "Akció típusa", ro: "Tip acțiune", it: "Tipo di azione", de: "Aktionstyp" },
+  targetRoleLbl: { sk: "Cieľová rola", en: "Target role", cs: "Cílová role", hu: "Célszerepkör", ro: "Rol țintă", it: "Ruolo destinatario", de: "Zielrolle" },
+  taskDescLbl:   { sk: "Popis úlohy", en: "Task description", cs: "Popis úkolu", hu: "Feladat leírása", ro: "Descrierea sarcinii", it: "Descrizione compito", de: "Aufgabenbeschreibung" },
+  taskDescPh:    { sk: "Popis úlohy pre Back Office / Koordinátora...", en: "Task description for Back Office / Coordinator...", cs: "Popis úkolu pro Back Office / Koordinátora...", hu: "Feladat leírása Back Office / Koordinátor számára...", ro: "Descrierea sarcinii pentru Back Office / Coordonator...", it: "Descrizione compito per Back Office / Coordinatore...", de: "Aufgabenbeschreibung für Back Office / Koordinator..." },
+  deadlineLbl:   { sk: "Termín", en: "Deadline", cs: "Termín", hu: "Határidő", ro: "Termen", it: "Scadenza", de: "Frist" },
+  priorityLbl:   { sk: "Priorita", en: "Priority", cs: "Priorita", hu: "Prioritás", ro: "Prioritate", it: "Priorità", de: "Priorität" },
+  ifLabel:       { sk: "AK", en: "IF", cs: "KDYŽ", hu: "HA", ro: "DACĂ", it: "SE", de: "WENN" },
+  condSubLbl:    { sk: "Podmienka (voliteľné)", en: "Condition (optional)", cs: "Podmínka (volitelné)", hu: "Feltétel (opcionális)", ro: "Condiție (opțional)", it: "Condizione (opzionale)", de: "Bedingung (optional)" },
+  condAlways:    { sk: "Vždy — pri každom potvrdení kroku", en: "Always — on every step confirmation", cs: "Vždy — při každém potvrzení kroku", hu: "Mindig — minden lépés megerősítésekor", ro: "Întotdeauna — la fiecare confirmare a pasului", it: "Sempre — ad ogni conferma del passo", de: "Immer — bei jeder Schrittbestätigung" },
+  condCountry:   { sk: "Krajina zákazníka je...", en: "Customer country is...", cs: "Země zákazníka je...", hu: "Az ügyfél országa...", ro: "Țara clientului este...", it: "Il paese del cliente è...", de: "Land des Kunden ist..." },
+  condAnswer:    { sk: "Odpoveď zákazníka je...", en: "Customer answer is...", cs: "Odpověď zákazníka je...", hu: "Az ügyfél válasza...", ro: "Răspunsul clientului este...", it: "La risposta del cliente è...", de: "Antwort des Kunden ist..." },
+  condAnswerPh:  { sk: "Hodnota odpovede (napr. áno, nie, záujem...)", en: "Answer value (e.g. yes, no, interest...)", cs: "Hodnota odpovědi (např. ano, ne, zájem...)", hu: "Válasz értéke (pl. igen, nem, érdeklődés...)", ro: "Valoarea răspunsului (ex. da, nu, interes...)", it: "Valore risposta (es. sì, no, interesse...)", de: "Antwortwert (z.B. ja, nein, Interesse...)" },
+  cancelBtn:     { sk: "Zrušiť", en: "Cancel", cs: "Zrušit", hu: "Mégse", ro: "Anulare", it: "Annulla", de: "Abbrechen" },
+  saveActionBtn: { sk: "Uložiť akciu", en: "Save action", cs: "Uložit akci", hu: "Akció mentése", ro: "Salvare acțiune", it: "Salva azione", de: "Aktion speichern" },
+  autoSaved:     { sk: "Automatizácia uložená", en: "Automation saved", cs: "Automatizace uložena", hu: "Automatizáció mentve", ro: "Automatizare salvată", it: "Automazione salvata", de: "Automatisierung gespeichert" },
+  autoAdded:     { sk: "Automatizácia pridaná", en: "Automation added", cs: "Automatizace přidána", hu: "Automatizáció hozzáadva", ro: "Automatizare adăugată", it: "Automazione aggiunta", de: "Automatisierung hinzugefügt" },
+  saveErr:       { sk: "Chyba pri ukladaní", en: "Save error", cs: "Chyba při ukládání", hu: "Mentési hiba", ro: "Eroare la salvare", it: "Errore di salvataggio", de: "Speicherfehler" },
+  deleteErr:     { sk: "Chyba pri mazaní", en: "Delete error", cs: "Chyba při mazání", hu: "Törlési hiba", ro: "Eroare la ștergere", it: "Errore di eliminazione", de: "Löschfehler" },
+  noEmailTpls:   { sk: "Žiadne email šablóny", en: "No email templates", cs: "Žádné e-mailové šablony", hu: "Nincs e-mail sablon", ro: "Niciun șablon email", it: "Nessun modello email", de: "Keine E-Mail-Vorlagen" },
+  noDisps:       { sk: "Žiadne dispozície v tejto kampani", en: "No dispositions in this campaign", cs: "Žádné dispozice v této kampani", hu: "Nincs diszpozíció ebben a kampányban", ro: "Nicio dispoziție în această campanie", it: "Nessuna disposizione in questa campagna", de: "Keine Dispositionen in dieser Kampagne" },
+
+  requiredBadge:   { sk: "Povinný", en: "Required", cs: "Povinný", hu: "Kötelező", ro: "Obligatoriu", it: "Obbligatorio", de: "Pflicht" },
+  stepIdLbl:       { sk: "Krok ID", en: "Step ID", cs: "Krok ID", hu: "Lépés ID", ro: "ID pas", it: "ID passo", de: "Schritt-ID" },
+  stepLabelLbl:    { sk: "Názov kroku", en: "Step name", cs: "Název kroku", hu: "Lépés neve", ro: "Nume pas", it: "Nome passo", de: "Schrittname" },
+  stepLabelReq:    { sk: "Názov kroku *", en: "Step name *", cs: "Název kroku *", hu: "Lépés neve *", ro: "Nume pas *", it: "Nome passo *", de: "Schrittname *" },
+  descLbl:         { sk: "Popis (voliteľný)", en: "Description (optional)", cs: "Popis (volitelný)", hu: "Leírás (opcionális)", ro: "Descriere (opțional)", it: "Descrizione (opzionale)", de: "Beschreibung (optional)" },
+  descPh:          { sk: "Detailný popis pre agenta...", en: "Detailed description for agent...", cs: "Podrobný popis pro agenta...", hu: "Részletes leírás az ügynök számára...", ro: "Descriere detaliată pentru agent...", it: "Descrizione dettagliata per l'agente...", de: "Detaillierte Beschreibung für Agent..." },
+  descPh2:         { sk: "Detailný popis alebo inštrukcie...", en: "Detailed description or instructions...", cs: "Podrobný popis nebo instrukce...", hu: "Részletes leírás vagy utasítások...", ro: "Descriere detaliată sau instrucțiuni...", it: "Descrizione dettagliata o istruzioni...", de: "Detaillierte Beschreibung oder Anweisungen..." },
+  stepLabelPh:     { sk: "Popis kroku pre agenta...", en: "Step description for agent...", cs: "Popis kroku pro agenta...", hu: "Lépés leírása az ügynök számára...", ro: "Descrierea pasului pentru agent...", it: "Descrizione passo per l'agente...", de: "Schrittbeschreibung für Agent..." },
+  confirmTypeLbl:  { sk: "Typ potvrdenia", en: "Confirmation type", cs: "Typ potvrzení", hu: "Megerősítés típusa", ro: "Tip confirmare", it: "Tipo di conferma", de: "Bestätigungstyp" },
+  requiredSwitch:  { sk: "Povinný krok", en: "Required step", cs: "Povinný krok", hu: "Kötelező lépés", ro: "Pas obligatoriu", it: "Passo obbligatorio", de: "Pflichtschritt" },
+  saveBtn:         { sk: "Uložiť zmeny", en: "Save changes", cs: "Uložit změny", hu: "Változtatások mentése", ro: "Salvare modificări", it: "Salva modifiche", de: "Änderungen speichern" },
+  stepSaved:       { sk: "Krok uložený", en: "Step saved", cs: "Krok uložen", hu: "Lépés mentve", ro: "Pas salvat", it: "Passo salvato", de: "Schritt gespeichert" },
+  stepDeleted:     { sk: "Krok zmazaný", en: "Step deleted", cs: "Krok smazán", hu: "Lépés törölve", ro: "Pas șters", it: "Passo eliminato", de: "Schritt gelöscht" },
+  autoDeleted:     { sk: "Automatizácia zmazaná", en: "Automation deleted", cs: "Automatizace smazána", hu: "Automatizáció törölve", ro: "Automatizare ștearsă", it: "Automazione eliminata", de: "Automatisierung gelöscht" },
+  automationsTitle:{ sk: "Automatizácie pri potvrdení", en: "Automations on confirmation", cs: "Automatizace při potvrzení", hu: "Automatizációk megerősítéskor", ro: "Automatizări la confirmare", it: "Automatizzazioni alla conferma", de: "Automatisierungen bei Bestätigung" },
+  addActionBtn:    { sk: "Pridať akciu", en: "Add action", cs: "Přidat akci", hu: "Akció hozzáadása", ro: "Adăugare acțiune", it: "Aggiungi azione", de: "Aktion hinzufügen" },
+  autoSectionTpl:  { sk: "Automatizácie tohto kroku (voliteľné)", en: "Automations for this step (optional)", cs: "Automatizace tohoto kroku (volitelné)", hu: "A lépés automatizációi (opcionális)", ro: "Automatizările acestui pas (opțional)", it: "Automatizzazioni per questo passo (opzionale)", de: "Automatisierungen dieses Schritts (optional)" },
+  addStepBtn:      { sk: "Pridať krok", en: "Add step", cs: "Přidat krok", hu: "Lépés hozzáadása", ro: "Adăugare pas", it: "Aggiungi passo", de: "Schritt hinzufügen" },
+  stepAdded:       { sk: "Krok pridaný", en: "Step added", cs: "Krok přidán", hu: "Lépés hozzáadva", ro: "Pas adăugat", it: "Passo aggiunto", de: "Schritt hinzugefügt" },
+
+  tplSubtitle:     { sk: "Vyber kroky na vloženie do misie", en: "Select steps to add to the mission", cs: "Vyberte kroky pro vložení do mise", hu: "Válassza ki a lépéseket a misszióhoz", ro: "Selectați pașii pentru a adăuga la misiune", it: "Seleziona i passi da aggiungere alla missione", de: "Schritte auswählen, die zur Mission hinzugefügt werden sollen" },
+  tplActionsCount: { sk: "akcií", en: "actions", cs: "akcí", hu: "akció", ro: "acțiuni", it: "azioni", de: "Aktionen" },
+  tplSteps:        { sk: "krokov", en: "steps", cs: "kroků", hu: "lépés", ro: "pași", it: "passi", de: "Schritte" },
+  tplAutomations:  { sk: "automatizácií", en: "automations", cs: "automatizací", hu: "automatizáció", ro: "automatizări", it: "automazioni", de: "Automatisierungen" },
+  applyTplBtn:     { sk: "Aplikovať template", en: "Apply template", cs: "Použít šablonu", hu: "Sablon alkalmazása", ro: "Aplicare șablon", it: "Applica template", de: "Vorlage anwenden" },
+
+  importTitle:     { sk: "Import zo Dispozície", en: "Import from Disposition", cs: "Import z dispozice", hu: "Importálás diszpozícióból", ro: "Import din Dispoziție", it: "Importa da Disposizione", de: "Import aus Disposition" },
+  loadingMsg:      { sk: "Načítavam...", en: "Loading...", cs: "Načítám...", hu: "Betöltés...", ro: "Se încarcă...", it: "Caricamento...", de: "Wird geladen..." },
+  noDispsMsg:      { sk: "Táto misia nemá žiadne dispozície.", en: "This mission has no dispositions.", cs: "Tato mise nemá žádné dispozice.", hu: "Ennek a missziónak nincs diszpozíciója.", ro: "Această misiune nu are dispoziții.", it: "Questa missione non ha disposizioni.", de: "Diese Mission hat keine Dispositionen." },
+  selectedCount:   { sk: "vybraných", en: "selected", cs: "vybraných", hu: "kiválasztva", ro: "selectate", it: "selezionati", de: "ausgewählt" },
+  importBtn:       { sk: "Importovať", en: "Import", cs: "Importovat", hu: "Importálás", ro: "Importare", it: "Importa", de: "Importieren" },
+
+  tplTabCLA:       { sk: "CL A — Akvizícia", en: "CL A — Acquisition", cs: "CL A — Akvizice", hu: "CL A — Akkvizíció", ro: "CL A — Achiziție", it: "CL A — Acquisizione", de: "CL A — Akquisition" },
+  tplTabCLB:       { sk: "CL B — Retencia", en: "CL B — Retention", cs: "CL B — Retence", hu: "CL B — Megtartás", ro: "CL B — Retenție", it: "CL B — Fidelizzazione", de: "CL B — Kundenbindung" },
 };
+
 function sl(key: string, locale: string): string {
-  return SL_LABELS[key]?.[locale] ?? SL_LABELS[key]?.["sk"] ?? key;
+  return SL[key]?.[locale] ?? SL[key]?.["sk"] ?? key;
 }
+
+const ACTION_TYPE_OPTIONS = [
+  { value: "assign_task",        slKey: "at_assign_task",        icon: ClipboardList, color: "text-blue-500" },
+  { value: "send_email_group",   slKey: "at_send_email_group",   icon: Mail,          color: "text-green-500" },
+  { value: "send_sms",           slKey: "at_send_sms",           icon: MessageSquare, color: "text-yellow-500" },
+  { value: "set_contact_status", slKey: "at_set_contact_status", icon: Tag,           color: "text-purple-500" },
+  { value: "notify_role",        slKey: "at_notify_role",        icon: Bell,          color: "text-orange-500" },
+  { value: "sys_webhook",        slKey: "at_sys_webhook",        icon: Webhook,       color: "text-rose-500" },
+];
+
+const ROLE_OPTIONS = [
+  { value: "role:back_office", slKey: "rl_back_office" },
+  { value: "role:coordinator", slKey: "rl_coordinator" },
+  { value: "role:admin",       slKey: "rl_admin" },
+  { value: "role:manager",     slKey: "rl_manager" },
+  { value: "sys",              slKey: "rl_sys" },
+];
+
+const DEADLINE_OPTIONS = [
+  { value: "+1h",  slKey: "dl_1h" },
+  { value: "+4h",  slKey: "dl_4h" },
+  { value: "+24h", slKey: "dl_24h" },
+  { value: "+2d",  slKey: "dl_2d" },
+  { value: "+3d",  slKey: "dl_3d" },
+  { value: "+7d",  slKey: "dl_7d" },
+  { value: "+14d", slKey: "dl_14d" },
+];
+
+const PRIORITY_OPTIONS = [
+  { value: "low",    slKey: "pr_low" },
+  { value: "medium", slKey: "pr_medium" },
+  { value: "high",   slKey: "pr_high" },
+  { value: "urgent", slKey: "pr_urgent" },
+];
+
+const CONFIRM_TYPE_OPTIONS = [
+  { value: "checkbox", slKey: "ct_checkbox", icon: CheckSquare },
+  { value: "radio",    slKey: "ct_radio",    icon: Radio },
+  { value: "info",     slKey: "ct_info",     icon: Info },
+];
+
+const COUNTRY_OPTIONS = [
+  { value: "SK", slKey: "ctr_SK" }, { value: "CZ", slKey: "ctr_CZ" },
+  { value: "HU", slKey: "ctr_HU" }, { value: "RO", slKey: "ctr_RO" },
+  { value: "AT", slKey: "ctr_AT" }, { value: "DE", slKey: "ctr_DE" },
+  { value: "IT", slKey: "ctr_IT" }, { value: "US", slKey: "ctr_US" },
+];
 
 function getActionIcon(actionType: string) {
   const opt = ACTION_TYPE_OPTIONS.find(o => o.value === actionType);
@@ -113,33 +220,32 @@ function getActionIcon(actionType: string) {
   return <Icon className={`h-3 w-3 ${opt.color}`} />;
 }
 
-function getActionLabel(actionType: string) {
-  return ACTION_TYPE_OPTIONS.find(o => o.value === actionType)?.label || actionType;
+function getActionLabel(actionType: string, locale: string): string {
+  const opt = ACTION_TYPE_OPTIONS.find(o => o.value === actionType);
+  return opt ? sl(opt.slKey, locale) : actionType;
 }
 
-function getRoleLabel(role: string | null) {
+function getRoleLabel(role: string | null, locale: string): string {
   if (!role) return "—";
-  return ROLE_OPTIONS.find(o => o.value === role)?.label || role;
+  const opt = ROLE_OPTIONS.find(o => o.value === role);
+  return opt ? sl(opt.slKey, locale) : role;
 }
 
 function AutomationBadge({ automation }: { automation: StatusListAutomation }) {
+  const { locale } = useI18n();
   return (
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border/50">
       {getActionIcon(automation.actionType)}
-      <span className="text-muted-foreground">{getActionLabel(automation.actionType)}</span>
+      <span className="text-muted-foreground">{getActionLabel(automation.actionType, locale)}</span>
       {automation.targetRole && (
-        <span className="font-medium">→ {getRoleLabel(automation.targetRole)}</span>
+        <span className="font-medium">→ {getRoleLabel(automation.targetRole, locale)}</span>
       )}
     </span>
   );
 }
 
 function AutomationForm({
-  automation,
-  itemId,
-  campaignId,
-  onSaved,
-  onCancel,
+  automation, itemId, campaignId, onSaved, onCancel,
 }: {
   automation?: StatusListAutomation;
   itemId: string;
@@ -148,6 +254,7 @@ function AutomationForm({
   onCancel: () => void;
 }) {
   const { toast } = useToast();
+  const { locale } = useI18n();
   const [form, setForm] = useState({
     actionType: automation?.actionType || "assign_task",
     targetRole: automation?.targetRole || "role:back_office",
@@ -162,7 +269,6 @@ function AutomationForm({
     dispositionId: automation?.dispositionId || "",
   });
 
-  const { locale } = useI18n();
   const isEdit = !!automation?.id;
 
   const { data: emailTemplates = [] } = useQuery<any[]>({
@@ -199,10 +305,10 @@ function AutomationForm({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      toast({ title: isEdit ? "Automatizácia uložená" : "Automatizácia pridaná" });
+      toast({ title: isEdit ? sl("autoSaved", locale) : sl("autoAdded", locale) });
       onSaved();
     },
-    onError: () => toast({ title: "Chyba pri ukladaní", variant: "destructive" }),
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
   });
 
   const needsRole = ["assign_task", "send_email_group", "notify_role"].includes(form.actionType);
@@ -212,26 +318,24 @@ function AutomationForm({
   return (
     <div className="border rounded-lg p-3 space-y-3 bg-muted/20">
       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-        {isEdit ? "Upraviť akciu" : "Nová akcia"}
+        {isEdit ? sl("editAction", locale) : sl("newAction", locale)}
       </div>
 
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-bold tracking-wide">POTOM</span>
-        <span className="text-xs font-medium text-muted-foreground">Akcia ktorá sa vykoná</span>
+        <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-bold tracking-wide">{sl("thenLabel", locale)}</span>
+        <span className="text-xs font-medium text-muted-foreground">{sl("thenSub", locale)}</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div className="col-span-2">
-          <Label className="text-xs mb-1 block">Typ akcie</Label>
+          <Label className="text-xs mb-1 block">{sl("actionTypeLbl", locale)}</Label>
           <Select value={form.actionType} onValueChange={v => setForm(f => ({ ...f, actionType: v }))}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               {ACTION_TYPE_OPTIONS.map(opt => (
                 <SelectItem key={opt.value} value={opt.value}>
                   <span className="flex items-center gap-2">
                     <opt.icon className={`h-3.5 w-3.5 ${opt.color}`} />
-                    {opt.label}
+                    {sl(opt.slKey, locale)}
                   </span>
                 </SelectItem>
               ))}
@@ -241,14 +345,12 @@ function AutomationForm({
 
         {needsRole && (
           <div className="col-span-2">
-            <Label className="text-xs mb-1 block">Cieľová rola</Label>
+            <Label className="text-xs mb-1 block">{sl("targetRoleLbl", locale)}</Label>
             <Select value={form.targetRole} onValueChange={v => setForm(f => ({ ...f, targetRole: v }))}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ROLE_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  <SelectItem key={opt.value} value={opt.value}>{sl(opt.slKey, locale)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -258,36 +360,32 @@ function AutomationForm({
         {needsTask && (
           <>
             <div className="col-span-2">
-              <Label className="text-xs mb-1 block">Popis úlohy</Label>
+              <Label className="text-xs mb-1 block">{sl("taskDescLbl", locale)}</Label>
               <Textarea
                 className="text-xs min-h-[60px] resize-none"
                 value={form.taskDescription}
                 onChange={e => setForm(f => ({ ...f, taskDescription: e.target.value }))}
-                placeholder="Popis úlohy pre Back Office / Koordinátora..."
+                placeholder={sl("taskDescPh", locale)}
               />
             </div>
             <div>
-              <Label className="text-xs mb-1 block">Termín</Label>
+              <Label className="text-xs mb-1 block">{sl("deadlineLbl", locale)}</Label>
               <Select value={form.taskDeadlineOffset} onValueChange={v => setForm(f => ({ ...f, taskDeadlineOffset: v }))}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DEADLINE_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    <SelectItem key={opt.value} value={opt.value}>{sl(opt.slKey, locale)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs mb-1 block">Priorita</Label>
+              <Label className="text-xs mb-1 block">{sl("priorityLbl", locale)}</Label>
               <Select value={form.taskPriority} onValueChange={v => setForm(f => ({ ...f, taskPriority: v }))}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {PRIORITY_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    <SelectItem key={opt.value} value={opt.value}>{sl(opt.slKey, locale)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -304,12 +402,10 @@ function AutomationForm({
               </SelectTrigger>
               <SelectContent>
                 {emailTemplates.map((t: any) => (
-                  <SelectItem key={t.id} value={String(t.id)}>
-                    {t.name || t.subject || String(t.id)}
-                  </SelectItem>
+                  <SelectItem key={t.id} value={String(t.id)}>{t.name || t.subject || String(t.id)}</SelectItem>
                 ))}
                 {emailTemplates.length === 0 && (
-                  <SelectItem value="__none__" disabled>Žiadne email šablóny</SelectItem>
+                  <SelectItem value="__none__" disabled>{sl("noEmailTpls", locale)}</SelectItem>
                 )}
               </SelectContent>
             </Select>
@@ -333,7 +429,7 @@ function AutomationForm({
                   </SelectItem>
                 ))}
                 {campaignDispositions.length === 0 && (
-                  <SelectItem value="__none__" disabled>Žiadne disposície v tejto kampani</SelectItem>
+                  <SelectItem value="__none__" disabled>{sl("noDisps", locale)}</SelectItem>
                 )}
               </SelectContent>
             </Select>
@@ -343,27 +439,23 @@ function AutomationForm({
 
       <div className="border-t pt-3 space-y-2">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold tracking-wide">AK</span>
-          <span className="text-xs font-medium text-muted-foreground">Podmienka (voliteľné)</span>
+          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold tracking-wide">{sl("ifLabel", locale)}</span>
+          <span className="text-xs font-medium text-muted-foreground">{sl("condSubLbl", locale)}</span>
         </div>
         <Select value={form.conditionType} onValueChange={v => setForm(f => ({ ...f, conditionType: v }))}>
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="always">Vždy — pri každom potvrdení kroku</SelectItem>
-            <SelectItem value="country">Krajina zákazníka je...</SelectItem>
-            <SelectItem value="answer">Odpoveď zákazníka je...</SelectItem>
+            <SelectItem value="always">{sl("condAlways", locale)}</SelectItem>
+            <SelectItem value="country">{sl("condCountry", locale)}</SelectItem>
+            <SelectItem value="answer">{sl("condAnswer", locale)}</SelectItem>
           </SelectContent>
         </Select>
         {form.conditionType === "country" && (
           <Select value={form.conditionCountry} onValueChange={v => setForm(f => ({ ...f, conditionCountry: v }))}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {[{v:"SK",l:"Slovensko (SK)"},{v:"CZ",l:"Česko (CZ)"},{v:"HU",l:"Maďarsko (HU)"},{v:"RO",l:"Rumunsko (RO)"},{v:"AT",l:"Rakúsko (AT)"},{v:"DE",l:"Nemecko (DE)"},{v:"IT",l:"Taliansko (IT)"},{v:"US",l:"USA (US)"}].map(c => (
-                <SelectItem key={c.v} value={c.v}>{c.l}</SelectItem>
+              {COUNTRY_OPTIONS.map(c => (
+                <SelectItem key={c.value} value={c.value}>{sl(c.slKey, locale)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -373,18 +465,18 @@ function AutomationForm({
             className="h-8 text-xs"
             value={form.conditionAnswer}
             onChange={e => setForm(f => ({ ...f, conditionAnswer: e.target.value }))}
-            placeholder="Hodnota odpovede (napr. áno, nie, záujem...)"
+            placeholder={sl("condAnswerPh", locale)}
           />
         )}
       </div>
 
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="h-7 text-xs">
-          <X className="h-3 w-3 mr-1" /> Zrušiť
+          <X className="h-3 w-3 mr-1" /> {sl("cancelBtn", locale)}
         </Button>
         <Button type="button" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="h-7 text-xs">
           {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-          Uložiť akciu
+          {sl("saveActionBtn", locale)}
         </Button>
       </div>
     </div>
@@ -392,20 +484,18 @@ function AutomationForm({
 }
 
 function StatusListItemRow({
-  item,
-  campaignId,
-  onDeleted,
+  item, campaignId, onDeleted,
 }: {
   item: StatusListItem;
   campaignId: string;
   onDeleted: () => void;
 }) {
   const { toast } = useToast();
+  const { locale } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [addingAutomation, setAddingAutomation] = useState(false);
   const [editingAutoId, setEditingAutoId] = useState<string | null>(null);
-  const { locale } = useI18n();
   const [form, setForm] = useState({
     stepId: item.stepId,
     label: item.label,
@@ -420,29 +510,29 @@ function StatusListItemRow({
     mutationFn: () => apiRequest("PUT", `/api/campaigns/${campaignId}/status-list/${item.id}`, form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      toast({ title: "Krok uložený" });
+      toast({ title: sl("stepSaved", locale) });
       setEditMode(false);
     },
-    onError: () => toast({ title: "Chyba pri ukladaní", variant: "destructive" }),
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      toast({ title: "Krok zmazaný" });
+      toast({ title: sl("stepDeleted", locale) });
       onDeleted();
     },
-    onError: () => toast({ title: "Chyba pri mazaní", variant: "destructive" }),
+    onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
   });
 
   const deleteAutoMutation = useMutation({
     mutationFn: (autoId: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}/automations/${autoId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      toast({ title: "Automatizácia zmazaná" });
+      toast({ title: sl("autoDeleted", locale) });
     },
-    onError: () => toast({ title: "Chyba pri mazaní", variant: "destructive" }),
+    onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
   });
 
   const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || CheckSquare;
@@ -460,7 +550,7 @@ function StatusListItemRow({
           <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">{item.stepId}</span>
           <ConfirmIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium truncate">{item.label}</span>
-          {item.required && <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 shrink-0">Povinný</Badge>}
+          {item.required && <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 shrink-0">{sl("requiredBadge", locale)}</Badge>}
         </button>
         <div className="flex items-center gap-1 shrink-0">
           {item.automations.length > 0 && (
@@ -484,17 +574,17 @@ function StatusListItemRow({
             <div className="space-y-2">
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <Label className="text-xs mb-1 block">Krok ID</Label>
+                  <Label className="text-xs mb-1 block">{sl("stepIdLbl", locale)}</Label>
                   <Input className="h-8 text-xs font-mono" value={form.stepId} onChange={e => setForm(f => ({ ...f, stepId: e.target.value }))} placeholder="CLA-01" />
                 </div>
                 <div className="col-span-2">
-                  <Label className="text-xs mb-1 block">Názov kroku</Label>
-                  <Input className="h-8 text-xs" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="Popis kroku..." />
+                  <Label className="text-xs mb-1 block">{sl("stepLabelLbl", locale)}</Label>
+                  <Input className="h-8 text-xs" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={sl("stepLabelPh", locale)} />
                 </div>
               </div>
               <div>
-                <Label className="text-xs mb-1 block">Popis (voliteľný)</Label>
-                <Textarea className="text-xs min-h-[50px] resize-none" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Detailný popis pre agenta..." />
+                <Label className="text-xs mb-1 block">{sl("descLbl", locale)}</Label>
+                <Textarea className="text-xs min-h-[50px] resize-none" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder={sl("descPh", locale)} />
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
@@ -508,17 +598,15 @@ function StatusListItemRow({
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <Label className="text-xs mb-1 block">Typ potvrdenia</Label>
+                  <Label className="text-xs mb-1 block">{sl("confirmTypeLbl", locale)}</Label>
                   <Select value={form.confirmationType} onValueChange={v => setForm(f => ({ ...f, confirmationType: v }))}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {CONFIRM_TYPE_OPTIONS.map(opt => (
                         <SelectItem key={opt.value} value={opt.value}>
                           <span className="flex items-center gap-2">
                             <opt.icon className="h-3.5 w-3.5" />
-                            {opt.label}
+                            {sl(opt.slKey, locale)}
                           </span>
                         </SelectItem>
                       ))}
@@ -527,16 +615,16 @@ function StatusListItemRow({
                 </div>
                 <div className="flex items-center gap-2 pt-4">
                   <Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} />
-                  <Label className="text-xs">Povinný krok</Label>
+                  <Label className="text-xs">{sl("requiredSwitch", locale)}</Label>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditMode(false)}>
-                  <X className="h-3 w-3 mr-1" /> Zrušiť
+                  <X className="h-3 w-3 mr-1" /> {sl("cancelBtn", locale)}
                 </Button>
                 <Button type="button" size="sm" className="h-7 text-xs" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
                   {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                  Uložiť krok
+                  {sl("saveBtn", locale)}
                 </Button>
               </div>
             </div>
@@ -571,10 +659,10 @@ function StatusListItemRow({
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                 <Zap className="h-3 w-3 text-amber-500" />
-                Automatizácie pri potvrdení
+                {sl("automationsTitle", locale)}
               </span>
               <Button type="button" variant="outline" size="sm" className="h-6 text-xs gap-1 px-2" onClick={() => { setAddingAutomation(true); setEditingAutoId(null); }}>
-                <Plus className="h-3 w-3" /> Pridať akciu
+                <Plus className="h-3 w-3" /> {sl("addActionBtn", locale)}
               </Button>
             </div>
 
@@ -594,23 +682,25 @@ function StatusListItemRow({
                       {getActionIcon(auto.actionType)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium">{getActionLabel(auto.actionType)}</div>
-                      {auto.targetRole && <div className="text-muted-foreground">→ {getRoleLabel(auto.targetRole)}</div>}
-                      {auto.taskDescription && <div className="text-muted-foreground truncate">{auto.taskDescription}</div>}
-                      {auto.taskDeadlineOffset && <div className="text-muted-foreground">Termín: {DEADLINE_OPTIONS.find(d => d.value === auto.taskDeadlineOffset)?.label || auto.taskDeadlineOffset}</div>}
-                      {auto.conditionField && (
-                        <div className="text-muted-foreground text-[10px] flex items-center gap-1">
-                          <span className="px-1 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold">AK</span>
-                          {auto.conditionField === "country" ? `krajina = ${auto.conditionValue}` : `odpoveď = "${auto.conditionValue}"`}
-                        </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium">{getActionLabel(auto.actionType, locale)}</span>
+                        {auto.targetRole && (
+                          <span className="text-muted-foreground">→ {getRoleLabel(auto.targetRole, locale)}</span>
+                        )}
+                        {auto.taskDeadlineOffset && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">⏱ {auto.taskDeadlineOffset}</span>
+                        )}
+                      </div>
+                      {auto.taskDescription && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">📋 {auto.taskDescription}</p>
                       )}
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover/auto:opacity-100 shrink-0">
-                      <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditingAutoId(auto.id); setAddingAutomation(false); }}>
+                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/auto:opacity-100">
+                      <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => { setEditingAutoId(auto.id); setAddingAutomation(false); }}>
                         <Pencil className="h-3 w-3" />
                       </Button>
-                      <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => deleteAutoMutation.mutate(auto.id)}>
-                        <Trash2 className="h-3 w-3" />
+                      <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive" onClick={() => deleteAutoMutation.mutate(auto.id)}>
+                        {deleteAutoMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                       </Button>
                     </div>
                   </div>
@@ -626,12 +716,6 @@ function StatusListItemRow({
                 onCancel={() => setAddingAutomation(false)}
               />
             )}
-
-            {item.automations.length === 0 && !addingAutomation && (
-              <div className="text-xs text-muted-foreground text-center py-3 border border-dashed rounded-md">
-                Žiadne automatizácie — krok sa len zaznamená bez ďalšej akcie
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -640,10 +724,7 @@ function StatusListItemRow({
 }
 
 function AddItemForm({
-  campaignId,
-  existingCount,
-  onSaved,
-  onCancel,
+  campaignId, existingCount, onSaved, onCancel,
 }: {
   campaignId: string;
   existingCount: number;
@@ -667,31 +748,27 @@ function AddItemForm({
     mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      toast({ title: "Krok pridaný" });
+      toast({ title: sl("stepAdded", locale) });
       onSaved();
     },
-    onError: () => toast({ title: "Chyba pri pridávaní", variant: "destructive" }),
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
   });
 
   return (
-    <div className="border rounded-lg p-3 space-y-3 bg-muted/20 border-primary/30">
-      <div className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-1.5">
-        <Plus className="h-3.5 w-3.5" />
-        Nový krok
-      </div>
+    <div className="border-2 border-dashed border-primary/30 rounded-lg p-3 space-y-2 bg-primary/5">
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <Label className="text-xs mb-1 block">Krok ID</Label>
-          <Input className="h-8 text-xs font-mono" value={form.stepId} onChange={e => setForm(f => ({ ...f, stepId: e.target.value }))} placeholder="CLA-01" />
+          <Label className="text-xs mb-1 block">{sl("stepIdLbl", locale)}</Label>
+          <Input className="h-8 text-xs font-mono" value={form.stepId} onChange={e => setForm(f => ({ ...f, stepId: e.target.value }))} placeholder="STEP-01" />
         </div>
         <div className="col-span-2">
-          <Label className="text-xs mb-1 block">Názov kroku *</Label>
-          <Input className="h-8 text-xs" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="Popis kroku pre agenta..." autoFocus />
+          <Label className="text-xs mb-1 block">{sl("stepLabelReq", locale)}</Label>
+          <Input className="h-8 text-xs" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={sl("stepLabelPh", locale)} autoFocus />
         </div>
       </div>
       <div>
-        <Label className="text-xs mb-1 block">Popis (voliteľný)</Label>
-        <Textarea className="text-xs min-h-[50px] resize-none" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Detailný popis alebo inštrukcie..." />
+        <Label className="text-xs mb-1 block">{sl("descLbl", locale)}</Label>
+        <Textarea className="text-xs min-h-[50px] resize-none" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder={sl("descPh2", locale)} />
       </div>
       <div className="grid grid-cols-3 gap-2">
         <div>
@@ -705,17 +782,15 @@ function AddItemForm({
       </div>
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <Label className="text-xs mb-1 block">Typ potvrdenia</Label>
+          <Label className="text-xs mb-1 block">{sl("confirmTypeLbl", locale)}</Label>
           <Select value={form.confirmationType} onValueChange={v => setForm(f => ({ ...f, confirmationType: v }))}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               {CONFIRM_TYPE_OPTIONS.map(opt => (
                 <SelectItem key={opt.value} value={opt.value}>
                   <span className="flex items-center gap-2">
                     <opt.icon className="h-3.5 w-3.5" />
-                    {opt.label}
+                    {sl(opt.slKey, locale)}
                   </span>
                 </SelectItem>
               ))}
@@ -724,16 +799,16 @@ function AddItemForm({
         </div>
         <div className="flex items-center gap-2 pt-4">
           <Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} />
-          <Label className="text-xs">Povinný krok</Label>
+          <Label className="text-xs">{sl("requiredSwitch", locale)}</Label>
         </div>
       </div>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
-          <X className="h-3 w-3 mr-1" /> Zrušiť
+          <X className="h-3 w-3 mr-1" /> {sl("cancelBtn", locale)}
         </Button>
         <Button type="button" size="sm" className="h-7 text-xs" onClick={() => addMutation.mutate()} disabled={addMutation.isPending || !form.label.trim()}>
           {addMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
-          Pridať krok
+          {sl("addStepBtn", locale)}
         </Button>
       </div>
     </div>
@@ -742,30 +817,20 @@ function AddItemForm({
 
 export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
+  const { locale } = useI18n();
   const [addingItem, setAddingItem] = useState(false);
-
-  // Import z Disposition dialog
-  const [importOpen, setImportOpen] = useState(false);
-  const [selectedDisps, setSelectedDisps] = useState<Set<string>>(new Set());
-
-  // CLA Template dialog
   const [templateOpen, setTemplateOpen] = useState(false);
-  const [templateProgress, setTemplateProgress] = useState<string | null>(null);
-  // stepId → selected (true/false)
-  const [selectedSteps, setSelectedSteps] = useState<Set<string>>(new Set(CLA_TEMPLATE.map(s => s.stepId)));
-  // stepId → Set<triggerId>
-  const [selectedAutos, setSelectedAutos] = useState<Map<string, Set<string>>>(() => {
-    const m = new Map<string, Set<string>>();
-    CLA_TEMPLATE.forEach(s => { m.set(s.stepId, new Set(s.automations.map(a => a.triggerId))); });
-    return m;
-  });
-  // which steps are expanded to show automations
+  const [templateTab, setTemplateTab] = useState<"CLA" | "CLB">("CLA");
+  const [importOpen, setImportOpen] = useState(false);
+  const [selectedSteps, setSelectedSteps] = useState<Set<string>>(new Set());
+  const [selectedAutos, setSelectedAutos] = useState<Map<string, Set<string>>>(new Map());
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+  const [templateProgress, setTemplateProgress] = useState<string | null>(null);
+  const [selectedDisps, setSelectedDisps] = useState<Set<string>>(new Set());
 
   const { data: items = [], isLoading } = useQuery<StatusListItem[]>({
     queryKey: ["/api/campaigns", campaignId, "status-list"],
-    queryFn: () => apiRequest("GET", `/api/campaigns/${campaignId}/status-list`).then(r => r.json()),
-    enabled: !!campaignId,
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/status-list`, { credentials: "include" }).then(r => r.json()),
   });
 
   const { data: dispositions = [], isLoading: dispsLoading } = useQuery<any[]>({
@@ -774,48 +839,67 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     enabled: importOpen,
   });
 
-  // ── Disposition import mutation ──────────────────────────────────────
-  const importMutation = useMutation({
-    mutationFn: async () => {
-      const toImport = dispositions.filter((d: any) => selectedDisps.has(d.id));
-      const existingCount = items.length;
-      for (let i = 0; i < toImport.length; i++) {
-        const d = toImport[i];
-        await apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
-          stepId: d.code || `DISP-${String(existingCount + i + 1).padStart(2, "0")}`,
-          label: d.name,
-          description: d.description || "",
-          confirmationType: "checkbox",
-          required: false,
-          sortOrder: existingCount + i,
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      toast({ title: `${selectedDisps.size} položiek importovaných zo Disposície` });
-      setSelectedDisps(new Set());
-      setImportOpen(false);
-    },
-    onError: () => toast({ title: "Chyba pri importe", variant: "destructive" }),
-  });
+  const parentDisps = dispositions.filter((d: any) => !d.parentId);
+  const childDisps = (parentId: string) => dispositions.filter((d: any) => d.parentId === parentId);
 
-  // ── CLA Template apply mutation ──────────────────────────────────────
+  function toggleStep(stepId: string) {
+    setSelectedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(stepId)) { next.delete(stepId); }
+      else { next.add(stepId); }
+      return next;
+    });
+  }
+
+  function toggleAuto(stepId: string, autoId: string) {
+    setSelectedAutos(prev => {
+      const next = new Map(prev);
+      const set = new Set(next.get(stepId) ?? []);
+      if (set.has(autoId)) { set.delete(autoId); } else { set.add(autoId); }
+      next.set(stepId, set);
+      return next;
+    });
+  }
+
+  function toggleExpand(stepId: string) {
+    setExpandedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(stepId)) { next.delete(stepId); } else { next.add(stepId); }
+      return next;
+    });
+  }
+
+  function toggleDisp(id: string) {
+    setSelectedDisps(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }
+
+  const activeTemplate = templateTab === "CLA" ? CLA_TEMPLATE : CLB_TEMPLATE;
+
+  const selectedStepCount = selectedSteps.size;
+  const selectedAutoCount = Array.from(selectedAutos.entries())
+    .filter(([sid]) => selectedSteps.has(sid))
+    .reduce((sum, [, aset]) => sum + aset.size, 0);
+
   const templateMutation = useMutation({
     mutationFn: async () => {
-      const stepsToCreate = CLA_TEMPLATE.filter(s => selectedSteps.has(s.stepId));
+      const stepsToCreate = activeTemplate.filter(s => selectedSteps.has(s.stepId));
       const base = items.length;
+      setTemplateProgress(null);
       for (let i = 0; i < stepsToCreate.length; i++) {
         const step = stepsToCreate[i];
-        setTemplateProgress(`Vytváram krok ${i + 1}/${stepsToCreate.length}: ${step.stepId}…`);
+        setTemplateProgress(`${sl("applyTplBtn", locale)} ${i + 1}/${stepsToCreate.length}: ${step.stepId}…`);
         const res = await apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
           stepId: step.stepId,
-          label: step.label,
+          label: getStepLabel(step, locale),
           description: [
             step.description,
-            step.conditionIf ? `Podmienka: ${step.conditionIf}` : "",
-            step.actionThen ? `Akcia: ${step.actionThen}` : "",
-            step.callbackTiming && step.callbackTiming !== "—" ? `Timing: ${step.callbackTiming}` : "",
+            step.conditionIf ? `IF: ${step.conditionIf}` : "",
+            step.actionThen ? `THEN: ${step.actionThen}` : "",
+            step.callbackTiming && step.callbackTiming !== "—" ? `⏱ ${step.callbackTiming}` : "",
           ].filter(Boolean).join("\n"),
           confirmationType: step.confirmationType,
           required: false,
@@ -845,127 +929,63 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
       setTemplateProgress(null);
       setTemplateOpen(false);
-      const stepCount = selectedSteps.size;
-      const autoCount = Array.from(selectedAutos.entries())
-        .filter(([sid]) => selectedSteps.has(sid))
-        .reduce((sum, [, aset]) => sum + aset.size, 0);
-      toast({ title: `✅ Template aplikovaný: ${stepCount} krokov, ${autoCount} automatizácií` });
+      toast({ title: `✅ ${sl("applyTplBtn", locale)}: ${selectedStepCount} ${sl("tplSteps", locale)}, ${selectedAutoCount} ${sl("tplAutomations", locale)}` });
     },
-    onError: () => { setTemplateProgress(null); toast({ title: "Chyba pri aplikovaní template", variant: "destructive" }); },
+    onError: () => { setTemplateProgress(null); toast({ title: sl("saveErr", locale), variant: "destructive" }); },
   });
 
-  const toggleDisp = (id: string) => setSelectedDisps(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const toggleStep = (sid: string) => setSelectedSteps(prev => { const n = new Set(prev); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
-  const toggleAuto = (sid: string, tid: string) => setSelectedAutos(prev => {
-    const n = new Map(prev);
-    const s = new Set(n.get(sid) ?? []);
-    s.has(tid) ? s.delete(tid) : s.add(tid);
-    n.set(sid, s);
-    return n;
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const base = items.length;
+      let i = 0;
+      for (const dispId of Array.from(selectedDisps)) {
+        const disp = dispositions.find((d: any) => String(d.id) === String(dispId));
+        if (!disp) continue;
+        await apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
+          stepId: disp.code || `DISP-${String(i + 1).padStart(2, "0")}`,
+          label: disp.name,
+          description: disp.description || null,
+          confirmationType: "radio",
+          required: false,
+          sortOrder: base + i,
+        });
+        i++;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      setImportOpen(false);
+      setSelectedDisps(new Set());
+      toast({ title: `✅ ${sl("importBtn", locale)}: ${selectedDisps.size} ${sl("selectedCount", locale)}` });
+    },
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
   });
-  const toggleExpand = (sid: string) => setExpandedSteps(prev => { const n = new Set(prev); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
-
-  const selectAllSteps = () => {
-    setSelectedSteps(new Set(CLA_TEMPLATE.map(s => s.stepId)));
-    const m = new Map<string, Set<string>>();
-    CLA_TEMPLATE.forEach(s => m.set(s.stepId, new Set(s.automations.map(a => a.triggerId))));
-    setSelectedAutos(m);
-  };
-  const deselectAllSteps = () => { setSelectedSteps(new Set()); setSelectedAutos(new Map()); };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin mr-2" />
-        Načítavam status list...
+        <span className="text-sm">{sl("loadingMsg", locale)}</span>
       </div>
     );
   }
 
-  const parentDisps = dispositions.filter((d: any) => !d.parentId && d.isActive);
-  const childDisps = (parentId: string) => dispositions.filter((d: any) => d.parentId === parentId && d.isActive);
-
-  const selectedStepCount = selectedSteps.size;
-  const selectedAutoCount = Array.from(selectedAutos.entries())
-    .filter(([sid]) => selectedSteps.has(sid))
-    .reduce((sum, [, aset]) => sum + aset.size, 0);
-
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-emerald-500" />
-            Kroky Status Listu
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Každý krok môže spustiť automatizáciu — priradiť úlohu, odoslať email, nastaviť status atď.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950"
-            onClick={() => setTemplateOpen(true)}
-            data-testid="btn-use-cla-template"
-          >
-            <BookTemplate className="h-3.5 w-3.5" />
-            Template CL A
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs"
-            onClick={() => { setSelectedDisps(new Set()); setImportOpen(true); }}
-            data-testid="btn-import-from-disposition"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Import z Disposition
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs"
-            onClick={() => setAddingItem(true)}
-            data-testid="btn-add-status-list-item"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Pridať krok
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setTemplateOpen(true)} data-testid="btn-open-cla-template">
+          <BookTemplate className="h-3.5 w-3.5 text-primary" />
+          CLA / CLB Template
+        </Button>
+        <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setImportOpen(true)} data-testid="btn-open-import-dispositions">
+          <Download className="h-3.5 w-3.5 text-emerald-500" />
+          {sl("importTitle", locale)}
+        </Button>
+        <div className="ml-auto">
+          <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setAddingItem(true)} disabled={addingItem} data-testid="btn-add-status-list-item">
+            <Plus className="h-3 w-3" /> {sl("addStepBtn", locale)}
           </Button>
         </div>
-      </div>
-
-      {items.length === 0 && !addingItem && (
-        <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-lg text-muted-foreground">
-          <ClipboardList className="h-8 w-8 mb-2 opacity-20" />
-          <p className="text-sm font-medium">Status list je prázdny</p>
-          <p className="text-xs mt-1">Použite template CL A alebo pridajte kroky manuálne</p>
-          <div className="flex gap-2 mt-4">
-            <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950" onClick={() => setTemplateOpen(true)}>
-              <BookTemplate className="h-3.5 w-3.5" />
-              Template CL A — Akvizícia
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddingItem(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              Pridať krok
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {items.map(item => (
-          <StatusListItemRow
-            key={item.id}
-            item={item}
-            campaignId={campaignId}
-            onDeleted={() => {}}
-          />
-        ))}
       </div>
 
       {addingItem && (
@@ -977,33 +997,49 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
         />
       )}
 
-      {/* ── CLA Template Dialog ────────────────────────────────────────── */}
-      <Dialog open={templateOpen} onOpenChange={v => { if (!templateMutation.isPending) setTemplateOpen(v); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+      <div className="space-y-1.5">
+        {items.map(item => (
+          <StatusListItemRow
+            key={item.id}
+            item={item}
+            campaignId={campaignId}
+            onDeleted={() => {}}
+          />
+        ))}
+      </div>
+
+      {/* ── Template Dialog ─────────────────────────────────── */}
+      <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
-              <BookTemplate className="h-5 w-5 text-emerald-500" />
-              Template: CL A — Akvizícia (Medical Partner)
+              <BookTemplate className="h-4 w-4 text-primary" />
+              Medical Partner Network — Template
             </DialogTitle>
-            <p className="text-xs text-muted-foreground pt-1">
-              Vyberte kroky a k nim voliteľné automatizácie (AT triggre), ktoré sa majú vytvoriť v status liste tejto misie.
-            </p>
+            <p className="text-xs text-muted-foreground">{sl("tplSubtitle", locale)}</p>
           </DialogHeader>
 
-          {/* Quick select bar */}
-          <div className="flex items-center gap-2 px-1 py-1.5 border-b shrink-0">
-            <button type="button" className="text-xs text-primary hover:underline" onClick={selectAllSteps}>Vybrať všetko</button>
-            <span className="text-muted-foreground text-xs">·</span>
-            <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={deselectAllSteps}>Odznačiť všetko</button>
-            <span className="flex-1" />
-            <span className="text-xs text-muted-foreground">
-              {selectedStepCount} krokov · {selectedAutoCount} akcií vybraných
-            </span>
+          {/* Tab switcher */}
+          <div className="flex gap-1 shrink-0 border-b pb-2">
+            <button
+              type="button"
+              onClick={() => { setTemplateTab("CLA"); setSelectedSteps(new Set()); setSelectedAutos(new Map()); }}
+              className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${templateTab === "CLA" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              {sl("tplTabCLA", locale)}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setTemplateTab("CLB"); setSelectedSteps(new Set()); setSelectedAutos(new Map()); }}
+              className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${templateTab === "CLB" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              {sl("tplTabCLB", locale)}
+            </button>
           </div>
 
           {/* Step list */}
           <div className="flex-1 overflow-y-auto space-y-1 py-1 min-h-0">
-            {CLA_TEMPLATE.map((step) => {
+            {activeTemplate.map((step) => {
               const isSelected = selectedSteps.has(step.stepId);
               const isExpanded = expandedSteps.has(step.stepId);
               const autoSet = selectedAutos.get(step.stepId) ?? new Set();
@@ -1012,7 +1048,6 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
 
               return (
                 <div key={step.stepId} className={`rounded-lg border transition-colors ${isSelected ? "border-primary/30 bg-primary/5" : "border-border bg-background"}`}>
-                  {/* Step header row */}
                   <div className="flex items-start gap-2 px-3 py-2.5">
                     <button
                       type="button"
@@ -1027,7 +1062,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                         <span className="text-xs font-mono font-bold text-muted-foreground">{step.stepId}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${roleBadge.color}`}>{roleBadge.label}</span>
                         {isSys && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">AUTO</span>}
-                        <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>{step.label}</span>
+                        <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>{getStepLabel(step, locale)}</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{step.description}</p>
                       {step.conditionIf && step.conditionIf !== "—" && (
@@ -1056,18 +1091,17 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                         data-testid={`tpl-expand-${step.stepId}`}
                       >
                         <Zap className="h-3 w-3 text-amber-500" />
-                        <span>{autoSet.size}/{step.automations.length} akcií</span>
+                        <span>{autoSet.size}/{step.automations.length} {sl("tplActionsCount", locale)}</span>
                         {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       </button>
                     )}
                   </div>
 
-                  {/* Automations (expanded) */}
                   {isExpanded && step.automations.length > 0 && (
                     <div className="border-t border-border/50 px-3 py-2 space-y-1.5 bg-muted/30">
                       <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1 mb-1">
                         <Zap className="h-3 w-3 text-amber-500" />
-                        Automatizácie tohto kroku (voliteľné)
+                        {sl("autoSectionTpl", locale)}
                       </div>
                       {step.automations.map((auto) => {
                         const autoSelected = autoSet.has(auto.triggerId);
@@ -1088,7 +1122,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[10px] font-mono text-muted-foreground">{auto.triggerId}</span>
-                                <span className="text-xs font-medium">{auto.label}</span>
+                                <span className="text-xs font-medium">{getAutoLabel(auto, locale)}</span>
                               </div>
                               <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{auto.description}</p>
                               {auto.taskDescription && (
@@ -1112,7 +1146,6 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
             })}
           </div>
 
-          {/* Progress indicator */}
           {templateProgress && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground py-2 border-t shrink-0">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
@@ -1122,11 +1155,11 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
 
           <DialogFooter className="flex items-center justify-between gap-2 border-t pt-3 shrink-0">
             <span className="text-xs text-muted-foreground">
-              {selectedStepCount} krokov · {selectedAutoCount} automatizácií
+              {selectedStepCount} {sl("tplSteps", locale)} · {selectedAutoCount} {sl("tplAutomations", locale)}
             </span>
             <div className="flex gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setTemplateOpen(false)} disabled={templateMutation.isPending}>
-                Zrušiť
+                {sl("cancelBtn", locale)}
               </Button>
               <Button
                 type="button"
@@ -1140,7 +1173,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                   ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   : <BookTemplate className="h-3.5 w-3.5" />
                 }
-                Aplikovať template ({selectedStepCount} krokov)
+                {sl("applyTplBtn", locale)} ({selectedStepCount} {sl("tplSteps", locale)})
               </Button>
             </div>
           </DialogFooter>
@@ -1153,18 +1186,18 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Download className="h-4 w-4 text-emerald-500" />
-              Import zo Disposície
+              {sl("importTitle", locale)}
             </DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-1 max-h-80 overflow-y-auto">
             {dispsLoading && (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Načítavam...
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> {sl("loadingMsg", locale)}
               </div>
             )}
             {!dispsLoading && parentDisps.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-8">
-                Táto misia nemá žiadne disposície.
+                {sl("noDispsMsg", locale)}
               </p>
             )}
             {parentDisps.map((d: any) => {
@@ -1203,9 +1236,9 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
             })}
           </div>
           <DialogFooter className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">{selectedDisps.size} vybraných</span>
+            <span className="text-xs text-muted-foreground">{selectedDisps.size} {sl("selectedCount", locale)}</span>
             <div className="flex gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setImportOpen(false)}>Zrušiť</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setImportOpen(false)}>{sl("cancelBtn", locale)}</Button>
               <Button
                 type="button"
                 size="sm"
@@ -1214,7 +1247,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                 data-testid="btn-confirm-import-dispositions"
               >
                 {importMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Download className="h-3.5 w-3.5 mr-1" />}
-                Importovať ({selectedDisps.size})
+                {sl("importBtn", locale)} ({selectedDisps.size})
               </Button>
             </div>
           </DialogFooter>
