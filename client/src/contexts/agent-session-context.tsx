@@ -28,6 +28,7 @@ interface AgentSessionContextType {
   endSession: () => Promise<void>;
   updateStatus: (status: AgentStatus) => Promise<void>;
   startBreak: (breakTypeId: string) => Promise<void>;
+  startSystemBreak: (name: string) => Promise<void>;
   endBreak: () => Promise<void>;
   recordActivity: (activityType: string, contactId?: string | null, campaignContactId?: string | null, metadata?: any) => Promise<string | null>;
   endActivity: (activityId: string) => Promise<void>;
@@ -167,6 +168,13 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
     queryClient.invalidateQueries({ queryKey: ["/api/agent-sessions", session.id, "breaks"] });
   }, [session?.id]);
 
+  const startSystemBreak = useCallback(async (name: string) => {
+    if (!session?.id) return;
+    await apiRequest("POST", `/api/agent-sessions/${session.id}/breaks`, { breakTypeName: name });
+    queryClient.invalidateQueries({ queryKey: ["/api/agent-sessions/active"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/agent-sessions", session.id, "breaks"] });
+  }, [session?.id]);
+
   const endBreak = useCallback(async () => {
     if (!activeBreak?.id) return;
     await apiRequest("POST", `/api/agent-breaks/${activeBreak.id}/end`);
@@ -207,6 +215,7 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
       endSession,
       updateStatus,
       startBreak,
+      startSystemBreak,
       endBreak,
       recordActivity,
       endActivity,

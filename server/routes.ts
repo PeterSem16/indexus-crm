@@ -44663,7 +44663,7 @@ Return ONLY the JSON object.`
         sessionId: req.params.sessionId,
         userId: req.session.user!.id,
         breakTypeId: req.body.breakTypeId || null,
-        breakTypeName: breakType?.name || "Prestávka",
+        breakTypeName: breakType?.name || req.body.breakTypeName || "Prestávka",
       });
       await storage.updateAgentSession(req.params.sessionId, { status: "break", lastActiveAt: new Date() });
 

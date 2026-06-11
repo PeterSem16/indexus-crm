@@ -8096,27 +8096,29 @@ export default function AgentWorkspacePage() {
     setAllowInboundInBO(next);
     if (mainWorkspaceTab === "back_office" && agentSession.isSessionActive) {
       if (next) {
+        if (agentSession.activeBreak) await agentSession.endBreak().catch(() => {});
         await agentSession.updateStatus("available").catch(() => {});
       } else {
-        await agentSession.updateStatus("break").catch(() => {});
+        await agentSession.startSystemBreak("Back Office agenda").catch(() => {});
       }
     }
   };
 
   const handleSwitchToBackOffice = async () => {
     if (mainWorkspaceTab === "back_office") return;
-    if (agentSession.isSessionActive && !allowInboundInBO && agentSession.status !== "break") {
-      prevStatusBeforeBackOffice.current = agentSession.status as AgentStatus;
-      await agentSession.updateStatus("break").catch(() => {});
-    }
     setMainWorkspaceTab("back_office");
+    if (agentSession.isSessionActive && !allowInboundInBO) {
+      prevStatusBeforeBackOffice.current = agentSession.status as AgentStatus;
+      await agentSession.startSystemBreak("Back Office agenda").catch(() => {});
+    }
   };
 
   const handleSwitchToPulse = async () => {
     if (mainWorkspaceTab === "pulse") return;
     setMainWorkspaceTab("pulse");
-    if (agentSession.isSessionActive && prevStatusBeforeBackOffice.current) {
-      await agentSession.updateStatus(prevStatusBeforeBackOffice.current).catch(() => {});
+    if (agentSession.isSessionActive) {
+      if (agentSession.activeBreak) await agentSession.endBreak().catch(() => {});
+      await agentSession.updateStatus("available").catch(() => {});
       prevStatusBeforeBackOffice.current = null;
     }
   };
@@ -8176,7 +8178,7 @@ export default function AgentWorkspacePage() {
         setBackOfficeModeActive(true);
         setMainWorkspaceTab("back_office");
         prevStatusBeforeBackOffice.current = "available";
-        agentSession.updateStatus("break").catch(() => {});
+        agentSession.startSystemBreak("Back Office agenda").catch(() => {});
       }
       toast({ title: t.agentSession.shiftStarted, description: t.agentSession.shiftStartedDesc });
     } catch (error) {
@@ -9319,7 +9321,7 @@ export default function AgentWorkspacePage() {
   const activeBreakTypeObj = agentSession.activeBreak
     ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId) || null
     : null;
-  const activeBreakName = activeBreakTypeObj?.name || (agentSession.activeBreak ? t.agentSession.statusBreak : null);
+  const activeBreakName = activeBreakTypeObj?.name || (agentSession.activeBreak as any)?.breakTypeName || (agentSession.activeBreak ? t.agentSession.statusBreak : null);
 
   return (
     <div className={`flex flex-col ${agentSession.isSessionActive ? "h-screen" : "h-[calc(100vh-8rem)] -m-6"}`}>
