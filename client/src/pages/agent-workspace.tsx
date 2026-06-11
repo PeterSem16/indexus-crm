@@ -6724,6 +6724,7 @@ export default function AgentWorkspacePage() {
   const [loginBackOffice, setLoginBackOffice] = useState(false);
   const [backOfficeModeActive, setBackOfficeModeActive] = useState(false);
   const [mainWorkspaceTab, setMainWorkspaceTab] = useState<"pulse" | "back_office">("pulse");
+  const prevStatusBeforeBackOffice = useRef<AgentStatus | null>(null);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
   const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[]; callId?: string } | null>(null);
   const [pendingUnknownCaller, setPendingUnknownCaller] = useState<{ phone: string } | null>(null);
@@ -8089,6 +8090,24 @@ export default function AgentWorkspacePage() {
     }
   };
 
+  const handleSwitchToBackOffice = async () => {
+    if (mainWorkspaceTab === "back_office") return;
+    if (agentSession.isSessionActive && agentSession.status !== "break") {
+      prevStatusBeforeBackOffice.current = agentSession.status as AgentStatus;
+      await agentSession.updateStatus("break").catch(() => {});
+    }
+    setMainWorkspaceTab("back_office");
+  };
+
+  const handleSwitchToPulse = async () => {
+    if (mainWorkspaceTab === "pulse") return;
+    setMainWorkspaceTab("pulse");
+    if (agentSession.isSessionActive && prevStatusBeforeBackOffice.current) {
+      await agentSession.updateStatus(prevStatusBeforeBackOffice.current).catch(() => {});
+      prevStatusBeforeBackOffice.current = null;
+    }
+  };
+
   const handleStartBreak = async (breakTypeId: string) => {
     try {
       await agentSession.startBreak(breakTypeId);
@@ -8143,6 +8162,8 @@ export default function AgentWorkspacePage() {
       if (loginBackOffice) {
         setBackOfficeModeActive(true);
         setMainWorkspaceTab("back_office");
+        prevStatusBeforeBackOffice.current = "available";
+        agentSession.updateStatus("break").catch(() => {});
       }
       toast({ title: t.agentSession.shiftStarted, description: t.agentSession.shiftStartedDesc });
     } catch (error) {
@@ -9832,7 +9853,7 @@ export default function AgentWorkspacePage() {
         <div className="flex items-center gap-0 border-b bg-card shrink-0 px-4" style={{ minHeight: 36 }}>
           <button
             type="button"
-            onClick={() => setMainWorkspaceTab("pulse")}
+            onClick={handleSwitchToPulse}
             className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors relative ${
               mainWorkspaceTab === "pulse"
                 ? "text-foreground"
@@ -9848,7 +9869,7 @@ export default function AgentWorkspacePage() {
           </button>
           <button
             type="button"
-            onClick={() => setMainWorkspaceTab("back_office")}
+            onClick={handleSwitchToBackOffice}
             className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors relative ${
               mainWorkspaceTab === "back_office"
                 ? "text-foreground"
