@@ -10,10 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { CLA_TEMPLATE, ROLE_BADGE_MAP } from "@/data/cla-template";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MessageSquare, Tag, Webhook, Bell,
   CheckSquare, Radio, Info, Loader2, Pencil, X, Check, Download,
+  BookTemplate, ChevronUp,
 } from "lucide-react";
 
 type StatusListAutomation = {
@@ -632,8 +634,24 @@ function AddItemForm({
 export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
   const [addingItem, setAddingItem] = useState(false);
+
+  // Import z Disposition dialog
   const [importOpen, setImportOpen] = useState(false);
   const [selectedDisps, setSelectedDisps] = useState<Set<string>>(new Set());
+
+  // CLA Template dialog
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateProgress, setTemplateProgress] = useState<string | null>(null);
+  // stepId → selected (true/false)
+  const [selectedSteps, setSelectedSteps] = useState<Set<string>>(new Set(CLA_TEMPLATE.map(s => s.stepId)));
+  // stepId → Set<triggerId>
+  const [selectedAutos, setSelectedAutos] = useState<Map<string, Set<string>>>(() => {
+    const m = new Map<string, Set<string>>();
+    CLA_TEMPLATE.forEach(s => { m.set(s.stepId, new Set(s.automations.map(a => a.triggerId))); });
+    return m;
+  });
+  // which steps are expanded to show automations
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
   const { data: items = [], isLoading } = useQuery<StatusListItem[]>({
     queryKey: ["/api/campaigns", campaignId, "status-list"],
@@ -647,6 +665,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     enabled: importOpen,
   });
 
+  // ── Disposition import mutation ──────────────────────────────────────
   const importMutation = useMutation({
     mutationFn: async () => {
       const toImport = dispositions.filter((d: any) => selectedDisps.has(d.id));
@@ -672,13 +691,76 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     onError: () => toast({ title: "Chyba pri importe", variant: "destructive" }),
   });
 
-  const toggleDisp = (id: string) => {
-    setSelectedDisps(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+  // ── CLA Template apply mutation ──────────────────────────────────────
+  const templateMutation = useMutation({
+    mutationFn: async () => {
+      const stepsToCreate = CLA_TEMPLATE.filter(s => selectedSteps.has(s.stepId));
+      const base = items.length;
+      for (let i = 0; i < stepsToCreate.length; i++) {
+        const step = stepsToCreate[i];
+        setTemplateProgress(`Vytváram krok ${i + 1}/${stepsToCreate.length}: ${step.stepId}…`);
+        const res = await apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
+          stepId: step.stepId,
+          label: step.label,
+          description: [
+            step.description,
+            step.conditionIf ? `Podmienka: ${step.conditionIf}` : "",
+            step.actionThen ? `Akcia: ${step.actionThen}` : "",
+            step.callbackTiming && step.callbackTiming !== "—" ? `Timing: ${step.callbackTiming}` : "",
+          ].filter(Boolean).join("\n"),
+          confirmationType: step.confirmationType,
+          required: false,
+          sortOrder: base + i,
+        });
+        const created = await res.json();
+        const itemId = created.id;
+        if (!itemId) continue;
+
+        const autoSet = selectedAutos.get(step.stepId) ?? new Set();
+        const autosToCreate = step.automations.filter(a => autoSet.has(a.triggerId));
+        for (const auto of autosToCreate) {
+          await apiRequest("POST", `/api/campaigns/${campaignId}/status-list/${itemId}/automations`, {
+            actionType: auto.actionType,
+            targetRole: auto.targetRole,
+            taskDescription: auto.taskDescription,
+            taskDeadlineOffset: auto.taskDeadlineOffset,
+            taskPriority: auto.taskPriority,
+            sortOrder: 0,
+          });
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      setTemplateProgress(null);
+      setTemplateOpen(false);
+      const stepCount = selectedSteps.size;
+      const autoCount = Array.from(selectedAutos.entries())
+        .filter(([sid]) => selectedSteps.has(sid))
+        .reduce((sum, [, aset]) => sum + aset.size, 0);
+      toast({ title: `✅ Template aplikovaný: ${stepCount} krokov, ${autoCount} automatizácií` });
+    },
+    onError: () => { setTemplateProgress(null); toast({ title: "Chyba pri aplikovaní template", variant: "destructive" }); },
+  });
+
+  const toggleDisp = (id: string) => setSelectedDisps(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleStep = (sid: string) => setSelectedSteps(prev => { const n = new Set(prev); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
+  const toggleAuto = (sid: string, tid: string) => setSelectedAutos(prev => {
+    const n = new Map(prev);
+    const s = new Set(n.get(sid) ?? []);
+    s.has(tid) ? s.delete(tid) : s.add(tid);
+    n.set(sid, s);
+    return n;
+  });
+  const toggleExpand = (sid: string) => setExpandedSteps(prev => { const n = new Set(prev); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
+
+  const selectAllSteps = () => {
+    setSelectedSteps(new Set(CLA_TEMPLATE.map(s => s.stepId)));
+    const m = new Map<string, Set<string>>();
+    CLA_TEMPLATE.forEach(s => m.set(s.stepId, new Set(s.automations.map(a => a.triggerId))));
+    setSelectedAutos(m);
   };
+  const deselectAllSteps = () => { setSelectedSteps(new Set()); setSelectedAutos(new Map()); };
 
   if (isLoading) {
     return (
@@ -691,6 +773,11 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
 
   const parentDisps = dispositions.filter((d: any) => !d.parentId && d.isActive);
   const childDisps = (parentId: string) => dispositions.filter((d: any) => d.parentId === parentId && d.isActive);
+
+  const selectedStepCount = selectedSteps.size;
+  const selectedAutoCount = Array.from(selectedAutos.entries())
+    .filter(([sid]) => selectedSteps.has(sid))
+    .reduce((sum, [, aset]) => sum + aset.size, 0);
 
   return (
     <div className="space-y-3">
@@ -705,6 +792,17 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950"
+            onClick={() => setTemplateOpen(true)}
+            data-testid="btn-use-cla-template"
+          >
+            <BookTemplate className="h-3.5 w-3.5" />
+            Template CL A
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -734,11 +832,11 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
         <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-lg text-muted-foreground">
           <ClipboardList className="h-8 w-8 mb-2 opacity-20" />
           <p className="text-sm font-medium">Status list je prázdny</p>
-          <p className="text-xs mt-1">Pridajte kroky manuálne alebo importujte zo Disposície</p>
+          <p className="text-xs mt-1">Použite template CL A alebo pridajte kroky manuálne</p>
           <div className="flex gap-2 mt-4">
-            <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => { setSelectedDisps(new Set()); setImportOpen(true); }}>
-              <Download className="h-3.5 w-3.5" />
-              Import z Disposition
+            <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950" onClick={() => setTemplateOpen(true)}>
+              <BookTemplate className="h-3.5 w-3.5" />
+              Template CL A — Akvizícia
             </Button>
             <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddingItem(true)}>
               <Plus className="h-3.5 w-3.5" />
@@ -768,6 +866,171 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
         />
       )}
 
+      {/* ── CLA Template Dialog ────────────────────────────────────────── */}
+      <Dialog open={templateOpen} onOpenChange={v => { if (!templateMutation.isPending) setTemplateOpen(v); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookTemplate className="h-5 w-5 text-emerald-500" />
+              Template: CL A — Akvizícia (Medical Partner)
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground pt-1">
+              Vyberte kroky a k nim voliteľné automatizácie (AT triggre), ktoré sa majú vytvoriť v status liste tejto misie.
+            </p>
+          </DialogHeader>
+
+          {/* Quick select bar */}
+          <div className="flex items-center gap-2 px-1 py-1.5 border-b shrink-0">
+            <button type="button" className="text-xs text-primary hover:underline" onClick={selectAllSteps}>Vybrať všetko</button>
+            <span className="text-muted-foreground text-xs">·</span>
+            <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={deselectAllSteps}>Odznačiť všetko</button>
+            <span className="flex-1" />
+            <span className="text-xs text-muted-foreground">
+              {selectedStepCount} krokov · {selectedAutoCount} akcií vybraných
+            </span>
+          </div>
+
+          {/* Step list */}
+          <div className="flex-1 overflow-y-auto space-y-1 py-1 min-h-0">
+            {CLA_TEMPLATE.map((step) => {
+              const isSelected = selectedSteps.has(step.stepId);
+              const isExpanded = expandedSteps.has(step.stepId);
+              const autoSet = selectedAutos.get(step.stepId) ?? new Set();
+              const roleBadge = ROLE_BADGE_MAP[step.role] ?? { label: step.role, color: "bg-muted text-muted-foreground" };
+              const isSys = step.confirmationType === "info";
+
+              return (
+                <div key={step.stepId} className={`rounded-lg border transition-colors ${isSelected ? "border-primary/30 bg-primary/5" : "border-border bg-background"}`}>
+                  {/* Step header row */}
+                  <div className="flex items-start gap-2 px-3 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleStep(step.stepId)}
+                      className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-primary border-primary" : "border-border"}`}
+                      data-testid={`tpl-step-${step.stepId}`}
+                    >
+                      {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono font-bold text-muted-foreground">{step.stepId}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${roleBadge.color}`}>{roleBadge.label}</span>
+                        {isSys && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">AUTO</span>}
+                        <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>{step.label}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{step.description}</p>
+                      {step.conditionIf && step.conditionIf !== "—" && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                          <span className="font-semibold">IF:</span> {step.conditionIf}
+                        </p>
+                      )}
+                      {step.nextStepId && (
+                        <p className="text-[10px] text-muted-foreground/70">
+                          <span className="font-semibold">→</span> {step.nextStepId}
+                          {step.callbackTiming && step.callbackTiming !== "—" && ` · ${step.callbackTiming}`}
+                        </p>
+                      )}
+                    </div>
+                    {step.automations.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(step.stepId)}
+                        className="shrink-0 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1.5 py-1 rounded hover:bg-muted"
+                        data-testid={`tpl-expand-${step.stepId}`}
+                      >
+                        <Zap className="h-3 w-3 text-amber-500" />
+                        <span>{autoSet.size}/{step.automations.length} akcií</span>
+                        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Automations (expanded) */}
+                  {isExpanded && step.automations.length > 0 && (
+                    <div className="border-t border-border/50 px-3 py-2 space-y-1.5 bg-muted/30">
+                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1 mb-1">
+                        <Zap className="h-3 w-3 text-amber-500" />
+                        Automatizácie tohto kroku (voliteľné)
+                      </div>
+                      {step.automations.map((auto) => {
+                        const autoSelected = autoSet.has(auto.triggerId);
+                        return (
+                          <div
+                            key={auto.triggerId}
+                            className={`flex items-start gap-2 p-2 rounded-md border transition-colors ${autoSelected ? "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20" : "border-border/50 bg-background"}`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => { if (isSelected) toggleAuto(step.stepId, auto.triggerId); }}
+                              disabled={!isSelected}
+                              className={`mt-0.5 w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${autoSelected && isSelected ? "bg-amber-500 border-amber-500" : "border-border"} ${!isSelected ? "opacity-30 cursor-not-allowed" : ""}`}
+                              data-testid={`tpl-auto-${step.stepId}-${auto.triggerId}`}
+                            >
+                              {autoSelected && isSelected && <Check className="h-2 w-2 text-white" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-mono text-muted-foreground">{auto.triggerId}</span>
+                                <span className="text-xs font-medium">{auto.label}</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{auto.description}</p>
+                              {auto.taskDescription && (
+                                <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
+                                  📋 {auto.taskDescription}
+                                </p>
+                              )}
+                              {auto.taskDeadlineOffset && (
+                                <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground mt-0.5">
+                                  ⏱ {auto.taskDeadlineOffset}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Progress indicator */}
+          {templateProgress && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground py-2 border-t shrink-0">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              {templateProgress}
+            </div>
+          )}
+
+          <DialogFooter className="flex items-center justify-between gap-2 border-t pt-3 shrink-0">
+            <span className="text-xs text-muted-foreground">
+              {selectedStepCount} krokov · {selectedAutoCount} automatizácií
+            </span>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setTemplateOpen(false)} disabled={templateMutation.isPending}>
+                Zrušiť
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="gap-1.5"
+                disabled={selectedStepCount === 0 || templateMutation.isPending}
+                onClick={() => templateMutation.mutate()}
+                data-testid="btn-apply-cla-template"
+              >
+                {templateMutation.isPending
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <BookTemplate className="h-3.5 w-3.5" />
+                }
+                Aplikovať template ({selectedStepCount} krokov)
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Import z Disposition Dialog ─────────────────────────────────── */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
