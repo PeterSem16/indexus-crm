@@ -44,6 +44,7 @@ import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES, DISPOSITION_NAME_TRANSLATIONS, RESCHEDULE_PERIOD_OPTIONS, STATUS_ACTION_TYPES } from "@shared/schema";
+import { CampaignStatusListBuilder } from "@/components/campaign-status-list-builder";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -482,7 +483,7 @@ function parseInternalChecklist(settings: string | null | undefined): InternalCh
     const ic = s.internalChecklist || {};
     const mapItem = (i: any): ClItem => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as ClItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as ClAutomationAction, bold: !!i.bold, italic: !!i.italic, size: (i.size || "base") as ClItemSize });
     if (ic.items && !ic.sections) {
-      return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Hlavný checklist", icon: "", bold: false, italic: false, color: "", subsections: [], items: ic.items.map(mapItem) }] : [] };
+      return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Hlavný status list", icon: "", bold: false, italic: false, color: "", subsections: [], items: ic.items.map(mapItem) }] : [] };
     }
     return {
       enabled: ic.enabled === true,
@@ -705,12 +706,12 @@ function InternalChecklistSettingsCard({ campaign }: { campaign: Campaign }) {
           <div>
             <CardTitle className="flex items-center gap-2">
               <ListChecks className="h-5 w-5 text-emerald-500" />
-              Interný checklist
+              Interný status list
               {cfg.enabled && totalItems > 0 && (
                 <Badge variant="secondary" className="text-[10px] ml-1">{cfg.sections.length} sekc. · {totalItems} pol.</Badge>
               )}
             </CardTitle>
-            <CardDescription>Konfigurovateľný checklist pre agentov počas hovoru v NexusPulse</CardDescription>
+            <CardDescription>Konfigurovateľný status list pre agentov počas hovoru v NexusPulse</CardDescription>
           </div>
           <div className="flex items-center gap-2">
             {cfg.enabled && totalItems > 0 && (
@@ -5973,6 +5974,7 @@ export default function CampaignDetailPage() {
                     { value: "scheduling", icon: Clock, label: t.campaigns.detail.scheduling, desc: "Pracovné hodiny" },
                     { value: "operators", icon: Shield, label: t.campaigns.detail.operator, desc: "Priradení operátori" },
                     { value: "dispositions", icon: CheckCheck, label: t.campaigns.detail.dispositions, desc: "Stavy a výsledky" },
+                    { value: "status_list", icon: ListChecks, label: "Status List", desc: "Kroky + automatizácie" },
                     { value: "kpi", icon: Target, label: t.campaigns.detail.kpiTargets, desc: "Ciele a metriky" },
                   ].map((tab) => {
                     const isActive = settingsSubTab === tab.value;
@@ -6321,6 +6323,12 @@ export default function CampaignDetailPage() {
                     <div className="space-y-4">
                       <DispositionsTab campaignId={campaignId} embedded />
                       <InternalChecklistSettingsCard campaign={campaign} />
+                    </div>
+                  )}
+
+                  {settingsSubTab === "status_list" && (
+                    <div className="space-y-4">
+                      <CampaignStatusListBuilder campaignId={campaignId} />
                     </div>
                   )}
 

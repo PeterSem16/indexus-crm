@@ -56,6 +56,14 @@ import {
   didRoutes,
   inboundCallbacks,
   insertInboundCallbackSchema,
+  campaignStatusListItems,
+  campaignStatusListAutomations,
+  campaignContactStatusListState,
+  taskBackOfficeConfirmations,
+  insertCampaignStatusListItemSchema,
+  insertCampaignStatusListAutomationSchema,
+  insertCampaignContactStatusListStateSchema,
+  insertTaskBackOfficeConfirmationSchema,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -26666,6 +26674,170 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to reorder dispositions:", error);
       res.status(500).json({ error: "Failed to reorder dispositions" });
+    }
+  });
+
+  // ===== Status List Routes =====
+
+  app.get("/api/campaigns/:campaignId/status-list", requireAuth, async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const items = await db.select().from(campaignStatusListItems)
+        .where(eq(campaignStatusListItems.campaignId, campaignId))
+        .orderBy(campaignStatusListItems.sortOrder);
+      const automations = items.length > 0
+        ? await db.select().from(campaignStatusListAutomations)
+            .where(inArray(campaignStatusListAutomations.statusListItemId, items.map(i => i.id)))
+            .orderBy(campaignStatusListAutomations.sortOrder)
+        : [];
+      const itemsWithAutomations = items.map(item => ({
+        ...item,
+        automations: automations.filter(a => a.statusListItemId === item.id),
+      }));
+      res.json(itemsWithAutomations);
+    } catch (error) {
+      console.error("Failed to fetch status list:", error);
+      res.status(500).json({ error: "Failed to fetch status list" });
+    }
+  });
+
+  app.post("/api/campaigns/:campaignId/status-list", requireAuth, async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const validated = insertCampaignStatusListItemSchema.parse({ ...req.body, campaignId });
+      const [item] = await db.insert(campaignStatusListItems).values(validated).returning();
+      res.json({ ...item, automations: [] });
+    } catch (error) {
+      console.error("Failed to create status list item:", error);
+      res.status(500).json({ error: "Failed to create status list item" });
+    }
+  });
+
+  app.put("/api/campaigns/:campaignId/status-list/:itemId", requireAuth, async (req, res) => {
+    try {
+      const { campaignId, itemId } = req.params;
+      const { automations: _a, ...body } = req.body;
+      const [updated] = await db.update(campaignStatusListItems)
+        .set({ ...body, updatedAt: new Date() })
+        .where(and(eq(campaignStatusListItems.id, itemId), eq(campaignStatusListItems.campaignId, campaignId)))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Item not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update status list item:", error);
+      res.status(500).json({ error: "Failed to update status list item" });
+    }
+  });
+
+  app.delete("/api/campaigns/:campaignId/status-list/:itemId", requireAuth, async (req, res) => {
+    try {
+      const { campaignId, itemId } = req.params;
+      await db.delete(campaignStatusListAutomations).where(eq(campaignStatusListAutomations.statusListItemId, itemId));
+      await db.delete(campaignStatusListItems)
+        .where(and(eq(campaignStatusListItems.id, itemId), eq(campaignStatusListItems.campaignId, campaignId)));
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Failed to delete status list item:", error);
+      res.status(500).json({ error: "Failed to delete status list item" });
+    }
+  });
+
+  app.post("/api/campaigns/:campaignId/status-list/:itemId/automations", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const validated = insertCampaignStatusListAutomationSchema.parse({ ...req.body, statusListItemId: itemId });
+      const [automation] = await db.insert(campaignStatusListAutomations).values(validated).returning();
+      res.json(automation);
+    } catch (error) {
+      console.error("Failed to create automation:", error);
+      res.status(500).json({ error: "Failed to create automation" });
+    }
+  });
+
+  app.put("/api/campaigns/:campaignId/status-list/:itemId/automations/:autoId", requireAuth, async (req, res) => {
+    try {
+      const { autoId } = req.params;
+      const [updated] = await db.update(campaignStatusListAutomations)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(campaignStatusListAutomations.id, autoId))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Automation not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update automation:", error);
+      res.status(500).json({ error: "Failed to update automation" });
+    }
+  });
+
+  app.delete("/api/campaigns/:campaignId/status-list/:itemId/automations/:autoId", requireAuth, async (req, res) => {
+    try {
+      const { autoId } = req.params;
+      await db.delete(campaignStatusListAutomations).where(eq(campaignStatusListAutomations.id, autoId));
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Failed to delete automation:", error);
+      res.status(500).json({ error: "Failed to delete automation" });
+    }
+  });
+
+  app.post("/api/campaigns/:campaignId/status-list/reorder", requireAuth, async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const { items } = req.body;
+      if (!Array.isArray(items)) return res.status(400).json({ error: "items array required" });
+      for (const item of items) {
+        await db.update(campaignStatusListItems)
+          .set({ sortOrder: item.sortOrder, updatedAt: new Date() })
+          .where(and(eq(campaignStatusListItems.id, item.id), eq(campaignStatusListItems.campaignId, campaignId)));
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Failed to reorder status list:", error);
+      res.status(500).json({ error: "Failed to reorder status list" });
+    }
+  });
+
+  // Get Back Office tasks for current user
+  app.get("/api/back-office/tasks", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const { country, scope } = req.query;
+      const conditions: any[] = [
+        eq(tasks.tags, sql`tasks.tags @> ARRAY['back_office']::text[]`),
+      ];
+      if (country) conditions.push(eq(tasks.country, country as string));
+      if (scope === "mine") conditions.push(eq(tasks.assignedUserId, userId));
+
+      const raw = await db.select({
+        task: tasks,
+        confirmation: taskBackOfficeConfirmations,
+      })
+        .from(tasks)
+        .leftJoin(taskBackOfficeConfirmations, eq(taskBackOfficeConfirmations.taskId, tasks.id))
+        .where(sql`${tasks.tags} @> ARRAY['back_office']::text[]${country ? sql` AND ${tasks.country} = ${country}` : sql``}`)
+        .orderBy(tasks.dueDate);
+
+      res.json(raw);
+    } catch (error) {
+      console.error("Failed to fetch BO tasks:", error);
+      res.status(500).json({ error: "Failed to fetch BO tasks" });
+    }
+  });
+
+  app.post("/api/back-office/tasks/:taskId/confirm", requireAuth, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = req.session.user!.id;
+      const { note, statusListItemId, campaignContactId } = req.body;
+      const validated = insertTaskBackOfficeConfirmationSchema.parse({
+        taskId, confirmedByUserId: userId, note, statusListItemId, campaignContactId,
+      });
+      const [confirmation] = await db.insert(taskBackOfficeConfirmations).values(validated).returning();
+      await db.update(tasks).set({ status: "completed", resolvedAt: new Date(), resolvedByUserId: userId, resolution: note || "Confirmed by Back Office" }).where(eq(tasks.id, taskId));
+      res.json(confirmation);
+    } catch (error) {
+      console.error("Failed to confirm BO task:", error);
+      res.status(500).json({ error: "Failed to confirm BO task" });
     }
   });
 

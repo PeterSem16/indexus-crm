@@ -147,6 +147,7 @@ import {
   type LucideIcon,
   Code2,
   CheckCheck,
+  ClipboardList,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import {
@@ -184,6 +185,7 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { getCountryFlag } from "@/lib/countries";
 import { COUNTRY_TO_LOCALE } from "@/i18n/translations";
+import { BackOfficePanel } from "@/components/back-office-panel";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
@@ -2164,6 +2166,8 @@ function CommunicationCanvas({
   onPendingEmailTemplateHandled,
   initialScriptStepId,
   onScriptAction,
+  backOfficeModeActive,
+  contactCountry,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2208,6 +2212,8 @@ function CommunicationCanvas({
   onPendingEmailTemplateHandled?: () => void;
   initialScriptStepId?: string | null;
   onScriptAction?: (action: string, data?: any) => void;
+  backOfficeModeActive?: boolean;
+  contactCountry?: string | null;
 }) {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -2314,7 +2320,7 @@ function CommunicationCanvas({
       const ic = s.internalChecklist || {};
       const mi = (i: any): WsCLItem => ({ id: i.id || crypto.randomUUID(), label: i.label || "", type: (i.type || "checkbox") as WsCLItemType, required: !!i.required, hasNotes: !!i.hasNotes, automationAction: (i.automationAction || "none") as WsCLAutomation, bold: !!i.bold, italic: !!i.italic, size: (i.size || "base") as WsCLItemSize });
       if (ic.items && !ic.sections) {
-        return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Checklist", icon: "", bold: false, italic: false, color: "", subsections: [], items: ic.items.map(mi) }] : [] };
+        return { enabled: ic.enabled === true, sections: ic.items.length > 0 ? [{ id: "default", title: "Status list", icon: "", bold: false, italic: false, color: "", subsections: [], items: ic.items.map(mi) }] : [] };
       }
       return {
         enabled: ic.enabled === true,
@@ -2951,7 +2957,24 @@ function CommunicationCanvas({
               data-testid="tab-checklist"
             >
               <ListChecks className="h-3.5 w-3.5" />
-              CHECKLIST
+              STATUS LIST
+            </button>
+          )}
+          {backOfficeModeActive && (
+            <button
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors relative ${
+                activeChannel === "back_office"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => onChannelChange("back_office")}
+              data-testid="tab-back-office"
+            >
+              {activeChannel === "back_office" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-sm" style={{ background: "hsl(var(--primary))" }} />
+              )}
+              <ClipboardList className="h-3.5 w-3.5" />
+              BACK OFFICE
             </button>
           )}
           <div className="ml-auto flex items-center pr-2">
@@ -3671,7 +3694,7 @@ function CommunicationCanvas({
           return (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-16">
               <ListChecks className="h-10 w-10 mb-3 opacity-20" />
-              <p className="text-sm font-medium">Checklist nie je nakonfigurovaný</p>
+              <p className="text-sm font-medium">Status list nie je nakonfigurovaný</p>
               <p className="text-xs mt-1">Nakonfigurujte ho v Nastaveniach kampane</p>
             </div>
           );
@@ -3867,7 +3890,7 @@ function CommunicationCanvas({
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-1.5">
                               <CheckSquare className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                              <span className="text-xs font-medium">Checklist</span>
+                              <span className="text-xs font-medium">Status list</span>
                               <span className="text-xs text-muted-foreground">({doneCount}/{prevItemsFlat.length || totalClItems} zodp.)</span>
                             </div>
                             <span className="text-[10px] text-muted-foreground">{format(new Date(entry.date), "d.M.yyyy HH:mm", { locale: sk })}</span>
@@ -3920,16 +3943,16 @@ function CommunicationCanvas({
                   };
                   if (!campaignContactId) {
                     setIsSavingChecklist(false);
-                    toast({ title: "Checklist uložený" });
+                    toast({ title: "Status list uložený" });
                     return;
                   }
                   try {
                     await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/checklist-response`, payload);
                     queryClient.invalidateQueries({ queryKey: ["/api/entity-history", contact?.id] });
                     clLoadedForContactRef.current = contact?.id || null;
-                    toast({ title: "Checklist uložený" });
+                    toast({ title: "Status list uložený" });
                   } catch {
-                    toast({ title: "Chyba pri ukladaní checklistu", variant: "destructive" });
+                    toast({ title: "Chyba pri ukladaní status listu", variant: "destructive" });
                   } finally {
                     setIsSavingChecklist(false);
                   }
@@ -3937,12 +3960,18 @@ function CommunicationCanvas({
                 data-testid="btn-save-checklist"
               >
                 {isSavingChecklist ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckSquare className="h-4 w-4" />}
-                Uložiť checklist{answeredCount > 0 ? ` (${answeredCount}/${totalClItems})` : ""}
+                Uložiť status list{answeredCount > 0 ? ` (${answeredCount}/${totalClItems})` : ""}
               </Button>
             </div>
           </div>
         );
       })()}
+
+      {activeChannel === "back_office" && (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <BackOfficePanel country={contactCountry || undefined} />
+        </div>
+      )}
 
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
@@ -6596,6 +6625,8 @@ export default function AgentWorkspacePage() {
   const [modalSearch, setModalSearch] = useState("");
   const [selectedLoginCampaignIds, setSelectedLoginCampaignIds] = useState<string[]>([]);
   const [selectedLoginQueueIds, setSelectedLoginQueueIds] = useState<string[]>([]);
+  const [loginBackOffice, setLoginBackOffice] = useState(false);
+  const [backOfficeModeActive, setBackOfficeModeActive] = useState(false);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
   const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[]; callId?: string } | null>(null);
   const [pendingUnknownCaller, setPendingUnknownCaller] = useState<{ phone: string } | null>(null);
@@ -8012,6 +8043,7 @@ export default function AgentWorkspacePage() {
         });
       if (shouldDefaultOnlyAssigned) setShowOnlyAssigned(true);
       setSessionLoginOpen(false);
+      if (loginBackOffice) setBackOfficeModeActive(true);
       toast({ title: t.agentSession.shiftStarted, description: t.agentSession.shiftStartedDesc });
     } catch (error) {
       toast({ title: t.agentSession.shiftError, description: t.agentSession.shiftStartError, variant: "destructive" });
@@ -9621,17 +9653,42 @@ export default function AgentWorkspacePage() {
                   );
                 })()}
 
+                {/* Back Office sekcia */}
+                <div
+                  className={`rounded-xl px-3 py-2.5 mb-3 border cursor-pointer transition-all ${loginBackOffice ? "bg-primary/5 border-primary/30" : "bg-card border-border"}`}
+                  onClick={() => setLoginBackOffice(v => !v)}
+                  data-testid="login-back-office-toggle"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: loginBackOffice ? "hsl(var(--primary) / 0.10)" : "hsl(var(--muted))" }}>
+                      <ClipboardList className="h-3.5 w-3.5" style={{ color: loginBackOffice ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">Back Office agenda</p>
+                      <p className="text-[10px] text-muted-foreground">Úlohy z automatizácií Status Listu</p>
+                    </div>
+                    <div className="rounded flex items-center justify-center" style={{ width: 18, height: 18, background: loginBackOffice ? "hsl(var(--primary))" : "transparent", border: `2px solid ${loginBackOffice ? "hsl(var(--primary))" : "hsl(var(--border))"}` }}>
+                      {loginBackOffice && <Check className="h-2.5 w-2.5 text-white" />}
+                    </div>
+                  </div>
+                  {loginBackOffice && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 pl-9">
+                      ⚠ V BO režime nie si dostupný pre prichádzajúce hovory
+                    </p>
+                  )}
+                </div>
+
                 <Button
                   className="w-full gap-2 h-11 font-semibold"
                   onClick={handleStartSession}
-                  disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0}
+                  disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && !loginBackOffice}
                   data-testid="button-start-session"
                 >
                   <Headphones className="h-4 w-4" />
                   {t.agentSession.startShift}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
-                {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && (
+                {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && !loginBackOffice && (
                   <p className="text-center text-[11px] mt-2 text-muted-foreground">{t.agentSession.selectAtLeastOne}</p>
                 )}
               </div>
@@ -9876,6 +9933,8 @@ export default function AgentWorkspacePage() {
               initialScriptStepId={currentCampaignContact?.currentScriptStepId || null}
               pendingEmailTemplateId={pendingEmailTemplateId}
               onPendingEmailTemplateHandled={() => setPendingEmailTemplateId(null)}
+              backOfficeModeActive={backOfficeModeActive}
+              contactCountry={currentContact?.country || null}
               onScriptAction={(action, data) => {
                 if (action === "openEmail") {
                   setActiveChannel("email");

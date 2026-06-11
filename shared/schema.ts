@@ -7631,3 +7631,123 @@ export const inboundCallbacks = pgTable("inbound_callbacks", {
 export const insertInboundCallbackSchema = createInsertSchema(inboundCallbacks).omit({ id: true, createdAt: true });
 export type InboundCallback = typeof inboundCallbacks.$inferSelect;
 export type InsertInboundCallback = z.infer<typeof insertInboundCallbackSchema>;
+
+// =================== Status List (Campaign SOP with Automations) ===================
+
+export const STATUS_LIST_ACTION_TYPES = [
+  "assign_task",
+  "send_email_group",
+  "send_sms",
+  "set_contact_status",
+  "notify_role",
+  "sys_webhook",
+] as const;
+export type StatusListActionType = typeof STATUS_LIST_ACTION_TYPES[number];
+
+export const STATUS_LIST_TARGET_ROLES = [
+  "role:coordinator",
+  "role:back_office",
+  "role:admin",
+  "role:manager",
+  "sys",
+] as const;
+export type StatusListTargetRole = typeof STATUS_LIST_TARGET_ROLES[number];
+
+export const campaignStatusListItems = pgTable("campaign_status_list_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  stepId: text("step_id").notNull(),
+  label: text("label").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  required: boolean("required").notNull().default(false),
+  parentId: varchar("parent_id"),
+  confirmationType: text("confirmation_type").notNull().default("checkbox"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignStatusListItemSchema = createInsertSchema(campaignStatusListItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  description: z.string().optional().nullable(),
+  parentId: z.string().optional().nullable(),
+  confirmationType: z.enum(["checkbox", "radio", "info"]).optional().default("checkbox"),
+});
+export type CampaignStatusListItem = typeof campaignStatusListItems.$inferSelect;
+export type InsertCampaignStatusListItem = z.infer<typeof insertCampaignStatusListItemSchema>;
+
+export const campaignStatusListAutomations = pgTable("campaign_status_list_automations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  statusListItemId: varchar("status_list_item_id").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  actionType: text("action_type").notNull(),
+  targetRole: text("target_role"),
+  emailTemplateId: varchar("email_template_id"),
+  smsTemplateId: varchar("sms_template_id"),
+  taskDescription: text("task_description"),
+  taskDeadlineOffset: text("task_deadline_offset"),
+  taskPriority: text("task_priority").notNull().default("medium"),
+  conditionField: text("condition_field"),
+  conditionOperator: text("condition_operator"),
+  conditionValue: text("condition_value"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignStatusListAutomationSchema = createInsertSchema(campaignStatusListAutomations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  targetRole: z.string().optional().nullable(),
+  emailTemplateId: z.string().optional().nullable(),
+  smsTemplateId: z.string().optional().nullable(),
+  taskDescription: z.string().optional().nullable(),
+  taskDeadlineOffset: z.string().optional().nullable(),
+  conditionField: z.string().optional().nullable(),
+  conditionOperator: z.string().optional().nullable(),
+  conditionValue: z.string().optional().nullable(),
+});
+export type CampaignStatusListAutomation = typeof campaignStatusListAutomations.$inferSelect;
+export type InsertCampaignStatusListAutomation = z.infer<typeof insertCampaignStatusListAutomationSchema>;
+
+export const campaignContactStatusListState = pgTable("campaign_contact_status_list_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignContactId: varchar("campaign_contact_id").notNull(),
+  statusListItemId: varchar("status_list_item_id").notNull(),
+  confirmedAt: timestamp("confirmed_at").notNull().default(sql`now()`),
+  confirmedByUserId: text("confirmed_by_user_id").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignContactStatusListStateSchema = createInsertSchema(campaignContactStatusListState).omit({
+  id: true,
+  createdAt: true,
+});
+export type CampaignContactStatusListState = typeof campaignContactStatusListState.$inferSelect;
+export type InsertCampaignContactStatusListState = z.infer<typeof insertCampaignContactStatusListStateSchema>;
+
+export const taskBackOfficeConfirmations = pgTable("task_back_office_confirmations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull(),
+  confirmedByUserId: text("confirmed_by_user_id").notNull(),
+  note: text("note"),
+  confirmedAt: timestamp("confirmed_at").notNull().default(sql`now()`),
+  statusListItemId: varchar("status_list_item_id"),
+  campaignContactId: varchar("campaign_contact_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertTaskBackOfficeConfirmationSchema = createInsertSchema(taskBackOfficeConfirmations).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  note: z.string().optional().nullable(),
+  statusListItemId: z.string().optional().nullable(),
+  campaignContactId: z.string().optional().nullable(),
+});
+export type TaskBackOfficeConfirmation = typeof taskBackOfficeConfirmations.$inferSelect;
+export type InsertTaskBackOfficeConfirmation = z.infer<typeof insertTaskBackOfficeConfirmationSchema>;
