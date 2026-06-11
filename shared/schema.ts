@@ -7663,6 +7663,8 @@ export const campaignStatusListItems = pgTable("campaign_status_list_items", {
   required: boolean("required").notNull().default(false),
   parentId: varchar("parent_id"),
   confirmationType: text("confirmation_type").notNull().default("checkbox"),
+  nextStepId: varchar("next_step_id"),
+  restrictions: text("restrictions"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7675,6 +7677,8 @@ export const insertCampaignStatusListItemSchema = createInsertSchema(campaignSta
   description: z.string().optional().nullable(),
   parentId: z.string().optional().nullable(),
   confirmationType: z.enum(["checkbox", "radio", "info"]).optional().default("checkbox"),
+  nextStepId: z.string().optional().nullable(),
+  restrictions: z.string().optional().nullable(),
 });
 export type CampaignStatusListItem = typeof campaignStatusListItems.$inferSelect;
 export type InsertCampaignStatusListItem = z.infer<typeof insertCampaignStatusListItemSchema>;
@@ -7693,6 +7697,7 @@ export const campaignStatusListAutomations = pgTable("campaign_status_list_autom
   conditionField: text("condition_field"),
   conditionOperator: text("condition_operator"),
   conditionValue: text("condition_value"),
+  dispositionId: varchar("disposition_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7710,6 +7715,7 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
   conditionField: z.string().optional().nullable(),
   conditionOperator: z.string().optional().nullable(),
   conditionValue: z.string().optional().nullable(),
+  dispositionId: z.string().optional().nullable(),
 });
 export type CampaignStatusListAutomation = typeof campaignStatusListAutomations.$inferSelect;
 export type InsertCampaignStatusListAutomation = z.infer<typeof insertCampaignStatusListAutomationSchema>;

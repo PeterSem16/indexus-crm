@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { CLA_TEMPLATE, ROLE_BADGE_MAP } from "@/data/cla-template";
+import { useI18n } from "@/i18n";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MessageSquare, Tag, Webhook, Bell,
@@ -32,6 +33,7 @@ type StatusListAutomation = {
   conditionField: string | null;
   conditionOperator: string | null;
   conditionValue: string | null;
+  dispositionId: string | null;
 };
 
 type StatusListItem = {
@@ -44,6 +46,8 @@ type StatusListItem = {
   required: boolean;
   parentId: string | null;
   confirmationType: string;
+  nextStepId: string | null;
+  restrictions: string | null;
   automations: StatusListAutomation[];
 };
 
@@ -86,6 +90,21 @@ const CONFIRM_TYPE_OPTIONS = [
   { value: "radio", label: "Výber (Radio)", icon: Radio },
   { value: "info", label: "Informácia (len čítanie)", icon: Info },
 ];
+
+const SL_LABELS: Record<string, Record<string, string>> = {
+  nextStep:       { sk: "Nasledujúci krok", en: "Next step", cs: "Další krok", hu: "Következő lépés", ro: "Pasul următor", it: "Passo successivo", de: "Nächster Schritt" },
+  nextStepPh:     { sk: "napr. CLA-04 alebo —", en: "e.g. CLA-04 or —", cs: "např. CLA-04 nebo —", hu: "pl. CLA-04 vagy —", ro: "ex. CLA-04 sau —", it: "es. CLA-04 o —", de: "z.B. CLA-04 oder —" },
+  restrictions:   { sk: "Obmedzenia / FC pravidlá", en: "Restrictions / FC rules", cs: "Omezení / FC pravidla", hu: "Korlátozások / FC szabályok", ro: "Restricții / Reguli FC", it: "Restrizioni / Regole FC", de: "Einschränkungen / FC-Regeln" },
+  restrictionsPh: { sk: "FC podmienky, pravidlá, výnimky...", en: "FC conditions, rules, exceptions...", cs: "FC podmínky, pravidla, výjimky...", hu: "FC feltételek, szabályok, kivételek...", ro: "Condiții FC, reguli, excepții...", it: "Condizioni FC, regole, eccezioni...", de: "FC-Bedingungen, Regeln, Ausnahmen..." },
+  disposition:    { sk: "Disposícia / Status kontaktu", en: "Disposition / Contact status", cs: "Dispozice / Stav kontaktu", hu: "Diszpozíció / Kontakt állapota", ro: "Dispoziție / Status contact", it: "Disposizione / Stato contatto", de: "Disposition / Kontaktstatus" },
+  selectDisp:     { sk: "Vybrať disposíciu...", en: "Select disposition...", cs: "Vybrat dispozici...", hu: "Diszpozíció kiválasztása...", ro: "Selectați dispoziția...", it: "Seleziona disposizione...", de: "Disposition auswählen..." },
+  emailTemplate:  { sk: "Šablóna emailu", en: "Email template", cs: "E-mailová šablona", hu: "E-mail sablon", ro: "Șablon email", it: "Modello email", de: "E-Mail-Vorlage" },
+  selectEmail:    { sk: "Vybrať šablónu...", en: "Select template...", cs: "Vybrat šablonu...", hu: "Sablon kiválasztása...", ro: "Selectați șablonul...", it: "Seleziona modello...", de: "Vorlage auswählen..." },
+  restrictionsFC: { sk: "Obmedzenia (FC)", en: "Restrictions (FC)", cs: "Omezení (FC)", hu: "Korlátozások (FC)", ro: "Restricții (FC)", it: "Restrizioni (FC)", de: "Einschränkungen (FC)" },
+};
+function sl(key: string, locale: string): string {
+  return SL_LABELS[key]?.[locale] ?? SL_LABELS[key]?.["sk"] ?? key;
+}
 
 function getActionIcon(actionType: string) {
   const opt = ACTION_TYPE_OPTIONS.find(o => o.value === actionType);
@@ -140,9 +159,23 @@ function AutomationForm({
     conditionType: automation?.conditionField === "country" ? "country" : automation?.conditionField === "answer" ? "answer" : "always",
     conditionCountry: automation?.conditionField === "country" ? (automation?.conditionValue || "SK") : "SK",
     conditionAnswer: automation?.conditionField === "answer" ? (automation?.conditionValue || "") : "",
+    dispositionId: automation?.dispositionId || "",
   });
 
+  const { locale } = useI18n();
   const isEdit = !!automation?.id;
+
+  const { data: emailTemplates = [] } = useQuery<any[]>({
+    queryKey: ["/api/message-templates", "email"],
+    queryFn: () => fetch(`/api/message-templates?type=email`, { credentials: "include" }).then(r => r.json()),
+    enabled: form.actionType === "send_email_group",
+  });
+
+  const { data: campaignDispositions = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaignId, "dispositions-auto"],
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
+    enabled: form.actionType === "set_contact_status",
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -154,6 +187,7 @@ function AutomationForm({
         taskPriority: form.taskPriority,
         emailTemplateId: form.emailTemplateId || null,
         smsTemplateId: form.smsTemplateId || null,
+        dispositionId: form.dispositionId || null,
         conditionField: form.conditionType === "always" ? null : form.conditionType,
         conditionOperator: form.conditionType === "always" ? null : "eq",
         conditionValue: form.conditionType === "always" ? null : (form.conditionType === "country" ? form.conditionCountry : (form.conditionAnswer || null)),
@@ -263,13 +297,46 @@ function AutomationForm({
 
         {needsEmail && (
           <div className="col-span-2">
-            <Label className="text-xs mb-1 block">ID emailovej šablóny</Label>
-            <Input
-              className="h-8 text-xs"
-              value={form.emailTemplateId}
-              onChange={e => setForm(f => ({ ...f, emailTemplateId: e.target.value }))}
-              placeholder="ID šablóny..."
-            />
+            <Label className="text-xs mb-1 block">{sl("emailTemplate", locale)}</Label>
+            <Select value={form.emailTemplateId} onValueChange={v => setForm(f => ({ ...f, emailTemplateId: v }))}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder={sl("selectEmail", locale)} />
+              </SelectTrigger>
+              <SelectContent>
+                {emailTemplates.map((t: any) => (
+                  <SelectItem key={t.id} value={String(t.id)}>
+                    {t.name || t.subject || String(t.id)}
+                  </SelectItem>
+                ))}
+                {emailTemplates.length === 0 && (
+                  <SelectItem value="__none__" disabled>Žiadne email šablóny</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {form.actionType === "set_contact_status" && (
+          <div className="col-span-2">
+            <Label className="text-xs mb-1 block">{sl("disposition", locale)}</Label>
+            <Select value={form.dispositionId} onValueChange={v => setForm(f => ({ ...f, dispositionId: v }))}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder={sl("selectDisp", locale)} />
+              </SelectTrigger>
+              <SelectContent>
+                {campaignDispositions.map((d: any) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    <span className="flex items-center gap-2">
+                      {d.code && <span className="font-mono text-[10px] text-muted-foreground">{d.code}</span>}
+                      {d.name}
+                    </span>
+                  </SelectItem>
+                ))}
+                {campaignDispositions.length === 0 && (
+                  <SelectItem value="__none__" disabled>Žiadne disposície v tejto kampani</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -338,12 +405,15 @@ function StatusListItemRow({
   const [editMode, setEditMode] = useState(false);
   const [addingAutomation, setAddingAutomation] = useState(false);
   const [editingAutoId, setEditingAutoId] = useState<string | null>(null);
+  const { locale } = useI18n();
   const [form, setForm] = useState({
     stepId: item.stepId,
     label: item.label,
     description: item.description || "",
     confirmationType: item.confirmationType,
     required: item.required,
+    nextStepId: item.nextStepId || "",
+    restrictions: item.restrictions || "",
   });
 
   const updateMutation = useMutation({
@@ -426,6 +496,16 @@ function StatusListItemRow({
                 <Label className="text-xs mb-1 block">Popis (voliteľný)</Label>
                 <Textarea className="text-xs min-h-[50px] resize-none" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Detailný popis pre agenta..." />
               </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-xs mb-1 block">{sl("nextStep", locale)}</Label>
+                  <Input className="h-8 text-xs font-mono" value={form.nextStepId} onChange={e => setForm(f => ({ ...f, nextStepId: e.target.value }))} placeholder={sl("nextStepPh", locale)} />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs mb-1 block">{sl("restrictions", locale)}</Label>
+                  <Input className="h-8 text-xs" value={form.restrictions} onChange={e => setForm(f => ({ ...f, restrictions: e.target.value }))} placeholder={sl("restrictionsPh", locale)} />
+                </div>
+              </div>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <Label className="text-xs mb-1 block">Typ potvrdenia</Label>
@@ -463,6 +543,22 @@ function StatusListItemRow({
           ) : (
             <>
               {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
+              {(item.nextStepId || item.restrictions) && (
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                  {item.nextStepId && (
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <span className="font-semibold">→</span>
+                      <span className="font-mono">{item.nextStepId}</span>
+                    </span>
+                  )}
+                  {item.restrictions && (
+                    <span className="text-[10px] text-amber-700 dark:text-amber-400 flex items-start gap-1">
+                      <span className="font-semibold shrink-0">FC:</span>
+                      <span className="truncate max-w-[400px]">{item.restrictions}</span>
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="flex flex-wrap gap-1">
                 {item.automations.map(auto => (
                   <AutomationBadge key={auto.id} automation={auto} />
@@ -555,6 +651,7 @@ function AddItemForm({
   onCancel: () => void;
 }) {
   const { toast } = useToast();
+  const { locale } = useI18n();
   const [form, setForm] = useState({
     stepId: `STEP-${String(existingCount + 1).padStart(2, "0")}`,
     label: "",
@@ -562,6 +659,8 @@ function AddItemForm({
     confirmationType: "checkbox",
     required: false,
     sortOrder: existingCount,
+    nextStepId: "",
+    restrictions: "",
   });
 
   const addMutation = useMutation({
@@ -593,6 +692,16 @@ function AddItemForm({
       <div>
         <Label className="text-xs mb-1 block">Popis (voliteľný)</Label>
         <Textarea className="text-xs min-h-[50px] resize-none" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Detailný popis alebo inštrukcie..." />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <Label className="text-xs mb-1 block">{sl("nextStep", locale)}</Label>
+          <Input className="h-8 text-xs font-mono" value={form.nextStepId} onChange={e => setForm(f => ({ ...f, nextStepId: e.target.value }))} placeholder={sl("nextStepPh", locale)} />
+        </div>
+        <div className="col-span-2">
+          <Label className="text-xs mb-1 block">{sl("restrictions", locale)}</Label>
+          <Input className="h-8 text-xs" value={form.restrictions} onChange={e => setForm(f => ({ ...f, restrictions: e.target.value }))} placeholder={sl("restrictionsPh", locale)} />
+        </div>
       </div>
       <div className="flex items-center gap-4">
         <div className="flex-1">
@@ -711,6 +820,8 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           confirmationType: step.confirmationType,
           required: false,
           sortOrder: base + i,
+          nextStepId: step.nextStepId || null,
+          restrictions: step.restrictions || null,
         });
         const created = await res.json();
         const itemId = created.id;
@@ -928,6 +1039,12 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                         <p className="text-[10px] text-muted-foreground/70">
                           <span className="font-semibold">→</span> {step.nextStepId}
                           {step.callbackTiming && step.callbackTiming !== "—" && ` · ${step.callbackTiming}`}
+                        </p>
+                      )}
+                      {step.restrictions && (
+                        <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5 flex items-start gap-1">
+                          <span className="font-semibold shrink-0">FC:</span>
+                          <span className="line-clamp-2">{step.restrictions}</span>
                         </p>
                       )}
                     </div>
