@@ -6725,6 +6725,7 @@ export default function AgentWorkspacePage() {
   const [backOfficeModeActive, setBackOfficeModeActive] = useState(false);
   const [mainWorkspaceTab, setMainWorkspaceTab] = useState<"pulse" | "back_office">("pulse");
   const prevStatusBeforeBackOffice = useRef<AgentStatus | null>(null);
+  const [allowInboundInBO, setAllowInboundInBO] = useState(false);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
   const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[]; callId?: string } | null>(null);
   const [pendingUnknownCaller, setPendingUnknownCaller] = useState<{ phone: string } | null>(null);
@@ -8090,9 +8091,21 @@ export default function AgentWorkspacePage() {
     }
   };
 
+  const handleToggleAllowInboundInBO = async () => {
+    const next = !allowInboundInBO;
+    setAllowInboundInBO(next);
+    if (mainWorkspaceTab === "back_office" && agentSession.isSessionActive) {
+      if (next) {
+        await agentSession.updateStatus("available").catch(() => {});
+      } else {
+        await agentSession.updateStatus("break").catch(() => {});
+      }
+    }
+  };
+
   const handleSwitchToBackOffice = async () => {
     if (mainWorkspaceTab === "back_office") return;
-    if (agentSession.isSessionActive && agentSession.status !== "break") {
+    if (agentSession.isSessionActive && !allowInboundInBO && agentSession.status !== "break") {
       prevStatusBeforeBackOffice.current = agentSession.status as AgentStatus;
       await agentSession.updateStatus("break").catch(() => {});
     }
@@ -8206,6 +8219,8 @@ export default function AgentWorkspacePage() {
       setBackOfficeModeActive(false);
       setLoginBackOffice(false);
       setMainWorkspaceTab("pulse");
+      setAllowInboundInBO(false);
+      prevStatusBeforeBackOffice.current = null;
       toast({ title: t.agentSession.shiftEnded, description: t.agentSession.shiftEndedDesc });
     } catch (error) {
       toast({ title: t.agentSession.shiftError, description: t.agentSession.shiftEndError, variant: "destructive" });
@@ -9849,47 +9864,58 @@ export default function AgentWorkspacePage() {
       />
 
       {/* ── Hlavné záložky: PULSE / BACK OFFICE ── */}
-      {agentSession.isSessionActive && backOfficeModeActive && (
-        <div className="flex items-center gap-0 border-b bg-card shrink-0 px-4" style={{ minHeight: 36 }}>
-          <button
-            type="button"
-            onClick={handleSwitchToPulse}
-            className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors relative ${
-              mainWorkspaceTab === "pulse"
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            data-testid="main-tab-pulse"
-          >
-            {mainWorkspaceTab === "pulse" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-sm" style={{ background: "hsl(var(--primary))" }} />
-            )}
-            <Headphones className="h-3.5 w-3.5" />
-            PULSE
-          </button>
-          <button
-            type="button"
-            onClick={handleSwitchToBackOffice}
-            className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors relative ${
-              mainWorkspaceTab === "back_office"
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            data-testid="main-tab-back-office"
-          >
-            {mainWorkspaceTab === "back_office" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-sm" style={{ background: "hsl(var(--primary))" }} />
-            )}
-            <ClipboardList className="h-3.5 w-3.5" />
-            BACK OFFICE
-          </button>
-        </div>
-      )}
+      {(() => {
+        const hasMissions = sessionCampaignIds.length > 0 || sessionInboundQueueIds.length > 0;
+        if (!agentSession.isSessionActive || !backOfficeModeActive) return null;
+        if (!hasMissions) return null;
+        return (
+          <div className="flex items-center gap-0 border-b bg-card shrink-0 px-4" style={{ minHeight: 36 }}>
+            <button
+              type="button"
+              onClick={handleSwitchToPulse}
+              className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors relative ${
+                mainWorkspaceTab === "pulse"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="main-tab-pulse"
+            >
+              {mainWorkspaceTab === "pulse" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-sm" style={{ background: "hsl(var(--primary))" }} />
+              )}
+              <Headphones className="h-3.5 w-3.5" />
+              PULSE
+            </button>
+            <button
+              type="button"
+              onClick={handleSwitchToBackOffice}
+              className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors relative ${
+                mainWorkspaceTab === "back_office"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="main-tab-back-office"
+            >
+              {mainWorkspaceTab === "back_office" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-sm" style={{ background: "hsl(var(--primary))" }} />
+              )}
+              <ClipboardList className="h-3.5 w-3.5" />
+              BACK OFFICE
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ── BACK OFFICE — celá obrazovka ── */}
       {agentSession.isSessionActive && backOfficeModeActive && mainWorkspaceTab === "back_office" && (
         <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-          <BackOfficePanel country={(user as any)?.countries?.[0] || undefined} fullScreen />
+          <BackOfficePanel
+            country={(user as any)?.countries?.[0] || undefined}
+            fullScreen
+            hasInboundQueues={sessionInboundQueueIds.length > 0}
+            allowInbound={allowInboundInBO}
+            onToggleAllowInbound={handleToggleAllowInboundInBO}
+          />
         </div>
       )}
 

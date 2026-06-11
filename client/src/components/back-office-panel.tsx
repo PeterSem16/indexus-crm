@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/auth-context";
 import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, User,
   ExternalLink, Loader2, Check, X, ChevronRight, Zap,
-  Calendar, Building2, Phone,
+  Calendar, Building2, Phone, PhoneIncoming,
 } from "lucide-react";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
 import { sk } from "date-fns/locale";
@@ -270,7 +270,7 @@ function TaskDetail({
   );
 }
 
-export function BackOfficePanel({ country, fullScreen }: { country?: string; fullScreen?: boolean }) {
+export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowInbound, onToggleAllowInbound }: { country?: string; fullScreen?: boolean; hasInboundQueues?: boolean; allowInbound?: boolean; onToggleAllowInbound?: () => void }) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [scope, setScope] = useState<"mine" | "team" | "all">("mine");
   const [filter, setFilter] = useState<"all" | "pending" | "done">("pending");
@@ -309,6 +309,24 @@ export function BackOfficePanel({ country, fullScreen }: { country?: string; ful
               <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white">{urgentCount}</span>
             )}
           </div>
+          {hasInboundQueues && onToggleAllowInbound && (
+            <button
+              type="button"
+              onClick={onToggleAllowInbound}
+              data-testid="toggle-allow-inbound-in-bo"
+              className={`flex items-center gap-1.5 w-full px-2 py-1.5 rounded text-[10px] font-medium transition-colors border ${allowInbound ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400" : "bg-muted/50 border-border text-muted-foreground hover:bg-muted"}`}
+            >
+              <span className={`inline-flex items-center justify-center h-3.5 w-3.5 rounded border shrink-0 transition-colors ${allowInbound ? "bg-green-500 border-green-500" : "border-muted-foreground/40 bg-transparent"}`}>
+                {allowInbound && (
+                  <svg viewBox="0 0 12 12" fill="none" className="h-2.5 w-2.5 text-white">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </span>
+              <PhoneIncoming className="h-3 w-3 shrink-0" />
+              Prijímať inbound hovory
+            </button>
+          )}
           <div className="flex gap-1">
             {(["mine", "team", "all"] as const).map(s => (
               <button
