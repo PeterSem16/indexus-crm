@@ -2258,6 +2258,42 @@ function CommunicationCanvas({
     queryKey: ["/api/campaigns", campaign?.id, "status-list"],
     enabled: !!campaign?.id,
   });
+  const { data: dbSlState = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaign?.id, "contacts", campaignContactId, "status-list-state"],
+    enabled: !!campaign?.id && !!campaignContactId,
+  });
+
+  useEffect(() => {
+    // All rows in dbSlState are confirmed (existence-based model)
+    if (dbSlState) {
+      const confirmedIds = new Set<string>(
+        (dbSlState as any[]).map((s: any) => String(s.statusListItemId))
+      );
+      setDbSlChecked(confirmedIds);
+    }
+  }, [dbSlState]);
+
+  const handleSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
+    setDbSlChecked(prev => {
+      const next = new Set(prev);
+      if (newChecked) next.add(itemId); else next.delete(itemId);
+      return next;
+    });
+    if (!campaign?.id || !campaignContactId) return;
+    try {
+      await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
+        confirm: newChecked,
+        contactCountry: contactCountry ?? null,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+    } catch {
+      setDbSlChecked(prev => {
+        const next = new Set(prev);
+        if (newChecked) next.delete(itemId); else next.add(itemId);
+        return next;
+      });
+    }
+  }, [campaign?.id, campaignContactId, contactCountry]);
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   
   useEffect(() => {
@@ -3685,7 +3721,7 @@ function CommunicationCanvas({
         if (dbStatusList.length > 0) {
           const dbConfirmed = dbSlChecked.size;
           const dbTotal = (dbStatusList as any[]).length;
-          const dbRequiredMissing = (dbStatusList as any[]).filter((i: any) => i.required && !dbSlChecked.has(i.id));
+          const dbRequiredMissing = (dbStatusList as any[]).filter((i: any) => i.required && !dbSlChecked.has(String(i.id)));
           return (
             <div className="flex flex-col flex-1 overflow-hidden">
               <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center justify-between shrink-0">
@@ -3700,7 +3736,7 @@ function CommunicationCanvas({
                   <div
                     key={item.id}
                     className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border transition-all ${
-                      dbSlChecked.has(item.id)
+                      dbSlChecked.has(String(item.id))
                         ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700"
                         : "bg-card border-border hover:border-emerald-300 dark:hover:border-emerald-700"
                     }`}
@@ -3710,25 +3746,29 @@ function CommunicationCanvas({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setDbSlChecked(prev => {
-                          const next = new Set(prev);
-                          if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
-                          return next;
-                        })}
+                        onClick={() => handleSlToggle(String(item.id), !dbSlChecked.has(String(item.id)))}
                         className={`mt-0.5 h-4 w-4 rounded border-2 shrink-0 flex items-center justify-center transition-all cursor-pointer ${
-                          dbSlChecked.has(item.id) ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/40 bg-background"
+                          dbSlChecked.has(String(item.id)) ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/40 bg-background"
                         }`}
                         data-testid={`sl-check-${item.id}`}
                       >
-                        {dbSlChecked.has(item.id) && <Check className="h-2.5 w-2.5 text-white" />}
+                        {dbSlChecked.has(String(item.id)) && <Check className="h-2.5 w-2.5 text-white" />}
                       </button>
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-medium leading-snug ${dbSlChecked.has(item.id) ? "line-through text-muted-foreground" : ""}`}>
+                      <div className={`text-sm font-medium leading-snug ${dbSlChecked.has(String(item.id)) ? "line-through text-muted-foreground" : ""}`}>
                         {item.label}
                         {item.required && <span className="ml-1 text-rose-500 text-[10px]">*</span>}
                       </div>
                       {item.description && <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>}
+                      {(() => {
+                        const itemState = (dbSlState as any[]).find((s: any) => String(s.statusListItemId) === String(item.id));
+                        return itemState?.confirmedAt ? (
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                            ✓ {new Date(itemState.confirmedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                     <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0 pt-0.5">{item.stepId}</span>
                   </div>
@@ -3744,16 +3784,12 @@ function CommunicationCanvas({
                 {dbRequiredMissing.length > 0 && (
                   <p className="text-[10px] text-rose-500 text-center">Povinné nevyplnené: {dbRequiredMissing.map((i: any) => i.label).join(", ")}</p>
                 )}
-                <Button
-                  className="w-full gap-2"
-                  size="sm"
-                  disabled={dbConfirmed === 0}
-                  onClick={() => toast({ title: "Status list zaznamenaný", description: `${dbConfirmed} z ${dbTotal} krokov potvrdených` })}
-                  data-testid="btn-save-db-statuslist"
-                >
-                  <CheckSquare className="h-4 w-4" />
-                  Zaznamenať postup{dbConfirmed > 0 ? ` (${dbConfirmed}/${dbTotal})` : ""}
-                </Button>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground justify-center py-0.5">
+                  <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                  {dbConfirmed > 0
+                    ? `${dbConfirmed} z ${dbTotal} krokov uložených automaticky`
+                    : "Kliknutím na krok ho okamžite uložíte"}
+                </div>
               </div>
             </div>
           );

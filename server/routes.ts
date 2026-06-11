@@ -64,6 +64,8 @@ import {
   insertCampaignStatusListAutomationSchema,
   insertCampaignContactStatusListStateSchema,
   insertTaskBackOfficeConfirmationSchema,
+  tasks,
+  insertTaskSchema,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -26838,6 +26840,145 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to confirm BO task:", error);
       res.status(500).json({ error: "Failed to confirm BO task" });
+    }
+  });
+
+  // ===== Status List State Routes (F7/F8/F9) =====
+
+  // Helper: parse relative due date offset strings like "+1h", "+4h", "+24h", "+2d", "+7d", "+14d"
+  function parseDueDate(str: string | null | undefined): Date {
+    const now = new Date();
+    if (!str) return new Date(now.getTime() + 86400000); // default +24h
+    const match = str.match(/^\+(\d+)([hd])$/);
+    if (!match) return new Date(now.getTime() + 86400000);
+    const amount = parseInt(match[1], 10);
+    const unit = match[2];
+    const ms = unit === "h" ? amount * 3600000 : amount * 86400000;
+    return new Date(now.getTime() + ms);
+  }
+
+  // GET /api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state
+  // Returns confirmed items for this campaign contact (existence-based: row present = confirmed)
+  app.get("/api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state", requireAuth, async (req, res) => {
+    try {
+      const { campaignContactId } = req.params;
+      if (!campaignContactId) return res.status(400).json({ error: "Invalid campaignContactId" });
+
+      const rows = await db.select()
+        .from(campaignContactStatusListState)
+        .where(eq(campaignContactStatusListState.campaignContactId, campaignContactId));
+      res.json(rows);
+    } catch (error) {
+      console.error("Failed to fetch status list state:", error);
+      res.status(500).json({ error: "Failed to fetch status list state" });
+    }
+  });
+
+  // POST /api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state/:itemId
+  // Toggle confirmed state: confirm=true inserts row, confirm=false deletes row
+  // Also executes automations (F8) and logs history (F9) on confirmation
+  app.post("/api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state/:itemId", requireAuth, async (req, res) => {
+    try {
+      const { campaignId, campaignContactId, itemId } = req.params;
+      if (!campaignContactId || !itemId) return res.status(400).json({ error: "Invalid parameters" });
+
+      const userId = req.session.user!.id;
+      const { confirm, contactCountry } = req.body as { confirm: boolean; contactCountry?: string };
+
+      if (confirm) {
+        // Check if already confirmed
+        const existing = await db.select()
+          .from(campaignContactStatusListState)
+          .where(and(
+            eq(campaignContactStatusListState.campaignContactId, campaignContactId),
+            eq(campaignContactStatusListState.statusListItemId, itemId)
+          ))
+          .limit(1);
+
+        let stateRow;
+        if (existing.length === 0) {
+          const [inserted] = await db.insert(campaignContactStatusListState)
+            .values({ campaignContactId, statusListItemId: itemId, confirmedByUserId: userId })
+            .returning();
+          stateRow = inserted;
+
+          // Execute automations for this item (F8)
+          const automations = await db.select()
+            .from(campaignStatusListAutomations)
+            .where(eq(campaignStatusListAutomations.statusListItemId, itemId));
+
+          for (const automation of automations) {
+            // Check condition
+            let conditionMet = true;
+            if (automation.conditionField && automation.conditionField !== "always") {
+              if (automation.conditionField === "country") {
+                conditionMet = (contactCountry ?? "") === (automation.conditionValue ?? "");
+              }
+            }
+            if (!conditionMet) continue;
+
+            // Execute action
+            if (automation.actionType === "assign_task") {
+              const dueDate = parseDueDate(automation.taskDeadlineOffset);
+
+              // Fetch item label for task title
+              const [slItem] = await db.select()
+                .from(campaignStatusListItems)
+                .where(eq(campaignStatusListItems.id, itemId))
+                .limit(1);
+
+              const taskTitle = slItem
+                ? `SL: ${slItem.label}`
+                : `Status List Task (${itemId})`;
+
+              await db.insert(tasks).values({
+                title: taskTitle,
+                description: automation.taskDescription || `Automaticky vytvorená úloha zo Status Listu. Kampaň ${campaignId}, kontakt ${campaignContactId}.`,
+                dueDate,
+                priority: (automation.taskPriority as any) || "medium",
+                status: "pending",
+                assignedUserId: userId,
+                createdByUserId: userId,
+                tags: ["back_office", "status_list"],
+                relatedEntityType: "status_list_item",
+                relatedEntityId: itemId,
+                country: contactCountry ?? null,
+              });
+            }
+          }
+
+          // Log to campaign contact history (F9)
+          await db.insert(campaignContactHistory).values({
+            campaignContactId,
+            userId,
+            action: "status_list_confirmation",
+            metadata: { statusListItemId: itemId, confirmed: true, campaignId },
+          });
+        } else {
+          stateRow = existing[0];
+        }
+        return res.json({ ...stateRow, confirmed: true });
+      } else {
+        // Remove confirmation row
+        await db.delete(campaignContactStatusListState)
+          .where(and(
+            eq(campaignContactStatusListState.campaignContactId, campaignContactId),
+            eq(campaignContactStatusListState.statusListItemId, itemId)
+          ));
+
+        // Log unconfirmation to history (F9)
+        await db.insert(campaignContactHistory).values({
+          campaignContactId,
+          userId,
+          action: "status_list_confirmation",
+          metadata: { statusListItemId: itemId, confirmed: false, campaignId },
+        });
+
+        return res.json({ confirmed: false });
+      }
+    } catch (error) {
+      console.error("Failed to update status list state:", error);
+      res.status(500).json({ error: "Failed to update status list state" });
     }
   });
 

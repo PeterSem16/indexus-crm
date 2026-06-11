@@ -99,6 +99,9 @@ function TaskListItem({
               {format(new Date(task.dueDate), "d.M. HH:mm")}
             </span>
           )}
+          {task.tags?.includes("status_list") && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">SL</span>
+          )}
         </div>
       </div>
       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
