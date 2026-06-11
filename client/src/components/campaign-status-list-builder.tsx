@@ -15,9 +15,9 @@ import { useI18n } from "@/i18n";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MessageSquare, Tag, Webhook, Bell,
-  CheckSquare, Radio, Info, Loader2, Pencil, X, Check, Download,
-  BookTemplate, ChevronUp, Eye, EyeOff, ListChecks,
-  HelpCircle, CornerDownRight, Copy,
+  SquareCheck, CircleDot, Info, Loader2, PenLine, X, Check, Download,
+  LayoutTemplate, ChevronUp, Eye, EyeOff, ListChecks,
+  CircleHelp, ArrowDownRight, Copy,
 } from "lucide-react";
 
 type StatusListAutomation = {
@@ -103,7 +103,7 @@ const SL: Record<string, Record<string, string>> = {
   pr_urgent: { sk: "Urgentná", en: "Urgent", cs: "Urgentní", hu: "Sürgős", ro: "Urgent", it: "Urgente", de: "Dringend" },
 
   ct_checkbox: { sk: "Zaškrtávacie políčko", en: "Checkbox", cs: "Zaškrtávací políčko", hu: "Jelölőnégyzet", ro: "Casetă de bifare", it: "Casella di spunta", de: "Kontrollkästchen" },
-  ct_radio:    { sk: "Výber (Radio)", en: "Radio selection", cs: "Výběr (Radio)", hu: "Rádiógomb", ro: "Selecție (Radio)", it: "Selezione (Radio)", de: "Auswahl (Radio)" },
+  ct_radio:    { sk: "Výber (CircleDot)", en: "CircleDot selection", cs: "Výběr (CircleDot)", hu: "Rádiógomb", ro: "Selecție (CircleDot)", it: "Selezione (CircleDot)", de: "Auswahl (CircleDot)" },
   ct_info:     { sk: "Informácia (len čítanie)", en: "Information (read-only)", cs: "Informace (jen čtení)", hu: "Tájékoztató (csak olvasható)", ro: "Informație (doar citire)", it: "Informazione (sola lettura)", de: "Information (nur lesen)" },
 
   ctr_SK: { sk: "Slovensko (SK)", en: "Slovakia (SK)", cs: "Slovensko (SK)", hu: "Szlovákia (SK)", ro: "Slovacia (SK)", it: "Slovacchia (SK)", de: "Slowakei (SK)" },
@@ -281,7 +281,7 @@ function PreviewQuestions({
         <div key={gk} className="border border-blue-100 dark:border-blue-900/30 rounded-md overflow-hidden">
           {gk !== "__" && (
             <div className="flex items-center gap-2 px-2.5 py-1.5 bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900/30">
-              <HelpCircle className="h-3 w-3 text-blue-500 shrink-0" />
+              <CircleHelp className="h-3 w-3 text-blue-500 shrink-0" />
               <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{gk}</span>
               <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
                 gqs[0].logicOperator === "AND"
@@ -324,7 +324,7 @@ function PreviewQuestions({
                   )}
                   {isChecked && gotoText && (
                     <span className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-0.5 shrink-0 max-w-[140px]">
-                      <CornerDownRight className="h-3 w-3 shrink-0" />
+                      <ArrowDownRight className="h-3 w-3 shrink-0" />
                       <span className="truncate">{gotoText}</span>
                     </span>
                   )}
@@ -358,7 +358,7 @@ function StatusListPreview({ items, locale }: { items: StatusListItem[]; locale:
         <span className="ml-auto text-xs text-muted-foreground">{items.length} {sl("previewSteps", locale)}</span>
       </div>
       {items.map((item, idx) => {
-        const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || CheckSquare;
+        const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || SquareCheck;
         const isChecked = checked.has(item.id);
         const autoCount = item.automations?.length ?? 0;
         return (
@@ -449,8 +449,8 @@ const PRIORITY_OPTIONS = [
 ];
 
 const CONFIRM_TYPE_OPTIONS = [
-  { value: "checkbox", slKey: "ct_checkbox", icon: CheckSquare },
-  { value: "radio",    slKey: "ct_radio",    icon: Radio },
+  { value: "checkbox", slKey: "ct_checkbox", icon: SquareCheck },
+  { value: "radio",    slKey: "ct_radio",    icon: CircleDot },
   { value: "info",     slKey: "ct_info",     icon: Info },
 ];
 
@@ -1010,7 +1010,7 @@ function StatusListItemRow({
     onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
   });
 
-  const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || CheckSquare;
+  const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || SquareCheck;
 
   return (
     <div className="border rounded-lg bg-card overflow-hidden">
@@ -1036,12 +1036,12 @@ function StatusListItemRow({
           )}
           {(item.questions?.length ?? 0) > 0 && (
             <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              <HelpCircle className="h-3 w-3 text-blue-500" />
+              <CircleHelp className="h-3 w-3 text-blue-500" />
               {item.questions.length}
             </span>
           )}
           <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100" onClick={() => { setEditMode(e => !e); setExpanded(true); }}>
-            <Pencil className="h-3 w-3" />
+            <PenLine className="h-3 w-3" />
           </Button>
           <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate()}>
             {deleteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
@@ -1178,7 +1178,7 @@ function StatusListItemRow({
                     </div>
                     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/auto:opacity-100">
                       <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => { setEditingAutoId(auto.id); setAddingAutomation(false); }}>
-                        <Pencil className="h-3 w-3" />
+                        <PenLine className="h-3 w-3" />
                       </Button>
                       <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive" onClick={() => deleteAutoMutation.mutate(auto.id)}>
                         {deleteAutoMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
@@ -1203,7 +1203,7 @@ function StatusListItemRow({
           <div className="space-y-2 pt-1 border-t">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                <HelpCircle className="h-3 w-3 text-blue-500" />
+                <CircleHelp className="h-3 w-3 text-blue-500" />
                 {sl("questionsTitle", locale)}
                 {(item.questions?.length ?? 0) > 0 && (
                   <span className="ml-1 text-[10px] font-normal normal-case text-blue-600 dark:text-blue-400">
@@ -1263,14 +1263,14 @@ function StatusListItemRow({
                             <>
                               {/* Question row */}
                               <div className="flex items-center gap-2 px-2.5 py-1.5 group/q hover:bg-muted/30">
-                                <CheckSquare className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                                <SquareCheck className="h-3 w-3 text-muted-foreground/40 shrink-0" />
                                 <span className="flex-1 text-xs text-foreground">{q.questionText}</span>
                                 {q.required && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0">!</span>
                                 )}
                                 {q.gotoQuestionId && (
                                   <span title="Má goto cieľ" className="text-[10px] text-muted-foreground/60 shrink-0">
-                                    <CornerDownRight className="h-3 w-3" />
+                                    <ArrowDownRight className="h-3 w-3" />
                                   </span>
                                 )}
                                 {/* Automation count badge */}
@@ -1301,7 +1301,7 @@ function StatusListItemRow({
                                     type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
                                     onClick={() => { setEditingQuestionId(q.id); setAddingQuestion(false); setAddingQActionFor(null); }}
                                   >
-                                    <Pencil className="h-2.5 w-2.5" />
+                                    <PenLine className="h-2.5 w-2.5" />
                                   </Button>
                                   <Button
                                     type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive"
@@ -1338,7 +1338,7 @@ function StatusListItemRow({
                                           <div className="flex items-center gap-0.5 opacity-0 group-hover/qa:opacity-100 transition-opacity shrink-0">
                                             <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
                                               onClick={() => { setEditingQAutoId(auto.id); setAddingQActionFor(null); }}>
-                                              <Pencil className="h-2.5 w-2.5" />
+                                              <PenLine className="h-2.5 w-2.5" />
                                             </Button>
                                             <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive"
                                               onClick={() => deleteQAutoMutation.mutate(auto.id)}>
@@ -1642,7 +1642,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setTemplateOpen(true)} data-testid="btn-open-cla-template">
-          <BookTemplate className="h-3.5 w-3.5 text-primary" />
+          <LayoutTemplate className="h-3.5 w-3.5 text-primary" />
           CLA / CLB Template
         </Button>
         <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setImportOpen(true)} data-testid="btn-open-import-dispositions">
@@ -1697,7 +1697,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
-              <BookTemplate className="h-4 w-4 text-primary" />
+              <LayoutTemplate className="h-4 w-4 text-primary" />
               Medical Partner Network — Template
             </DialogTitle>
             <p className="text-xs text-muted-foreground">{sl("tplSubtitle", locale)}</p>
@@ -1855,7 +1855,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
               >
                 {templateMutation.isPending
                   ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  : <BookTemplate className="h-3.5 w-3.5" />
+                  : <LayoutTemplate className="h-3.5 w-3.5" />
                 }
                 {sl("applyTplBtn", locale)} ({selectedStepCount} {sl("tplSteps", locale)})
               </Button>
