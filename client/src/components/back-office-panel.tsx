@@ -270,7 +270,7 @@ function TaskDetail({
   );
 }
 
-export function BackOfficePanel({ country }: { country?: string }) {
+export function BackOfficePanel({ country, fullScreen }: { country?: string; fullScreen?: boolean }) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [scope, setScope] = useState<"mine" | "team" | "all">("mine");
   const [filter, setFilter] = useState<"all" | "pending" | "done">("pending");
