@@ -10,13 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CLA_TEMPLATE, CLB_TEMPLATE, ROLE_BADGE_MAP, getStepLabel, getAutoLabel } from "@/data/cla-template";
+import { CLA_TEMPLATE, CLB_TEMPLATE, ROLE_BADGE_MAP, getStepLabel, getAutoLabel, getStepDescription, getAutoTaskDescription } from "@/data/cla-template";
 import { useI18n } from "@/i18n";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MessageSquare, Tag, Webhook, Bell,
   CheckSquare, Radio, Info, Loader2, Pencil, X, Check, Download,
-  BookTemplate, ChevronUp,
+  BookTemplate, ChevronUp, Eye, EyeOff, ListChecks,
 } from "lucide-react";
 
 type StatusListAutomation = {
