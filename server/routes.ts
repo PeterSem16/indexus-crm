@@ -26700,11 +26700,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             .where(inArray(campaignStatusListQuestions.itemId, itemIds))
             .orderBy(campaignStatusListQuestions.sortOrder)
         : [];
-      const itemsWithData = items.map(item => ({
-        ...item,
-        automations: automations.filter(a => a.statusListItemId === item.id),
-        questions: questions.filter(q => q.itemId === item.id),
-      }));
+      const itemsWithData = items.map(item => {
+        const itemQuestions = questions.filter(q => q.itemId === item.id);
+        const itemAutomations = automations.filter(a => a.statusListItemId === item.id && !a.questionId);
+        const questionsWithAutos = itemQuestions.map(q => ({
+          ...q,
+          automations: automations.filter(a => a.questionId === q.id),
+        }));
+        return {
+          ...item,
+          automations: itemAutomations,
+          questions: questionsWithAutos,
+        };
+      });
       res.json(itemsWithData);
     } catch (error) {
       console.error("Failed to fetch status list:", error);
@@ -26859,6 +26867,61 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to delete question:", error);
       res.status(500).json({ error: "Failed to delete question" });
+    }
+  });
+
+  // ===== Question-level Automation Route =====
+
+  app.post("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId/automations", requireAuth, async (req, res) => {
+    try {
+      const { itemId, questionId } = req.params;
+      const validated = insertCampaignStatusListAutomationSchema.parse({
+        ...req.body,
+        statusListItemId: itemId,
+        questionId,
+      });
+      const [automation] = await db.insert(campaignStatusListAutomations).values(validated).returning();
+      res.json(automation);
+    } catch (error) {
+      console.error("Failed to create question automation:", error);
+      res.status(500).json({ error: "Failed to create question automation" });
+    }
+  });
+
+  // ===== Copy Question (with its automations) =====
+
+  app.post("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId/copy", requireAuth, async (req, res) => {
+    try {
+      const { itemId, questionId } = req.params;
+      const [orig] = await db.select().from(campaignStatusListQuestions)
+        .where(eq(campaignStatusListQuestions.id, questionId));
+      if (!orig) return res.status(404).json({ error: "Question not found" });
+      const maxOrder = await db.select({ max: sql<number>`max(sort_order)` })
+        .from(campaignStatusListQuestions).where(eq(campaignStatusListQuestions.itemId, itemId));
+      const nextOrder = (maxOrder[0]?.max ?? 0) + 1;
+      const [newQ] = await db.insert(campaignStatusListQuestions).values({
+        itemId,
+        groupName: orig.groupName,
+        questionText: orig.questionText + " (copy)",
+        sortOrder: nextOrder,
+        logicOperator: orig.logicOperator,
+        gotoQuestionId: orig.gotoQuestionId,
+        required: orig.required,
+      }).returning();
+      // Copy automations
+      const origAutos = await db.select().from(campaignStatusListAutomations)
+        .where(eq(campaignStatusListAutomations.questionId, questionId));
+      for (const auto of origAutos) {
+        const { id: _id, createdAt: _c, updatedAt: _u, ...autoData } = auto as any;
+        await db.insert(campaignStatusListAutomations).values({
+          ...autoData,
+          questionId: newQ.id,
+        });
+      }
+      res.json(newQ);
+    } catch (error) {
+      console.error("Failed to copy question:", error);
+      res.status(500).json({ error: "Failed to copy question" });
     }
   });
 

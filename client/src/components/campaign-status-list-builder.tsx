@@ -17,7 +17,7 @@ import {
   ClipboardList, Mail, MessageSquare, Tag, Webhook, Bell,
   CheckSquare, Radio, Info, Loader2, Pencil, X, Check, Download,
   BookTemplate, ChevronUp, Eye, EyeOff, ListChecks,
-  HelpCircle, CornerDownRight,
+  HelpCircle, CornerDownRight, Copy,
 } from "lucide-react";
 
 type StatusListAutomation = {
@@ -46,6 +46,7 @@ type StatusListQuestion = {
   logicOperator: string;
   gotoQuestionId: string | null;
   required: boolean;
+  automations: StatusListAutomation[];
 };
 
 type StatusListItem = {
@@ -196,6 +197,9 @@ const SL: Record<string, Record<string, string>> = {
   qSaved:          { sk: "Otázka uložená", en: "Question saved", cs: "Otázka uložena", hu: "Kérdés mentve", ro: "Întrebare salvată", it: "Domanda salvata", de: "Frage gespeichert" },
   qAdded:          { sk: "Otázka pridaná", en: "Question added", cs: "Otázka přidána", hu: "Kérdés hozzáadva", ro: "Întrebare adăugată", it: "Domanda aggiunta", de: "Frage hinzugefügt" },
   qDeleted:        { sk: "Otázka zmazaná", en: "Question deleted", cs: "Otázka smazána", hu: "Kérdés törölve", ro: "Întrebare ștearsă", it: "Domanda eliminata", de: "Frage gelöscht" },
+  qCopied:         { sk: "Otázka skopírovaná", en: "Question copied", cs: "Otázka zkopírována", hu: "Kérdés másolva", ro: "Întrebare copiată", it: "Domanda copiata", de: "Frage kopiert" },
+  qActionsTitle:   { sk: "Akcie otázky", en: "Question actions", cs: "Akce otázky", hu: "Kérdés akciói", ro: "Acțiuni întrebare", it: "Azioni domanda", de: "Frageaktionen" },
+  addQActionBtn:   { sk: "Pridať akciu", en: "Add action", cs: "Přidat akci", hu: "Akció hozzáadása", ro: "Adăugare acțiune", it: "Aggiungi azione", de: "Aktion hinzufügen" },
   qRequired:       { sk: "Povinná otázka", en: "Required question", cs: "Povinná otázka", hu: "Kötelező kérdés", ro: "Întrebare obligatorie", it: "Domanda obbligatoria", de: "Pflichtfrage" },
   noQuestions:     { sk: "Žiadne otázky", en: "No questions", cs: "Žádné otázky", hu: "Nincs kérdés", ro: "Fără întrebări", it: "Nessuna domanda", de: "Keine Fragen" },
   qCountLabel:     { sk: "otázok", en: "questions", cs: "otázek", hu: "kérdés", ro: "întrebări", it: "domande", de: "Fragen" },
@@ -489,11 +493,12 @@ function AutomationBadge({ automation }: { automation: StatusListAutomation }) {
 }
 
 function AutomationForm({
-  automation, itemId, campaignId, onSaved, onCancel,
+  automation, itemId, campaignId, questionId, onSaved, onCancel,
 }: {
   automation?: StatusListAutomation;
   itemId: string;
   campaignId: string;
+  questionId?: string;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -544,6 +549,9 @@ function AutomationForm({
       };
       if (isEdit) {
         return apiRequest("PUT", `/api/campaigns/${campaignId}/status-list/${itemId}/automations/${automation.id}`, payload);
+      }
+      if (questionId) {
+        return apiRequest("POST", `/api/campaigns/${campaignId}/status-list/${itemId}/questions/${questionId}/automations`, payload);
       }
       return apiRequest("POST", `/api/campaigns/${campaignId}/status-list/${itemId}/automations`, payload);
     },
@@ -934,6 +942,8 @@ function StatusListItemRow({
   const [editingAutoId, setEditingAutoId] = useState<string | null>(null);
   const [addingQuestion, setAddingQuestion] = useState(false);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [addingQActionFor, setAddingQActionFor] = useState<string | null>(null);
+  const [editingQAutoId, setEditingQAutoId] = useState<string | null>(null);
   const [form, setForm] = useState({
     stepId: item.stepId,
     label: item.label,
@@ -978,6 +988,24 @@ function StatusListItemRow({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
       toast({ title: sl("qDeleted", locale) });
+    },
+    onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
+  });
+
+  const copyQuestionMutation = useMutation({
+    mutationFn: (questionId: string) => apiRequest("POST", `/api/campaigns/${campaignId}/status-list/${item.id}/questions/${questionId}/copy`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      toast({ title: sl("qCopied", locale) });
+    },
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
+  });
+
+  const deleteQAutoMutation = useMutation({
+    mutationFn: (autoId: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}/automations/${autoId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      toast({ title: sl("autoDeleted", locale) });
     },
     onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
   });
@@ -1217,7 +1245,8 @@ function StatusListItemRow({
                         </div>
                       )}
                       {gqs.map(q => (
-                        <div key={q.id}>
+                        <div key={q.id} className="border-b border-blue-100/50 dark:border-blue-900/20 last:border-b-0">
+                          {/* Question edit form */}
                           {editingQuestionId === q.id ? (
                             <div className="p-2">
                               <QuestionEditor
@@ -1231,32 +1260,111 @@ function StatusListItemRow({
                               />
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2 px-2.5 py-1.5 group/q border-b border-blue-100/50 dark:border-blue-900/20 last:border-b-0 hover:bg-muted/30">
-                              <CheckSquare className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-                              <span className="flex-1 text-xs text-foreground">{q.questionText}</span>
-                              {q.required && (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0">!</span>
-                              )}
-                              {q.gotoQuestionId && (
-                                <span title="Má goto cieľ" className="text-[10px] text-muted-foreground/60 shrink-0">
-                                  <CornerDownRight className="h-3 w-3" />
-                                </span>
-                              )}
-                              <div className="flex items-center gap-0.5 opacity-0 group-hover/q:opacity-100 transition-opacity shrink-0">
-                                <Button
-                                  type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
-                                  onClick={() => { setEditingQuestionId(q.id); setAddingQuestion(false); }}
-                                >
-                                  <Pencil className="h-2.5 w-2.5" />
-                                </Button>
-                                <Button
-                                  type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive"
-                                  onClick={() => deleteQuestionMutation.mutate(q.id)}
-                                >
-                                  {deleteQuestionMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Trash2 className="h-2.5 w-2.5" />}
-                                </Button>
+                            <>
+                              {/* Question row */}
+                              <div className="flex items-center gap-2 px-2.5 py-1.5 group/q hover:bg-muted/30">
+                                <CheckSquare className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                                <span className="flex-1 text-xs text-foreground">{q.questionText}</span>
+                                {q.required && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0">!</span>
+                                )}
+                                {q.gotoQuestionId && (
+                                  <span title="Má goto cieľ" className="text-[10px] text-muted-foreground/60 shrink-0">
+                                    <CornerDownRight className="h-3 w-3" />
+                                  </span>
+                                )}
+                                {/* Automation count badge */}
+                                {(q.automations?.length ?? 0) > 0 && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400 shrink-0">
+                                    <Zap className="h-2.5 w-2.5" />
+                                    {q.automations.length}
+                                  </span>
+                                )}
+                                {/* Hover actions */}
+                                <div className="flex items-center gap-0.5 opacity-0 group-hover/q:opacity-100 transition-opacity shrink-0">
+                                  <Button
+                                    type="button" variant="ghost" size="sm"
+                                    className="h-5 w-5 p-0 text-amber-600 dark:text-amber-400"
+                                    title={sl("addQActionBtn", locale)}
+                                    onClick={() => { setAddingQActionFor(q.id); setEditingQAutoId(null); setEditingQuestionId(null); }}
+                                  >
+                                    <Zap className="h-2.5 w-2.5" />
+                                  </Button>
+                                  <Button
+                                    type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-blue-600 dark:text-blue-400"
+                                    title={sl("qCopied", locale)}
+                                    onClick={() => copyQuestionMutation.mutate(q.id)}
+                                  >
+                                    {copyQuestionMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Copy className="h-2.5 w-2.5" />}
+                                  </Button>
+                                  <Button
+                                    type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
+                                    onClick={() => { setEditingQuestionId(q.id); setAddingQuestion(false); setAddingQActionFor(null); }}
+                                  >
+                                    <Pencil className="h-2.5 w-2.5" />
+                                  </Button>
+                                  <Button
+                                    type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                    onClick={() => deleteQuestionMutation.mutate(q.id)}
+                                  >
+                                    {deleteQuestionMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Trash2 className="h-2.5 w-2.5" />}
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
+
+                              {/* Existing question automations */}
+                              {(q.automations?.length ?? 0) > 0 && (
+                                <div className="px-3 pb-1.5 space-y-1">
+                                  {q.automations.map(auto => (
+                                    <div key={auto.id}>
+                                      {editingQAutoId === auto.id ? (
+                                        <AutomationForm
+                                          automation={auto}
+                                          itemId={item.id}
+                                          campaignId={campaignId}
+                                          questionId={q.id}
+                                          onSaved={() => setEditingQAutoId(null)}
+                                          onCancel={() => setEditingQAutoId(null)}
+                                        />
+                                      ) : (
+                                        <div className="flex items-center gap-2 p-1.5 rounded border bg-amber-50/40 dark:bg-amber-950/10 border-amber-200/50 dark:border-amber-800/30 group/qa text-xs">
+                                          <span className="flex items-center gap-1 shrink-0">
+                                            {getActionIcon(auto.actionType)}
+                                          </span>
+                                          <span className="flex-1 text-muted-foreground">{getActionLabel(auto.actionType, locale)}</span>
+                                          {auto.targetRole && (
+                                            <span className="text-[10px] text-foreground">→ {getRoleLabel(auto.targetRole, locale)}</span>
+                                          )}
+                                          <div className="flex items-center gap-0.5 opacity-0 group-hover/qa:opacity-100 transition-opacity shrink-0">
+                                            <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
+                                              onClick={() => { setEditingQAutoId(auto.id); setAddingQActionFor(null); }}>
+                                              <Pencil className="h-2.5 w-2.5" />
+                                            </Button>
+                                            <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                              onClick={() => deleteQAutoMutation.mutate(auto.id)}>
+                                              {deleteQAutoMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Trash2 className="h-2.5 w-2.5" />}
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Add question action form */}
+                              {addingQActionFor === q.id && (
+                                <div className="px-3 pb-2">
+                                  <AutomationForm
+                                    itemId={item.id}
+                                    campaignId={campaignId}
+                                    questionId={q.id}
+                                    onSaved={() => setAddingQActionFor(null)}
+                                    onCancel={() => setAddingQActionFor(null)}
+                                  />
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       ))}

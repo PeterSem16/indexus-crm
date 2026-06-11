@@ -7686,6 +7686,7 @@ export type InsertCampaignStatusListItem = z.infer<typeof insertCampaignStatusLi
 export const campaignStatusListAutomations = pgTable("campaign_status_list_automations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   statusListItemId: varchar("status_list_item_id").notNull(),
+  questionId: varchar("question_id"),
   sortOrder: integer("sort_order").notNull().default(0),
   actionType: text("action_type").notNull(),
   targetRole: text("target_role"),
@@ -7707,6 +7708,7 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
   createdAt: true,
   updatedAt: true,
 }).extend({
+  questionId: z.string().optional().nullable(),
   targetRole: z.string().optional().nullable(),
   emailTemplateId: z.string().optional().nullable(),
   smsTemplateId: z.string().optional().nullable(),
