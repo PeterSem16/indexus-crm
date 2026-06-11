@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MessageSquare, Tag, Webhook, Bell,
-  CheckSquare, Radio, Info, Loader2, Pencil, X, Check,
+  CheckSquare, Radio, Info, Loader2, Pencil, X, Check, Download,
 } from "lucide-react";
 
 type StatusListAutomation = {
@@ -629,13 +630,55 @@ function AddItemForm({
 }
 
 export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }) {
+  const { toast } = useToast();
   const [addingItem, setAddingItem] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [selectedDisps, setSelectedDisps] = useState<Set<string>>(new Set());
 
   const { data: items = [], isLoading } = useQuery<StatusListItem[]>({
     queryKey: ["/api/campaigns", campaignId, "status-list"],
     queryFn: () => apiRequest("GET", `/api/campaigns/${campaignId}/status-list`).then(r => r.json()),
     enabled: !!campaignId,
   });
+
+  const { data: dispositions = [], isLoading: dispsLoading } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaignId, "dispositions"],
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
+    enabled: importOpen,
+  });
+
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const toImport = dispositions.filter((d: any) => selectedDisps.has(d.id));
+      const existingCount = items.length;
+      for (let i = 0; i < toImport.length; i++) {
+        const d = toImport[i];
+        await apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
+          stepId: d.code || `DISP-${String(existingCount + i + 1).padStart(2, "0")}`,
+          label: d.name,
+          description: d.description || "",
+          confirmationType: "checkbox",
+          required: false,
+          sortOrder: existingCount + i,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      toast({ title: `${selectedDisps.size} položiek importovaných zo Disposície` });
+      setSelectedDisps(new Set());
+      setImportOpen(false);
+    },
+    onError: () => toast({ title: "Chyba pri importe", variant: "destructive" }),
+  });
+
+  const toggleDisp = (id: string) => {
+    setSelectedDisps(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -645,6 +688,9 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       </div>
     );
   }
+
+  const parentDisps = dispositions.filter((d: any) => !d.parentId && d.isActive);
+  const childDisps = (parentId: string) => dispositions.filter((d: any) => d.parentId === parentId && d.isActive);
 
   return (
     <div className="space-y-3">
@@ -658,28 +704,47 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
             Každý krok môže spustiť automatizáciu — priradiť úlohu, odoslať email, nastaviť status atď.
           </p>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs"
-          onClick={() => setAddingItem(true)}
-          data-testid="btn-add-status-list-item"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Pridať krok
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={() => { setSelectedDisps(new Set()); setImportOpen(true); }}
+            data-testid="btn-import-from-disposition"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Import z Disposition
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={() => setAddingItem(true)}
+            data-testid="btn-add-status-list-item"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Pridať krok
+          </Button>
+        </div>
       </div>
 
       {items.length === 0 && !addingItem && (
         <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-lg text-muted-foreground">
           <ClipboardList className="h-8 w-8 mb-2 opacity-20" />
           <p className="text-sm font-medium">Status list je prázdny</p>
-          <p className="text-xs mt-1">Pridajte kroky s automatizáciami pre túto misiu</p>
-          <Button type="button" variant="outline" size="sm" className="mt-4 gap-1.5 text-xs" onClick={() => setAddingItem(true)}>
-            <Plus className="h-3.5 w-3.5" />
-            Pridať prvý krok
-          </Button>
+          <p className="text-xs mt-1">Pridajte kroky manuálne alebo importujte zo Disposície</p>
+          <div className="flex gap-2 mt-4">
+            <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => { setSelectedDisps(new Set()); setImportOpen(true); }}>
+              <Download className="h-3.5 w-3.5" />
+              Import z Disposition
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddingItem(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              Pridať krok
+            </Button>
+          </div>
         </div>
       )}
 
@@ -702,6 +767,79 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           onCancel={() => setAddingItem(false)}
         />
       )}
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-4 w-4 text-emerald-500" />
+              Import zo Disposície
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-1 max-h-80 overflow-y-auto">
+            {dispsLoading && (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Načítavam...
+              </div>
+            )}
+            {!dispsLoading && parentDisps.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Táto misia nemá žiadne disposície.
+              </p>
+            )}
+            {parentDisps.map((d: any) => {
+              const children = childDisps(d.id);
+              return (
+                <div key={d.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleDisp(d.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-left transition-colors text-sm ${selectedDisps.has(d.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
+                    data-testid={`import-disp-${d.id}`}
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selectedDisps.has(d.id) ? "bg-primary border-primary" : "border-border"}`}>
+                      {selectedDisps.has(d.id) && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                    </div>
+                    <span className="font-medium flex-1">{d.name}</span>
+                    {d.code && <span className="text-xs text-muted-foreground font-mono">{d.code}</span>}
+                  </button>
+                  {children.map((c: any) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleDisp(c.id)}
+                      className={`w-full flex items-center gap-2.5 pl-8 pr-3 py-1.5 rounded-md text-left transition-colors text-sm ${selectedDisps.has(c.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
+                      data-testid={`import-disp-${c.id}`}
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selectedDisps.has(c.id) ? "bg-primary border-primary" : "border-border"}`}>
+                        {selectedDisps.has(c.id) && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                      </div>
+                      <span className="flex-1">{c.name}</span>
+                      {c.code && <span className="text-xs text-muted-foreground font-mono">{c.code}</span>}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">{selectedDisps.size} vybraných</span>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setImportOpen(false)}>Zrušiť</Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={selectedDisps.size === 0 || importMutation.isPending}
+                onClick={() => importMutation.mutate()}
+                data-testid="btn-confirm-import-dispositions"
+              >
+                {importMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Download className="h-3.5 w-3.5 mr-1" />}
+                Importovať ({selectedDisps.size})
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

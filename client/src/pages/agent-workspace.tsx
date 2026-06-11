@@ -7028,7 +7028,7 @@ export default function AgentWorkspacePage() {
         // Auto-open disposition based on campaign setting autoOpenDisposition (default true).
         // Opens regardless of who hung up — the agent always needs to record the call outcome.
         const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
-        const autoOpenDisposition = campSettings.autoOpenDisposition !== false;
+        const autoOpenDisposition = campSettings.autoOpenDisposition !== false && campSettings.workflowMode !== "status_list";
         if (autoOpenDisposition) {
           setDispositionModalOpen(true);
         }
@@ -7078,7 +7078,7 @@ export default function AgentWorkspacePage() {
         setIsNonMissionInboundDisposition(isNMInbound);
         setMandatoryDisposition(!isNMInbound);
         const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
-        if (campSettings.autoOpenDisposition !== false) {
+        if (campSettings.autoOpenDisposition !== false && campSettings.workflowMode !== "status_list") {
           setDispositionModalOpen(true);
         }
       }
