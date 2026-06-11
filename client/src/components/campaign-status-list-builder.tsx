@@ -160,10 +160,102 @@ const SL: Record<string, Record<string, string>> = {
 
   tplTabCLA:       { sk: "CL A — Akvizícia", en: "CL A — Acquisition", cs: "CL A — Akvizice", hu: "CL A — Akkvizíció", ro: "CL A — Achiziție", it: "CL A — Acquisizione", de: "CL A — Akquisition" },
   tplTabCLB:       { sk: "CL B — Retencia", en: "CL B — Retention", cs: "CL B — Retence", hu: "CL B — Megtartás", ro: "CL B — Retenție", it: "CL B — Fidelizzazione", de: "CL B — Kundenbindung" },
+
+  previewBtn:      { sk: "Náhľad agenta", en: "Agent preview", cs: "Náhled agenta", hu: "Ügynök előnézet", ro: "Previzualizare agent", it: "Anteprima agente", de: "Agenten-Vorschau" },
+  previewClose:    { sk: "Zatvoriť náhľad", en: "Close preview", cs: "Zavřít náhled", hu: "Előnézet bezárása", ro: "Închide previzualizarea", it: "Chiudi anteprima", de: "Vorschau schließen" },
+  previewTitle:    { sk: "Náhľad — pohľad agenta", en: "Preview — agent view", cs: "Náhled — pohled agenta", hu: "Előnézet — ügynök nézet", ro: "Previzualizare — vedere agent", it: "Anteprima — vista agente", de: "Vorschau — Agentensicht" },
+  previewEmpty:    { sk: "Zoznam je prázdny", en: "List is empty", cs: "Seznam je prázdný", hu: "A lista üres", ro: "Lista este goală", it: "L'elenco è vuoto", de: "Liste ist leer" },
+  previewSteps:    { sk: "krokov", en: "steps", cs: "kroků", hu: "lépés", ro: "pași", it: "passi", de: "Schritte" },
+  previewAutomations: { sk: "automatizácií", en: "automations", cs: "automatizací", hu: "automatizáció", ro: "automatizări", it: "automazioni", de: "Automatisierungen" },
 };
 
 function sl(key: string, locale: string): string {
   return SL[key]?.[locale] ?? SL[key]?.["sk"] ?? key;
+}
+
+const ROLE_TERMS: Record<string, Record<string, string>> = {
+  KO: { sk: "Koordinátor", en: "Coordinator", cs: "Koordinátor", hu: "Koordinátor", ro: "Coordonator", it: "Coordinatore", de: "Koordinator" },
+};
+
+function localizeText(text: string | null | undefined, locale: string): string {
+  if (!text) return "";
+  const term = ROLE_TERMS.KO[locale] ?? "Koordinátor";
+  return text
+    .replace(/\bKO\b/g, term)
+    .replace(/\bKoordinátor\w*/g, term);
+}
+
+function StatusListPreview({ items, locale }: { items: StatusListItem[]; locale: string }) {
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
+        <ListChecks className="h-8 w-8 opacity-30" />
+        <p className="text-sm">{sl("previewEmpty", locale)}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+        <ListChecks className="h-4 w-4 text-primary" />
+        <span className="text-sm font-semibold text-foreground">{sl("previewTitle", locale)}</span>
+        <span className="ml-auto text-xs text-muted-foreground">{items.length} {sl("previewSteps", locale)}</span>
+      </div>
+      {items.map((item, idx) => {
+        const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || CheckSquare;
+        const isChecked = checked.has(item.id);
+        const autoCount = item.automations?.length ?? 0;
+        return (
+          <div
+            key={item.id}
+            className={`rounded-lg border p-3 transition-colors ${isChecked ? "border-primary/30 bg-primary/5" : "border-border bg-card"}`}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-xs font-mono text-muted-foreground/60 w-5 shrink-0 pt-0.5">{idx + 1}.</span>
+              <button
+                type="button"
+                onClick={() => setChecked(prev => {
+                  const next = new Set(prev);
+                  if (next.has(item.id)) { next.delete(item.id); } else { next.add(item.id); }
+                  return next;
+                })}
+                className={`mt-0.5 shrink-0 transition-colors ${item.confirmationType === "info" ? "cursor-default" : "cursor-pointer"}`}
+                title={item.confirmationType}
+              >
+                <ConfirmIcon className={`h-4 w-4 ${isChecked ? "text-primary" : "text-muted-foreground/50"}`} />
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-sm font-medium ${isChecked ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                    {localizeText(item.label, locale)}
+                  </span>
+                  {item.required && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium">
+                      {sl("requiredBadge", locale)}
+                    </span>
+                  )}
+                  {autoCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
+                      <Zap className="h-2.5 w-2.5" />
+                      {autoCount} {sl("previewAutomations", locale)}
+                    </span>
+                  )}
+                </div>
+                {item.description && (
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-3 leading-relaxed whitespace-pre-line">
+                    {localizeText(item.description, locale)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 const ACTION_TYPE_OPTIONS = [
@@ -827,6 +919,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [templateProgress, setTemplateProgress] = useState<string | null>(null);
   const [selectedDisps, setSelectedDisps] = useState<Set<string>>(new Set());
+  const [previewMode, setPreviewMode] = useState(false);
 
   const { data: items = [], isLoading } = useQuery<StatusListItem[]>({
     queryKey: ["/api/campaigns", campaignId, "status-list"],
@@ -892,15 +985,14 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       for (let i = 0; i < stepsToCreate.length; i++) {
         const step = stepsToCreate[i];
         setTemplateProgress(`${sl("applyTplBtn", locale)} ${i + 1}/${stepsToCreate.length}: ${step.stepId}…`);
+        const stepDesc = getStepDescription(step, locale);
+        const condPart = step.conditionIf && step.conditionIf !== "—" ? `IF: ${step.conditionIf}` : "";
+        const thenPart = step.actionThen ? `THEN: ${step.actionThen}` : "";
+        const timePart = step.callbackTiming && step.callbackTiming !== "—" ? `⏱ ${step.callbackTiming}` : "";
         const res = await apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
           stepId: step.stepId,
           label: getStepLabel(step, locale),
-          description: [
-            step.description,
-            step.conditionIf ? `IF: ${step.conditionIf}` : "",
-            step.actionThen ? `THEN: ${step.actionThen}` : "",
-            step.callbackTiming && step.callbackTiming !== "—" ? `⏱ ${step.callbackTiming}` : "",
-          ].filter(Boolean).join("\n"),
+          description: [stepDesc, condPart, thenPart, timePart].filter(Boolean).join("\n"),
           confirmationType: step.confirmationType,
           required: false,
           sortOrder: base + i,
@@ -917,7 +1009,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           await apiRequest("POST", `/api/campaigns/${campaignId}/status-list/${itemId}/automations`, {
             actionType: auto.actionType,
             targetRole: auto.targetRole,
-            taskDescription: auto.taskDescription,
+            taskDescription: getAutoTaskDescription(auto, locale),
             taskDeadlineOffset: auto.taskDeadlineOffset,
             taskPriority: auto.taskPriority,
             sortOrder: 0,
@@ -981,6 +1073,17 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           <Download className="h-3.5 w-3.5 text-emerald-500" />
           {sl("importTitle", locale)}
         </Button>
+        <Button
+          type="button"
+          variant={previewMode ? "default" : "outline"}
+          size="sm"
+          className="h-7 text-xs gap-1.5"
+          onClick={() => setPreviewMode(m => !m)}
+          data-testid="btn-toggle-preview"
+        >
+          {previewMode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          {previewMode ? sl("previewClose", locale) : sl("previewBtn", locale)}
+        </Button>
         <div className="ml-auto">
           <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setAddingItem(true)} disabled={addingItem} data-testid="btn-add-status-list-item">
             <Plus className="h-3 w-3" /> {sl("addStepBtn", locale)}
@@ -997,16 +1100,20 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
         />
       )}
 
-      <div className="space-y-1.5">
-        {items.map(item => (
-          <StatusListItemRow
-            key={item.id}
-            item={item}
-            campaignId={campaignId}
-            onDeleted={() => {}}
-          />
-        ))}
-      </div>
+      {previewMode ? (
+        <StatusListPreview items={items} locale={locale} />
+      ) : (
+        <div className="space-y-1.5">
+          {items.map(item => (
+            <StatusListItemRow
+              key={item.id}
+              item={item}
+              campaignId={campaignId}
+              onDeleted={() => {}}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ── Template Dialog ─────────────────────────────────── */}
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
@@ -1064,10 +1171,10 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                         {isSys && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">AUTO</span>}
                         <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>{getStepLabel(step, locale)}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{step.description}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{localizeText(getStepDescription(step, locale), locale)}</p>
                       {step.conditionIf && step.conditionIf !== "—" && (
                         <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                          <span className="font-semibold">IF:</span> {step.conditionIf}
+                          <span className="font-semibold">IF:</span> {localizeText(step.conditionIf, locale)}
                         </p>
                       )}
                       {step.nextStepId && (
@@ -1079,7 +1186,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                       {step.restrictions && (
                         <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5 flex items-start gap-1">
                           <span className="font-semibold shrink-0">FC:</span>
-                          <span className="line-clamp-2">{step.restrictions}</span>
+                          <span className="line-clamp-2">{localizeText(step.restrictions, locale)}</span>
                         </p>
                       )}
                     </div>
@@ -1124,10 +1231,10 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                                 <span className="text-[10px] font-mono text-muted-foreground">{auto.triggerId}</span>
                                 <span className="text-xs font-medium">{getAutoLabel(auto, locale)}</span>
                               </div>
-                              <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{auto.description}</p>
-                              {auto.taskDescription && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{localizeText(getAutoTaskDescription(auto, locale) || auto.description, locale)}</p>
+                              {(auto.taskDescription || auto.taskDescriptionL10n) && (
                                 <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
-                                  📋 {auto.taskDescription}
+                                  📋 {localizeText(getAutoTaskDescription(auto, locale), locale)}
                                 </p>
                               )}
                               {auto.taskDeadlineOffset && (
