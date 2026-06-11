@@ -3,3 +3,4 @@
 - [RO hairpin two-signal gate](ro-hairpin-gate.md) — Local;1 ARI bridge must wait for BOTH channel-state-change(Up) AND StasisStart before bridging; Up fires before StasisStart for Local channels.
 - [Queue cache invalidation](queue-cache-invalidation.md) — Reschedule/cancel handlers must use the item's own campaignId, not the outer selectedCampaignId closure variable; inbound callbacks use /api/agent/inbound-callbacks instead of campaigns API.
 - [Inbound callbacks mimo-misie](inbound-callbacks.md) — Out-of-mission callbacks stored in inbound_callbacks table; created automatically in handleDisposition when inbound call + no campaignContactId + callbackDateTime; shown in left panel "Mimo misie" group and queue modal with isOutsideMission flag.
+- [Status List in Pulse](status-list-pulse.md) — DB status list tab uses useQuery inside CommunicationCanvas; must reset dbSlChecked on contact change; backOfficeModeActive must reset in handleEndSession.

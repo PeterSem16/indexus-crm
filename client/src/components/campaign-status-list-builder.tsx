@@ -134,9 +134,9 @@ function AutomationForm({
     taskPriority: automation?.taskPriority || "medium",
     emailTemplateId: automation?.emailTemplateId || "",
     smsTemplateId: automation?.smsTemplateId || "",
-    conditionField: automation?.conditionField || "",
-    conditionOperator: automation?.conditionOperator || "eq",
-    conditionValue: automation?.conditionValue || "",
+    conditionType: automation?.conditionField === "country" ? "country" : automation?.conditionField === "answer" ? "answer" : "always",
+    conditionCountry: automation?.conditionField === "country" ? (automation?.conditionValue || "SK") : "SK",
+    conditionAnswer: automation?.conditionField === "answer" ? (automation?.conditionValue || "") : "",
   });
 
   const isEdit = !!automation?.id;
@@ -144,15 +144,16 @@ function AutomationForm({
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {
-        ...form,
+        actionType: form.actionType,
         targetRole: form.targetRole || null,
         taskDescription: form.taskDescription || null,
         taskDeadlineOffset: form.taskDeadlineOffset || null,
+        taskPriority: form.taskPriority,
         emailTemplateId: form.emailTemplateId || null,
         smsTemplateId: form.smsTemplateId || null,
-        conditionField: form.conditionField || null,
-        conditionOperator: form.conditionOperator || null,
-        conditionValue: form.conditionValue || null,
+        conditionField: form.conditionType === "always" ? null : form.conditionType,
+        conditionOperator: form.conditionType === "always" ? null : "eq",
+        conditionValue: form.conditionType === "always" ? null : (form.conditionType === "country" ? form.conditionCountry : (form.conditionAnswer || null)),
       };
       if (isEdit) {
         return apiRequest("PUT", `/api/campaigns/${campaignId}/status-list/${itemId}/automations/${automation.id}`, payload);
@@ -177,6 +178,10 @@ function AutomationForm({
         {isEdit ? "Upraviť akciu" : "Nová akcia"}
       </div>
 
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-bold tracking-wide">POTOM</span>
+        <span className="text-xs font-medium text-muted-foreground">Akcia ktorá sa vykoná</span>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <div className="col-span-2">
           <Label className="text-xs mb-1 block">Typ akcie</Label>
@@ -267,31 +272,40 @@ function AutomationForm({
       </div>
 
       <div className="border-t pt-3 space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">Podmienka IF (voliteľné)</div>
-        <div className="grid grid-cols-3 gap-1.5">
-          <Input
-            className="h-7 text-xs"
-            value={form.conditionField}
-            onChange={e => setForm(f => ({ ...f, conditionField: e.target.value }))}
-            placeholder="Pole (napr. country)"
-          />
-          <Select value={form.conditionOperator} onValueChange={v => setForm(f => ({ ...f, conditionOperator: v }))}>
-            <SelectTrigger className="h-7 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold tracking-wide">AK</span>
+          <span className="text-xs font-medium text-muted-foreground">Podmienka (voliteľné)</span>
+        </div>
+        <Select value={form.conditionType} onValueChange={v => setForm(f => ({ ...f, conditionType: v }))}>
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="always">Vždy — pri každom potvrdení kroku</SelectItem>
+            <SelectItem value="country">Krajina zákazníka je...</SelectItem>
+            <SelectItem value="answer">Odpoveď zákazníka je...</SelectItem>
+          </SelectContent>
+        </Select>
+        {form.conditionType === "country" && (
+          <Select value={form.conditionCountry} onValueChange={v => setForm(f => ({ ...f, conditionCountry: v }))}>
+            <SelectTrigger className="h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="eq">= rovná sa</SelectItem>
-              <SelectItem value="neq">≠ nerovná sa</SelectItem>
-              <SelectItem value="in">∈ obsahuje</SelectItem>
+              {[{v:"SK",l:"Slovensko (SK)"},{v:"CZ",l:"Česko (CZ)"},{v:"HU",l:"Maďarsko (HU)"},{v:"RO",l:"Rumunsko (RO)"},{v:"AT",l:"Rakúsko (AT)"},{v:"DE",l:"Nemecko (DE)"},{v:"IT",l:"Taliansko (IT)"},{v:"US",l:"USA (US)"}].map(c => (
+                <SelectItem key={c.v} value={c.v}>{c.l}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
+        )}
+        {form.conditionType === "answer" && (
           <Input
-            className="h-7 text-xs"
-            value={form.conditionValue}
-            onChange={e => setForm(f => ({ ...f, conditionValue: e.target.value }))}
-            placeholder="Hodnota (napr. SK)"
+            className="h-8 text-xs"
+            value={form.conditionAnswer}
+            onChange={e => setForm(f => ({ ...f, conditionAnswer: e.target.value }))}
+            placeholder="Hodnota odpovede (napr. áno, nie, záujem...)"
           />
-        </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 pt-1">
@@ -486,7 +500,10 @@ function StatusListItemRow({
                       {auto.taskDescription && <div className="text-muted-foreground truncate">{auto.taskDescription}</div>}
                       {auto.taskDeadlineOffset && <div className="text-muted-foreground">Termín: {DEADLINE_OPTIONS.find(d => d.value === auto.taskDeadlineOffset)?.label || auto.taskDeadlineOffset}</div>}
                       {auto.conditionField && (
-                        <div className="text-muted-foreground">IF {auto.conditionField} {auto.conditionOperator} {auto.conditionValue}</div>
+                        <div className="text-muted-foreground text-[10px] flex items-center gap-1">
+                          <span className="px-1 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold">AK</span>
+                          {auto.conditionField === "country" ? `krajina = ${auto.conditionValue}` : `odpoveď = "${auto.conditionValue}"`}
+                        </div>
                       )}
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover/auto:opacity-100 shrink-0">

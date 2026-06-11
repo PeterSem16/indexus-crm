@@ -2253,6 +2253,11 @@ function CommunicationCanvas({
   const [clTextValues, setClTextValues] = useState<Record<string, string>>({});
   const [clNotes, setClNotes] = useState<Record<string, string>>({});
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
+  const [dbSlChecked, setDbSlChecked] = useState<Set<string>>(new Set());
+  const { data: dbStatusList = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaign?.id, "status-list"],
+    enabled: !!campaign?.id,
+  });
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   
   useEffect(() => {
@@ -2277,6 +2282,7 @@ function CommunicationCanvas({
     setSmsCc("");
     setShowSmsCcField(false);
     setSelectedDocuments([]);
+    setDbSlChecked(new Set());
   }, [contact?.id]);
 
   useEffect(() => {
@@ -2946,7 +2952,7 @@ function CommunicationCanvas({
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
           </button>
-          {internalChecklistConfig.enabled && internalChecklistConfig.sections.length > 0 && (
+          {(dbStatusList.length > 0 || (internalChecklistConfig.enabled && internalChecklistConfig.sections.length > 0)) && (
             <button
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
                 activeChannel === "checklist"
@@ -3676,6 +3682,82 @@ function CommunicationCanvas({
       )}
 
       {activeChannel === "checklist" && (() => {
+        if (dbStatusList.length > 0) {
+          const dbConfirmed = dbSlChecked.size;
+          const dbTotal = (dbStatusList as any[]).length;
+          const dbRequiredMissing = (dbStatusList as any[]).filter((i: any) => i.required && !dbSlChecked.has(i.id));
+          return (
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-sm font-semibold">Status list kampane</span>
+                </div>
+                <span className="text-xs text-muted-foreground font-medium">{dbConfirmed}/{dbTotal}</span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                {(dbStatusList as any[]).map((item: any) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border transition-all ${
+                      dbSlChecked.has(item.id)
+                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700"
+                        : "bg-card border-border hover:border-emerald-300 dark:hover:border-emerald-700"
+                    }`}
+                  >
+                    {item.confirmationType === "info" ? (
+                      <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setDbSlChecked(prev => {
+                          const next = new Set(prev);
+                          if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                          return next;
+                        })}
+                        className={`mt-0.5 h-4 w-4 rounded border-2 shrink-0 flex items-center justify-center transition-all cursor-pointer ${
+                          dbSlChecked.has(item.id) ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/40 bg-background"
+                        }`}
+                        data-testid={`sl-check-${item.id}`}
+                      >
+                        {dbSlChecked.has(item.id) && <Check className="h-2.5 w-2.5 text-white" />}
+                      </button>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-medium leading-snug ${dbSlChecked.has(item.id) ? "line-through text-muted-foreground" : ""}`}>
+                        {item.label}
+                        {item.required && <span className="ml-1 text-rose-500 text-[10px]">*</span>}
+                      </div>
+                      {item.description && <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>}
+                    </div>
+                    <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0 pt-0.5">{item.stepId}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="p-3 border-t bg-card/80 shrink-0 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
+                    <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${dbTotal > 0 ? (dbConfirmed / dbTotal) * 100 : 0}%` }} />
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">{dbTotal > 0 ? Math.round((dbConfirmed / dbTotal) * 100) : 0}%</span>
+                </div>
+                {dbRequiredMissing.length > 0 && (
+                  <p className="text-[10px] text-rose-500 text-center">Povinné nevyplnené: {dbRequiredMissing.map((i: any) => i.label).join(", ")}</p>
+                )}
+                <Button
+                  className="w-full gap-2"
+                  size="sm"
+                  disabled={dbConfirmed === 0}
+                  onClick={() => toast({ title: "Status list zaznamenaný", description: `${dbConfirmed} z ${dbTotal} krokov potvrdených` })}
+                  data-testid="btn-save-db-statuslist"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  Zaznamenať postup{dbConfirmed > 0 ? ` (${dbConfirmed}/${dbTotal})` : ""}
+                </Button>
+              </div>
+            </div>
+          );
+        }
         const clSections = internalChecklistConfig.sections;
         const allClItems = clSections.flatMap(s => [...s.items, ...s.subsections.flatMap(sub => sub.items)]);
         const totalClItems = allClItems.length;
@@ -8082,6 +8164,8 @@ export default function AgentWorkspacePage() {
         autoTimerRef.current = null;
       }
       setAutoCountdown(null);
+      setBackOfficeModeActive(false);
+      setLoginBackOffice(false);
       toast({ title: t.agentSession.shiftEnded, description: t.agentSession.shiftEndedDesc });
     } catch (error) {
       toast({ title: t.agentSession.shiftError, description: t.agentSession.shiftEndError, variant: "destructive" });
