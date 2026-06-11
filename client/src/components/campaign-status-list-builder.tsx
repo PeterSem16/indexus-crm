@@ -17,6 +17,7 @@ import {
   ClipboardList, Mail, MessageSquare, Tag, Webhook, Bell,
   CheckSquare, Radio, Info, Loader2, Pencil, X, Check, Download,
   BookTemplate, ChevronUp, Eye, EyeOff, ListChecks,
+  HelpCircle, CornerDownRight,
 } from "lucide-react";
 
 type StatusListAutomation = {
@@ -36,6 +37,17 @@ type StatusListAutomation = {
   dispositionId: string | null;
 };
 
+type StatusListQuestion = {
+  id: string;
+  itemId: string;
+  groupName: string | null;
+  questionText: string;
+  sortOrder: number;
+  logicOperator: string;
+  gotoQuestionId: string | null;
+  required: boolean;
+};
+
 type StatusListItem = {
   id: string;
   campaignId: string;
@@ -49,6 +61,7 @@ type StatusListItem = {
   nextStepId: string | null;
   restrictions: string | null;
   automations: StatusListAutomation[];
+  questions: StatusListQuestion[];
 };
 
 const SL: Record<string, Record<string, string>> = {
@@ -167,6 +180,22 @@ const SL: Record<string, Record<string, string>> = {
   previewEmpty:    { sk: "Zoznam je prázdny", en: "List is empty", cs: "Seznam je prázdný", hu: "A lista üres", ro: "Lista este goală", it: "L'elenco è vuoto", de: "Liste ist leer" },
   previewSteps:    { sk: "krokov", en: "steps", cs: "kroků", hu: "lépés", ro: "pași", it: "passi", de: "Schritte" },
   previewAutomations: { sk: "automatizácií", en: "automations", cs: "automatizací", hu: "automatizáció", ro: "automatizări", it: "automazioni", de: "Automatisierungen" },
+
+  questionsTitle:  { sk: "Otázky", en: "Questions", cs: "Otázky", hu: "Kérdések", ro: "Întrebări", it: "Domande", de: "Fragen" },
+  addQuestionBtn:  { sk: "Pridať otázku", en: "Add question", cs: "Přidat otázku", hu: "Kérdés hozzáadása", ro: "Adăugare întrebare", it: "Aggiungi domanda", de: "Frage hinzufügen" },
+  qGroupNameLbl:   { sk: "Skupina otázok", en: "Question group", cs: "Skupina otázek", hu: "Kérdéscsoport", ro: "Grup de întrebări", it: "Gruppo di domande", de: "Fragengruppe" },
+  qGroupNamePh:    { sk: "napr. Záujem klienta...", en: "e.g. Client interest...", cs: "např. Zájem klienta...", hu: "pl. Ügyfél érdeklődése...", ro: "ex. Interesul clientului...", it: "es. Interesse cliente...", de: "z.B. Kundeninteresse..." },
+  questionTextLbl: { sk: "Text otázky", en: "Question text", cs: "Text otázky", hu: "Kérdés szövege", ro: "Textul întrebării", it: "Testo della domanda", de: "Fragetext" },
+  questionTextPh:  { sk: "Otázka pre agenta...", en: "Question for agent...", cs: "Otázka pro agenta...", hu: "Kérdés az ügynöknek...", ro: "Întrebare pentru agent...", it: "Domanda per l'agente...", de: "Frage für den Agenten..." },
+  qLogicLbl:       { sk: "Logika skupiny", en: "Group logic", cs: "Logika skupiny", hu: "Csoport logikája", ro: "Logica grupului", it: "Logica del gruppo", de: "Gruppenlogik" },
+  qGotoLbl:        { sk: "Pri zaškrtnutí → skočiť na", en: "On check → jump to", cs: "Po zaškrtnutí → přejít na", hu: "Bejelöléskor → ugrás ide", ro: "La bifat → salt la", it: "Al check → vai a", de: "Bei Haken → springe zu" },
+  qGotoNone:       { sk: "— žiadne —", en: "— none —", cs: "— žádné —", hu: "— nincs —", ro: "— niciunul —", it: "— nessuno —", de: "— keines —" },
+  qSaved:          { sk: "Otázka uložená", en: "Question saved", cs: "Otázka uložena", hu: "Kérdés mentve", ro: "Întrebare salvată", it: "Domanda salvata", de: "Frage gespeichert" },
+  qAdded:          { sk: "Otázka pridaná", en: "Question added", cs: "Otázka přidána", hu: "Kérdés hozzáadva", ro: "Întrebare adăugată", it: "Domanda aggiunta", de: "Frage hinzugefügt" },
+  qDeleted:        { sk: "Otázka zmazaná", en: "Question deleted", cs: "Otázka smazána", hu: "Kérdés törölve", ro: "Întrebare ștearsă", it: "Domanda eliminata", de: "Frage gelöscht" },
+  qRequired:       { sk: "Povinná otázka", en: "Required question", cs: "Povinná otázka", hu: "Kötelező kérdés", ro: "Întrebare obligatorie", it: "Domanda obbligatoria", de: "Pflichtfrage" },
+  noQuestions:     { sk: "Žiadne otázky", en: "No questions", cs: "Žádné otázky", hu: "Nincs kérdés", ro: "Fără întrebări", it: "Nessuna domanda", de: "Keine Fragen" },
+  qCountLabel:     { sk: "otázok", en: "questions", cs: "otázek", hu: "kérdés", ro: "întrebări", it: "domande", de: "Fragen" },
 };
 
 function sl(key: string, locale: string): string {
@@ -183,6 +212,116 @@ function localizeText(text: string | null | undefined, locale: string): string {
   return text
     .replace(/\bKO\b/g, term)
     .replace(/\bKoordinátor\w*/g, term);
+}
+
+
+function PreviewQuestions({
+  questions, locale, allItems,
+}: {
+  questions: StatusListQuestion[];
+  locale: string;
+  allItems: StatusListItem[];
+}) {
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const questionRefs = new Map<string, HTMLDivElement | null>();
+
+  function handleCheck(q: StatusListQuestion) {
+    setChecked(prev => {
+      const next = new Set(prev);
+      if (next.has(q.id)) {
+        next.delete(q.id);
+        if (highlightedId === q.gotoQuestionId) setHighlightedId(null);
+      } else {
+        next.add(q.id);
+        if (q.gotoQuestionId) {
+          setHighlightedId(q.gotoQuestionId);
+          setTimeout(() => {
+            const el = questionRefs.get(q.gotoQuestionId!);
+            el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }, 50);
+        }
+      }
+      return next;
+    });
+  }
+
+  function findGotoText(gotoId: string): string {
+    for (const item of allItems) {
+      const target = (item.questions ?? []).find(q => q.id === gotoId);
+      if (target) return target.questionText;
+    }
+    return "";
+  }
+
+  const grouped: Record<string, StatusListQuestion[]> = {};
+  questions.forEach(q => {
+    const k = q.groupName || "__";
+    if (!grouped[k]) grouped[k] = [];
+    grouped[k].push(q);
+  });
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      {Object.entries(grouped).map(([gk, gqs]) => (
+        <div key={gk} className="border border-blue-100 dark:border-blue-900/30 rounded-md overflow-hidden">
+          {gk !== "__" && (
+            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900/30">
+              <HelpCircle className="h-3 w-3 text-blue-500 shrink-0" />
+              <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{gk}</span>
+              <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                gqs[0].logicOperator === "AND"
+                  ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+                  : "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"
+              }`}>{gqs[0].logicOperator}</span>
+            </div>
+          )}
+          {gqs.map(q => {
+            const isChecked = checked.has(q.id);
+            const isHighlighted = highlightedId === q.id;
+            const gotoText = q.gotoQuestionId ? findGotoText(q.gotoQuestionId) : "";
+            return (
+              <div
+                key={q.id}
+                ref={(el: HTMLDivElement | null) => { questionRefs.set(q.id, el); }}
+                className={`border-b border-blue-100/50 dark:border-blue-900/20 last:border-b-0 transition-all duration-200 ${
+                  isHighlighted ? "ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30" : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleCheck(q)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                    isChecked ? "bg-green-50 dark:bg-green-950/20" : "hover:bg-muted/30"
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                    isChecked ? "bg-green-500 border-green-500" : "border-muted-foreground/40 bg-background"
+                  }`}>
+                    {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
+                  </div>
+                  <span className={`text-sm flex-1 leading-snug ${
+                    isChecked ? "text-green-700 dark:text-green-400 font-medium" : "text-foreground"
+                  }`}>
+                    {q.questionText}
+                  </span>
+                  {q.required && !isChecked && (
+                    <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0">!</span>
+                  )}
+                  {isChecked && gotoText && (
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-0.5 shrink-0 max-w-[140px]">
+                      <CornerDownRight className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{gotoText}</span>
+                    </span>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function StatusListPreview({ items, locale }: { items: StatusListItem[]; locale: string }) {
@@ -248,6 +387,9 @@ function StatusListPreview({ items, locale }: { items: StatusListItem[]; locale:
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-3 leading-relaxed whitespace-pre-line">
                     {localizeText(item.description, locale)}
                   </p>
+                )}
+                {(item.questions?.length ?? 0) > 0 && (
+                  <PreviewQuestions questions={item.questions} locale={locale} allItems={items} />
                 )}
               </div>
             </div>
@@ -575,6 +717,150 @@ function AutomationForm({
   );
 }
 
+
+function QuestionEditor({
+  question, itemId, campaignId, existingQuestions, onSaved, onCancel,
+}: {
+  question?: StatusListQuestion;
+  itemId: string;
+  campaignId: string;
+  existingQuestions: StatusListQuestion[];
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const { toast } = useToast();
+  const { locale } = useI18n();
+  const isEdit = !!question?.id;
+
+  const [form, setForm] = useState({
+    groupName: question?.groupName ?? "",
+    questionText: question?.questionText ?? "",
+    logicOperator: question?.logicOperator ?? "OR",
+    gotoQuestionId: question?.gotoQuestionId ?? "",
+    required: question?.required ?? false,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        groupName: form.groupName.trim() || null,
+        questionText: form.questionText.trim(),
+        logicOperator: form.logicOperator,
+        gotoQuestionId: form.gotoQuestionId || null,
+        required: form.required,
+        sortOrder: question?.sortOrder ?? existingQuestions.length,
+      };
+      if (isEdit) {
+        return apiRequest("PUT", `/api/campaigns/${campaignId}/status-list/${itemId}/questions/${question!.id}`, payload);
+      }
+      return apiRequest("POST", `/api/campaigns/${campaignId}/status-list/${itemId}/questions`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      toast({ title: isEdit ? sl("qSaved", locale) : sl("qAdded", locale) });
+      onSaved();
+    },
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
+  });
+
+  const groupNames = [...new Set(existingQuestions.map(q => q.groupName).filter(Boolean))] as string[];
+  const otherQuestions = existingQuestions.filter(q => q.id !== question?.id);
+
+  return (
+    <div className="border rounded-lg p-3 space-y-2.5 bg-blue-50/30 dark:bg-blue-950/10 border-blue-200/50 dark:border-blue-800/30">
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs mb-1 block">{sl("qGroupNameLbl", locale)}</Label>
+          <Input
+            className="h-8 text-xs"
+            value={form.groupName}
+            onChange={e => setForm(f => ({ ...f, groupName: e.target.value }))}
+            placeholder={sl("qGroupNamePh", locale)}
+            list={`grp-${itemId}`}
+          />
+          <datalist id={`grp-${itemId}`}>
+            {groupNames.map(g => <option key={g} value={g} />)}
+          </datalist>
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">{sl("qLogicLbl", locale)}</Label>
+          <div className="flex gap-1 h-8">
+            {(["OR", "AND"] as const).map(op => (
+              <button
+                key={op}
+                type="button"
+                onClick={() => setForm(f => ({ ...f, logicOperator: op }))}
+                className={`flex-1 text-xs font-bold rounded border transition-colors ${
+                  form.logicOperator === op
+                    ? op === "OR"
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-purple-500 text-white border-purple-500"
+                    : "bg-background text-muted-foreground border-border hover:bg-muted"
+                }`}
+              >
+                {op}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-xs mb-1 block">{sl("questionTextLbl", locale)} *</Label>
+        <Input
+          className="h-8 text-xs"
+          value={form.questionText}
+          onChange={e => setForm(f => ({ ...f, questionText: e.target.value }))}
+          placeholder={sl("questionTextPh", locale)}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 items-end">
+        <div>
+          <Label className="text-xs mb-1 block">{sl("qGotoLbl", locale)}</Label>
+          <Select
+            value={form.gotoQuestionId || "__none__"}
+            onValueChange={v => setForm(f => ({ ...f, gotoQuestionId: v === "__none__" ? "" : v }))}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">{sl("qGotoNone", locale)}</SelectItem>
+              {otherQuestions.map(q => (
+                <SelectItem key={q.id} value={q.id}>
+                  <span className="text-xs">
+                    {q.groupName ? <span className="text-muted-foreground mr-1">{q.groupName} →</span> : null}
+                    {q.questionText.length > 38 ? q.questionText.slice(0, 38) + "…" : q.questionText}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2 pb-0.5">
+          <Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} />
+          <Label className="text-xs">{sl("qRequired", locale)}</Label>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="h-7 text-xs">
+          <X className="h-3 w-3 mr-1" /> {sl("cancelBtn", locale)}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending || !form.questionText.trim()}
+        >
+          {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+          {isEdit ? sl("qSaved", locale) : sl("qAdded", locale)}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function StatusListItemRow({
   item, campaignId, onDeleted,
 }: {
@@ -588,6 +874,8 @@ function StatusListItemRow({
   const [editMode, setEditMode] = useState(false);
   const [addingAutomation, setAddingAutomation] = useState(false);
   const [editingAutoId, setEditingAutoId] = useState<string | null>(null);
+  const [addingQuestion, setAddingQuestion] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [form, setForm] = useState({
     stepId: item.stepId,
     label: item.label,
@@ -627,6 +915,15 @@ function StatusListItemRow({
     onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
   });
 
+  const deleteQuestionMutation = useMutation({
+    mutationFn: (questionId: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}/questions/${questionId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      toast({ title: sl("qDeleted", locale) });
+    },
+    onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
+  });
+
   const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || CheckSquare;
 
   return (
@@ -649,6 +946,12 @@ function StatusListItemRow({
             <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
               <Zap className="h-3 w-3 text-amber-500" />
               {item.automations.length}
+            </span>
+          )}
+          {(item.questions?.length ?? 0) > 0 && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              <HelpCircle className="h-3 w-3 text-blue-500" />
+              {item.questions.length}
             </span>
           )}
           <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100" onClick={() => { setEditMode(e => !e); setExpanded(true); }}>
@@ -806,6 +1109,111 @@ function StatusListItemRow({
                 campaignId={campaignId}
                 onSaved={() => setAddingAutomation(false)}
                 onCancel={() => setAddingAutomation(false)}
+              />
+            )}
+          </div>
+
+          {/* ── Questions section ────────────────────────── */}
+          <div className="space-y-2 pt-1 border-t">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                <HelpCircle className="h-3 w-3 text-blue-500" />
+                {sl("questionsTitle", locale)}
+                {(item.questions?.length ?? 0) > 0 && (
+                  <span className="ml-1 text-[10px] font-normal normal-case text-blue-600 dark:text-blue-400">
+                    ({item.questions.length} {sl("qCountLabel", locale)})
+                  </span>
+                )}
+              </span>
+              <Button
+                type="button" variant="outline" size="sm"
+                className="h-6 text-xs gap-1 px-2 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                onClick={() => { setAddingQuestion(true); setEditingQuestionId(null); }}
+              >
+                <Plus className="h-3 w-3" /> {sl("addQuestionBtn", locale)}
+              </Button>
+            </div>
+
+            {/* Grouped questions display */}
+            {(() => {
+              const qs = item.questions ?? [];
+              if (qs.length === 0 && !addingQuestion) return null;
+              const grouped: Record<string, StatusListQuestion[]> = {};
+              qs.forEach(q => {
+                const k = q.groupName || "__";
+                if (!grouped[k]) grouped[k] = [];
+                grouped[k].push(q);
+              });
+              return (
+                <div className="space-y-1.5">
+                  {Object.entries(grouped).map(([gk, gqs]) => (
+                    <div key={gk} className="border border-blue-100 dark:border-blue-900/40 rounded-md overflow-hidden">
+                      {gk !== "__" && (
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900/40">
+                          <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{gk}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                            gqs[0].logicOperator === "AND"
+                              ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+                              : "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                          }`}>{gqs[0].logicOperator}</span>
+                        </div>
+                      )}
+                      {gqs.map(q => (
+                        <div key={q.id}>
+                          {editingQuestionId === q.id ? (
+                            <div className="p-2">
+                              <QuestionEditor
+                                question={q}
+                                itemId={item.id}
+                                campaignId={campaignId}
+                                existingQuestions={item.questions ?? []}
+                                onSaved={() => setEditingQuestionId(null)}
+                                onCancel={() => setEditingQuestionId(null)}
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 px-2.5 py-1.5 group/q border-b border-blue-100/50 dark:border-blue-900/20 last:border-b-0 hover:bg-muted/30">
+                              <CheckSquare className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                              <span className="flex-1 text-xs text-foreground">{q.questionText}</span>
+                              {q.required && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0">!</span>
+                              )}
+                              {q.gotoQuestionId && (
+                                <span title="Má goto cieľ" className="text-[10px] text-muted-foreground/60 shrink-0">
+                                  <CornerDownRight className="h-3 w-3" />
+                                </span>
+                              )}
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover/q:opacity-100 transition-opacity shrink-0">
+                                <Button
+                                  type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
+                                  onClick={() => { setEditingQuestionId(q.id); setAddingQuestion(false); }}
+                                >
+                                  <Pencil className="h-2.5 w-2.5" />
+                                </Button>
+                                <Button
+                                  type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                  onClick={() => deleteQuestionMutation.mutate(q.id)}
+                                >
+                                  {deleteQuestionMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Trash2 className="h-2.5 w-2.5" />}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {addingQuestion && (
+              <QuestionEditor
+                itemId={item.id}
+                campaignId={campaignId}
+                existingQuestions={item.questions ?? []}
+                onSaved={() => setAddingQuestion(false)}
+                onCancel={() => setAddingQuestion(false)}
               />
             )}
           </div>

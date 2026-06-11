@@ -58,10 +58,12 @@ import {
   insertInboundCallbackSchema,
   campaignStatusListItems,
   campaignStatusListAutomations,
+  campaignStatusListQuestions,
   campaignContactStatusListState,
   taskBackOfficeConfirmations,
   insertCampaignStatusListItemSchema,
   insertCampaignStatusListAutomationSchema,
+  insertCampaignStatusListQuestionSchema,
   insertCampaignContactStatusListStateSchema,
   insertTaskBackOfficeConfirmationSchema,
   tasks,
@@ -26687,16 +26689,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const items = await db.select().from(campaignStatusListItems)
         .where(eq(campaignStatusListItems.campaignId, campaignId))
         .orderBy(campaignStatusListItems.sortOrder);
-      const automations = items.length > 0
+      const itemIds = items.map(i => i.id);
+      const automations = itemIds.length > 0
         ? await db.select().from(campaignStatusListAutomations)
-            .where(inArray(campaignStatusListAutomations.statusListItemId, items.map(i => i.id)))
+            .where(inArray(campaignStatusListAutomations.statusListItemId, itemIds))
             .orderBy(campaignStatusListAutomations.sortOrder)
         : [];
-      const itemsWithAutomations = items.map(item => ({
+      const questions = itemIds.length > 0
+        ? await db.select().from(campaignStatusListQuestions)
+            .where(inArray(campaignStatusListQuestions.itemId, itemIds))
+            .orderBy(campaignStatusListQuestions.sortOrder)
+        : [];
+      const itemsWithData = items.map(item => ({
         ...item,
         automations: automations.filter(a => a.statusListItemId === item.id),
+        questions: questions.filter(q => q.itemId === item.id),
       }));
-      res.json(itemsWithAutomations);
+      res.json(itemsWithData);
     } catch (error) {
       console.error("Failed to fetch status list:", error);
       res.status(500).json({ error: "Failed to fetch status list" });
@@ -26735,6 +26744,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const { campaignId, itemId } = req.params;
       await db.delete(campaignStatusListAutomations).where(eq(campaignStatusListAutomations.statusListItemId, itemId));
+      await db.delete(campaignStatusListQuestions).where(eq(campaignStatusListQuestions.itemId, itemId));
       await db.delete(campaignStatusListItems)
         .where(and(eq(campaignStatusListItems.id, itemId), eq(campaignStatusListItems.campaignId, campaignId)));
       res.json({ ok: true });
@@ -26796,6 +26806,59 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to reorder status list:", error);
       res.status(500).json({ error: "Failed to reorder status list" });
+    }
+  });
+
+  // ===== Status List Question Routes =====
+
+  app.get("/api/campaigns/:campaignId/status-list/:itemId/questions", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const rows = await db.select().from(campaignStatusListQuestions)
+        .where(eq(campaignStatusListQuestions.itemId, itemId))
+        .orderBy(campaignStatusListQuestions.sortOrder);
+      res.json(rows);
+    } catch (error) {
+      console.error("Failed to fetch questions:", error);
+      res.status(500).json({ error: "Failed to fetch questions" });
+    }
+  });
+
+  app.post("/api/campaigns/:campaignId/status-list/:itemId/questions", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const validated = insertCampaignStatusListQuestionSchema.parse({ ...req.body, itemId });
+      const [question] = await db.insert(campaignStatusListQuestions).values(validated).returning();
+      res.json(question);
+    } catch (error) {
+      console.error("Failed to create question:", error);
+      res.status(500).json({ error: "Failed to create question" });
+    }
+  });
+
+  app.put("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId", requireAuth, async (req, res) => {
+    try {
+      const { questionId } = req.params;
+      const [updated] = await db.update(campaignStatusListQuestions)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(campaignStatusListQuestions.id, questionId))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Question not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update question:", error);
+      res.status(500).json({ error: "Failed to update question" });
+    }
+  });
+
+  app.delete("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId", requireAuth, async (req, res) => {
+    try {
+      const { questionId } = req.params;
+      await db.delete(campaignStatusListQuestions).where(eq(campaignStatusListQuestions.id, questionId));
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Failed to delete question:", error);
+      res.status(500).json({ error: "Failed to delete question" });
     }
   });
 

@@ -7720,6 +7720,32 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
 export type CampaignStatusListAutomation = typeof campaignStatusListAutomations.$inferSelect;
 export type InsertCampaignStatusListAutomation = z.infer<typeof insertCampaignStatusListAutomationSchema>;
 
+export const campaignStatusListQuestions = pgTable("campaign_status_list_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").notNull(),
+  groupName: text("group_name"),
+  questionText: text("question_text").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  logicOperator: text("logic_operator").notNull().default("OR"),
+  gotoQuestionId: varchar("goto_question_id"),
+  required: boolean("required").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignStatusListQuestionSchema = createInsertSchema(campaignStatusListQuestions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  groupName: z.string().optional().nullable(),
+  gotoQuestionId: z.string().optional().nullable(),
+  logicOperator: z.enum(["AND", "OR"]).optional().default("OR"),
+  required: z.boolean().optional().default(false),
+});
+export type CampaignStatusListQuestion = typeof campaignStatusListQuestions.$inferSelect;
+export type InsertCampaignStatusListQuestion = z.infer<typeof insertCampaignStatusListQuestionSchema>;
+
 export const campaignContactStatusListState = pgTable("campaign_contact_status_list_state", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   campaignContactId: varchar("campaign_contact_id").notNull(),

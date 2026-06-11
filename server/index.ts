@@ -103,6 +103,22 @@ app.use((req, res, next) => {
     console.log('[migration] Customer columns ensured');
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS campaign_status_list_questions (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        item_id varchar NOT NULL,
+        group_name text,
+        question_text text NOT NULL,
+        sort_order integer NOT NULL DEFAULT 0,
+        logic_operator text NOT NULL DEFAULT 'OR',
+        goto_question_id varchar,
+        required boolean NOT NULL DEFAULT false,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      );
+    `);
+    console.log('[migration] campaign_status_list_questions ensured');
+
+    await pool.query(`
       UPDATE hospitals SET full_name = name WHERE (full_name IS NULL OR full_name = '' OR full_name = '-') AND name IS NOT NULL AND name != '' AND name != '-';
       UPDATE hospitals SET name = full_name WHERE (name IS NULL OR name = '' OR name = '-') AND full_name IS NOT NULL AND full_name != '' AND full_name != '-';
     `);
