@@ -7733,6 +7733,7 @@ export const campaignStatusListQuestions = pgTable("campaign_status_list_questio
   required: boolean("required").notNull().default(false),
   icon: text("icon"),
   color: text("color"),
+  description: text("description"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7748,6 +7749,7 @@ export const insertCampaignStatusListQuestionSchema = createInsertSchema(campaig
   required: z.boolean().optional().default(false),
   icon: z.string().optional().nullable(),
   color: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
 });
 export type CampaignStatusListQuestion = typeof campaignStatusListQuestions.$inferSelect;
 export type InsertCampaignStatusListQuestion = z.infer<typeof insertCampaignStatusListQuestionSchema>;

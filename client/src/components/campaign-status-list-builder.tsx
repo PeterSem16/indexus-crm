@@ -51,6 +51,7 @@ type StatusListQuestion = {
   required: boolean;
   icon?: string | null;
   color?: string | null;
+  description?: string | null;
   automations: StatusListAutomation[];
 };
 
@@ -211,6 +212,8 @@ const SL: Record<string, Record<string, string>> = {
   qIconLbl:        { sk: "Ikona", en: "Icon", cs: "Ikona", hu: "Ikon", ro: "Iconă", it: "Icona", de: "Symbol" },
   qColorLbl:       { sk: "Farba", en: "Color", cs: "Barva", hu: "Szín", ro: "Culoare", it: "Colore", de: "Farbe" },
   qNoIcon:         { sk: "Bez ikony", en: "No icon", cs: "Bez ikony", hu: "Nincs ikon", ro: "Fără iconă", it: "Nessuna icona", de: "Kein Symbol" },
+  qDescLbl:        { sk: "Popis otázky", en: "Question description", cs: "Popis otázky", hu: "Kérdés leírása", ro: "Descriere întrebare", it: "Descrizione domanda", de: "Fragenbeschreibung" },
+  qDescPh:         { sk: "Krátky popis, nápoveda pre agenta...", en: "Short description, hint for agent...", cs: "Krátký popis, nápověda pro agenta...", hu: "Rövid leírás, súgó az ügynöknek...", ro: "Descriere scurtă, indiciu pentru agent...", it: "Breve descrizione, suggerimento per l'agente...", de: "Kurzbeschreibung, Hinweis für den Agenten..." },
 };
 
 const QUESTION_ICONS: { name: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -371,29 +374,42 @@ function PreviewQuestions({
                 <button
                   type="button"
                   onClick={() => handleCheck(q)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                  className={`w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors ${
                     isChecked ? "bg-green-50 dark:bg-green-950/20" : "hover:bg-muted/30"
                   }`}
                 >
-                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                  {/* Checkbox */}
+                  <div className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
                     isChecked ? "bg-green-500 border-green-500" : "border-muted-foreground/40 bg-background"
                   }`}>
                     {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
                   </div>
-                  <span className={`text-sm flex-1 leading-snug ${
-                    isChecked ? "text-green-700 dark:text-green-400 font-medium" : "text-foreground"
-                  }`}>
-                    {q.questionText}
-                  </span>
-                  {q.required && !isChecked && (
-                    <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0">!</span>
-                  )}
-                  {isChecked && gotoText && (
-                    <span className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-0.5 shrink-0 max-w-[140px]">
-                      <ArrowDownRight className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{gotoText}</span>
-                    </span>
-                  )}
+                  {/* Icon */}
+                  <div className="mt-0.5 shrink-0">
+                    <QuestionIcon iconName={q.icon} color={q.color} className="h-3.5 w-3.5" />
+                  </div>
+                  {/* Text block */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-1.5 flex-wrap">
+                      <span className={`text-sm leading-snug ${
+                        isChecked ? "text-green-700 dark:text-green-400 font-medium" : "text-foreground"
+                      }`}>
+                        {q.questionText}
+                      </span>
+                      {q.required && !isChecked && (
+                        <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0 mt-0.5">!</span>
+                      )}
+                    </div>
+                    {q.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{q.description}</p>
+                    )}
+                    {isChecked && gotoText && (
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-0.5 mt-0.5">
+                        <ArrowDownRight className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{gotoText}</span>
+                      </span>
+                    )}
+                  </div>
                 </button>
               </div>
             );
@@ -825,6 +841,7 @@ function QuestionEditor({
     required: question?.required ?? false,
     icon: question?.icon ?? "",
     color: question?.color ?? "",
+    description: question?.description ?? "",
   });
 
   const saveMutation = useMutation({
@@ -837,6 +854,7 @@ function QuestionEditor({
         required: form.required,
         icon: form.icon || null,
         color: form.color || null,
+        description: form.description.trim() || null,
         sortOrder: question?.sortOrder ?? existingQuestions.length,
       };
       if (isEdit) {
@@ -905,6 +923,16 @@ function QuestionEditor({
           value={form.questionText}
           onChange={e => setForm(f => ({ ...f, questionText: e.target.value }))}
           placeholder={sl("questionTextPh", locale)}
+        />
+      </div>
+
+      <div>
+        <Label className="text-xs mb-1 block">{sl("qDescLbl", locale)}</Label>
+        <Textarea
+          className="h-14 text-xs resize-none"
+          value={form.description}
+          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+          placeholder={sl("qDescPh", locale)}
         />
       </div>
 
@@ -1392,7 +1420,12 @@ function StatusListItemRow({
                               {/* Question row */}
                               <div className="flex items-center gap-2 px-2.5 py-1.5 group/q hover:bg-muted/30">
                                 <QuestionIcon iconName={q.icon} color={q.color} />
-                                <span className="flex-1 text-xs text-foreground">{q.questionText}</span>
+                                <span className="flex-1 text-xs text-foreground min-w-0">
+                                  <span className="block">{q.questionText}</span>
+                                  {q.description && (
+                                    <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5 truncate">{q.description}</span>
+                                  )}
+                                </span>
                                 {q.required && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0">!</span>
                                 )}
