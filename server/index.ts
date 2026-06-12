@@ -125,6 +125,13 @@ app.use((req, res, next) => {
     console.log('[migration] question_id column ensured on automations');
 
     await pool.query(`
+      ALTER TABLE campaign_status_list_questions
+        ADD COLUMN IF NOT EXISTS icon text,
+        ADD COLUMN IF NOT EXISTS color text;
+    `);
+    console.log('[migration] icon/color columns ensured on questions');
+
+    await pool.query(`
       UPDATE hospitals SET full_name = name WHERE (full_name IS NULL OR full_name = '' OR full_name = '-') AND name IS NOT NULL AND name != '' AND name != '-';
       UPDATE hospitals SET name = full_name WHERE (name IS NULL OR name = '' OR name = '-') AND full_name IS NOT NULL AND full_name != '' AND full_name != '-';
     `);

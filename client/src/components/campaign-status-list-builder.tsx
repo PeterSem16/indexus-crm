@@ -18,6 +18,9 @@ import {
   SquareCheck, CircleDot, Info, Loader2, PenLine, X, Check, Download,
   LayoutTemplate, ChevronUp, Eye, EyeOff, ListChecks,
   CircleHelp, ArrowDownRight, Copy,
+  Star, Heart, Phone, Calendar, User, FileText, MessageCircle, MapPin,
+  Clock, DollarSign, Shield, Activity, Home, Building2, Flag, Lightbulb,
+  Lock, Award, CircleAlert, CircleCheck, Smile, Stethoscope, Baby, Dna, ClipboardCheck,
 } from "lucide-react";
 
 type StatusListAutomation = {
@@ -46,6 +49,8 @@ type StatusListQuestion = {
   logicOperator: string;
   gotoQuestionId: string | null;
   required: boolean;
+  icon?: string | null;
+  color?: string | null;
   automations: StatusListAutomation[];
 };
 
@@ -203,7 +208,68 @@ const SL: Record<string, Record<string, string>> = {
   qRequired:       { sk: "Povinná otázka", en: "Required question", cs: "Povinná otázka", hu: "Kötelező kérdés", ro: "Întrebare obligatorie", it: "Domanda obbligatoria", de: "Pflichtfrage" },
   noQuestions:     { sk: "Žiadne otázky", en: "No questions", cs: "Žádné otázky", hu: "Nincs kérdés", ro: "Fără întrebări", it: "Nessuna domanda", de: "Keine Fragen" },
   qCountLabel:     { sk: "otázok", en: "questions", cs: "otázek", hu: "kérdés", ro: "întrebări", it: "domande", de: "Fragen" },
+  qIconLbl:        { sk: "Ikona", en: "Icon", cs: "Ikona", hu: "Ikon", ro: "Iconă", it: "Icona", de: "Symbol" },
+  qColorLbl:       { sk: "Farba", en: "Color", cs: "Barva", hu: "Szín", ro: "Culoare", it: "Colore", de: "Farbe" },
+  qNoIcon:         { sk: "Bez ikony", en: "No icon", cs: "Bez ikony", hu: "Nincs ikon", ro: "Fără iconă", it: "Nessuna icona", de: "Kein Symbol" },
 };
+
+const QUESTION_ICONS: { name: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { name: "SquareCheck", icon: SquareCheck },
+  { name: "CircleHelp",  icon: CircleHelp },
+  { name: "Info",        icon: Info },
+  { name: "CircleAlert", icon: CircleAlert },
+  { name: "CircleCheck", icon: CircleCheck },
+  { name: "Star",        icon: Star },
+  { name: "Heart",       icon: Heart },
+  { name: "Phone",       icon: Phone },
+  { name: "Mail",        icon: Mail },
+  { name: "Calendar",    icon: Calendar },
+  { name: "User",        icon: User },
+  { name: "FileText",    icon: FileText },
+  { name: "MessageCircle", icon: MessageCircle },
+  { name: "MapPin",      icon: MapPin },
+  { name: "Clock",       icon: Clock },
+  { name: "DollarSign",  icon: DollarSign },
+  { name: "Shield",      icon: Shield },
+  { name: "Activity",    icon: Activity },
+  { name: "Home",        icon: Home },
+  { name: "Building2",   icon: Building2 },
+  { name: "Flag",        icon: Flag },
+  { name: "Lightbulb",   icon: Lightbulb },
+  { name: "Lock",        icon: Lock },
+  { name: "Award",       icon: Award },
+  { name: "Smile",       icon: Smile },
+  { name: "Stethoscope", icon: Stethoscope },
+  { name: "Baby",        icon: Baby },
+  { name: "Dna",         icon: Dna },
+  { name: "ClipboardCheck", icon: ClipboardCheck },
+  { name: "Zap",         icon: Zap },
+];
+
+const QUESTION_COLORS = [
+  { name: "gray",    dot: "bg-gray-400",    text: "text-gray-500 dark:text-gray-400" },
+  { name: "blue",    dot: "bg-blue-500",    text: "text-blue-500 dark:text-blue-400" },
+  { name: "green",   dot: "bg-green-500",   text: "text-green-600 dark:text-green-400" },
+  { name: "amber",   dot: "bg-amber-400",   text: "text-amber-500 dark:text-amber-400" },
+  { name: "red",     dot: "bg-red-500",     text: "text-red-500 dark:text-red-400" },
+  { name: "purple",  dot: "bg-purple-500",  text: "text-purple-500 dark:text-purple-400" },
+  { name: "pink",    dot: "bg-pink-400",    text: "text-pink-500 dark:text-pink-400" },
+  { name: "cyan",    dot: "bg-cyan-400",    text: "text-cyan-500 dark:text-cyan-400" },
+  { name: "orange",  dot: "bg-orange-400",  text: "text-orange-500 dark:text-orange-400" },
+  { name: "emerald", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+  { name: "indigo",  dot: "bg-indigo-500",  text: "text-indigo-500 dark:text-indigo-400" },
+  { name: "rose",    dot: "bg-rose-500",    text: "text-rose-500 dark:text-rose-400" },
+];
+
+function getQIconColorClass(color?: string | null) {
+  return QUESTION_COLORS.find(c => c.name === color)?.text ?? "text-muted-foreground/40";
+}
+
+function QuestionIcon({ iconName, color, className }: { iconName?: string | null; color?: string | null; className?: string }) {
+  const found = QUESTION_ICONS.find(i => i.name === iconName);
+  const Icon = found?.icon ?? SquareCheck;
+  return <Icon className={`${className ?? "h-3 w-3"} ${getQIconColorClass(color)} shrink-0`} />;
+}
 
 function sl(key: string, locale: string): string {
   return SL[key]?.[locale] ?? SL[key]?.["sk"] ?? key;
@@ -757,6 +823,8 @@ function QuestionEditor({
     logicOperator: question?.logicOperator ?? "OR",
     gotoQuestionId: question?.gotoQuestionId ?? "",
     required: question?.required ?? false,
+    icon: question?.icon ?? "",
+    color: question?.color ?? "",
   });
 
   const saveMutation = useMutation({
@@ -767,6 +835,8 @@ function QuestionEditor({
         logicOperator: form.logicOperator,
         gotoQuestionId: form.gotoQuestionId || null,
         required: form.required,
+        icon: form.icon || null,
+        color: form.color || null,
         sortOrder: question?.sortOrder ?? existingQuestions.length,
       };
       if (isEdit) {
@@ -836,6 +906,64 @@ function QuestionEditor({
           onChange={e => setForm(f => ({ ...f, questionText: e.target.value }))}
           placeholder={sl("questionTextPh", locale)}
         />
+      </div>
+
+      {/* Icon + Color row */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs mb-1.5 block">{sl("qIconLbl", locale)}</Label>
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, icon: "" }))}
+              className={`h-6 w-6 rounded flex items-center justify-center border transition-all ${
+                !form.icon ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border hover:bg-muted"
+              }`}
+              title={sl("qNoIcon", locale)}
+            >
+              <span className="text-[9px] text-muted-foreground font-bold">—</span>
+            </button>
+            {QUESTION_ICONS.map(({ name, icon: Icon }) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setForm(f => ({ ...f, icon: name }))}
+                className={`h-6 w-6 rounded flex items-center justify-center border transition-all ${
+                  form.icon === name
+                    ? "border-primary bg-primary/10 ring-1 ring-primary"
+                    : "border-border hover:bg-muted"
+                }`}
+                title={name}
+              >
+                <Icon className={`h-3.5 w-3.5 ${getQIconColorClass(form.color)}`} />
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs mb-1.5 block">{sl("qColorLbl", locale)}</Label>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, color: "" }))}
+              className={`h-5 w-5 rounded-full border-2 transition-all ${
+                !form.color ? "border-foreground scale-110" : "border-transparent hover:border-muted-foreground/40"
+              } bg-muted`}
+              title={sl("qNoIcon", locale)}
+            />
+            {QUESTION_COLORS.map(col => (
+              <button
+                key={col.name}
+                type="button"
+                onClick={() => setForm(f => ({ ...f, color: col.name }))}
+                className={`h-5 w-5 rounded-full border-2 transition-all ${col.dot} ${
+                  form.color === col.name ? "border-foreground scale-110" : "border-transparent hover:border-muted-foreground/40"
+                }`}
+                title={col.name}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 items-end">
@@ -1263,7 +1391,7 @@ function StatusListItemRow({
                             <>
                               {/* Question row */}
                               <div className="flex items-center gap-2 px-2.5 py-1.5 group/q hover:bg-muted/30">
-                                <SquareCheck className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                                <QuestionIcon iconName={q.icon} color={q.color} />
                                 <span className="flex-1 text-xs text-foreground">{q.questionText}</span>
                                 {q.required && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0">!</span>
