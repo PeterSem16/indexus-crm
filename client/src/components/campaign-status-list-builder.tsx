@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -721,6 +721,13 @@ function AutomationBadge({ automation }: { automation: StatusListAutomation }) {
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border/50">
       {getActionIcon(automation.actionType)}
       <span className="text-muted-foreground">{getActionLabel(automation.actionType, locale)}</span>
+      {(automation.conditionJson || (automation.conditionField && automation.conditionField !== "always")) && (
+        <span
+          title={getConditionSummary(automation.conditionJson, automation.conditionField, automation.conditionValue, locale)}
+          className="text-[9px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-mono truncate max-w-[110px]">
+          IF…
+        </span>
+      )}
       {automation.targetRole && (
         <span className="font-medium">→ {getRoleLabel(automation.targetRole, locale)}</span>
       )}
@@ -900,6 +907,36 @@ function AutomationForm({
           </div>
         )}
 
+        {/* Action help panel */}
+        {showActionHelp && (() => {
+          const helpKey = `atHelp_${form.actionType}`;
+          const helpText = sl(helpKey, locale);
+          const actionOpt = ACTION_TYPE_OPTIONS.find(o => o.value === form.actionType);
+          const HelpIcon = actionOpt?.icon ?? Info;
+          return (
+            <div className="col-span-2 rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/20 p-2.5 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <HelpIcon className={`h-3.5 w-3.5 shrink-0 ${actionOpt?.color ?? "text-amber-600"}`} />
+                <span className={`text-xs font-semibold ${actionOpt?.color ?? "text-amber-600"}`}>{sl(actionOpt?.slKey ?? "actionTypeLbl", locale)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">{helpText}</p>
+            </div>
+          );
+        })()}
+
+        {/* Webhook target URL for sys_webhook */}
+        {form.actionType === "sys_webhook" && (
+          <div className="col-span-2">
+            <Label className="text-xs mb-1 block">{sl("ifWebhookUrl", locale)}</Label>
+            <Input
+              className="h-8 text-xs font-mono"
+              value={form.webhookTarget}
+              onChange={e => setForm(f => ({ ...f, webhookTarget: e.target.value }))}
+              placeholder={sl("ifWebhookPh", locale)}
+            />
+          </div>
+        )}
+
         {form.actionType === "set_contact_status" && (
           <div className="col-span-2">
             <Label className="text-xs mb-1 block">{sl("disposition", locale)}</Label>
@@ -930,31 +967,154 @@ function AutomationForm({
           <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold tracking-wide">{sl("ifLabel", locale)}</span>
           <span className="text-xs font-medium text-muted-foreground">{sl("condSubLbl", locale)}</span>
         </div>
-        <Select value={form.conditionType} onValueChange={v => setForm(f => ({ ...f, conditionType: v }))}>
+
+        {/* Mode selector */}
+        <Select value={form.conditionType} onValueChange={v => setForm(f => ({
+          ...f, conditionType: v,
+          conditionRules: v === "compound" && f.conditionRules.length === 0
+            ? [{ field: "call_count", op: "gt", value: "0" }]
+            : f.conditionRules
+        }))}>
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="always">{sl("condAlways", locale)}</SelectItem>
             <SelectItem value="country">{sl("condCountry", locale)}</SelectItem>
-            <SelectItem value="answer">{sl("condAnswer", locale)}</SelectItem>
+            <SelectItem value="compound">{sl("ifCompound", locale)}</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Legacy: country */}
         {form.conditionType === "country" && (
           <Select value={form.conditionCountry} onValueChange={v => setForm(f => ({ ...f, conditionCountry: v }))}>
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {COUNTRY_OPTIONS.map(c => (
-                <SelectItem key={c.value} value={c.value}>{sl(c.slKey, locale)}</SelectItem>
+              {COUNTRY_OPTIONS.map(co => (
+                <SelectItem key={co.value} value={co.value}>{sl(co.slKey, locale)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         )}
-        {form.conditionType === "answer" && (
-          <Input
-            className="h-8 text-xs"
-            value={form.conditionAnswer}
-            onChange={e => setForm(f => ({ ...f, conditionAnswer: e.target.value }))}
-            placeholder={sl("condAnswerPh", locale)}
-          />
+
+        {/* Compound condition builder */}
+        {form.conditionType === "compound" && (
+          <div className="space-y-2 rounded-md border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/30 dark:bg-amber-950/10 p-2">
+            {/* AND/OR logic toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground font-medium">{locale === "sk" ? "Logika:" : "Logic:"}</span>
+              <button type="button"
+                className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${form.conditionLogic === "AND" ? "bg-purple-500 text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                onClick={() => setForm(f => ({ ...f, conditionLogic: "AND" }))}>
+                AND
+              </button>
+              <button type="button"
+                className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${form.conditionLogic === "OR" ? "bg-blue-500 text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                onClick={() => setForm(f => ({ ...f, conditionLogic: "OR" }))}>
+                OR
+              </button>
+              <span className="ml-auto text-[10px] text-muted-foreground italic">
+                {form.conditionLogic === "AND" ? sl("ifLogicAnd", locale) : sl("ifLogicOr", locale)}
+              </span>
+            </div>
+
+            {/* Rules list */}
+            {form.conditionRules.map((rule, idx) => {
+              const fieldDef = getCondFieldDef(rule.field);
+              const byCategory: Record<string, ConditionFieldDef[]> = {};
+              CONDITION_FIELDS.forEach(fd => {
+                if (!byCategory[fd.category]) byCategory[fd.category] = [];
+                byCategory[fd.category].push(fd);
+              });
+              return (
+                <div key={idx} className="grid grid-cols-[1fr_auto_1fr_auto] gap-1 items-center">
+                  {/* Field selector */}
+                  <Select value={rule.field} onValueChange={v => {
+                    const def = getCondFieldDef(v);
+                    setForm(f => ({ ...f, conditionRules: f.conditionRules.map((r, i) => i === idx ? { field: v, op: def?.ops[0]?.value ?? "eq", value: "" } : r) }));
+                  }}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CONDITION_CATEGORIES.map(cat => (
+                        <React.Fragment key={cat}>
+                          <div className="px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider border-t mt-0.5">{sl(cat, locale)}</div>
+                          {(byCategory[cat] ?? []).map(fd => (
+                            <SelectItem key={fd.field} value={fd.field} className="text-xs">
+                              {locale === "sk" || locale === "cs" ? fd.labelSk : fd.labelEn}
+                            </SelectItem>
+                          ))}
+                        </React.Fragment>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Operator */}
+                  <Select value={rule.op} onValueChange={v => setForm(f => ({ ...f, conditionRules: f.conditionRules.map((r, i) => i === idx ? { ...r, op: v } : r) }))}>
+                    <SelectTrigger className="h-7 text-xs w-14"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(fieldDef?.ops ?? OPS_STR).map(op => (
+                        <SelectItem key={op.value} value={op.value} className="text-xs">{op.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Value input */}
+                  {fieldDef?.valueType === "select" ? (
+                    <Select value={rule.value} onValueChange={v => setForm(f => ({ ...f, conditionRules: f.conditionRules.map((r, i) => i === idx ? { ...r, value: v } : r) }))}>
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(fieldDef.selectOptions ?? []).map(o => (
+                          <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : fieldDef?.valueType === "bool" ? (
+                    <Select value={rule.value || "true"} onValueChange={v => setForm(f => ({ ...f, conditionRules: f.conditionRules.map((r, i) => i === idx ? { ...r, value: v } : r) }))}>
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true" className="text-xs">Áno</SelectItem>
+                        <SelectItem value="false" className="text-xs">Nie</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : fieldDef?.valueType === "disp_count" ? (
+                    <div className="flex gap-1">
+                      <Input className="h-7 text-xs" placeholder="status..." value={rule.value.split("|")[0] ?? ""} onChange={e => {
+                        const parts = rule.value.split("|");
+                        parts[0] = e.target.value;
+                        setForm(f => ({ ...f, conditionRules: f.conditionRules.map((r, i) => i === idx ? { ...r, value: parts.join("|") } : r) }));
+                      }} />
+                      <Input className="h-7 text-xs w-10" type="number" min="1" placeholder="N" value={rule.value.split("|")[1] ?? ""} onChange={e => {
+                        const parts = rule.value.split("|");
+                        parts[1] = e.target.value;
+                        setForm(f => ({ ...f, conditionRules: f.conditionRules.map((r, i) => i === idx ? { ...r, value: parts.join("|") } : r) }));
+                      }} />
+                    </div>
+                  ) : (
+                    <Input
+                      className="h-7 text-xs"
+                      type={fieldDef?.valueType === "number" ? "number" : "text"}
+                      value={rule.value}
+                      onChange={e => setForm(f => ({ ...f, conditionRules: f.conditionRules.map((r, i) => i === idx ? { ...r, value: e.target.value } : r) }))}
+                      placeholder={sl("ifValPh", locale)}
+                    />
+                  )}
+
+                  {/* Remove rule */}
+                  <button type="button"
+                    onClick={() => setForm(f => ({ ...f, conditionRules: f.conditionRules.filter((_, i) => i !== idx) }))}
+                    className="h-7 w-7 flex items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-950/20 text-muted-foreground hover:text-destructive transition-colors">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* Add rule button */}
+            <button type="button"
+              onClick={() => setForm(f => ({ ...f, conditionRules: [...f.conditionRules, { field: "call_count", op: "gt", value: "0" }] }))}
+              className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors pt-0.5">
+              <Plus className="h-3 w-3" />
+              {sl("ifAddRule", locale)}
+            </button>
+          </div>
         )}
       </div>
 

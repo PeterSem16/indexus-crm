@@ -6,6 +6,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { eq, desc, and, gte, lte, inArray, isNotNull, isNull, or, count, sql, asc } from "drizzle-orm";
 import { db, pool } from "./db";
+import { evaluateAutomationCondition } from "./lib/condition-evaluator";
 import { storage } from "./storage";
 import { 
   numberRanges,
@@ -27035,12 +27036,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
           for (const automation of automations) {
             // Check condition
-            let conditionMet = true;
-            if (automation.conditionField && automation.conditionField !== "always") {
-              if (automation.conditionField === "country") {
-                conditionMet = (contactCountry ?? "") === (automation.conditionValue ?? "");
-              }
-            }
+            const conditionMet = await evaluateAutomationCondition(automation, {
+              contactId: contactId ?? null,
+              campaignId: campaignId ?? null,
+              agentId: userId ?? null,
+              contactCountry: contactCountry ?? null,
+            });
             if (!conditionMet) continue;
 
             // Execute action

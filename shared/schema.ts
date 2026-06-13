@@ -7698,7 +7698,9 @@ export const campaignStatusListAutomations = pgTable("campaign_status_list_autom
   conditionField: text("condition_field"),
   conditionOperator: text("condition_operator"),
   conditionValue: text("condition_value"),
+  conditionJson: text("condition_json"),
   dispositionId: varchar("disposition_id"),
+  webhookTarget: text("webhook_target"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7717,7 +7719,9 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
   conditionField: z.string().optional().nullable(),
   conditionOperator: z.string().optional().nullable(),
   conditionValue: z.string().optional().nullable(),
+  conditionJson: z.string().optional().nullable(),
   dispositionId: z.string().optional().nullable(),
+  webhookTarget: z.string().optional().nullable(),
 });
 export type CampaignStatusListAutomation = typeof campaignStatusListAutomations.$inferSelect;
 export type InsertCampaignStatusListAutomation = z.infer<typeof insertCampaignStatusListAutomationSchema>;
