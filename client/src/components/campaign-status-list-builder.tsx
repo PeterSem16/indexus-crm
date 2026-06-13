@@ -21,6 +21,7 @@ import {
   Star, Heart, Phone, Calendar, User, FileText, MessageCircle, MapPin,
   Clock, DollarSign, Shield, Activity, Home, Building2, Flag, Lightbulb,
   Lock, Award, CircleAlert, CircleCheck, Smile, Stethoscope, Baby, Dna, ClipboardCheck,
+  Settings, Hash, ToggleLeft, Type,
 } from "lucide-react";
 
 type StatusListAutomation = {
@@ -52,6 +53,8 @@ type StatusListQuestion = {
   icon?: string | null;
   color?: string | null;
   description?: string | null;
+  isHidden?: boolean;
+  fieldType?: string | null;
   automations: StatusListAutomation[];
 };
 
@@ -214,6 +217,16 @@ const SL: Record<string, Record<string, string>> = {
   qNoIcon:         { sk: "Bez ikony", en: "No icon", cs: "Bez ikony", hu: "Nincs ikon", ro: "Fără iconă", it: "Nessuna icona", de: "Kein Symbol" },
   qDescLbl:        { sk: "Popis otázky", en: "Question description", cs: "Popis otázky", hu: "Kérdés leírása", ro: "Descriere întrebare", it: "Descrizione domanda", de: "Fragenbeschreibung" },
   qDescPh:         { sk: "Krátky popis, nápoveda pre agenta...", en: "Short description, hint for agent...", cs: "Krátký popis, nápověda pro agenta...", hu: "Rövid leírás, súgó az ügynöknek...", ro: "Descriere scurtă, indiciu pentru agent...", it: "Breve descrizione, suggerimento per l'agente...", de: "Kurzbeschreibung, Hinweis für den Agenten..." },
+  qFieldTypeLbl:   { sk: "Typ poľa", en: "Field type", cs: "Typ pole", hu: "Mező típusa", ro: "Tip câmp", it: "Tipo di campo", de: "Feldtyp" },
+  qHiddenLbl:      { sk: "Skrytá (systémová)", en: "Hidden (system)", cs: "Skrytá (systémová)", hu: "Rejtett (rendszer)", ro: "Ascuns (sistem)", it: "Nascosto (sistema)", de: "Versteckt (System)" },
+  qSystemAuto:     { sk: "systémová automatizácia", en: "system automation", cs: "systémová automatizace", hu: "rendszerautomatizálás", ro: "automatizare sistem", it: "automazione di sistema", de: "Systemautomatisierung" },
+  qGroupDone:      { sk: "Hotovo", en: "Done", cs: "Hotovo", hu: "Kész", ro: "Gata", it: "Fatto", de: "Fertig" },
+  ftCheckbox:      { sk: "Zaškrtávacie pole", en: "Checkbox", cs: "Zaškrtávací pole", hu: "Jelölőnégyzet", ro: "Bifă", it: "Casella di controllo", de: "Kontrollkästchen" },
+  ftRadio:         { sk: "Výberové tlačidlo", en: "Radio button", cs: "Přepínač", hu: "Választógomb", ro: "Buton radio", it: "Pulsante radio", de: "Optionsfeld" },
+  ftYesno:         { sk: "Áno / Nie", en: "Yes / No", cs: "Ano / Ne", hu: "Igen / Nem", ro: "Da / Nu", it: "Sì / No", de: "Ja / Nein" },
+  ftText:          { sk: "Textové pole", en: "Text input", cs: "Textové pole", hu: "Szövegmező", ro: "Câmp text", it: "Campo testo", de: "Texteingabe" },
+  ftNumber:        { sk: "Číslo", en: "Number", cs: "Číslo", hu: "Szám", ro: "Număr", it: "Numero", de: "Zahl" },
+  ftDate:          { sk: "Dátum", en: "Date", cs: "Datum", hu: "Dátum", ro: "Dată", it: "Data", de: "Datum" },
 };
 
 const QUESTION_ICONS: { name: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -264,6 +277,19 @@ const QUESTION_COLORS = [
   { name: "rose",    dot: "bg-rose-500",    text: "text-rose-500 dark:text-rose-400" },
 ];
 
+const FIELD_TYPES: { value: string; labelKey: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { value: "checkbox", labelKey: "ftCheckbox", icon: SquareCheck },
+  { value: "radio",    labelKey: "ftRadio",    icon: CircleDot },
+  { value: "yesno",   labelKey: "ftYesno",    icon: ToggleLeft },
+  { value: "text",    labelKey: "ftText",     icon: Type },
+  { value: "number",  labelKey: "ftNumber",   icon: Hash },
+  { value: "date",    labelKey: "ftDate",     icon: Calendar },
+];
+
+function getQFieldTypeIcon(ft?: string | null): React.ComponentType<{ className?: string }> {
+  return FIELD_TYPES.find(f => f.value === ft)?.icon ?? SquareCheck;
+}
+
 function getQIconColorClass(color?: string | null) {
   return QUESTION_COLORS.find(c => c.name === color)?.text ?? "text-muted-foreground/40";
 }
@@ -298,30 +324,55 @@ function PreviewQuestions({
   locale: string;
   allItems: StatusListItem[];
 }) {
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [answers, setAnswers] = useState<Record<string, string | boolean>>({});
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const questionRefs = new Map<string, HTMLDivElement | null>();
 
-  function handleCheck(q: StatusListQuestion) {
-    setChecked(prev => {
-      const next = new Set(prev);
-      if (next.has(q.id)) {
-        next.delete(q.id);
-        if (highlightedId === q.gotoQuestionId) setHighlightedId(null);
-      } else {
-        next.add(q.id);
-        if (q.gotoQuestionId) {
-          setHighlightedId(q.gotoQuestionId);
-          if (!q.gotoQuestionId.startsWith("step:")) {
-            setTimeout(() => {
-              const el = questionRefs.get(q.gotoQuestionId!);
-              el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            }, 50);
-          }
-        }
+  function isAnswered(q: StatusListQuestion): boolean {
+    const v = answers[q.id];
+    return v !== undefined && v !== null && v !== "" && v !== false;
+  }
+
+  function triggerGoto(q: StatusListQuestion) {
+    if (q.gotoQuestionId) {
+      setHighlightedId(q.gotoQuestionId);
+      if (!q.gotoQuestionId.startsWith("step:")) {
+        setTimeout(() => {
+          const el = questionRefs.get(q.gotoQuestionId!);
+          el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 50);
       }
-      return next;
-    });
+    }
+  }
+
+  function handleAnswer(q: StatusListQuestion, value: string | boolean, groupQs: StatusListQuestion[]) {
+    const ft = q.fieldType || "checkbox";
+    if (ft === "checkbox") {
+      setAnswers(prev => {
+        const next = { ...prev };
+        if (next[q.id]) { delete next[q.id]; setHighlightedId(null); }
+        else { next[q.id] = true; triggerGoto(q); }
+        return next;
+      });
+    } else if (ft === "radio") {
+      setAnswers(prev => {
+        const next = { ...prev };
+        groupQs.forEach(gq => { if ((gq.fieldType || "checkbox") === "radio") delete next[gq.id]; });
+        if (prev[q.id]) { delete next[q.id]; }
+        else { next[q.id] = true; triggerGoto(q); }
+        return next;
+      });
+    } else if (ft === "yesno") {
+      setAnswers(prev => {
+        const next = { ...prev };
+        if (next[q.id] === value) { delete next[q.id]; }
+        else { next[q.id] = value; triggerGoto(q); }
+        return next;
+      });
+    } else {
+      setAnswers(prev => ({ ...prev, [q.id]: value }));
+      if (value) triggerGoto(q);
+    }
   }
 
   function findGotoText(gotoId: string): string {
@@ -337,6 +388,17 @@ function PreviewQuestions({
     return "";
   }
 
+  function isGroupComplete(gqs: StatusListQuestion[]): boolean {
+    const visible = gqs.filter(q => !q.isHidden);
+    if (visible.length === 0) return true;
+    const required = visible.filter(q => q.required);
+    const op = gqs[0]?.logicOperator ?? "AND";
+    if (required.length > 0) {
+      return op === "OR" ? required.some(q => isAnswered(q)) : required.every(q => isAnswered(q));
+    }
+    return visible.some(q => isAnswered(q));
+  }
+
   const grouped: Record<string, StatusListQuestion[]> = {};
   questions.forEach(q => {
     const k = q.groupName || "__";
@@ -346,76 +408,168 @@ function PreviewQuestions({
 
   return (
     <div className="mt-2 space-y-1.5">
-      {Object.entries(grouped).map(([gk, gqs]) => (
-        <div key={gk} className="border border-blue-100 dark:border-blue-900/30 rounded-md overflow-hidden">
-          {gk !== "__" && (
-            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900/30">
-              <CircleHelp className="h-3 w-3 text-blue-500 shrink-0" />
-              <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{gk}</span>
-              <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                gqs[0].logicOperator === "AND"
-                  ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
-                  : "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"
-              }`}>{gqs[0].logicOperator}</span>
-            </div>
-          )}
-          {gqs.map(q => {
-            const isChecked = checked.has(q.id);
-            const isHighlighted = highlightedId === q.id;
-            const gotoText = q.gotoQuestionId ? findGotoText(q.gotoQuestionId) : "";
-            return (
-              <div
-                key={q.id}
-                ref={(el: HTMLDivElement | null) => { questionRefs.set(q.id, el); }}
-                className={`border-b border-blue-100/50 dark:border-blue-900/20 last:border-b-0 transition-all duration-200 ${
-                  isHighlighted ? "ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30" : ""
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleCheck(q)}
-                  className={`w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors ${
-                    isChecked ? "bg-green-50 dark:bg-green-950/20" : "hover:bg-muted/30"
+      {Object.entries(grouped).map(([gk, gqs]) => {
+        const visibleQs = gqs.filter(q => !q.isHidden);
+        const allSystem = visibleQs.length === 0 && gqs.length > 0;
+        const complete = !allSystem && isGroupComplete(gqs);
+        const borderClass = allSystem
+          ? "border-amber-200/60 dark:border-amber-800/40"
+          : complete
+            ? "border-green-300 dark:border-green-700/50"
+            : "border-blue-100 dark:border-blue-900/30";
+        return (
+          <div key={gk} className={`border rounded-md overflow-hidden transition-colors ${borderClass}`}>
+            {/* Group header */}
+            {gk !== "__" && (
+              <div className={`flex items-center gap-2 px-2.5 py-1.5 border-b ${
+                allSystem
+                  ? "bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/50 dark:border-amber-800/30"
+                  : complete
+                    ? "bg-green-50 dark:bg-green-950/20 border-green-200/50 dark:border-green-800/30"
+                    : "bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30"
+              }`}>
+                {allSystem
+                  ? <Settings className="h-3 w-3 text-amber-500 shrink-0" />
+                  : complete
+                    ? <CircleCheck className="h-3 w-3 text-green-500 shrink-0" />
+                    : <CircleHelp className="h-3 w-3 text-blue-500 shrink-0" />}
+                <span className={`text-xs font-semibold ${
+                  allSystem ? "text-amber-700 dark:text-amber-300"
+                  : complete ? "text-green-700 dark:text-green-300"
+                  : "text-blue-700 dark:text-blue-300"
+                }`}>{gk}</span>
+                {allSystem && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">SYSTEM</span>}
+                {complete && !allSystem && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">✓</span>}
+                {!allSystem && (
+                  <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                    gqs[0].logicOperator === "AND"
+                      ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+                      : "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"
+                  }`}>{gqs[0].logicOperator}</span>
+                )}
+              </div>
+            )}
+            {/* System group body */}
+            {allSystem && (
+              <div className="px-3 py-2 flex items-center gap-2">
+                <Zap className="h-3 w-3 text-amber-500 shrink-0" />
+                <span className="text-xs text-amber-700 dark:text-amber-400 italic">
+                  {gqs.length}× {sl("qSystemAuto", locale)}
+                </span>
+              </div>
+            )}
+            {/* Visible questions */}
+            {visibleQs.map(q => {
+              const qDone = isAnswered(q);
+              const isHighlighted = highlightedId === q.id;
+              const gotoText = q.gotoQuestionId && qDone ? findGotoText(q.gotoQuestionId) : "";
+              const ft = q.fieldType || "checkbox";
+              return (
+                <div
+                  key={q.id}
+                  ref={(el: HTMLDivElement | null) => { questionRefs.set(q.id, el); }}
+                  className={`border-b border-blue-100/50 dark:border-blue-900/20 last:border-b-0 transition-all duration-200 ${
+                    isHighlighted ? "ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30" : ""
                   }`}
                 >
-                  {/* Checkbox */}
-                  <div className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                    isChecked ? "bg-green-500 border-green-500" : "border-muted-foreground/40 bg-background"
-                  }`}>
-                    {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
-                  </div>
-                  {/* Icon */}
-                  <div className="mt-0.5 shrink-0">
-                    <QuestionIcon iconName={q.icon} color={q.color} className="h-3.5 w-3.5" />
-                  </div>
-                  {/* Text block */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start gap-1.5 flex-wrap">
-                      <span className={`text-sm leading-snug ${
-                        isChecked ? "text-green-700 dark:text-green-400 font-medium" : "text-foreground"
-                      }`}>
-                        {q.questionText}
-                      </span>
-                      {q.required && !isChecked && (
-                        <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0 mt-0.5">!</span>
-                      )}
+                  {/* CHECKBOX */}
+                  {(ft === "checkbox") && (
+                    <button type="button" onClick={() => handleAnswer(q, true, gqs)}
+                      className={`w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors ${qDone ? "bg-green-50 dark:bg-green-950/20" : "hover:bg-muted/30"}`}>
+                      <div className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${qDone ? "bg-green-500 border-green-500" : "border-muted-foreground/40 bg-background"}`}>
+                        {qDone && <Check className="h-2.5 w-2.5 text-white" />}
+                      </div>
+                      <div className="mt-0.5 shrink-0"><QuestionIcon iconName={q.icon} color={q.color} className="h-3.5 w-3.5" /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-1.5 flex-wrap">
+                          <span className={`text-sm leading-snug ${qDone ? "text-green-700 dark:text-green-400 font-medium" : "text-foreground"}`}>{q.questionText}</span>
+                          {q.required && !qDone && <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0 mt-0.5">!</span>}
+                        </div>
+                        {q.description && <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{q.description}</p>}
+                        {gotoText && <span className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-0.5 mt-0.5"><ArrowDownRight className="h-3 w-3 shrink-0" /><span className="truncate">{gotoText}</span></span>}
+                      </div>
+                    </button>
+                  )}
+                  {/* RADIO */}
+                  {ft === "radio" && (
+                    <button type="button" onClick={() => handleAnswer(q, true, gqs)}
+                      className={`w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors ${qDone ? "bg-blue-50 dark:bg-blue-950/20" : "hover:bg-muted/30"}`}>
+                      <div className={`w-4 h-4 mt-0.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${qDone ? "border-blue-500" : "border-muted-foreground/40"}`}>
+                        {qDone && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                      </div>
+                      <div className="mt-0.5 shrink-0"><QuestionIcon iconName={q.icon} color={q.color} className="h-3.5 w-3.5" /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-1.5 flex-wrap">
+                          <span className={`text-sm leading-snug ${qDone ? "text-blue-700 dark:text-blue-300 font-medium" : "text-foreground"}`}>{q.questionText}</span>
+                          {q.required && !qDone && <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold shrink-0 mt-0.5">!</span>}
+                        </div>
+                        {q.description && <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{q.description}</p>}
+                        {gotoText && <span className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-0.5 mt-0.5"><ArrowDownRight className="h-3 w-3 shrink-0" /><span className="truncate">{gotoText}</span></span>}
+                      </div>
+                    </button>
+                  )}
+                  {/* TEXT / NUMBER / DATE */}
+                  {(ft === "text" || ft === "number" || ft === "date") && (
+                    <div className="flex items-start gap-2.5 px-3 py-2">
+                      <div className="mt-1 shrink-0"><QuestionIcon iconName={q.icon} color={q.color} className="h-3.5 w-3.5" /></div>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm text-foreground leading-snug">{q.questionText}</span>
+                          {q.required && !qDone && <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold">!</span>}
+                        </div>
+                        {q.description && <p className="text-xs text-muted-foreground leading-snug">{q.description}</p>}
+                        <input
+                          type={ft === "date" ? "date" : ft === "number" ? "number" : "text"}
+                          className="h-7 w-full rounded border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                          value={typeof answers[q.id] === "string" ? (answers[q.id] as string) : ""}
+                          onChange={e => handleAnswer(q, e.target.value, gqs)}
+                          placeholder={ft !== "date" ? "..." : undefined}
+                        />
+                        {gotoText && <span className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-0.5"><ArrowDownRight className="h-3 w-3 shrink-0" /><span className="truncate">{gotoText}</span></span>}
+                      </div>
                     </div>
-                    {q.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{q.description}</p>
-                    )}
-                    {isChecked && gotoText && (
-                      <span className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-0.5 mt-0.5">
-                        <ArrowDownRight className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{gotoText}</span>
-                      </span>
-                    )}
-                  </div>
-                </button>
+                  )}
+                  {/* YESNO */}
+                  {ft === "yesno" && (
+                    <div className="flex items-start gap-2.5 px-3 py-2">
+                      <div className="mt-0.5 shrink-0"><QuestionIcon iconName={q.icon} color={q.color} className="h-3.5 w-3.5" /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-sm text-foreground leading-snug">{q.questionText}</span>
+                              {q.required && !qDone && <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold">!</span>}
+                            </div>
+                            {q.description && <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{q.description}</p>}
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            <button type="button" onClick={() => handleAnswer(q, "yes", gqs)}
+                              className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${answers[q.id] === "yes" ? "bg-green-500 border-green-500 text-white" : "border-border hover:bg-green-50 dark:hover:bg-green-950/20 text-foreground"}`}>
+                              Áno
+                            </button>
+                            <button type="button" onClick={() => handleAnswer(q, "no", gqs)}
+                              className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${answers[q.id] === "no" ? "bg-red-500 border-red-500 text-white" : "border-border hover:bg-red-50 dark:hover:bg-red-950/20 text-foreground"}`}>
+                              Nie
+                            </button>
+                          </div>
+                        </div>
+                        {gotoText && <span className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-0.5 mt-1"><ArrowDownRight className="h-3 w-3 shrink-0" /><span className="truncate">{gotoText}</span></span>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {/* Completion footer for ungrouped when done */}
+            {gk === "__" && complete && visibleQs.length > 0 && (
+              <div className="px-3 py-1 bg-green-50 dark:bg-green-950/10 border-t border-green-200/50 dark:border-green-800/30 flex items-center gap-1.5">
+                <CircleCheck className="h-3 w-3 text-green-500 shrink-0" />
+                <span className="text-xs text-green-700 dark:text-green-400 font-medium">{sl("qGroupDone", locale)}</span>
               </div>
-            );
-          })}
-        </div>
-      ))}
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -842,6 +996,8 @@ function QuestionEditor({
     icon: question?.icon ?? "",
     color: question?.color ?? "",
     description: question?.description ?? "",
+    isHidden: question?.isHidden ?? false,
+    fieldType: question?.fieldType ?? "checkbox",
   });
 
   const saveMutation = useMutation({
@@ -855,6 +1011,8 @@ function QuestionEditor({
         icon: form.icon || null,
         color: form.color || null,
         description: form.description.trim() || null,
+        isHidden: form.isHidden,
+        fieldType: form.fieldType || "checkbox",
         sortOrder: question?.sortOrder ?? existingQuestions.length,
       };
       if (isEdit) {
@@ -991,6 +1149,33 @@ function QuestionEditor({
               />
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Field type + hidden */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs mb-1 block">{sl("qFieldTypeLbl", locale)}</Label>
+          <Select value={form.fieldType || "checkbox"} onValueChange={v => setForm(f => ({ ...f, fieldType: v }))}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {FIELD_TYPES.map(ft => {
+                const FtIcon = ft.icon;
+                return (
+                  <SelectItem key={ft.value} value={ft.value}>
+                    <span className="flex items-center gap-1.5 text-xs">
+                      <FtIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      {sl(ft.labelKey, locale)}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2 pt-4">
+          <Switch checked={!!form.isHidden} onCheckedChange={v => setForm(f => ({ ...f, isHidden: v }))} />
+          <Label className="text-xs text-muted-foreground">{sl("qHiddenLbl", locale)}</Label>
         </div>
       </div>
 
@@ -1433,6 +1618,15 @@ function StatusListItemRow({
                                   <span title="Má goto cieľ" className="text-[10px] text-muted-foreground/60 shrink-0">
                                     <ArrowDownRight className="h-3 w-3" />
                                   </span>
+                                )}
+                                {/* Field type badge */}
+                                {q.fieldType && q.fieldType !== "checkbox" && (() => {
+                                  const FTIcon = getQFieldTypeIcon(q.fieldType);
+                                  return <FTIcon className="h-3 w-3 text-muted-foreground/50 shrink-0" />;
+                                })()}
+                                {/* Hidden badge */}
+                                {q.isHidden && (
+                                  <EyeOff className="h-3 w-3 text-muted-foreground/50 shrink-0" />
                                 )}
                                 {/* Automation count badge */}
                                 {(q.automations?.length ?? 0) > 0 && (

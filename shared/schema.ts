@@ -7734,6 +7734,8 @@ export const campaignStatusListQuestions = pgTable("campaign_status_list_questio
   icon: text("icon"),
   color: text("color"),
   description: text("description"),
+  isHidden: boolean("is_hidden").notNull().default(false),
+  fieldType: text("field_type").notNull().default("checkbox"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7750,6 +7752,8 @@ export const insertCampaignStatusListQuestionSchema = createInsertSchema(campaig
   icon: z.string().optional().nullable(),
   color: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  isHidden: z.boolean().optional().default(false),
+  fieldType: z.string().optional().default("checkbox"),
 });
 export type CampaignStatusListQuestion = typeof campaignStatusListQuestions.$inferSelect;
 export type InsertCampaignStatusListQuestion = z.infer<typeof insertCampaignStatusListQuestionSchema>;
