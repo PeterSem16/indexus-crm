@@ -106,6 +106,9 @@ export function useNotifications() {
               case "notification":
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+                if (message.notification?.type === "group_task_assigned") {
+                  queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+                }
                 break;
               case "unreadCount":
                 setUnreadCount(message.count || 0);

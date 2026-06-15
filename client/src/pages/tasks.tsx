@@ -739,10 +739,22 @@ export default function TasksPage() {
                 const groupTasks = filteredTasks.filter(task =>
                   (task.tags || []).some((tag: string) => tag === `group_id:${g.id}`)
                 );
+                const pendingCount = tasks.filter(task =>
+                  (task.tags || []).some((tag: string) => tag === `group_id:${g.id}`) &&
+                  (task.status === "pending" || task.status === "in_progress")
+                ).length;
                 return (
                   <TabsTrigger key={g.id} value={`group_${g.id}`} data-testid={`tab-group-${g.id}`}>
                     <ListChecks className="h-3.5 w-3.5 mr-1" />
                     {g.displayAlias || g.name} ({groupTasks.length})
+                    {pendingCount > 0 && (
+                      <span
+                        className="ml-1.5 inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-[10px] font-semibold min-w-[16px] h-4 px-1 leading-none"
+                        data-testid={`badge-group-pending-${g.id}`}
+                      >
+                        {pendingCount}
+                      </span>
+                    )}
                   </TabsTrigger>
                 );
               })}
