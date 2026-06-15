@@ -1,1 +1,2 @@
 - [Builder patch script safety](builder-patch-safety.md) — Python patch scripts that crash mid-run leave the file unchanged; always write atomically or verify the result.
+- [Post-merge timeout](post-merge-timeout.md) — keep timeoutMs at 90000; npm install + db:push takes ~27s, default 20s is too short.
