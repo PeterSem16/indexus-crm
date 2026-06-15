@@ -7134,7 +7134,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // ─── Task Groups API ─────────────────────────────────────────────────────
   app.get("/api/task-groups", requireAuth, async (req, res) => {
     try {
-      const groups = await db.select().from(taskGroups).orderBy(taskGroups.name);
+      const groups = await db.select().from(taskGroups).orderBy(taskGroups.sortOrder, taskGroups.name);
       // Attach member user IDs
       const members = await db.select().from(taskGroupMembers);
       const [allUsers] = [await db.select({ id: users.id, fullName: users.fullName, username: users.username, avatarUrl: users.avatarUrl }).from(users)];
@@ -7194,9 +7194,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
     try {
       const sessionRole = (req.session as any)?.user?.role;
       if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
-      const { name, description, color, icon, memberUserIds } = req.body;
+      const { name, description, color, icon, memberUserIds, displayAlias, sortOrder } = req.body;
       const [group] = await db.update(taskGroups)
-        .set({ name, description, color, icon, updatedAt: new Date() })
+        .set({ name, description, color, icon, displayAlias: displayAlias ?? null, ...(sortOrder !== undefined ? { sortOrder } : {}), updatedAt: new Date() })
         .where(eq(taskGroups.id, req.params.id))
         .returning();
       if (!group) return res.status(404).json({ error: "Task group not found" });
@@ -7223,6 +7223,22 @@ Return ONLY valid JSON, no markdown code blocks.`,
     } catch (error) {
       console.error("Error deleting task group:", error);
       res.status(500).json({ error: "Failed to delete task group" });
+    }
+  });
+
+  app.put("/api/task-groups-reorder", requireAuth, async (req, res) => {
+    try {
+      const sessionRole = (req.session as any)?.user?.role;
+      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
+      const { order } = req.body; // array of { id, sortOrder }
+      if (!Array.isArray(order)) return res.status(400).json({ error: "order must be an array" });
+      await Promise.all(order.map(({ id, sortOrder }: { id: string; sortOrder: number }) =>
+        db.update(taskGroups).set({ sortOrder, updatedAt: new Date() }).where(eq(taskGroups.id, id))
+      ));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error reordering task groups:", error);
+      res.status(500).json({ error: "Failed to reorder task groups" });
     }
   });
 

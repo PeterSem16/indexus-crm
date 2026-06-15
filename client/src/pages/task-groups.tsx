@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -19,7 +19,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Plus, Edit, Trash2, Users, UserPlus, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, Users, UserPlus, ArrowLeft, GripVertical } from "lucide-react";
 import type { User } from "@shared/schema";
 import { useLocation } from "wouter";
 
@@ -34,6 +34,8 @@ type TaskGroup = {
   description?: string | null;
   color?: string | null;
   icon?: string | null;
+  sortOrder?: number | null;
+  displayAlias?: string | null;
   members: { userId: string; fullName: string; avatarUrl?: string | null }[];
 };
 
@@ -41,6 +43,7 @@ const emptyForm = () => ({
   name: "",
   description: "",
   color: GROUP_COLORS[0],
+  displayAlias: "",
   memberUserIds: [] as string[],
 });
 
@@ -51,9 +54,17 @@ export default function TaskGroupsPage() {
   const [editGroup, setEditGroup] = useState<TaskGroup | null>(null);
   const [form, setForm] = useState(emptyForm());
 
+  // Local ordered list for drag-and-drop (mirrors server order until saved)
+  const [localGroups, setLocalGroups] = useState<TaskGroup[] | null>(null);
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
+
   const { data: groups = [], isLoading } = useQuery<TaskGroup[]>({
     queryKey: ["/api/task-groups"],
   });
+
+  // Use local order if admin has dragged, otherwise use server order
+  const displayGroups = localGroups ?? groups;
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -61,7 +72,7 @@ export default function TaskGroupsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { ...form };
+      const payload = { ...form, displayAlias: form.displayAlias || null };
       if (editGroup) {
         return apiRequest("PUT", `/api/task-groups/${editGroup.id}`, payload);
       }
@@ -69,6 +80,7 @@ export default function TaskGroupsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
+      setLocalGroups(null);
       toast({ title: editGroup ? "Skupina upravená" : "Skupina vytvorená" });
       setDialogOpen(false);
       setEditGroup(null);
@@ -83,10 +95,25 @@ export default function TaskGroupsPage() {
     mutationFn: async (id: string) => apiRequest("DELETE", `/api/task-groups/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
+      setLocalGroups(null);
       toast({ title: "Skupina zmazaná" });
     },
     onError: () => {
       toast({ title: "Chyba pri mazaní", variant: "destructive" });
+    },
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: async (ordered: TaskGroup[]) => {
+      const order = ordered.map((g, i) => ({ id: g.id, sortOrder: i }));
+      return apiRequest("PUT", "/api/task-groups-reorder", { order });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
+      toast({ title: "Poradie skupín uložené" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladaní poradia", variant: "destructive" });
     },
   });
 
@@ -102,6 +129,7 @@ export default function TaskGroupsPage() {
       name: g.name,
       description: g.description || "",
       color: g.color || GROUP_COLORS[0],
+      displayAlias: g.displayAlias || "",
       memberUserIds: g.members.map(m => m.userId),
     });
     setDialogOpen(true);
@@ -114,6 +142,30 @@ export default function TaskGroupsPage() {
         ? f.memberUserIds.filter(id => id !== uid)
         : [...f.memberUserIds, uid],
     }));
+  };
+
+  // Drag-and-drop handlers
+  const handleDragStart = (index: number) => {
+    dragItem.current = index;
+  };
+
+  const handleDragEnter = (index: number) => {
+    dragOverItem.current = index;
+    if (dragItem.current === null || dragItem.current === index) return;
+    const base = localGroups ?? groups;
+    const reordered = [...base];
+    const [moved] = reordered.splice(dragItem.current, 1);
+    reordered.splice(index, 0, moved);
+    dragItem.current = index;
+    setLocalGroups(reordered);
+  };
+
+  const handleDragEnd = () => {
+    if (localGroups) {
+      reorderMutation.mutate(localGroups);
+    }
+    dragItem.current = null;
+    dragOverItem.current = null;
   };
 
   return (
@@ -131,7 +183,7 @@ export default function TaskGroupsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-task-groups-title">Skupiny úloh</h1>
-            <p className="text-muted-foreground text-sm">Spravujte skupiny používateľov pre automatické priraďovanie úloh</p>
+            <p className="text-muted-foreground text-sm">Spravujte skupiny používateľov. Pretiahnite riadky na zmenu poradia záložiek.</p>
           </div>
         </div>
         <Button onClick={openCreate} data-testid="btn-create-group">
@@ -144,7 +196,7 @@ export default function TaskGroupsPage() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : groups.length === 0 ? (
+      ) : displayGroups.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -152,82 +204,105 @@ export default function TaskGroupsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {groups.map((group) => (
-            <Card key={group.id} data-testid={`task-group-card-${group.id}`}>
-              <CardHeader className="flex flex-row items-start justify-between pb-2">
-                <div className="flex items-center gap-2">
+        <div className="space-y-2">
+          {displayGroups.map((group, index) => (
+            <Card
+              key={group.id}
+              data-testid={`task-group-card-${group.id}`}
+              className="cursor-grab active:cursor-grabbing select-none"
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragEnter={() => handleDragEnter(index)}
+              onDragEnd={handleDragEnd}
+              onDragOver={e => e.preventDefault()}
+            >
+              <CardContent className="py-3 px-4">
+                <div className="flex items-center gap-3">
+                  <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div
-                    className="h-4 w-4 rounded-full shrink-0"
+                    className="h-3 w-3 rounded-full shrink-0"
                     style={{ backgroundColor: group.color || "#3b82f6" }}
                   />
-                  <CardTitle className="text-base">{group.name}</CardTitle>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEdit(group)}
-                    data-testid={`btn-edit-group-${group.id}`}
-                  >
-                    <Edit className="h-3.5 w-3.5" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-destructive" data-testid={`btn-delete-group-${group.id}`}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Zmazať skupinu?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Táto akcia je nevratná. Skupina "{group.name}" bude zmazaná. Existujúce úlohy nebudú ovplyvnené.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Zrušiť</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={() => deleteMutation.mutate(group.id)}
-                        >
-                          Zmazať
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {group.description && (
-                  <p className="text-sm text-muted-foreground mb-3">{group.description}</p>
-                )}
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1">
-                    <UserPlus className="h-3 w-3" />
-                    Členovia ({group.members.length})
-                  </p>
-                  {group.members.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Žiadni členovia</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1">
-                      {group.members.map(m => (
-                        <div key={m.userId} className="flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs">
-                          <Avatar className="h-4 w-4">
-                            <AvatarImage src={m.avatarUrl || undefined} className="object-cover" />
-                            <AvatarFallback className="text-[6px] bg-primary text-primary-foreground">
-                              {m.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{m.fullName}</span>
-                        </div>
-                      ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm" data-testid={`text-group-name-${group.id}`}>{group.name}</span>
+                      {group.displayAlias && (
+                        <Badge variant="secondary" className="text-xs" data-testid={`text-group-alias-${group.id}`}>
+                          záložka: {group.displayAlias}
+                        </Badge>
+                      )}
+                      {group.description && (
+                        <span className="text-xs text-muted-foreground truncate">— {group.description}</span>
+                      )}
                     </div>
-                  )}
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      <UserPlus className="h-3 w-3 text-muted-foreground" />
+                      {group.members.length === 0 ? (
+                        <span className="text-xs text-muted-foreground italic">Žiadni členovia</span>
+                      ) : (
+                        <div className="flex gap-1 flex-wrap">
+                          {group.members.slice(0, 5).map(m => (
+                            <div key={m.userId} className="flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs">
+                              <Avatar className="h-3.5 w-3.5">
+                                <AvatarImage src={m.avatarUrl || undefined} className="object-cover" />
+                                <AvatarFallback className="text-[6px] bg-primary text-primary-foreground">
+                                  {m.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>{m.fullName}</span>
+                            </div>
+                          ))}
+                          {group.members.length > 5 && (
+                            <span className="text-xs text-muted-foreground">+{group.members.length - 5}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEdit(group)}
+                      data-testid={`btn-edit-group-${group.id}`}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-destructive" data-testid={`btn-delete-group-${group.id}`}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Zmazať skupinu?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Táto akcia je nevratná. Skupina "{group.name}" bude zmazaná. Existujúce úlohy nebudú ovplyvnené.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Zrušiť</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => deleteMutation.mutate(group.id)}
+                          >
+                            Zmazať
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
+          {reorderMutation.isPending && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground px-2">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Ukladám poradie…
+            </div>
+          )}
         </div>
       )}
 
@@ -247,6 +322,18 @@ export default function TaskGroupsPage() {
                 className="mt-1"
                 data-testid="input-group-name"
               />
+            </div>
+            <div>
+              <Label htmlFor="group-alias" className="text-sm font-medium">Krátky názov záložky (voliteľný)</Label>
+              <Input
+                id="group-alias"
+                value={form.displayAlias}
+                onChange={e => setForm(f => ({ ...f, displayAlias: e.target.value }))}
+                placeholder="napr. BO SK, Koor, Med..."
+                className="mt-1"
+                data-testid="input-group-alias"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Ak vyplníte, tento skrátený text sa zobrazí v záložke na stránke Úlohy.</p>
             </div>
             <div>
               <Label htmlFor="group-desc" className="text-sm font-medium">Popis (voliteľný)</Label>

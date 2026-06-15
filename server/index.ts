@@ -189,6 +189,10 @@ app.use((req, res, next) => {
       );
       ALTER TABLE campaign_status_list_automations
         ADD COLUMN IF NOT EXISTS task_group_id varchar;
+      ALTER TABLE task_groups
+        ADD COLUMN IF NOT EXISTS sort_order integer DEFAULT 0;
+      ALTER TABLE task_groups
+        ADD COLUMN IF NOT EXISTS display_alias text;
     `);
     console.log('[migration] task_groups / task_group_members / task_group_id ensured');
   } catch (e: any) {

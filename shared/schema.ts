@@ -7809,6 +7809,8 @@ export const taskGroups = pgTable('task_groups', {
   description: text('description'),
   color: text('color').default('#3b82f6'),
   icon: text('icon').default('Users'),
+  sortOrder: integer('sort_order').default(0),
+  displayAlias: text('display_alias'),
   createdAt: timestamp('created_at').notNull().default(sql`now()`),
   updatedAt: timestamp('updated_at').notNull().default(sql`now()`),
 });
@@ -7817,6 +7819,8 @@ export const insertTaskGroupSchema = createInsertSchema(taskGroups).omit({ id: t
   description: z.string().optional().nullable(),
   color: z.string().optional().nullable(),
   icon: z.string().optional().nullable(),
+  sortOrder: z.number().optional().nullable(),
+  displayAlias: z.string().optional().nullable(),
 });
 export type TaskGroup = typeof taskGroups.$inferSelect;
 export type InsertTaskGroup = z.infer<typeof insertTaskGroupSchema>;

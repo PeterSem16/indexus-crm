@@ -732,7 +732,7 @@ export default function TasksPage() {
                 return (
                   <TabsTrigger key={g.id} value={`group_${g.id}`} data-testid={`tab-group-${g.id}`}>
                     <ListChecks className="h-3.5 w-3.5 mr-1" />
-                    {g.name} ({groupTasks.length})
+                    {g.displayAlias || g.name} ({groupTasks.length})
                   </TabsTrigger>
                 );
               })}
