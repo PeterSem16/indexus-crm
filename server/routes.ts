@@ -7177,6 +7177,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
     try {
       const { name, description, color, icon, memberUserIds } = req.body;
       if (!name) return res.status(400).json({ error: "name is required" });
+      const sessionRole = (req.session as any)?.user?.role;
+      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       const [group] = await db.insert(taskGroups).values({ name, description, color, icon }).returning();
       if (Array.isArray(memberUserIds) && memberUserIds.length > 0) {
         await db.insert(taskGroupMembers).values(memberUserIds.map((uid: string) => ({ groupId: group.id, userId: uid })));
@@ -7190,6 +7192,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.put("/api/task-groups/:id", requireAuth, async (req, res) => {
     try {
+      const sessionRole = (req.session as any)?.user?.role;
+      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       const { name, description, color, icon, memberUserIds } = req.body;
       const [group] = await db.update(taskGroups)
         .set({ name, description, color, icon, updatedAt: new Date() })
@@ -7211,6 +7215,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.delete("/api/task-groups/:id", requireAuth, async (req, res) => {
     try {
+      const sessionRole = (req.session as any)?.user?.role;
+      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       await db.delete(taskGroupMembers).where(eq(taskGroupMembers.groupId, req.params.id));
       await db.delete(taskGroups).where(eq(taskGroups.id, req.params.id));
       res.json({ success: true });

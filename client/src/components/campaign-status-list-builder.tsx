@@ -153,6 +153,10 @@ const SL: Record<string, Record<string, string>> = {
   tgNoGroups:    { sk: "Žiadne skupiny", en: "No groups", cs: "Žádné skupiny", hu: "Nincs csoport", ro: "Niciun grup", it: "Nessun gruppo", de: "Keine Gruppen" },
   varPickerLbl:  { sk: "Vložiť premennú", en: "Insert variable", cs: "Vložit proměnnou", hu: "Változó beszúrása", ro: "Inserare variabilă", it: "Inserisci variabile", de: "Variable einfügen" },
   condExtended:  { sk: "Rozšírené", en: "Extended", cs: "Rozšířené", hu: "Bővített", ro: "Extins", it: "Esteso", de: "Erweitert" },
+  condFieldChanged: { sk: "Pole sa zmenilo na", en: "Field changed to", cs: "Pole se změnilo na", hu: "Mező megváltozott erre", ro: "Câmpul s-a schimbat la", it: "Il campo è cambiato a", de: "Feld hat sich geändert zu" },
+  fctFieldLbl: { sk: "Pole kontaktu", en: "Contact field", cs: "Pole kontaktu", hu: "Kontakt mező", ro: "Câmp contact", it: "Campo contatto", de: "Kontaktfeld" },
+  fctValueLbl: { sk: "Cieľová hodnota", en: "Target value", cs: "Cílová hodnota", hu: "Célérték", ro: "Valoare țintă", it: "Valore destinazione", de: "Zielwert" },
+  fctValuePh: { sk: "Zadajte hodnotu...", en: "Enter value...", cs: "Zadejte hodnotu...", hu: "Adja meg az értéket...", ro: "Introduceți valoarea...", it: "Inserisci valore...", de: "Wert eingeben..." },
   condAlways:    { sk: "Vždy — pri každom potvrdení kroku", en: "Always — on every step confirmation", cs: "Vždy — při každém potvrzení kroku", hu: "Mindig — minden lépés megerősítésekor", ro: "Întotdeauna — la fiecare confirmare a pasului", it: "Sempre — ad ogni conferma del passo", de: "Immer — bei jeder Schrittbestätigung" },
   condCountry:   { sk: "Krajina zákazníka je...", en: "Customer country is...", cs: "Země zákazníka je...", hu: "Az ügyfél országa...", ro: "Țara clientului este...", it: "Il paese del cliente è...", de: "Land des Kunden ist..." },
   condAnswer:    { sk: "Odpoveď zákazníka je...", en: "Customer answer is...", cs: "Odpověď zákazníka je...", hu: "Az ügyfél válasza...", ro: "Răspunsul clientului este...", it: "La risposta del cliente è...", de: "Antwort des Kunden ist..." },
@@ -871,6 +875,19 @@ const CONDITION_FIELDS: ConditionFieldDef[] = [
     ops: OPS_STR, valueType: "text",
   },
   {
+    key: "contact.status_code", category: "contact",
+    labelSk: "Kód stavu kontaktu (CRM)", labelEn: "Contact status code (CRM)",
+    descSk: "Aktuálny kód stavu kontaktu v CRM systéme (napr. potential, in_process, client, inactive). Porovnáva voči aktuálnej hodnote poľa client_status.",
+    descEn: "Current status code of the contact in the CRM system (e.g. potential, in_process, client, inactive). Compared against the current client_status field value.",
+    ops: OPS_STR, valueType: "select",
+    options: [
+      { value: "potential",   labelSk: "Potenciálny",  labelEn: "Potential" },
+      { value: "in_process",  labelSk: "V procese",    labelEn: "In process" },
+      { value: "client",      labelSk: "Klient",       labelEn: "Client" },
+      { value: "inactive",    labelSk: "Neaktívny",    labelEn: "Inactive" },
+    ],
+  },
+  {
     key: "contact.segment", category: "contact",
     labelSk: "CRM segment kontaktu", labelEn: "Contact CRM segment",
     descSk: "CRM stav/segment kontaktu (napr. potential, in_process, client). Podmienka sa vyhodnocuje voči aktuálnej hodnote.",
@@ -1013,16 +1030,21 @@ function AutomationForm({
     taskPriority: automation?.taskPriority || "medium",
     emailTemplateId: automation?.emailTemplateId || "",
     smsTemplateId: automation?.smsTemplateId || "",
-    conditionType: automation?.conditionJson ? "compound" : automation?.conditionField === "country" ? "country" : "always",
+    conditionType: automation?.conditionJson
+      ? ((() => { try { const p = JSON.parse(automation.conditionJson ?? "{}"); return p.__type === "field_changed_to" ? "field_changed_to" : "compound"; } catch { return "compound"; } })())
+      : automation?.conditionField === "country" ? "country" : "always",
     conditionCountry: automation?.conditionField === "country" ? (automation?.conditionValue || "SK") : "SK",
     conditionAnswer: automation?.conditionField === "answer" ? (automation?.conditionValue || "") : "",
-    conditionLogic: (() => { try { return JSON.parse(automation?.conditionJson ?? "{}").logic ?? "AND"; } catch { return "AND"; } })() as "AND" | "OR",
-    conditionRules: (() => { try { return JSON.parse(automation?.conditionJson ?? "{}").rules ?? []; } catch { return []; } })() as { field: string; op: string; value: string }[],
+    conditionLogic: (() => { try { const p = JSON.parse(automation?.conditionJson ?? "{}"); return p.__type === "field_changed_to" ? "AND" : (p.logic ?? "AND"); } catch { return "AND"; } })() as "AND" | "OR",
+    conditionRules: (() => { try { const p = JSON.parse(automation?.conditionJson ?? "{}"); return p.__type === "field_changed_to" ? [] : (p.rules ?? []); } catch { return []; } })() as { field: string; op: string; value: string }[],
+    fieldChangedKey: (() => { try { const p = JSON.parse(automation?.conditionJson ?? "{}"); return p.__type === "field_changed_to" ? (p.field ?? "contact.status_code") : "contact.status_code"; } catch { return "contact.status_code"; } })(),
+    fieldChangedValue: (() => { try { const p = JSON.parse(automation?.conditionJson ?? "{}"); return p.__type === "field_changed_to" ? (p.value ?? "") : ""; } catch { return ""; } })(),
     dispositionId: automation?.dispositionId || "",
     webhookTarget: automation?.webhookTarget || "",
     taskGroupId: automation?.taskGroupId || "",
   });
   const [showActionHelp, setShowActionHelp] = useState(false);
+  const taskDescRef = useRef<HTMLTextAreaElement>(null);
 
   const isEdit = !!automation?.id;
 
@@ -1054,10 +1076,14 @@ function AutomationForm({
         emailTemplateId: form.emailTemplateId || null,
         smsTemplateId: form.smsTemplateId || null,
         dispositionId: form.dispositionId || null,
-        conditionField: form.conditionType === "compound" || form.conditionType === "always" ? null : form.conditionType,
-        conditionOperator: form.conditionType === "always" || form.conditionType === "compound" ? null : "eq",
-        conditionValue: form.conditionType === "always" || form.conditionType === "compound" ? null : (form.conditionType === "country" ? form.conditionCountry : null),
-        conditionJson: form.conditionType === "compound" && form.conditionRules.length > 0 ? JSON.stringify({ logic: form.conditionLogic, rules: form.conditionRules }) : null,
+        conditionField: (form.conditionType === "compound" || form.conditionType === "always" || form.conditionType === "field_changed_to") ? null : form.conditionType,
+        conditionOperator: (form.conditionType === "always" || form.conditionType === "compound" || form.conditionType === "field_changed_to") ? null : "eq",
+        conditionValue: (form.conditionType === "always" || form.conditionType === "compound" || form.conditionType === "field_changed_to") ? null : (form.conditionType === "country" ? form.conditionCountry : null),
+        conditionJson: form.conditionType === "compound" && form.conditionRules.length > 0
+          ? JSON.stringify({ logic: form.conditionLogic, rules: form.conditionRules })
+          : form.conditionType === "field_changed_to" && form.fieldChangedKey
+          ? JSON.stringify({ __type: "field_changed_to", field: form.fieldChangedKey, op: "eq", value: form.fieldChangedValue })
+          : null,
         webhookTarget: form.webhookTarget || null,
         taskGroupId: form.taskGroupId || null,
       };
@@ -1173,6 +1199,7 @@ function AutomationForm({
               <Label className="text-xs mb-1 block">{sl("taskDescLbl", locale)}</Label>
               <Textarea
                 id="automation-task-desc"
+                ref={taskDescRef}
                 className="text-xs min-h-[60px] resize-none"
                 value={form.taskDescription}
                 onChange={e => setForm(f => ({ ...f, taskDescription: e.target.value }))}
@@ -1192,7 +1219,23 @@ function AutomationForm({
                     key={token}
                     type="button"
                     className="inline-flex items-center gap-0.5 rounded border border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-mono cursor-pointer"
-                    onClick={() => setForm(f => ({ ...f, taskDescription: f.taskDescription + token }))}
+                    onClick={() => {
+                      const el = taskDescRef.current;
+                      if (el) {
+                        const start = el.selectionStart ?? el.value.length;
+                        const end = el.selectionEnd ?? el.value.length;
+                        const before = el.value.slice(0, start);
+                        const after = el.value.slice(end);
+                        const newVal = before + token + after;
+                        setForm(f => ({ ...f, taskDescription: newVal }));
+                        requestAnimationFrame(() => {
+                          el.selectionStart = el.selectionEnd = start + token.length;
+                          el.focus();
+                        });
+                      } else {
+                        setForm(f => ({ ...f, taskDescription: f.taskDescription + token }));
+                      }
+                    }}
                     title={token}
                   >
                     {label}
@@ -1317,6 +1360,7 @@ function AutomationForm({
             <SelectItem value="always">{sl("condAlways", locale)}</SelectItem>
             <SelectItem value="country">{sl("condCountry", locale)}</SelectItem>
             <SelectItem value="compound">{sl("ifCompound", locale)}</SelectItem>
+            <SelectItem value="field_changed_to">{sl("condFieldChanged", locale)}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -1330,6 +1374,63 @@ function AutomationForm({
               ))}
             </SelectContent>
           </Select>
+        )}
+
+        {/* Field Changed To condition */}
+        {form.conditionType === "field_changed_to" && (
+          <div className="space-y-2 rounded-md border border-blue-200/60 dark:border-blue-800/40 bg-blue-50/30 dark:bg-blue-950/10 p-2">
+            <p className="text-[10px] text-blue-700 dark:text-blue-400 font-medium">{sl("condFieldChanged", locale)} — {locale === "sk" ? "Podmienka je splnená ak má kontakt aktuálne nastavenú túto hodnotu poľa." : "Condition is met when the contact currently has this field value set."}</p>
+            <div className="grid grid-cols-2 gap-1">
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-1 block">{sl("fctFieldLbl", locale)}</Label>
+                <Select value={form.fieldChangedKey} onValueChange={v => setForm(f => ({ ...f, fieldChangedKey: v, fieldChangedValue: "" }))}>
+                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CONDITION_FIELDS.filter(fd => ["contact", "campaign"].includes(fd.category)).map(fd => (
+                      <SelectItem key={fd.key} value={fd.key}>{locale === "sk" ? fd.labelSk : fd.labelEn}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-1 block">{sl("fctValueLbl", locale)}</Label>
+                {(() => {
+                  const def = CONDITION_FIELDS.find(f => f.key === form.fieldChangedKey);
+                  if (def?.valueType === "select" && def.options) {
+                    return (
+                      <Select value={form.fieldChangedValue} onValueChange={v => setForm(f => ({ ...f, fieldChangedValue: v }))}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {def.options.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{locale === "sk" ? o.labelSk : o.labelEn}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  }
+                  if (def?.valueType === "bool") {
+                    return (
+                      <Select value={form.fieldChangedValue} onValueChange={v => setForm(f => ({ ...f, fieldChangedValue: v }))}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">{locale === "sk" ? "Áno" : "Yes"}</SelectItem>
+                          <SelectItem value="false">{locale === "sk" ? "Nie" : "No"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    );
+                  }
+                  return (
+                    <Input
+                      className="h-7 text-xs"
+                      value={form.fieldChangedValue}
+                      onChange={e => setForm(f => ({ ...f, fieldChangedValue: e.target.value }))}
+                      placeholder={sl("fctValuePh", locale)}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Compound condition builder */}

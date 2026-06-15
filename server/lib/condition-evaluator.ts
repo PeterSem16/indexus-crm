@@ -314,10 +314,18 @@ export async function evaluateAutomationCondition(
   },
   ctx: AutomationConditionContext
 ): Promise<boolean> {
-  // New compound condition
+  // New compound condition / field_changed_to
   if (automation.conditionJson) {
     try {
-      const group: ConditionGroup = JSON.parse(automation.conditionJson);
+      const parsed = JSON.parse(automation.conditionJson);
+      // field_changed_to: single field equality check
+      if (parsed.__type === "field_changed_to" && parsed.field) {
+        return evaluateSingleRule(
+          { field: parsed.field, op: parsed.op || "eq", value: parsed.value || "" },
+          ctx
+        );
+      }
+      const group: ConditionGroup = parsed;
       return await evaluateConditionGroup(group, ctx);
     } catch {
       return true;
