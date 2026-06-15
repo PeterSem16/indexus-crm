@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useNotifications } from "@/hooks/use-notifications";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -53,6 +54,7 @@ const NOTIFICATION_ICONS: Record<string, any> = {
   sentiment_alert: AlertTriangle,
   sentiment_negative: AlertTriangle,
   task_assigned: Clipboard,
+  group_task_assigned: Clipboard,
   task_due: Clock,
   task_completed: CheckCircle,
   mention: AtSign,
@@ -123,6 +125,14 @@ function NotificationItem({ notification, onMarkRead, onDismiss }: NotificationI
     addSuffix: true, 
     locale: sk 
   });
+  const [, navigate] = useLocation();
+
+  function handleClick() {
+    if (!notification.isRead) onMarkRead(notification.id);
+    if (notification.type === "group_task_assigned" && notification.metadata?.groupId) {
+      navigate(`/tasks?group=${notification.metadata.groupId}`);
+    }
+  }
 
   return (
     <div 
@@ -130,7 +140,7 @@ function NotificationItem({ notification, onMarkRead, onDismiss }: NotificationI
         "p-3 border-b last:border-b-0 hover-elevate cursor-pointer transition-colors",
         !notification.isRead && "bg-primary/5"
       )}
-      onClick={() => !notification.isRead && onMarkRead(notification.id)}
+      onClick={handleClick}
       data-testid={`notification-item-${notification.id}`}
     >
       <div className="flex gap-3">

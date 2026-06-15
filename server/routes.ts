@@ -27269,6 +27269,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                     country: contactCountry ?? null,
                   });
                 }
+                // Send real-time WebSocket notification to every group member
+                if (assignees.length > 0) {
+                  const groupName = groupRow?.name ?? groupId;
+                  await notificationService.sendNotificationToUsers(assignees, {
+                    type: "group_task_assigned",
+                    title: `Máte novú skupinovú úlohu: ${taskTitle}`,
+                    message: `Skupina: ${groupName}`,
+                    priority: "normal",
+                    entityType: "task",
+                    metadata: { groupId, groupName, taskTitle },
+                  });
+                }
               } else if (roleName) {
                 // LEGACY ROLE PATH: find all users matching targetRole, assign one task per user
                 const roleUsers = await db.execute<any>(

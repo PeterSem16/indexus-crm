@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
@@ -86,9 +86,19 @@ export default function TasksPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   
+  const [activeTab, setActiveTab] = useState<string>("my");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+
+  // If the page is opened with ?group=<id>, activate that group tab
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const groupId = params.get("group");
+    if (groupId) {
+      setActiveTab(`group_${groupId}`);
+    }
+  }, []);
   const [reportDateRange, setReportDateRange] = useState<string>("this_month");
   const [reportStartDate, setReportStartDate] = useState<Date>(startOfMonth(new Date()));
   const [reportEndDate, setReportEndDate] = useState<Date>(endOfMonth(new Date()));
@@ -715,7 +725,7 @@ export default function TasksPage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <Tabs defaultValue="my" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="my" data-testid="tab-my-tasks">
               {t.tasks.myTasks} ({myTasks.length})
