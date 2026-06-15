@@ -60,3 +60,7 @@ APP_BASE_URL = "https://indexus.cordbloodcenter.com"
 [userenv.production]
 
 [userenv.development]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 90000
