@@ -3886,11 +3886,14 @@ export default function EmailClientPage() {
   const [taskSubTab, setTaskSubTab] = useState<string>("my");
   const [taskReportingOpen, setTaskReportingOpen] = useState(false);
 
+  const backOfficeGroupIds = taskGroupsList.filter((g: any) => g.isBackOffice).map((g: any) => g.id);
+
   const filteredTasks = (tasksData || []).filter(task => {
     const matchesStatus = taskFilter === "all" || task.status === taskFilter;
     let matchesTab = true;
     if (taskSubTab === "my") matchesTab = task.assignedUserId === user?.id;
     else if (taskSubTab === "all") matchesTab = true;
+    else if (taskSubTab === "back_office") matchesTab = backOfficeGroupIds.some(gid => (task.tags || []).some((tag: string) => tag === `group_id:${gid}`));
     else matchesTab = (task.tags || []).some((tag: string) => tag === `group_id:${taskSubTab}`);
     return matchesStatus && matchesTab;
   });
@@ -5789,6 +5792,29 @@ export default function EmailClientPage() {
                         </Button>
                       );
                     })}
+                  {backOfficeGroupIds.length > 0 && (() => {
+                    const boPending = (tasksData || []).filter(task =>
+                      backOfficeGroupIds.some(gid => (task.tags || []).some((tag: string) => tag === `group_id:${gid}`)) &&
+                      (task.status === "pending" || task.status === "in_progress")
+                    ).length;
+                    return (
+                      <Button
+                        variant={taskSubTab === "back_office" ? "default" : "ghost"}
+                        size="sm"
+                        className="h-6 text-[11px] px-2 gap-1"
+                        onClick={() => { setTaskSubTab("back_office"); setLocalPage(0); }}
+                        data-testid="task-subtab-back-office"
+                      >
+                        <span className="text-[10px]">🏢</span>
+                        {t.tasks.taskGroups.backOfficeTab}
+                        {boPending > 0 && (
+                          <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
+                            {boPending}
+                          </span>
+                        )}
+                      </Button>
+                    );
+                  })()}
                   <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
                     <BarChart3 className="h-3 w-3 mr-1" />
                     {t.tasks.reporting}

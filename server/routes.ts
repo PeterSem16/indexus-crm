@@ -7187,7 +7187,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (!name) return res.status(400).json({ error: "name is required" });
       const sessionRole = (req.session as any)?.user?.role;
       if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
-      const [group] = await db.insert(taskGroups).values({ name, description, color, icon }).returning();
+      const { isBackOffice } = req.body;
+      const [group] = await db.insert(taskGroups).values({ name, description, color, icon, isBackOffice: isBackOffice ?? false }).returning();
       if (Array.isArray(memberUserIds) && memberUserIds.length > 0) {
         await db.insert(taskGroupMembers).values(memberUserIds.map((uid: string) => ({ groupId: group.id, userId: uid })));
       }
@@ -7202,9 +7203,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
     try {
       const sessionRole = (req.session as any)?.user?.role;
       if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
-      const { name, description, color, icon, memberUserIds, displayAlias, sortOrder } = req.body;
+      const { name, description, color, icon, memberUserIds, displayAlias, sortOrder, isBackOffice } = req.body;
       const [group] = await db.update(taskGroups)
-        .set({ name, description, color, icon, displayAlias: displayAlias ?? null, ...(sortOrder !== undefined ? { sortOrder } : {}), updatedAt: new Date() })
+        .set({ name, description, color, icon, displayAlias: displayAlias ?? null, ...(sortOrder !== undefined ? { sortOrder } : {}), ...(isBackOffice !== undefined ? { isBackOffice } : {}), updatedAt: new Date() })
         .where(eq(taskGroups.id, req.params.id))
         .returning();
       if (!group) return res.status(404).json({ error: "Task group not found" });

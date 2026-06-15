@@ -193,6 +193,8 @@ app.use((req, res, next) => {
         ADD COLUMN IF NOT EXISTS sort_order integer DEFAULT 0;
       ALTER TABLE task_groups
         ADD COLUMN IF NOT EXISTS display_alias text;
+      ALTER TABLE task_groups
+        ADD COLUMN IF NOT EXISTS is_back_office boolean DEFAULT false;
     `);
     console.log('[migration] task_groups / task_group_members / task_group_id ensured');
   } catch (e: any) {

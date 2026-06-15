@@ -1,9 +1,8 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/contexts/auth-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,20 +19,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Edit, Trash2, Users, UserPlus, ArrowLeft, GripVertical, RotateCcw } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, Users, UserPlus, ArrowLeft, GripVertical, RotateCcw, Building2 } from "lucide-react";
 import type { User } from "@shared/schema";
 import { useLocation } from "wouter";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const GROUP_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
   "#06b6d4", "#ec4899", "#6366f1", "#84cc16", "#f97316",
 ];
-
-const ROLES = [
-  { value: "admin", label: "Admin" },
-  { value: "manager", label: "Manager" },
-  { value: "user", label: "Používateľ" },
-] as const;
 
 type TaskGroup = {
   id: string;
@@ -43,6 +37,7 @@ type TaskGroup = {
   icon?: string | null;
   sortOrder?: number | null;
   displayAlias?: string | null;
+  isBackOffice?: boolean | null;
   roleSortOrders?: Record<string, number>;
   members: { userId: string; fullName: string; avatarUrl?: string | null }[];
 };
@@ -52,22 +47,29 @@ const emptyForm = () => ({
   description: "",
   color: GROUP_COLORS[0],
   displayAlias: "",
+  isBackOffice: false,
   memberUserIds: [] as string[],
 });
 
 export default function TaskGroupsPage() {
+  const { t } = useI18n();
+  const tg = t.tasks.taskGroups;
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<TaskGroup | null>(null);
   const [form, setForm] = useState(emptyForm());
 
-  // Local ordered list for drag-and-drop (global order)
+  const ROLES = [
+    { value: "admin", label: tg.roleAdmin },
+    { value: "manager", label: tg.roleManager },
+    { value: "user", label: tg.roleUser },
+  ] as const;
+
   const [localGroups, setLocalGroups] = useState<TaskGroup[] | null>(null);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
 
-  // Local ordered lists per role
   const [localRoleGroups, setLocalRoleGroups] = useState<Record<string, TaskGroup[] | null>>({});
   const roleDragItem = useRef<number | null>(null);
   const roleDragOverItem = useRef<number | null>(null);
@@ -76,7 +78,6 @@ export default function TaskGroupsPage() {
     queryKey: ["/api/task-groups"],
   });
 
-  // Use local order if admin has dragged, otherwise use server order
   const displayGroups = localGroups ?? groups;
 
   const { data: users = [] } = useQuery<User[]>({
@@ -94,13 +95,13 @@ export default function TaskGroupsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
       setLocalGroups(null);
-      toast({ title: editGroup ? "Skupina upravená" : "Skupina vytvorená" });
+      toast({ title: editGroup ? tg.groupUpdated : tg.groupCreated });
       setDialogOpen(false);
       setEditGroup(null);
       setForm(emptyForm());
     },
     onError: () => {
-      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+      toast({ title: tg.saveFailed, variant: "destructive" });
     },
   });
 
@@ -109,10 +110,10 @@ export default function TaskGroupsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
       setLocalGroups(null);
-      toast({ title: "Skupina zmazaná" });
+      toast({ title: tg.groupDeleted });
     },
     onError: () => {
-      toast({ title: "Chyba pri mazaní", variant: "destructive" });
+      toast({ title: tg.deleteFailed, variant: "destructive" });
     },
   });
 
@@ -123,10 +124,10 @@ export default function TaskGroupsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
-      toast({ title: "Poradie skupín uložené" });
+      toast({ title: tg.orderSaved });
     },
     onError: () => {
-      toast({ title: "Chyba pri ukladaní poradia", variant: "destructive" });
+      toast({ title: tg.orderFailed, variant: "destructive" });
     },
   });
 
@@ -137,10 +138,10 @@ export default function TaskGroupsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
-      toast({ title: "Poradie pre rolu uložené" });
+      toast({ title: tg.roleOrderSaved });
     },
     onError: () => {
-      toast({ title: "Chyba pri ukladaní poradia", variant: "destructive" });
+      toast({ title: tg.roleOrderFailed, variant: "destructive" });
     },
   });
 
@@ -149,10 +150,10 @@ export default function TaskGroupsPage() {
     onSuccess: (_, role) => {
       queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
       setLocalRoleGroups(prev => ({ ...prev, [role]: null }));
-      toast({ title: "Poradie pre rolu zresetované na globálne" });
+      toast({ title: tg.roleOrderReset });
     },
     onError: () => {
-      toast({ title: "Chyba pri resetovaní", variant: "destructive" });
+      toast({ title: tg.resetFailed, variant: "destructive" });
     },
   });
 
@@ -169,6 +170,7 @@ export default function TaskGroupsPage() {
       description: g.description || "",
       color: g.color || GROUP_COLORS[0],
       displayAlias: g.displayAlias || "",
+      isBackOffice: g.isBackOffice ?? false,
       memberUserIds: g.members.map(m => m.userId),
     });
     setDialogOpen(true);
@@ -183,7 +185,6 @@ export default function TaskGroupsPage() {
     }));
   };
 
-  // Global drag-and-drop handlers
   const handleDragStart = (index: number) => {
     dragItem.current = index;
   };
@@ -207,11 +208,9 @@ export default function TaskGroupsPage() {
     dragOverItem.current = null;
   };
 
-  // Get groups ordered for a specific role (falls back to global sortOrder)
   const getRoleDisplayGroups = (role: string): TaskGroup[] => {
     const local = localRoleGroups[role];
     if (local) return local;
-    // Check if any group has a role-specific sort order for this role
     const hasRoleOrder = groups.some(g => g.roleSortOrders && role in g.roleSortOrders);
     if (hasRoleOrder) {
       return [...groups].sort((a, b) => {
@@ -220,7 +219,6 @@ export default function TaskGroupsPage() {
         return aOrder - bOrder;
       });
     }
-    // Fall back to global order
     return [...groups];
   };
 
@@ -228,7 +226,6 @@ export default function TaskGroupsPage() {
     return groups.some(g => g.roleSortOrders && role in g.roleSortOrders);
   };
 
-  // Role-specific drag-and-drop handlers
   const handleRoleDragStart = (index: number) => {
     roleDragItem.current = index;
   };
@@ -264,16 +261,16 @@ export default function TaskGroupsPage() {
             data-testid="btn-back-to-tasks"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Úlohy
+            {t.tasks.title}
           </Button>
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-task-groups-title">Skupiny úloh</h1>
-            <p className="text-muted-foreground text-sm">Spravujte skupiny používateľov. Pretiahnite riadky na zmenu poradia záložiek.</p>
+            <h1 className="text-2xl font-bold" data-testid="text-task-groups-title">{tg.title}</h1>
+            <p className="text-muted-foreground text-sm">{tg.globalOrderDesc}</p>
           </div>
         </div>
         <Button onClick={openCreate} data-testid="btn-create-group">
           <Plus className="h-4 w-4 mr-2" />
-          Nová skupina
+          {tg.newGroup}
         </Button>
       </div>
 
@@ -284,7 +281,7 @@ export default function TaskGroupsPage() {
       ) : (
         <Tabs defaultValue="global">
           <TabsList>
-            <TabsTrigger value="global" data-testid="tab-order-global">Globálne poradie</TabsTrigger>
+            <TabsTrigger value="global" data-testid="tab-order-global">{tg.globalOrder}</TabsTrigger>
             {ROLES.map(r => (
               <TabsTrigger key={r.value} value={r.value} data-testid={`tab-order-${r.value}`}>
                 {r.label}
@@ -297,14 +294,12 @@ export default function TaskGroupsPage() {
 
           {/* Global ordering tab */}
           <TabsContent value="global" className="mt-4">
-            <p className="text-xs text-muted-foreground mb-3">
-              Toto je predvolené poradie záložiek pre všetkých používateľov. Ak pre konkrétnu rolu nie je nastavené vlastné poradie, použije sa toto globálne poradie.
-            </p>
+            <p className="text-xs text-muted-foreground mb-3">{tg.globalOrderDesc}</p>
             {displayGroups.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">Žiadne skupiny úloh. Vytvorte prvú skupinu kliknutím na "Nová skupina".</p>
+                  <p className="text-muted-foreground">{tg.noGroups}</p>
                 </CardContent>
               </Card>
             ) : (
@@ -332,7 +327,13 @@ export default function TaskGroupsPage() {
                             <span className="font-medium text-sm" data-testid={`text-group-name-${group.id}`}>{group.name}</span>
                             {group.displayAlias && (
                               <Badge variant="secondary" className="text-xs" data-testid={`text-group-alias-${group.id}`}>
-                                záložka: {group.displayAlias}
+                                {tg.aliasPrefix} {group.displayAlias}
+                              </Badge>
+                            )}
+                            {group.isBackOffice && (
+                              <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 dark:text-amber-400" data-testid={`badge-back-office-${group.id}`}>
+                                <Building2 className="h-2.5 w-2.5 mr-1" />
+                                {tg.backOffice}
                               </Badge>
                             )}
                             {group.description && (
@@ -342,7 +343,7 @@ export default function TaskGroupsPage() {
                           <div className="flex items-center gap-1 mt-1 flex-wrap">
                             <UserPlus className="h-3 w-3 text-muted-foreground" />
                             {group.members.length === 0 ? (
-                              <span className="text-xs text-muted-foreground italic">Žiadni členovia</span>
+                              <span className="text-xs text-muted-foreground italic">{tg.noMembers}</span>
                             ) : (
                               <div className="flex gap-1 flex-wrap">
                                 {group.members.slice(0, 5).map(m => (
@@ -380,18 +381,18 @@ export default function TaskGroupsPage() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Zmazať skupinu?</AlertDialogTitle>
+                                <AlertDialogTitle>{tg.deleteTitle}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Táto akcia je nevratná. Skupina "{group.name}" bude zmazaná. Existujúce úlohy nebudú ovplyvnené.
+                                  {tg.deleteDesc}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Zrušiť</AlertDialogCancel>
+                                <AlertDialogCancel>{tg.cancel}</AlertDialogCancel>
                                 <AlertDialogAction
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   onClick={() => deleteMutation.mutate(group.id)}
                                 >
-                                  Zmazať
+                                  {tg.deleteTitle.replace("?", "")}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -404,7 +405,7 @@ export default function TaskGroupsPage() {
                 {reorderMutation.isPending && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground px-2">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Ukladám poradie…
+                    {tg.savingOrder}
                   </div>
                 )}
               </div>
@@ -420,8 +421,8 @@ export default function TaskGroupsPage() {
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs text-muted-foreground">
                     {hasCustom
-                      ? `Vlastné poradie záložiek pre rolu "${r.label}". Pretiahnite skupiny na zmenu poradia.`
-                      : `Pre rolu "${r.label}" nie je nastavené vlastné poradie — používa sa globálne. Pretiahnite skupiny na nastavenie vlastného poradia.`
+                      ? `${r.label}: ${tg.roleOrderSaved}`
+                      : tg.globalOrderDesc
                     }
                   </p>
                   {hasCustom && (
@@ -434,14 +435,14 @@ export default function TaskGroupsPage() {
                       data-testid={`btn-reset-role-order-${r.value}`}
                     >
                       <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                      Resetovať na globálne
+                      {tg.roleOrderReset}
                     </Button>
                   )}
                 </div>
                 {groups.length === 0 ? (
                   <Card>
                     <CardContent className="py-8 text-center">
-                      <p className="text-muted-foreground text-sm">Žiadne skupiny na zoradenie.</p>
+                      <p className="text-muted-foreground text-sm">{tg.noGroupsOrder}</p>
                     </CardContent>
                   </Card>
                 ) : (
@@ -471,6 +472,12 @@ export default function TaskGroupsPage() {
                                 {group.displayAlias && (
                                   <span className="text-xs text-muted-foreground">({group.name})</span>
                                 )}
+                                {group.isBackOffice && (
+                                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 dark:text-amber-400">
+                                    <Building2 className="h-2.5 w-2.5 mr-1" />
+                                    {tg.backOffice}
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -480,7 +487,7 @@ export default function TaskGroupsPage() {
                     {reorderRoleMutation.isPending && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground px-2">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        Ukladám poradie…
+                        {tg.savingOrder}
                       </div>
                     )}
                   </div>
@@ -491,48 +498,48 @@ export default function TaskGroupsPage() {
         </Tabs>
       )}
 
+      {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={open => { if (!open) { setDialogOpen(false); setEditGroup(null); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editGroup ? "Upraviť skupinu" : "Nová skupina úloh"}</DialogTitle>
+            <DialogTitle>{editGroup ? tg.editGroup : tg.newGroupTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="group-name" className="text-sm font-medium">Názov skupiny *</Label>
+              <Label htmlFor="group-name" className="text-sm font-medium">{tg.groupName} *</Label>
               <Input
                 id="group-name"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="napr. Back Office SK, Koordinátori, Medici..."
+                placeholder={tg.groupNamePlaceholder}
                 className="mt-1"
                 data-testid="input-group-name"
               />
             </div>
             <div>
-              <Label htmlFor="group-alias" className="text-sm font-medium">Krátky názov záložky (voliteľný)</Label>
+              <Label htmlFor="group-alias" className="text-sm font-medium">{tg.groupAlias}</Label>
               <Input
                 id="group-alias"
                 value={form.displayAlias}
                 onChange={e => setForm(f => ({ ...f, displayAlias: e.target.value }))}
-                placeholder="napr. BO SK, Koor, Med..."
+                placeholder={tg.groupAliasPlaceholder}
                 className="mt-1"
                 data-testid="input-group-alias"
               />
-              <p className="text-xs text-muted-foreground mt-1">Ak vyplníte, tento skrátený text sa zobrazí v záložke na stránke Úlohy.</p>
             </div>
             <div>
-              <Label htmlFor="group-desc" className="text-sm font-medium">Popis (voliteľný)</Label>
+              <Label htmlFor="group-desc" className="text-sm font-medium">{tg.groupDesc}</Label>
               <Textarea
                 id="group-desc"
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Účel skupiny, kto ju používa..."
+                placeholder={tg.groupDesc}
                 className="mt-1 resize-none min-h-[60px]"
                 data-testid="input-group-description"
               />
             </div>
             <div>
-              <Label className="text-sm font-medium">Farba</Label>
+              <Label className="text-sm font-medium">{tg.groupColor}</Label>
               <div className="flex flex-wrap gap-2 mt-1">
                 {GROUP_COLORS.map(color => (
                   <button
@@ -546,8 +553,24 @@ export default function TaskGroupsPage() {
                 ))}
               </div>
             </div>
+            {/* Back Office flag */}
+            <div className="flex items-start gap-3 rounded-md border p-3 bg-muted/30">
+              <Checkbox
+                id="group-back-office"
+                checked={form.isBackOffice}
+                onCheckedChange={checked => setForm(f => ({ ...f, isBackOffice: checked === true }))}
+                data-testid="checkbox-back-office"
+              />
+              <div className="flex flex-col gap-0.5">
+                <Label htmlFor="group-back-office" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+                  <Building2 className="h-3.5 w-3.5 text-amber-500" />
+                  {tg.backOffice}
+                </Label>
+                <p className="text-xs text-muted-foreground">{tg.backOfficeDesc}</p>
+              </div>
+            </div>
             <div>
-              <Label className="text-sm font-medium mb-2 block">Členovia skupiny</Label>
+              <Label className="text-sm font-medium mb-2 block">{tg.groupMembers}</Label>
               <ScrollArea className="h-48 rounded-md border p-2">
                 <div className="space-y-1">
                   {users.map((u) => (
@@ -574,19 +597,19 @@ export default function TaskGroupsPage() {
                 </div>
               </ScrollArea>
               {form.memberUserIds.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">{form.memberUserIds.length} člen(ov) vybratých</p>
+                <p className="text-xs text-muted-foreground mt-1">{form.memberUserIds.length} {tg.membersSelected}</p>
               )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Zrušiť</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>{tg.cancel}</Button>
             <Button
               onClick={() => saveMutation.mutate()}
               disabled={!form.name || saveMutation.isPending}
               data-testid="btn-save-group"
             >
               {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {editGroup ? "Uložiť zmeny" : "Vytvoriť skupinu"}
+              {editGroup ? tg.saveChanges : tg.createGroup}
             </Button>
           </DialogFooter>
         </DialogContent>
