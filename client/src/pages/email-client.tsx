@@ -5,7 +5,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
-import { Link, useSearch } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import { useI18n } from "@/i18n/I18nProvider";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -153,6 +153,8 @@ import {
   MailSearch,
   FileSearch,
   GripVertical,
+  ListChecks,
+  Settings2,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -3342,6 +3344,12 @@ export default function EmailClientPage() {
     enabled: !!user?.id,
   });
 
+  const { data: taskGroupsData } = useQuery<any[]>({
+    queryKey: ["/api/task-groups"],
+    enabled: !!user?.id,
+  });
+  const taskGroupsList = taskGroupsData || [];
+
   const { data: allSystemUsers = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
     enabled: !!user?.id,
@@ -3875,12 +3883,15 @@ export default function EmailClientPage() {
     return true;
   });
 
-  const [taskSubTab, setTaskSubTab] = useState<"my" | "all">("my");
+  const [taskSubTab, setTaskSubTab] = useState<string>("my");
   const [taskReportingOpen, setTaskReportingOpen] = useState(false);
 
   const filteredTasks = (tasksData || []).filter(task => {
     const matchesStatus = taskFilter === "all" || task.status === taskFilter;
-    const matchesTab = taskSubTab === "all" || task.assignedUserId === user?.id;
+    let matchesTab = true;
+    if (taskSubTab === "my") matchesTab = task.assignedUserId === user?.id;
+    else if (taskSubTab === "all") matchesTab = true;
+    else matchesTab = (task.tags || []).some((tag: string) => tag === `group_id:${taskSubTab}`);
     return matchesStatus && matchesTab;
   });
 
@@ -5737,15 +5748,47 @@ export default function EmailClientPage() {
                     <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalTaskPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="task-page-next">
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
+                    <Link href="/task-groups">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="btn-task-groups-nexus">
+                        <Settings2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 mt-1.5">
+                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                   <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("my"); setLocalPage(0); }} data-testid="task-subtab-my">
                     {t.tasks.myTasks}
                   </Button>
                   <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("all"); setLocalPage(0); }} data-testid="task-subtab-all">
                     {t.tasks.allTasks}
                   </Button>
+                  {taskGroupsList
+                    .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
+                    .map((g: any) => {
+                      const pendingCount = (tasksData || []).filter(task =>
+                        (task.tags || []).some((tag: string) => tag === `group_id:${g.id}`) &&
+                        (task.status === "pending" || task.status === "in_progress")
+                      ).length;
+                      return (
+                        <Button
+                          key={g.id}
+                          variant={taskSubTab === g.id ? "default" : "ghost"}
+                          size="sm"
+                          className="h-6 text-[11px] px-2 gap-1"
+                          onClick={() => { setTaskSubTab(g.id); setLocalPage(0); }}
+                          data-testid={`task-subtab-group-${g.id}`}
+                        >
+                          <ListChecks className="h-3 w-3" />
+                          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: g.color || '#3b82f6' }} />
+                          {g.displayAlias || g.name}
+                          {pendingCount > 0 && (
+                            <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
+                              {pendingCount}
+                            </span>
+                          )}
+                        </Button>
+                      );
+                    })}
                   <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
                     <BarChart3 className="h-3 w-3 mr-1" />
                     {t.tasks.reporting}
