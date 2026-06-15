@@ -7359,7 +7359,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.post("/api/tasks", requireAuth, async (req, res) => {
     try {
-      const { title, description, priority, assignedUserId, customerId, country, dueDate } = req.body;
+      const { title, description, priority, assignedUserId, customerId, country, dueDate, tags } = req.body;
       if (!title || !assignedUserId) {
         return res.status(400).json({ error: "Title and assignedUserId are required" });
       }
@@ -7373,6 +7373,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (customerId) taskData.customerId = customerId;
       if (country) taskData.country = country;
       if (dueDate) taskData.dueDate = new Date(dueDate);
+      if (Array.isArray(tags) && tags.length > 0) taskData.tags = tags;
       console.log("[CreateTask] payload:", JSON.stringify(taskData));
       const task = await storage.createTask(taskData);
       
@@ -7390,6 +7391,28 @@ Return ONLY valid JSON, no markdown code blocks.`,
         const { emitEntityCreated } = await import("./lib/event-bus");
         await emitEntityCreated("task", "task", task.id, task, req.session.user!.id, task.country);
       } catch (err) { console.error("[EventBus] task create emit error:", err); }
+
+      try {
+        const taskTags: string[] = task.tags || [];
+        const groupIdTag = taskTags.find((t: string) => t.startsWith("group_id:"));
+        if (groupIdTag) {
+          const groupId = groupIdTag.replace("group_id:", "");
+          const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
+          const [groupRow] = await db.select().from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
+          const groupName = groupRow?.name ?? groupId;
+          const memberIds = groupMembersRows.map(m => m.userId);
+          if (memberIds.length > 0) {
+            await notificationService.sendNotificationToUsers(memberIds, {
+              type: "group_task_assigned",
+              title: `Máte novú skupinovú úlohu: ${task.title}`,
+              message: `Skupina: ${groupName}`,
+              priority: "normal",
+              entityType: "task",
+              metadata: { groupId, groupName, taskTitle: task.title },
+            });
+          }
+        }
+      } catch (err) { console.error("[CreateTask] group notification error:", err); }
       
       res.status(201).json(task);
     } catch (error: any) {
@@ -7423,6 +7446,30 @@ Return ONLY valid JSON, no markdown code blocks.`,
           await emitTaskCompleted(task.id, task, req.session.user!.id);
         }
       } catch (err) { console.error("[EventBus] task update emit error:", err); }
+
+      try {
+        const newTags: string[] = task.tags || [];
+        const oldTags: string[] = oldTask?.tags || [];
+        const newGroupIdTag = newTags.find((t: string) => t.startsWith("group_id:"));
+        const oldGroupIdTag = oldTags.find((t: string) => t.startsWith("group_id:"));
+        if (newGroupIdTag && newGroupIdTag !== oldGroupIdTag) {
+          const groupId = newGroupIdTag.replace("group_id:", "");
+          const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
+          const [groupRow] = await db.select().from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
+          const groupName = groupRow?.name ?? groupId;
+          const memberIds = groupMembersRows.map(m => m.userId);
+          if (memberIds.length > 0) {
+            await notificationService.sendNotificationToUsers(memberIds, {
+              type: "group_task_assigned",
+              title: `Máte novú skupinovú úlohu: ${task.title}`,
+              message: `Skupina: ${groupName}`,
+              priority: "normal",
+              entityType: "task",
+              metadata: { groupId, groupName, taskTitle: task.title },
+            });
+          }
+        }
+      } catch (err) { console.error("[UpdateTask] group notification error:", err); }
       
       res.json(task);
     } catch (error) {
