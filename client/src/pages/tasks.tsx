@@ -134,6 +134,18 @@ export default function TasksPage() {
     queryKey: ["/api/task-groups"],
   });
 
+  // Sort groups by current user's role-specific sort order, falling back to global sortOrder
+  const sortedTaskGroupsList = [...taskGroupsList].sort((a: any, b: any) => {
+    const userRole = user?.role;
+    const aOrder = (userRole && a.roleSortOrders && userRole in a.roleSortOrders)
+      ? a.roleSortOrders[userRole]
+      : (a.sortOrder ?? 0);
+    const bOrder = (userRole && b.roleSortOrders && userRole in b.roleSortOrders)
+      ? b.roleSortOrders[userRole]
+      : (b.sortOrder ?? 0);
+    return aOrder - bOrder;
+  });
+
   // Groups the current user belongs to (has tasks tagged with group_id:<id>)
   const myGroupIds = taskGroupsList
     .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
@@ -733,7 +745,7 @@ export default function TasksPage() {
             <TabsTrigger value="all" data-testid="tab-all-tasks">
               {t.tasks.allTasks} ({allTasks.length})
             </TabsTrigger>
-            {taskGroupsList
+            {sortedTaskGroupsList
               .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
               .map((g: any) => {
                 const groupTasks = filteredTasks.filter(task =>
@@ -769,7 +781,7 @@ export default function TasksPage() {
           <TabsContent value="all" className="mt-4">
             <TaskList tasks={allTasks} />
           </TabsContent>
-          {taskGroupsList
+          {sortedTaskGroupsList
             .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
             .map((g: any) => {
               const groupTasks = filteredTasks.filter(task =>

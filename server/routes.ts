@@ -71,6 +71,7 @@ import {
   insertTaskSchema,
   taskGroups,
   taskGroupMembers,
+  taskGroupRoleSortOrders,
   insertTaskGroupSchema,
   insertTaskGroupMemberSchema,
 } from "@shared/schema";
@@ -7138,15 +7139,22 @@ Return ONLY valid JSON, no markdown code blocks.`,
       // Attach member user IDs
       const members = await db.select().from(taskGroupMembers);
       const [allUsers] = [await db.select({ id: users.id, fullName: users.fullName, username: users.username, avatarUrl: users.avatarUrl }).from(users)];
-      const result = groups.map(g => ({
-        ...g,
-        members: members
-          .filter(m => m.groupId === g.id)
-          .map(m => {
-            const u = allUsers.find(u => u.id === m.userId);
-            return { userId: m.userId, fullName: u?.fullName || u?.username || m.userId, avatarUrl: u?.avatarUrl || null };
-          }),
-      }));
+      const roleSortRows = await db.select().from(taskGroupRoleSortOrders);
+      const result = groups.map(g => {
+        // Build a map of role -> sortOrder for this group
+        const roleSortOrders: Record<string, number> = {};
+        roleSortRows.filter(r => r.groupId === g.id).forEach(r => { roleSortOrders[r.role] = r.sortOrder; });
+        return {
+          ...g,
+          roleSortOrders,
+          members: members
+            .filter(m => m.groupId === g.id)
+            .map(m => {
+              const u = allUsers.find(u => u.id === m.userId);
+              return { userId: m.userId, fullName: u?.fullName || u?.username || m.userId, avatarUrl: u?.avatarUrl || null };
+            }),
+        };
+      });
       res.json(result);
     } catch (error) {
       console.error("Error fetching task groups:", error);
@@ -7239,6 +7247,51 @@ Return ONLY valid JSON, no markdown code blocks.`,
     } catch (error) {
       console.error("Error reordering task groups:", error);
       res.status(500).json({ error: "Failed to reorder task groups" });
+    }
+  });
+
+  // Role-specific tab ordering
+  app.put("/api/task-groups-reorder-role", requireAuth, async (req, res) => {
+    try {
+      const sessionRole = (req.session as any)?.user?.role;
+      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
+      const { role, order } = req.body; // role: string, order: { id, sortOrder }[]
+      if (!role || !Array.isArray(order)) return res.status(400).json({ error: "role and order are required" });
+      const validRoles = ["admin", "manager", "user"];
+      if (!validRoles.includes(role)) return res.status(400).json({ error: "Invalid role" });
+      // Upsert each group's role sort order
+      await Promise.all(order.map(async ({ id, sortOrder }: { id: string; sortOrder: number }) => {
+        const existing = await db.select().from(taskGroupRoleSortOrders)
+          .where(and(eq(taskGroupRoleSortOrders.groupId, id), eq(taskGroupRoleSortOrders.role, role)))
+          .limit(1);
+        if (existing.length > 0) {
+          await db.update(taskGroupRoleSortOrders)
+            .set({ sortOrder })
+            .where(and(eq(taskGroupRoleSortOrders.groupId, id), eq(taskGroupRoleSortOrders.role, role)));
+        } else {
+          await db.insert(taskGroupRoleSortOrders).values({ groupId: id, role, sortOrder });
+        }
+      }));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error reordering task groups by role:", error);
+      res.status(500).json({ error: "Failed to reorder task groups by role" });
+    }
+  });
+
+  // Clear role-specific ordering (revert to global)
+  app.delete("/api/task-groups-reorder-role/:role", requireAuth, async (req, res) => {
+    try {
+      const sessionRole = (req.session as any)?.user?.role;
+      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
+      const { role } = req.params;
+      const validRoles = ["admin", "manager", "user"];
+      if (!validRoles.includes(role)) return res.status(400).json({ error: "Invalid role" });
+      await db.delete(taskGroupRoleSortOrders).where(eq(taskGroupRoleSortOrders.role, role));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error clearing role sort orders:", error);
+      res.status(500).json({ error: "Failed to clear role sort orders" });
     }
   });
 

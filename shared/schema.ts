@@ -7854,3 +7854,13 @@ export const contactFieldSnapshots = pgTable("contact_field_snapshots", {
 }));
 
 export type ContactFieldSnapshot = typeof contactFieldSnapshots.$inferSelect;
+
+// Task Group Role Sort Orders - per-role override of tab ordering
+export const taskGroupRoleSortOrders = pgTable('task_group_role_sort_orders', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar('group_id').notNull(),
+  role: text('role').notNull(), // admin, manager, user
+  sortOrder: integer('sort_order').notNull().default(0),
+});
+
+export type TaskGroupRoleSortOrder = typeof taskGroupRoleSortOrders.$inferSelect;

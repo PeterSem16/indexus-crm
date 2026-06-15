@@ -19,7 +19,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Plus, Edit, Trash2, Users, UserPlus, ArrowLeft, GripVertical } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Plus, Edit, Trash2, Users, UserPlus, ArrowLeft, GripVertical, RotateCcw } from "lucide-react";
 import type { User } from "@shared/schema";
 import { useLocation } from "wouter";
 
@@ -27,6 +28,12 @@ const GROUP_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
   "#06b6d4", "#ec4899", "#6366f1", "#84cc16", "#f97316",
 ];
+
+const ROLES = [
+  { value: "admin", label: "Admin" },
+  { value: "manager", label: "Manager" },
+  { value: "user", label: "Používateľ" },
+] as const;
 
 type TaskGroup = {
   id: string;
@@ -36,6 +43,7 @@ type TaskGroup = {
   icon?: string | null;
   sortOrder?: number | null;
   displayAlias?: string | null;
+  roleSortOrders?: Record<string, number>;
   members: { userId: string; fullName: string; avatarUrl?: string | null }[];
 };
 
@@ -54,10 +62,15 @@ export default function TaskGroupsPage() {
   const [editGroup, setEditGroup] = useState<TaskGroup | null>(null);
   const [form, setForm] = useState(emptyForm());
 
-  // Local ordered list for drag-and-drop (mirrors server order until saved)
+  // Local ordered list for drag-and-drop (global order)
   const [localGroups, setLocalGroups] = useState<TaskGroup[] | null>(null);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+
+  // Local ordered lists per role
+  const [localRoleGroups, setLocalRoleGroups] = useState<Record<string, TaskGroup[] | null>>({});
+  const roleDragItem = useRef<number | null>(null);
+  const roleDragOverItem = useRef<number | null>(null);
 
   const { data: groups = [], isLoading } = useQuery<TaskGroup[]>({
     queryKey: ["/api/task-groups"],
@@ -117,6 +130,32 @@ export default function TaskGroupsPage() {
     },
   });
 
+  const reorderRoleMutation = useMutation({
+    mutationFn: async ({ role, ordered }: { role: string; ordered: TaskGroup[] }) => {
+      const order = ordered.map((g, i) => ({ id: g.id, sortOrder: i }));
+      return apiRequest("PUT", "/api/task-groups-reorder-role", { role, order });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
+      toast({ title: "Poradie pre rolu uložené" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladaní poradia", variant: "destructive" });
+    },
+  });
+
+  const clearRoleMutation = useMutation({
+    mutationFn: async (role: string) => apiRequest("DELETE", `/api/task-groups-reorder-role/${role}`),
+    onSuccess: (_, role) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/task-groups"] });
+      setLocalRoleGroups(prev => ({ ...prev, [role]: null }));
+      toast({ title: "Poradie pre rolu zresetované na globálne" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri resetovaní", variant: "destructive" });
+    },
+  });
+
   const openCreate = () => {
     setEditGroup(null);
     setForm(emptyForm());
@@ -144,7 +183,7 @@ export default function TaskGroupsPage() {
     }));
   };
 
-  // Drag-and-drop handlers
+  // Global drag-and-drop handlers
   const handleDragStart = (index: number) => {
     dragItem.current = index;
   };
@@ -166,6 +205,52 @@ export default function TaskGroupsPage() {
     }
     dragItem.current = null;
     dragOverItem.current = null;
+  };
+
+  // Get groups ordered for a specific role (falls back to global sortOrder)
+  const getRoleDisplayGroups = (role: string): TaskGroup[] => {
+    const local = localRoleGroups[role];
+    if (local) return local;
+    // Check if any group has a role-specific sort order for this role
+    const hasRoleOrder = groups.some(g => g.roleSortOrders && role in g.roleSortOrders);
+    if (hasRoleOrder) {
+      return [...groups].sort((a, b) => {
+        const aOrder = a.roleSortOrders?.[role] ?? a.sortOrder ?? 0;
+        const bOrder = b.roleSortOrders?.[role] ?? b.sortOrder ?? 0;
+        return aOrder - bOrder;
+      });
+    }
+    // Fall back to global order
+    return [...groups];
+  };
+
+  const roleHasCustomOrder = (role: string): boolean => {
+    return groups.some(g => g.roleSortOrders && role in g.roleSortOrders);
+  };
+
+  // Role-specific drag-and-drop handlers
+  const handleRoleDragStart = (index: number) => {
+    roleDragItem.current = index;
+  };
+
+  const handleRoleDragEnter = (role: string, index: number) => {
+    roleDragOverItem.current = index;
+    if (roleDragItem.current === null || roleDragItem.current === index) return;
+    const base = localRoleGroups[role] ?? getRoleDisplayGroups(role);
+    const reordered = [...base];
+    const [moved] = reordered.splice(roleDragItem.current, 1);
+    reordered.splice(index, 0, moved);
+    roleDragItem.current = index;
+    setLocalRoleGroups(prev => ({ ...prev, [role]: reordered }));
+  };
+
+  const handleRoleDragEnd = (role: string) => {
+    const ordered = localRoleGroups[role];
+    if (ordered) {
+      reorderRoleMutation.mutate({ role, ordered });
+    }
+    roleDragItem.current = null;
+    roleDragOverItem.current = null;
   };
 
   return (
@@ -196,114 +281,214 @@ export default function TaskGroupsPage() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : displayGroups.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <p className="text-muted-foreground">Žiadne skupiny úloh. Vytvorte prvú skupinu kliknutím na "Nová skupina".</p>
-          </CardContent>
-        </Card>
       ) : (
-        <div className="space-y-2">
-          {displayGroups.map((group, index) => (
-            <Card
-              key={group.id}
-              data-testid={`task-group-card-${group.id}`}
-              className="cursor-grab active:cursor-grabbing select-none"
-              draggable
-              onDragStart={() => handleDragStart(index)}
-              onDragEnter={() => handleDragEnter(index)}
-              onDragEnd={handleDragEnd}
-              onDragOver={e => e.preventDefault()}
-            >
-              <CardContent className="py-3 px-4">
-                <div className="flex items-center gap-3">
-                  <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div
-                    className="h-3 w-3 rounded-full shrink-0"
-                    style={{ backgroundColor: group.color || "#3b82f6" }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm" data-testid={`text-group-name-${group.id}`}>{group.name}</span>
-                      {group.displayAlias && (
-                        <Badge variant="secondary" className="text-xs" data-testid={`text-group-alias-${group.id}`}>
-                          záložka: {group.displayAlias}
-                        </Badge>
-                      )}
-                      {group.description && (
-                        <span className="text-xs text-muted-foreground truncate">— {group.description}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 mt-1 flex-wrap">
-                      <UserPlus className="h-3 w-3 text-muted-foreground" />
-                      {group.members.length === 0 ? (
-                        <span className="text-xs text-muted-foreground italic">Žiadni členovia</span>
-                      ) : (
-                        <div className="flex gap-1 flex-wrap">
-                          {group.members.slice(0, 5).map(m => (
-                            <div key={m.userId} className="flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs">
-                              <Avatar className="h-3.5 w-3.5">
-                                <AvatarImage src={m.avatarUrl || undefined} className="object-cover" />
-                                <AvatarFallback className="text-[6px] bg-primary text-primary-foreground">
-                                  {m.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>{m.fullName}</span>
-                            </div>
-                          ))}
-                          {group.members.length > 5 && (
-                            <span className="text-xs text-muted-foreground">+{group.members.length - 5}</span>
-                          )}
+        <Tabs defaultValue="global">
+          <TabsList>
+            <TabsTrigger value="global" data-testid="tab-order-global">Globálne poradie</TabsTrigger>
+            {ROLES.map(r => (
+              <TabsTrigger key={r.value} value={r.value} data-testid={`tab-order-${r.value}`}>
+                {r.label}
+                {roleHasCustomOrder(r.value) && (
+                  <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-primary inline-block" />
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {/* Global ordering tab */}
+          <TabsContent value="global" className="mt-4">
+            <p className="text-xs text-muted-foreground mb-3">
+              Toto je predvolené poradie záložiek pre všetkých používateľov. Ak pre konkrétnu rolu nie je nastavené vlastné poradie, použije sa toto globálne poradie.
+            </p>
+            {displayGroups.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">Žiadne skupiny úloh. Vytvorte prvú skupinu kliknutím na "Nová skupina".</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {displayGroups.map((group, index) => (
+                  <Card
+                    key={group.id}
+                    data-testid={`task-group-card-${group.id}`}
+                    className="cursor-grab active:cursor-grabbing select-none"
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragEnter={() => handleDragEnter(index)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={e => e.preventDefault()}
+                  >
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div
+                          className="h-3 w-3 rounded-full shrink-0"
+                          style={{ backgroundColor: group.color || "#3b82f6" }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm" data-testid={`text-group-name-${group.id}`}>{group.name}</span>
+                            {group.displayAlias && (
+                              <Badge variant="secondary" className="text-xs" data-testid={`text-group-alias-${group.id}`}>
+                                záložka: {group.displayAlias}
+                              </Badge>
+                            )}
+                            {group.description && (
+                              <span className="text-xs text-muted-foreground truncate">— {group.description}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            <UserPlus className="h-3 w-3 text-muted-foreground" />
+                            {group.members.length === 0 ? (
+                              <span className="text-xs text-muted-foreground italic">Žiadni členovia</span>
+                            ) : (
+                              <div className="flex gap-1 flex-wrap">
+                                {group.members.slice(0, 5).map(m => (
+                                  <div key={m.userId} className="flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs">
+                                    <Avatar className="h-3.5 w-3.5">
+                                      <AvatarImage src={m.avatarUrl || undefined} className="object-cover" />
+                                      <AvatarFallback className="text-[6px] bg-primary text-primary-foreground">
+                                        {m.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span>{m.fullName}</span>
+                                  </div>
+                                ))}
+                                {group.members.length > 5 && (
+                                  <span className="text-xs text-muted-foreground">+{group.members.length - 5}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEdit(group)}
-                      data-testid={`btn-edit-group-${group.id}`}
-                    >
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-destructive" data-testid={`btn-delete-group-${group.id}`}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Zmazať skupinu?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Táto akcia je nevratná. Skupina "{group.name}" bude zmazaná. Existujúce úlohy nebudú ovplyvnené.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Zrušiť</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={() => deleteMutation.mutate(group.id)}
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEdit(group)}
+                            data-testid={`btn-edit-group-${group.id}`}
                           >
-                            Zmazať
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-destructive" data-testid={`btn-delete-group-${group.id}`}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Zmazať skupinu?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Táto akcia je nevratná. Skupina "{group.name}" bude zmazaná. Existujúce úlohy nebudú ovplyvnené.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Zrušiť</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  onClick={() => deleteMutation.mutate(group.id)}
+                                >
+                                  Zmazať
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {reorderMutation.isPending && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground px-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Ukladám poradie…
                   </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Per-role ordering tabs */}
+          {ROLES.map(r => {
+            const roleGroups = getRoleDisplayGroups(r.value);
+            const hasCustom = roleHasCustomOrder(r.value);
+            return (
+              <TabsContent key={r.value} value={r.value} className="mt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-muted-foreground">
+                    {hasCustom
+                      ? `Vlastné poradie záložiek pre rolu "${r.label}". Pretiahnite skupiny na zmenu poradia.`
+                      : `Pre rolu "${r.label}" nie je nastavené vlastné poradie — používa sa globálne. Pretiahnite skupiny na nastavenie vlastného poradia.`
+                    }
+                  </p>
+                  {hasCustom && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-4 shrink-0"
+                      onClick={() => clearRoleMutation.mutate(r.value)}
+                      disabled={clearRoleMutation.isPending}
+                      data-testid={`btn-reset-role-order-${r.value}`}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                      Resetovať na globálne
+                    </Button>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-          {reorderMutation.isPending && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground px-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Ukladám poradie…
-            </div>
-          )}
-        </div>
+                {groups.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 text-center">
+                      <p className="text-muted-foreground text-sm">Žiadne skupiny na zoradenie.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-2">
+                    {roleGroups.map((group, index) => (
+                      <Card
+                        key={group.id}
+                        data-testid={`role-group-card-${r.value}-${group.id}`}
+                        className="cursor-grab active:cursor-grabbing select-none"
+                        draggable
+                        onDragStart={() => handleRoleDragStart(index)}
+                        onDragEnter={() => handleRoleDragEnter(r.value, index)}
+                        onDragEnd={() => handleRoleDragEnd(r.value)}
+                        onDragOver={e => e.preventDefault()}
+                      >
+                        <CardContent className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="text-xs text-muted-foreground w-5 shrink-0 text-right">{index + 1}.</span>
+                            <div
+                              className="h-3 w-3 rounded-full shrink-0"
+                              style={{ backgroundColor: group.color || "#3b82f6" }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-sm">{group.displayAlias || group.name}</span>
+                                {group.displayAlias && (
+                                  <span className="text-xs text-muted-foreground">({group.name})</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {reorderRoleMutation.isPending && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground px-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Ukladám poradie…
+                      </div>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+            );
+          })}
+        </Tabs>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={open => { if (!open) { setDialogOpen(false); setEditGroup(null); } }}>
