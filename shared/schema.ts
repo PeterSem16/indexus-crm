@@ -7701,6 +7701,7 @@ export const campaignStatusListAutomations = pgTable("campaign_status_list_autom
   conditionJson: text("condition_json"),
   dispositionId: varchar("disposition_id"),
   webhookTarget: text("webhook_target"),
+  taskGroupId: varchar("task_group_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7722,6 +7723,7 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
   conditionJson: z.string().optional().nullable(),
   dispositionId: z.string().optional().nullable(),
   webhookTarget: z.string().optional().nullable(),
+  taskGroupId: z.string().optional().nullable(),
 });
 export type CampaignStatusListAutomation = typeof campaignStatusListAutomations.$inferSelect;
 export type InsertCampaignStatusListAutomation = z.infer<typeof insertCampaignStatusListAutomationSchema>;
@@ -7799,3 +7801,34 @@ export const insertTaskBackOfficeConfirmationSchema = createInsertSchema(taskBac
 });
 export type TaskBackOfficeConfirmation = typeof taskBackOfficeConfirmations.$inferSelect;
 export type InsertTaskBackOfficeConfirmation = z.infer<typeof insertTaskBackOfficeConfirmationSchema>;
+
+// Task Groups - groups of users for task assignment routing
+export const taskGroups = pgTable('task_groups', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  name: text('name').notNull(),
+  description: text('description'),
+  color: text('color').default('#3b82f6'),
+  icon: text('icon').default('Users'),
+  createdAt: timestamp('created_at').notNull().default(sql`now()`),
+  updatedAt: timestamp('updated_at').notNull().default(sql`now()`),
+});
+
+export const insertTaskGroupSchema = createInsertSchema(taskGroups).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  description: z.string().optional().nullable(),
+  color: z.string().optional().nullable(),
+  icon: z.string().optional().nullable(),
+});
+export type TaskGroup = typeof taskGroups.$inferSelect;
+export type InsertTaskGroup = z.infer<typeof insertTaskGroupSchema>;
+
+// Task Group Members - many-to-many: users in a task group
+export const taskGroupMembers = pgTable('task_group_members', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar('group_id').notNull(),
+  userId: varchar('user_id').notNull(),
+  createdAt: timestamp('created_at').notNull().default(sql`now()`),
+});
+
+export const insertTaskGroupMemberSchema = createInsertSchema(taskGroupMembers).omit({ id: true, createdAt: true });
+export type TaskGroupMember = typeof taskGroupMembers.$inferSelect;
+export type InsertTaskGroupMember = z.infer<typeof insertTaskGroupMemberSchema>;

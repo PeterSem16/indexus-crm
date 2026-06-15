@@ -39,6 +39,7 @@ import ConfiguratorPage from "@/pages/configurator";
 import CampaignsPage from "@/pages/campaigns";
 import CampaignDetailPage from "@/pages/campaign-detail";
 import TasksPage from "@/pages/tasks";
+import TaskGroupsPage from "@/pages/task-groups";
 import ContractsPage from "@/pages/contracts";
 import ContractDetailPage from "@/pages/contract-detail";
 import TemplateEditorPage from "@/pages/template-editor";
@@ -211,6 +212,7 @@ function AuthenticatedApp() {
                     <Route path="/campaigns/:id/reports" component={CampaignReportsPage} />
                     <Route path="/pipeline" component={PipelinePage} />
                     <Route path="/tasks" component={TasksPage} />
+                    <Route path="/task-groups" component={TaskGroupsPage} />
                     <Route path="/contracts/editor/:categoryId/:countryCode">
                       {(params) => <TemplateEditorPage categoryId={params.categoryId} countryCode={params.countryCode} />}
                     </Route>

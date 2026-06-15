@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -58,7 +59,8 @@ import {
   Trash2,
   Square,
   CheckSquare,
-  ListChecks
+  ListChecks,
+  Settings
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
@@ -81,6 +83,7 @@ export default function TasksPage() {
   const { t } = useI18n();
   const { selectedCountries } = useCountryFilter();
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,6 +119,15 @@ export default function TasksPage() {
   const { data: customers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
   });
+
+  const { data: taskGroupsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/task-groups"],
+  });
+
+  // Groups the current user belongs to (has tasks tagged with group_id:<id>)
+  const myGroupIds = taskGroupsList
+    .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
+    .map((g: any) => g.id);
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, ...data }: { id: string } & Partial<Task>) => {
@@ -330,6 +342,19 @@ export default function TasksPage() {
                   <StatusIcon className="h-3 w-3 mr-1" />
                   {t.tasks.statuses[task.status as keyof typeof t.tasks.statuses] || task.status}
                 </Badge>
+                {(() => {
+                  const groupIdTag = (task.tags || []).find((tag: string) => tag.startsWith("group_id:"));
+                  if (!groupIdTag) return null;
+                  const gid = groupIdTag.replace("group_id:", "");
+                  const grp = taskGroupsList.find((g: any) => g.id === gid);
+                  if (!grp) return null;
+                  return (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border" style={{ borderColor: grp.color || "#3b82f6", color: grp.color || "#3b82f6" }}>
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: grp.color || "#3b82f6" }} />
+                      {grp.name}
+                    </span>
+                  );
+                })()}
               </div>
               <h3 className="font-medium text-sm truncate" data-testid={`task-title-${task.id}`}>
                 {task.title}
@@ -607,6 +632,15 @@ export default function TasksPage() {
           <h1 className="text-2xl font-bold" data-testid="text-tasks-title">{t.tasks.title}</h1>
           <p className="text-muted-foreground">{t.tasks.description}</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigate("/task-groups")}
+          data-testid="btn-task-groups-settings"
+        >
+          <Settings className="h-4 w-4 mr-2" />
+          Skupiny
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -682,13 +716,26 @@ export default function TasksPage() {
         </div>
       ) : (
         <Tabs defaultValue="my" className="w-full">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="my" data-testid="tab-my-tasks">
               {t.tasks.myTasks} ({myTasks.length})
             </TabsTrigger>
             <TabsTrigger value="all" data-testid="tab-all-tasks">
               {t.tasks.allTasks} ({allTasks.length})
             </TabsTrigger>
+            {taskGroupsList
+              .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
+              .map((g: any) => {
+                const groupTasks = filteredTasks.filter(task =>
+                  (task.tags || []).some((tag: string) => tag === `group_id:${g.id}`)
+                );
+                return (
+                  <TabsTrigger key={g.id} value={`group_${g.id}`} data-testid={`tab-group-${g.id}`}>
+                    <ListChecks className="h-3.5 w-3.5 mr-1" />
+                    {g.name} ({groupTasks.length})
+                  </TabsTrigger>
+                );
+              })}
             <TabsTrigger value="reporting" data-testid="tab-reporting">
               <BarChart3 className="h-4 w-4 mr-1" />
               {t.tasks.reporting}
@@ -700,6 +747,23 @@ export default function TasksPage() {
           <TabsContent value="all" className="mt-4">
             <TaskList tasks={allTasks} />
           </TabsContent>
+          {taskGroupsList
+            .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
+            .map((g: any) => {
+              const groupTasks = filteredTasks.filter(task =>
+                (task.tags || []).some((tag: string) => tag === `group_id:${g.id}`)
+              );
+              return (
+                <TabsContent key={g.id} value={`group_${g.id}`} className="mt-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: g.color || '#3b82f6' }} />
+                    <span className="text-sm font-medium">{g.name}</span>
+                    {g.description && <span className="text-xs text-muted-foreground">— {g.description}</span>}
+                  </div>
+                  <TaskList tasks={groupTasks} />
+                </TabsContent>
+              );
+            })}
           <TabsContent value="reporting" className="mt-4">
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4 flex-wrap mb-4">

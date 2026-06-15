@@ -170,6 +170,27 @@ app.use((req, res, next) => {
         AND (registration_source IS NULL OR registration_source = '');
     `);
     console.log('[migration] Updated web form customers to in_process');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS task_groups (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text NOT NULL,
+        description text,
+        color text DEFAULT '#3b82f6',
+        icon text DEFAULT 'Users',
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS task_group_members (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        group_id varchar NOT NULL,
+        user_id varchar NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+      ALTER TABLE campaign_status_list_automations
+        ADD COLUMN IF NOT EXISTS task_group_id varchar;
+    `);
+    console.log('[migration] task_groups / task_group_members / task_group_id ensured');
   } catch (e: any) {
     console.error('[migration] Error:', e.message);
   }

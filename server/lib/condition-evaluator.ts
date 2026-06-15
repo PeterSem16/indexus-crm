@@ -255,6 +255,52 @@ async function evaluateSingleRule(
     return numOp(days, op, parseFloat(value));
   }
 
+  // ── Category G: Contact card (extended) ───────────────────────────────
+  if (field === "contact.segment" || field === "client_segment") {
+    if (!contactId) return false;
+    const [row] = await db.execute<{ seg: string }>(
+      sql`SELECT client_status AS seg FROM customers WHERE id = ${contactId} LIMIT 1`
+    );
+    return strOp((row as any)?.seg, op, value);
+  }
+  if (field === "contact.status_code" || field === "status_code") {
+    if (!contactId) return false;
+    const [row] = await db.execute<{ sc: string }>(
+      sql`SELECT client_status AS sc FROM customers WHERE id = ${contactId} LIMIT 1`
+    );
+    return strOp((row as any)?.sc, op, value);
+  }
+  if (field === "contact.hospital_id") {
+    if (!contactId) return false;
+    const [row] = await db.execute<{ hid: string }>(
+      sql`SELECT hospital_id AS hid FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
+    );
+    return strOp((row as any)?.hid, op, value);
+  }
+  if (field === "contact.clinic_id") {
+    if (!contactId) return false;
+    const [row] = await db.execute<{ cid: string }>(
+      sql`SELECT clinic_id AS cid FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
+    );
+    return strOp((row as any)?.cid, op, value);
+  }
+  if (field === "contact.contract_signed") {
+    if (!contactId) return false;
+    const [row] = await db.execute<{ cnt: string }>(
+      sql`SELECT COUNT(*) AS cnt FROM potential_cases WHERE customer_id = ${contactId} AND case_status = 'signed' LIMIT 1`
+    );
+    return boolOp(parseInt((row as any)?.cnt ?? "0") > 0, op, value);
+  }
+  if (field === "contact.days_since_last_change") {
+    if (!contactId) return false;
+    const [row] = await db.execute<{ last: string }>(
+      sql`SELECT MAX(created_at) AS last FROM activity_logs WHERE entity_type = 'customer' AND entity_id = ${contactId}`
+    );
+    if (!(row as any)?.last) return op === "gt";
+    const days = (Date.now() - new Date((row as any).last).getTime()) / 86400000;
+    return numOp(days, op, parseFloat(value));
+  }
+
   // fallback
   return true;
 }

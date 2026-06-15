@@ -39,6 +39,7 @@ type StatusListAutomation = {
   conditionOperator: string | null;
   conditionValue: string | null;
   dispositionId: string | null;
+  taskGroupId: string | null;
 };
 
 type StatusListQuestion = {
@@ -146,6 +147,12 @@ const SL: Record<string, Record<string, string>> = {
   priorityLbl:   { sk: "Priorita", en: "Priority", cs: "Priorita", hu: "Prioritás", ro: "Prioritate", it: "Priorità", de: "Priorität" },
   ifLabel:       { sk: "AK", en: "IF", cs: "KDYŽ", hu: "HA", ro: "DACĂ", it: "SE", de: "WENN" },
   condSubLbl:    { sk: "Podmienka (voliteľné)", en: "Condition (optional)", cs: "Podmínka (volitelné)", hu: "Feltétel (opcionális)", ro: "Condiție (opțional)", it: "Condizione (opzionale)", de: "Bedingung (optional)" },
+  tgSelectLbl:   { sk: "Priradiť skupinu alebo rolu", en: "Assign to group or role", cs: "Přiřadit skupině nebo roli", hu: "Csoport vagy szerepkör hozzárendelése", ro: "Atribuire grup sau rol", it: "Assegna a gruppo o ruolo", de: "Gruppe oder Rolle zuweisen" },
+  tgGroupsHeader:{ sk: "Skupiny úloh", en: "Task Groups", cs: "Skupiny úkolů", hu: "Feladat csoportok", ro: "Grupuri sarcini", it: "Gruppi di lavoro", de: "Aufgabengruppen" },
+  tgRolesHeader: { sk: "Roly (legacy)", en: "Roles (legacy)", cs: "Role (legacy)", hu: "Szerepkörök (legacy)", ro: "Roluri (legacy)", it: "Ruoli (legacy)", de: "Rollen (legacy)" },
+  tgNoGroups:    { sk: "Žiadne skupiny", en: "No groups", cs: "Žádné skupiny", hu: "Nincs csoport", ro: "Niciun grup", it: "Nessun gruppo", de: "Keine Gruppen" },
+  varPickerLbl:  { sk: "Vložiť premennú", en: "Insert variable", cs: "Vložit proměnnou", hu: "Változó beszúrása", ro: "Inserare variabilă", it: "Inserisci variabile", de: "Variable einfügen" },
+  condExtended:  { sk: "Rozšírené", en: "Extended", cs: "Rozšířené", hu: "Bővített", ro: "Extins", it: "Esteso", de: "Erweitert" },
   condAlways:    { sk: "Vždy — pri každom potvrdení kroku", en: "Always — on every step confirmation", cs: "Vždy — při každém potvrzení kroku", hu: "Mindig — minden lépés megerősítésekor", ro: "Întotdeauna — la fiecare confirmare a pasului", it: "Sempre — ad ogni conferma del passo", de: "Immer — bei jeder Schrittbestätigung" },
   condCountry:   { sk: "Krajina zákazníka je...", en: "Customer country is...", cs: "Země zákazníka je...", hu: "Az ügyfél országa...", ro: "Țara clientului este...", it: "Il paese del cliente è...", de: "Land des Kunden ist..." },
   condAnswer:    { sk: "Odpoveď zákazníka je...", en: "Customer answer is...", cs: "Odpověď zákazníka je...", hu: "Az ügyfél válasza...", ro: "Răspunsul clientului este...", it: "La risposta del cliente è...", de: "Antwort des Kunden ist..." },
@@ -863,6 +870,47 @@ const CONDITION_FIELDS: ConditionFieldDef[] = [
     descEn: "Internal code of the contact's current campaign status (e.g. INTERESTED, NO_ANSWER). Case-sensitive.",
     ops: OPS_STR, valueType: "text",
   },
+  {
+    key: "contact.segment", category: "contact",
+    labelSk: "CRM segment kontaktu", labelEn: "Contact CRM segment",
+    descSk: "CRM stav/segment kontaktu (napr. potential, in_process, client). Podmienka sa vyhodnocuje voči aktuálnej hodnote.",
+    descEn: "CRM status/segment of the contact (e.g. potential, in_process, client). Evaluated against the current value.",
+    ops: OPS_STR, valueType: "select",
+    options: [
+      { value: "potential",   labelSk: "Potenciálny",  labelEn: "Potential" },
+      { value: "in_process",  labelSk: "V procese",    labelEn: "In process" },
+      { value: "client",      labelSk: "Klient",       labelEn: "Client" },
+      { value: "inactive",    labelSk: "Neaktívny",    labelEn: "Inactive" },
+    ],
+  },
+  {
+    key: "contact.contract_signed", category: "contact",
+    labelSk: "Zmluva podpísaná", labelEn: "Contract signed",
+    descSk: "Kontakt má aspoň jeden prípad v stave 'signed' (podpísaná zmluva).",
+    descEn: "The contact has at least one case in 'signed' status (contract signed).",
+    ops: OPS_BOOL, valueType: "bool",
+  },
+  {
+    key: "contact.hospital_id", category: "contact",
+    labelSk: "ID priradenej nemocnice", labelEn: "Assigned hospital ID",
+    descSk: "Kontakt má priradený prípad s konkrétnou nemocnicou. Zadajte ID nemocnice.",
+    descEn: "The contact has a case assigned to a specific hospital. Enter the hospital ID.",
+    ops: OPS_STR, valueType: "text",
+  },
+  {
+    key: "contact.clinic_id", category: "contact",
+    labelSk: "ID priradenej kliniky", labelEn: "Assigned clinic ID",
+    descSk: "Kontakt má priradený prípad s konkrétnou klinikou. Zadajte ID kliniky.",
+    descEn: "The contact has a case assigned to a specific clinic. Enter the clinic ID.",
+    ops: OPS_STR, valueType: "text",
+  },
+  {
+    key: "contact.days_since_last_change", category: "contact",
+    labelSk: "Dní od poslednej zmeny záznamu", labelEn: "Days since last record change",
+    descSk: "Koľko dní uplynulo od poslednej zmeny záznamu kontaktu v activity_logs. Napr. > 30 = neaktívny kontakt.",
+    descEn: "How many days since the last recorded change to the contact in activity_logs. E.g. > 30 = inactive contact.",
+    ops: OPS_NUM, valueType: "number",
+  },
 ];
 
 const CONDITION_CATEGORIES = ["calls", "contact", "answer", "time", "campaign"] as const;
@@ -919,8 +967,11 @@ function getRoleLabel(role: string | null, locale: string): string {
   return opt ? sl(opt.slKey, locale) : role;
 }
 
-function AutomationBadge({ automation }: { automation: StatusListAutomation }) {
+function AutomationBadge({ automation, groups }: { automation: StatusListAutomation; groups?: any[] }) {
   const { locale } = useI18n();
+  const groupName = automation.taskGroupId
+    ? (groups?.find((g: any) => g.id === automation.taskGroupId)?.name || `Skupina #${automation.taskGroupId.slice(0, 6)}`)
+    : null;
   return (
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border/50">
       {getActionIcon(automation.actionType)}
@@ -932,7 +983,10 @@ function AutomationBadge({ automation }: { automation: StatusListAutomation }) {
           IF…
         </span>
       )}
-      {automation.targetRole && (
+      {groupName && (
+        <span className="font-medium text-blue-600 dark:text-blue-400">→ 👥 {groupName}</span>
+      )}
+      {!groupName && automation.targetRole && (
         <span className="font-medium">→ {getRoleLabel(automation.targetRole, locale)}</span>
       )}
     </span>
@@ -966,6 +1020,7 @@ function AutomationForm({
     conditionRules: (() => { try { return JSON.parse(automation?.conditionJson ?? "{}").rules ?? []; } catch { return []; } })() as { field: string; op: string; value: string }[],
     dispositionId: automation?.dispositionId || "",
     webhookTarget: automation?.webhookTarget || "",
+    taskGroupId: automation?.taskGroupId || "",
   });
   const [showActionHelp, setShowActionHelp] = useState(false);
 
@@ -981,6 +1036,11 @@ function AutomationForm({
     queryKey: ["/api/campaigns", campaignId, "dispositions-auto"],
     queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
     enabled: form.actionType === "set_contact_status",
+  });
+
+  const { data: taskGroupsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/task-groups"],
+    enabled: form.actionType === "assign_task",
   });
 
   const saveMutation = useMutation({
@@ -999,6 +1059,7 @@ function AutomationForm({
         conditionValue: form.conditionType === "always" || form.conditionType === "compound" ? null : (form.conditionType === "country" ? form.conditionCountry : null),
         conditionJson: form.conditionType === "compound" && form.conditionRules.length > 0 ? JSON.stringify({ logic: form.conditionLogic, rules: form.conditionRules }) : null,
         webhookTarget: form.webhookTarget || null,
+        taskGroupId: form.taskGroupId || null,
       };
       if (isEdit) {
         return apiRequest("PUT", `/api/campaigns/${campaignId}/status-list/${itemId}/automations/${automation.id}`, payload);
@@ -1056,15 +1117,53 @@ function AutomationForm({
 
         {needsRole && (
           <div className="col-span-2">
-            <Label className="text-xs mb-1 block">{sl("targetRoleLbl", locale)}</Label>
-            <Select value={form.targetRole} onValueChange={v => setForm(f => ({ ...f, targetRole: v }))}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ROLE_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>{sl(opt.slKey, locale)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs mb-1 block">{sl(form.actionType === "assign_task" ? "tgSelectLbl" : "targetRoleLbl", locale)}</Label>
+            {form.actionType === "assign_task" ? (
+              <Select
+                value={form.taskGroupId ? `group:${form.taskGroupId}` : form.targetRole}
+                onValueChange={v => {
+                  if (v.startsWith("group:")) {
+                    setForm(f => ({ ...f, taskGroupId: v.replace("group:", ""), targetRole: "" }));
+                  } else {
+                    setForm(f => ({ ...f, taskGroupId: "", targetRole: v }));
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {taskGroupsList.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{sl("tgGroupsHeader", locale)}</div>
+                      {taskGroupsList.map((g: any) => (
+                        <SelectItem key={g.id} value={`group:${g.id}`} className="text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: g.color || '#3b82f6' }} />
+                            {g.name}
+                            {g.members?.length > 0 && <span className="text-muted-foreground text-[10px]">({g.members.length})</span>}
+                          </div>
+                        </SelectItem>
+                      ))}
+                      <div className="px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider border-t mt-0.5">{sl("tgRolesHeader", locale)}</div>
+                    </>
+                  )}
+                  {taskGroupsList.length === 0 && (
+                    <div className="px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{sl("tgRolesHeader", locale)}</div>
+                  )}
+                  {ROLE_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs">{sl(opt.slKey, locale)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Select value={form.targetRole} onValueChange={v => setForm(f => ({ ...f, targetRole: v }))}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{sl(opt.slKey, locale)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         )}
 
@@ -1073,11 +1172,33 @@ function AutomationForm({
             <div className="col-span-2">
               <Label className="text-xs mb-1 block">{sl("taskDescLbl", locale)}</Label>
               <Textarea
+                id="automation-task-desc"
                 className="text-xs min-h-[60px] resize-none"
                 value={form.taskDescription}
                 onChange={e => setForm(f => ({ ...f, taskDescription: e.target.value }))}
                 placeholder={sl("taskDescPh", locale)}
               />
+              <div className="flex flex-wrap gap-1 mt-1">
+                {[
+                  { token: "{{customer.name}}", label: "Meno zákazníka" },
+                  { token: "{{customer.phone}}", label: "Telefón" },
+                  { token: "{{customer.id}}", label: "ID zákazníka" },
+                  { token: "{{campaign.name}}", label: "Kampaň" },
+                  { token: "{{agent.name}}", label: "Agent" },
+                  { token: "{{hospital.name}}", label: "Nemocnica" },
+                  { token: "{{clinic.name}}", label: "Klinika" },
+                ].map(({ token, label }) => (
+                  <button
+                    key={token}
+                    type="button"
+                    className="inline-flex items-center gap-0.5 rounded border border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-mono cursor-pointer"
+                    onClick={() => setForm(f => ({ ...f, taskDescription: f.taskDescription + token }))}
+                    title={token}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
               <Label className="text-xs mb-1 block">{sl("deadlineLbl", locale)}</Label>
@@ -1857,7 +1978,7 @@ function StatusListItemRow({
               )}
               <div className="flex flex-wrap gap-1">
                 {item.automations.map(auto => (
-                  <AutomationBadge key={auto.id} automation={auto} />
+                  <AutomationBadge key={auto.id} automation={auto} groups={taskGroupsList} />
                 ))}
               </div>
             </>
@@ -1892,9 +2013,11 @@ function StatusListItemRow({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium">{getActionLabel(auto.actionType, locale)}</span>
-                        {auto.targetRole && (
+                        {(auto as any).taskGroupId ? (
+                          <span className="text-muted-foreground font-medium text-blue-600 dark:text-blue-400">→ 👥 {taskGroupsList.find((g: any) => g.id === (auto as any).taskGroupId)?.name || "Skupina"}</span>
+                        ) : auto.targetRole ? (
                           <span className="text-muted-foreground">→ {getRoleLabel(auto.targetRole, locale)}</span>
-                        )}
+                        ) : null}
                         {auto.taskDeadlineOffset && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">⏱ {auto.taskDeadlineOffset}</span>
                         )}
@@ -2073,9 +2196,11 @@ function StatusListItemRow({
                                             {getActionIcon(auto.actionType)}
                                           </span>
                                           <span className="flex-1 text-muted-foreground">{getActionLabel(auto.actionType, locale)}</span>
-                                          {auto.targetRole && (
+                                          {(auto as any).taskGroupId ? (
+                                            <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400">→ 👥 {taskGroupsList.find((g: any) => g.id === (auto as any).taskGroupId)?.name || "Skupina"}</span>
+                                          ) : auto.targetRole ? (
                                             <span className="text-[10px] text-foreground">→ {getRoleLabel(auto.targetRole, locale)}</span>
-                                          )}
+                                          ) : null}
                                           <div className="flex items-center gap-0.5 opacity-0 group-hover/qa:opacity-100 transition-opacity shrink-0">
                                             <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
                                               onClick={() => { setEditingQAutoId(auto.id); setAddingQActionFor(null); }}>

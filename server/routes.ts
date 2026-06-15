@@ -69,6 +69,10 @@ import {
   insertTaskBackOfficeConfirmationSchema,
   tasks,
   insertTaskSchema,
+  taskGroups,
+  taskGroupMembers,
+  insertTaskGroupSchema,
+  insertTaskGroupMemberSchema,
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -7126,6 +7130,119 @@ Return ONLY valid JSON, no markdown code blocks.`,
       res.status(500).json({ error: "Failed to mark notification as read" });
     }
   });
+
+  // ─── Task Groups API ─────────────────────────────────────────────────────
+  app.get("/api/task-groups", requireAuth, async (req, res) => {
+    try {
+      const groups = await db.select().from(taskGroups).orderBy(taskGroups.name);
+      // Attach member user IDs
+      const members = await db.select().from(taskGroupMembers);
+      const [allUsers] = [await db.select({ id: users.id, fullName: users.fullName, username: users.username, avatarUrl: users.avatarUrl }).from(users)];
+      const result = groups.map(g => ({
+        ...g,
+        members: members
+          .filter(m => m.groupId === g.id)
+          .map(m => {
+            const u = allUsers.find(u => u.id === m.userId);
+            return { userId: m.userId, fullName: u?.fullName || u?.username || m.userId, avatarUrl: u?.avatarUrl || null };
+          }),
+      }));
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching task groups:", error);
+      res.status(500).json({ error: "Failed to fetch task groups" });
+    }
+  });
+
+  app.get("/api/task-groups/:id", requireAuth, async (req, res) => {
+    try {
+      const [group] = await db.select().from(taskGroups).where(eq(taskGroups.id, req.params.id)).limit(1);
+      if (!group) return res.status(404).json({ error: "Task group not found" });
+      const members = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, req.params.id));
+      const allUsers = await db.select({ id: users.id, fullName: users.fullName, username: users.username, avatarUrl: users.avatarUrl }).from(users);
+      res.json({
+        ...group,
+        members: members.map(m => {
+          const u = allUsers.find(u => u.id === m.userId);
+          return { userId: m.userId, fullName: u?.fullName || u?.username || m.userId, avatarUrl: u?.avatarUrl || null };
+        }),
+      });
+    } catch (error) {
+      console.error("Error fetching task group:", error);
+      res.status(500).json({ error: "Failed to fetch task group" });
+    }
+  });
+
+  app.post("/api/task-groups", requireAuth, async (req, res) => {
+    try {
+      const { name, description, color, icon, memberUserIds } = req.body;
+      if (!name) return res.status(400).json({ error: "name is required" });
+      const [group] = await db.insert(taskGroups).values({ name, description, color, icon }).returning();
+      if (Array.isArray(memberUserIds) && memberUserIds.length > 0) {
+        await db.insert(taskGroupMembers).values(memberUserIds.map((uid: string) => ({ groupId: group.id, userId: uid })));
+      }
+      res.json(group);
+    } catch (error) {
+      console.error("Error creating task group:", error);
+      res.status(500).json({ error: "Failed to create task group" });
+    }
+  });
+
+  app.put("/api/task-groups/:id", requireAuth, async (req, res) => {
+    try {
+      const { name, description, color, icon, memberUserIds } = req.body;
+      const [group] = await db.update(taskGroups)
+        .set({ name, description, color, icon, updatedAt: new Date() })
+        .where(eq(taskGroups.id, req.params.id))
+        .returning();
+      if (!group) return res.status(404).json({ error: "Task group not found" });
+      if (Array.isArray(memberUserIds)) {
+        await db.delete(taskGroupMembers).where(eq(taskGroupMembers.groupId, req.params.id));
+        if (memberUserIds.length > 0) {
+          await db.insert(taskGroupMembers).values(memberUserIds.map((uid: string) => ({ groupId: req.params.id, userId: uid })));
+        }
+      }
+      res.json(group);
+    } catch (error) {
+      console.error("Error updating task group:", error);
+      res.status(500).json({ error: "Failed to update task group" });
+    }
+  });
+
+  app.delete("/api/task-groups/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(taskGroupMembers).where(eq(taskGroupMembers.groupId, req.params.id));
+      await db.delete(taskGroups).where(eq(taskGroups.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting task group:", error);
+      res.status(500).json({ error: "Failed to delete task group" });
+    }
+  });
+
+  app.post("/api/task-groups/:id/members/:userId", requireAuth, async (req, res) => {
+    try {
+      const existing = await db.select().from(taskGroupMembers)
+        .where(and(eq(taskGroupMembers.groupId, req.params.id), eq(taskGroupMembers.userId, req.params.userId)));
+      if (existing.length === 0) {
+        await db.insert(taskGroupMembers).values({ groupId: req.params.id, userId: req.params.userId });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to add member" });
+    }
+  });
+
+  app.delete("/api/task-groups/:id/members/:userId", requireAuth, async (req, res) => {
+    try {
+      await db.delete(taskGroupMembers)
+        .where(and(eq(taskGroupMembers.groupId, req.params.id), eq(taskGroupMembers.userId, req.params.userId)));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove member" });
+    }
+  });
+
 
   // Tasks API (protected)
   app.get("/api/tasks", requireAuth, async (req, res) => {
@@ -27058,19 +27175,85 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 ? `SL: ${slItem.label}`
                 : `Status List Task (${itemId})`;
 
-              await db.insert(tasks).values({
-                title: taskTitle,
-                description: automation.taskDescription || `Automaticky vytvorená úloha zo Status Listu. Kampaň ${campaignId}, kontakt ${campaignContactId}.`,
-                dueDate,
-                priority: (automation.taskPriority as any) || "medium",
-                status: "pending",
-                assignedUserId: userId,
-                createdByUserId: userId,
-                tags: ["back_office", "status_list"],
-                relatedEntityType: "status_list_item",
-                relatedEntityId: itemId,
-                country: contactCountry ?? null,
-              });
+              // Resolve description variables {{customer.name}}, {{campaign.name}}, {{agent.name}}, etc.
+              let resolvedDescription = automation.taskDescription || `Automaticky vytvorená úloha zo Status Listu. Kampaň ${campaignId}, kontakt ${campaignContactId}.`;
+              if (resolvedDescription.includes("{{")) {
+                try {
+                  // Fetch contact data
+                  const [contactRow] = await db.execute<any>(
+                    sql`SELECT first_name, last_name, email, phone FROM customers WHERE id = ${contactId} LIMIT 1`
+                  );
+                  const contact = contactRow as any;
+                  // Fetch campaign data
+                  const [campaignRow] = await db.execute<any>(
+                    sql`SELECT name FROM campaigns WHERE id = ${campaignId} LIMIT 1`
+                  );
+                  const campaign = campaignRow as any;
+                  // Fetch agent data
+                  const [agentRow] = await db.execute<any>(
+                    sql`SELECT full_name, username FROM users WHERE id = ${userId} LIMIT 1`
+                  );
+                  const agent = agentRow as any;
+                  // Fetch clinic/hospital from potential_cases
+                  const [pcRow] = await db.execute<any>(
+                    sql`SELECT h.name AS hospital_name, c.name AS clinic_name FROM potential_cases pc LEFT JOIN hospitals h ON h.id = pc.hospital_id LEFT JOIN clinics c ON c.id = pc.clinic_id WHERE pc.customer_id = ${contactId} ORDER BY pc.created_at DESC LIMIT 1`
+                  );
+                  const pc = pcRow as any;
+                  resolvedDescription = resolvedDescription
+                    .replace(/\{\{customer\.name\}\}/g, contact ? `${contact.first_name || ""} ${contact.last_name || ""}`.trim() : "")
+                    .replace(/\{\{customer\.id\}\}/g, contactId ?? "")
+                    .replace(/\{\{customer\.phone\}\}/g, contact?.phone || "")
+                    .replace(/\{\{customer\.email\}\}/g, contact?.email || "")
+                    .replace(/\{\{campaign\.name\}\}/g, campaign?.name || "")
+                    .replace(/\{\{agent\.name\}\}/g, agent ? (agent.full_name || agent.username || "") : "")
+                    .replace(/\{\{clinic\.name\}\}/g, pc?.clinic_name || "")
+                    .replace(/\{\{hospital\.name\}\}/g, pc?.hospital_name || "");
+                } catch (varErr) {
+                  console.error("[assign_task] Variable resolution error:", varErr);
+                }
+              }
+
+              // Determine assignees: task group or single user (legacy role)
+              const groupId = (automation as any).taskGroupId;
+              const taskTags = ["status_list"];
+              if (groupId) {
+                // Assign to all members of the group
+                const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
+                const [groupRow] = await db.select().from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
+                if (groupRow) taskTags.push(`group:${groupRow.name}`);
+                taskTags.push(`group_id:${groupId}`);
+                const assignees = groupMembersRows.length > 0 ? groupMembersRows.map(m => m.userId) : [userId];
+                for (const assigneeId of assignees) {
+                  await db.insert(tasks).values({
+                    title: taskTitle,
+                    description: resolvedDescription,
+                    dueDate,
+                    priority: (automation.taskPriority as any) || "medium",
+                    status: "pending",
+                    assignedUserId: assigneeId,
+                    createdByUserId: userId,
+                    tags: taskTags,
+                    relatedEntityType: "status_list_item",
+                    relatedEntityId: itemId,
+                    country: contactCountry ?? null,
+                  });
+                }
+              } else {
+                // Legacy: assign to triggering agent
+                await db.insert(tasks).values({
+                  title: taskTitle,
+                  description: resolvedDescription,
+                  dueDate,
+                  priority: (automation.taskPriority as any) || "medium",
+                  status: "pending",
+                  assignedUserId: userId,
+                  createdByUserId: userId,
+                  tags: [...taskTags, "back_office"],
+                  relatedEntityType: "status_list_item",
+                  relatedEntityId: itemId,
+                  country: contactCountry ?? null,
+                });
+              }
             }
           }
 
