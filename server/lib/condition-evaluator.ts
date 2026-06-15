@@ -305,6 +305,131 @@ async function evaluateSingleRule(
   return true;
 }
 
+/**
+ * Reads the current raw string value of a trackable field for a contact.
+ * Returns null when the field is unknown or has no value.
+ */
+async function getRawFieldValue(
+  field: string,
+  ctx: AutomationConditionContext
+): Promise<string | null> {
+  const { contactId, campaignId, contactCountry } = ctx;
+
+  if (field === "contact_country") return contactCountry ?? null;
+
+  if (field === "contact.segment" || field === "client_segment") {
+    if (!contactId) return null;
+    const [row] = await db.execute<{ seg: string }>(
+      sql`SELECT client_status AS seg FROM customers WHERE id = ${contactId} LIMIT 1`
+    );
+    return (row as any)?.seg ?? null;
+  }
+  if (field === "contact.status_code" || field === "status_code") {
+    if (!contactId) return null;
+    const [row] = await db.execute<{ sc: string }>(
+      sql`SELECT client_status AS sc FROM customers WHERE id = ${contactId} LIMIT 1`
+    );
+    return (row as any)?.sc ?? null;
+  }
+  if (field === "contact.hospital_id") {
+    if (!contactId) return null;
+    const [row] = await db.execute<{ hid: string }>(
+      sql`SELECT hospital_id::text AS hid FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
+    );
+    return (row as any)?.hid ?? null;
+  }
+  if (field === "contact.clinic_id") {
+    if (!contactId) return null;
+    const [row] = await db.execute<{ cid: string }>(
+      sql`SELECT clinic_id::text AS cid FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
+    );
+    return (row as any)?.cid ?? null;
+  }
+  if (field === "contact.contract_signed") {
+    if (!contactId) return null;
+    const [row] = await db.execute<{ cnt: string }>(
+      sql`SELECT COUNT(*) AS cnt FROM potential_cases WHERE customer_id = ${contactId} AND case_status = 'signed' LIMIT 1`
+    );
+    return parseInt((row as any)?.cnt ?? "0") > 0 ? "true" : "false";
+  }
+  if (field === "current_status") {
+    if (!contactId || !campaignId) return null;
+    const [row] = await db.execute<{ status: string }>(
+      sql`SELECT disposition AS status FROM campaign_contacts WHERE customer_id = ${contactId} AND campaign_id = ${campaignId} LIMIT 1`
+    );
+    return (row as any)?.status ?? null;
+  }
+  if (field === "contract_status") {
+    if (!contactId) return null;
+    const [row] = await db.execute<{ s: string }>(
+      sql`SELECT case_status AS s FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
+    );
+    return (row as any)?.s ?? null;
+  }
+  if (field === "last_disposition") {
+    if (!contactId) return null;
+    const [row] = await db.execute<{ disp: string }>(
+      sql`SELECT disposition AS disp FROM call_logs WHERE contact_id = ${contactId} ORDER BY started_at DESC LIMIT 1`
+    );
+    return (row as any)?.disp ?? null;
+  }
+
+  return null;
+}
+
+/**
+ * Fetches the snapshot for a (contactId, campaignId, fieldName) triple.
+ * Returns { exists: false } when no snapshot row is present yet.
+ */
+async function getFieldSnapshot(
+  contactId: string,
+  campaignId: string | null,
+  fieldName: string
+): Promise<{ exists: false } | { exists: true; value: string | null }> {
+  const rows = await db.execute<{ last_value: string | null }>(
+    sql`SELECT last_value FROM contact_field_snapshots
+        WHERE contact_id = ${contactId}
+          AND field_name = ${fieldName}
+          AND (campaign_id = ${campaignId} OR (campaign_id IS NULL AND ${campaignId}::text IS NULL))
+        LIMIT 1`
+  );
+  const arr = rows as unknown as Array<{ last_value: string | null }>;
+  if (!arr || arr.length === 0) return { exists: false };
+  return { exists: true, value: arr[0].last_value ?? null };
+}
+
+/**
+ * Persists the current value of a field into the snapshot table.
+ * Call this AFTER all automations for an event have been evaluated so that
+ * sibling automations sharing the same field_changed_to condition are not
+ * short-circuited by an early snapshot write.
+ *
+ * Uses an atomic ON CONFLICT upsert against the unique constraint
+ * contact_field_snapshots_unique (contact_id, campaign_id, field_name)
+ * which is defined NULLS NOT DISTINCT so null campaign_id is handled correctly.
+ */
+export async function updateFieldSnapshot(
+  contactId: string,
+  campaignId: string | null,
+  fieldName: string,
+  ctx: AutomationConditionContext
+): Promise<void> {
+  try {
+    const currentValue = await getRawFieldValue(fieldName, ctx);
+    await db.execute(
+      sql`INSERT INTO contact_field_snapshots (contact_id, campaign_id, field_name, last_value, updated_at)
+          VALUES (${contactId}, ${campaignId}, ${fieldName}, ${currentValue}, now())
+          ON CONFLICT ON CONSTRAINT contact_field_snapshots_unique
+          DO UPDATE SET last_value = ${currentValue}, updated_at = now()`
+    );
+  } catch (err: any) {
+    console.error(
+      "[updateFieldSnapshot] Failed to persist snapshot",
+      { contactId, campaignId, fieldName, error: err?.message ?? String(err) }
+    );
+  }
+}
+
 export async function evaluateAutomationCondition(
   automation: {
     conditionField?: string | null;
@@ -318,13 +443,29 @@ export async function evaluateAutomationCondition(
   if (automation.conditionJson) {
     try {
       const parsed = JSON.parse(automation.conditionJson);
-      // field_changed_to: single field equality check
+
+      // True delta condition: fires only when the field value actually changed to the target
       if (parsed.__type === "field_changed_to" && parsed.field) {
-        return evaluateSingleRule(
-          { field: parsed.field, op: parsed.op || "eq", value: parsed.value || "" },
-          ctx
-        );
+        const targetValue = (parsed.value ?? "").toLowerCase();
+        const currentValue = ((await getRawFieldValue(parsed.field, ctx)) ?? "").toLowerCase();
+
+        // Current value must match the target
+        if (currentValue !== targetValue) return false;
+
+        const contactId = ctx.contactId;
+        if (!contactId) return false;
+
+        const snapshot = await getFieldSnapshot(contactId, ctx.campaignId ?? null, parsed.field);
+
+        if (!snapshot.exists) {
+          // No prior snapshot — treat as a fresh change and allow firing
+          return true;
+        }
+
+        // Fire only when the value genuinely changed from the snapshot
+        return (snapshot.value ?? "").toLowerCase() !== currentValue;
       }
+
       const group: ConditionGroup = parsed;
       return await evaluateConditionGroup(group, ctx);
     } catch {

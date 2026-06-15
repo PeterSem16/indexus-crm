@@ -199,6 +199,32 @@ app.use((req, res, next) => {
     console.error('[migration] Error:', e.message);
   }
 
+  // contact_field_snapshots — delta tracking for field_changed_to automation conditions
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS contact_field_snapshots (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        contact_id VARCHAR NOT NULL,
+        campaign_id VARCHAR,
+        field_name TEXT NOT NULL,
+        last_value TEXT,
+        updated_at TIMESTAMP NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_contact_field_snapshots_lookup
+        ON contact_field_snapshots (contact_id, field_name, campaign_id);
+      DO $$ BEGIN
+        ALTER TABLE contact_field_snapshots
+          ADD CONSTRAINT contact_field_snapshots_unique
+          UNIQUE NULLS NOT DISTINCT (contact_id, campaign_id, field_name);
+      EXCEPTION WHEN duplicate_table THEN NULL;
+               WHEN duplicate_object THEN NULL;
+      END $$;
+    `);
+    console.log('[migration] contact_field_snapshots ensured');
+  } catch (e: any) {
+    console.error('[migration] contact_field_snapshots error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

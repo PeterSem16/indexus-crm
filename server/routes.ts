@@ -6,7 +6,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { eq, desc, and, gte, lte, inArray, isNotNull, isNull, or, count, sql, asc } from "drizzle-orm";
 import { db, pool } from "./db";
-import { evaluateAutomationCondition } from "./lib/condition-evaluator";
+import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { storage } from "./storage";
 import { 
   numberRanges,
@@ -27177,6 +27177,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             .from(campaignStatusListAutomations)
             .where(eq(campaignStatusListAutomations.statusListItemId, itemId));
 
+          // Pre-scan: collect every field tracked by a field_changed_to condition.
+          // Snapshots are written for ALL of these after the loop — not only for ones
+          // that fired — so the "last seen value" stays current even when the field
+          // value does not match the target. This ensures a future re-entry correctly
+          // registers as a new change rather than being blocked by a stale snapshot.
+          const trackedFieldChanges = new Set<string>();
+          for (const a of automations) {
+            if (a.conditionJson) {
+              try {
+                const p = JSON.parse(a.conditionJson);
+                if (p.__type === "field_changed_to" && p.field) trackedFieldChanges.add(p.field as string);
+              } catch { /* ignore */ }
+            }
+          }
+
           for (const automation of automations) {
             // Check condition
             const conditionMet = await evaluateAutomationCondition(automation, {
@@ -27322,6 +27337,20 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 });
               }
             }
+
+          }
+
+          // Persist snapshots for every tracked field_changed_to field — done AFTER the
+          // loop so all sibling automations evaluate against the pre-event snapshot, and
+          // so that fields where the condition did NOT fire also get their snapshot updated
+          // (prevents a stale snapshot blocking a legitimate future re-entry).
+          for (const fieldName of trackedFieldChanges) {
+            await updateFieldSnapshot(contactId ?? "", campaignId ?? null, fieldName, {
+              contactId: contactId ?? null,
+              campaignId: campaignId ?? null,
+              agentId: userId ?? null,
+              contactCountry: contactCountry ?? null,
+            });
           }
 
           // Log to campaign contact history (F9)

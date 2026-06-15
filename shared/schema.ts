@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, jsonb, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -7836,3 +7836,21 @@ export const taskGroupMembers = pgTable('task_group_members', {
 export const insertTaskGroupMemberSchema = createInsertSchema(taskGroupMembers).omit({ id: true, createdAt: true });
 export type TaskGroupMember = typeof taskGroupMembers.$inferSelect;
 export type InsertTaskGroupMember = z.infer<typeof insertTaskGroupMemberSchema>;
+
+// Contact Field Snapshots — stores the last-seen field value per contact/campaign for delta conditions
+export const contactFieldSnapshots = pgTable("contact_field_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contactId: varchar("contact_id").notNull(),
+  campaignId: varchar("campaign_id"),
+  fieldName: text("field_name").notNull(),
+  lastValue: text("last_value"),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (t) => ({
+  // NULLS NOT DISTINCT treats all NULLs as equal, so contacts without a campaign_id
+  // get a single snapshot row rather than an unbounded set of duplicates.
+  uniqueContactCampaignField: unique("contact_field_snapshots_unique")
+    .on(t.contactId, t.campaignId, t.fieldName)
+    .nullsNotDistinct(),
+}));
+
+export type ContactFieldSnapshot = typeof contactFieldSnapshots.$inferSelect;
