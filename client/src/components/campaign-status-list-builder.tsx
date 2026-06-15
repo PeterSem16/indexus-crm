@@ -986,9 +986,13 @@ function getRoleLabel(role: string | null, locale: string): string {
 
 function AutomationBadge({ automation, groups }: { automation: StatusListAutomation; groups?: any[] }) {
   const { locale } = useI18n();
-  const groupName = automation.taskGroupId
-    ? (groups?.find((g: any) => g.id === automation.taskGroupId)?.name || `Skupina #${automation.taskGroupId.slice(0, 6)}`)
+  const groupRecord = automation.taskGroupId
+    ? (groups?.find((g: any) => g.id === automation.taskGroupId) || null)
     : null;
+  const groupDisplayName = groupRecord
+    ? (groupRecord.displayAlias || groupRecord.name || `Skupina #${automation.taskGroupId!.slice(0, 6)}`)
+    : null;
+  const groupFullName = groupRecord?.name || null;
   return (
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border/50">
       {getActionIcon(automation.actionType)}
@@ -1000,10 +1004,12 @@ function AutomationBadge({ automation, groups }: { automation: StatusListAutomat
           IF…
         </span>
       )}
-      {groupName && (
-        <span className="font-medium text-blue-600 dark:text-blue-400">→ 👥 {groupName}</span>
+      {groupDisplayName && (
+        <span
+          title={groupFullName && groupFullName !== groupDisplayName ? groupFullName : undefined}
+          className="font-medium text-blue-600 dark:text-blue-400 cursor-default">→ 👥 {groupDisplayName}</span>
       )}
-      {!groupName && automation.targetRole && (
+      {!groupDisplayName && automation.targetRole && (
         <span className="font-medium">→ {getRoleLabel(automation.targetRole, locale)}</span>
       )}
     </span>
@@ -2119,9 +2125,7 @@ function StatusListItemRow({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium">{getActionLabel(auto.actionType, locale)}</span>
-                        {(auto as any).taskGroupId ? (
-                          <span className="text-muted-foreground font-medium text-blue-600 dark:text-blue-400">→ 👥 {taskGroupsList.find((g: any) => g.id === (auto as any).taskGroupId)?.name || "Skupina"}</span>
-                        ) : auto.targetRole ? (
+                        {(auto as any).taskGroupId ? (() => { const g = taskGroupsList.find((g: any) => g.id === (auto as any).taskGroupId); const alias = g?.displayAlias || g?.name || "Skupina"; const full = g?.name; return (<span title={full && full !== alias ? full : undefined} className="text-muted-foreground font-medium text-blue-600 dark:text-blue-400 cursor-default">→ 👥 {alias}</span>); })() : auto.targetRole ? (
                           <span className="text-muted-foreground">→ {getRoleLabel(auto.targetRole, locale)}</span>
                         ) : null}
                         {auto.taskDeadlineOffset && (
@@ -2302,9 +2306,7 @@ function StatusListItemRow({
                                             {getActionIcon(auto.actionType)}
                                           </span>
                                           <span className="flex-1 text-muted-foreground">{getActionLabel(auto.actionType, locale)}</span>
-                                          {(auto as any).taskGroupId ? (
-                                            <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400">→ 👥 {taskGroupsList.find((g: any) => g.id === (auto as any).taskGroupId)?.name || "Skupina"}</span>
-                                          ) : auto.targetRole ? (
+                                          {(auto as any).taskGroupId ? (() => { const g = taskGroupsList.find((g: any) => g.id === (auto as any).taskGroupId); const alias = g?.displayAlias || g?.name || "Skupina"; const full = g?.name; return (<span title={full && full !== alias ? full : undefined} className="text-[10px] font-medium text-blue-600 dark:text-blue-400 cursor-default">→ 👥 {alias}</span>); })() : auto.targetRole ? (
                                             <span className="text-[10px] text-foreground">→ {getRoleLabel(auto.targetRole, locale)}</span>
                                           ) : null}
                                           <div className="flex items-center gap-0.5 opacity-0 group-hover/qa:opacity-100 transition-opacity shrink-0">
