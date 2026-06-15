@@ -92,6 +92,16 @@ const SL: Record<string, Record<string, string>> = {
   at_notify_role:        { sk: "Notifikovať rolu", en: "Notify role", cs: "Upozornit roli", hu: "Szerepkör értesítése", ro: "Notifică rolul", it: "Notifica ruolo", de: "Rolle benachrichtigen" },
   at_sys_webhook:        { sk: "Systémový webhook", en: "System webhook", cs: "Systémový webhook", hu: "Rendszer webhook", ro: "Webhook sistem", it: "Webhook di sistema", de: "System-Webhook" },
 
+  atHelp_assign_task:        { sk: "Systém vytvorí úlohu v module Tasks a pridelí ju zvolenej role (napr. Back Office). Úloha bude viditeľná v zozname úloh a agent dostane notifikáciu. Nastavte popis, prioritu a termín.", en: "System creates a task in the Tasks module and assigns it to the chosen role (e.g. Back Office). The task appears in the task list and the agent gets a notification. Set description, priority and deadline.", cs: "Systém vytvoří úkol v modulu Úkoly a přidělí ho zvolené roli. Agent dostane notifikaci.", hu: "A rendszer feladatot hoz létre a Feladatok modulban a kiválasztott szerepkör számára.", ro: "Sistemul creează o sarcină în modulul Sarcini și o atribuie rolului ales.", it: "Il sistema crea un compito nel modulo Attività e lo assegna al ruolo scelto.", de: "Das System erstellt eine Aufgabe im Aufgaben-Modul und weist sie der gewählten Rolle zu." },
+  atHelp_send_email_group:   { sk: "Odošle skupinový e-mail podľa zvolenej šablóny. Šablóna môže obsahovať premenné kontaktu. Vhodné pre automatické uvítacie e-maily, pripomienky alebo follow-up správy.", en: "Sends a group email using the chosen template. Template can contain contact variables. Good for automated welcome emails, reminders or follow-up messages.", cs: "Odešle skupinový e-mail dle vybrané šablony. Vhodné pro uvítací e-maily a připomínky.", hu: "Csoportos e-mailt küld a kiválasztott sablon alapján. Üdvözlő e-mailekhez, emlékeztetőkhöz alkalmas.", ro: "Trimite un email de grup folosind șablonul ales. Potrivit pentru e-mailuri de bun venit și memento-uri.", it: "Invia un'email di gruppo usando il modello scelto. Adatto per e-mail di benvenuto e promemoria.", de: "Sendet eine Gruppen-E-Mail mit der gewählten Vorlage. Geeignet für Willkommens-E-Mails und Erinnerungen." },
+  atHelp_send_sms:           { sk: "Odošle SMS správu priamo zákazníkovi. Vyžaduje platné telefónne číslo kontaktu. Správa je odoslaná cez SMS gateway a zalogovaná v komunikačnej histórii.", en: "Sends an SMS message directly to the contact. Requires a valid phone number on the contact. Message is sent via SMS gateway and logged in communication history.", cs: "Odešle SMS zprávu zákazníkovi. Vyžaduje platné telefonní číslo.", hu: "SMS üzenetet küld közvetlenül az ügyfélnek. Érvényes telefonszám szükséges.", ro: "Trimite un SMS direct clientului. Necesită număr de telefon valid.", it: "Invia un SMS direttamente al contatto. Richiede un numero di telefono valido.", de: "Sendet eine SMS-Nachricht direkt an den Kontakt. Erfordert eine gültige Telefonnummer." },
+  atHelp_set_contact_status: { sk: "Automaticky zmení dispozíciu (status) kontaktu v kampani. Vhodné napr. pre automatickú zmenu stavu po podpise zmluvy alebo po vypršaní lehoty.", en: "Automatically changes the contact's disposition (status) in the campaign. Useful e.g. for auto-changing status after contract signing or deadline expiry.", cs: "Automaticky změní dispozici kontaktu v kampani. Vhodné pro automatickou změnu stavu po podpisu smlouvy.", hu: "Automatikusan megváltoztatja a kontakt diszpozícióját (státuszát) a kampányban.", ro: "Schimbă automat dispoziția (statusul) contactului în campanie.", it: "Cambia automaticamente la disposizione (stato) del contatto nella campagna.", de: "Ändert automatisch die Disposition (Status) des Kontakts in der Kampagne." },
+  atHelp_notify_role:        { sk: "Odošle systémovú notifikáciu všetkým používateľom s danou rolou. Notifikácia sa zobrazí v reálnom čase cez WebSocket a je uložená v histórii notifikácií.", en: "Sends a system notification to all users with the chosen role. Notification appears in real-time via WebSocket and is saved in notification history.", cs: "Odešle systémovou notifikaci všem uživatelům s danou rolí.", hu: "Rendszerértesítést küld az összes, a kiválasztott szerepkörrel rendelkező felhasználónak.", ro: "Trimite o notificare de sistem tuturor utilizatorilor cu rolul ales.", it: "Invia una notifica di sistema a tutti gli utenti con il ruolo scelto.", de: "Sendet eine Systembenachrichtigung an alle Benutzer mit der gewählten Rolle." },
+  atHelp_sys_webhook:        { sk: "Odošle HTTP POST požiadavku na zadanú URL adresu s JSON payloadom obsahujúcim dáta kontaktu a kampane. Vhodné pre integrácie s externými systémami (Zapier, Make, vlastné API).", en: "Sends an HTTP POST request to the specified URL with a JSON payload containing contact and campaign data. Suitable for integrations with external systems (Zapier, Make, custom API).", cs: "Odešle HTTP POST požadavek na zadanou URL s JSON payloadem. Vhodné pro integrace s externími systémy.", hu: "HTTP POST kérést küld a megadott URL-re JSON payloaddal. Külső rendszerekkel való integrációkhoz alkalmas.", ro: "Trimite o cerere HTTP POST la URL-ul specificat cu payload JSON. Potrivit pentru integrări cu sisteme externe.", it: "Invia una richiesta HTTP POST all'URL specificato con un payload JSON. Adatto per integrazioni con sistemi esterni.", de: "Sendet eine HTTP POST-Anfrage an die angegebene URL mit JSON-Payload. Geeignet für externe System-Integrationen." },
+
+  ifWebhookUrl: { sk: "URL cieľového webhookového endpointu", en: "Webhook target URL", cs: "URL cílového webhookového endpointu", hu: "Webhook cél URL", ro: "URL-ul webhookului destinație", it: "URL webhook destinazione", de: "Webhook-Ziel-URL" },
+  ifWebhookPh:  { sk: "https://hooks.zapier.com/...", en: "https://hooks.zapier.com/...", cs: "https://hooks.zapier.com/...", hu: "https://hooks.zapier.com/...", ro: "https://hooks.zapier.com/...", it: "https://hooks.zapier.com/...", de: "https://hooks.zapier.com/..." },
+
   rl_back_office:  { sk: "Back Office", en: "Back Office", cs: "Back Office", hu: "Back Office", ro: "Back Office", it: "Back Office", de: "Back Office" },
   rl_coordinator:  { sk: "Koordinátor (KO)", en: "Coordinator (KO)", cs: "Koordinátor (KO)", hu: "Koordinátor (KO)", ro: "Coordonator (KO)", it: "Coordinatore (KO)", de: "Koordinator (KO)" },
   rl_admin:        { sk: "Administrator (DB Admin)", en: "Administrator (DB Admin)", cs: "Administrátor (DB Admin)", hu: "Adminisztrátor (DB Admin)", ro: "Administrator (DB Admin)", it: "Amministratore (DB Admin)", de: "Administrator (DB Admin)" },
@@ -140,6 +150,16 @@ const SL: Record<string, Record<string, string>> = {
   condCountry:   { sk: "Krajina zákazníka je...", en: "Customer country is...", cs: "Země zákazníka je...", hu: "Az ügyfél országa...", ro: "Țara clientului este...", it: "Il paese del cliente è...", de: "Land des Kunden ist..." },
   condAnswer:    { sk: "Odpoveď zákazníka je...", en: "Customer answer is...", cs: "Odpověď zákazníka je...", hu: "Az ügyfél válasza...", ro: "Răspunsul clientului este...", it: "La risposta del cliente è...", de: "Antwort des Kunden ist..." },
   condAnswerPh:  { sk: "Hodnota odpovede (napr. áno, nie, záujem...)", en: "Answer value (e.g. yes, no, interest...)", cs: "Hodnota odpovědi (např. ano, ne, zájem...)", hu: "Válasz értéke (pl. igen, nem, érdeklődés...)", ro: "Valoarea răspunsului (ex. da, nu, interes...)", it: "Valore risposta (es. sì, no, interesse...)", de: "Antwortwert (z.B. ja, nein, Interesse...)" },
+  ifCompound:    { sk: "Zložená podmienka (IF builder)", en: "Compound condition (IF builder)", cs: "Složená podmínka (IF builder)", hu: "Összetett feltétel (IF builder)", ro: "Condiție compusă (IF builder)", it: "Condizione composta (IF builder)", de: "Zusammengesetzte Bedingung (IF builder)" },
+  ifLogicAnd:    { sk: "Všetky podmienky musia platiť súčasne", en: "All conditions must be true simultaneously", cs: "Všechny podmínky musí platit současně", hu: "Minden feltételnek egyszerre kell teljesülnie", ro: "Toate condițiile trebuie să fie adevărate simultan", it: "Tutte le condizioni devono essere vere simultaneamente", de: "Alle Bedingungen müssen gleichzeitig erfüllt sein" },
+  ifLogicOr:     { sk: "Aspoň jedna podmienka musí platiť", en: "At least one condition must be true", cs: "Alespoň jedna podmínka musí platit", hu: "Legalább egy feltételnek teljesülnie kell", ro: "Cel puțin o condiție trebuie să fie adevărată", it: "Almeno una condizione deve essere vera", de: "Mindestens eine Bedingung muss erfüllt sein" },
+  ifValPh:       { sk: "Hodnota...", en: "Value...", cs: "Hodnota...", hu: "Érték...", ro: "Valoare...", it: "Valore...", de: "Wert..." },
+  ifAddRule:     { sk: "+ Pridať podmienku", en: "+ Add condition", cs: "+ Přidat podmínku", hu: "+ Feltétel hozzáadása", ro: "+ Adaugă condiție", it: "+ Aggiungi condizione", de: "+ Bedingung hinzufügen" },
+  calls:         { sk: "Hovory", en: "Calls", cs: "Hovory", hu: "Hívások", ro: "Apeluri", it: "Chiamate", de: "Anrufe" },
+  contact:       { sk: "Kontakt", en: "Contact", cs: "Kontakt", hu: "Kontakt", ro: "Contact", it: "Contatto", de: "Kontakt" },
+  answer:        { sk: "Odpovede", en: "Answers", cs: "Odpovědi", hu: "Válaszok", ro: "Răspunsuri", it: "Risposte", de: "Antworten" },
+  time:          { sk: "Čas", en: "Time", cs: "Čas", hu: "Idő", ro: "Timp", it: "Tempo", de: "Zeit" },
+  campaign:      { sk: "Kampaň", en: "Campaign", cs: "Kampaň", hu: "Kampány", ro: "Campanie", it: "Campagna", de: "Kampagne" },
   cancelBtn:     { sk: "Zrušiť", en: "Cancel", cs: "Zrušit", hu: "Mégse", ro: "Anulare", it: "Annulla", de: "Abbrechen" },
   saveActionBtn: { sk: "Uložiť akciu", en: "Save action", cs: "Uložit akci", hu: "Akció mentése", ro: "Salvare acțiune", it: "Salva azione", de: "Aktion speichern" },
   autoSaved:     { sk: "Automatizácia uložená", en: "Automation saved", cs: "Automatizace uložena", hu: "Automatizáció mentve", ro: "Automatizare salvată", it: "Automazione salvata", de: "Automatisierung gespeichert" },
@@ -697,6 +717,190 @@ const COUNTRY_OPTIONS = [
   { value: "IT", slKey: "ctr_IT" }, { value: "US", slKey: "ctr_US" },
 ];
 
+type ConditionFieldDef = {
+  key: string;
+  category: string;
+  labelSk: string; labelEn: string;
+  descSk: string;  descEn: string;
+  ops: { value: string; labelSk: string; labelEn: string }[];
+  valueType: "text" | "number" | "select" | "bool" | "disp_count";
+  options?: { value: string; labelSk: string; labelEn: string }[];
+};
+
+const OPS_NUM = [
+  { value: "gt",  labelSk: "je väčší ako",    labelEn: "is greater than" },
+  { value: "lt",  labelSk: "je menší ako",     labelEn: "is less than" },
+  { value: "gte", labelSk: "je väčší/rovný",   labelEn: "is ≥" },
+  { value: "lte", labelSk: "je menší/rovný",   labelEn: "is ≤" },
+  { value: "eq",  labelSk: "sa rovná",         labelEn: "equals" },
+];
+const OPS_STR = [
+  { value: "eq",       labelSk: "je",             labelEn: "is" },
+  { value: "neq",      labelSk: "nie je",          labelEn: "is not" },
+  { value: "contains", labelSk: "obsahuje",        labelEn: "contains" },
+];
+const OPS_BOOL = [
+  { value: "eq", labelSk: "je", labelEn: "is" },
+];
+
+const CONDITION_FIELDS: ConditionFieldDef[] = [
+  {
+    key: "call_count", category: "calls",
+    labelSk: "Počet hovorov", labelEn: "Call count",
+    descSk: "Celkový počet pokusov o hovor s týmto kontaktom v kampani. Použite napr. > 3 pre kontakty, kde sa nedarí dovolať.",
+    descEn: "Total number of call attempts for this contact in the campaign. E.g. > 3 for contacts with repeated no-answer.",
+    ops: OPS_NUM, valueType: "number",
+  },
+  {
+    key: "days_in_status", category: "calls",
+    labelSk: "Dní v tomto stave", labelEn: "Days in this status",
+    descSk: "Koľko dní uplynulo od poslednej zmeny stavu kontaktu. Napr. >= 7 = kontakt je v stave dlhšie ako týždeň.",
+    descEn: "How many days since the contact's status last changed. E.g. >= 7 means stuck in status for over a week.",
+    ops: OPS_NUM, valueType: "number",
+  },
+  {
+    key: "last_call_outcome", category: "calls",
+    labelSk: "Výsledok posledného hovoru", labelEn: "Last call outcome",
+    descSk: "Dispozícia (výsledok) posledného zaznamenaného hovoru. Napr. no_answer = kontakt nepribral.",
+    descEn: "Disposition (outcome) of the most recent recorded call. E.g. no_answer = contact didn't pick up.",
+    ops: OPS_STR, valueType: "select",
+    options: [
+      { value: "no_answer",    labelSk: "Nezobral",        labelEn: "No answer" },
+      { value: "callback",     labelSk: "Zavolať neskôr",  labelEn: "Callback" },
+      { value: "interested",   labelSk: "Záujem",          labelEn: "Interested" },
+      { value: "not_interested", labelSk: "Nemá záujem",   labelEn: "Not interested" },
+      { value: "completed",    labelSk: "Hotový",          labelEn: "Completed" },
+    ],
+  },
+  {
+    key: "country", category: "contact",
+    labelSk: "Krajina kontaktu", labelEn: "Contact country",
+    descSk: "ISO kód krajiny kontaktu (SK, CZ, HU, RO, AT, DE, IT). Podmienka je splnená ak sa zhoduje.",
+    descEn: "ISO country code of the contact (SK, CZ, HU, RO, AT, DE, IT). Condition is met when it matches.",
+    ops: OPS_STR, valueType: "select",
+    options: COUNTRY_OPTIONS.map(c => ({ value: c.value, labelSk: c.value, labelEn: c.value })),
+  },
+  {
+    key: "has_email", category: "contact",
+    labelSk: "Má e-mail", labelEn: "Has email",
+    descSk: "Kontakt má vyplnenú e-mailovú adresu. true = áno, false = nie.",
+    descEn: "Contact has an email address on file. true = yes, false = no.",
+    ops: OPS_BOOL, valueType: "bool",
+  },
+  {
+    key: "has_phone", category: "contact",
+    labelSk: "Má telefón", labelEn: "Has phone",
+    descSk: "Kontakt má vyplnené telefónne číslo. true = áno, false = nie.",
+    descEn: "Contact has a phone number on file. true = yes, false = no.",
+    ops: OPS_BOOL, valueType: "bool",
+  },
+  {
+    key: "is_pregnant", category: "contact",
+    labelSk: "Je tehotná", labelEn: "Is pregnant",
+    descSk: "Kontakt je aktuálne tehotná (podľa záznamu). Relevantné pre cord blood kampane.",
+    descEn: "Contact is currently pregnant (per record). Relevant for cord blood campaigns.",
+    ops: OPS_BOOL, valueType: "bool",
+  },
+  {
+    key: "due_date_weeks", category: "contact",
+    labelSk: "Týždňov do pôrodu", labelEn: "Weeks until due date",
+    descSk: "Počet týždňov zostávajúcich do termínu pôrodu. Napr. <= 12 = posledný trimester.",
+    descEn: "Weeks remaining until due date. E.g. <= 12 = last trimester.",
+    ops: OPS_NUM, valueType: "number",
+  },
+  {
+    key: "segment", category: "contact",
+    labelSk: "Segment kontaktu", labelEn: "Contact segment",
+    descSk: "CRM segment kontaktu (hot, warm, cold, new). Slúži na prioritizáciu spracovania.",
+    descEn: "CRM segment of the contact (hot, warm, cold, new). Used for prioritization.",
+    ops: OPS_STR, valueType: "select",
+    options: [
+      { value: "hot",  labelSk: "Hot",  labelEn: "Hot" },
+      { value: "warm", labelSk: "Warm", labelEn: "Warm" },
+      { value: "cold", labelSk: "Cold", labelEn: "Cold" },
+      { value: "new",  labelSk: "New",  labelEn: "New" },
+    ],
+  },
+  {
+    key: "answer_is_yes", category: "answer",
+    labelSk: "Odpoveď na posled. otázku je ÁNO", labelEn: "Last answer is YES",
+    descSk: "Posledná zachytená odpoveď kontaktu na otázku v zozname je kladná (yes/true). Platí pre Yes/No a Checkbox otázky.",
+    descEn: "The last captured answer from the contact in this checklist is positive (yes/true). Applies to Yes/No and Checkbox questions.",
+    ops: OPS_BOOL, valueType: "bool",
+  },
+  {
+    key: "answer_for_question", category: "answer",
+    labelSk: "Odpoveď na konkrétnu otázku", labelEn: "Answer for specific question",
+    descSk: "Textová odpoveď kontaktu na zvolenú otázku. Zadajte ID otázky | hodnota, napr. q_123|yes.",
+    descEn: "Text answer from the contact for a selected question. Enter question ID|value, e.g. q_123|yes.",
+    ops: OPS_STR, valueType: "text",
+  },
+  {
+    key: "hour_of_day", category: "time",
+    labelSk: "Hodina dňa (0–23)", labelEn: "Hour of day (0–23)",
+    descSk: "Aktuálna hodina dňa v čase vyhodnotenia (0 = polnoc, 12 = poludnie, 17 = 17:00). Vhodné pre časové podmienky kontaktovania.",
+    descEn: "Current hour of day at evaluation time (0 = midnight, 12 = noon, 17 = 5 PM). Useful for time-of-day contact restrictions.",
+    ops: OPS_NUM, valueType: "number",
+  },
+  {
+    key: "day_of_week", category: "time",
+    labelSk: "Deň týždňa", labelEn: "Day of week",
+    descSk: "Deň v týždni pri vyhodnotení (1=Pondelok … 7=Nedeľa). Napr. lte 5 = len pracovné dni.",
+    descEn: "Day of the week at evaluation time (1=Monday … 7=Sunday). E.g. lte 5 = weekdays only.",
+    ops: OPS_NUM, valueType: "number",
+  },
+  {
+    key: "dispositions_count", category: "campaign",
+    labelSk: "Počet dispozícií v kampani", labelEn: "Dispositions count in campaign",
+    descSk: "Celkový počet záznamu výsledkov (dispozícií) tohto kontaktu v kampani. Napr. >= 3 = kontaktovaný viackrát.",
+    descEn: "Total number of disposition entries for this contact in the campaign. E.g. >= 3 = contacted multiple times.",
+    ops: OPS_NUM, valueType: "number",
+  },
+  {
+    key: "assigned_status_code", category: "campaign",
+    labelSk: "Kód priradeného stavu", labelEn: "Assigned status code",
+    descSk: "Interný kód aktuálneho stavu kontaktu v kampani (napr. INTERESTED, NO_ANSWER). Citlivé na veľké/malé písmená.",
+    descEn: "Internal code of the contact's current campaign status (e.g. INTERESTED, NO_ANSWER). Case-sensitive.",
+    ops: OPS_STR, valueType: "text",
+  },
+];
+
+const CONDITION_CATEGORIES = ["calls", "contact", "answer", "time", "campaign"] as const;
+
+function getCondFieldDef(key: string): ConditionFieldDef | undefined {
+  return CONDITION_FIELDS.find(f => f.key === key);
+}
+
+function getCondFieldLabel(key: string, locale: string): string {
+  const f = getCondFieldDef(key);
+  if (!f) return key;
+  return locale === "sk" ? f.labelSk : f.labelEn;
+}
+
+function getConditionSummary(
+  conditionJson: string | null | undefined,
+  conditionField: string | null | undefined,
+  conditionValue: string | null | undefined,
+  locale: string
+): string {
+  if (conditionJson) {
+    try {
+      const parsed = JSON.parse(conditionJson);
+      const rules: { field: string; op: string; value: string }[] = parsed.rules ?? [];
+      const logic: string = parsed.logic ?? "AND";
+      const parts = rules.map(r => {
+        const lbl = getCondFieldLabel(r.field, locale);
+        return `${lbl} ${r.op} ${r.value}`;
+      });
+      return parts.join(` ${logic} `);
+    } catch { return "IF (compound)"; }
+  }
+  if (conditionField && conditionField !== "always") {
+    return `IF ${conditionField} = ${conditionValue ?? "?"}`;
+  }
+  return "";
+}
+
 function getActionIcon(actionType: string) {
   const opt = ACTION_TYPE_OPTIONS.find(o => o.value === actionType);
   if (!opt) return <Zap className="h-3 w-3" />;
@@ -755,11 +959,15 @@ function AutomationForm({
     taskPriority: automation?.taskPriority || "medium",
     emailTemplateId: automation?.emailTemplateId || "",
     smsTemplateId: automation?.smsTemplateId || "",
-    conditionType: automation?.conditionField === "country" ? "country" : automation?.conditionField === "answer" ? "answer" : "always",
+    conditionType: automation?.conditionJson ? "compound" : automation?.conditionField === "country" ? "country" : "always",
     conditionCountry: automation?.conditionField === "country" ? (automation?.conditionValue || "SK") : "SK",
     conditionAnswer: automation?.conditionField === "answer" ? (automation?.conditionValue || "") : "",
+    conditionLogic: (() => { try { return JSON.parse(automation?.conditionJson ?? "{}").logic ?? "AND"; } catch { return "AND"; } })() as "AND" | "OR",
+    conditionRules: (() => { try { return JSON.parse(automation?.conditionJson ?? "{}").rules ?? []; } catch { return []; } })() as { field: string; op: string; value: string }[],
     dispositionId: automation?.dispositionId || "",
+    webhookTarget: automation?.webhookTarget || "",
   });
+  const [showActionHelp, setShowActionHelp] = useState(false);
 
   const isEdit = !!automation?.id;
 
@@ -786,9 +994,11 @@ function AutomationForm({
         emailTemplateId: form.emailTemplateId || null,
         smsTemplateId: form.smsTemplateId || null,
         dispositionId: form.dispositionId || null,
-        conditionField: form.conditionType === "always" ? null : form.conditionType,
-        conditionOperator: form.conditionType === "always" ? null : "eq",
-        conditionValue: form.conditionType === "always" ? null : (form.conditionType === "country" ? form.conditionCountry : (form.conditionAnswer || null)),
+        conditionField: form.conditionType === "compound" || form.conditionType === "always" ? null : form.conditionType,
+        conditionOperator: form.conditionType === "always" || form.conditionType === "compound" ? null : "eq",
+        conditionValue: form.conditionType === "always" || form.conditionType === "compound" ? null : (form.conditionType === "country" ? form.conditionCountry : null),
+        conditionJson: form.conditionType === "compound" && form.conditionRules.length > 0 ? JSON.stringify({ logic: form.conditionLogic, rules: form.conditionRules }) : null,
+        webhookTarget: form.webhookTarget || null,
       };
       if (isEdit) {
         return apiRequest("PUT", `/api/campaigns/${campaignId}/status-list/${itemId}/automations/${automation.id}`, payload);
@@ -822,8 +1032,14 @@ function AutomationForm({
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div className="col-span-2">
-          <Label className="text-xs mb-1 block">{sl("actionTypeLbl", locale)}</Label>
-          <Select value={form.actionType} onValueChange={v => setForm(f => ({ ...f, actionType: v }))}>
+          <div className="flex items-center justify-between mb-1">
+            <Label className="text-xs">{sl("actionTypeLbl", locale)}</Label>
+            <button type="button" onClick={() => setShowActionHelp(h => !h)}
+              className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded transition-colors ${showActionHelp ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400" : "text-muted-foreground hover:text-amber-600"}`}>
+              <Info className="h-3 w-3" />{showActionHelp ? "×" : "?"}
+            </button>
+          </div>
+          <Select value={form.actionType} onValueChange={v => { setForm(f => ({ ...f, actionType: v })); setShowActionHelp(true); }}>
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               {ACTION_TYPE_OPTIONS.map(opt => (
@@ -1025,7 +1241,8 @@ function AutomationForm({
                 byCategory[fd.category].push(fd);
               });
               return (
-                <div key={idx} className="grid grid-cols-[1fr_auto_1fr_auto] gap-1 items-center">
+                <React.Fragment key={idx}>
+                <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-1 items-center">
                   {/* Field selector */}
                   <Select value={rule.field} onValueChange={v => {
                     const def = getCondFieldDef(v);
@@ -1037,7 +1254,7 @@ function AutomationForm({
                         <React.Fragment key={cat}>
                           <div className="px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider border-t mt-0.5">{sl(cat, locale)}</div>
                           {(byCategory[cat] ?? []).map(fd => (
-                            <SelectItem key={fd.field} value={fd.field} className="text-xs">
+                            <SelectItem key={fd.key} value={fd.key} className="text-xs">
                               {locale === "sk" || locale === "cs" ? fd.labelSk : fd.labelEn}
                             </SelectItem>
                           ))}
@@ -1051,7 +1268,7 @@ function AutomationForm({
                     <SelectTrigger className="h-7 text-xs w-14"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {(fieldDef?.ops ?? OPS_STR).map(op => (
-                        <SelectItem key={op.value} value={op.value} className="text-xs">{op.label}</SelectItem>
+                        <SelectItem key={op.value} value={op.value} className="text-xs">{locale === "sk" || locale === "cs" ? op.labelSk : op.labelEn}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1061,8 +1278,8 @@ function AutomationForm({
                     <Select value={rule.value} onValueChange={v => setForm(f => ({ ...f, conditionRules: f.conditionRules.map((r, i) => i === idx ? { ...r, value: v } : r) }))}>
                       <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {(fieldDef.selectOptions ?? []).map(o => (
-                          <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                        {(fieldDef.options ?? []).map(o => (
+                          <SelectItem key={o.value} value={o.value} className="text-xs">{locale === "sk" || locale === "cs" ? o.labelSk : o.labelEn}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1104,6 +1321,15 @@ function AutomationForm({
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
+                {fieldDef && (
+                  <div className="flex items-start gap-1.5 mt-0.5 mb-1 px-1">
+                    <Info className="h-3 w-3 shrink-0 mt-0.5 text-amber-500/70" />
+                    <span className="text-[10px] text-muted-foreground leading-snug">
+                      {locale === "sk" || locale === "cs" ? fieldDef.descSk : fieldDef.descEn}
+                    </span>
+                  </div>
+                )}
+                </React.Fragment>
               );
             })}
 

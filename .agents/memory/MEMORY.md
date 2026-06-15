@@ -1,1 +1,1 @@
-- [Status List Questions system](status-list-questions.md) — questions CRUD schema, routes, and builder UI pattern; grouped by groupName with AND/OR logic and goto branching.
+- [Builder patch script safety](builder-patch-safety.md) — Python patch scripts that crash mid-run leave the file unchanged; always write atomically or verify the result.
