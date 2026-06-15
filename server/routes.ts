@@ -27223,15 +27223,20 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 }
               }
 
-              // Determine assignees: task group or single user (legacy role)
+              // Determine assignees: task group or role-based routing (legacy)
               const groupId = (automation as any).taskGroupId;
+              const targetRole: string = (automation as any).targetRole || "";
               const taskTags = ["status_list"];
+
+              // Helper: extract role name from "role:back_office" → "back_office"
+              const roleName = targetRole.startsWith("role:") ? targetRole.slice(5) : targetRole;
+
               if (groupId) {
-                // Assign to all members of the group
+                // GROUP PATH: assign to all members of the group, tag with group + back_office for Nexus
                 const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
                 const [groupRow] = await db.select().from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
                 if (groupRow) taskTags.push(`group:${groupRow.name}`);
-                taskTags.push(`group_id:${groupId}`);
+                taskTags.push(`group_id:${groupId}`, "back_office");
                 const assignees = groupMembersRows.length > 0 ? groupMembersRows.map(m => m.userId) : [userId];
                 for (const assigneeId of assignees) {
                   await db.insert(tasks).values({
@@ -27248,8 +27253,32 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                     country: contactCountry ?? null,
                   });
                 }
+              } else if (roleName) {
+                // LEGACY ROLE PATH: find all users matching targetRole, assign one task per user
+                const roleUsers = await db.execute<any>(
+                  sql`SELECT id FROM users WHERE role = ${roleName} LIMIT 20`
+                );
+                const roleUserIds: string[] = Array.isArray(roleUsers) && roleUsers.length > 0
+                  ? roleUsers.map((u: any) => u.id)
+                  : [userId]; // fallback to triggering agent if no role users found
+                const legacyTags = [...taskTags, roleName === "back_office" ? "back_office" : roleName];
+                for (const assigneeId of roleUserIds) {
+                  await db.insert(tasks).values({
+                    title: taskTitle,
+                    description: resolvedDescription,
+                    dueDate,
+                    priority: (automation.taskPriority as any) || "medium",
+                    status: "pending",
+                    assignedUserId: assigneeId,
+                    createdByUserId: userId,
+                    tags: legacyTags,
+                    relatedEntityType: "status_list_item",
+                    relatedEntityId: itemId,
+                    country: contactCountry ?? null,
+                  });
+                }
               } else {
-                // Legacy: assign to triggering agent
+                // FALLBACK: no group, no role → assign to triggering agent with back_office tag
                 await db.insert(tasks).values({
                   title: taskTitle,
                   description: resolvedDescription,
