@@ -77,6 +77,7 @@ const quickTaskSchema = z.object({
   assignedUserId: z.string().min(1, "Required"),
   customerId: z.string().optional(),
   country: z.string().optional(),
+  groupId: z.string().optional(),
 });
 
 const quickNoteSchema = z.object({
@@ -105,6 +106,10 @@ export function QuickCreate() {
 
   const { data: customers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
+  });
+
+  const { data: taskGroupsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/task-groups"],
   });
 
   // Filter customers based on search
@@ -139,6 +144,7 @@ export function QuickCreate() {
       assignedUserId: user?.id || "",
       customerId: "",
       country: user?.assignedCountries?.[0] || "",
+      groupId: "",
     },
   });
 
@@ -196,7 +202,9 @@ export function QuickCreate() {
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: QuickTaskValues) => {
-      return apiRequest("POST", "/api/tasks", data);
+      const { groupId, ...rest } = data;
+      const tags: string[] = groupId ? [`group_id:${groupId}`] : [];
+      return apiRequest("POST", "/api/tasks", { ...rest, tags });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -256,6 +264,7 @@ export function QuickCreate() {
         assignedUserId: user?.id || "",
         customerId: "",
         country: user?.assignedCountries?.[0] || "",
+        groupId: "",
       });
     } else if (dialog === "note") {
       noteForm.reset({
@@ -596,6 +605,33 @@ export function QuickCreate() {
                   );
                 }}
               />
+              {taskGroupsList.length > 0 && (
+                <FormField
+                  control={taskForm.control}
+                  name="groupId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priradiť do skupiny</FormLabel>
+                      <Select onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)} value={field.value || "__none__"}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-quick-task-group">
+                            <SelectValue placeholder="Bez skupiny" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">Bez skupiny</SelectItem>
+                          {taskGroupsList.map((g: any) => (
+                            <SelectItem key={g.id} value={g.id}>
+                              {g.displayAlias || g.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setOpenDialog(null)}>
                   {t.common.cancel}

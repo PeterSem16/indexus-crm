@@ -6558,7 +6558,7 @@ export default function AgentWorkspacePage() {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
-  const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "" });
+  const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "", groupId: "" });
   const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
   const [dispositionOpenedAt, setDispositionOpenedAt] = useState<number | null>(null);
   const [dispositionChannelFilter, setDispositionChannelFilter] = useState<"phone" | "email" | "sms" | null>(null);
@@ -6857,8 +6857,13 @@ export default function AgentWorkspacePage() {
     enabled: !!hasModuleAccess,
   });
 
+  const { data: taskGroupsForCreate = [] } = useQuery<any[]>({
+    queryKey: ["/api/task-groups"],
+    enabled: !!hasModuleAccess,
+  });
+
   const createTaskMutation = useMutation({
-    mutationFn: async (data: { title: string; description: string; priority: string; assignedUserId: string; customerId?: string; dueDate?: string; country?: string }) => {
+    mutationFn: async (data: { title: string; description: string; priority: string; assignedUserId: string; customerId?: string; dueDate?: string; country?: string; groupId?: string }) => {
       const payload: any = {
         title: data.title,
         priority: data.priority,
@@ -6868,13 +6873,14 @@ export default function AgentWorkspacePage() {
       if (data.dueDate) payload.dueDate = new Date(data.dueDate).toISOString();
       if (data.customerId) payload.customerId = data.customerId;
       if (data.country) payload.country = data.country;
+      if (data.groupId) payload.tags = [`group_id:${data.groupId}`];
       return apiRequest("POST", "/api/tasks", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       toast({ title: t.quickCreate.taskCreated, description: t.quickCreate.taskCreatedDesc });
       setCreateTaskDialogOpen(false);
-      setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "" });
+      setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "", groupId: "" });
     },
     onError: (e: any) => {
       console.error("[CreateTask] Error:", e);
@@ -8601,6 +8607,7 @@ export default function AgentWorkspacePage() {
             priority: "medium",
             assignedUserId: user?.id || "",
             dueDate: "",
+            groupId: "",
           });
           setCreateTaskDialogOpen(true);
         }
@@ -11361,6 +11368,24 @@ export default function AgentWorkspacePage() {
                 </SelectContent>
               </Select>
             </div>
+            {taskGroupsForCreate.length > 0 && (
+              <div>
+                <label className="text-sm font-medium">Priradiť do skupiny</label>
+                <Select value={createTaskForm.groupId || "__none__"} onValueChange={(val) => setCreateTaskForm({ ...createTaskForm, groupId: val === "__none__" ? "" : val })}>
+                  <SelectTrigger data-testid="select-create-task-group">
+                    <SelectValue placeholder="Bez skupiny" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Bez skupiny</SelectItem>
+                    {taskGroupsForCreate.map((g: any) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.displayAlias || g.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {currentContact && (
               <div className="p-2 bg-muted rounded-md text-xs text-muted-foreground flex items-center gap-2">
                 <User className="h-3.5 w-3.5" />
@@ -11383,6 +11408,7 @@ export default function AgentWorkspacePage() {
                   customerId: (currentContactType === "customer" && currentContact?.id) ? currentContact.id : undefined,
                   dueDate: createTaskForm.dueDate || undefined,
                   country: selectedCampaign?.country || undefined,
+                  groupId: createTaskForm.groupId || undefined,
                 });
               }}
               disabled={createTaskMutation.isPending || !createTaskForm.title.trim() || !createTaskForm.assignedUserId}

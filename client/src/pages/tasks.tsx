@@ -116,6 +116,7 @@ export default function TasksPage() {
     priority: "medium",
     status: "pending",
     assignedUserId: "",
+    groupId: "",
   });
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
@@ -278,18 +279,25 @@ export default function TasksPage() {
 
   const handleEditTask = (task: Task) => {
     setSelectedTask(task);
+    const existingGroupTag = (task.tags || []).find((tag: string) => tag.startsWith("group_id:"));
+    const existingGroupId = existingGroupTag ? existingGroupTag.replace("group_id:", "") : "";
     setEditForm({
       title: task.title,
       description: task.description || "",
       priority: task.priority,
       status: task.status,
       assignedUserId: task.assignedUserId,
+      groupId: existingGroupId,
     });
     setEditDialogOpen(true);
   };
 
   const handleSaveEdit = () => {
     if (!selectedTask) return;
+    const existingTags: string[] = (selectedTask.tags || []).filter((tag: string) => !tag.startsWith("group_id:"));
+    const newTags = editForm.groupId
+      ? [...existingTags, `group_id:${editForm.groupId}`]
+      : existingTags;
     updateTaskMutation.mutate({
       id: selectedTask.id,
       title: editForm.title,
@@ -297,7 +305,8 @@ export default function TasksPage() {
       priority: editForm.priority,
       status: editForm.status,
       assignedUserId: editForm.assignedUserId,
-    });
+      tags: newTags,
+    } as any);
   };
 
   const handleResolveTask = (task: Task) => {
@@ -934,6 +943,22 @@ export default function TasksPage() {
                   {users.filter(u => u.id).map((u) => (
                     <SelectItem key={u.id} value={u.id}>
                       {u.fullName || u.username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Priradiť do skupiny</label>
+              <Select value={editForm.groupId || "__none__"} onValueChange={(val) => setEditForm({ ...editForm, groupId: val === "__none__" ? "" : val })}>
+                <SelectTrigger data-testid="select-edit-group">
+                  <SelectValue placeholder="Bez skupiny" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Bez skupiny</SelectItem>
+                  {sortedTaskGroupsList.map((g: any) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.displayAlias || g.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
