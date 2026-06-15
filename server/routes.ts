@@ -7228,6 +7228,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.post("/api/task-groups/:id/members/:userId", requireAuth, async (req, res) => {
     try {
+      const sessionRole = (req.session as any)?.user?.role;
+      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       const existing = await db.select().from(taskGroupMembers)
         .where(and(eq(taskGroupMembers.groupId, req.params.id), eq(taskGroupMembers.userId, req.params.userId)));
       if (existing.length === 0) {
@@ -7241,6 +7243,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.delete("/api/task-groups/:id/members/:userId", requireAuth, async (req, res) => {
     try {
+      const sessionRole = (req.session as any)?.user?.role;
+      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       await db.delete(taskGroupMembers)
         .where(and(eq(taskGroupMembers.groupId, req.params.id), eq(taskGroupMembers.userId, req.params.userId)));
       res.json({ success: true });

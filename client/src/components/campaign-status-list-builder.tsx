@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -1893,6 +1893,11 @@ function StatusListItemRow({
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [addingQActionFor, setAddingQActionFor] = useState<string | null>(null);
   const [editingQAutoId, setEditingQAutoId] = useState<string | null>(null);
+
+  const { data: taskGroupsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/task-groups"],
+  });
+
   const [form, setForm] = useState({
     stepId: item.stepId,
     label: item.label,
