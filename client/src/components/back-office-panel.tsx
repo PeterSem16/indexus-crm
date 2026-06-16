@@ -463,7 +463,9 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
           </div>
 
           <ScrollArea className="flex-1 min-h-0">
-            <div className="p-5 space-y-5">
+            <div className="p-5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-x-6 gap-y-6 items-start">
+                <div className="space-y-5 lg:border-r lg:border-border lg:pr-6">
               {thread?.customer ? (
                 <CustomerCard customer={thread.customer} />
               ) : (
@@ -515,9 +517,11 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                 <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2.5">{t.backOffice.historyLabel}</div>
                 {thread && <Timeline thread={thread} />}
               </div>
+                </div>
 
+                <div className="space-y-3">
               {state !== "done" && (
-                <div className="space-y-3 pt-1">
+                <>
                   {state === "received" && (
                     <Button
                       className="w-full gap-2"
@@ -530,28 +534,6 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                       {t.backOffice.claimButton}
                     </Button>
                   )}
-
-                  <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
-                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                      <MessageSquare className="h-3.5 w-3.5" /> {t.backOffice.internalNote}
-                    </div>
-                    <Textarea
-                      className="text-xs min-h-[56px] resize-none bg-background"
-                      placeholder={t.backOffice.notePlaceholder}
-                      value={note}
-                      onChange={e => setNote(e.target.value)}
-                      data-testid="textarea-bo-note"
-                    />
-                    <Button
-                      size="sm" variant="secondary" className="w-full gap-2"
-                      onClick={() => noteMutation.mutate()}
-                      disabled={noteMutation.isPending || !note.trim()}
-                      data-testid="btn-bo-add-note"
-                    >
-                      {noteMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
-                      {t.backOffice.addNote}
-                    </Button>
-                  </div>
 
                   <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20 p-3 space-y-2">
                     <div className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
@@ -576,6 +558,28 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                     </Button>
                   </div>
 
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <MessageSquare className="h-3.5 w-3.5" /> {t.backOffice.internalNote}
+                    </div>
+                    <Textarea
+                      className="text-xs min-h-[56px] resize-none bg-background"
+                      placeholder={t.backOffice.notePlaceholder}
+                      value={note}
+                      onChange={e => setNote(e.target.value)}
+                      data-testid="textarea-bo-note"
+                    />
+                    <Button
+                      size="sm" variant="secondary" className="w-full gap-2"
+                      onClick={() => noteMutation.mutate()}
+                      disabled={noteMutation.isPending || !note.trim()}
+                      data-testid="btn-bo-add-note"
+                    >
+                      {noteMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
+                      {t.backOffice.addNote}
+                    </Button>
+                  </div>
+
                   <div className="rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 space-y-2">
                     <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide flex items-center gap-1.5">
                       <Check className="h-3.5 w-3.5" /> {t.backOffice.taskCompletion}
@@ -597,7 +601,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                       {t.backOffice.confirmButton}
                     </Button>
                   </div>
-                </div>
+                </>
               )}
 
               {state === "done" && thread?.confirmation && (
@@ -610,6 +614,12 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                   {thread.confirmation.note && <p className="text-xs text-muted-foreground mt-1.5">{thread.confirmation.note}</p>}
                 </div>
               )}
+
+              {state === "done" && !thread?.confirmation && (
+                <div className="text-xs text-muted-foreground italic">{t.backOffice.taskCompleted}</div>
+              )}
+                </div>
+              </div>
             </div>
           </ScrollArea>
         </>
@@ -626,7 +636,7 @@ export function BackOfficeTaskDrawer({ taskId, open, onClose, elevated = false }
         side="right"
         hideOverlay={elevated}
         onCloseAutoFocus={elevated ? (e) => e.preventDefault() : undefined}
-        className={`w-full sm:max-w-xl p-0 gap-0 overflow-hidden flex flex-col ${elevated ? "z-[10020]" : ""}`}
+        className={`w-full sm:max-w-xl lg:max-w-4xl xl:max-w-5xl p-0 gap-0 overflow-hidden flex flex-col ${elevated ? "z-[10020]" : ""}`}
         data-testid="drawer-bo-detail"
       >
         <SheetTitle className="sr-only">{t.backOffice.taskDetail}</SheetTitle>
