@@ -67,6 +67,28 @@ login works end-to-end (`replit.md` has the deploy command). The originating-ser
 endpoints take effect on Replit immediately, but the handoff only happens once
 production runs the updated callback. Always tell the user this.
 
+## The push gap (why "merged on Replit" ≠ "on prod")
+Prod deploys via `git pull origin main` from **GitHub** (`origin` =
+github.com/PeterSem16/indexus-crm). A Replit checkpoint/merge commits to the
+**local** Replit main only; that can be many commits AHEAD of GitHub (seen 61
+ahead, 0 behind = clean fast-forward). **The main agent is blocked from
+`git push`** ("Destructive git operations are not allowed"). So to get code to
+prod: push Replit→GitHub via the **Replit Git pane** (or a Project Task), THEN run
+the prod deploy command. Diagnose prod's running version with
+`curl https://indexus.cordbloodcenter.com/api/auth/ms365-complete?token=test`
+→ 302 = new code deployed, 404 = still old code.
+(Note: `origin` remote URL has an embedded GitHub PAT — advise rotating it.)
+
+## Dev login fallback (so dev work isn't blocked by prod)
+When prod isn't redeployed, M365 dev login dead-ends and nobody can get INTO the
+Replit dev app (admin is M365-only). Unblock without touching prod: the dev admin
+(`username='admin'`) was set to `auth_method='local'` + a bcrypt password **in the
+dev DB only** (prod admin stays `ms365`, separate DB). check-auth-method returns
+`local`→ password field appears; `/api/auth/login` works. Flipping `auth_method`
+off `ms365` only affects login + a cosmetic placeholder in a user list (no Graph/
+mailbox impact — those use a separate token store). Revert by setting it back to
+`ms365`.
+
 ## Build note
 `npm run build` uses esbuild with NO type-check, so tsc-only issues (e.g. iterating
 a `Map` needs downlevelIteration — prefer `.forEach`) don't block the build.
