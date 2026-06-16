@@ -27561,6 +27561,25 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             .returning();
           stateRow = inserted;
 
+          // Resolve the underlying contact entity id (customer/hospital/clinic/collaborator)
+          // from the campaign contact. Required by automation condition evaluation,
+          // task-description variable resolution, and field-change snapshots below.
+          // Without this, contactId is undefined and the handler throws AFTER the state row
+          // is inserted — so the step looks confirmed but no task is ever created.
+          const [ccRow] = await db.select()
+            .from(campaignContacts)
+            .where(eq(campaignContacts.id, campaignContactId))
+            .limit(1);
+          const contactId: string | null = ccRow
+            ? ((ccRow.contactType === "clinic"
+                ? (ccRow.clinicId || ccRow.customerId)
+                : ccRow.contactType === "hospital"
+                ? (ccRow.hospitalId || ccRow.customerId)
+                : ccRow.contactType === "collaborator"
+                ? (ccRow.collaboratorId || ccRow.customerId)
+                : ccRow.customerId) ?? null)
+            : null;
+
           // Execute automations for this item (F8)
           const automations = await db.select()
             .from(campaignStatusListAutomations)
@@ -27753,13 +27772,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           // loop so all sibling automations evaluate against the pre-event snapshot, and
           // so that fields where the condition did NOT fire also get their snapshot updated
           // (prevents a stale snapshot blocking a legitimate future re-entry).
-          for (const fieldName of trackedFieldChanges) {
-            await updateFieldSnapshot(contactId ?? "", campaignId ?? null, fieldName, {
-              contactId: contactId ?? null,
-              campaignId: campaignId ?? null,
-              agentId: userId ?? null,
-              contactCountry: contactCountry ?? null,
-            });
+          if (contactId) {
+            for (const fieldName of trackedFieldChanges) {
+              await updateFieldSnapshot(contactId, campaignId ?? null, fieldName, {
+                contactId,
+                campaignId: campaignId ?? null,
+                agentId: userId ?? null,
+                contactCountry: contactCountry ?? null,
+              });
+            }
           }
 
           // Log to campaign contact history (F9)
