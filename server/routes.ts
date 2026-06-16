@@ -1553,8 +1553,10 @@ export async function registerRoutes(
   const { startEmailMonitoring } = await import("./lib/email-monitoring-service");
   startEmailMonitoring();
 
-  // Trust proxy always — Replit runs behind HTTPS proxy in both dev and production
-  app.set("trust proxy", 1);
+  // Trust proxy for production (nginx, cloudflare, etc.)
+  if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+  }
 
   // Clean up ALL active user sessions on startup
   // After server restart, express sessions are lost anyway so all user_sessions records are stale
@@ -1585,7 +1587,7 @@ export async function registerRoutes(
       saveUninitialized: false,
       store: sessionStore,
       cookie: {
-        secure: "auto",
+        secure: false,
         httpOnly: true,
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -1966,8 +1968,7 @@ export async function registerRoutes(
         return res.status(500).json({ error: "Microsoft 365 nie je nakonfigurovaný" });
       }
       
-      // Always use HTTPS for redirect URI (Replit runs behind a proxy)
-      const redirectUri = process.env.MS365_REDIRECT_URI || `https://${req.get("host")}/api/auth/microsoft/callback`;
+      const redirectUri = `https://${req.get("host")}/api/auth/microsoft/callback`;
       const scopes = ["openid", "profile", "email", "User.Read"];
       
       // Include user ID in state parameter (format: login:{userId})
@@ -3289,7 +3290,7 @@ export async function registerRoutes(
         const clientId = process.env.MS365_CLIENT_ID!;
         const clientSecret = process.env.MS365_CLIENT_SECRET!;
         const tenantId = process.env.MS365_TENANT_ID!;
-        const redirectUri = process.env.MS365_REDIRECT_URI || `https://${req.get("host")}/api/auth/microsoft/callback`;
+        const redirectUri = `https://${req.get("host")}/api/auth/microsoft/callback`;
         
         const tokenResponse = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
           method: "POST",
