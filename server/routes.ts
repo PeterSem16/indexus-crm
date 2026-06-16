@@ -1968,7 +1968,8 @@ export async function registerRoutes(
         return res.status(500).json({ error: "Microsoft 365 nie je nakonfigurovaný" });
       }
       
-      const redirectUri = `${process.env.APP_BASE_URL || `https://${req.get("host")}`}/api/auth/microsoft/callback`;
+      // Always use HTTPS for redirect URI (Replit runs behind a proxy)
+      const redirectUri = `https://${req.get("host")}/api/auth/microsoft/callback`;
       const scopes = ["openid", "profile", "email", "User.Read"];
       
       // Include user ID in state parameter (format: login:{userId})
@@ -3290,7 +3291,7 @@ export async function registerRoutes(
         const clientId = process.env.MS365_CLIENT_ID!;
         const clientSecret = process.env.MS365_CLIENT_SECRET!;
         const tenantId = process.env.MS365_TENANT_ID!;
-        const redirectUri = `${process.env.APP_BASE_URL || `https://${req.get("host")}`}/api/auth/microsoft/callback`;
+        const redirectUri = `https://${req.get("host")}/api/auth/microsoft/callback`;
         
         const tokenResponse = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
           method: "POST",
