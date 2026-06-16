@@ -5,15 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/auth-context";
 import {
-  ClipboardList, Clock, AlertTriangle, CheckCircle2, User,
-  ExternalLink, Loader2, Check, X, ChevronRight, Zap,
-  Calendar, Building2, Phone, PhoneIncoming,
+  ClipboardList, Clock, AlertTriangle, CheckCircle2, Loader2, Check,
+  ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
+  MessageSquare, CornerDownLeft, Activity, Send, Hand, Calendar,
 } from "lucide-react";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
 import { sk } from "date-fns/locale";
+
+type BOState = "received" | "in_progress" | "waiting_agent" | "done";
 
 type BOTask = {
   task: {
@@ -23,7 +25,9 @@ type BOTask = {
     dueDate: string | null;
     priority: string;
     status: string;
+    boState: BOState | null;
     assignedUserId: string;
+    createdByUserId: string | null;
     customerId: string | null;
     country: string | null;
     relatedEntityType: string | null;
@@ -39,6 +43,23 @@ type BOTask = {
   } | null;
 };
 
+type ThreadComment = {
+  id: string;
+  userId: string;
+  content: string;
+  kind: "comment" | "question" | "answer" | "state_change";
+  metadata: any;
+  createdAt: string;
+  userName: string | null;
+};
+
+type ThreadData = {
+  task: BOTask["task"];
+  comments: ThreadComment[];
+  confirmation: BOTask["confirmation"];
+  creator: { id: string; fullName: string } | null;
+};
+
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   urgent: { label: "Urgentná", color: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500" },
   high: { label: "Vysoká", color: "text-orange-500 dark:text-orange-400", dot: "bg-orange-500" },
@@ -46,8 +67,64 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: strin
   low: { label: "Nízka", color: "text-muted-foreground", dot: "bg-muted-foreground" },
 };
 
-function getDueBadge(dueDate: string | null, status: string) {
-  if (status === "completed") return { label: "Hotovo", className: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" };
+const STATE_CONFIG: Record<BOState, {
+  label: string;
+  icon: typeof Inbox;
+  headBg: string;
+  headText: string;
+  dot: string;
+  cardRing: string;
+  badge: string;
+}> = {
+  received: {
+    label: "Prijaté",
+    icon: Inbox,
+    headBg: "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900",
+    headText: "text-blue-700 dark:text-blue-300",
+    dot: "bg-blue-500",
+    cardRing: "hover:border-blue-300 dark:hover:border-blue-800",
+    badge: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300",
+  },
+  in_progress: {
+    label: "Vo vybavovaní",
+    icon: Wrench,
+    headBg: "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900",
+    headText: "text-amber-700 dark:text-amber-300",
+    dot: "bg-amber-500",
+    cardRing: "hover:border-amber-300 dark:hover:border-amber-800",
+    badge: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300",
+  },
+  waiting_agent: {
+    label: "Čaká na agenta",
+    icon: HelpCircle,
+    headBg: "bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900",
+    headText: "text-purple-700 dark:text-purple-300",
+    dot: "bg-purple-500",
+    cardRing: "hover:border-purple-300 dark:hover:border-purple-800",
+    badge: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300",
+  },
+  done: {
+    label: "Vybavené",
+    icon: CheckCircle2,
+    headBg: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900",
+    headText: "text-emerald-700 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+    cardRing: "hover:border-emerald-300 dark:hover:border-emerald-800",
+    badge: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300",
+  },
+};
+
+const COLUMN_ORDER: BOState[] = ["received", "in_progress", "waiting_agent", "done"];
+
+function effectiveState(item: BOTask): BOState {
+  if (item.task.status === "completed" || item.confirmation) return "done";
+  const s = item.task.boState;
+  if (s === "in_progress" || s === "waiting_agent" || s === "done") return s;
+  return "received";
+}
+
+function getDueBadge(dueDate: string | null, isDone: boolean) {
+  if (isDone) return null;
   if (!dueDate) return null;
   const d = new Date(dueDate);
   if (isPast(d)) return { label: "Po termíne", className: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400" };
@@ -56,270 +133,372 @@ function getDueBadge(dueDate: string | null, status: string) {
   return null;
 }
 
-function TaskListItem({
-  item,
-  isSelected,
-  onClick,
-}: {
-  item: BOTask;
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  const { task, confirmation } = item;
+function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
+  const { task } = item;
+  const state = effectiveState(item);
   const pConfig = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
-  const dueBadge = getDueBadge(task.dueDate, task.status);
-  const isDone = task.status === "completed" || !!confirmation;
+  const dueBadge = getDueBadge(task.dueDate, state === "done");
+  const sConfig = STATE_CONFIG[state];
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left flex items-start gap-2.5 px-3 py-2.5 rounded-lg transition-colors border ${
-        isSelected
-          ? "bg-primary/5 border-primary/20"
-          : "bg-card border-border hover:bg-muted/50"
-      } ${isDone ? "opacity-60" : ""}`}
-      data-testid={`bo-task-${task.id}`}
+      className={`w-full text-left rounded-lg border bg-card p-2.5 transition-colors shadow-sm ${sConfig.cardRing} ${state === "done" ? "opacity-70" : ""}`}
+      data-testid={`bo-card-${task.id}`}
     >
-      <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${pConfig.dot}`} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-1">
-          <span className={`text-xs font-medium leading-tight ${isDone ? "line-through" : ""}`}>{task.title}</span>
-          {isDone && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />}
-        </div>
-        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-          {task.country && (
-            <span className="text-[10px] text-muted-foreground font-medium">{task.country}</span>
-          )}
-          {dueBadge && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${dueBadge.className}`}>{dueBadge.label}</span>
-          )}
-          {task.dueDate && !isDone && (
-            <span className="text-[10px] text-muted-foreground">
-              {format(new Date(task.dueDate), "d.M. HH:mm")}
+      <div className="flex items-start gap-2">
+        <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${pConfig.dot}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-1">
+            <span className={`text-xs font-medium leading-snug ${state === "done" ? "line-through" : ""}`} data-testid={`text-bo-title-${task.id}`}>
+              {task.title}
             </span>
-          )}
-          {task.tags?.includes("status_list") && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">SL</span>
-          )}
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+          </div>
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {state === "waiting_agent" && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+                <HelpCircle className="h-2.5 w-2.5" /> otázka
+              </span>
+            )}
+            {task.country && (
+              <span className="text-[10px] text-muted-foreground font-medium">{task.country}</span>
+            )}
+            {dueBadge && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${dueBadge.className}`}>{dueBadge.label}</span>
+            )}
+            {task.dueDate && state !== "done" && (
+              <span className="text-[10px] text-muted-foreground">{format(new Date(task.dueDate), "d.M. HH:mm")}</span>
+            )}
+            {task.tags?.includes("status_list") && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">SL</span>
+            )}
+          </div>
         </div>
       </div>
-      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
     </button>
   );
 }
 
-function TaskDetail({
-  item,
-  onConfirmed,
-}: {
-  item: BOTask;
-  onConfirmed: () => void;
-}) {
+const KIND_CONFIG: Record<ThreadComment["kind"], { icon: typeof MessageSquare; label: string; color: string; ring: string }> = {
+  comment: { icon: MessageSquare, label: "Poznámka", color: "text-muted-foreground", ring: "bg-muted-foreground/40" },
+  question: { icon: HelpCircle, label: "Otázka pre agenta", color: "text-purple-600 dark:text-purple-400", ring: "bg-purple-500" },
+  answer: { icon: CornerDownLeft, label: "Odpoveď agenta", color: "text-blue-600 dark:text-blue-400", ring: "bg-blue-500" },
+  state_change: { icon: Activity, label: "Zmena stavu", color: "text-emerald-600 dark:text-emerald-400", ring: "bg-emerald-500" },
+};
+
+function Timeline({ thread }: { thread: ThreadData }) {
+  const events: { id: string; ring: string; icon: typeof MessageSquare; color: string; label: string; who: string | null; at: string; content?: string }[] = [];
+
+  events.push({
+    id: "created",
+    ring: "bg-blue-500",
+    icon: Inbox,
+    color: "text-blue-600 dark:text-blue-400",
+    label: "Úloha prijatá",
+    who: thread.creator?.fullName ?? null,
+    at: thread.task.createdAt,
+  });
+
+  for (const c of thread.comments) {
+    const cfg = KIND_CONFIG[c.kind] || KIND_CONFIG.comment;
+    events.push({
+      id: c.id,
+      ring: cfg.ring,
+      icon: cfg.icon,
+      color: cfg.color,
+      label: cfg.label,
+      who: c.userName,
+      at: c.createdAt,
+      content: c.content,
+    });
+  }
+
+  events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+  return (
+    <div className="space-y-0">
+      {events.map((e, idx) => {
+        const Icon = e.icon;
+        return (
+          <div key={e.id} className="flex gap-2.5" data-testid={`timeline-event-${e.id}`}>
+            <div className="flex flex-col items-center">
+              <span className={`flex items-center justify-center w-5 h-5 rounded-full ${e.ring} text-white shrink-0`}>
+                <Icon className="h-3 w-3" />
+              </span>
+              {idx < events.length - 1 && <span className="w-px flex-1 bg-border my-0.5" />}
+            </div>
+            <div className="pb-3 min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={`text-xs font-medium ${e.color}`}>{e.label}</span>
+                {e.who && <span className="text-[10px] text-muted-foreground">· {e.who}</span>}
+                <span className="text-[10px] text-muted-foreground ml-auto">{format(new Date(e.at), "d.M. HH:mm")}</span>
+              </div>
+              {e.content && <p className="text-xs mt-0.5 leading-relaxed whitespace-pre-wrap break-words">{e.content}</p>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TaskDetailDialog({ taskId, onClose }: { taskId: string; onClose: () => void }) {
   const { toast } = useToast();
   const [note, setNote] = useState("");
-  const { task, confirmation } = item;
-  const isDone = task.status === "completed" || !!confirmation;
+  const [question, setQuestion] = useState("");
+  const [confirmNote, setConfirmNote] = useState("");
+
+  const threadKey = ["/api/back-office/tasks", taskId, "thread"];
+  const { data: thread, isLoading } = useQuery<ThreadData>({
+    queryKey: threadKey,
+    queryFn: () => apiRequest("GET", `/api/back-office/tasks/${taskId}/thread`).then(r => r.json()),
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/back-office/tasks"] });
+    queryClient.invalidateQueries({ queryKey: threadKey });
+  };
+
+  const claimMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/claim`).then(r => r.json()),
+    onSuccess: () => { invalidate(); toast({ title: "Úloha prevzatá" }); },
+    onError: () => toast({ title: "Chyba pri preberaní", variant: "destructive" }),
+  });
+
+  const noteMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/note`, { content: note }).then(r => r.json()),
+    onSuccess: () => { setNote(""); invalidate(); toast({ title: "Poznámka pridaná" }); },
+    onError: () => toast({ title: "Chyba pri ukladaní poznámky", variant: "destructive" }),
+  });
+
+  const askMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/ask-agent`, { content: question }).then(r => r.json()),
+    onSuccess: () => { setQuestion(""); invalidate(); toast({ title: "Otázka odoslaná agentovi" }); },
+    onError: () => toast({ title: "Chyba pri odosielaní otázky", variant: "destructive" }),
+  });
 
   const confirmMutation = useMutation({
-    mutationFn: () =>
-      apiRequest("POST", `/api/back-office/tasks/${task.id}/confirm`, {
-        note: note || null,
-        statusListItemId: task.relatedEntityId || null,
-      }).then(r => r.json()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/back-office/tasks"] });
-      toast({ title: "Úloha potvrdená ako splnená" });
-      onConfirmed();
-    },
+    mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/confirm`, {
+      note: confirmNote || null,
+      statusListItemId: thread?.task.relatedEntityId || null,
+    }).then(r => r.json()),
+    onSuccess: () => { invalidate(); toast({ title: "Úloha vybavená" }); onClose(); },
     onError: () => toast({ title: "Chyba pri potvrdzovaní", variant: "destructive" }),
   });
 
-  const pConfig = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
-  const dueBadge = getDueBadge(task.dueDate, task.status);
+  const task = thread?.task;
+  const state: BOState = task
+    ? (task.status === "completed" || thread?.confirmation ? "done"
+      : (task.boState === "in_progress" || task.boState === "waiting_agent" ? task.boState : "received"))
+    : "received";
+  const sConfig = STATE_CONFIG[state];
+  const pConfig = task ? (PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium) : PRIORITY_CONFIG.medium;
+  const StateIcon = sConfig.icon;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold leading-tight">{task.title}</h3>
-          {isDone && (
-            <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-0 text-[10px] shrink-0">
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              Splnené
-            </Badge>
-          )}
+    <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden max-h-[88vh] flex flex-col" data-testid="dialog-bo-detail">
+      {isLoading || !task ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" /> <span className="text-sm">Načítavam...</span>
         </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-muted ${pConfig.color}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${pConfig.dot}`} />
-            {pConfig.label} priorita
-          </span>
-          {task.country && (
-            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground">
-              <Building2 className="h-3 w-3" />
-              {task.country}
-            </span>
-          )}
-          {dueBadge && (
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${dueBadge.className}`}>{dueBadge.label}</span>
-          )}
-        </div>
-
-        {task.dueDate && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
-            <span>Termín: {format(new Date(task.dueDate), "d. MMMM yyyy HH:mm", { locale: sk })}</span>
-            {!isDone && isPast(new Date(task.dueDate)) && (
-              <span className="text-rose-500 font-medium">
-                (pred {formatDistanceToNow(new Date(task.dueDate), { locale: sk })})
+      ) : (
+        <>
+          <div className={`px-5 py-4 border-b ${sConfig.headBg}`}>
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-sm font-semibold leading-snug pr-6">{task.title}</h3>
+              <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-semibold shrink-0 ${sConfig.badge}`}>
+                <StateIcon className="h-3.5 w-3.5" /> {sConfig.label}
               </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      <ScrollArea className="flex-1 min-h-0">
-        <div className="p-4 space-y-4">
-          {task.description && (
-            <div>
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Popis úlohy</div>
-              <p className="text-sm leading-relaxed">{task.description}</p>
             </div>
-          )}
-
-          {task.relatedEntityType && (
-            <div>
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Súvisí s</div>
-              <div className="flex items-center gap-2 text-xs">
-                <Zap className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-muted-foreground">{task.relatedEntityType}</span>
-                <span className="font-mono text-xs">{task.relatedEntityId}</span>
-              </div>
-            </div>
-          )}
-
-          {isDone && confirmation && (
-            <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Úloha splnená</span>
-                <span className="text-[10px] text-muted-foreground ml-auto">
-                  {format(new Date(confirmation.confirmedAt), "d.M.yyyy HH:mm")}
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 ${pConfig.color}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${pConfig.dot}`} /> {pConfig.label} priorita
+              </span>
+              {task.country && (
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 text-muted-foreground">
+                  <Building2 className="h-3 w-3" /> {task.country}
                 </span>
-              </div>
-              {confirmation.note && (
-                <p className="text-xs text-muted-foreground mt-1">{confirmation.note}</p>
+              )}
+              {task.dueDate && (
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 text-muted-foreground">
+                  <Clock className="h-3 w-3" /> {format(new Date(task.dueDate), "d.M.yyyy HH:mm")}
+                  {state !== "done" && isPast(new Date(task.dueDate)) && (
+                    <span className="text-rose-500 font-semibold ml-1">(pred {formatDistanceToNow(new Date(task.dueDate), { locale: sk })})</span>
+                  )}
+                </span>
               )}
             </div>
-          )}
+          </div>
 
-          {!isDone && (
-            <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5" />
-                Potvrdenie splnenia
-              </div>
-              <Textarea
-                className="text-xs min-h-[70px] resize-none"
-                placeholder="Poznámka k splneniu (voliteľné)..."
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                data-testid="textarea-bo-confirm-note"
-              />
-              <Button
-                className="w-full gap-2"
-                onClick={() => confirmMutation.mutate()}
-                disabled={confirmMutation.isPending}
-                data-testid="btn-bo-confirm-task"
-              >
-                {confirmMutation.isPending
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <CheckCircle2 className="h-4 w-4" />
-                }
-                Potvrdiť splnenie úlohy
-              </Button>
-            </div>
-          )}
-
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">História</div>
-            <div className="space-y-1.5">
-              <div className="flex items-start gap-2 text-xs">
-                <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 mt-1.5 shrink-0" />
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="p-5 space-y-5">
+              {task.description && (
                 <div>
-                  <span className="text-muted-foreground">Vytvorená: </span>
-                  <span>{format(new Date(task.createdAt), "d.M.yyyy HH:mm")}</span>
+                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Popis úlohy</div>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{task.description}</p>
                 </div>
+              )}
+
+              {task.relatedEntityType && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-muted-foreground">{task.relatedEntityType}</span>
+                  <span className="font-mono text-[11px]">{task.relatedEntityId}</span>
+                </div>
+              )}
+
+              <div>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2.5">História a komunikácia</div>
+                {thread && <Timeline thread={thread} />}
               </div>
-              {isDone && confirmation && (
-                <div className="flex items-start gap-2 text-xs">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <div>
-                    <span className="text-emerald-600 font-medium">BO potvrdilo: </span>
-                    <span>{format(new Date(confirmation.confirmedAt), "d.M.yyyy HH:mm")}</span>
+
+              {state !== "done" && (
+                <div className="space-y-3 pt-1">
+                  {state === "received" && (
+                    <Button
+                      className="w-full gap-2"
+                      variant="outline"
+                      onClick={() => claimMutation.mutate()}
+                      disabled={claimMutation.isPending}
+                      data-testid="btn-bo-claim"
+                    >
+                      {claimMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hand className="h-4 w-4" />}
+                      Prevziať do vybavovania
+                    </Button>
+                  )}
+
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <MessageSquare className="h-3.5 w-3.5" /> Interná poznámka
+                    </div>
+                    <Textarea
+                      className="text-xs min-h-[56px] resize-none bg-background"
+                      placeholder="Pridať poznámku k úlohe..."
+                      value={note}
+                      onChange={e => setNote(e.target.value)}
+                      data-testid="textarea-bo-note"
+                    />
+                    <Button
+                      size="sm" variant="secondary" className="w-full gap-2"
+                      onClick={() => noteMutation.mutate()}
+                      disabled={noteMutation.isPending || !note.trim()}
+                      data-testid="btn-bo-add-note"
+                    >
+                      {noteMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
+                      Pridať poznámku
+                    </Button>
+                  </div>
+
+                  <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20 p-3 space-y-2">
+                    <div className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
+                      <HelpCircle className="h-3.5 w-3.5" /> Otázka pre agenta
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Otázka sa zobrazí agentovi, ktorý úlohu vytvoril. Úloha prejde do stavu „Čaká na agenta".</p>
+                    <Textarea
+                      className="text-xs min-h-[56px] resize-none bg-background"
+                      placeholder="Napíšte otázku agentovi..."
+                      value={question}
+                      onChange={e => setQuestion(e.target.value)}
+                      data-testid="textarea-bo-question"
+                    />
+                    <Button
+                      size="sm" className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                      onClick={() => askMutation.mutate()}
+                      disabled={askMutation.isPending || !question.trim()}
+                      data-testid="btn-bo-ask-agent"
+                    >
+                      {askMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      Odoslať otázku agentovi
+                    </Button>
+                  </div>
+
+                  <div className="rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 space-y-2">
+                    <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide flex items-center gap-1.5">
+                      <Check className="h-3.5 w-3.5" /> Vybavenie úlohy
+                    </div>
+                    <Textarea
+                      className="text-xs min-h-[56px] resize-none bg-background"
+                      placeholder="Poznámka k vybaveniu (voliteľné)..."
+                      value={confirmNote}
+                      onChange={e => setConfirmNote(e.target.value)}
+                      data-testid="textarea-bo-confirm-note"
+                    />
+                    <Button
+                      className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => confirmMutation.mutate()}
+                      disabled={confirmMutation.isPending}
+                      data-testid="btn-bo-confirm-task"
+                    >
+                      {confirmMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      Potvrdiť vybavenie úlohy
+                    </Button>
                   </div>
                 </div>
               )}
+
+              {state === "done" && thread?.confirmation && (
+                <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Úloha vybavená</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">{format(new Date(thread.confirmation.confirmedAt), "d.M.yyyy HH:mm")}</span>
+                  </div>
+                  {thread.confirmation.note && <p className="text-xs text-muted-foreground mt-1.5">{thread.confirmation.note}</p>}
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      </ScrollArea>
-    </div>
+          </ScrollArea>
+        </>
+      )}
+    </DialogContent>
   );
 }
 
 export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowInbound, onToggleAllowInbound }: { country?: string; fullScreen?: boolean; hasInboundQueues?: boolean; allowInbound?: boolean; onToggleAllowInbound?: () => void }) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [scope, setScope] = useState<"mine" | "team" | "all">("mine");
-  const [filter, setFilter] = useState<"all" | "pending" | "done">("pending");
 
   const { data: rawTasks = [], isLoading } = useQuery<BOTask[]>({
-    queryKey: ["/api/back-office/tasks", country, scope],
-    queryFn: () =>
-      apiRequest("GET", `/api/back-office/tasks?${country ? `country=${country}&` : ""}scope=${scope}`).then(r => r.json()),
+    queryKey: ["/api/back-office/tasks", country],
+    queryFn: () => apiRequest("GET", `/api/back-office/tasks${country ? `?country=${country}` : ""}`).then(r => r.json()),
     refetchInterval: 30000,
   });
 
-  const tasks = rawTasks.filter(item => {
-    if (filter === "pending") return item.task.status !== "completed" && !item.confirmation;
-    if (filter === "done") return item.task.status === "completed" || !!item.confirmation;
-    return true;
-  });
+  const grouped: Record<BOState, BOTask[]> = { received: [], in_progress: [], waiting_agent: [], done: [] };
+  for (const item of rawTasks) grouped[effectiveState(item)].push(item);
 
-  const urgentCount = rawTasks.filter(i => i.task.priority === "urgent" && i.task.status !== "completed" && !i.confirmation).length;
-  const todayCount = rawTasks.filter(i => {
-    const d = i.task.dueDate ? new Date(i.task.dueDate) : null;
-    return d && isToday(d) && i.task.status !== "completed" && !i.confirmation;
-  }).length;
-  const doneCount = rawTasks.filter(i => i.task.status === "completed" || !!i.confirmation).length;
-
-  const selectedItem = rawTasks.find(i => i.task.id === selectedTaskId) || null;
+  const urgentCount = rawTasks.filter(i => i.task.priority === "urgent" && effectiveState(i) !== "done").length;
+  const waitingCount = grouped.waiting_agent.length;
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left: Inbox */}
-      <div className="w-64 border-r flex flex-col shrink-0">
-        <div className="px-3 py-2.5 border-b space-y-2">
-          <div className="flex items-center gap-1.5">
-            <ClipboardList className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="text-xs font-semibold">Back Office</span>
-            {urgentCount > 0 && (
-              <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white">{urgentCount}</span>
-            )}
-          </div>
+    <div className="flex flex-col h-full w-full overflow-hidden">
+      <div className="px-4 py-2.5 border-b flex items-center gap-3 shrink-0">
+        <ClipboardList className="h-4 w-4 text-primary shrink-0" />
+        <span className="text-sm font-semibold">Back Office</span>
+        {urgentCount > 0 && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500 text-white">
+            <AlertTriangle className="h-3 w-3" /> {urgentCount} urgent
+          </span>
+        )}
+        {waitingCount > 0 && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500 text-white">
+            <HelpCircle className="h-3 w-3" /> {waitingCount} čaká na agenta
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           {hasInboundQueues && onToggleAllowInbound && (
             <button
               type="button"
               onClick={onToggleAllowInbound}
               data-testid="toggle-allow-inbound-in-bo"
-              className={`flex items-center gap-1.5 w-full px-2 py-1.5 rounded text-[10px] font-medium transition-colors border ${allowInbound ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400" : "bg-muted/50 border-border text-muted-foreground hover:bg-muted"}`}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors border ${allowInbound ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400" : "bg-muted/50 border-border text-muted-foreground hover:bg-muted"}`}
             >
               <span className={`inline-flex items-center justify-center h-3.5 w-3.5 rounded border shrink-0 transition-colors ${allowInbound ? "bg-green-500 border-green-500" : "border-muted-foreground/40 bg-transparent"}`}>
                 {allowInbound && (
                   <svg viewBox="0 0 12 12" fill="none" className="h-2.5 w-2.5 text-white">
-                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}
               </span>
@@ -327,102 +506,53 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
               Prijímať inbound hovory
             </button>
           )}
-          <div className="flex gap-1">
-            {(["mine", "team", "all"] as const).map(s => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setScope(s)}
-                className={`flex-1 text-[10px] py-1 rounded font-medium transition-colors ${scope === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-              >
-                {s === "mine" ? "Moje" : s === "team" ? "Tím" : "Všetky"}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-1">
-            {([
-              { v: "all" as const, l: `Všetky (${rawTasks.length})` },
-              { v: "pending" as const, l: `Čakajú (${rawTasks.length - doneCount})` },
-              { v: "done" as const, l: `Hotovo (${doneCount})` },
-            ]).map(f => (
-              <button
-                key={f.v}
-                type="button"
-                onClick={() => setFilter(f.v)}
-                className={`flex-1 text-[9px] py-1 rounded transition-colors ${filter === f.v ? "bg-foreground/10 font-semibold" : "text-muted-foreground hover:bg-muted/50"}`}
-              >
-                {f.l}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                <span className="text-xs">Načítavam...</span>
-              </div>
-            ) : tasks.length === 0 ? (
-              <div className="text-center py-8">
-                <CheckCircle2 className="h-7 w-7 mx-auto text-muted-foreground/30 mb-2" />
-                <p className="text-xs text-muted-foreground">
-                  {filter === "pending" ? "Žiadne čakajúce úlohy" : "Žiadne úlohy"}
-                </p>
-              </div>
-            ) : (
-              tasks.map(item => (
-                <TaskListItem
-                  key={item.task.id}
-                  item={item}
-                  isSelected={selectedTaskId === item.task.id}
-                  onClick={() => setSelectedTaskId(item.task.id)}
-                />
-              ))
-            )}
-          </div>
-        </ScrollArea>
-
-        {/* Stats footer */}
-        <div className="border-t px-3 py-2 bg-muted/20">
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3 text-rose-500" />
-              {urgentCount} urgent
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3 w-3 text-amber-500" />
-              {todayCount} dnes
-            </span>
-            <span className="flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-              {doneCount} hotovo
-            </span>
-          </div>
         </div>
       </div>
 
-      {/* Right: Detail */}
-      <div className="flex-1 min-w-0">
-        {selectedItem ? (
-          <TaskDetail
-            key={selectedItem.task.id}
-            item={selectedItem}
-            onConfirmed={() => setSelectedTaskId(null)}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
-            <ClipboardList className="h-10 w-10 opacity-20" />
-            <p className="text-sm font-medium">Vyberte úlohu zo zoznamu</p>
-            <p className="text-xs">
-              {rawTasks.length - doneCount > 0
-                ? `${rawTasks.length - doneCount} úloh čaká na spracovanie`
-                : "Všetky úlohy sú splnené"}
-            </p>
-          </div>
-        )}
+      <div className="flex-1 min-h-0 overflow-x-auto">
+        <div className="flex gap-3 p-3 h-full min-w-max">
+          {COLUMN_ORDER.map(stateKey => {
+            const cfg = STATE_CONFIG[stateKey];
+            const Icon = cfg.icon;
+            const items = grouped[stateKey];
+            return (
+              <div key={stateKey} className="flex flex-col w-72 shrink-0 h-full" data-testid={`bo-column-${stateKey}`}>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-t-lg border ${cfg.headBg}`}>
+                  <Icon className={`h-4 w-4 ${cfg.headText}`} />
+                  <span className={`text-xs font-semibold ${cfg.headText}`}>{cfg.label}</span>
+                  <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${cfg.badge}`} data-testid={`count-${stateKey}`}>
+                    {items.length}
+                  </span>
+                </div>
+                <div className="flex-1 min-h-0 border border-t-0 rounded-b-lg bg-muted/20">
+                  <ScrollArea className="h-full">
+                    <div className="p-2 space-y-2">
+                      {isLoading ? (
+                        <div className="flex items-center justify-center py-6 text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </div>
+                      ) : items.length === 0 ? (
+                        <div className="text-center py-8 px-2">
+                          <Icon className="h-6 w-6 mx-auto text-muted-foreground/25 mb-1.5" />
+                          <p className="text-[11px] text-muted-foreground/70">Žiadne úlohy</p>
+                        </div>
+                      ) : (
+                        items.map(item => (
+                          <KanbanCard key={item.task.id} item={item} onClick={() => setSelectedTaskId(item.task.id)} />
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      <Dialog open={!!selectedTaskId} onOpenChange={(o) => { if (!o) setSelectedTaskId(null); }}>
+        {selectedTaskId && <TaskDetailDialog taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />}
+      </Dialog>
     </div>
   );
 }

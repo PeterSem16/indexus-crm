@@ -69,6 +69,7 @@ import {
   insertCampaignContactStatusListStateSchema,
   insertTaskBackOfficeConfirmationSchema,
   tasks,
+  taskComments,
   insertTaskSchema,
   taskGroups,
   taskGroupMembers,
@@ -27461,13 +27462,31 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.get("/api/back-office/tasks", requireAuth, async (req, res) => {
     try {
       const { country } = req.query;
-      // Country segmentation: when a country is supplied, return tasks for that country
-      // PLUS tasks that have no country set, so country-less back-office tasks are never
-      // silently lost. Comparison is case/whitespace-insensitive to tolerate format drift
-      // (e.g. "sk" vs "SK ") between the contact's stored country and the worker's country.
-      const countryFilter = (typeof country === "string" && country.trim())
-        ? sql` AND (${tasks.country} IS NULL OR upper(trim(${tasks.country})) = upper(trim(${country})))`
-        : sql``;
+      // Country segmentation is enforced SERVER-SIDE from the session user's assigned
+      // countries — the client `country` query is only an optional narrowing filter and can
+      // NEVER widen visibility beyond what the user is authorized for. Country-less (NULL)
+      // tasks stay visible to everyone so shared back-office tasks are never silently lost.
+      // Comparison is case/whitespace-insensitive to tolerate format drift (e.g. "sk" vs "SK ").
+      const me = req.session.user!;
+      const isAdmin = me.role === "admin";
+      const userCountries = boUserCountries(req);
+      const requested = (typeof country === "string" ? country : "")
+        .split(",")
+        .map(c => c.trim().toUpperCase())
+        .filter(Boolean);
+      const effective = isAdmin
+        ? requested
+        : (requested.length ? requested.filter(c => userCountries.includes(c)) : userCountries);
+
+      let countryFilter;
+      if (isAdmin && effective.length === 0) {
+        countryFilter = sql``; // admin with no explicit filter sees all countries
+      } else {
+        const inList = effective.length
+          ? sql`upper(trim(${tasks.country})) IN (${sql.join(effective.map(c => sql`${c}`), sql`, `)})`
+          : sql`false`;
+        countryFilter = sql` AND (${tasks.country} IS NULL OR ${inList})`;
+      }
 
       const raw = await db.select({
         task: tasks,
@@ -27485,20 +27504,247 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Helper: load a back-office task (tagged 'back_office') or null
+  async function getBackOfficeTask(taskId: string): Promise<any | null> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+    if (!task) return null;
+    const tags: string[] = (task.tags as string[]) || [];
+    if (!tags.includes("back_office")) return null;
+    return task;
+  }
+
+  // Helper: normalized list of the session user's assigned countries (back-office authz)
+  function boUserCountries(req: any): string[] {
+    return (((req.session.user?.assignedCountries as string[]) || [])
+      .map(c => (c || "").toString().trim().toUpperCase())
+      .filter(Boolean));
+  }
+
+  // Helper: may the session user access this back-office task?
+  // Admin → always. Country-less (shared) task → everyone. Otherwise the task's
+  // country must be one of the user's assigned countries. Never trust client input.
+  function canAccessBoTask(req: any, task: any): boolean {
+    if (req.session.user?.role === "admin") return true;
+    const tc = (task?.country || "").toString().trim().toUpperCase();
+    if (!tc) return true;
+    return boUserCountries(req).includes(tc);
+  }
+
   app.post("/api/back-office/tasks/:taskId/confirm", requireAuth, async (req, res) => {
     try {
       const { taskId } = req.params;
       const userId = req.session.user!.id;
       const { note, statusListItemId, campaignContactId } = req.body;
+      const task = await getBackOfficeTask(taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
+      // Idempotent: if already done, return the existing confirmation instead of duplicating.
+      if (task.boState === "done") {
+        const [existing] = await db.select().from(taskBackOfficeConfirmations)
+          .where(eq(taskBackOfficeConfirmations.taskId, taskId)).limit(1);
+        return res.json(existing || { ok: true, alreadyDone: true });
+      }
       const validated = insertTaskBackOfficeConfirmationSchema.parse({
         taskId, confirmedByUserId: userId, note, statusListItemId, campaignContactId,
       });
-      const [confirmation] = await db.insert(taskBackOfficeConfirmations).values(validated).returning();
-      await db.update(tasks).set({ status: "completed", resolvedAt: new Date(), resolvedByUserId: userId, resolution: note || "Confirmed by Back Office" }).where(eq(tasks.id, taskId));
+      const confirmation = await db.transaction(async (tx) => {
+        const [conf] = await tx.insert(taskBackOfficeConfirmations).values(validated).returning();
+        await tx.update(tasks).set({ status: "completed", boState: "done", resolvedAt: new Date(), resolvedByUserId: userId, resolution: note || "Confirmed by Back Office" }).where(eq(tasks.id, taskId));
+        await tx.insert(taskComments).values({
+          taskId, userId, content: note || "Úloha vybavená", kind: "state_change",
+          metadata: { toState: "done" } as any,
+        });
+        return conf;
+      });
       res.json(confirmation);
     } catch (error) {
       console.error("Failed to confirm BO task:", error);
       res.status(500).json({ error: "Failed to confirm BO task" });
+    }
+  });
+
+  // Timeline / history for a single back-office task
+  app.get("/api/back-office/tasks/:taskId/thread", requireAuth, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const task = await getBackOfficeTask(taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
+      const comments = await db.select({
+        id: taskComments.id,
+        userId: taskComments.userId,
+        content: taskComments.content,
+        kind: taskComments.kind,
+        metadata: taskComments.metadata,
+        createdAt: taskComments.createdAt,
+        userName: users.fullName,
+      })
+        .from(taskComments)
+        .leftJoin(users, eq(users.id, taskComments.userId))
+        .where(eq(taskComments.taskId, taskId))
+        .orderBy(taskComments.createdAt);
+      const [confirmation] = await db.select().from(taskBackOfficeConfirmations).where(eq(taskBackOfficeConfirmations.taskId, taskId)).limit(1);
+      let creator: any = null;
+      if (task.createdByUserId) {
+        const [c] = await db.select({ id: users.id, fullName: users.fullName }).from(users).where(eq(users.id, task.createdByUserId)).limit(1);
+        creator = c || null;
+      }
+      res.json({ task, comments, confirmation: confirmation || null, creator });
+    } catch (error) {
+      console.error("Failed to fetch BO task thread:", error);
+      res.status(500).json({ error: "Failed to fetch thread" });
+    }
+  });
+
+  // Claim a back-office task → in_progress
+  app.post("/api/back-office/tasks/:taskId/claim", requireAuth, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = req.session.user!.id;
+      const task = await getBackOfficeTask(taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
+      if (task.boState === "done") return res.status(409).json({ error: "Task already completed" });
+      if (task.boState === "in_progress") return res.json({ ok: true, unchanged: true });
+      await db.transaction(async (tx) => {
+        await tx.update(tasks).set({ boState: "in_progress", status: "in_progress" }).where(eq(tasks.id, taskId));
+        await tx.insert(taskComments).values({
+          taskId, userId, content: "Prevzaté do vybavovania", kind: "state_change",
+          metadata: { toState: "in_progress" } as any,
+        });
+      });
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Failed to claim BO task:", error);
+      res.status(500).json({ error: "Failed to claim task" });
+    }
+  });
+
+  // Add a free-text note to a back-office task
+  app.post("/api/back-office/tasks/:taskId/note", requireAuth, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = req.session.user!.id;
+      const content = (req.body?.content || "").toString().trim();
+      if (!content) return res.status(400).json({ error: "Note content is required" });
+      const task = await getBackOfficeTask(taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
+      const [comment] = await db.insert(taskComments).values({
+        taskId, userId, content, kind: "comment",
+      }).returning();
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error("Failed to add BO note:", error);
+      res.status(500).json({ error: "Failed to add note" });
+    }
+  });
+
+  // Ask the originating agent a question → boState=waiting_agent + notify agent
+  app.post("/api/back-office/tasks/:taskId/ask-agent", requireAuth, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = req.session.user!.id;
+      const content = (req.body?.content || "").toString().trim();
+      if (!content) return res.status(400).json({ error: "Question content is required" });
+      const task = await getBackOfficeTask(taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
+      if (task.boState === "done") return res.status(409).json({ error: "Task already completed" });
+      if (!task.createdByUserId) return res.status(400).json({ error: "Task has no originating agent" });
+      const comment = await db.transaction(async (tx) => {
+        const [c] = await tx.insert(taskComments).values({
+          taskId, userId, content, kind: "question", metadata: { askedBy: userId } as any,
+        }).returning();
+        await tx.update(tasks).set({ boState: "waiting_agent", status: "in_progress" }).where(eq(tasks.id, taskId));
+        return c;
+      });
+      try {
+        await notificationService.sendNotificationToUsers([task.createdByUserId], {
+          type: "back_office_question",
+          title: `Back Office sa pýta: ${task.title}`,
+          message: content.length > 140 ? content.slice(0, 140) + "…" : content,
+          priority: "high",
+          entityType: "task",
+          entityId: taskId,
+          metadata: { taskId, taskTitle: task.title } as any,
+        });
+      } catch (err) { console.error("[BO ask-agent] notify error:", err); }
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error("Failed to ask agent:", error);
+      res.status(500).json({ error: "Failed to ask agent" });
+    }
+  });
+
+  // Agent inbox: back-office questions waiting for THIS agent's answer
+  app.get("/api/agent/bo-questions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const rows = await db.select().from(tasks)
+        .where(sql`${tasks.createdByUserId} = ${userId} AND ${tasks.boState} = 'waiting_agent' AND ${tasks.tags} @> ARRAY['back_office']::text[]`)
+        .orderBy(desc(tasks.updatedAt));
+      const result: any[] = [];
+      for (const task of rows) {
+        const [q] = await db.select({
+          id: taskComments.id,
+          content: taskComments.content,
+          createdAt: taskComments.createdAt,
+          userId: taskComments.userId,
+          userName: users.fullName,
+        })
+          .from(taskComments)
+          .leftJoin(users, eq(users.id, taskComments.userId))
+          .where(sql`${taskComments.taskId} = ${task.id} AND ${taskComments.kind} = 'question'`)
+          .orderBy(desc(taskComments.createdAt))
+          .limit(1);
+        result.push({ task, question: q || null });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to fetch BO questions:", error);
+      res.status(500).json({ error: "Failed to fetch questions" });
+    }
+  });
+
+  // Agent answers a back-office question → boState=in_progress + notify BO assignee
+  app.post("/api/agent/bo-questions/:taskId/answer", requireAuth, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = req.session.user!.id;
+      const content = (req.body?.content || "").toString().trim();
+      if (!content) return res.status(400).json({ error: "Answer content is required" });
+      const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      const taskTags: string[] = (task.tags as string[]) || [];
+      if (!taskTags.includes("back_office")) return res.status(404).json({ error: "Task not found" });
+      if (task.createdByUserId !== userId) return res.status(403).json({ error: "Not your question to answer" });
+      if (task.boState !== "waiting_agent") return res.status(409).json({ error: "No pending question to answer" });
+      const comment = await db.transaction(async (tx) => {
+        const [c] = await tx.insert(taskComments).values({
+          taskId, userId, content, kind: "answer", metadata: { answeredBy: userId } as any,
+        }).returning();
+        await tx.update(tasks).set({ boState: "in_progress" }).where(eq(tasks.id, taskId));
+        return c;
+      });
+      try {
+        const notifyIds = (task.assignedUserId ? [task.assignedUserId] : []).filter(Boolean) as string[];
+        if (notifyIds.length > 0) {
+          await notificationService.sendNotificationToUsers(notifyIds, {
+            type: "back_office_answer",
+            title: `Agent odpovedal: ${task.title}`,
+            message: content.length > 140 ? content.slice(0, 140) + "…" : content,
+            priority: "high",
+            entityType: "task",
+            entityId: taskId,
+            metadata: { taskId, taskTitle: task.title } as any,
+          });
+        }
+      } catch (err) { console.error("[BO answer] notify error:", err); }
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error("Failed to answer BO question:", error);
+      res.status(500).json({ error: "Failed to answer question" });
     }
   });
 

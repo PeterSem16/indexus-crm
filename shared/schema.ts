@@ -1092,6 +1092,7 @@ export const tasks = pgTable("tasks", {
   resolvedAt: timestamp("resolved_at"), // when task was resolved
   sourceRunId: varchar("source_run_id"), // automation_runs.id (Automation MVP-1)
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // Automation tags
+  boState: text("bo_state").notNull().default("received"), // Back Office workflow: received|in_progress|waiting_agent|done
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -1106,6 +1107,8 @@ export const taskComments = pgTable("task_comments", {
   taskId: varchar("task_id").notNull(),
   userId: varchar("user_id").notNull(),
   content: text("content").notNull(),
+  kind: text("kind").notNull().default("comment"), // comment|question|answer|state_change
+  metadata: jsonb("metadata").default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

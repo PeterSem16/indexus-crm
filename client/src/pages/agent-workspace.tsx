@@ -186,6 +186,7 @@ import "react-quill/dist/quill.snow.css";
 import { getCountryFlag } from "@/lib/countries";
 import { COUNTRY_TO_LOCALE } from "@/i18n/translations";
 import { BackOfficePanel } from "@/components/back-office-panel";
+import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inbox";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
@@ -9920,7 +9921,7 @@ export default function AgentWorkspacePage() {
       {agentSession.isSessionActive && backOfficeModeActive && mainWorkspaceTab === "back_office" && (
         <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
           <BackOfficePanel
-            country={(user as any)?.countries?.[0] || undefined}
+            country={((user as any)?.countries || []).join(",") || undefined}
             fullScreen
             hasInboundQueues={sessionInboundQueueIds.length > 0}
             allowInbound={allowInboundInBO}
@@ -9931,6 +9932,9 @@ export default function AgentWorkspacePage() {
 
       {/* ── PULSE — štandardné rozloženie ── */}
       <div className={`flex flex-1 overflow-hidden ${agentSession.isSessionActive && backOfficeModeActive && mainWorkspaceTab === "back_office" ? "hidden" : ""}`} style={{ minHeight: 0 }}>
+        <div className="flex flex-col h-full shrink-0">
+          <BackOfficeQuestionsInbox />
+          <div className="flex-1 min-h-0 flex">
         <TaskListPanel
           tasks={tasks}
           activeTaskId={activeTaskId}
@@ -9970,6 +9974,8 @@ export default function AgentWorkspacePage() {
             }
           }}
         />
+          </div>
+        </div>
 
         <div className="flex flex-1 overflow-hidden relative" style={{ minHeight: 0 }}>
 

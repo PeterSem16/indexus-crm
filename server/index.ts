@@ -203,6 +203,13 @@ app.use((req, res, next) => {
         ADD COLUMN IF NOT EXISTS is_back_office boolean DEFAULT false;
     `);
     console.log('[migration] task_groups / task_group_members / task_group_id ensured');
+
+    await pool.query(`
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS bo_state text NOT NULL DEFAULT 'received';
+      ALTER TABLE task_comments ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'comment';
+      ALTER TABLE task_comments ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
+    `);
+    console.log('[migration] bo_state + task_comments kind/metadata ensured');
   } catch (e: any) {
     console.error('[migration] Error:', e.message);
   }
