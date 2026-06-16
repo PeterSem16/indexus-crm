@@ -1553,10 +1553,8 @@ export async function registerRoutes(
   const { startEmailMonitoring } = await import("./lib/email-monitoring-service");
   startEmailMonitoring();
 
-  // Trust proxy for production (nginx, cloudflare, etc.)
-  if (process.env.NODE_ENV === "production") {
-    app.set("trust proxy", 1);
-  }
+  // Trust proxy always — Replit runs behind HTTPS proxy in both dev and production
+  app.set("trust proxy", 1);
 
   // Clean up ALL active user sessions on startup
   // After server restart, express sessions are lost anyway so all user_sessions records are stale
@@ -1587,7 +1585,7 @@ export async function registerRoutes(
       saveUninitialized: false,
       store: sessionStore,
       cookie: {
-        secure: false,
+        secure: "auto",
         httpOnly: true,
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
