@@ -3,9 +3,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
-import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, Send, User, ExternalLink, Phone, Mail, MapPin } from "lucide-react";
+import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 
 type BOQuestion = {
@@ -43,7 +45,43 @@ function openContact(customerId: string) {
   window.open(`/customers?view=${encodeURIComponent(customerId)}`, "_blank", "noopener,noreferrer");
 }
 
-function QuestionItem({ item }: { item: BOQuestion }) {
+function QuestionTile({ item, onClick }: { item: BOQuestion; onClick: () => void }) {
+  const custName = customerName(item.customer);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left rounded-lg border border-purple-200 dark:border-purple-900 bg-card p-2.5 transition-all hover:border-purple-400 dark:hover:border-purple-700 hover:shadow-sm active:scale-[0.99]"
+      data-testid={`bo-question-${item.task.id}`}
+    >
+      <div className="flex items-start gap-2">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 shrink-0 mt-0.5">
+          <HelpCircle className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-medium leading-snug truncate" data-testid={`text-bo-question-title-${item.task.id}`}>{item.task.title}</div>
+          {custName && (
+            <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground" data-testid={`text-bo-question-customer-name-${item.task.id}`}>
+              <User className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{custName}</span>
+            </div>
+          )}
+          {item.question && (
+            <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-snug">{item.question.content}</p>
+          )}
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {item.question?.userName && <span className="text-[10px] text-muted-foreground">{item.question.userName}</span>}
+            {item.question && <span className="text-[10px] text-muted-foreground">· {format(new Date(item.question.createdAt), "d.M. HH:mm")}</span>}
+            {item.task.country && <span className="text-[10px] text-muted-foreground">· {item.task.country}</span>}
+          </div>
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 self-center" />
+      </div>
+    </button>
+  );
+}
+
+function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: () => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [answer, setAnswer] = useState("");
@@ -55,6 +93,7 @@ function QuestionItem({ item }: { item: BOQuestion }) {
       queryClient.invalidateQueries({ queryKey: ["/api/agent/bo-questions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/back-office/tasks"] });
       toast({ title: t.backOffice.toastAnswerSent });
+      onClose();
     },
     onError: () => toast({ title: t.backOffice.toastAnswerError, variant: "destructive" }),
   });
@@ -64,95 +103,123 @@ function QuestionItem({ item }: { item: BOQuestion }) {
   const location = [item.customer?.city, item.customer?.country].filter(Boolean).join(", ");
 
   return (
-    <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-card p-2.5 space-y-2" data-testid={`bo-question-${item.task.id}`}>
-      <div className="flex items-start gap-2">
-        <HelpCircle className="h-3.5 w-3.5 text-purple-500 shrink-0 mt-0.5" />
-        <div className="flex-1 min-w-0">
-          <div className="text-xs font-medium leading-snug">{item.task.title}</div>
+    <>
+      <div className="pl-5 pr-12 py-4 border-b bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="text-sm font-semibold leading-snug pr-6 text-purple-900 dark:text-purple-100" data-testid="text-bo-question-detail-title">{item.task.title}</h3>
+          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-semibold shrink-0 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+            <HelpCircle className="h-3.5 w-3.5" /> {t.backOffice.kindQuestion}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-2.5">
+          {item.task.country && (
+            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 text-muted-foreground">
+              <Building2 className="h-3 w-3" /> {item.task.country}
+            </span>
+          )}
           {item.question && (
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              {item.question.userName && <span className="text-[10px] text-muted-foreground">{item.question.userName}</span>}
-              <span className="text-[10px] text-muted-foreground">· {format(new Date(item.question.createdAt), "d.M. HH:mm")}</span>
-              {item.task.country && <span className="text-[10px] text-muted-foreground">· {item.task.country}</span>}
-            </div>
+            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 text-muted-foreground">
+              <Clock className="h-3 w-3" /> {format(new Date(item.question.createdAt), "d.M.yyyy HH:mm")}
+            </span>
           )}
         </div>
       </div>
 
-      {item.customer && (
-        <div className="rounded-md border bg-muted/30 p-2" data-testid={`bo-question-customer-${item.task.id}`}>
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="text-[11px] font-medium flex items-center gap-1" data-testid={`text-bo-question-customer-name-${item.task.id}`}>
-                <User className="h-3 w-3 text-muted-foreground shrink-0" />
-                <span className="truncate">{custName || "—"}</span>
-              </div>
-              <div className="mt-0.5 space-y-0.5 text-[10px] text-muted-foreground">
-                {phone && (
-                  <div className="flex items-center gap-1">
-                    <Phone className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{phone}</span>
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-5 space-y-5">
+          {item.customer ? (
+            <div className="rounded-lg border bg-muted/20 p-3" data-testid="bo-question-customer-card">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t.backOffice.customerLabel}</div>
+                  <div className="text-sm font-medium flex items-center gap-1.5" data-testid="text-bo-question-detail-customer-name">
+                    <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate">{custName || "—"}</span>
                   </div>
-                )}
-                {item.customer.email && (
-                  <div className="flex items-center gap-1">
-                    <Mail className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{item.customer.email}</span>
+                  <div className="mt-1.5 space-y-1 text-xs text-muted-foreground">
+                    {phone && (
+                      <a href={`tel:${phone}`} className="flex items-center gap-1.5 hover:text-foreground" data-testid="link-bo-question-customer-phone">
+                        <Phone className="h-3 w-3 shrink-0" /> <span className="truncate">{phone}</span>
+                      </a>
+                    )}
+                    {item.customer.email && (
+                      <a href={`mailto:${item.customer.email}`} className="flex items-center gap-1.5 hover:text-foreground" data-testid="link-bo-question-customer-email">
+                        <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{item.customer.email}</span>
+                      </a>
+                    )}
+                    {location && (
+                      <div className="flex items-center gap-1.5" data-testid="text-bo-question-customer-location">
+                        <MapPin className="h-3 w-3 shrink-0" /> <span className="truncate">{location}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-                {location && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{location}</span>
-                  </div>
-                )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 shrink-0"
+                  onClick={() => openContact(item.customer!.id)}
+                  data-testid="btn-bo-question-open-contact"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> {t.backOffice.openContact}
+                </Button>
               </div>
             </div>
+          ) : (
+            <div className="text-xs text-muted-foreground italic" data-testid="text-bo-question-no-customer">{t.backOffice.noCustomer}</div>
+          )}
+
+          {item.task.description && (
+            <div>
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.descriptionLabel}</div>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-question-detail-description">{item.task.description}</p>
+            </div>
+          )}
+
+          {item.question && (
+            <div>
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <MessageSquare className="h-3 w-3" /> {t.backOffice.questionForAgent}
+              </div>
+              <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20 p-3">
+                {item.question.userName && <div className="text-[10px] text-muted-foreground mb-1">{item.question.userName}</div>}
+                <p className="text-xs leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-question-detail-content">{item.question.content}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/10 p-3 space-y-2">
+            <div className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
+              <CornerDownLeft className="h-3.5 w-3.5" /> {t.backOffice.answerButton}
+            </div>
+            <Textarea
+              className="text-xs min-h-[90px] resize-none bg-background"
+              placeholder={t.backOffice.answerPlaceholder}
+              value={answer}
+              onChange={e => setAnswer(e.target.value)}
+              data-testid={`textarea-bo-answer-${item.task.id}`}
+            />
             <Button
               size="sm"
-              variant="outline"
-              className="h-7 gap-1 text-[10px] px-2 shrink-0"
-              onClick={() => openContact(item.customer!.id)}
-              data-testid={`btn-bo-question-open-contact-${item.task.id}`}
+              className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+              onClick={() => answerMutation.mutate()}
+              disabled={answerMutation.isPending || !answer.trim()}
+              data-testid={`btn-bo-answer-${item.task.id}`}
             >
-              <ExternalLink className="h-3 w-3" /> {t.backOffice.openContact}
+              {answerMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              {t.backOffice.answerButton}
             </Button>
           </div>
         </div>
-      )}
-
-      {item.task.description && (
-        <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap break-words" data-testid={`text-bo-question-description-${item.task.id}`}>
-          {item.task.description}
-        </p>
-      )}
-
-      {item.question && (
-        <p className="text-xs leading-relaxed bg-purple-50 dark:bg-purple-950/20 rounded p-2 whitespace-pre-wrap break-words" data-testid={`text-bo-question-${item.task.id}`}>
-          {item.question.content}
-        </p>
-      )}
-      <Textarea
-        className="text-xs min-h-[52px] resize-none"
-        placeholder={t.backOffice.answerPlaceholder}
-        value={answer}
-        onChange={e => setAnswer(e.target.value)}
-        data-testid={`textarea-bo-answer-${item.task.id}`}
-      />
-      <Button
-        size="sm"
-        className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
-        onClick={() => answerMutation.mutate()}
-        disabled={answerMutation.isPending || !answer.trim()}
-        data-testid={`btn-bo-answer-${item.task.id}`}
-      >
-        {answerMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-        {t.backOffice.answerButton}
-      </Button>
-    </div>
+      </ScrollArea>
+    </>
   );
 }
 
 export function BackOfficeQuestionsInbox() {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
 
   const { data: questions = [] } = useQuery<BOQuestion[]>({
     queryKey: ["/api/agent/bo-questions"],
@@ -161,6 +228,8 @@ export function BackOfficeQuestionsInbox() {
   });
 
   if (questions.length === 0) return null;
+
+  const activeItem = openTaskId ? questions.find(q => q.task.id === openTaskId) || null : null;
 
   return (
     <div className="border-b bg-purple-50/40 dark:bg-purple-950/10 shrink-0" data-testid="bo-questions-inbox">
@@ -178,10 +247,21 @@ export function BackOfficeQuestionsInbox() {
       {!collapsed && (
         <div className="px-2 pb-2 space-y-2 max-h-[40vh] overflow-y-auto">
           {questions.map(item => (
-            <QuestionItem key={item.task.id} item={item} />
+            <QuestionTile key={item.task.id} item={item} onClick={() => setOpenTaskId(item.task.id)} />
           ))}
         </div>
       )}
+
+      <Sheet open={!!activeItem} onOpenChange={(o) => { if (!o) setOpenTaskId(null); }}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-md p-0 gap-0 overflow-hidden flex flex-col"
+          data-testid="drawer-bo-question-detail"
+        >
+          <SheetTitle className="sr-only">{activeItem?.task.title || t.backOffice.questionsInboxTitle}</SheetTitle>
+          {activeItem && <QuestionDrawerContent item={activeItem} onClose={() => setOpenTaskId(null)} />}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
