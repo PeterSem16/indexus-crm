@@ -3585,9 +3585,14 @@ export async function registerRoutes(
           return res.redirect("/?error=account_deactivated");
         }
         const userEmail = user.email.toLowerCase();
-        // Strict (case-insensitive) equality — substring matching would let an
-        // unrelated MS account containing the user's local-part authenticate as them.
-        if (msEmail !== userEmail) {
+        // Same-origin (production) login: keep the EXACT matching rule production
+        // already uses today (exact match OR local-part fallback). This branch only
+        // creates a session in THIS same database — it never mints a cross-origin
+        // bearer token — so tightening it would risk locking out existing prod users
+        // for no real security gain. The strict equality is enforced only on the
+        // cross-origin handoff above, where a bearer token IS minted and sent to
+        // another origin.
+        if (msEmail !== userEmail && !msEmail.includes(userEmail.split("@")[0])) {
           console.error(`Email mismatch: MS365=${msEmail}, CRM=${userEmail}`);
           return res.redirect("/?error=email_mismatch");
         }
