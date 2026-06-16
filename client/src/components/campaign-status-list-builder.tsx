@@ -1381,50 +1381,55 @@ function AutomationForm({
                   );
                 })}
               </div>
-              <Textarea
-                id="automation-task-desc"
-                ref={taskDescRef}
-                className="text-xs min-h-[60px] resize-none"
-                value={form.taskDescription}
-                onChange={e => setForm(f => ({ ...f, taskDescription: e.target.value }))}
-                placeholder={sl("taskDescPh", locale)}
-              />
-              <div className="flex flex-wrap gap-1 mt-1">
-                {[
-                  { token: "{{customer.name}}", fk: "customerName" },
-                  { token: "{{customer.phone}}", fk: "phone" },
-                  { token: "{{customer.id}}", fk: "customerId" },
-                  { token: "{{campaign.name}}", fk: "campaign" },
-                  { token: "{{agent.name}}", fk: "agent" },
-                  { token: "{{hospital.name}}", fk: "hospital" },
-                  { token: "{{clinic.name}}", fk: "clinic" },
-                ].map(({ token, fk }) => (
-                  <button
-                    key={token}
-                    type="button"
-                    className="inline-flex items-center gap-0.5 rounded border border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-mono cursor-pointer"
-                    onClick={() => {
-                      const el = taskDescRef.current;
-                      if (el) {
-                        const start = el.selectionStart ?? el.value.length;
-                        const end = el.selectionEnd ?? el.value.length;
-                        const before = el.value.slice(0, start);
-                        const after = el.value.slice(end);
-                        const newVal = before + token + after;
-                        setForm(f => ({ ...f, taskDescription: newVal }));
-                        requestAnimationFrame(() => {
-                          el.selectionStart = el.selectionEnd = start + token.length;
-                          el.focus();
-                        });
-                      } else {
-                        setForm(f => ({ ...f, taskDescription: f.taskDescription + token }));
-                      }
-                    }}
-                    title={token}
-                  >
-                    {TPL_FIELD_LABELS[fk][tplLocale(locale)]}
-                  </button>
-                ))}
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
+                <Textarea
+                  id="automation-task-desc"
+                  ref={taskDescRef}
+                  className="flex-1 min-w-0 text-xs min-h-[150px] resize-y"
+                  value={form.taskDescription}
+                  onChange={e => setForm(f => ({ ...f, taskDescription: e.target.value }))}
+                  placeholder={sl("taskDescPh", locale)}
+                />
+                <div className="w-full sm:w-44 shrink-0 flex flex-col rounded-md border bg-muted/20 p-1.5">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 px-0.5">{sl("varPickerLbl", locale)}</span>
+                  <div className="flex flex-col gap-1 overflow-y-auto">
+                    {[
+                      { token: "{{customer.name}}", fk: "customerName" },
+                      { token: "{{customer.phone}}", fk: "phone" },
+                      { token: "{{customer.id}}", fk: "customerId" },
+                      { token: "{{campaign.name}}", fk: "campaign" },
+                      { token: "{{agent.name}}", fk: "agent" },
+                      { token: "{{hospital.name}}", fk: "hospital" },
+                      { token: "{{clinic.name}}", fk: "clinic" },
+                    ].map(({ token, fk }) => (
+                      <button
+                        key={token}
+                        type="button"
+                        className="inline-flex items-center gap-0.5 rounded border border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-mono cursor-pointer justify-start text-left"
+                        onClick={() => {
+                          const el = taskDescRef.current;
+                          if (el) {
+                            const start = el.selectionStart ?? el.value.length;
+                            const end = el.selectionEnd ?? el.value.length;
+                            const before = el.value.slice(0, start);
+                            const after = el.value.slice(end);
+                            const newVal = before + token + after;
+                            setForm(f => ({ ...f, taskDescription: newVal }));
+                            requestAnimationFrame(() => {
+                              el.selectionStart = el.selectionEnd = start + token.length;
+                              el.focus();
+                            });
+                          } else {
+                            setForm(f => ({ ...f, taskDescription: f.taskDescription + token }));
+                          }
+                        }}
+                        title={token}
+                      >
+                        {TPL_FIELD_LABELS[fk][tplLocale(locale)]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
             <div>
