@@ -9,8 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
+} from "@/components/ui/sheet";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -19,7 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Edit, Trash2, Users, UserPlus, ArrowLeft, GripVertical, RotateCcw, Building2 } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, Users, UserPlus, ArrowLeft, GripVertical, RotateCcw, Building2, Search, X } from "lucide-react";
 import type { User } from "@shared/schema";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -59,6 +59,7 @@ export default function TaskGroupsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<TaskGroup | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [memberSearch, setMemberSearch] = useState("");
 
   const ROLES = [
     { value: "admin", label: tg.roleAdmin },
@@ -160,6 +161,7 @@ export default function TaskGroupsPage() {
   const openCreate = () => {
     setEditGroup(null);
     setForm(emptyForm());
+    setMemberSearch("");
     setDialogOpen(true);
   };
 
@@ -173,6 +175,7 @@ export default function TaskGroupsPage() {
       isBackOffice: g.isBackOffice ?? false,
       memberUserIds: g.members.map(m => m.userId),
     });
+    setMemberSearch("");
     setDialogOpen(true);
   };
 
@@ -249,6 +252,15 @@ export default function TaskGroupsPage() {
     roleDragItem.current = null;
     roleDragOverItem.current = null;
   };
+
+  const selectedMembers = users.filter(u => form.memberUserIds.includes(u.id));
+  const memberQuery = memberSearch.trim().toLowerCase();
+  const filteredUsers = memberQuery
+    ? users.filter(u =>
+        (u.fullName || u.username || "").toLowerCase().includes(memberQuery) ||
+        (u.email || "").toLowerCase().includes(memberQuery)
+      )
+    : users;
 
   return (
     <div className="space-y-6">
@@ -498,54 +510,73 @@ export default function TaskGroupsPage() {
         </Tabs>
       )}
 
-      {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={open => { if (!open) { setDialogOpen(false); setEditGroup(null); } }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editGroup ? tg.editGroup : tg.newGroupTitle}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
+      {/* Create / Edit drawer (Sheet) */}
+      <Sheet open={dialogOpen} onOpenChange={open => { if (!open) { setDialogOpen(false); setEditGroup(null); setMemberSearch(""); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col gap-0" data-testid="sheet-group-form">
+          <SheetHeader className="px-6 py-5 border-b text-left space-y-1.5">
+            <SheetTitle className="flex items-center gap-2.5 text-lg">
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-lg shrink-0"
+                style={{ backgroundColor: `${form.color}1f`, color: form.color }}
+              >
+                <Users className="h-4 w-4" />
+              </span>
+              {editGroup ? tg.editGroup : tg.newGroupTitle}
+            </SheetTitle>
+            <SheetDescription className="sr-only">
+              {editGroup ? tg.editGroup : tg.newGroupTitle}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            {/* Name */}
+            <div className="space-y-1.5">
               <Label htmlFor="group-name" className="text-sm font-medium">{tg.groupName} *</Label>
               <Input
                 id="group-name"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 placeholder={tg.groupNamePlaceholder}
-                className="mt-1"
                 data-testid="input-group-name"
               />
             </div>
-            <div>
+
+            {/* Alias */}
+            <div className="space-y-1.5">
               <Label htmlFor="group-alias" className="text-sm font-medium">{tg.groupAlias}</Label>
               <Input
                 id="group-alias"
                 value={form.displayAlias}
                 onChange={e => setForm(f => ({ ...f, displayAlias: e.target.value }))}
                 placeholder={tg.groupAliasPlaceholder}
-                className="mt-1"
                 data-testid="input-group-alias"
               />
             </div>
-            <div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
               <Label htmlFor="group-desc" className="text-sm font-medium">{tg.groupDesc}</Label>
               <Textarea
                 id="group-desc"
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 placeholder={tg.groupDesc}
-                className="mt-1 resize-none min-h-[60px]"
+                className="resize-none min-h-[64px]"
                 data-testid="input-group-description"
               />
             </div>
-            <div>
+
+            {/* Color */}
+            <div className="space-y-2">
               <Label className="text-sm font-medium">{tg.groupColor}</Label>
-              <div className="flex flex-wrap gap-2 mt-1">
+              <div className="flex flex-wrap gap-2">
                 {GROUP_COLORS.map(color => (
                   <button
                     key={color}
                     type="button"
-                    className={`h-6 w-6 rounded-full border-2 transition-all ${form.color === color ? "border-foreground scale-110" : "border-transparent"}`}
+                    aria-label={`${tg.groupColor} ${color}`}
+                    aria-pressed={form.color === color}
+                    className={`h-7 w-7 rounded-full border-2 transition-all ${form.color === color ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105"}`}
                     style={{ backgroundColor: color }}
                     onClick={() => setForm(f => ({ ...f, color }))}
                     data-testid={`color-${color}`}
@@ -553,56 +584,149 @@ export default function TaskGroupsPage() {
                 ))}
               </div>
             </div>
+
             {/* Back Office flag */}
-            <div className="flex items-start gap-3 rounded-md border p-3 bg-muted/30">
+            <label
+              htmlFor="group-back-office"
+              className="flex items-start gap-3 rounded-lg border p-3 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+            >
               <Checkbox
                 id="group-back-office"
                 checked={form.isBackOffice}
                 onCheckedChange={checked => setForm(f => ({ ...f, isBackOffice: checked === true }))}
+                className="mt-0.5"
                 data-testid="checkbox-back-office"
               />
               <div className="flex flex-col gap-0.5">
-                <Label htmlFor="group-back-office" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+                <span className="text-sm font-medium flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-amber-500" />
                   {tg.backOffice}
-                </Label>
-                <p className="text-xs text-muted-foreground">{tg.backOfficeDesc}</p>
+                </span>
+                <span className="text-xs text-muted-foreground">{tg.backOfficeDesc}</span>
               </div>
-            </div>
-            <div>
-              <Label className="text-sm font-medium mb-2 block">{tg.groupMembers}</Label>
-              <ScrollArea className="h-48 rounded-md border p-2">
-                <div className="space-y-1">
-                  {users.map((u) => (
-                    <div
+            </label>
+
+            {/* Members */}
+            <div className="space-y-2.5 pt-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                  {tg.groupMembers}
+                  {form.memberUserIds.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]" data-testid="badge-member-count">
+                      {form.memberUserIds.length}
+                    </Badge>
+                  )}
+                </Label>
+                {form.memberUserIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, memberUserIds: [] }))}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    data-testid="btn-clear-members"
+                  >
+                    {t.common.clearAll}
+                  </button>
+                )}
+              </div>
+
+              {/* Selected chips */}
+              {selectedMembers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5" data-testid="selected-members">
+                  {selectedMembers.map(u => (
+                    <span
                       key={u.id}
-                      className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                      onClick={() => toggleMember(u.id)}
-                      data-testid={`member-toggle-${u.id}`}
+                      className="flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 text-foreground pl-1 pr-1.5 py-0.5 text-xs"
+                      data-testid={`chip-member-${u.id}`}
                     >
-                      <Checkbox
-                        checked={form.memberUserIds.includes(u.id)}
-                        onCheckedChange={() => toggleMember(u.id)}
-                      />
-                      <Avatar className="h-6 w-6">
+                      <Avatar className="h-4 w-4">
                         <AvatarImage src={u.avatarUrl || undefined} className="object-cover" />
-                        <AvatarFallback className="text-[8px] bg-primary text-primary-foreground">
+                        <AvatarFallback className="text-[6px] bg-primary text-primary-foreground">
                           {(u.fullName || u.username).split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm">{u.fullName || u.username}</span>
-                      {u.role && <Badge variant="secondary" className="text-[10px] py-0">{u.role}</Badge>}
-                    </div>
+                      <span className="max-w-[120px] truncate">{u.fullName || u.username}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleMember(u.id)}
+                        aria-label={u.fullName || u.username}
+                        className="rounded-full hover:bg-primary/20 p-0.5"
+                        data-testid={`chip-remove-${u.id}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
                   ))}
+                </div>
+              )}
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={memberSearch}
+                  onChange={e => setMemberSearch(e.target.value)}
+                  placeholder={t.common.search}
+                  className="pl-8 h-9"
+                  data-testid="input-member-search"
+                />
+              </div>
+
+              {/* List */}
+              <ScrollArea className="h-56 rounded-lg border">
+                <div className="p-1.5 space-y-0.5">
+                  {filteredUsers.length === 0 ? (
+                    <div className="py-10 text-center text-xs text-muted-foreground" data-testid="text-no-members">
+                      {t.common.noResults}
+                    </div>
+                  ) : (
+                    filteredUsers.map((u) => {
+                      const checked = form.memberUserIds.includes(u.id);
+                      return (
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          key={u.id}
+                          onClick={() => toggleMember(u.id)}
+                          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleMember(u.id); } }}
+                          aria-pressed={checked}
+                          className={`w-full flex items-center gap-2.5 p-2 rounded-md text-left cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${checked ? "bg-primary/5" : "hover:bg-muted"}`}
+                          data-testid={`member-toggle-${u.id}`}
+                        >
+                          <Checkbox checked={checked} className="pointer-events-none shrink-0" />
+                          <Avatar className="h-7 w-7 shrink-0">
+                            <AvatarImage src={u.avatarUrl || undefined} className="object-cover" />
+                            <AvatarFallback className="text-[8px] bg-primary text-primary-foreground">
+                              {(u.fullName || u.username).split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm truncate">{u.fullName || u.username}</div>
+                            {u.email && <div className="text-xs text-muted-foreground truncate">{u.email}</div>}
+                          </div>
+                          {u.role && <Badge variant="secondary" className="text-[10px] py-0 shrink-0">{u.role}</Badge>}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </ScrollArea>
               {form.memberUserIds.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">{form.memberUserIds.length} {tg.membersSelected}</p>
+                <p className="text-xs text-muted-foreground" data-testid="text-members-selected">
+                  {form.memberUserIds.length} {tg.membersSelected}
+                </p>
               )}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>{tg.cancel}</Button>
+
+          <SheetFooter className="px-6 py-4 border-t gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setDialogOpen(false); setEditGroup(null); setMemberSearch(""); }}
+              data-testid="btn-cancel-group"
+            >
+              {tg.cancel}
+            </Button>
             <Button
               onClick={() => saveMutation.mutate()}
               disabled={!form.name || saveMutation.isPending}
@@ -611,9 +735,9 @@ export default function TaskGroupsPage() {
               {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {editGroup ? tg.saveChanges : tg.createGroup}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
