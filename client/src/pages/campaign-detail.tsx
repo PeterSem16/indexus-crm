@@ -2582,7 +2582,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
 
   const { data: dispositions = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions"],
-    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`,{credentials:"include"}).then(r=>r.json()),
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`,{credentials:"include"}).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
   });
 
   const parents = dispositions.filter((d:any)=>!d.parentId);
@@ -2594,7 +2594,7 @@ function CampaignDispositionManager({ campaignId }: { campaignId: string }) {
   const { data: globalCategories = [] } = useQuery<any[]>({ queryKey: ["/api/status-categories"] });
   const { data: assignedStatusesData } = useQuery<{ categories: any[]; statuses: any[]; assignments: any[] }>({
     queryKey: ["/api/campaigns", campaignId, "assigned-statuses"],
-    queryFn: () => fetch(`/api/campaigns/${campaignId}/assigned-statuses`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/assigned-statuses`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
   });
   const previewUseNexus = !!(assignedStatusesData?.statuses?.length) && activeParents.length === 0;
   const previewNexusStatuses = previewUseNexus

@@ -1,1 +1,2 @@
 - [MS365 cross-origin OAuth handoff](ms365-cross-origin-oauth.md) — dev login routes through prod's only registered callback, hands back a signed one-time token; DBs aren't shared.
+- [Custom queryFn must check res.ok](query-fn-ok-check.md) — inline fetch().then(r=>r.json()) without an ok-check stores error JSON as success data and crashes .map/.filter (prod-only).

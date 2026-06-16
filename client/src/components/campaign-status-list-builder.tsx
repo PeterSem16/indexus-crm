@@ -1056,13 +1056,13 @@ function AutomationForm({
 
   const { data: emailTemplates = [] } = useQuery<any[]>({
     queryKey: ["/api/message-templates", "email"],
-    queryFn: () => fetch(`/api/message-templates?type=email`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(`/api/message-templates?type=email`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
     enabled: form.actionType === "send_email_group",
   });
 
   const { data: campaignDispositions = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions-auto"],
-    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
     enabled: form.actionType === "set_contact_status",
   });
 
@@ -2473,12 +2473,12 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
 
   const { data: items = [], isLoading } = useQuery<StatusListItem[]>({
     queryKey: ["/api/campaigns", campaignId, "status-list"],
-    queryFn: () => fetch(`/api/campaigns/${campaignId}/status-list`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/status-list`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
   });
 
   const { data: dispositions = [], isLoading: dispsLoading } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions"],
-    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
     enabled: importOpen,
   });
 
