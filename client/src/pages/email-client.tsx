@@ -3216,8 +3216,9 @@ export default function EmailClientPage() {
 
   const { data: mailboxes = [], isLoading: mailboxesLoading } = useQuery<Mailbox[]>({
     queryKey: ["/api/users", user?.id, "ms365-available-mailboxes"],
-    queryFn: () => fetch(`/api/users/${user?.id}/ms365-available-mailboxes`).then(r => r.json()),
+    queryFn: () => fetch(`/api/users/${user?.id}/ms365-available-mailboxes`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
   const effectiveMailbox = selectedMailbox === "all" ? "personal" : selectedMailbox;
