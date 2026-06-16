@@ -4767,6 +4767,8 @@ export interface Translations {
     scheduledToday: string;
     scheduledTomorrow: string;
     scheduledNoData: string;
+    backOfficeAgendaTitle: string;
+    backOfficeAgendaEmpty: string;
     callForwardingActive: string;
     callForwardingWarning: string;
   };
@@ -11736,6 +11738,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Today',
       scheduledTomorrow: 'Tomorrow',
       scheduledNoData: 'No scheduled calls',
+      backOfficeAgendaTitle: 'Back Office Agenda',
+      backOfficeAgendaEmpty: 'No back office tasks',
       callForwardingActive: 'Call Forwarding Active',
       callForwardingWarning: 'Inbound calls will be redirected to',
     },
@@ -18112,6 +18116,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Dnes',
       scheduledTomorrow: 'Zajtra',
       scheduledNoData: 'Žiadne naplánované hovory',
+      backOfficeAgendaTitle: 'Back Office agenda',
+      backOfficeAgendaEmpty: 'Žiadne back office úlohy',
       callForwardingActive: 'Presmerovanie hovorov aktívne',
       callForwardingWarning: 'Prichádzajúce hovory budú presmerované na',
     },
@@ -24437,6 +24443,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Dnes',
       scheduledTomorrow: 'Zítra',
       scheduledNoData: 'Žádné naplánované hovory',
+      backOfficeAgendaTitle: 'Back Office agenda',
+      backOfficeAgendaEmpty: 'Žádné back office úkoly',
       callForwardingActive: 'Přesměrování hovorů aktivní',
       callForwardingWarning: 'Příchozí hovory budou přesměrovány na',
     },
@@ -30717,6 +30725,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Ma',
       scheduledTomorrow: 'Holnap',
       scheduledNoData: 'Nincsenek tervezett hívások',
+      backOfficeAgendaTitle: 'Back Office teendők',
+      backOfficeAgendaEmpty: 'Nincsenek back office feladatok',
       callForwardingActive: 'Hívásátirányítás aktív',
       callForwardingWarning: 'A bejövő hívások ide lesznek átirányítva',
     },
@@ -36917,6 +36927,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Azi',
       scheduledTomorrow: 'Mâine',
       scheduledNoData: 'Niciun apel programat',
+      backOfficeAgendaTitle: 'Agenda Back Office',
+      backOfficeAgendaEmpty: 'Nicio sarcină back office',
       callForwardingActive: 'Redirecționare apeluri activă',
       callForwardingWarning: 'Apelurile primite vor fi redirecționate la',
     },
@@ -43119,6 +43131,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Oggi',
       scheduledTomorrow: 'Domani',
       scheduledNoData: 'Nessuna chiamata programmata',
+      backOfficeAgendaTitle: 'Agenda Back Office',
+      backOfficeAgendaEmpty: 'Nessuna attività back office',
       callForwardingActive: 'Deviazione chiamate attiva',
       callForwardingWarning: 'Le chiamate in entrata verranno deviate al',
     },
@@ -49308,6 +49322,8 @@ export const translations: Record<Locale, Translations> = {
       scheduledToday: 'Heute',
       scheduledTomorrow: 'Morgen',
       scheduledNoData: 'Keine geplanten Anrufe',
+      backOfficeAgendaTitle: 'Back-Office-Agenda',
+      backOfficeAgendaEmpty: 'Keine Back-Office-Aufgaben',
       callForwardingActive: 'Anrufweiterleitung aktiv',
       callForwardingWarning: 'Eingehende Anrufe werden weitergeleitet an',
     },

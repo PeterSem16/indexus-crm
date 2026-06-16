@@ -1,4 +1,5 @@
 - [MS365 cross-origin OAuth handoff](ms365-cross-origin-oauth.md) — dev login routes through prod's only registered callback, hands back a signed one-time token; DBs aren't shared.
 - [Prod schema migrations](prod-schema-migrations.md) — new schema columns must be added to the server/index.ts startup ALTER...IF NOT EXISTS block; prod deploy (git pull+build+pm2 restart) does NOT run db:push.
 - [Custom queryFn must check res.ok](query-fn-ok-check.md) — inline fetch().then(r=>r.json()) without an ok-check stores error JSON as success data and crashes .map/.filter (prod-only).
+- [Sheet over Dialog stacking](sheet-over-dialog-stacking.md) — a shadcn Sheet renders BEHIND an open Dialog; an "elevated" drawer needs z-[10020] + hideOverlay + onCloseAutoFocus preventDefault.
 - [Back Office country visibility](back-office-country-visibility.md) — BO endpoints enforce country authz server-side from session.assignedCountries; client `country` query only narrows, never widens; admin bypasses; NULL-country tasks shared; task.country inherited from CONTACT not campaign.

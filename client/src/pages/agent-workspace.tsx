@@ -185,7 +185,7 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { getCountryFlag } from "@/lib/countries";
 import { COUNTRY_TO_LOCALE } from "@/i18n/translations";
-import { BackOfficePanel } from "@/components/back-office-panel";
+import { BackOfficePanel, BackOfficeTaskDrawer } from "@/components/back-office-panel";
 import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inbox";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
@@ -6495,6 +6495,7 @@ export default function AgentWorkspacePage() {
   const [currentCampaignContactId, setCurrentCampaignContactId] = useState<string | null>(null);
   const [disposedContactIds, setDisposedContactIds] = useState<Set<string>>(new Set());
   const [sessionLoginOpen, setSessionLoginOpen] = useState(true);
+  const [agendaTaskId, setAgendaTaskId] = useState<string | null>(null);
   const [activeChannel, setActiveChannel] = useState("phone");
   const [phoneSubTabOverride, setPhoneSubTabOverride] = useState<"card" | "details" | "documents" | "history" | null>(null);
   const [rightTab, setRightTab] = useState("actions");
@@ -6904,6 +6905,20 @@ export default function AgentWorkspacePage() {
     },
     enabled: !!hasAccess && agentSession.isSessionActive,
     refetchInterval: 60000,
+  });
+
+  type BOAgendaItem = {
+    task: { id: string; title: string; priority: string; dueDate: string | null; boState: string | null; status: string; country: string | null };
+    confirmation: { id: string } | null;
+  };
+  const { data: boAgendaItems = [] } = useQuery<BOAgendaItem[]>({
+    queryKey: ["/api/back-office/tasks"],
+    queryFn: async () => {
+      const res = await fetch("/api/back-office/tasks", { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!hasAccess && sessionLoginOpen && !agentSession.isSessionActive,
+    refetchInterval: 30000,
   });
 
   const scheduledQueueCounts = useMemo(() => {
@@ -9560,6 +9575,49 @@ export default function AgentWorkspacePage() {
                         </div>
                       );
                     })()}
+
+                    {/* Back Office agenda — všetky úlohy */}
+                    {(() => {
+                      const openItems = boAgendaItems.filter(it => !(it.task.status === "completed" || it.confirmation || it.task.boState === "done"));
+                      const prioRank: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+                      const prioDot: Record<string, string> = { urgent: "bg-rose-500", high: "bg-orange-500", medium: "bg-yellow-500", low: "bg-slate-400" };
+                      const sorted = [...openItems].sort((a, b) => {
+                        const pr = (prioRank[a.task.priority] ?? 2) - (prioRank[b.task.priority] ?? 2);
+                        if (pr !== 0) return pr;
+                        const ad = a.task.dueDate ? new Date(a.task.dueDate).getTime() : Infinity;
+                        const bd = b.task.dueDate ? new Date(b.task.dueDate).getTime() : Infinity;
+                        return ad - bd;
+                      });
+                      return (
+                        <div className="mt-2 pt-2 border-t border-border">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t.agentSession.backOfficeAgendaTitle}</span>
+                            <span className="text-[10px] font-bold text-foreground">{openItems.length}</span>
+                          </div>
+                          {sorted.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground italic">{t.agentSession.backOfficeAgendaEmpty}</p>
+                          ) : (
+                            <div className="space-y-0.5">
+                              {sorted.slice(0, 8).map((it) => (
+                                <button
+                                  key={it.task.id}
+                                  type="button"
+                                  onClick={() => setAgendaTaskId(it.task.id)}
+                                  className="w-full flex items-center gap-2 text-left rounded-md px-1.5 py-1 hover-elevate"
+                                  data-testid={`login-bo-task-${it.task.id}`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${prioDot[it.task.priority] ?? "bg-slate-400"}`} />
+                                  <span className="text-[10px] text-foreground truncate flex-1">{it.task.title}</span>
+                                  {it.task.dueDate && (
+                                    <span className="text-[9px] text-muted-foreground shrink-0">{format(new Date(it.task.dueDate), "d.M.")}</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </>
                 );
               })()}
@@ -9846,6 +9904,13 @@ export default function AgentWorkspacePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <BackOfficeTaskDrawer
+        taskId={agendaTaskId}
+        open={!!agendaTaskId}
+        onClose={() => setAgendaTaskId(null)}
+        elevated
+      />
 
       <TopBar
         status={agentSession.status}

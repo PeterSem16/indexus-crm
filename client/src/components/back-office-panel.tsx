@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, Loader2, Check,
@@ -60,11 +60,11 @@ type ThreadData = {
   creator: { id: string; fullName: string } | null;
 };
 
-const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-  urgent: { label: "Urgentná", color: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500" },
-  high: { label: "Vysoká", color: "text-orange-500 dark:text-orange-400", dot: "bg-orange-500" },
-  medium: { label: "Stredná", color: "text-yellow-600 dark:text-yellow-400", dot: "bg-yellow-500" },
-  low: { label: "Nízka", color: "text-muted-foreground", dot: "bg-muted-foreground" },
+const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: string; border: string; tint: string }> = {
+  urgent: { label: "Urgentná", color: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500", border: "border-l-rose-500", tint: "bg-rose-50/50 dark:bg-rose-950/20" },
+  high: { label: "Vysoká", color: "text-orange-500 dark:text-orange-400", dot: "bg-orange-500", border: "border-l-orange-500", tint: "bg-orange-50/40 dark:bg-orange-950/15" },
+  medium: { label: "Stredná", color: "text-yellow-600 dark:text-yellow-400", dot: "bg-yellow-500", border: "border-l-yellow-500", tint: "" },
+  low: { label: "Nízka", color: "text-muted-foreground", dot: "bg-muted-foreground", border: "border-l-slate-300 dark:border-l-slate-600", tint: "" },
 };
 
 const STATE_CONFIG: Record<BOState, {
@@ -144,7 +144,7 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left rounded-lg border bg-card p-2.5 transition-colors shadow-sm ${sConfig.cardRing} ${state === "done" ? "opacity-70" : ""}`}
+      className={`w-full text-left rounded-lg border border-l-4 ${pConfig.border} bg-card ${state === "done" ? "" : pConfig.tint} p-2.5 transition-colors shadow-sm hover-elevate ${sConfig.cardRing} ${state === "done" ? "opacity-60" : ""}`}
       data-testid={`bo-card-${task.id}`}
     >
       <div className="flex items-start gap-2">
@@ -244,7 +244,7 @@ function Timeline({ thread }: { thread: ThreadData }) {
   );
 }
 
-function TaskDetailDialog({ taskId, onClose }: { taskId: string; onClose: () => void }) {
+function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string; open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const [note, setNote] = useState("");
   const [question, setQuestion] = useState("");
@@ -254,6 +254,8 @@ function TaskDetailDialog({ taskId, onClose }: { taskId: string; onClose: () => 
   const { data: thread, isLoading } = useQuery<ThreadData>({
     queryKey: threadKey,
     queryFn: () => apiRequest("GET", `/api/back-office/tasks/${taskId}/thread`).then(r => r.json()),
+    enabled: open && !!taskId,
+    refetchInterval: open ? 10000 : false,
   });
 
   const invalidate = () => {
@@ -298,14 +300,14 @@ function TaskDetailDialog({ taskId, onClose }: { taskId: string; onClose: () => 
   const StateIcon = sConfig.icon;
 
   return (
-    <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden max-h-[88vh] flex flex-col" data-testid="dialog-bo-detail">
+    <>
       {isLoading || !task ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin mr-2" /> <span className="text-sm">Načítavam...</span>
         </div>
       ) : (
         <>
-          <div className={`px-5 py-4 border-b ${sConfig.headBg}`}>
+          <div className={`pl-5 pr-12 py-4 border-b ${sConfig.headBg}`}>
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-semibold leading-snug pr-6">{task.title}</h3>
               <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-semibold shrink-0 ${sConfig.badge}`}>
@@ -452,7 +454,24 @@ function TaskDetailDialog({ taskId, onClose }: { taskId: string; onClose: () => 
           </ScrollArea>
         </>
       )}
-    </DialogContent>
+    </>
+  );
+}
+
+export function BackOfficeTaskDrawer({ taskId, open, onClose, elevated = false }: { taskId: string | null; open: boolean; onClose: () => void; elevated?: boolean }) {
+  return (
+    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent
+        side="right"
+        hideOverlay={elevated}
+        onCloseAutoFocus={elevated ? (e) => e.preventDefault() : undefined}
+        className={`w-full sm:max-w-xl p-0 gap-0 overflow-hidden flex flex-col ${elevated ? "z-[10020]" : ""}`}
+        data-testid="drawer-bo-detail"
+      >
+        <SheetTitle className="sr-only">Detail úlohy</SheetTitle>
+        {open && taskId && <BackOfficeTaskDetailContent taskId={taskId} open={open} onClose={onClose} />}
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -462,7 +481,7 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
   const { data: rawTasks = [], isLoading } = useQuery<BOTask[]>({
     queryKey: ["/api/back-office/tasks", country],
     queryFn: () => apiRequest("GET", `/api/back-office/tasks${country ? `?country=${country}` : ""}`).then(r => r.json()),
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   });
 
   const grouped: Record<BOState, BOTask[]> = { received: [], in_progress: [], waiting_agent: [], done: [] };
@@ -550,9 +569,11 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
         </div>
       </div>
 
-      <Dialog open={!!selectedTaskId} onOpenChange={(o) => { if (!o) setSelectedTaskId(null); }}>
-        {selectedTaskId && <TaskDetailDialog taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />}
-      </Dialog>
+      <BackOfficeTaskDrawer
+        taskId={selectedTaskId}
+        open={!!selectedTaskId}
+        onClose={() => setSelectedTaskId(null)}
+      />
     </div>
   );
 }
