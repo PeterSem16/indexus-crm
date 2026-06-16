@@ -9750,10 +9750,10 @@ export default function AgentWorkspacePage() {
                           })();
                           const afterHoursLabel = (() => {
                             if (!isAfterHours || !queue.afterHoursAction) return null;
-                            if (queue.afterHoursAction === "voicemail") return queue.afterHoursVoicemailBoxName ? `Voicemail → ${queue.afterHoursVoicemailBoxName}` : "Voicemail";
-                            if (queue.afterHoursAction === "hangup") return "Zavesiť";
-                            if (queue.afterHoursAction === "transfer") return queue.afterHoursTarget ? `Presmerovat → ${queue.afterHoursTarget}` : "Presmerovat";
-                            if (queue.afterHoursAction === "queue") return queue.afterHoursTarget ? `Fronta → ${queue.afterHoursTarget}` : "Iná fronta";
+                            if (queue.afterHoursAction === "voicemail") return queue.afterHoursVoicemailBoxName ? `${t.agentSession.afterHoursVoicemail} → ${queue.afterHoursVoicemailBoxName}` : t.agentSession.afterHoursVoicemail;
+                            if (queue.afterHoursAction === "hangup") return t.agentSession.afterHoursHangup;
+                            if (queue.afterHoursAction === "transfer") return queue.afterHoursTarget ? `${t.agentSession.afterHoursTransfer} → ${queue.afterHoursTarget}` : t.agentSession.afterHoursTransfer;
+                            if (queue.afterHoursAction === "queue") return queue.afterHoursTarget ? `${t.agentSession.afterHoursQueue} → ${queue.afterHoursTarget}` : t.agentSession.afterHoursOtherQueue;
                             return queue.afterHoursAction;
                           })();
                           return (
@@ -9780,7 +9780,7 @@ export default function AgentWorkspacePage() {
                                 {isAfterHours && (
                                   <div className="flex items-center gap-1 mt-1">
                                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400">
-                                      mimo pracovných hodín
+                                      {t.agentSession.afterHoursBadge}
                                     </span>
                                     {afterHoursLabel && (
                                       <span className="text-[10px] truncate text-amber-700 dark:text-amber-500">{afterHoursLabel}</span>
@@ -9858,8 +9858,8 @@ export default function AgentWorkspacePage() {
                       <ClipboardList className="h-3.5 w-3.5" style={{ color: loginBackOffice ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">Back Office agenda</p>
-                      <p className="text-[10px] text-muted-foreground">Úlohy z automatizácií Status Listu</p>
+                      <p className="text-sm font-semibold">{t.agentSession.backOfficeAgendaTitle}</p>
+                      <p className="text-[10px] text-muted-foreground">{t.agentSession.backOfficeAgendaSubtitle}</p>
                     </div>
                     <div className="rounded flex items-center justify-center" style={{ width: 18, height: 18, background: loginBackOffice ? "hsl(var(--primary))" : "transparent", border: `2px solid ${loginBackOffice ? "hsl(var(--primary))" : "hsl(var(--border))"}` }}>
                       {loginBackOffice && <Check className="h-2.5 w-2.5 text-white" />}
@@ -9867,7 +9867,7 @@ export default function AgentWorkspacePage() {
                   </div>
                   {loginBackOffice && (
                     <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 pl-9">
-                      ⚠ V BO režime nie si dostupný pre prichádzajúce hovory
+                      ⚠ {t.agentSession.backOfficeModeWarning}
                     </p>
                   )}
                 </div>
