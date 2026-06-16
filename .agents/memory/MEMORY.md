@@ -1,3 +1,4 @@
 - [MS365 cross-origin OAuth handoff](ms365-cross-origin-oauth.md) — dev login routes through prod's only registered callback, hands back a signed one-time token; DBs aren't shared.
 - [Prod schema migrations](prod-schema-migrations.md) — new schema columns must be added to the server/index.ts startup ALTER...IF NOT EXISTS block; prod deploy (git pull+build+pm2 restart) does NOT run db:push.
 - [Custom queryFn must check res.ok](query-fn-ok-check.md) — inline fetch().then(r=>r.json()) without an ok-check stores error JSON as success data and crashes .map/.filter (prod-only).
+- [Back Office country segmentation](back-office-country-filter.md) — BO agenda filters by worker's first country; tasks inherit contact country (often null/variant), so null-country tasks must be a shared bucket or they vanish.

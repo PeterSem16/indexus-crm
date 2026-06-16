@@ -27460,13 +27460,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   // Get Back Office tasks for current user
   app.get("/api/back-office/tasks", requireAuth, async (req, res) => {
     try {
-      const userId = req.session.user!.id;
-      const { country, scope } = req.query;
-      const conditions: any[] = [
-        eq(tasks.tags, sql`tasks.tags @> ARRAY['back_office']::text[]`),
-      ];
-      if (country) conditions.push(eq(tasks.country, country as string));
-      if (scope === "mine") conditions.push(eq(tasks.assignedUserId, userId));
+      const { country } = req.query;
+      // Country segmentation: when a country is supplied, return tasks for that country
+      // PLUS tasks that have no country set, so country-less back-office tasks are never
+      // silently lost. Comparison is case/whitespace-insensitive to tolerate format drift
+      // (e.g. "sk" vs "SK ") between the contact's stored country and the worker's country.
+      const countryFilter = (typeof country === "string" && country.trim())
+        ? sql` AND (${tasks.country} IS NULL OR upper(trim(${tasks.country})) = upper(trim(${country})))`
+        : sql``;
 
       const raw = await db.select({
         task: tasks,
@@ -27474,7 +27475,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       })
         .from(tasks)
         .leftJoin(taskBackOfficeConfirmations, eq(taskBackOfficeConfirmations.taskId, tasks.id))
-        .where(sql`${tasks.tags} @> ARRAY['back_office']::text[]${country ? sql` AND ${tasks.country} = ${country}` : sql``}`)
+        .where(sql`${tasks.tags} @> ARRAY['back_office']::text[]${countryFilter}`)
         .orderBy(tasks.dueDate);
 
       res.json(raw);

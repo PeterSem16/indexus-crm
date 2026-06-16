@@ -256,6 +256,8 @@ const SL: Record<string, Record<string, string>> = {
   itemHiddenBadge: { sk: "Skryté", en: "Hidden" },
   tplLabel:        { sk: "Šablóny", en: "Templates" },
   tplHint:         { sk: "Kliknutím vložíte šablónu — text môžete ďalej upraviť.", en: "Click to apply a template — you can still edit the text." },
+  boTag:           { sk: "Back Office", en: "Back Office", cs: "Back Office", hu: "Back Office", ro: "Back Office", it: "Back Office", de: "Back Office" },
+  boRouteHint:     { sk: "Táto úloha sa zobrazí v agende Back Office.", en: "This task will appear in the Back Office agenda.", cs: "Tento úkol se zobrazí v agendě Back Office.", hu: "Ez a feladat megjelenik a Back Office listában.", ro: "Această sarcină va apărea în agenda Back Office.", it: "Questo compito apparirà nell'agenda Back Office.", de: "Diese Aufgabe erscheint in der Back-Office-Agenda." },
   prDescLbl:       { sk: "Popis priority", en: "Priority description" },
   fctHospitalPh:   { sk: "Vyberte nemocnicu", en: "Select hospital" },
   fctClinicPh:     { sk: "Vyberte kliniku", en: "Select clinic" },
@@ -724,28 +726,105 @@ const PRIORITY_OPTIONS = [
   { value: "urgent", slKey: "pr_urgent", descSk: "Kritické — vyžaduje okamžitú pozornosť.", descEn: "Critical — requires immediate attention." },
 ];
 
-const TASK_TEMPLATES = [
-  {
-    id: "data_fix",
-    labelSk: "Oprava dát klienta", labelEn: "Fix client data",
-    body: "Skontroluj a oprav údaje klienta {{customer.name}} (ID {{customer.id}}, tel. {{customer.phone}}).\nKampaň: {{campaign.name}}.\nČo treba opraviť: ",
-  },
-  {
-    id: "callback",
-    labelSk: "Spätné volanie", labelEn: "Call back",
-    body: "Zavolaj späť klientovi {{customer.name}} na číslo {{customer.phone}}.\nDôvod: ",
-  },
-  {
-    id: "doc_check",
-    labelSk: "Kontrola dokumentov", labelEn: "Document check",
-    body: "Skontroluj dokumentáciu klienta {{customer.name}} (ID {{customer.id}}).\nNemocnica: {{hospital.name}}, Klinika: {{clinic.name}}.\nPoznámka: ",
-  },
-  {
-    id: "general",
-    labelSk: "Všeobecná úloha (všetky údaje)", labelEn: "General task (all data)",
-    body: "Klient: {{customer.name}}\nID klienta: {{customer.id}}\nTelefón: {{customer.phone}}\nNemocnica: {{hospital.name}}\nKlinika: {{clinic.name}}\nKampaň: {{campaign.name}}\nAgent: {{agent.name}}\n\nÚloha: ",
-  },
+type TplLocale = "sk" | "en" | "cs" | "hu" | "ro" | "it" | "de";
+const TPL_LOCALES: TplLocale[] = ["sk", "en", "cs", "hu", "ro", "it", "de"];
+function tplLocale(locale: string): TplLocale {
+  return (TPL_LOCALES.includes(locale as TplLocale) ? locale : "sk") as TplLocale;
+}
+
+// Localized field labels used to compose template bodies (and the variable-token row).
+const TPL_FIELD_LABELS: Record<string, Record<TplLocale, string>> = {
+  customerName: { sk: "Klient", en: "Client", cs: "Klient", hu: "Ügyfél", ro: "Client", it: "Cliente", de: "Kunde" },
+  customerId:   { sk: "ID klienta", en: "Client ID", cs: "ID klienta", hu: "Ügyfél-azonosító", ro: "ID client", it: "ID cliente", de: "Kunden-ID" },
+  phone:        { sk: "Telefón", en: "Phone", cs: "Telefon", hu: "Telefon", ro: "Telefon", it: "Telefono", de: "Telefon" },
+  email:        { sk: "E-mail", en: "Email", cs: "E-mail", hu: "E-mail", ro: "E-mail", it: "Email", de: "E-Mail" },
+  hospital:     { sk: "Nemocnica", en: "Hospital", cs: "Nemocnice", hu: "Kórház", ro: "Spital", it: "Ospedale", de: "Krankenhaus" },
+  clinic:       { sk: "Klinika", en: "Clinic", cs: "Klinika", hu: "Klinika", ro: "Clinică", it: "Clinica", de: "Klinik" },
+  collaborator: { sk: "Spolupracovník", en: "Collaborator", cs: "Spolupracovník", hu: "Munkatárs", ro: "Colaborator", it: "Collaboratore", de: "Mitarbeiter" },
+  campaign:     { sk: "Kampaň", en: "Campaign", cs: "Kampaň", hu: "Kampány", ro: "Campanie", it: "Campagna", de: "Kampagne" },
+  agent:        { sk: "Agent", en: "Agent", cs: "Agent", hu: "Ügynök", ro: "Agent", it: "Agente", de: "Agent" },
+};
+
+// Maps a field key to the runtime token resolved server-side on task creation.
+const TPL_FIELD_TOKEN: Record<string, string> = {
+  customerName: "{{customer.name}}",
+  customerId: "{{customer.id}}",
+  phone: "{{customer.phone}}",
+  email: "{{customer.email}}",
+  hospital: "{{hospital.name}}",
+  clinic: "{{clinic.name}}",
+  collaborator: "{{customer.name}}",
+  campaign: "{{campaign.name}}",
+  agent: "{{agent.name}}",
+};
+
+// Trailing instruction line for each template.
+const TPL_PROMPTS: Record<string, Record<TplLocale, string>> = {
+  fix:     { sk: "Čo treba opraviť:", en: "What to fix:", cs: "Co opravit:", hu: "Mit kell javítani:", ro: "Ce trebuie corectat:", it: "Cosa correggere:", de: "Was korrigieren:" },
+  reason:  { sk: "Dôvod:", en: "Reason:", cs: "Důvod:", hu: "Indok:", ro: "Motiv:", it: "Motivo:", de: "Grund:" },
+  note:    { sk: "Poznámka:", en: "Note:", cs: "Poznámka:", hu: "Megjegyzés:", ro: "Notă:", it: "Nota:", de: "Notiz:" },
+  task:    { sk: "Úloha:", en: "Task:", cs: "Úkol:", hu: "Feladat:", ro: "Sarcină:", it: "Compito:", de: "Aufgabe:" },
+  update:  { sk: "Čo aktualizovať:", en: "What to update:", cs: "Co aktualizovat:", hu: "Mit kell frissíteni:", ro: "Ce trebuie actualizat:", it: "Cosa aggiornare:", de: "Was aktualisieren:" },
+  contact: { sk: "Dôvod kontaktu:", en: "Reason for contact:", cs: "Důvod kontaktu:", hu: "Kapcsolatfelvétel oka:", ro: "Motivul contactării:", it: "Motivo del contatto:", de: "Kontaktgrund:" },
+};
+
+type TplEntity = "customer" | "hospital" | "clinic" | "collaborator" | "general";
+const TPL_ENTITY_ORDER: TplEntity[] = ["customer", "hospital", "clinic", "collaborator", "general"];
+const TPL_ENTITY_LABELS: Record<TplEntity, Record<TplLocale, string>> = {
+  customer:     { sk: "Klient", en: "Customer", cs: "Klient", hu: "Ügyfél", ro: "Client", it: "Cliente", de: "Kunde" },
+  hospital:     { sk: "Nemocnica", en: "Hospital", cs: "Nemocnice", hu: "Kórház", ro: "Spital", it: "Ospedale", de: "Krankenhaus" },
+  clinic:       { sk: "Klinika", en: "Clinic", cs: "Klinika", hu: "Klinika", ro: "Clinică", it: "Clinica", de: "Klinik" },
+  collaborator: { sk: "Spolupracovník", en: "Collaborator", cs: "Spolupracovník", hu: "Munkatárs", ro: "Colaborator", it: "Collaboratore", de: "Mitarbeiter" },
+  general:      { sk: "Všeobecné", en: "General", cs: "Obecné", hu: "Általános", ro: "General", it: "Generale", de: "Allgemein" },
+};
+
+type TaskTemplateDef = {
+  id: string;
+  entity: TplEntity;
+  label: Record<TplLocale, string>;
+  fields: string[];
+  prompt: keyof typeof TPL_PROMPTS;
+};
+
+const TASK_TEMPLATES: TaskTemplateDef[] = [
+  // CUSTOMER
+  { id: "cust_data_fix", entity: "customer", fields: ["customerName", "customerId", "phone"], prompt: "fix",
+    label: { sk: "Oprava dát klienta", en: "Fix client data", cs: "Oprava dat klienta", hu: "Ügyféladatok javítása", ro: "Corectare date client", it: "Correzione dati cliente", de: "Kundendaten korrigieren" } },
+  { id: "cust_callback", entity: "customer", fields: ["customerName", "phone"], prompt: "reason",
+    label: { sk: "Spätné volanie", en: "Call back", cs: "Zpětné volání", hu: "Visszahívás", ro: "Apel invers", it: "Richiamare", de: "Rückruf" } },
+  { id: "cust_doc_check", entity: "customer", fields: ["customerName", "customerId", "hospital", "clinic"], prompt: "note",
+    label: { sk: "Kontrola dokumentov", en: "Document check", cs: "Kontrola dokumentů", hu: "Dokumentumok ellenőrzése", ro: "Verificare documente", it: "Controllo documenti", de: "Dokumentenprüfung" } },
+  // HOSPITAL
+  { id: "hosp_contact", entity: "hospital", fields: ["hospital", "customerName", "phone"], prompt: "contact",
+    label: { sk: "Kontaktovať nemocnicu", en: "Contact hospital", cs: "Kontaktovat nemocnici", hu: "Kórház megkeresése", ro: "Contactare spital", it: "Contattare ospedale", de: "Krankenhaus kontaktieren" } },
+  { id: "hosp_update", entity: "hospital", fields: ["hospital"], prompt: "update",
+    label: { sk: "Aktualizovať údaje nemocnice", en: "Update hospital info", cs: "Aktualizovat údaje nemocnice", hu: "Kórház adatainak frissítése", ro: "Actualizare date spital", it: "Aggiornare dati ospedale", de: "Krankenhausdaten aktualisieren" } },
+  // CLINIC
+  { id: "clinic_contact", entity: "clinic", fields: ["clinic", "customerName", "phone"], prompt: "contact",
+    label: { sk: "Kontaktovať kliniku", en: "Contact clinic", cs: "Kontaktovat kliniku", hu: "Klinika megkeresése", ro: "Contactare clinică", it: "Contattare clinica", de: "Klinik kontaktieren" } },
+  { id: "clinic_update", entity: "clinic", fields: ["clinic"], prompt: "update",
+    label: { sk: "Aktualizovať údaje kliniky", en: "Update clinic info", cs: "Aktualizovat údaje kliniky", hu: "Klinika adatainak frissítése", ro: "Actualizare date clinică", it: "Aggiornare dati clinica", de: "Klinikdaten aktualisieren" } },
+  // COLLABORATOR
+  { id: "collab_contact", entity: "collaborator", fields: ["collaborator", "phone"], prompt: "contact",
+    label: { sk: "Kontaktovať spolupracovníka", en: "Contact collaborator", cs: "Kontaktovat spolupracovníka", hu: "Munkatárs megkeresése", ro: "Contactare colaborator", it: "Contattare collaboratore", de: "Mitarbeiter kontaktieren" } },
+  { id: "collab_followup", entity: "collaborator", fields: ["collaborator", "campaign"], prompt: "note",
+    label: { sk: "Follow-up spolupráce", en: "Collaboration follow-up", cs: "Follow-up spolupráce", hu: "Együttműködés utánkövetése", ro: "Urmărire colaborare", it: "Follow-up collaborazione", de: "Zusammenarbeit-Follow-up" } },
+  // GENERAL
+  { id: "general", entity: "general", fields: ["customerName", "customerId", "phone", "hospital", "clinic", "campaign", "agent"], prompt: "task",
+    label: { sk: "Všeobecná úloha (všetky údaje)", en: "General task (all data)", cs: "Obecný úkol (všechna data)", hu: "Általános feladat (összes adat)", ro: "Sarcină generală (toate datele)", it: "Compito generale (tutti i dati)", de: "Allgemeine Aufgabe (alle Daten)" } },
 ];
+
+function getTemplateLabel(tpl: TaskTemplateDef, locale: string): string {
+  const l = tplLocale(locale);
+  return tpl.label[l] ?? tpl.label.en;
+}
+
+function buildTemplateBody(tpl: TaskTemplateDef, locale: string): string {
+  const l = tplLocale(locale);
+  const lines = tpl.fields.map(fk => `${TPL_FIELD_LABELS[fk][l]}: ${TPL_FIELD_TOKEN[fk]}`);
+  const prompt = TPL_PROMPTS[tpl.prompt][l] ?? TPL_PROMPTS[tpl.prompt].en;
+  return `${lines.join("\n")}\n\n${prompt} `;
+}
 
 const CONFIRM_TYPE_OPTIONS = [
   { value: "checkbox", slKey: "ct_checkbox", icon: SquareCheck },
@@ -1234,6 +1313,7 @@ function AutomationForm({
                             <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: g.color || '#3b82f6' }} />
                             {g.name}
                             {g.members?.length > 0 && <span className="text-muted-foreground text-[10px]">({g.members.length})</span>}
+                            {g.isBackOffice && <span className="ml-1 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 uppercase tracking-wide shrink-0">{sl("boTag", locale)}</span>}
                           </div>
                         </SelectItem>
                       ))}
@@ -1258,6 +1338,14 @@ function AutomationForm({
                 </SelectContent>
               </Select>
             )}
+            {form.actionType === "assign_task" && (() => {
+              const selG = taskGroupsList.find((g: any) => g.id === form.taskGroupId);
+              return selG?.isBackOffice ? (
+                <p className="mt-1 text-[10px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                  <Info className="h-3 w-3 shrink-0" />{sl("boRouteHint", locale)}
+                </p>
+              ) : null;
+            })()}
           </div>
         )}
 
@@ -1265,24 +1353,33 @@ function AutomationForm({
           <>
             <div className="col-span-2">
               <Label className="text-xs mb-1 block">{sl("taskDescLbl", locale)}</Label>
-              <div className="flex flex-wrap items-center gap-1 mb-1.5">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mr-0.5">{sl("tplLabel", locale)}:</span>
-                {TASK_TEMPLATES.map(tpl => (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 cursor-pointer transition-colors"
-                    onClick={() => {
-                      setForm(f => ({ ...f, taskDescription: tpl.body }));
-                      requestAnimationFrame(() => taskDescRef.current?.focus());
-                    }}
-                    title={sl("tplHint", locale)}
-                    data-testid={`btn-task-template-${tpl.id}`}
-                  >
-                    <FileText className="h-3 w-3" />
-                    {locale === "sk" ? tpl.labelSk : tpl.labelEn}
-                  </button>
-                ))}
+              <div className="space-y-1 mb-1.5">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{sl("tplLabel", locale)}:</span>
+                {TPL_ENTITY_ORDER.map(entity => {
+                  const tpls = TASK_TEMPLATES.filter(t => t.entity === entity);
+                  if (tpls.length === 0) return null;
+                  return (
+                    <div key={entity} className="flex flex-wrap items-center gap-1">
+                      <span className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-wider min-w-[68px] mr-0.5">{TPL_ENTITY_LABELS[entity][tplLocale(locale)]}</span>
+                      {tpls.map(tpl => (
+                        <button
+                          key={tpl.id}
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 cursor-pointer transition-colors"
+                          onClick={() => {
+                            setForm(f => ({ ...f, taskDescription: buildTemplateBody(tpl, locale) }));
+                            requestAnimationFrame(() => taskDescRef.current?.focus());
+                          }}
+                          title={sl("tplHint", locale)}
+                          data-testid={`btn-task-template-${tpl.id}`}
+                        >
+                          <FileText className="h-3 w-3" />
+                          {getTemplateLabel(tpl, locale)}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
               <Textarea
                 id="automation-task-desc"
@@ -1294,14 +1391,14 @@ function AutomationForm({
               />
               <div className="flex flex-wrap gap-1 mt-1">
                 {[
-                  { token: "{{customer.name}}", label: "Meno zákazníka" },
-                  { token: "{{customer.phone}}", label: "Telefón" },
-                  { token: "{{customer.id}}", label: "ID zákazníka" },
-                  { token: "{{campaign.name}}", label: "Kampaň" },
-                  { token: "{{agent.name}}", label: "Agent" },
-                  { token: "{{hospital.name}}", label: "Nemocnica" },
-                  { token: "{{clinic.name}}", label: "Klinika" },
-                ].map(({ token, label }) => (
+                  { token: "{{customer.name}}", fk: "customerName" },
+                  { token: "{{customer.phone}}", fk: "phone" },
+                  { token: "{{customer.id}}", fk: "customerId" },
+                  { token: "{{campaign.name}}", fk: "campaign" },
+                  { token: "{{agent.name}}", fk: "agent" },
+                  { token: "{{hospital.name}}", fk: "hospital" },
+                  { token: "{{clinic.name}}", fk: "clinic" },
+                ].map(({ token, fk }) => (
                   <button
                     key={token}
                     type="button"
@@ -1325,7 +1422,7 @@ function AutomationForm({
                     }}
                     title={token}
                   >
-                    {label}
+                    {TPL_FIELD_LABELS[fk][tplLocale(locale)]}
                   </button>
                 ))}
               </div>
