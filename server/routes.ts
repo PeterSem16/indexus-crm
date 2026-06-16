@@ -27497,7 +27497,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .where(sql`${tasks.tags} @> ARRAY['back_office']::text[]${countryFilter}`)
         .orderBy(tasks.dueDate);
 
-      res.json(raw);
+      // Attach a minimal customer projection (id + name) so Kanban cards / agenda can show
+      // WHICH customer a task concerns. Customers are loaded only for the already-authorized
+      // tasks above — task access never widens customer access.
+      const custIds = Array.from(new Set(raw.map(r => r.task.customerId).filter(Boolean))) as string[];
+      const custList = custIds.length
+        ? await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName })
+            .from(customers).where(inArray(customers.id, custIds))
+        : [];
+      const custMap = new Map(custList.map(c => [c.id, c]));
+      const enriched = raw.map(r => ({ ...r, customer: r.task.customerId ? (custMap.get(r.task.customerId) || null) : null }));
+
+      res.json(enriched);
     } catch (error) {
       console.error("Failed to fetch BO tasks:", error);
       res.status(500).json({ error: "Failed to fetch BO tasks" });
@@ -27589,7 +27600,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const [c] = await db.select({ id: users.id, fullName: users.fullName }).from(users).where(eq(users.id, task.createdByUserId)).limit(1);
         creator = c || null;
       }
-      res.json({ task, comments, confirmation: confirmation || null, creator });
+      // Full customer context so the back-office agent knows WHO the task is about and can
+      // open the contact. Loaded only for this already-authorized task (minimal PII projection).
+      let customer: any = null;
+      if (task.customerId) {
+        const [cu] = await db.select({
+          id: customers.id, firstName: customers.firstName, lastName: customers.lastName,
+          phone: customers.phone, mobile: customers.mobile, email: customers.email,
+          country: customers.country, city: customers.city,
+        }).from(customers).where(eq(customers.id, task.customerId)).limit(1);
+        customer = cu || null;
+      }
+      res.json({ task, comments, confirmation: confirmation || null, creator, customer });
     } catch (error) {
       console.error("Failed to fetch BO task thread:", error);
       res.status(500).json({ error: "Failed to fetch thread" });
@@ -27684,6 +27706,17 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const rows = await db.select().from(tasks)
         .where(sql`${tasks.createdByUserId} = ${userId} AND ${tasks.boState} = 'waiting_agent' AND ${tasks.tags} @> ARRAY['back_office']::text[]`)
         .orderBy(desc(tasks.updatedAt));
+      // Batch-load customer context so the calling agent knows WHICH customer each
+      // back-office question is about (these tasks were created by this agent).
+      const custIds = Array.from(new Set(rows.map(t => t.customerId).filter(Boolean))) as string[];
+      const custList = custIds.length
+        ? await db.select({
+            id: customers.id, firstName: customers.firstName, lastName: customers.lastName,
+            phone: customers.phone, mobile: customers.mobile, email: customers.email,
+            country: customers.country, city: customers.city,
+          }).from(customers).where(inArray(customers.id, custIds))
+        : [];
+      const custMap = new Map(custList.map(c => [c.id, c]));
       const result: any[] = [];
       for (const task of rows) {
         const [q] = await db.select({
@@ -27698,7 +27731,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           .where(sql`${taskComments.taskId} = ${task.id} AND ${taskComments.kind} = 'question'`)
           .orderBy(desc(taskComments.createdAt))
           .limit(1);
-        result.push({ task, question: q || null });
+        result.push({ task, question: q || null, customer: task.customerId ? (custMap.get(task.customerId) || null) : null });
       }
       res.json(result);
     } catch (error) {

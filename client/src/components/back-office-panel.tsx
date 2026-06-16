@@ -7,15 +7,40 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/i18n";
+import type { Translations } from "@/i18n";
 import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, Loader2, Check,
   ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
-  MessageSquare, CornerDownLeft, Activity, Send, Hand, Calendar,
+  MessageSquare, CornerDownLeft, Activity, Send, Hand, User, Phone, Mail,
+  MapPin, ExternalLink,
 } from "lucide-react";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
-import { sk } from "date-fns/locale";
+import { enUS, sk, cs, hu, ro, it, de } from "date-fns/locale";
+
+const DF_LOCALES: Record<string, typeof enUS> = { en: enUS, sk, cs, hu, ro, it, de };
+function dfLocale(locale: string) {
+  return DF_LOCALES[locale] || enUS;
+}
 
 type BOState = "received" | "in_progress" | "waiting_agent" | "done";
+
+type BOCustomerMini = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+} | null;
+
+type BOCustomerFull = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  mobile: string | null;
+  email: string | null;
+  country: string | null;
+  city: string | null;
+} | null;
 
 type BOTask = {
   task: {
@@ -41,6 +66,7 @@ type BOTask = {
     confirmedByUserId: string;
     note: string | null;
   } | null;
+  customer?: BOCustomerMini;
 };
 
 type ThreadComment = {
@@ -58,17 +84,17 @@ type ThreadData = {
   comments: ThreadComment[];
   confirmation: BOTask["confirmation"];
   creator: { id: string; fullName: string } | null;
+  customer?: BOCustomerFull;
 };
 
-const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: string; border: string; tint: string }> = {
-  urgent: { label: "Urgentná", color: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500", border: "border-l-rose-500", tint: "bg-rose-50/50 dark:bg-rose-950/20" },
-  high: { label: "Vysoká", color: "text-orange-500 dark:text-orange-400", dot: "bg-orange-500", border: "border-l-orange-500", tint: "bg-orange-50/40 dark:bg-orange-950/15" },
-  medium: { label: "Stredná", color: "text-yellow-600 dark:text-yellow-400", dot: "bg-yellow-500", border: "border-l-yellow-500", tint: "" },
-  low: { label: "Nízka", color: "text-muted-foreground", dot: "bg-muted-foreground", border: "border-l-slate-300 dark:border-l-slate-600", tint: "" },
+const PRIORITY_CONFIG: Record<string, { color: string; dot: string; border: string; tint: string }> = {
+  urgent: { color: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500", border: "border-l-rose-500", tint: "bg-rose-50/50 dark:bg-rose-950/20" },
+  high: { color: "text-orange-500 dark:text-orange-400", dot: "bg-orange-500", border: "border-l-orange-500", tint: "bg-orange-50/40 dark:bg-orange-950/15" },
+  medium: { color: "text-yellow-600 dark:text-yellow-400", dot: "bg-yellow-500", border: "border-l-yellow-500", tint: "" },
+  low: { color: "text-muted-foreground", dot: "bg-muted-foreground", border: "border-l-slate-300 dark:border-l-slate-600", tint: "" },
 };
 
 const STATE_CONFIG: Record<BOState, {
-  label: string;
   icon: typeof Inbox;
   headBg: string;
   headText: string;
@@ -77,7 +103,6 @@ const STATE_CONFIG: Record<BOState, {
   badge: string;
 }> = {
   received: {
-    label: "Prijaté",
     icon: Inbox,
     headBg: "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900",
     headText: "text-blue-700 dark:text-blue-300",
@@ -86,7 +111,6 @@ const STATE_CONFIG: Record<BOState, {
     badge: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300",
   },
   in_progress: {
-    label: "Vo vybavovaní",
     icon: Wrench,
     headBg: "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900",
     headText: "text-amber-700 dark:text-amber-300",
@@ -95,7 +119,6 @@ const STATE_CONFIG: Record<BOState, {
     badge: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300",
   },
   waiting_agent: {
-    label: "Čaká na agenta",
     icon: HelpCircle,
     headBg: "bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900",
     headText: "text-purple-700 dark:text-purple-300",
@@ -104,7 +127,6 @@ const STATE_CONFIG: Record<BOState, {
     badge: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300",
   },
   done: {
-    label: "Vybavené",
     icon: CheckCircle2,
     headBg: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900",
     headText: "text-emerald-700 dark:text-emerald-300",
@@ -114,7 +136,46 @@ const STATE_CONFIG: Record<BOState, {
   },
 };
 
+const KIND_CONFIG: Record<ThreadComment["kind"], { icon: typeof MessageSquare; color: string; ring: string }> = {
+  comment: { icon: MessageSquare, color: "text-muted-foreground", ring: "bg-muted-foreground/40" },
+  question: { icon: HelpCircle, color: "text-purple-600 dark:text-purple-400", ring: "bg-purple-500" },
+  answer: { icon: CornerDownLeft, color: "text-blue-600 dark:text-blue-400", ring: "bg-blue-500" },
+  state_change: { icon: Activity, color: "text-emerald-600 dark:text-emerald-400", ring: "bg-emerald-500" },
+};
+
 const COLUMN_ORDER: BOState[] = ["received", "in_progress", "waiting_agent", "done"];
+
+function priorityLabel(t: Translations, p: string): string {
+  switch (p) {
+    case "urgent": return t.backOffice.priorityUrgent;
+    case "high": return t.backOffice.priorityHigh;
+    case "low": return t.backOffice.priorityLow;
+    default: return t.backOffice.priorityMedium;
+  }
+}
+
+function stateLabel(t: Translations, s: BOState): string {
+  switch (s) {
+    case "received": return t.backOffice.stateReceived;
+    case "in_progress": return t.backOffice.stateInProgress;
+    case "waiting_agent": return t.backOffice.stateWaitingAgent;
+    case "done": return t.backOffice.stateDone;
+  }
+}
+
+function kindLabel(t: Translations, k: ThreadComment["kind"]): string {
+  switch (k) {
+    case "comment": return t.backOffice.kindComment;
+    case "question": return t.backOffice.kindQuestion;
+    case "answer": return t.backOffice.kindAnswer;
+    case "state_change": return t.backOffice.kindStateChange;
+  }
+}
+
+function customerName(c: { firstName: string | null; lastName: string | null } | null | undefined): string {
+  if (!c) return "";
+  return [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
+}
 
 function effectiveState(item: BOTask): BOState {
   if (item.task.status === "completed" || item.confirmation) return "done";
@@ -123,22 +184,36 @@ function effectiveState(item: BOTask): BOState {
   return "received";
 }
 
-function getDueBadge(dueDate: string | null, isDone: boolean) {
+function getDueBadge(dueDate: string | null, isDone: boolean): { key: "overdue" | "today" | "tomorrow"; className: string } | null {
   if (isDone) return null;
   if (!dueDate) return null;
   const d = new Date(dueDate);
-  if (isPast(d)) return { label: "Po termíne", className: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400" };
-  if (isToday(d)) return { label: "Dnes", className: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" };
-  if (isTomorrow(d)) return { label: "Zajtra", className: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" };
+  if (isPast(d)) return { key: "overdue", className: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400" };
+  if (isToday(d)) return { key: "today", className: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" };
+  if (isTomorrow(d)) return { key: "tomorrow", className: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" };
   return null;
 }
 
+function openContact(customerId: string) {
+  window.open(`/customers?view=${encodeURIComponent(customerId)}`, "_blank", "noopener,noreferrer");
+}
+
+function stateChangeContent(t: Translations, content: string): string {
+  switch (content) {
+    case "Úloha vybavená": return t.backOffice.eventTaskConfirmed;
+    case "Prevzaté do vybavovania": return t.backOffice.eventTaskClaimed;
+    default: return content;
+  }
+}
+
 function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
+  const { t } = useI18n();
   const { task } = item;
   const state = effectiveState(item);
   const pConfig = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
   const dueBadge = getDueBadge(task.dueDate, state === "done");
   const sConfig = STATE_CONFIG[state];
+  const custName = customerName(item.customer);
 
   return (
     <button
@@ -156,17 +231,25 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
             </span>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
           </div>
+          {custName && (
+            <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground min-w-0" data-testid={`text-bo-customer-${task.id}`}>
+              <User className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate">{custName}</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             {state === "waiting_agent" && (
               <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
-                <HelpCircle className="h-2.5 w-2.5" /> otázka
+                <HelpCircle className="h-2.5 w-2.5" /> {t.backOffice.questionBadge}
               </span>
             )}
             {task.country && (
               <span className="text-[10px] text-muted-foreground font-medium">{task.country}</span>
             )}
             {dueBadge && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${dueBadge.className}`}>{dueBadge.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${dueBadge.className}`}>
+                {dueBadge.key === "overdue" ? t.backOffice.dueOverdue : dueBadge.key === "today" ? t.backOffice.dueToday : t.backOffice.dueTomorrow}
+              </span>
             )}
             {task.dueDate && state !== "done" && (
               <span className="text-[10px] text-muted-foreground">{format(new Date(task.dueDate), "d.M. HH:mm")}</span>
@@ -181,14 +264,8 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
   );
 }
 
-const KIND_CONFIG: Record<ThreadComment["kind"], { icon: typeof MessageSquare; label: string; color: string; ring: string }> = {
-  comment: { icon: MessageSquare, label: "Poznámka", color: "text-muted-foreground", ring: "bg-muted-foreground/40" },
-  question: { icon: HelpCircle, label: "Otázka pre agenta", color: "text-purple-600 dark:text-purple-400", ring: "bg-purple-500" },
-  answer: { icon: CornerDownLeft, label: "Odpoveď agenta", color: "text-blue-600 dark:text-blue-400", ring: "bg-blue-500" },
-  state_change: { icon: Activity, label: "Zmena stavu", color: "text-emerald-600 dark:text-emerald-400", ring: "bg-emerald-500" },
-};
-
 function Timeline({ thread }: { thread: ThreadData }) {
+  const { t } = useI18n();
   const events: { id: string; ring: string; icon: typeof MessageSquare; color: string; label: string; who: string | null; at: string; content?: string }[] = [];
 
   events.push({
@@ -196,7 +273,7 @@ function Timeline({ thread }: { thread: ThreadData }) {
     ring: "bg-blue-500",
     icon: Inbox,
     color: "text-blue-600 dark:text-blue-400",
-    label: "Úloha prijatá",
+    label: t.backOffice.taskReceivedEvent,
     who: thread.creator?.fullName ?? null,
     at: thread.task.createdAt,
   });
@@ -208,10 +285,10 @@ function Timeline({ thread }: { thread: ThreadData }) {
       ring: cfg.ring,
       icon: cfg.icon,
       color: cfg.color,
-      label: cfg.label,
+      label: kindLabel(t, c.kind),
       who: c.userName,
       at: c.createdAt,
-      content: c.content,
+      content: c.kind === "state_change" ? stateChangeContent(t, c.content) : c.content,
     });
   }
 
@@ -244,7 +321,55 @@ function Timeline({ thread }: { thread: ThreadData }) {
   );
 }
 
+function CustomerCard({ customer }: { customer: NonNullable<BOCustomerFull> }) {
+  const { t } = useI18n();
+  const name = customerName(customer);
+  const phone = customer.phone || customer.mobile;
+  const location = [customer.city, customer.country].filter(Boolean).join(", ");
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3" data-testid="bo-customer-card">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t.backOffice.customerLabel}</div>
+          <div className="text-sm font-medium flex items-center gap-1.5" data-testid="text-bo-customer-name">
+            <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="truncate">{name || "—"}</span>
+          </div>
+          <div className="mt-1.5 space-y-1 text-xs text-muted-foreground">
+            {phone && (
+              <a href={`tel:${phone}`} className="flex items-center gap-1.5 hover:text-foreground" data-testid="link-bo-customer-phone">
+                <Phone className="h-3 w-3 shrink-0" /> <span className="truncate">{phone}</span>
+              </a>
+            )}
+            {customer.email && (
+              <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-foreground" data-testid="link-bo-customer-email">
+                <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{customer.email}</span>
+              </a>
+            )}
+            {location && (
+              <div className="flex items-center gap-1.5" data-testid="text-bo-customer-location">
+                <MapPin className="h-3 w-3 shrink-0" /> <span className="truncate">{location}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 shrink-0"
+          onClick={() => openContact(customer.id)}
+          data-testid="btn-bo-open-contact"
+        >
+          <ExternalLink className="h-3.5 w-3.5" /> {t.backOffice.openContact}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string; open: boolean; onClose: () => void }) {
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const [note, setNote] = useState("");
   const [question, setQuestion] = useState("");
@@ -265,20 +390,20 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
 
   const claimMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/claim`).then(r => r.json()),
-    onSuccess: () => { invalidate(); toast({ title: "Úloha prevzatá" }); },
-    onError: () => toast({ title: "Chyba pri preberaní", variant: "destructive" }),
+    onSuccess: () => { invalidate(); toast({ title: t.backOffice.toastClaimed }); },
+    onError: () => toast({ title: t.backOffice.toastClaimError, variant: "destructive" }),
   });
 
   const noteMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/note`, { content: note }).then(r => r.json()),
-    onSuccess: () => { setNote(""); invalidate(); toast({ title: "Poznámka pridaná" }); },
-    onError: () => toast({ title: "Chyba pri ukladaní poznámky", variant: "destructive" }),
+    onSuccess: () => { setNote(""); invalidate(); toast({ title: t.backOffice.toastNoteAdded }); },
+    onError: () => toast({ title: t.backOffice.toastNoteError, variant: "destructive" }),
   });
 
   const askMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/ask-agent`, { content: question }).then(r => r.json()),
-    onSuccess: () => { setQuestion(""); invalidate(); toast({ title: "Otázka odoslaná agentovi" }); },
-    onError: () => toast({ title: "Chyba pri odosielaní otázky", variant: "destructive" }),
+    onSuccess: () => { setQuestion(""); invalidate(); toast({ title: t.backOffice.toastQuestionSent }); },
+    onError: () => toast({ title: t.backOffice.toastQuestionError, variant: "destructive" }),
   });
 
   const confirmMutation = useMutation({
@@ -286,8 +411,8 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
       note: confirmNote || null,
       statusListItemId: thread?.task.relatedEntityId || null,
     }).then(r => r.json()),
-    onSuccess: () => { invalidate(); toast({ title: "Úloha vybavená" }); onClose(); },
-    onError: () => toast({ title: "Chyba pri potvrdzovaní", variant: "destructive" }),
+    onSuccess: () => { invalidate(); toast({ title: t.backOffice.toastConfirmed }); onClose(); },
+    onError: () => toast({ title: t.backOffice.toastConfirmError, variant: "destructive" }),
   });
 
   const task = thread?.task;
@@ -303,7 +428,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
     <>
       {isLoading || !task ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin mr-2" /> <span className="text-sm">Načítavam...</span>
+          <Loader2 className="h-5 w-5 animate-spin mr-2" /> <span className="text-sm">{t.backOffice.loading}</span>
         </div>
       ) : (
         <>
@@ -311,12 +436,12 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-semibold leading-snug pr-6">{task.title}</h3>
               <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-semibold shrink-0 ${sConfig.badge}`}>
-                <StateIcon className="h-3.5 w-3.5" /> {sConfig.label}
+                <StateIcon className="h-3.5 w-3.5" /> {stateLabel(t, state)}
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5 mt-2.5">
               <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 ${pConfig.color}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${pConfig.dot}`} /> {pConfig.label} priorita
+                <span className={`w-1.5 h-1.5 rounded-full ${pConfig.dot}`} /> {priorityLabel(t, task.priority)} {t.backOffice.prioritySuffix}
               </span>
               {task.country && (
                 <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 text-muted-foreground">
@@ -327,7 +452,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                 <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 text-muted-foreground">
                   <Clock className="h-3 w-3" /> {format(new Date(task.dueDate), "d.M.yyyy HH:mm")}
                   {state !== "done" && isPast(new Date(task.dueDate)) && (
-                    <span className="text-rose-500 font-semibold ml-1">(pred {formatDistanceToNow(new Date(task.dueDate), { locale: sk })})</span>
+                    <span className="text-rose-500 font-semibold ml-1">({formatDistanceToNow(new Date(task.dueDate), { addSuffix: true, locale: dfLocale(locale) })})</span>
                   )}
                 </span>
               )}
@@ -336,9 +461,15 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
 
           <ScrollArea className="flex-1 min-h-0">
             <div className="p-5 space-y-5">
+              {thread?.customer ? (
+                <CustomerCard customer={thread.customer} />
+              ) : (
+                <div className="text-xs text-muted-foreground italic" data-testid="text-bo-no-customer">{t.backOffice.noCustomer}</div>
+              )}
+
               {task.description && (
                 <div>
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Popis úlohy</div>
+                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.descriptionLabel}</div>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{task.description}</p>
                 </div>
               )}
@@ -352,7 +483,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
               )}
 
               <div>
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2.5">História a komunikácia</div>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2.5">{t.backOffice.historyLabel}</div>
                 {thread && <Timeline thread={thread} />}
               </div>
 
@@ -367,17 +498,17 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                       data-testid="btn-bo-claim"
                     >
                       {claimMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hand className="h-4 w-4" />}
-                      Prevziať do vybavovania
+                      {t.backOffice.claimButton}
                     </Button>
                   )}
 
                   <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
                     <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                      <MessageSquare className="h-3.5 w-3.5" /> Interná poznámka
+                      <MessageSquare className="h-3.5 w-3.5" /> {t.backOffice.internalNote}
                     </div>
                     <Textarea
                       className="text-xs min-h-[56px] resize-none bg-background"
-                      placeholder="Pridať poznámku k úlohe..."
+                      placeholder={t.backOffice.notePlaceholder}
                       value={note}
                       onChange={e => setNote(e.target.value)}
                       data-testid="textarea-bo-note"
@@ -389,18 +520,18 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                       data-testid="btn-bo-add-note"
                     >
                       {noteMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
-                      Pridať poznámku
+                      {t.backOffice.addNote}
                     </Button>
                   </div>
 
                   <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20 p-3 space-y-2">
                     <div className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
-                      <HelpCircle className="h-3.5 w-3.5" /> Otázka pre agenta
+                      <HelpCircle className="h-3.5 w-3.5" /> {t.backOffice.questionForAgent}
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Otázka sa zobrazí agentovi, ktorý úlohu vytvoril. Úloha prejde do stavu „Čaká na agenta".</p>
+                    <p className="text-[10px] text-muted-foreground">{t.backOffice.questionHint}</p>
                     <Textarea
                       className="text-xs min-h-[56px] resize-none bg-background"
-                      placeholder="Napíšte otázku agentovi..."
+                      placeholder={t.backOffice.questionPlaceholder}
                       value={question}
                       onChange={e => setQuestion(e.target.value)}
                       data-testid="textarea-bo-question"
@@ -412,17 +543,17 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                       data-testid="btn-bo-ask-agent"
                     >
                       {askMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                      Odoslať otázku agentovi
+                      {t.backOffice.sendQuestion}
                     </Button>
                   </div>
 
                   <div className="rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 space-y-2">
                     <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide flex items-center gap-1.5">
-                      <Check className="h-3.5 w-3.5" /> Vybavenie úlohy
+                      <Check className="h-3.5 w-3.5" /> {t.backOffice.taskCompletion}
                     </div>
                     <Textarea
                       className="text-xs min-h-[56px] resize-none bg-background"
-                      placeholder="Poznámka k vybaveniu (voliteľné)..."
+                      placeholder={t.backOffice.confirmNotePlaceholder}
                       value={confirmNote}
                       onChange={e => setConfirmNote(e.target.value)}
                       data-testid="textarea-bo-confirm-note"
@@ -434,7 +565,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                       data-testid="btn-bo-confirm-task"
                     >
                       {confirmMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      Potvrdiť vybavenie úlohy
+                      {t.backOffice.confirmButton}
                     </Button>
                   </div>
                 </div>
@@ -444,7 +575,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                 <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Úloha vybavená</span>
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{t.backOffice.taskCompleted}</span>
                     <span className="text-[10px] text-muted-foreground ml-auto">{format(new Date(thread.confirmation.confirmedAt), "d.M.yyyy HH:mm")}</span>
                   </div>
                   {thread.confirmation.note && <p className="text-xs text-muted-foreground mt-1.5">{thread.confirmation.note}</p>}
@@ -459,6 +590,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
 }
 
 export function BackOfficeTaskDrawer({ taskId, open, onClose, elevated = false }: { taskId: string | null; open: boolean; onClose: () => void; elevated?: boolean }) {
+  const { t } = useI18n();
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent
@@ -468,7 +600,7 @@ export function BackOfficeTaskDrawer({ taskId, open, onClose, elevated = false }
         className={`w-full sm:max-w-xl p-0 gap-0 overflow-hidden flex flex-col ${elevated ? "z-[10020]" : ""}`}
         data-testid="drawer-bo-detail"
       >
-        <SheetTitle className="sr-only">Detail úlohy</SheetTitle>
+        <SheetTitle className="sr-only">{t.backOffice.taskDetail}</SheetTitle>
         {open && taskId && <BackOfficeTaskDetailContent taskId={taskId} open={open} onClose={onClose} />}
       </SheetContent>
     </Sheet>
@@ -476,6 +608,7 @@ export function BackOfficeTaskDrawer({ taskId, open, onClose, elevated = false }
 }
 
 export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowInbound, onToggleAllowInbound }: { country?: string; fullScreen?: boolean; hasInboundQueues?: boolean; allowInbound?: boolean; onToggleAllowInbound?: () => void }) {
+  const { t } = useI18n();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const { data: rawTasks = [], isLoading } = useQuery<BOTask[]>({
@@ -494,15 +627,15 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
     <div className="flex flex-col h-full w-full overflow-hidden">
       <div className="px-4 py-2.5 border-b flex items-center gap-3 shrink-0">
         <ClipboardList className="h-4 w-4 text-primary shrink-0" />
-        <span className="text-sm font-semibold">Back Office</span>
+        <span className="text-sm font-semibold">{t.backOffice.title}</span>
         {urgentCount > 0 && (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500 text-white">
-            <AlertTriangle className="h-3 w-3" /> {urgentCount} urgent
+            <AlertTriangle className="h-3 w-3" /> {urgentCount} {t.backOffice.urgentLabel}
           </span>
         )}
         {waitingCount > 0 && (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500 text-white">
-            <HelpCircle className="h-3 w-3" /> {waitingCount} čaká na agenta
+            <HelpCircle className="h-3 w-3" /> {waitingCount} {t.backOffice.waitingLabel}
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -522,7 +655,7 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
                 )}
               </span>
               <PhoneIncoming className="h-3 w-3 shrink-0" />
-              Prijímať inbound hovory
+              {t.backOffice.acceptInbound}
             </button>
           )}
         </div>
@@ -538,7 +671,7 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
               <div key={stateKey} className="flex flex-col w-72 shrink-0 h-full" data-testid={`bo-column-${stateKey}`}>
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-t-lg border ${cfg.headBg}`}>
                   <Icon className={`h-4 w-4 ${cfg.headText}`} />
-                  <span className={`text-xs font-semibold ${cfg.headText}`}>{cfg.label}</span>
+                  <span className={`text-xs font-semibold ${cfg.headText}`}>{stateLabel(t, stateKey)}</span>
                   <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${cfg.badge}`} data-testid={`count-${stateKey}`}>
                     {items.length}
                   </span>
@@ -553,7 +686,7 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
                       ) : items.length === 0 ? (
                         <div className="text-center py-8 px-2">
                           <Icon className="h-6 w-6 mx-auto text-muted-foreground/25 mb-1.5" />
-                          <p className="text-[11px] text-muted-foreground/70">Žiadne úlohy</p>
+                          <p className="text-[11px] text-muted-foreground/70">{t.backOffice.noTasks}</p>
                         </div>
                       ) : (
                         items.map(item => (
