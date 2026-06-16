@@ -69,7 +69,7 @@ type BOTask = {
   customer?: BOCustomerMini;
 };
 
-type ThreadComment = {
+export type ThreadComment = {
   id: string;
   userId: string;
   content: string;
@@ -79,7 +79,7 @@ type ThreadComment = {
   userName: string | null;
 };
 
-type ThreadData = {
+export type ThreadData = {
   task: BOTask["task"];
   comments: ThreadComment[];
   confirmation: BOTask["confirmation"];
@@ -267,7 +267,7 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
   );
 }
 
-function Timeline({ thread }: { thread: ThreadData }) {
+export function Timeline({ thread }: { thread: ThreadData }) {
   const { t } = useI18n();
   const events: { id: string; ring: string; icon: typeof MessageSquare; color: string; label: string; who: string | null; at: string; content?: string }[] = [];
 

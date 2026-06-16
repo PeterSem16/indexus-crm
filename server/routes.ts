@@ -27770,6 +27770,37 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           }).from(customers).where(inArray(customers.id, custIds))
         : [];
       const custMap = new Map(custList.map(c => [c.id, c]));
+      // Full comment thread (history) + creator names so the agent drawer can render the
+      // SAME timeline as Back Office. Batch-loaded for the tasks already authorized above
+      // (they were created by this agent), so this never widens data access.
+      const taskIds = rows.map(t => t.id);
+      const allComments = taskIds.length
+        ? await db.select({
+            taskId: taskComments.taskId,
+            id: taskComments.id,
+            userId: taskComments.userId,
+            content: taskComments.content,
+            kind: taskComments.kind,
+            metadata: taskComments.metadata,
+            createdAt: taskComments.createdAt,
+            userName: users.fullName,
+          })
+            .from(taskComments)
+            .leftJoin(users, eq(users.id, taskComments.userId))
+            .where(inArray(taskComments.taskId, taskIds))
+            .orderBy(taskComments.createdAt)
+        : [];
+      const commentsByTask = new Map<string, any[]>();
+      for (const c of allComments) {
+        const arr = commentsByTask.get(c.taskId) || [];
+        arr.push(c);
+        commentsByTask.set(c.taskId, arr);
+      }
+      const creatorIds = Array.from(new Set(rows.map(t => t.createdByUserId).filter(Boolean))) as string[];
+      const creatorList = creatorIds.length
+        ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, creatorIds))
+        : [];
+      const creatorMap = new Map(creatorList.map(c => [c.id, c]));
       const result: any[] = [];
       for (const task of rows) {
         const [q] = await db.select({
@@ -27786,7 +27817,16 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           .limit(1);
         const customer = task.customerId ? (custMap.get(task.customerId) || null) : null;
         const { reason, clinic, hospital } = await enrichBoTask(task, customer);
-        result.push({ task, question: q || null, customer, reason, clinic, hospital });
+        result.push({
+          task,
+          question: q || null,
+          customer,
+          comments: commentsByTask.get(task.id) || [],
+          creator: task.createdByUserId ? (creatorMap.get(task.createdByUserId) || null) : null,
+          reason,
+          clinic,
+          hospital,
+        });
       }
       res.json(result);
     } catch (error) {

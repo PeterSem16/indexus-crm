@@ -9,14 +9,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
 import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope } from "lucide-react";
 import { format } from "date-fns";
+import { Timeline, type ThreadData, type ThreadComment } from "./back-office-panel";
 
 type BOQuestion = {
-  task: {
-    id: string;
-    title: string;
-    description: string | null;
-    country: string | null;
-  };
+  task: ThreadData["task"];
   question: {
     id: string;
     content: string;
@@ -24,16 +20,9 @@ type BOQuestion = {
     userId: string;
     userName: string | null;
   } | null;
-  customer?: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    phone: string | null;
-    mobile: string | null;
-    email: string | null;
-    country: string | null;
-    city: string | null;
-  } | null;
+  customer?: ThreadData["customer"];
+  comments?: ThreadComment[];
+  creator?: ThreadData["creator"];
   reason?: string | null;
   clinic?: { id: string; name: string } | null;
   hospital?: { id: string; name: string } | null;
@@ -104,17 +93,25 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
   const custName = customerName(item.customer);
   const phone = item.customer?.phone || item.customer?.mobile;
   const location = [item.customer?.city, item.customer?.country].filter(Boolean).join(", ");
+  const thread: ThreadData = {
+    task: item.task,
+    comments: item.comments ?? [],
+    confirmation: null,
+    creator: item.creator ?? null,
+    customer: item.customer ?? undefined,
+    reason: item.reason ?? null,
+    clinic: item.clinic ?? null,
+    hospital: item.hospital ?? null,
+  };
 
   return (
     <>
       <div className="pl-5 pr-12 py-4 border-b bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-sm font-semibold leading-snug pr-6 text-purple-900 dark:text-purple-100" data-testid="text-bo-question-detail-title">{item.task.title}</h3>
-          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-semibold shrink-0 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
-            <HelpCircle className="h-3.5 w-3.5" /> {t.backOffice.kindQuestion}
+        <h3 className="text-sm font-semibold leading-snug text-purple-900 dark:text-purple-100 break-words" data-testid="text-bo-question-detail-title">{item.task.title}</h3>
+        <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+            <HelpCircle className="h-3 w-3" /> {t.backOffice.kindQuestion}
           </span>
-        </div>
-        <div className="flex flex-wrap gap-1.5 mt-2.5">
           {item.task.country && (
             <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 text-muted-foreground">
               <Building2 className="h-3 w-3" /> {item.task.country}
@@ -225,6 +222,11 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
             </div>
           )}
 
+          <div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2.5" data-testid="text-bo-question-history-label">{t.backOffice.historyLabel}</div>
+            <Timeline thread={thread} />
+          </div>
+
           <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/10 p-3 space-y-2">
             <div className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
               <CornerDownLeft className="h-3.5 w-3.5" /> {t.backOffice.answerButton}
@@ -292,7 +294,7 @@ export function BackOfficeQuestionsInbox() {
       <Sheet open={!!activeItem} onOpenChange={(o) => { if (!o) setOpenTaskId(null); }}>
         <SheetContent
           side="right"
-          className="w-full sm:max-w-md p-0 gap-0 overflow-hidden flex flex-col"
+          className="w-full sm:max-w-lg p-0 gap-0 overflow-hidden flex flex-col"
           data-testid="drawer-bo-question-detail"
         >
           <SheetTitle className="sr-only">{activeItem?.task.title || t.backOffice.questionsInboxTitle}</SheetTitle>
