@@ -30615,9 +30615,20 @@ Rules:
   // Track online users and their WebSocket connections
   const onlineUsers = new Map<string, { ws: WebSocket; user: SafeUser }>();
   
-  // Create WebSocket server
-  const wss = new WebSocketServer({ server: httpServer, path: "/ws/chat" });
+  // Create WebSocket server (noServer mode to avoid intercepting Vite HMR /vite-hmr upgrades)
+  const wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
   console.log("[Chat] WebSocket server initialized on path /ws/chat");
+
+  httpServer.on("upgrade", (req: any, socket: any, head: any) => {
+    const pathname = req.url?.split("?")[0];
+    if (pathname === "/ws/chat") {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+      (socket as any).end = () => {};
+      (socket as any).destroy = () => {};
+    }
+  });
   
   wss.on("connection", (ws, req) => {
     console.log("[Chat] New WebSocket connection from:", req.socket.remoteAddress);
