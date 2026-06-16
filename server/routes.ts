@@ -27541,6 +27541,58 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     return boUserCountries(req).includes(tc);
   }
 
+  // Enrich an already-authorized back-office task for human-readable display:
+  //  - reason: the status-list item LABEL behind relatedEntityId (so the UI shows a
+  //    readable "Reason for contact" instead of "status_list_item" + a raw UUID).
+  //  - clinic/hospital: context from the customer's latest potential case (id+name).
+  //  - resolves/strips any leftover {{...}} placeholders in task.description in place
+  //    (older tasks were stored before variable resolution worked, so raw braces must
+  //    never reach the UI).
+  // All lookups are keyed off the passed task/customer — this NEVER widens data access.
+  async function enrichBoTask(
+    task: any,
+    customer: any,
+  ): Promise<{ reason: string | null; clinic: { id: string; name: string } | null; hospital: { id: string; name: string } | null }> {
+    let reason: string | null = null;
+    if (task?.relatedEntityType === "status_list_item" && task?.relatedEntityId) {
+      try {
+        const [sl] = await db.select({ label: campaignStatusListItems.label })
+          .from(campaignStatusListItems)
+          .where(eq(campaignStatusListItems.id, task.relatedEntityId)).limit(1);
+        reason = sl?.label ?? null;
+      } catch { /* non-fatal */ }
+    }
+    let clinic: { id: string; name: string } | null = null;
+    let hospital: { id: string; name: string } | null = null;
+    if (task?.customerId) {
+      try {
+        const pcRes: any = await db.execute<any>(sql`
+          SELECT c.id AS clinic_id, c.name AS clinic_name, h.id AS hospital_id, h.name AS hospital_name
+          FROM potential_cases pc
+          LEFT JOIN clinics c ON c.id = pc.clinic_id
+          LEFT JOIN hospitals h ON h.id = pc.hospital_id
+          WHERE pc.customer_id = ${task.customerId}
+          ORDER BY pc.created_at DESC LIMIT 1`);
+        const row = pcRes?.rows?.[0];
+        if (row?.clinic_id) clinic = { id: row.clinic_id, name: row.clinic_name };
+        if (row?.hospital_id) hospital = { id: row.hospital_id, name: row.hospital_name };
+      } catch { /* non-fatal */ }
+    }
+    if (task?.description && task.description.includes("{{")) {
+      const custName = customer ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim() : "";
+      task.description = task.description
+        .replace(/\{\{customer\.name\}\}/g, custName)
+        .replace(/\{\{customer\.id\}\}/g, customer?.id || "")
+        .replace(/\{\{customer\.phone\}\}/g, customer?.phone || customer?.mobile || "")
+        .replace(/\{\{customer\.email\}\}/g, customer?.email || "")
+        .replace(/\{\{clinic\.name\}\}/g, clinic?.name || "")
+        .replace(/\{\{hospital\.name\}\}/g, hospital?.name || "")
+        .replace(/\{\{(reason|status\.label)\}\}/g, reason || "")
+        .replace(/\{\{[^}]+\}\}/g, "");
+    }
+    return { reason, clinic, hospital };
+  }
+
   app.post("/api/back-office/tasks/:taskId/confirm", requireAuth, async (req, res) => {
     try {
       const { taskId } = req.params;
@@ -27611,7 +27663,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }).from(customers).where(eq(customers.id, task.customerId)).limit(1);
         customer = cu || null;
       }
-      res.json({ task, comments, confirmation: confirmation || null, creator, customer });
+      const { reason, clinic, hospital } = await enrichBoTask(task, customer);
+      res.json({ task, comments, confirmation: confirmation || null, creator, customer, reason, clinic, hospital });
     } catch (error) {
       console.error("Failed to fetch BO task thread:", error);
       res.status(500).json({ error: "Failed to fetch thread" });
@@ -27731,7 +27784,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           .where(sql`${taskComments.taskId} = ${task.id} AND ${taskComments.kind} = 'question'`)
           .orderBy(desc(taskComments.createdAt))
           .limit(1);
-        result.push({ task, question: q || null, customer: task.customerId ? (custMap.get(task.customerId) || null) : null });
+        const customer = task.customerId ? (custMap.get(task.customerId) || null) : null;
+        const { reason, clinic, hospital } = await enrichBoTask(task, customer);
+        result.push({ task, question: q || null, customer, reason, clinic, hospital });
       }
       res.json(result);
     } catch (error) {
@@ -27859,6 +27914,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 : ccRow.customerId) ?? null)
             : null;
 
+          // For tasks.customerId we must store the CUSTOMER id specifically. contactId
+          // above resolves to a clinic/hospital/collaborator id for non-customer
+          // contacts — writing that into the customer column would create an invalid
+          // reference (broken deep-link / wrong customer lookup). Null is safe.
+          const taskCustomerId: string | null = ccRow?.customerId ?? null;
+
           // Execute automations for this item (F8)
           const automations = await db.select()
             .from(campaignStatusListAutomations)
@@ -27908,25 +27969,28 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               if (resolvedDescription.includes("{{")) {
                 try {
                   // Fetch contact data
-                  const [contactRow] = await db.execute<any>(
+                  // NOTE: node-postgres db.execute() returns { rows: [...] }, NOT an
+                  // iterable — array-destructuring it threw "not iterable", which the
+                  // catch below swallowed, leaving raw {{...}} placeholders unresolved.
+                  const contactRes: any = await db.execute<any>(
                     sql`SELECT first_name, last_name, email, phone FROM customers WHERE id = ${contactId} LIMIT 1`
                   );
-                  const contact = contactRow as any;
+                  const contact = contactRes?.rows?.[0] as any;
                   // Fetch campaign data
-                  const [campaignRow] = await db.execute<any>(
+                  const campaignRes: any = await db.execute<any>(
                     sql`SELECT name FROM campaigns WHERE id = ${campaignId} LIMIT 1`
                   );
-                  const campaign = campaignRow as any;
+                  const campaign = campaignRes?.rows?.[0] as any;
                   // Fetch agent data
-                  const [agentRow] = await db.execute<any>(
+                  const agentRes: any = await db.execute<any>(
                     sql`SELECT full_name, username FROM users WHERE id = ${userId} LIMIT 1`
                   );
-                  const agent = agentRow as any;
+                  const agent = agentRes?.rows?.[0] as any;
                   // Fetch clinic/hospital from potential_cases
-                  const [pcRow] = await db.execute<any>(
+                  const pcRes: any = await db.execute<any>(
                     sql`SELECT h.name AS hospital_name, c.name AS clinic_name FROM potential_cases pc LEFT JOIN hospitals h ON h.id = pc.hospital_id LEFT JOIN clinics c ON c.id = pc.clinic_id WHERE pc.customer_id = ${contactId} ORDER BY pc.created_at DESC LIMIT 1`
                   );
-                  const pc = pcRow as any;
+                  const pc = pcRes?.rows?.[0] as any;
                   resolvedDescription = resolvedDescription
                     .replace(/\{\{customer\.name\}\}/g, contact ? `${contact.first_name || ""} ${contact.last_name || ""}`.trim() : "")
                     .replace(/\{\{customer\.id\}\}/g, contactId ?? "")
@@ -27935,7 +27999,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                     .replace(/\{\{campaign\.name\}\}/g, campaign?.name || "")
                     .replace(/\{\{agent\.name\}\}/g, agent ? (agent.full_name || agent.username || "") : "")
                     .replace(/\{\{clinic\.name\}\}/g, pc?.clinic_name || "")
-                    .replace(/\{\{hospital\.name\}\}/g, pc?.hospital_name || "");
+                    .replace(/\{\{hospital\.name\}\}/g, pc?.hospital_name || "")
+                    .replace(/\{\{(reason|status\.label)\}\}/g, slItem?.label || "");
                 } catch (varErr) {
                   console.error("[assign_task] Variable resolution error:", varErr);
                 }
@@ -27968,6 +28033,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                     assignedUserId: assigneeId,
                     createdByUserId: userId,
                     tags: taskTags,
+                    customerId: taskCustomerId,
                     relatedEntityType: "status_list_item",
                     relatedEntityId: itemId,
                     country: contactCountry ?? null,
@@ -28022,6 +28088,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                     assignedUserId: assigneeId,
                     createdByUserId: userId,
                     tags: legacyTags,
+                    customerId: taskCustomerId,
                     relatedEntityType: "status_list_item",
                     relatedEntityId: itemId,
                     country: contactCountry ?? null,
@@ -28038,6 +28105,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                   assignedUserId: userId,
                   createdByUserId: userId,
                   tags: [...taskTags, "back_office"],
+                  customerId: taskCustomerId,
                   relatedEntityType: "status_list_item",
                   relatedEntityId: itemId,
                   country: contactCountry ?? null,

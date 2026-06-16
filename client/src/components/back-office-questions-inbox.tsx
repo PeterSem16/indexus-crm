@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
-import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare } from "lucide-react";
+import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope } from "lucide-react";
 import { format } from "date-fns";
 
 type BOQuestion = {
@@ -34,6 +34,9 @@ type BOQuestion = {
     country: string | null;
     city: string | null;
   } | null;
+  reason?: string | null;
+  clinic?: { id: string; name: string } | null;
+  hospital?: { id: string; name: string } | null;
 };
 
 function customerName(c: { firstName: string | null; lastName: string | null } | null | undefined): string {
@@ -167,6 +170,40 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
             </div>
           ) : (
             <div className="text-xs text-muted-foreground italic" data-testid="text-bo-question-no-customer">{t.backOffice.noCustomer}</div>
+          )}
+
+          {(item.reason || item.clinic || item.hospital) && (
+            <div className="space-y-2">
+              {item.reason && (
+                <div>
+                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.reasonLabel}</div>
+                  <span
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+                    data-testid="badge-bo-question-reason"
+                  >
+                    <Zap className="h-3 w-3" /> {item.reason}
+                  </span>
+                </div>
+              )}
+              {(item.clinic || item.hospital) && (
+                <div className="flex flex-col gap-1 text-xs">
+                  {item.clinic && (
+                    <div className="flex items-center gap-1.5" data-testid="text-bo-question-clinic">
+                      <Stethoscope className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span className="text-muted-foreground">{t.backOffice.clinicLabel}:</span>
+                      <span className="truncate font-medium">{item.clinic.name}</span>
+                    </div>
+                  )}
+                  {item.hospital && (
+                    <div className="flex items-center gap-1.5" data-testid="text-bo-question-hospital">
+                      <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span className="text-muted-foreground">{t.backOffice.hospitalLabel}:</span>
+                      <span className="truncate font-medium">{item.hospital.name}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {item.task.description && (

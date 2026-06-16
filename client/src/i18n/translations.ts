@@ -39,6 +39,9 @@ export interface Translations {
     kindStateChange: string;
     taskReceivedEvent: string;
     descriptionLabel: string;
+    reasonLabel: string;
+    clinicLabel: string;
+    hospitalLabel: string;
     historyLabel: string;
     customerLabel: string;
     openContact: string;
@@ -6514,6 +6517,9 @@ export const translations: Record<Locale, Translations> = {
       kindStateChange: 'Status change',
       taskReceivedEvent: 'Task received',
       descriptionLabel: 'Task description',
+      reasonLabel: 'Reason for contact',
+      clinicLabel: 'Clinic',
+      hospitalLabel: 'Hospital',
       historyLabel: 'History & communication',
       customerLabel: 'Customer',
       openContact: 'Open contact',
@@ -13041,6 +13047,9 @@ export const translations: Record<Locale, Translations> = {
       kindStateChange: 'Zmena stavu',
       taskReceivedEvent: 'Úloha prijatá',
       descriptionLabel: 'Popis úlohy',
+      reasonLabel: 'Dôvod kontaktu',
+      clinicLabel: 'Ambulancia',
+      hospitalLabel: 'Nemocnica',
       historyLabel: 'História a komunikácia',
       customerLabel: 'Zákazník',
       openContact: 'Otvoriť kontakt',
@@ -19504,6 +19513,9 @@ export const translations: Record<Locale, Translations> = {
       kindStateChange: 'Změna stavu',
       taskReceivedEvent: 'Úkol přijat',
       descriptionLabel: 'Popis úkolu',
+      reasonLabel: 'Důvod kontaktu',
+      clinicLabel: 'Ambulance',
+      hospitalLabel: 'Nemocnice',
       historyLabel: 'Historie a komunikace',
       customerLabel: 'Zákazník',
       openContact: 'Otevřít kontakt',
@@ -25893,6 +25905,9 @@ export const translations: Record<Locale, Translations> = {
       kindStateChange: 'Állapotváltozás',
       taskReceivedEvent: 'Feladat beérkezett',
       descriptionLabel: 'Feladat leírása',
+      reasonLabel: 'Kapcsolatfelvétel oka',
+      clinicLabel: 'Rendelő',
+      hospitalLabel: 'Kórház',
       historyLabel: 'Előzmények és kommunikáció',
       customerLabel: 'Ügyfél',
       openContact: 'Kapcsolat megnyitása',
@@ -32237,6 +32252,9 @@ export const translations: Record<Locale, Translations> = {
       kindStateChange: 'Schimbare de stare',
       taskReceivedEvent: 'Sarcină primită',
       descriptionLabel: 'Descrierea sarcinii',
+      reasonLabel: 'Motivul contactării',
+      clinicLabel: 'Clinică',
+      hospitalLabel: 'Spital',
       historyLabel: 'Istoric și comunicare',
       customerLabel: 'Client',
       openContact: 'Deschide contactul',
@@ -38501,6 +38519,9 @@ export const translations: Record<Locale, Translations> = {
       kindStateChange: 'Cambio di stato',
       taskReceivedEvent: 'Attività ricevuta',
       descriptionLabel: 'Descrizione attività',
+      reasonLabel: 'Motivo del contatto',
+      clinicLabel: 'Ambulatorio',
+      hospitalLabel: 'Ospedale',
       historyLabel: 'Cronologia e comunicazione',
       customerLabel: 'Cliente',
       openContact: 'Apri contatto',
@@ -44767,6 +44788,9 @@ export const translations: Record<Locale, Translations> = {
       kindStateChange: 'Statusänderung',
       taskReceivedEvent: 'Aufgabe eingegangen',
       descriptionLabel: 'Aufgabenbeschreibung',
+      reasonLabel: 'Kontaktgrund',
+      clinicLabel: 'Ambulanz',
+      hospitalLabel: 'Krankenhaus',
       historyLabel: 'Verlauf und Kommunikation',
       customerLabel: 'Kunde',
       openContact: 'Kontakt öffnen',

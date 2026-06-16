@@ -13,7 +13,7 @@ import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, Loader2, Check,
   ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
   MessageSquare, CornerDownLeft, Activity, Send, Hand, User, Phone, Mail,
-  MapPin, ExternalLink,
+  MapPin, ExternalLink, Stethoscope,
 } from "lucide-react";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
 import { enUS, sk, cs, hu, ro, it, de } from "date-fns/locale";
@@ -85,6 +85,9 @@ type ThreadData = {
   confirmation: BOTask["confirmation"];
   creator: { id: string; fullName: string } | null;
   customer?: BOCustomerFull;
+  reason?: string | null;
+  clinic?: { id: string; name: string } | null;
+  hospital?: { id: string; name: string } | null;
 };
 
 const PRIORITY_CONFIG: Record<string, { color: string; dot: string; border: string; tint: string }> = {
@@ -474,11 +477,37 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                 </div>
               )}
 
-              {task.relatedEntityType && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Zap className="h-3.5 w-3.5 text-amber-500" />
-                  <span className="text-muted-foreground">{task.relatedEntityType}</span>
-                  <span className="font-mono text-[11px]">{task.relatedEntityId}</span>
+              {(thread?.reason || thread?.clinic || thread?.hospital) && (
+                <div className="space-y-2">
+                  {thread?.reason && (
+                    <div>
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.reasonLabel}</div>
+                      <span
+                        className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+                        data-testid="badge-bo-reason"
+                      >
+                        <Zap className="h-3 w-3" /> {thread.reason}
+                      </span>
+                    </div>
+                  )}
+                  {(thread?.clinic || thread?.hospital) && (
+                    <div className="flex flex-col gap-1 text-xs">
+                      {thread?.clinic && (
+                        <div className="flex items-center gap-1.5" data-testid="text-bo-clinic">
+                          <Stethoscope className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="text-muted-foreground">{t.backOffice.clinicLabel}:</span>
+                          <span className="truncate font-medium">{thread.clinic.name}</span>
+                        </div>
+                      )}
+                      {thread?.hospital && (
+                        <div className="flex items-center gap-1.5" data-testid="text-bo-hospital">
+                          <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="text-muted-foreground">{t.backOffice.hospitalLabel}:</span>
+                          <span className="truncate font-medium">{thread.hospital.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
