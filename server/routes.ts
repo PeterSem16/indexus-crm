@@ -27655,7 +27655,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
                 const [groupRow] = await db.select().from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
                 if (groupRow) taskTags.push(`group:${groupRow.name}`);
-                taskTags.push(`group_id:${groupId}`, "back_office");
+                taskTags.push(`group_id:${groupId}`);
+                // Only surface in the Nexus Puls → Back Office tab when the group is flagged as back office
+                if (groupRow?.isBackOffice) taskTags.push("back_office");
                 const assignees = groupMembersRows.length > 0 ? groupMembersRows.map(m => m.userId) : [userId];
                 for (const assigneeId of assignees) {
                   await db.insert(tasks).values({
@@ -27686,11 +27688,29 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 }
               } else if (roleName) {
                 // LEGACY ROLE PATH: find all users matching targetRole, assign one task per user
-                const roleUsers = await db.execute<any>(
-                  sql`SELECT id FROM users WHERE role = ${roleName} LIMIT 20`
-                );
-                const roleUserIds: string[] = Array.isArray(roleUsers) && roleUsers.length > 0
-                  ? roleUsers.map((u: any) => u.id)
+                // Resolve assignees from the NEW roles system (user_roles + users.role_id)
+                // with a fallback to the legacy users.role string for backward compatibility
+                // with old saved automations (e.g. "role:back_office", "sys").
+                const roleUsers = await db.execute<any>(sql`
+                  WITH matching_roles AS (
+                    SELECT id, legacy_role FROM roles
+                    WHERE lower(name) = lower(${roleName}) OR legacy_role = ${roleName}
+                  )
+                  SELECT DISTINCT u.id
+                  FROM users u
+                  LEFT JOIN user_roles ur ON ur.user_id = u.id
+                  WHERE u.is_active = true AND (
+                    ur.role_id IN (SELECT id FROM matching_roles)
+                    OR u.role_id IN (SELECT id FROM matching_roles)
+                    OR u.role = ${roleName}
+                    OR u.role IN (SELECT legacy_role FROM matching_roles WHERE legacy_role IS NOT NULL)
+                  )
+                  LIMIT 20
+                `);
+                // node-postgres returns { rows: [...] }; guard for both shapes
+                const roleRows: any[] = (roleUsers as any)?.rows ?? (Array.isArray(roleUsers) ? roleUsers : []);
+                const roleUserIds: string[] = roleRows.length > 0
+                  ? roleRows.map((u: any) => u.id)
                   : [userId]; // fallback to triggering agent if no role users found
                 const legacyTags = [...taskTags, roleName === "back_office" ? "back_office" : roleName];
                 for (const assigneeId of roleUserIds) {

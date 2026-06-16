@@ -7665,6 +7665,7 @@ export const campaignStatusListItems = pgTable("campaign_status_list_items", {
   confirmationType: text("confirmation_type").notNull().default("checkbox"),
   nextStepId: varchar("next_step_id"),
   restrictions: text("restrictions"),
+  isHidden: boolean("is_hidden").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7679,6 +7680,7 @@ export const insertCampaignStatusListItemSchema = createInsertSchema(campaignSta
   confirmationType: z.enum(["checkbox", "radio", "info"]).optional().default("checkbox"),
   nextStepId: z.string().optional().nullable(),
   restrictions: z.string().optional().nullable(),
+  isHidden: z.boolean().optional().default(false),
 });
 export type CampaignStatusListItem = typeof campaignStatusListItems.$inferSelect;
 export type InsertCampaignStatusListItem = z.infer<typeof insertCampaignStatusListItemSchema>;

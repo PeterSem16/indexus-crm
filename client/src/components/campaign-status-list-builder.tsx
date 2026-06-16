@@ -71,6 +71,7 @@ type StatusListItem = {
   confirmationType: string;
   nextStepId: string | null;
   restrictions: string | null;
+  isHidden?: boolean;
   automations: StatusListAutomation[];
   questions: StatusListQuestion[];
 };
@@ -149,7 +150,7 @@ const SL: Record<string, Record<string, string>> = {
   condSubLbl:    { sk: "Podmienka (voliteľné)", en: "Condition (optional)", cs: "Podmínka (volitelné)", hu: "Feltétel (opcionális)", ro: "Condiție (opțional)", it: "Condizione (opzionale)", de: "Bedingung (optional)" },
   tgSelectLbl:   { sk: "Priradiť skupinu alebo rolu", en: "Assign to group or role", cs: "Přiřadit skupině nebo roli", hu: "Csoport vagy szerepkör hozzárendelése", ro: "Atribuire grup sau rol", it: "Assegna a gruppo o ruolo", de: "Gruppe oder Rolle zuweisen" },
   tgGroupsHeader:{ sk: "Skupiny úloh", en: "Task Groups", cs: "Skupiny úkolů", hu: "Feladat csoportok", ro: "Grupuri sarcini", it: "Gruppi di lavoro", de: "Aufgabengruppen" },
-  tgRolesHeader: { sk: "Roly (legacy)", en: "Roles (legacy)", cs: "Role (legacy)", hu: "Szerepkörök (legacy)", ro: "Roluri (legacy)", it: "Ruoli (legacy)", de: "Rollen (legacy)" },
+  tgRolesHeader: { sk: "Roly", en: "Roles", cs: "Role", hu: "Szerepkörök", ro: "Roluri", it: "Ruoli", de: "Rollen" },
   tgNoGroups:    { sk: "Žiadne skupiny", en: "No groups", cs: "Žádné skupiny", hu: "Nincs csoport", ro: "Niciun grup", it: "Nessun gruppo", de: "Keine Gruppen" },
   varPickerLbl:  { sk: "Vložiť premennú", en: "Insert variable", cs: "Vložit proměnnou", hu: "Változó beszúrása", ro: "Inserare variabilă", it: "Inserisci variabile", de: "Variable einfügen" },
   condExtended:  { sk: "Rozšírené", en: "Extended", cs: "Rozšířené", hu: "Bővített", ro: "Extins", it: "Esteso", de: "Erweitert" },
@@ -250,6 +251,14 @@ const SL: Record<string, Record<string, string>> = {
   qDescPh:         { sk: "Krátky popis, nápoveda pre agenta...", en: "Short description, hint for agent...", cs: "Krátký popis, nápověda pro agenta...", hu: "Rövid leírás, súgó az ügynöknek...", ro: "Descriere scurtă, indiciu pentru agent...", it: "Breve descrizione, suggerimento per l'agente...", de: "Kurzbeschreibung, Hinweis für den Agenten..." },
   qFieldTypeLbl:   { sk: "Typ poľa", en: "Field type", cs: "Typ pole", hu: "Mező típusa", ro: "Tip câmp", it: "Tipo di campo", de: "Feldtyp" },
   qHiddenLbl:      { sk: "Skrytá (systémová)", en: "Hidden (system)", cs: "Skrytá (systémová)", hu: "Rejtett (rendszer)", ro: "Ascuns (sistem)", it: "Nascosto (sistema)", de: "Versteckt (System)" },
+  itemHiddenLbl:   { sk: "Skryť krok agentovi", en: "Hide step from agent" },
+  itemHiddenHint:  { sk: "Krok sa nezobrazí v zozname agenta, automatizácie však naďalej fungujú.", en: "The step is hidden from the agent's list, but automations still run." },
+  itemHiddenBadge: { sk: "Skryté", en: "Hidden" },
+  tplLabel:        { sk: "Šablóny", en: "Templates" },
+  tplHint:         { sk: "Kliknutím vložíte šablónu — text môžete ďalej upraviť.", en: "Click to apply a template — you can still edit the text." },
+  prDescLbl:       { sk: "Popis priority", en: "Priority description" },
+  fctHospitalPh:   { sk: "Vyberte nemocnicu", en: "Select hospital" },
+  fctClinicPh:     { sk: "Vyberte kliniku", en: "Select clinic" },
   qSystemAuto:     { sk: "systémová automatizácia", en: "system automation", cs: "systémová automatizace", hu: "rendszerautomatizálás", ro: "automatizare sistem", it: "automazione di sistema", de: "Systemautomatisierung" },
   qGroupDone:      { sk: "Hotovo", en: "Done", cs: "Hotovo", hu: "Kész", ro: "Gata", it: "Fatto", de: "Fertig" },
   ftCheckbox:      { sk: "Zaškrtávacie pole", en: "Checkbox", cs: "Zaškrtávací pole", hu: "Jelölőnégyzet", ro: "Bifă", it: "Casella di controllo", de: "Kontrollkästchen" },
@@ -709,10 +718,33 @@ const DEADLINE_OPTIONS = [
 ];
 
 const PRIORITY_OPTIONS = [
-  { value: "low",    slKey: "pr_low" },
-  { value: "medium", slKey: "pr_medium" },
-  { value: "high",   slKey: "pr_high" },
-  { value: "urgent", slKey: "pr_urgent" },
+  { value: "low",    slKey: "pr_low",    descSk: "Bez časového tlaku — vybaviť, keď bude priestor.", descEn: "No time pressure — handle when there's capacity." },
+  { value: "medium", slKey: "pr_medium", descSk: "Štandardná priorita — vybaviť v bežnom poradí.", descEn: "Standard priority — handle in normal order." },
+  { value: "high",   slKey: "pr_high",   descSk: "Dôležité — vybaviť prednostne ešte dnes.", descEn: "Important — handle with priority today." },
+  { value: "urgent", slKey: "pr_urgent", descSk: "Kritické — vyžaduje okamžitú pozornosť.", descEn: "Critical — requires immediate attention." },
+];
+
+const TASK_TEMPLATES = [
+  {
+    id: "data_fix",
+    labelSk: "Oprava dát klienta", labelEn: "Fix client data",
+    body: "Skontroluj a oprav údaje klienta {{customer.name}} (ID {{customer.id}}, tel. {{customer.phone}}).\nKampaň: {{campaign.name}}.\nČo treba opraviť: ",
+  },
+  {
+    id: "callback",
+    labelSk: "Spätné volanie", labelEn: "Call back",
+    body: "Zavolaj späť klientovi {{customer.name}} na číslo {{customer.phone}}.\nDôvod: ",
+  },
+  {
+    id: "doc_check",
+    labelSk: "Kontrola dokumentov", labelEn: "Document check",
+    body: "Skontroluj dokumentáciu klienta {{customer.name}} (ID {{customer.id}}).\nNemocnica: {{hospital.name}}, Klinika: {{clinic.name}}.\nPoznámka: ",
+  },
+  {
+    id: "general",
+    labelSk: "Všeobecná úloha (všetky údaje)", labelEn: "General task (all data)",
+    body: "Klient: {{customer.name}}\nID klienta: {{customer.id}}\nTelefón: {{customer.phone}}\nNemocnica: {{hospital.name}}\nKlinika: {{clinic.name}}\nKampaň: {{campaign.name}}\nAgent: {{agent.name}}\n\nÚloha: ",
+  },
 ];
 
 const CONFIRM_TYPE_OPTIONS = [
@@ -981,7 +1013,10 @@ function getActionLabel(actionType: string, locale: string): string {
 function getRoleLabel(role: string | null, locale: string): string {
   if (!role) return "—";
   const opt = ROLE_OPTIONS.find(o => o.value === role);
-  return opt ? sl(opt.slKey, locale) : role;
+  if (opt) return sl(opt.slKey, locale);
+  if (role === "sys") return sl("rl_sys", locale);
+  if (role.startsWith("role:")) return role.slice(5);
+  return role;
 }
 
 function AutomationBadge({ automation, groups }: { automation: StatusListAutomation; groups?: any[] }) {
@@ -1070,6 +1105,33 @@ function AutomationForm({
     queryKey: ["/api/task-groups"],
     enabled: form.actionType === "assign_task",
   });
+
+  const { data: rolesList = [] } = useQuery<any[]>({
+    queryKey: ["/api/roles"],
+    enabled: ["assign_task", "send_email_group", "notify_role"].includes(form.actionType),
+  });
+
+  const { data: hospitalsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals"],
+    enabled: form.conditionType === "field_changed_to" && form.fieldChangedKey === "contact.hospital_id",
+  });
+
+  const { data: clinicsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/clinics"],
+    enabled: form.conditionType === "field_changed_to" && form.fieldChangedKey === "contact.clinic_id",
+  });
+
+  const activeRoles = (rolesList as any[]).filter((r: any) => r?.isActive !== false && r?.name);
+  const roleChoices: { value: string; label: string }[] = (() => {
+    const list = activeRoles.length > 0
+      ? activeRoles.map((r: any) => ({ value: `role:${r.name}`, label: r.description ? `${r.name} — ${r.description}` : r.name }))
+      : ROLE_OPTIONS.map(o => ({ value: o.value, label: sl(o.slKey, locale) }));
+    // Keep the currently-saved role selectable even if it's not in the active roles list (legacy automations)
+    if (form.targetRole && !list.some(o => o.value === form.targetRole)) {
+      list.push({ value: form.targetRole, label: getRoleLabel(form.targetRole, locale) });
+    }
+    return list;
+  })();
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -1181,8 +1243,8 @@ function AutomationForm({
                   {taskGroupsList.length === 0 && (
                     <div className="px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{sl("tgRolesHeader", locale)}</div>
                   )}
-                  {ROLE_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs">{sl(opt.slKey, locale)}</SelectItem>
+                  {roleChoices.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1190,8 +1252,8 @@ function AutomationForm({
               <Select value={form.targetRole} onValueChange={v => setForm(f => ({ ...f, targetRole: v }))}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ROLE_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{sl(opt.slKey, locale)}</SelectItem>
+                  {roleChoices.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1203,6 +1265,25 @@ function AutomationForm({
           <>
             <div className="col-span-2">
               <Label className="text-xs mb-1 block">{sl("taskDescLbl", locale)}</Label>
+              <div className="flex flex-wrap items-center gap-1 mb-1.5">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mr-0.5">{sl("tplLabel", locale)}:</span>
+                {TASK_TEMPLATES.map(tpl => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setForm(f => ({ ...f, taskDescription: tpl.body }));
+                      requestAnimationFrame(() => taskDescRef.current?.focus());
+                    }}
+                    title={sl("tplHint", locale)}
+                    data-testid={`btn-task-template-${tpl.id}`}
+                  >
+                    <FileText className="h-3 w-3" />
+                    {locale === "sk" ? tpl.labelSk : tpl.labelEn}
+                  </button>
+                ))}
+              </div>
               <Textarea
                 id="automation-task-desc"
                 ref={taskDescRef}
@@ -1266,10 +1347,19 @@ function AutomationForm({
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {PRIORITY_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{sl(opt.slKey, locale)}</SelectItem>
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <span className="flex flex-col">
+                        <span>{sl(opt.slKey, locale)}</span>
+                        <span className="text-[10px] text-muted-foreground">{locale === "sk" ? opt.descSk : opt.descEn}</span>
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {(() => {
+                const p = PRIORITY_OPTIONS.find(o => o.value === form.taskPriority);
+                return p ? <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{locale === "sk" ? p.descSk : p.descEn}</p> : null;
+              })()}
             </div>
           </>
         )}
@@ -1402,6 +1492,30 @@ function AutomationForm({
                 <Label className="text-[10px] text-muted-foreground mb-1 block">{sl("fctValueLbl", locale)}</Label>
                 {(() => {
                   const def = CONDITION_FIELDS.find(f => f.key === form.fieldChangedKey);
+                  if (form.fieldChangedKey === "contact.hospital_id") {
+                    return (
+                      <Select value={form.fieldChangedValue} onValueChange={v => setForm(f => ({ ...f, fieldChangedValue: v }))}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue placeholder={sl("fctHospitalPh", locale)} /></SelectTrigger>
+                        <SelectContent>
+                          {(hospitalsList as any[]).map((h: any) => (
+                            <SelectItem key={h.id} value={String(h.id)} className="text-xs">{h.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  }
+                  if (form.fieldChangedKey === "contact.clinic_id") {
+                    return (
+                      <Select value={form.fieldChangedValue} onValueChange={v => setForm(f => ({ ...f, fieldChangedValue: v }))}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue placeholder={sl("fctClinicPh", locale)} /></SelectTrigger>
+                        <SelectContent>
+                          {(clinicsList as any[]).map((c: any) => (
+                            <SelectItem key={c.id} value={String(c.id)} className="text-xs">{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  }
                   if (def?.valueType === "select" && def.options) {
                     return (
                       <Select value={form.fieldChangedValue} onValueChange={v => setForm(f => ({ ...f, fieldChangedValue: v }))}>
@@ -1912,6 +2026,7 @@ function StatusListItemRow({
     required: item.required,
     nextStepId: item.nextStepId || "",
     restrictions: item.restrictions || "",
+    isHidden: item.isHidden ?? false,
   });
 
   const updateMutation = useMutation({
@@ -1984,8 +2099,9 @@ function StatusListItemRow({
           {expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
           <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">{item.stepId}</span>
           <ConfirmIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="text-sm font-medium truncate">{item.label}</span>
+          <span className={`text-sm font-medium truncate ${item.isHidden ? "text-muted-foreground/60 italic" : ""}`}>{item.label}</span>
           {item.required && <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 shrink-0">{sl("requiredBadge", locale)}</Badge>}
+          {item.isHidden && <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0 gap-0.5"><EyeOff className="h-2.5 w-2.5" />{sl("itemHiddenBadge", locale)}</Badge>}
         </button>
         <div className="flex items-center gap-1 shrink-0">
           {item.automations.length > 0 && (
@@ -2057,6 +2173,10 @@ function StatusListItemRow({
                 <div className="flex items-center gap-2 pt-4">
                   <Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} />
                   <Label className="text-xs">{sl("requiredSwitch", locale)}</Label>
+                </div>
+                <div className="flex items-center gap-2 pt-4">
+                  <Switch checked={!!form.isHidden} onCheckedChange={v => setForm(f => ({ ...f, isHidden: v }))} data-testid="switch-item-hidden" />
+                  <Label className="text-xs" title={sl("itemHiddenHint", locale)}>{sl("itemHiddenLbl", locale)}</Label>
                 </div>
               </div>
               <div className="flex justify-end gap-2">

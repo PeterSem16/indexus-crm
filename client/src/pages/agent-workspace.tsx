@@ -3702,9 +3702,10 @@ function CommunicationCanvas({
 
       {activeChannel === "checklist" && (() => {
         if (dbStatusList.length > 0) {
-          const dbConfirmed = dbSlChecked.size;
-          const dbTotal = (dbStatusList as any[]).length;
-          const dbRequiredMissing = (dbStatusList as any[]).filter((i: any) => i.required && !dbSlChecked.has(String(i.id)));
+          const dbVisibleItems = (dbStatusList as any[]).filter((i: any) => !i.isHidden);
+          const dbConfirmed = dbVisibleItems.filter((i: any) => dbSlChecked.has(String(i.id))).length;
+          const dbTotal = dbVisibleItems.length;
+          const dbRequiredMissing = dbVisibleItems.filter((i: any) => i.required && !dbSlChecked.has(String(i.id)));
           return (
             <div className="flex flex-col flex-1 overflow-hidden">
               <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center justify-between shrink-0">
@@ -3715,7 +3716,7 @@ function CommunicationCanvas({
                 <span className="text-xs text-muted-foreground font-medium">{dbConfirmed}/{dbTotal}</span>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-                {(dbStatusList as any[]).map((item: any) => (
+                {dbVisibleItems.map((item: any) => (
                   <div
                     key={item.id}
                     className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border transition-all ${
