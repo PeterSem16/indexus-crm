@@ -1963,7 +1963,7 @@ export async function registerRoutes(
       }
       
       // Always use HTTPS for redirect URI (Replit runs behind a proxy)
-      const redirectUri = `https://${req.get("host")}/api/auth/microsoft/callback`;
+      const redirectUri = process.env.MS365_REDIRECT_URI || `https://${req.get("host")}/api/auth/microsoft/callback`;
       const scopes = ["openid", "profile", "email", "User.Read"];
       
       // Include user ID in state parameter (format: login:{userId})
@@ -3285,7 +3285,7 @@ export async function registerRoutes(
         const clientId = process.env.MS365_CLIENT_ID!;
         const clientSecret = process.env.MS365_CLIENT_SECRET!;
         const tenantId = process.env.MS365_TENANT_ID!;
-        const redirectUri = `https://${req.get("host")}/api/auth/microsoft/callback`;
+        const redirectUri = process.env.MS365_REDIRECT_URI || `https://${req.get("host")}/api/auth/microsoft/callback`;
         
         const tokenResponse = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
           method: "POST",
