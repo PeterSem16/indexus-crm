@@ -11,8 +11,16 @@ description: Root causes and fixes for blank screen after MS365 login on worf.re
 
 2. **Session cookie not set on HTTPS** — `trust proxy` was only set in production. Fix: set `trust proxy: 1` always; `cookie.secure: "auto"` lets Express auto-detect HTTPS.
 
-3. **Missing i18n keys crash** — `email-client.tsx` accesses `t.tasks.taskGroups.backOfficeTab` without optional chaining. If the key is missing in any locale, React crashes → blank screen. Fix: add `backOfficeDesc` and `backOfficeTab` to all 7 locales in `translations.ts`.
+3. **Missing i18n keys crash** — `email-client.tsx` accesses `t.tasks.taskGroups.backOfficeTab` without optional chaining. If the key is missing in any locale, React crashes → blank screen. IT and DE were missing. Fixed.
 
-**Why:** translations.ts is ~50k lines. When a new key is added, it is easy to miss a locale (or add it twice). Python scripts with exact locale scoping (by finding locale block start/end line numbers) are the reliable way to verify and fix.
+4. **redirect_uri = localhost:5000 when using Replit preview pane** — The Replit canvas/preview pane accesses the app via `localhost:5000` internally (bypasses the external proxy). `req.get("host")` returned `localhost:5000` → redirect_uri was built as `https://localhost:5000/api/auth/microsoft/callback` → NOT registered in Azure AD → Microsoft rejected it → callback never arrived → user stuck on login page.
 
-**How to apply:** When blank screen occurs after login, check browser console for runtime errors. If no JS errors visible, check session cookie is set. Then grep translations.ts for the crashing key across all 7 locales.
+**Fix for #4:** Set `MS365_REDIRECT_URI` env var to the stable worf URL. Code now uses `process.env.MS365_REDIRECT_URI || dynamic` in both `/api/auth/login-ms365` and `/api/auth/microsoft/callback` handlers. Env var set in Replit shared environment.
+
+## How to apply
+- When deploying to production: set `MS365_REDIRECT_URI` to the production callback URL (must match Azure AD registration)
+- Azure AD app: `MS365_CLIENT_ID=c053e40b-ba68-4ddb-9558-07efc730be9e` — add all needed redirect URIs in Azure Portal → App registrations → Authentication → Redirect URIs
+- Stable Replit worf URL for this repl: `https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/api/auth/microsoft/callback`
+
+## Debugging tip
+Added `[AUTH-REQ]` logger for all `/api/auth/*` requests — shows method, URL, host, proto, session. Use to verify redirect_uri construction.
