@@ -56,6 +56,7 @@ BULKGATE_APPLICATION_ID = "36390"
 BULKGATE_APPLICATION_TOKEN = "P8xNZvnDhajSuDZ6b5aFooSwdrwZDDJpjb6ekxWy35RDrUqUbZ"
 BULKGATE_WEBHOOK_URL = "https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/api/auth/bulkgate/callback"
 APP_BASE_URL = "https://indexus.cordbloodcenter.com"
+MS365_REDIRECT_URI = "https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/api/auth/microsoft/callback"
 
 [userenv.production]
 

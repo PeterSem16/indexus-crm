@@ -1597,6 +1597,10 @@ export async function registerRoutes(
     if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH" || req.method === "DELETE") {
       console.log(`[REQUEST] ${req.method} ${req.url} | session: ${req.session?.user ? req.session.user.id : 'none'} | body-keys: ${req.body ? Object.keys(req.body).join(',') : 'empty'}`);
     }
+    // Log ALL requests to /api/auth/* for debugging
+    if (req.url.startsWith("/api/auth/")) {
+      console.log(`[AUTH-REQ] ${req.method} ${req.url} | host: ${req.get("host")} | proto: ${req.get("x-forwarded-proto")} | session: ${req.session?.user ? "yes" : "none"}`);
+    }
     next();
   });
 
