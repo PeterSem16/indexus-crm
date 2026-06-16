@@ -9,6 +9,8 @@ INDEXUS is a multi-country CRM system for cord blood banking companies, streamli
 cd /var/www/indexus-crm && git pull origin main && npm run build && pm2 restart indexus-crm
 ```
 
+> **Po zmenách DB schémy** (nové stĺpce/tabuľky v `shared/schema.ts`) treba na serveri spustiť aj `npm run db:push`, inak produkčná DB nebude mať nové stĺpce a operácie zlyhajú s „failed to save" / „column ... does not exist". Build ani `pm2 restart` schému NEmigrujú.
+
 ### Mobilná aplikácia — build + deploy (Ubuntu CLI)
 
 **Krok 1 — Stiahnuť kód a nainštalovať závislosti:**
