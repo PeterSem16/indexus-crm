@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithMs365 = async (username: string) => {
     const result = await ms365LoginMutation.mutateAsync(username);
     if (result.authUrl) {
-      (window.top || window).location.href = result.authUrl;
+      window.open(result.authUrl, "_top");
     }
   };
 
