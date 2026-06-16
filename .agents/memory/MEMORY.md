@@ -1,2 +1,1 @@
-- [Localization rule](localization-rule.md) — always add translations to ALL 7 locales (en, sk, cs, hu, ro, it, de) when adding any new UI strings.
-- [Blank screen debug approach](blank-screen-debug.md) — session/cookie + i18n missing keys are common blank-screen causes on worf.replit.dev after MS365 login.
+- [MS365 cross-origin OAuth handoff](ms365-cross-origin-oauth.md) — dev login routes through prod's only registered callback, hands back a signed one-time token; DBs aren't shared.

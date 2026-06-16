@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { getQueueEngine } from "./lib/queue-engine";
 import { createServer, type Server } from "http";
+import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { eq, desc, and, gte, lte, inArray, isNotNull, isNull, or, count, sql, asc } from "drizzle-orm";
@@ -1325,6 +1326,124 @@ async function syncCallerIdToAllAsteriskServers(extension: string, callerId: str
   console.log(`[AsteriskSync] Synced callerid/${extension} = ${callerId || "(removed)"} to all servers (SK + mediagtw${engine ? " + queue-engine" : ""})`);
 }
 
+// --- MS365 cross-origin login handoff ---------------------------------------
+// OAuth callbacks must land on the production callback URL registered in Azure AD
+// (https://indexus.cordbloodcenter.com/...). When a login is started from another
+// origin (e.g. the Replit dev URL), production validates the OAuth and then hands
+// the authenticated identity back to the originating origin via a short-lived
+// HMAC-signed token. Both servers share the same Azure app secret, so the token
+// can be verified WITHOUT a shared database.
+// Fail closed: the shared Azure app secret MUST be present. No fallback — a
+// hardcoded fallback would be forgeable from source. MS365_CLIENT_SECRET is
+// already required for the OAuth token exchange, so it is always present in
+// any environment that can run this flow.
+function getLoginHandoffSecret(): string | null {
+  return process.env.MS365_CLIENT_SECRET || null;
+}
+
+// SIGNED cross-origin login state. The returnOrigin is embedded INSIDE the
+// signed payload so the production callback can trust it — an attacker without
+// the shared secret cannot craft a state pointing the handoff token at an
+// attacker-controlled origin.
+function signMs365LoginState(userId: string, returnOrigin: string, email: string): string | null {
+  const secret = getLoginHandoffSecret();
+  if (!secret) return null;
+  const payload = JSON.stringify({ u: userId, o: returnOrigin, em: email, e: Date.now() + 5 * 60 * 1000 });
+  const payloadB64 = Buffer.from(payload).toString("base64url");
+  const sig = crypto.createHmac("sha256", secret).update(payloadB64).digest("base64url");
+  return `login:v2:${payloadB64}.${sig}`;
+}
+
+function verifyMs365LoginState(state: string): { userId: string; returnOrigin: string; email: string } | null {
+  try {
+    const secret = getLoginHandoffSecret();
+    if (!secret) return null;
+    if (!state.startsWith("login:v2:")) return null;
+    const rest = state.substring("login:v2:".length);
+    const [payloadB64, sig] = rest.split(".");
+    if (!payloadB64 || !sig) return null;
+    const expectedSig = crypto.createHmac("sha256", secret).update(payloadB64).digest("base64url");
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expectedSig);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    const data = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+    if (!data.u || !data.o || !data.e || Date.now() > Number(data.e)) return null;
+    return { userId: String(data.u), returnOrigin: String(data.o), email: String(data.em || "") };
+  } catch {
+    return null;
+  }
+}
+
+// Short-lived single-use handoff token consumed by /api/auth/ms365-complete on
+// the originating server. Carries a random jti so it can be invalidated after
+// first use (replay guard).
+// The handoff token is bound to the originating returnOrigin so that even if it
+// were exfiltrated to another allowed origin, it can only be redeemed at the exact
+// origin it was issued for (verified in /api/auth/ms365-complete).
+function signMs365LoginToken(userId: string, returnOrigin: string): string | null {
+  const secret = getLoginHandoffSecret();
+  if (!secret) return null;
+  const jti = crypto.randomBytes(9).toString("base64url");
+  const payload = JSON.stringify({
+    u: userId,
+    o: returnOrigin,
+    e: Date.now() + 2 * 60 * 1000,
+    j: jti,
+  });
+  const payloadB64 = Buffer.from(payload).toString("base64url");
+  const sig = crypto.createHmac("sha256", secret).update(payloadB64).digest("base64url");
+  return `${payloadB64}.${sig}`;
+}
+
+// jti -> expiry(ms); tokens already redeemed on this server are rejected.
+const consumedHandoffTokens = new Map<string, number>();
+
+function verifyMs365LoginToken(token: string): { userId: string; returnOrigin: string } | null {
+  try {
+    const secret = getLoginHandoffSecret();
+    if (!secret) return null;
+    const [payloadB64, sig] = token.split(".");
+    if (!payloadB64 || !sig) return null;
+    const expectedSig = crypto.createHmac("sha256", secret).update(payloadB64).digest("base64url");
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expectedSig);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    const data = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+    const userId = String(data.u || "");
+    const returnOrigin = String(data.o || "");
+    const expiry = Number(data.e);
+    const jti = String(data.j || "");
+    if (!userId || !jti || !expiry || Date.now() > expiry) return null;
+    // Replay guard (single-use within this server process)
+    const now = Date.now();
+    consumedHandoffTokens.forEach((exp, k) => {
+      if (exp < now) consumedHandoffTokens.delete(k);
+    });
+    if (consumedHandoffTokens.has(jti)) return null;
+    consumedHandoffTokens.set(jti, expiry);
+    return { userId, returnOrigin };
+  } catch {
+    return null;
+  }
+}
+
+// Defense-in-depth allowlist (the signed state is the primary protection).
+function isAllowedLoginReturnOrigin(origin: string): boolean {
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== "https:") return false;
+    const h = u.hostname;
+    return (
+      h.endsWith(".replit.dev") ||
+      h.endsWith(".replit.app") ||
+      h.endsWith(".cordbloodcenter.com") ||
+      h === "cordbloodcenter.com"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -1596,12 +1715,14 @@ export async function registerRoutes(
   );
 
   app.use((req, res, next) => {
+    // Redact sensitive query params (handoff token, OAuth code) before logging.
+    const safeUrl = req.url.replace(/([?&](?:token|code)=)[^&]*/gi, "$1[REDACTED]");
     if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH" || req.method === "DELETE") {
-      console.log(`[REQUEST] ${req.method} ${req.url} | session: ${req.session?.user ? req.session.user.id : 'none'} | body-keys: ${req.body ? Object.keys(req.body).join(',') : 'empty'}`);
+      console.log(`[REQUEST] ${req.method} ${safeUrl} | session: ${req.session?.user ? req.session.user.id : 'none'} | body-keys: ${req.body ? Object.keys(req.body).join(',') : 'empty'}`);
     }
     // Log ALL requests to /api/auth/* for debugging
     if (req.url.startsWith("/api/auth/")) {
-      console.log(`[AUTH-REQ] ${req.method} ${req.url} | host: ${req.get("host")} | proto: ${req.get("x-forwarded-proto")} | session: ${req.session?.user ? "yes" : "none"}`);
+      console.log(`[AUTH-REQ] ${req.method} ${safeUrl} | host: ${req.get("host")} | proto: ${req.get("x-forwarded-proto")} | session: ${req.session?.user ? "yes" : "none"}`);
     }
     next();
   });
@@ -1968,13 +2089,35 @@ export async function registerRoutes(
         return res.status(500).json({ error: "Microsoft 365 nie je nakonfigurovaný" });
       }
       
-      // Always use HTTPS for redirect URI (Replit runs behind a proxy)
-      const redirectUri = `https://${req.get("host")}/api/auth/microsoft/callback`;
+      // OAuth callbacks must land on the production callback URL registered in
+      // Azure AD. Route the OAuth through production regardless of where the login
+      // was started, and remember the originating origin so production can hand
+      // the session back here afterwards.
+      const prodBase = (process.env.APP_BASE_URL || "https://indexus.cordbloodcenter.com").replace(/\/$/, "");
+      const redirectUri = `${prodBase}/api/auth/microsoft/callback`;
       const scopes = ["openid", "profile", "email", "User.Read"];
       
-      // Include user ID in state parameter (format: login:{userId})
-      const stateParam = `login:${user.id}`;
-      console.log("[MS365 Login] Generated state with userId:", stateParam);
+      // State: login:{userId} for same-origin (production) login, or a SIGNED
+      // state (login:v2:...) for cross-origin handoff so the production callback
+      // can trust the returnOrigin without it being forgeable.
+      const currentOrigin = `https://${req.get("host")}`;
+      let stateParam: string;
+      if (currentOrigin !== prodBase) {
+        // Only sign a cross-origin handoff for origins we explicitly trust, so a
+        // spoofed Host header can't make us sign an attacker-controlled origin.
+        if (!isAllowedLoginReturnOrigin(currentOrigin)) {
+          console.error("[MS365 Login] Rejected cross-origin login from:", currentOrigin);
+          return res.status(400).json({ error: "Neplatný pôvod požiadavky pre Microsoft 365 prihlásenie" });
+        }
+        const signedState = signMs365LoginState(user.id, currentOrigin, user.email);
+        if (!signedState) {
+          return res.status(500).json({ error: "Microsoft 365 nie je správne nakonfigurovaný (chýba secret)" });
+        }
+        stateParam = signedState;
+      } else {
+        stateParam = `login:${user.id}`;
+      }
+      console.log("[MS365 Login] Generated state:", stateParam.startsWith("login:v2:") ? "login:v2:<signed>" : stateParam, "| redirectUri:", redirectUri);
       
       const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
         `client_id=${clientId}&` +
@@ -1993,6 +2136,59 @@ export async function registerRoutes(
 
   // NOTE: MS365 callback is handled by a unified handler later in this file
   // This ensures both login (state=login) and connection flows (PKCE state) work correctly
+
+  // MS365 cross-origin login completion — receives the signed handoff token from
+  // the production callback and establishes a session on THIS server.
+  app.get("/api/auth/ms365-complete", async (req, res) => {
+    try {
+      const token = String(req.query.token || "");
+      const verified = verifyMs365LoginToken(token);
+      if (!verified) {
+        console.error("[MS365 Complete] Invalid or expired handoff token");
+        return res.redirect("/login?error=invalid_token");
+      }
+      const { userId, returnOrigin: tokenOrigin } = verified;
+
+      // Origin binding: the token may ONLY be redeemed at the exact origin it was
+      // issued for. This neutralizes exfiltration to any other allowed origin.
+      const thisOrigin = `https://${req.get("host")}`;
+      if (tokenOrigin && tokenOrigin !== thisOrigin) {
+        console.error(`[MS365 Complete] Token origin mismatch: token=${tokenOrigin} this=${thisOrigin}`);
+        return res.redirect("/login?error=invalid_token");
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.redirect("/login?error=user_not_found");
+      }
+      if (!user.isActive) {
+        return res.redirect("/login?error=account_deactivated");
+      }
+
+      // Replace any existing active session for this user on this server
+      const activeSession = await storage.getActiveSession(user.id);
+      if (activeSession) {
+        await storage.endUserSession(activeSession.id);
+      }
+
+      const { passwordHash, ...safeUser } = user as any;
+      req.session.user = safeUser;
+      const userSession = await storage.createUserSession(user.id, req.ip || undefined, req.headers['user-agent'] || undefined);
+      (req.session as any).userSessionId = userSession.id;
+
+      console.log(`[Auth] User logged in via MS365 (cross-origin handoff): ${user.username} (${user.fullName})`);
+      await logActivity(user.id, "login", "user", user.id, `${user.fullName} (MS365 auth)`, JSON.stringify({ method: "ms365", handoff: true }), req.ip);
+
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => (err ? reject(err) : resolve()));
+      });
+
+      return res.redirect("/");
+    } catch (error) {
+      console.error("[MS365 Complete] Error:", error);
+      return res.redirect("/login?error=login_failed");
+    }
+  });
 
   // Heartbeat endpoint - frontend calls this periodically to keep session alive
   app.post("/api/auth/heartbeat", async (req, res) => {
@@ -3278,9 +3474,26 @@ export async function registerRoutes(
       if (stateStr.startsWith("login:")) {
         console.log("[MS365 Callback] Login flow detected");
         
-        // Extract user ID from state parameter (format: login:{userId})
-        const pendingUserId = stateStr.substring(6); // Remove "login:" prefix
-        console.log("[MS365 Callback] Extracted userId from state:", pendingUserId);
+        // Extract user ID and optional return origin from state.
+        //  - login:v2:<signed>  → cross-origin handoff; returnOrigin is trusted
+        //    only because the whole state is HMAC-signed by the originating server.
+        //  - login:{userId}     → same-origin (production) login, no handoff.
+        let pendingUserId = "";
+        let returnOrigin = "";
+        let stateEmail = "";
+        if (stateStr.startsWith("login:v2:")) {
+          const verified = verifyMs365LoginState(stateStr);
+          if (!verified) {
+            console.log("[MS365 Callback] ERROR: invalid/expired signed state");
+            return res.redirect("/?error=invalid_state");
+          }
+          pendingUserId = verified.userId;
+          returnOrigin = verified.returnOrigin;
+          stateEmail = verified.email;
+        } else {
+          pendingUserId = stateStr.substring(6); // Remove "login:" prefix
+        }
+        console.log("[MS365 Callback] Extracted userId:", pendingUserId, "| returnOrigin:", returnOrigin || "(none)");
         
         if (!pendingUserId) {
           console.log("[MS365 Callback] ERROR: userId not found in state");
@@ -3325,22 +3538,56 @@ export async function registerRoutes(
         }
         
         const msUser = await graphResponse.json();
+        const msEmail = (msUser.mail || msUser.userPrincipalName || "").toLowerCase();
+        const thisOrigin = `https://${req.get("host")}`;
         
-        // Verify the MS365 email matches the user's email
+        // CROSS-ORIGIN HANDOFF: the login was started on another origin (e.g. the
+        // Replit dev URL) and only routed through THIS (production) callback because
+        // that is the single redirect URI registered in Azure AD. The user record
+        // lives in the ORIGINATING server's database, which this server does NOT
+        // share — so we must not look the user up here. Validate the Graph identity
+        // against the email the originating server signed into the state, then hand
+        // the ORIGINAL (originating) userId back. That server resolves the user in
+        // its own database and creates the session there.
+        if (returnOrigin && returnOrigin !== thisOrigin) {
+          if (!isAllowedLoginReturnOrigin(returnOrigin)) {
+            console.error("[MS365 Callback] Rejected return origin:", returnOrigin);
+            return res.redirect("/?error=invalid_return_origin");
+          }
+          const expectedEmail = (stateEmail || "").toLowerCase();
+          if (!expectedEmail) {
+            console.error("[MS365 Callback] Missing email in signed state");
+            return res.redirect("/?error=invalid_state");
+          }
+          // Strict (case-insensitive) equality — this gates minting a bearer
+          // handoff token for the originating userId, so substring matching would
+          // let an unrelated MS account containing the victim's local-part in.
+          if (msEmail !== expectedEmail) {
+            console.error(`[MS365 Callback] Email mismatch (handoff): MS365=${msEmail}, expected=${expectedEmail}`);
+            return res.redirect("/?error=email_mismatch");
+          }
+          const handoffToken = signMs365LoginToken(pendingUserId, returnOrigin);
+          if (!handoffToken) {
+            console.error("[MS365 Callback] Cannot sign handoff token (missing secret)");
+            return res.redirect("/?error=server_misconfig");
+          }
+          console.log("[MS365 Callback] Handing login back to origin:", returnOrigin);
+          return res.redirect(`${returnOrigin}/api/auth/ms365-complete?token=${encodeURIComponent(handoffToken)}`);
+        }
+        
+        // SAME-ORIGIN (production) login: resolve the user in THIS database and
+        // create the session here.
         const user = await storage.getUser(pendingUserId);
         if (!user) {
           return res.redirect("/?error=user_not_found");
         }
-        
         if (!user.isActive) {
           return res.redirect("/?error=account_deactivated");
         }
-        
-        // Verify email matches (case insensitive)
-        const msEmail = (msUser.mail || msUser.userPrincipalName || "").toLowerCase();
         const userEmail = user.email.toLowerCase();
-        
-        if (msEmail !== userEmail && !msEmail.includes(userEmail.split("@")[0])) {
+        // Strict (case-insensitive) equality — substring matching would let an
+        // unrelated MS account containing the user's local-part authenticate as them.
+        if (msEmail !== userEmail) {
           console.error(`Email mismatch: MS365=${msEmail}, CRM=${userEmail}`);
           return res.redirect("/?error=email_mismatch");
         }
