@@ -56,7 +56,14 @@ exists in both but with **different primary-key UUIDs**. This drives two rules:
   expected email with case-insensitive EXACT equality — never substring/local-part
   matching, or an unrelated MS account containing the victim's local-part can
   authenticate as them (this gates bearer-token minting).
-- **One-time handoff token:** random jti + replay guard; short TTL.
+- **One-time handoff token:** random jti + replay guard; short TTL. The replay
+  guard MUST be idempotent within a short window: benign duplicate GETs of the
+  redirect (browser prefetch, preview-proxy retry, refresh) otherwise trip a
+  strict single-use guard and fail a legitimate login as "invalid token". On a
+  duplicate, re-redeem to the same result AND skip tearing down/recreating the
+  session (a late duplicate ending the fresh session causes an instant heartbeat
+  logout). Emit a granular failure reason (bad_signature/expired/replayed/…) so
+  the next failure is diagnosable instead of an opaque null.
 - **Fail closed** if the shared secret is missing (no fallback key).
 - **Redact secrets from request logs.** The auth request logger prints the URL;
   strip `token=`/`code=` query values or the handoff token lands in logs.

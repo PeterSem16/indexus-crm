@@ -1395,36 +1395,58 @@ function signMs365LoginToken(userId: string, returnOrigin: string): string | nul
   return `${payloadB64}.${sig}`;
 }
 
-// jti -> expiry(ms); tokens already redeemed on this server are rejected.
-const consumedHandoffTokens = new Map<string, number>();
+// jti -> redemption record. A handoff token is single-use, BUT a benign duplicate
+// GET (browser speculative prefetch, the Replit preview proxy retrying, a double
+// navigation, a refresh of the redirect) must not break a legitimate login. So
+// within a short idempotency window we re-issue the SAME result instead of
+// failing; only AFTER that window is a repeat treated as a real replay and
+// rejected. The token stays bound to userId + origin + a 2-minute expiry.
+type HandoffRedemption = { userId: string; returnOrigin: string; exp: number; firstAt: number };
+const consumedHandoffTokens = new Map<string, HandoffRedemption>();
+const HANDOFF_IDEMPOTENCY_WINDOW_MS = 10 * 1000;
 
-function verifyMs365LoginToken(token: string): { userId: string; returnOrigin: string } | null {
+type HandoffVerifyResult =
+  | { ok: true; userId: string; returnOrigin: string; duplicate: boolean }
+  | { ok: false; reason: "no_secret" | "malformed" | "bad_signature" | "bad_payload" | "expired" | "replayed" };
+
+function verifyMs365LoginToken(token: string): HandoffVerifyResult {
+  const secret = getLoginHandoffSecret();
+  if (!secret) return { ok: false, reason: "no_secret" };
+  const dot = token.indexOf(".");
+  const payloadB64 = dot > 0 ? token.slice(0, dot) : "";
+  const sig = dot > 0 ? token.slice(dot + 1) : "";
+  if (!payloadB64 || !sig) return { ok: false, reason: "malformed" };
+  const expectedSig = crypto.createHmac("sha256", secret).update(payloadB64).digest("base64url");
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expectedSig);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { ok: false, reason: "bad_signature" };
+  let data: any;
   try {
-    const secret = getLoginHandoffSecret();
-    if (!secret) return null;
-    const [payloadB64, sig] = token.split(".");
-    if (!payloadB64 || !sig) return null;
-    const expectedSig = crypto.createHmac("sha256", secret).update(payloadB64).digest("base64url");
-    const a = Buffer.from(sig);
-    const b = Buffer.from(expectedSig);
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-    const data = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
-    const userId = String(data.u || "");
-    const returnOrigin = String(data.o || "");
-    const expiry = Number(data.e);
-    const jti = String(data.j || "");
-    if (!userId || !jti || !expiry || Date.now() > expiry) return null;
-    // Replay guard (single-use within this server process)
-    const now = Date.now();
-    consumedHandoffTokens.forEach((exp, k) => {
-      if (exp < now) consumedHandoffTokens.delete(k);
-    });
-    if (consumedHandoffTokens.has(jti)) return null;
-    consumedHandoffTokens.set(jti, expiry);
-    return { userId, returnOrigin };
+    data = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
   } catch {
-    return null;
+    return { ok: false, reason: "bad_payload" };
   }
+  const userId = String(data.u || "");
+  const returnOrigin = String(data.o || "");
+  const expiry = Number(data.e);
+  const jti = String(data.j || "");
+  if (!userId || !jti || !expiry) return { ok: false, reason: "bad_payload" };
+  const now = Date.now();
+  if (now > expiry) return { ok: false, reason: "expired" };
+  // Evict expired redemption records.
+  consumedHandoffTokens.forEach((rec, k) => {
+    if (rec.exp < now) consumedHandoffTokens.delete(k);
+  });
+  const prior = consumedHandoffTokens.get(jti);
+  if (prior) {
+    if (now - prior.firstAt <= HANDOFF_IDEMPOTENCY_WINDOW_MS) {
+      // Benign duplicate within the window: idempotent success (same account).
+      return { ok: true, userId: prior.userId, returnOrigin: prior.returnOrigin, duplicate: true };
+    }
+    return { ok: false, reason: "replayed" };
+  }
+  consumedHandoffTokens.set(jti, { userId, returnOrigin, exp: expiry, firstAt: now });
+  return { ok: true, userId, returnOrigin, duplicate: false };
 }
 
 // Defense-in-depth allowlist (the signed state is the primary protection).
@@ -2143,11 +2165,11 @@ export async function registerRoutes(
     try {
       const token = String(req.query.token || "");
       const verified = verifyMs365LoginToken(token);
-      if (!verified) {
-        console.error("[MS365 Complete] Invalid or expired handoff token");
-        return res.redirect("/login?error=invalid_token");
+      if (!verified.ok) {
+        console.error(`[MS365 Complete] handoff token rejected: reason=${verified.reason} tokenLen=${token.length}`);
+        return res.redirect(`/login?error=invalid_token&reason=${verified.reason}`);
       }
-      const { userId, returnOrigin: tokenOrigin } = verified;
+      const { userId, returnOrigin: tokenOrigin, duplicate } = verified;
 
       // Origin binding: the token may ONLY be redeemed at the exact origin it was
       // issued for. This neutralizes exfiltration to any other allowed origin.
@@ -2155,6 +2177,15 @@ export async function registerRoutes(
       if (tokenOrigin && tokenOrigin !== thisOrigin) {
         console.error(`[MS365 Complete] Token origin mismatch: token=${tokenOrigin} this=${thisOrigin}`);
         return res.redirect("/login?error=invalid_token");
+      }
+
+      // Benign duplicate redemption (browser prefetch / proxy retry / refresh of
+      // the redirect): if THIS request already carries the established session for
+      // this user, don't tear down & recreate it — a late duplicate ending the
+      // freshly-created session would trigger an immediate heartbeat logout.
+      if (duplicate && req.session.user && (req.session.user as any).id === userId) {
+        console.log("[MS365 Complete] Idempotent re-redemption; session already established");
+        return res.redirect("/");
       }
 
       const user = await storage.getUser(userId);

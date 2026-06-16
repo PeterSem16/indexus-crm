@@ -19,7 +19,7 @@ description: Root causes and fixes for blank screen after MS365 login on worf.re
 
 ## How to apply
 - When deploying to production: set `MS365_REDIRECT_URI` to the production callback URL (must match Azure AD registration)
-- Azure AD app: `MS365_CLIENT_ID=c053e40b-ba68-4ddb-9558-07efc730be9e` — add all needed redirect URIs in Azure Portal → App registrations → Authentication → Redirect URIs
+- Azure AD app: client id is in the `MS365_CLIENT_ID` env var — add all needed redirect URIs in Azure Portal → App registrations → Authentication → Redirect URIs
 - Stable Replit worf URL for this repl: `https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/api/auth/microsoft/callback`
 
 ## Debugging tip
