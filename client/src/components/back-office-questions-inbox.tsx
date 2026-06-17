@@ -10,6 +10,7 @@ import { useI18n } from "@/i18n";
 import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope } from "lucide-react";
 import { format } from "date-fns";
 import { Timeline, type ThreadData, type ThreadComment } from "./back-office-panel";
+import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
 
 type BOQuestion = {
   task: ThreadData["task"];
@@ -31,18 +32,6 @@ type BOQuestion = {
 function customerName(c: { firstName: string | null; lastName: string | null } | null | undefined): string {
   if (!c) return "";
   return [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
-}
-
-function openContact(customerId: string) {
-  window.open(`/customers?view=${encodeURIComponent(customerId)}`, "_blank", "noopener,noreferrer");
-}
-
-function openHospital(hospitalId: string) {
-  window.open(`/medical-partner-network?entityType=hospital&entityId=${encodeURIComponent(hospitalId)}`, "_blank", "noopener,noreferrer");
-}
-
-function openClinic(clinicId: string) {
-  window.open(`/medical-partner-network?entityType=clinic&entityId=${encodeURIComponent(clinicId)}`, "_blank", "noopener,noreferrer");
 }
 
 function QuestionTile({ item, onClick }: { item: BOQuestion; onClick: () => void }) {
@@ -93,6 +82,7 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
   const { t } = useI18n();
   const { toast } = useToast();
   const [answer, setAnswer] = useState("");
+  const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
 
   const answerMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/agent/bo-questions/${item.task.id}/answer`, { content: answer }).then(r => r.json()),
@@ -154,7 +144,7 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
                           <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t.backOffice.customerLabel}</div>
                           <button
                             type="button"
-                            onClick={() => openContact(item.customer!.id)}
+                            onClick={() => setDetailEntity({ type: "customer", id: item.customer!.id })}
                             className="text-sm font-medium flex items-center gap-1.5 text-primary hover:underline text-left min-w-0 max-w-full"
                             data-testid="link-bo-question-detail-customer-name"
                           >
@@ -183,7 +173,7 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
                           size="sm"
                           variant="outline"
                           className="gap-1.5 shrink-0"
-                          onClick={() => openContact(item.customer!.id)}
+                          onClick={() => setDetailEntity({ type: "customer", id: item.customer!.id })}
                           data-testid="btn-bo-question-open-contact"
                         >
                           <ExternalLink className="h-3.5 w-3.5" /> {t.backOffice.openContact}
@@ -200,7 +190,7 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
                           <span className="text-muted-foreground shrink-0">{t.backOffice.hospitalLabel}:</span>
                           <button
                             type="button"
-                            onClick={() => openHospital(item.hospital!.id)}
+                            onClick={() => setDetailEntity({ type: "hospital", id: item.hospital!.id })}
                             className="font-medium text-primary hover:underline truncate text-left min-w-0"
                             data-testid="link-bo-question-hospital"
                           >
@@ -214,7 +204,7 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
                           <span className="text-muted-foreground shrink-0">{t.backOffice.clinicLabel}:</span>
                           <button
                             type="button"
-                            onClick={() => openClinic(item.clinic!.id)}
+                            onClick={() => setDetailEntity({ type: "clinic", id: item.clinic!.id })}
                             className="font-medium text-primary hover:underline truncate text-left min-w-0"
                             data-testid="link-bo-question-clinic"
                           >
@@ -293,6 +283,8 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
           </div>
         </div>
       </ScrollArea>
+
+      <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
     </>
   );
 }

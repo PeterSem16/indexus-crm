@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
 import { enUS, sk, cs, hu, ro, it, de } from "date-fns/locale";
+import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
 
 const DF_LOCALES: Record<string, typeof enUS> = { en: enUS, sk, cs, hu, ro, it, de };
 function dfLocale(locale: string) {
@@ -197,18 +198,6 @@ function getDueBadge(dueDate: string | null, isDone: boolean): { key: "overdue" 
   return null;
 }
 
-function openContact(customerId: string) {
-  window.open(`/customers?view=${encodeURIComponent(customerId)}`, "_blank", "noopener,noreferrer");
-}
-
-function openHospital(hospitalId: string) {
-  window.open(`/medical-partner-network?entityType=hospital&entityId=${encodeURIComponent(hospitalId)}`, "_blank", "noopener,noreferrer");
-}
-
-function openClinic(clinicId: string) {
-  window.open(`/medical-partner-network?entityType=clinic&entityId=${encodeURIComponent(clinicId)}`, "_blank", "noopener,noreferrer");
-}
-
 function stateChangeContent(t: Translations, content: string): string {
   switch (content) {
     case "Úloha vybavená": return t.backOffice.eventTaskConfirmed;
@@ -332,7 +321,7 @@ export function Timeline({ thread }: { thread: ThreadData }) {
   );
 }
 
-function CustomerCard({ customer }: { customer: NonNullable<BOCustomerFull> }) {
+function CustomerCard({ customer, onOpenEntity }: { customer: NonNullable<BOCustomerFull>; onOpenEntity: (e: EntityRef) => void }) {
   const { t } = useI18n();
   const name = customerName(customer);
   const phone = customer.phone || customer.mobile;
@@ -345,7 +334,7 @@ function CustomerCard({ customer }: { customer: NonNullable<BOCustomerFull> }) {
           <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t.backOffice.customerLabel}</div>
           <button
             type="button"
-            onClick={() => openContact(customer.id)}
+            onClick={() => onOpenEntity({ type: "customer", id: customer.id })}
             className="text-sm font-medium flex items-center gap-1.5 text-primary hover:underline text-left min-w-0 max-w-full"
             data-testid="link-bo-customer-name"
           >
@@ -374,7 +363,7 @@ function CustomerCard({ customer }: { customer: NonNullable<BOCustomerFull> }) {
           size="sm"
           variant="outline"
           className="gap-1.5 shrink-0"
-          onClick={() => openContact(customer.id)}
+          onClick={() => onOpenEntity({ type: "customer", id: customer.id })}
           data-testid="btn-bo-open-contact"
         >
           <ExternalLink className="h-3.5 w-3.5" /> {t.backOffice.openContact}
@@ -390,6 +379,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
   const [note, setNote] = useState("");
   const [question, setQuestion] = useState("");
   const [confirmNote, setConfirmNote] = useState("");
+  const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
 
   const threadKey = ["/api/back-office/tasks", taskId, "thread"];
   const { data: thread, isLoading } = useQuery<ThreadData>({
@@ -481,7 +471,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                 <div className="space-y-5 lg:border-r lg:border-border lg:pr-6">
               {(thread?.customer || thread?.hospital || thread?.clinic) ? (
                 <div className="space-y-2">
-                  {thread?.customer && <CustomerCard customer={thread.customer} />}
+                  {thread?.customer && <CustomerCard customer={thread.customer} onOpenEntity={setDetailEntity} />}
                   {(thread?.hospital || thread?.clinic) && (
                     <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5" data-testid="bo-entity-card">
                       {thread?.hospital && (
@@ -490,7 +480,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                           <span className="text-muted-foreground shrink-0">{t.backOffice.hospitalLabel}:</span>
                           <button
                             type="button"
-                            onClick={() => openHospital(thread.hospital!.id)}
+                            onClick={() => setDetailEntity({ type: "hospital", id: thread.hospital!.id })}
                             className="font-medium text-primary hover:underline truncate text-left min-w-0"
                             data-testid="link-bo-hospital"
                           >
@@ -504,7 +494,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                           <span className="text-muted-foreground shrink-0">{t.backOffice.clinicLabel}:</span>
                           <button
                             type="button"
-                            onClick={() => openClinic(thread.clinic!.id)}
+                            onClick={() => setDetailEntity({ type: "clinic", id: thread.clinic!.id })}
                             className="font-medium text-primary hover:underline truncate text-left min-w-0"
                             data-testid="link-bo-clinic"
                           >
@@ -649,6 +639,8 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
           </ScrollArea>
         </>
       )}
+
+      <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
     </>
   );
 }
