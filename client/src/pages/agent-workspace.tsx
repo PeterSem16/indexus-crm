@@ -8261,6 +8261,28 @@ export default function AgentWorkspacePage() {
     }
   };
 
+  // Open the Back Office panel when the new-task toast is clicked. The toast may be
+  // triggered from another page, so a sessionStorage flag survives the navigation and
+  // is consumed on mount; a custom event handles the already-mounted case.
+  const switchToBoRef = useRef(handleSwitchToBackOffice);
+  switchToBoRef.current = handleSwitchToBackOffice;
+  useEffect(() => {
+    const openBo = () => {
+      // Clear the navigation flag on every open path so a same-page toast click does not
+      // leave a stale flag that re-opens BO on a later remount.
+      try { sessionStorage.removeItem("indexus:pendingOpenBackOffice"); } catch { /* ignore */ }
+      if (agentSession.isSessionActive) setBackOfficeModeActive(true);
+      void switchToBoRef.current();
+    };
+    try {
+      if (sessionStorage.getItem("indexus:pendingOpenBackOffice") === "1") {
+        openBo();
+      }
+    } catch { /* sessionStorage may be unavailable */ }
+    window.addEventListener("indexus:open-back-office", openBo);
+    return () => window.removeEventListener("indexus:open-back-office", openBo);
+  }, [agentSession.isSessionActive]);
+
   const handleSwitchToPulse = async () => {
     if (mainWorkspaceTab === "pulse") return;
     setMainWorkspaceTab("pulse");

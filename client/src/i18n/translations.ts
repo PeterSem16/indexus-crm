@@ -108,6 +108,11 @@ export interface Translations {
     agendaDoneWeek: string;
     eventTaskConfirmed: string;
     eventTaskClaimed: string;
+    newTaskToastTitle: string;
+    newTaskToastDesc: string;
+    openBackOffice: string;
+    muteSound: string;
+    unmuteSound: string;
   };
   nav: {
     dashboard: string;
@@ -6626,6 +6631,11 @@ export const translations: Record<Locale, Translations> = {
       agendaDoneWeek: 'Done this week',
       eventTaskConfirmed: 'Task completed',
       eventTaskClaimed: 'Taken into processing',
+      newTaskToastTitle: 'New Back Office task',
+      newTaskToastDesc: 'You have a new task to handle.',
+      openBackOffice: 'Open',
+      muteSound: 'Mute sound',
+      unmuteSound: 'Unmute sound',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -13196,6 +13206,11 @@ export const translations: Record<Locale, Translations> = {
       agendaDoneWeek: 'Vybavené tento týždeň',
       eventTaskConfirmed: 'Úloha vybavená',
       eventTaskClaimed: 'Prevzaté do vybavovania',
+      newTaskToastTitle: 'Nová úloha v Back Office',
+      newTaskToastDesc: 'Máte novú úlohu na spracovanie.',
+      openBackOffice: 'Otvoriť',
+      muteSound: 'Stlmiť zvuk',
+      unmuteSound: 'Zapnúť zvuk',
     },
     nav: {
       dashboard: 'Prehľad',
@@ -19702,6 +19717,11 @@ export const translations: Record<Locale, Translations> = {
       agendaDoneWeek: 'Vyřízené tento týden',
       eventTaskConfirmed: 'Úkol vyřízen',
       eventTaskClaimed: 'Převzato k vyřízení',
+      newTaskToastTitle: 'Nový úkol v Back Office',
+      newTaskToastDesc: 'Máte nový úkol ke zpracování.',
+      openBackOffice: 'Otevřít',
+      muteSound: 'Ztlumit zvuk',
+      unmuteSound: 'Zapnout zvuk',
     },
     nav: {
       dashboard: 'Přehled',
@@ -26134,6 +26154,11 @@ export const translations: Record<Locale, Translations> = {
       agendaDoneWeek: 'Ezen a héten elintézve',
       eventTaskConfirmed: 'Feladat elintézve',
       eventTaskClaimed: 'Feldolgozásra átvéve',
+      newTaskToastTitle: 'Új Back Office feladat',
+      newTaskToastDesc: 'Új feladata van feldolgozásra.',
+      openBackOffice: 'Megnyitás',
+      muteSound: 'Hang némítása',
+      unmuteSound: 'Hang bekapcsolása',
     },
     nav: {
       dashboard: 'Irányítópult',
@@ -32521,6 +32546,11 @@ export const translations: Record<Locale, Translations> = {
       agendaDoneWeek: 'Rezolvate săptămâna aceasta',
       eventTaskConfirmed: 'Sarcină rezolvată',
       eventTaskClaimed: 'Preluată în procesare',
+      newTaskToastTitle: 'Sarcină nouă în Back Office',
+      newTaskToastDesc: 'Aveți o sarcină nouă de procesat.',
+      openBackOffice: 'Deschide',
+      muteSound: 'Dezactivează sunetul',
+      unmuteSound: 'Activează sunetul',
     },
     nav: {
       dashboard: 'Panou de control',
@@ -38828,6 +38858,11 @@ export const translations: Record<Locale, Translations> = {
       agendaDoneWeek: 'Completate questa settimana',
       eventTaskConfirmed: 'Attività completata',
       eventTaskClaimed: 'Presa in carico',
+      newTaskToastTitle: 'Nuova attività Back Office',
+      newTaskToastDesc: 'Hai una nuova attività da gestire.',
+      openBackOffice: 'Apri',
+      muteSound: 'Disattiva audio',
+      unmuteSound: 'Attiva audio',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -45137,6 +45172,11 @@ export const translations: Record<Locale, Translations> = {
       agendaDoneWeek: 'Diese Woche erledigt',
       eventTaskConfirmed: 'Aufgabe erledigt',
       eventTaskClaimed: 'In Bearbeitung übernommen',
+      newTaskToastTitle: 'Neue Back-Office-Aufgabe',
+      newTaskToastDesc: 'Sie haben eine neue Aufgabe zu bearbeiten.',
+      openBackOffice: 'Öffnen',
+      muteSound: 'Ton stummschalten',
+      unmuteSound: 'Ton einschalten',
     },
     nav: {
       dashboard: 'Dashboard',

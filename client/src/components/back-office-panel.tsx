@@ -11,12 +11,14 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
 import type { Translations } from "@/i18n";
+import { useBackOfficeSoundMuted } from "@/lib/back-office-chime";
 import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, Loader2, Check,
   ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
   MessageSquare, Activity, Send, Hand, User, Phone, Mail,
   MapPin, ExternalLink, Stethoscope, Paperclip, Download,
   Trophy, PartyPopper, Sparkles, X, CalendarClock, Hourglass, Forward,
+  Bell, BellOff,
 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
@@ -1377,6 +1379,7 @@ function AgentScorePanel() {
 
 export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowInbound, onToggleAllowInbound }: { country?: string; fullScreen?: boolean; hasInboundQueues?: boolean; allowInbound?: boolean; onToggleAllowInbound?: () => void }) {
   const { t } = useI18n();
+  const [boSoundMuted, setBoSoundMuted] = useBackOfficeSoundMuted();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const { data: rawTasks = [], isLoading } = useQuery<BOTask[]>({
@@ -1407,6 +1410,16 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setBoSoundMuted(!boSoundMuted)}
+            data-testid="toggle-bo-sound"
+            title={boSoundMuted ? t.backOffice.unmuteSound : t.backOffice.muteSound}
+            aria-label={boSoundMuted ? t.backOffice.unmuteSound : t.backOffice.muteSound}
+            className={`flex items-center justify-center h-7 w-7 rounded border transition-colors ${boSoundMuted ? "bg-muted/50 border-border text-muted-foreground hover:bg-muted" : "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"}`}
+          >
+            {boSoundMuted ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
+          </button>
           {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           {hasInboundQueues && onToggleAllowInbound && (
             <button

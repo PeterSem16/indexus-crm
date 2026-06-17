@@ -1,7 +1,18 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, createElement } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { useI18n } from "@/i18n";
+import { playBackOfficeChime, installBackOfficeAudioUnlock } from "@/lib/back-office-chime";
+
+// Fire the Back Office sound + toast exactly once per notification id. useNotifications
+// can be mounted more than once (NotificationBell + the notifications page) and each
+// mount has its own WebSocket delivering the same notification; this module-level set
+// dedupes across all of them (check-then-add is atomic — no awaits in between).
+const processedBoNotificationIds = new Set<string>();
 
 interface Notification {
   id: string;
@@ -30,11 +41,28 @@ interface WebSocketMessage {
 
 export function useNotifications() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const { t } = useI18n();
+  const [, setLocation] = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
+
+  // The WebSocket handler closes over these once per connection; refs keep it pointed
+  // at the latest toast/translations/navigation without reconnecting.
+  const toastRef = useRef(toast);
+  const tRef = useRef(t);
+  const setLocationRef = useRef(setLocation);
+  toastRef.current = toast;
+  tRef.current = t;
+  setLocationRef.current = setLocation;
+
+  // Unlock audio on the first user gesture so the BO chime is reliably audible.
+  useEffect(() => {
+    installBackOfficeAudioUnlock();
+  }, []);
 
   const { data: notifications = [], isLoading, refetch } = useQuery<Notification[]>({
     queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"],
@@ -103,13 +131,43 @@ export function useNotifications() {
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
                 break;
-              case "notification":
+              case "notification": {
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
                 if (message.notification?.type === "group_task_assigned") {
                   queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
                 }
+                const notif = message.notification;
+                // New Back Office task → pleasant chime + clickable toast, once per task.
+                if (notif && (notif.metadata?.isBackOffice === true) && !processedBoNotificationIds.has(notif.id)) {
+                  processedBoNotificationIds.add(notif.id);
+                  if (processedBoNotificationIds.size > 300) {
+                    processedBoNotificationIds.clear();
+                    processedBoNotificationIds.add(notif.id);
+                  }
+                  // Refresh both the BO board (panel uses ["/api/back-office/tasks", country];
+                  // prefix match covers it) and the personal task list.
+                  queryClient.invalidateQueries({ queryKey: ["/api/back-office/tasks"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+                  playBackOfficeChime();
+                  const tt = tRef.current;
+                  const openBackOffice = () => {
+                    try { sessionStorage.setItem("indexus:pendingOpenBackOffice", "1"); } catch {}
+                    try { window.dispatchEvent(new CustomEvent("indexus:open-back-office")); } catch {}
+                    try { setLocationRef.current("/agent-workspace"); } catch {}
+                  };
+                  toastRef.current({
+                    title: tt.backOffice.newTaskToastTitle,
+                    description: notif.metadata?.taskTitle || notif.title || tt.backOffice.newTaskToastDesc,
+                    action: createElement(
+                      ToastAction,
+                      { altText: tt.backOffice.openBackOffice, onClick: openBackOffice },
+                      tt.backOffice.openBackOffice,
+                    ),
+                  });
+                }
                 break;
+              }
               case "unreadCount":
                 setUnreadCount(message.count || 0);
                 break;

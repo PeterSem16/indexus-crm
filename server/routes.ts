@@ -28410,7 +28410,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             priority: "high",
             entityType: "task",
             entityId: taskId,
-            metadata: { taskId, taskTitle: task.title, forwardedBy: userId, targetType, targetId } as any,
+            metadata: { taskId, taskTitle: task.title, forwardedBy: userId, targetType, targetId, isBackOffice: true } as any,
           });
         }
       } catch (err) { console.error("[BO forward] notify error:", err); }
@@ -28826,6 +28826,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               let notifyAssignees: string[] = [];
               let wasGroupPath = false;
               let groupNameForNotif: string | null = null;
+              // Whether the created task lands in the Nexus Back Office board. Used only to
+              // tag the assignment notification so the client can play the BO sound alert.
+              let isBackOfficeTask = false;
 
               if (groupId) {
                 // GROUP PATH: assign to all members of the group, tag with group + back_office for Nexus
@@ -28835,6 +28838,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 taskTags.push(`group_id:${groupId}`);
                 // Only surface in the Nexus Puls → Back Office tab when the group is flagged as back office
                 if (groupRow?.isBackOffice) taskTags.push("back_office");
+                isBackOfficeTask = !!groupRow?.isBackOffice;
                 const assignees = groupMembersRows.length > 0 ? groupMembersRows.map(m => m.userId) : [userId];
                 // Back-office groups feed a SHARED claim queue (Nexus Puls → Back Office), so a
                 // single confirmation must create exactly ONE task — otherwise the same work
@@ -28888,6 +28892,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                   ? roleRows.map((u: any) => u.id)
                   : [userId]; // fallback to triggering agent if no role users found
                 const legacyTags = [...taskTags, roleName === "back_office" ? "back_office" : roleName];
+                isBackOfficeTask = roleName === "back_office";
                 for (const assigneeId of roleUserIds) {
                   await db.insert(tasks).values({
                     title: taskTitle,
@@ -28922,6 +28927,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                   country: contactCountry ?? null,
                 });
                 notifyAssignees = [userId];
+                isBackOfficeTask = true;
               }
 
               // ─── Assignment notification dispatch (push / email / sms) ───
@@ -28963,7 +28969,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                           : "Bola vám pridelená nová úloha.",
                         priority: "normal",
                         entityType: "task",
-                        metadata: { taskTitle, ...(wasGroupPath ? { groupName: groupNameForNotif } : {}) },
+                        metadata: { taskTitle, ...(wasGroupPath ? { groupName: groupNameForNotif } : {}), ...(isBackOfficeTask ? { isBackOffice: true } : {}) },
                       });
                     } catch (e) { console.error("[assign_task] push notification failed:", e); }
                   }
