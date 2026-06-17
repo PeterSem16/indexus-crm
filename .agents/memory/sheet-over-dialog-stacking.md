@@ -28,3 +28,13 @@ When the Sheet hosts a reused component that itself opens portalled popups (e.g.
 **Why:** raising such a host to `z-[10030]` (the rule above) would bury its own Selects/Dialogs behind it, making the card unusable. The "raise to 10030" rule is only for leaf drawers with NO nested portal UI (e.g. the hospital/clinic reference card).
 
 **How to apply:** before picking a z for a drawer, check whether its content opens Select/Dialog/Popover. If yes, keep the host in the narrow band `9992–9994` (above BO drawers `9991`, below child portals `9995+`). Tooltips (`z-50`) won't paint above such a host — acceptable, the real customers-page viewer (overlay `z-51`) has the same limitation. The BO drawers' `elevated` `z-[10020]` mode is currently unused; if it ever turns on it would cover a `9994` host and this band would need rethinking.
+
+## A modal shown OVER an open Sheet must be a real Radix Dialog, never a hand-rolled body portal
+
+When you need a modal to appear ON TOP of an open Sheet (e.g. a task-completion recap over the Back Office task drawer), do NOT `createPortal` a plain `<div className="fixed inset-0 ...">` to `document.body`. The open Sheet is a Radix **modal** Dialog, which sets `pointer-events: none` on `document.body`; a sibling body-portalled node inherits that and becomes un-clickable, AND a pointerdown on it counts as an "outside" interaction that dismisses the Sheet underneath. Net effect: the overlay looks right but can't be interacted with and/or nukes the parent drawer on first click.
+
+**Rule:** build the over-Sheet modal from Radix Dialog primitives (`@radix-ui/react-dialog` Root/Portal/Overlay/Content) so it becomes its own top dismissable-layer. Give Overlay `z-[10030]` and Content `z-[10031]` so it clears both the default (`9991`) and elevated (`10020`) BO drawer. Drive open state with `open` + `onOpenChange(o => { if (!o) onClose() })`, and use `DialogPrimitive.Close` for the buttons. Include a `DialogPrimitive.Title` (the visible headline can BE the Title) and pass `aria-describedby={undefined}` to silence the description warning.
+
+**Why:** nested Radix Dialogs ref-count the body pointer-events/scroll lock and stack dismissable layers correctly — clicking inside the top dialog does not dismiss the Sheet, Escape/outside-click close only the topmost. A custom portal opts out of all of that. The architect flagged exactly this when the recap was first built as a body portal.
+
+**How to apply:** any "popup over an open modal Sheet" = nested Radix Dialog at `z-[10030]+`, not a manual portal. Guard date math (`Number.isFinite`) if the modal formats timestamps, since a bad date silently makes duration/`format()` produce `NaN`/`Invalid Date`.

@@ -14,7 +14,9 @@ import {
   ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
   MessageSquare, CornerDownLeft, Activity, Send, Hand, User, Phone, Mail,
   MapPin, ExternalLink, Stethoscope,
+  Trophy, PartyPopper, Sparkles, X, CalendarClock, Hourglass,
 } from "lucide-react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
 import { enUS, sk, cs, hu, ro, it, de } from "date-fns/locale";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
@@ -389,6 +391,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
   const [question, setQuestion] = useState("");
   const [confirmNote, setConfirmNote] = useState("");
   const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
+  const [recap, setRecap] = useState<{ createdAt: string; dueDate: string | null; completedAt: string } | null>(null);
 
   const threadKey = ["/api/back-office/tasks", taskId, "thread"];
   const { data: thread, isLoading } = useQuery<ThreadData>({
@@ -426,7 +429,20 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
       note: confirmNote || null,
       statusListItemId: thread?.task.relatedEntityId || null,
     }).then(r => r.json()),
-    onSuccess: () => { invalidate(); toast({ title: t.backOffice.toastConfirmed }); onClose(); },
+    onSuccess: (data: any) => {
+      invalidate();
+      toast({ title: t.backOffice.toastConfirmed });
+      const tk = thread?.task;
+      if (tk) {
+        setRecap({
+          createdAt: tk.createdAt,
+          dueDate: tk.dueDate,
+          completedAt: data?.confirmedAt || data?.confirmation?.confirmedAt || new Date().toISOString(),
+        });
+      } else {
+        onClose();
+      }
+    },
     onError: () => toast({ title: t.backOffice.toastConfirmError, variant: "destructive" }),
   });
 
@@ -650,7 +666,131 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
       )}
 
       <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
+      {recap && (
+        <TaskCompletionRecap
+          createdAt={recap.createdAt}
+          dueDate={recap.dueDate}
+          completedAt={recap.completedAt}
+          t={t}
+          onClose={() => { setRecap(null); onClose(); }}
+        />
+      )}
     </>
+  );
+}
+
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const parts: string[] = [];
+  if (d > 0) { parts.push(`${d} d`); if (h > 0) parts.push(`${h} h`); }
+  else if (h > 0) { parts.push(`${h} h`); if (m > 0) parts.push(`${m} min`); }
+  else if (m > 0) { parts.push(`${m} min`); }
+  else { parts.push(`${s} s`); }
+  return parts.join(" ");
+}
+
+function TaskCompletionRecap({ createdAt, dueDate, completedAt, t, onClose }: {
+  createdAt: string;
+  dueDate: string | null;
+  completedAt: string;
+  t: Translations;
+  onClose: () => void;
+}) {
+  const created = new Date(createdAt).getTime();
+  const completed = new Date(completedAt).getTime();
+  const durationMs = completed - created;
+  const dueRaw = dueDate ? new Date(dueDate).getTime() : NaN;
+  const due = Number.isFinite(dueRaw) ? dueRaw : null;
+  const status: "onTime" | "overdue" | "none" = (due === null || !Number.isFinite(completed)) ? "none" : (completed <= due ? "onTime" : "overdue");
+  const diffMs = due === null ? 0 : Math.abs(completed - due);
+
+  const theme = status === "onTime"
+    ? { grad: "from-emerald-500 to-green-600", Icon: Trophy, iconAnim: "animate-bounce", title: t.backOffice.recapOnTimeTitle, desc: t.backOffice.recapOnTimeDesc, badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800", badgeLabel: t.backOffice.recapAheadBy, BadgeIcon: PartyPopper }
+    : status === "overdue"
+    ? { grad: "from-amber-500 to-rose-600", Icon: AlertTriangle, iconAnim: "animate-pulse", title: t.backOffice.recapOverdueTitle, desc: t.backOffice.recapOverdueDesc, badge: "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800", badgeLabel: t.backOffice.recapOverdueBy, BadgeIcon: AlertTriangle }
+    : { grad: "from-sky-500 to-indigo-600", Icon: CheckCircle2, iconAnim: "", title: t.backOffice.recapNoDeadlineTitle, desc: t.backOffice.recapNoDeadlineDesc, badge: "", badgeLabel: "", BadgeIcon: CheckCircle2 };
+
+  const { Icon, BadgeIcon } = theme;
+
+  return (
+    <DialogPrimitive.Root open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          className="fixed inset-0 z-[10030] bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          data-testid="overlay-bo-recap"
+        />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className="fixed left-1/2 top-1/2 z-[10031] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border bg-background shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          data-testid="modal-bo-recap"
+        >
+          <div className={`relative overflow-hidden bg-gradient-to-br ${theme.grad} px-6 pt-8 pb-7 text-center text-white`}>
+            {status === "onTime" && (
+              <>
+                <Sparkles className="absolute left-5 top-5 h-5 w-5 text-white/70 animate-pulse" />
+                <Sparkles className="absolute right-8 top-10 h-4 w-4 text-white/60 animate-pulse [animation-delay:300ms]" />
+                <Sparkles className="absolute left-10 bottom-4 h-3.5 w-3.5 text-white/50 animate-pulse [animation-delay:600ms]" />
+              </>
+            )}
+            <DialogPrimitive.Close
+              className="absolute right-3 top-3 rounded-full p-1.5 text-white/80 transition hover:bg-white/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              data-testid="btn-bo-recap-close-x"
+              aria-label={t.backOffice.recapClose}
+            >
+              <X className="h-4 w-4" />
+            </DialogPrimitive.Close>
+            <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-white/15 ring-8 ring-white/10">
+              <Icon className={`h-10 w-10 ${theme.iconAnim}`} strokeWidth={2.2} />
+            </div>
+            <DialogPrimitive.Title className="text-xl font-bold tracking-tight" data-testid="text-bo-recap-title">{theme.title}</DialogPrimitive.Title>
+            <p className="mx-auto mt-1 max-w-xs text-sm text-white/90">{theme.desc}</p>
+          </div>
+
+          <div className="space-y-3 px-6 py-5">
+            <div className="flex items-center gap-3 rounded-xl border bg-muted/40 px-4 py-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Hourglass className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t.backOffice.recapDuration}</div>
+                <div className="text-lg font-bold leading-tight" data-testid="text-bo-recap-duration">{formatDuration(durationMs)}</div>
+              </div>
+            </div>
+
+            {status !== "none" && (
+              <div className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold ${theme.badge}`} data-testid="badge-bo-recap-status">
+                <BadgeIcon className="h-4 w-4" />
+                <span>{theme.badgeLabel} {formatDuration(diffMs)}</span>
+              </div>
+            )}
+
+            <div className="space-y-2 rounded-xl border px-4 py-3 text-sm">
+              {dueDate && due !== null && (
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-muted-foreground"><CalendarClock className="h-4 w-4" /> {t.backOffice.recapDeadline}</span>
+                  <span className="font-medium" data-testid="text-bo-recap-deadline">{format(new Date(dueDate), "d.M.yyyy HH:mm")}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="h-4 w-4" /> {t.backOffice.recapCompletedAt}</span>
+                <span className="font-medium" data-testid="text-bo-recap-completed">{Number.isFinite(completed) ? format(new Date(completed), "d.M.yyyy HH:mm") : "—"}</span>
+              </div>
+            </div>
+
+            <DialogPrimitive.Close asChild>
+              <Button className="w-full gap-2" data-testid="btn-bo-recap-close">
+                <Check className="h-4 w-4" /> {t.backOffice.recapClose}
+              </Button>
+            </DialogPrimitive.Close>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
