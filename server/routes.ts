@@ -28049,6 +28049,140 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Forward targets: admins + task groups the agent can hand a task off to.
+  // Available to any authenticated back-office user (does NOT expose the full user list).
+  app.get("/api/back-office/forward-targets", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const allUsers = await storage.getAllUsers() as any[];
+      const roles = await storage.getAllRoles();
+      const adminRole = roles.find(r => r.name === "Admin");
+      const admins = allUsers
+        .filter(u => (u.role === "admin" || (adminRole && u.roleId === adminRole.id)) && u.isActive !== false && u.id !== me.id)
+        .map(u => ({ id: u.id, name: u.fullName || u.username || u.email || "Admin" }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const groups = await db.select().from(taskGroups);
+      const members = await db.select().from(taskGroupMembers);
+      const memberCount = new Map<string, number>();
+      for (const m of members) memberCount.set(m.groupId, (memberCount.get(m.groupId) || 0) + 1);
+      const groupList = groups
+        .map(g => ({ id: g.id, name: g.name, isBackOffice: !!g.isBackOffice, memberCount: memberCount.get(g.id) || 0 }))
+        .filter(g => g.memberCount > 0)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      res.json({ admins, groups: groupList });
+    } catch (error) {
+      console.error("Failed to load forward targets:", error);
+      res.status(500).json({ error: "Failed to load forward targets" });
+    }
+  });
+
+  // Forward an ENTIRE back-office task to an admin (personal Tasks) or another task
+  // group (group Tasks). The task leaves the Back Office board (back_office tag removed)
+  // unless it is handed to another back-office group. A state_change comment records the
+  // hand-off and the recipient(s) are notified.
+  app.post("/api/back-office/tasks/:taskId/forward", requireAuth, async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = req.session.user!.id;
+      const targetType = (req.body?.targetType || "").toString();
+      const targetId = (req.body?.targetId || "").toString();
+      const note = (req.body?.note || "").toString().trim();
+      if (targetType !== "admin" && targetType !== "group") {
+        return res.status(400).json({ error: "Invalid targetType" });
+      }
+      if (!targetId) return res.status(400).json({ error: "targetId is required" });
+      const task = await getBackOfficeTask(taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
+      if (task.boState === "done" || task.status === "completed") {
+        return res.status(409).json({ error: "Task already completed" });
+      }
+
+      const currentTags: string[] = ((task.tags as string[]) || []).filter(Boolean);
+      // Strip the routing tags we manage; re-add below depending on the target.
+      const newTags = currentTags.filter(t => t !== "back_office" && !t.startsWith("group_id:"));
+
+      let newAssignedUserId: string;
+      let notifyIds: string[] = [];
+      let targetName = "";
+
+      if (targetType === "admin") {
+        const allUsers = await storage.getAllUsers() as any[];
+        const roles = await storage.getAllRoles();
+        const adminRole = roles.find(r => r.name === "Admin");
+        const admin = allUsers.find(u => u.id === targetId && u.isActive !== false && (u.role === "admin" || (adminRole && u.roleId === adminRole.id)));
+        if (!admin) return res.status(400).json({ error: "Target admin not found" });
+        newAssignedUserId = admin.id;
+        targetName = admin.fullName || admin.username || admin.email || "Admin";
+        notifyIds = [admin.id];
+      } else {
+        const [group] = await db.select().from(taskGroups).where(eq(taskGroups.id, targetId)).limit(1);
+        if (!group) return res.status(400).json({ error: "Target group not found" });
+        const groupMembers = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, targetId));
+        if (groupMembers.length === 0) return res.status(400).json({ error: "Target group has no members" });
+        newAssignedUserId = groupMembers[0].userId;
+        targetName = group.name;
+        notifyIds = groupMembers.map(m => m.userId);
+        newTags.push(`group_id:${group.id}`);
+        if (group.isBackOffice) newTags.push("back_office");
+      }
+
+      await db.transaction(async (tx) => {
+        // Guarded update: if the task was completed by someone else between our read
+        // and now, this matches no row and we abort with 409 instead of resurrecting it.
+        const updated = await tx.update(tasks).set({
+          assignedUserId: newAssignedUserId,
+          tags: newTags,
+          boState: "received",
+          status: "pending",
+          updatedAt: new Date(),
+        }).where(and(
+          eq(tasks.id, taskId),
+          ne(tasks.status, "completed"),
+          sql`(${tasks.boState} IS DISTINCT FROM 'done')`,
+        )).returning({ id: tasks.id });
+        if (updated.length === 0) {
+          const conflict: any = new Error("Task already completed");
+          conflict.code = "BO_FORWARD_CONFLICT";
+          throw conflict;
+        }
+        await tx.insert(taskComments).values({
+          taskId, userId,
+          content: note ? `Úloha preposlaná: ${targetName}\n${note}` : `Úloha preposlaná: ${targetName}`,
+          kind: "state_change",
+          metadata: { forwardedTo: targetType, targetId, targetName, note: note || null, byUserId: userId } as any,
+        });
+      });
+
+      try {
+        const meUser = (await storage.getAllUsers() as any[]).find(u => u.id === userId);
+        const byName = meUser?.fullName || meUser?.username || "Agent";
+        const recipients = Array.from(new Set(notifyIds)).filter(id => id && id !== userId);
+        if (recipients.length) {
+          await notificationService.sendNotificationToUsers(recipients, {
+            type: "task_forwarded",
+            title: targetType === "admin"
+              ? `Úloha preposlaná vám: ${task.title}`
+              : `Úloha preposlaná skupine: ${task.title}`,
+            message: note ? note.slice(0, 140) : `Preposlal: ${byName}`,
+            priority: "high",
+            entityType: "task",
+            entityId: taskId,
+            metadata: { taskId, taskTitle: task.title, forwardedBy: userId, targetType, targetId } as any,
+          });
+        }
+      } catch (err) { console.error("[BO forward] notify error:", err); }
+
+      res.json({ ok: true });
+    } catch (error: any) {
+      if (error?.code === "BO_FORWARD_CONFLICT") {
+        return res.status(409).json({ error: "Task already completed" });
+      }
+      console.error("Failed to forward BO task:", error);
+      res.status(500).json({ error: "Failed to forward task" });
+    }
+  });
+
   // Agent inbox: back-office questions waiting for THIS agent's answer
   app.get("/api/agent/bo-questions", requireAuth, async (req, res) => {
     try {

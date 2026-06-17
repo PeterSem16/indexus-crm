@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
 import type { Translations } from "@/i18n";
@@ -15,7 +16,7 @@ import {
   ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
   MessageSquare, Activity, Send, Hand, User, Phone, Mail,
   MapPin, ExternalLink, Stethoscope, Paperclip, Download,
-  Trophy, PartyPopper, Sparkles, X, CalendarClock, Hourglass,
+  Trophy, PartyPopper, Sparkles, X, CalendarClock, Hourglass, Forward,
 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
@@ -714,6 +715,31 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
     onError: () => toast({ title: t.backOffice.toastConfirmError, variant: "destructive" }),
   });
 
+  const [forwardTarget, setForwardTarget] = useState("");
+  const [forwardNote, setForwardNote] = useState("");
+  const { data: forwardTargets } = useQuery<{
+    admins: { id: string; name: string }[];
+    groups: { id: string; name: string; isBackOffice: boolean; memberCount: number }[];
+  }>({
+    queryKey: ["/api/back-office/forward-targets"],
+    queryFn: () => apiRequest("GET", "/api/back-office/forward-targets").then(r => r.json()),
+    enabled: open,
+  });
+  const forwardMutation = useMutation({
+    mutationFn: () => {
+      const [tt, tid] = forwardTarget.split(":");
+      return apiRequest("POST", `/api/back-office/tasks/${taskId}/forward`, {
+        targetType: tt, targetId: tid, note: forwardNote || null,
+      }).then(r => r.json());
+    },
+    onSuccess: () => {
+      setForwardTarget(""); setForwardNote(""); invalidate();
+      toast({ title: t.backOffice.toastForwarded });
+      onClose();
+    },
+    onError: () => toast({ title: t.backOffice.toastForwardError, variant: "destructive" }),
+  });
+
   const task = thread?.task;
   const state: BOState = task
     ? (task.status === "completed" || thread?.confirmation ? "done"
@@ -910,6 +936,52 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                     >
                       {noteMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
                       {t.backOffice.addNote}
+                    </Button>
+                  </div>
+
+                  <div className="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50/50 dark:bg-sky-950/20 p-3 space-y-2">
+                    <div className="text-[11px] font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wide flex items-center gap-1.5">
+                      <Forward className="h-3.5 w-3.5" /> {t.backOffice.forwardTitle}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{t.backOffice.forwardHint}</p>
+                    <Select value={forwardTarget} onValueChange={setForwardTarget}>
+                      <SelectTrigger className="text-xs bg-background h-9" data-testid="select-bo-forward-target">
+                        <SelectValue placeholder={t.backOffice.forwardPlaceholder} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {forwardTargets?.admins && forwardTargets.admins.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>{t.backOffice.forwardAdminsLabel}</SelectLabel>
+                            {forwardTargets.admins.map(a => (
+                              <SelectItem key={a.id} value={`admin:${a.id}`} data-testid={`option-forward-admin-${a.id}`}>{a.name}</SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+                        {forwardTargets?.groups && forwardTargets.groups.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>{t.backOffice.forwardGroupsLabel}</SelectLabel>
+                            {forwardTargets.groups.map(g => (
+                              <SelectItem key={g.id} value={`group:${g.id}`} data-testid={`option-forward-group-${g.id}`}>{g.name}</SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Textarea
+                      className="text-xs min-h-[48px] resize-none bg-background"
+                      placeholder={t.backOffice.forwardNotePlaceholder}
+                      value={forwardNote}
+                      onChange={e => setForwardNote(e.target.value)}
+                      data-testid="textarea-bo-forward-note"
+                    />
+                    <Button
+                      size="sm" className="w-full gap-2 bg-sky-600 hover:bg-sky-700 text-white"
+                      onClick={() => forwardMutation.mutate()}
+                      disabled={forwardMutation.isPending || !forwardTarget}
+                      data-testid="btn-bo-forward"
+                    >
+                      {forwardMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Forward className="h-3.5 w-3.5" />}
+                      {t.backOffice.forwardButton}
                     </Button>
                   </div>
 

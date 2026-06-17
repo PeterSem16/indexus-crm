@@ -6,6 +6,8 @@
 - [Architect on huge files](architect-huge-files.md) — passing 50k-line files to architect echoes file dumps with no verdict; pass small files + includeGitDiff instead.
 - [Sheet over Dialog stacking](sheet-over-dialog-stacking.md) — a shadcn Sheet renders BEHIND an open Dialog; an "elevated" drawer needs z-[10020] + hideOverlay + onCloseAutoFocus preventDefault.
 - [Back Office country visibility](back-office-country-visibility.md) — BO endpoints enforce country authz server-side from session.assignedCountries; client `country` query only narrows, never widens; admin bypasses; NULL-country tasks shared; task.country inherited from CONTACT not campaign.
+- [BO forward concurrent-completion guard](bo-task-forward-guards.md) — guarded UPDATE+returning→409 on TOCTOU; nullable boState needs `IS DISTINCT FROM`, not ne() (NULL silently excluded); re-validate target in POST.
+- [Huge-repo tsc verification](huge-repo-tsc-verify.md) — output files in /home, /tmp, .local/state get wiped; write to workspace root, background+poll, empty file = 0 errors; warm buildinfo ~5s.
 - [BO board twin dedup](bo-board-twin-dedup.md) — collapse only same-confirmation member-twins (time-cluster ±15s), else a done twin hides a newer answered task; display dedup + confirm cascade must share the time window.
 - [BO agent-score attribution](bo-agent-score-attribution.md) — credit completed BO tasks by resolver/confirmer, not assignee; the shared single task is owned by a nominal assignee but completed by whoever picks it up.
 - [Public upload extension XSS](public-upload-extension-xss.md) — files on public static mounts (/data,/uploads) must use a server-controlled MIME->ext whitelist; never keep the client filename ext (spoofed MIME + .html = stored XSS).
