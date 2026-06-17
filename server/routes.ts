@@ -28136,14 +28136,37 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               let resolvedDescription = automation.taskDescription || `Automaticky vytvorená úloha zo Status Listu. Kampaň ${campaignId}, kontakt ${campaignContactId}.`;
               if (resolvedDescription.includes("{{")) {
                 try {
-                  // Fetch contact data
-                  // NOTE: node-postgres db.execute() returns { rows: [...] }, NOT an
-                  // iterable — array-destructuring it threw "not iterable", which the
-                  // catch below swallowed, leaving raw {{...}} placeholders unresolved.
-                  const contactRes: any = await db.execute<any>(
-                    sql`SELECT first_name, last_name, email, phone FROM customers WHERE id = ${contactId} LIMIT 1`
-                  );
-                  const contact = contactRes?.rows?.[0] as any;
+                  // Resolve {{customer.*}} from the CUSTOMER id (taskCustomerId = ccRow.customerId),
+                  // NOT the polymorphic contactId — for clinic/hospital/collaborator contacts the
+                  // contactId is that entity's id and would query customers/potential_cases wrongly.
+                  // NOTE: node-postgres db.execute() returns { rows: [...] }, NOT an iterable.
+                  let contact: any = null;
+                  let pc: any = null;
+                  if (taskCustomerId) {
+                    const contactRes: any = await db.execute<any>(
+                      sql`SELECT first_name, last_name, email, phone FROM customers WHERE id = ${taskCustomerId} LIMIT 1`
+                    );
+                    contact = contactRes?.rows?.[0] as any;
+                    const pcRes: any = await db.execute<any>(
+                      sql`SELECT h.name AS hospital_name, c.name AS clinic_name FROM potential_cases pc LEFT JOIN hospitals h ON h.id = pc.hospital_id LEFT JOIN clinics c ON c.id = pc.clinic_id WHERE pc.customer_id = ${taskCustomerId} ORDER BY pc.created_at DESC LIMIT 1`
+                    );
+                    pc = pcRes?.rows?.[0] as any;
+                  }
+                  // When the campaign contact itself IS a clinic/hospital, resolve its name
+                  // directly from the entity — there may be no linked customer/potential_case.
+                  let directClinicName = "";
+                  let directHospitalName = "";
+                  if (ccRow?.contactType === "clinic" && ccRow.clinicId) {
+                    const clRes: any = await db.execute<any>(
+                      sql`SELECT name FROM clinics WHERE id = ${ccRow.clinicId} LIMIT 1`
+                    );
+                    directClinicName = clRes?.rows?.[0]?.name || "";
+                  } else if (ccRow?.contactType === "hospital" && ccRow.hospitalId) {
+                    const hoRes: any = await db.execute<any>(
+                      sql`SELECT name FROM hospitals WHERE id = ${ccRow.hospitalId} LIMIT 1`
+                    );
+                    directHospitalName = hoRes?.rows?.[0]?.name || "";
+                  }
                   // Fetch campaign data
                   const campaignRes: any = await db.execute<any>(
                     sql`SELECT name FROM campaigns WHERE id = ${campaignId} LIMIT 1`
@@ -28154,20 +28177,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                     sql`SELECT full_name, username FROM users WHERE id = ${userId} LIMIT 1`
                   );
                   const agent = agentRes?.rows?.[0] as any;
-                  // Fetch clinic/hospital from potential_cases
-                  const pcRes: any = await db.execute<any>(
-                    sql`SELECT h.name AS hospital_name, c.name AS clinic_name FROM potential_cases pc LEFT JOIN hospitals h ON h.id = pc.hospital_id LEFT JOIN clinics c ON c.id = pc.clinic_id WHERE pc.customer_id = ${contactId} ORDER BY pc.created_at DESC LIMIT 1`
-                  );
-                  const pc = pcRes?.rows?.[0] as any;
                   resolvedDescription = resolvedDescription
                     .replace(/\{\{customer\.name\}\}/g, contact ? `${contact.first_name || ""} ${contact.last_name || ""}`.trim() : "")
-                    .replace(/\{\{customer\.id\}\}/g, contactId ?? "")
+                    .replace(/\{\{customer\.id\}\}/g, taskCustomerId ?? "")
                     .replace(/\{\{customer\.phone\}\}/g, contact?.phone || "")
                     .replace(/\{\{customer\.email\}\}/g, contact?.email || "")
                     .replace(/\{\{campaign\.name\}\}/g, campaign?.name || "")
                     .replace(/\{\{agent\.name\}\}/g, agent ? (agent.full_name || agent.username || "") : "")
-                    .replace(/\{\{clinic\.name\}\}/g, pc?.clinic_name || "")
-                    .replace(/\{\{hospital\.name\}\}/g, pc?.hospital_name || "")
+                    .replace(/\{\{clinic\.name\}\}/g, directClinicName || pc?.clinic_name || "")
+                    .replace(/\{\{hospital\.name\}\}/g, directHospitalName || pc?.hospital_name || "")
                     .replace(/\{\{(reason|status\.label)\}\}/g, slItem?.label || "");
                 } catch (varErr) {
                   console.error("[assign_task] Variable resolution error:", varErr);
