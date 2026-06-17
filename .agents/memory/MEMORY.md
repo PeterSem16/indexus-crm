@@ -6,4 +6,5 @@
 - [Architect on huge files](architect-huge-files.md) — passing 50k-line files to architect echoes file dumps with no verdict; pass small files + includeGitDiff instead.
 - [Sheet over Dialog stacking](sheet-over-dialog-stacking.md) — a shadcn Sheet renders BEHIND an open Dialog; an "elevated" drawer needs z-[10020] + hideOverlay + onCloseAutoFocus preventDefault.
 - [Back Office country visibility](back-office-country-visibility.md) — BO endpoints enforce country authz server-side from session.assignedCountries; client `country` query only narrows, never widens; admin bypasses; NULL-country tasks shared; task.country inherited from CONTACT not campaign.
+- [Notification PII on external channels](notification-pii-external-channels.md) — email/SMS task notifications must send only the static title, never the resolved description (customer PII); redact recipient address + raw vendor errors from logs.
 - [BO nested full-card drawers](bo-nested-full-card-drawers.md) — reuse the REAL entity edit drawers above BO host sheets at z-[9994] (interval (9991,9996)); portal non-portalled custom fixed drawers to body via an optional default-off className/portal prop.

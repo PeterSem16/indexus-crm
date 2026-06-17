@@ -27515,6 +27515,102 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // ── Agent SCORE / performance panel (Back Office) ──
+  // Returns the CURRENT user's own back-office task performance over a selectable time
+  // range (week default → year): on-time vs after-deadline completions, currently-open
+  // overdue, an on-time rate, and a small trend series for charting.
+  app.get("/api/back-office/agent-score", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const userId = me.id;
+      const ALLOWED_RANGES = ["week", "month", "3m", "6m", "year"];
+      const rawRange = (typeof req.query.range === "string" ? req.query.range : "week").toLowerCase();
+      const rangeParam = ALLOWED_RANGES.includes(rawRange) ? rawRange : "week";
+
+      const now = new Date();
+      const start = new Date(now);
+      switch (rangeParam) {
+        case "month": start.setMonth(start.getMonth() - 1); break;
+        case "3m": start.setMonth(start.getMonth() - 3); break;
+        case "6m": start.setMonth(start.getMonth() - 6); break;
+        case "year": start.setFullYear(start.getFullYear() - 1); break;
+        case "week":
+        default: start.setDate(start.getDate() - 7); break;
+      }
+
+      // All back-office tasks assigned to the current user. We filter the time window in JS
+      // so we can compute both "completed in range" and "currently open overdue".
+      const rows = await db.select({
+        task: tasks,
+        confirmation: taskBackOfficeConfirmations,
+      })
+        .from(tasks)
+        .leftJoin(taskBackOfficeConfirmations, eq(taskBackOfficeConfirmations.taskId, tasks.id))
+        .where(and(
+          eq(tasks.assignedUserId, userId),
+          sql`${tasks.tags} @> ARRAY['back_office']::text[]`
+        ));
+
+      const isDone = (t: any, c: any) => t.status === "completed" || t.boState === "done" || !!c?.confirmedAt;
+      const completionTime = (t: any, c: any): Date | null => {
+        if (t.resolvedAt) return new Date(t.resolvedAt);
+        if (c?.confirmedAt) return new Date(c.confirmedAt);
+        return null;
+      };
+
+      // Equal-width trend slices across [start, now] — avoids calendar-alignment headaches
+      // and always yields a clean continuous series for the chart.
+      const N = rangeParam === "week" ? 7 : rangeParam === "year" ? 12 : 6;
+      const startMs = start.getTime();
+      const span = Math.max(now.getTime() - startMs, 1);
+      const slice = span / N;
+      const trend = Array.from({ length: N }, (_, i) => {
+        const end = new Date(startMs + slice * (i + 1));
+        return { label: `${end.getDate()}.${end.getMonth() + 1}.`, onTime: 0, late: 0 };
+      });
+
+      let onTime = 0, late = 0, unknownCompleted = 0, openOverdue = 0, openTotal = 0;
+
+      for (const r of rows) {
+        const t: any = r.task;
+        const c: any = r.confirmation;
+        if (isDone(t, c)) {
+          const ct = completionTime(t, c);
+          if (ct && ct >= start && ct <= now) {
+            const due = t.dueDate ? new Date(t.dueDate) : null;
+            const wasLate = due ? ct.getTime() > due.getTime() : false;
+            if (wasLate) late++; else onTime++;
+            const idx = Math.min(N - 1, Math.max(0, Math.floor((ct.getTime() - startMs) / slice)));
+            if (wasLate) trend[idx].late++; else trend[idx].onTime++;
+          } else if (!ct) {
+            unknownCompleted++; // done without a completion timestamp (legacy) — excluded from rate
+          }
+        } else {
+          openTotal++;
+          if (t.dueDate && new Date(t.dueDate).getTime() < now.getTime()) openOverdue++;
+        }
+      }
+
+      const totalRated = onTime + late;
+      const onTimeRate = totalRated > 0 ? Math.round((onTime / totalRated) * 100) : null;
+
+      res.json({
+        range: rangeParam,
+        onTime,
+        late,
+        unknownCompleted, // legacy done-without-timestamp tasks (all-time); NOT in ranged totals
+        totalCompleted: onTime + late,
+        openTotal,
+        openOverdue,
+        onTimeRate,
+        trend,
+      });
+    } catch (error) {
+      console.error("Failed to compute agent score:", error);
+      res.status(500).json({ error: "Failed to compute agent score" });
+    }
+  });
+
   // Helper: load a back-office task (tagged 'back_office') or null
   async function getBackOfficeTask(taskId: string): Promise<any | null> {
     const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
@@ -28086,6 +28182,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               // Helper: extract role name from "role:back_office" → "back_office"
               const roleName = targetRole.startsWith("role:") ? targetRole.slice(5) : targetRole;
 
+              // Collect assignees across all branches so a single notifier can dispatch
+              // push/email/sms AFTER the task rows are persisted.
+              let notifyAssignees: string[] = [];
+              let wasGroupPath = false;
+              let groupNameForNotif: string | null = null;
+
               if (groupId) {
                 // GROUP PATH: assign to all members of the group, tag with group + back_office for Nexus
                 const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
@@ -28111,18 +28213,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                     country: contactCountry ?? null,
                   });
                 }
-                // Send real-time WebSocket notification to every group member
-                if (assignees.length > 0) {
-                  const groupName = groupRow?.name ?? groupId;
-                  await notificationService.sendNotificationToUsers(assignees, {
-                    type: "group_task_assigned",
-                    title: `Máte novú skupinovú úlohu: ${taskTitle}`,
-                    message: `Skupina: ${groupName}`,
-                    priority: "normal",
-                    entityType: "task",
-                    metadata: { groupId, groupName, taskTitle },
-                  });
-                }
+                notifyAssignees = assignees;
+                wasGroupPath = true;
+                groupNameForNotif = groupRow?.name ?? groupId;
               } else if (roleName) {
                 // LEGACY ROLE PATH: find all users matching targetRole, assign one task per user
                 // Resolve assignees from the NEW roles system (user_roles + users.role_id)
@@ -28166,6 +28259,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                     country: contactCountry ?? null,
                   });
                 }
+                notifyAssignees = roleUserIds;
               } else {
                 // FALLBACK: no group, no role → assign to triggering agent with back_office tag
                 await db.insert(tasks).values({
@@ -28182,6 +28276,109 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                   relatedEntityId: itemId,
                   country: contactCountry ?? null,
                 });
+                notifyAssignees = [userId];
+              }
+
+              // ─── Assignment notification dispatch (push / email / sms) ───
+              // Channels are governed by the automation config. New/edited automations obey
+              // the assignNotify checkbox strictly; legacy group-path rows keep their original
+              // always-on in-app push. Every channel is best-effort: a failure here must never
+              // break task creation or the status-list response.
+              try {
+                const uniqueAssignees = Array.from(new Set(notifyAssignees)).filter(Boolean);
+                let channels: string[] = [];
+                if (automation.assignNotify) {
+                  channels = (automation.assignNotifyChannels && automation.assignNotifyChannels.length > 0)
+                    ? automation.assignNotifyChannels
+                    : ["push"];
+                } else if (wasGroupPath) {
+                  channels = ["push"]; // legacy back-compat: group path always pushed before
+                }
+
+                if (uniqueAssignees.length > 0 && channels.length > 0) {
+                  const wantPush = channels.includes("push");
+                  const wantEmail = channels.includes("email");
+                  const wantSms = channels.includes("sms");
+
+                  // Load contact details only when an email/sms channel is requested.
+                  let assigneeRows: { id: string; email: string | null; phone: string | null }[] = [];
+                  if (wantEmail || wantSms) {
+                    assigneeRows = await db.select({ id: users.id, email: users.email, phone: users.phone })
+                      .from(users).where(inArray(users.id, uniqueAssignees));
+                  }
+
+                  // PUSH (in-app + WebSocket, persisted). Payload kept minimal (no PII).
+                  if (wantPush) {
+                    try {
+                      await notificationService.sendNotificationToUsers(uniqueAssignees, {
+                        type: wasGroupPath ? "group_task_assigned" : "task_assigned",
+                        title: `Nová úloha: ${taskTitle}`,
+                        message: wasGroupPath && groupNameForNotif
+                          ? `Skupina: ${groupNameForNotif}`
+                          : "Bola vám pridelená nová úloha.",
+                        priority: "normal",
+                        entityType: "task",
+                        metadata: { taskTitle, ...(wasGroupPath ? { groupName: groupNameForNotif } : {}) },
+                      });
+                    } catch (e) { console.error("[assign_task] push notification failed:", e); }
+                  }
+
+                  // EMAIL — sent from the triggering user's connected MS365 mailbox. Best-effort:
+                  // skip silently if the triggering agent has no valid MS365 connection.
+                  if (wantEmail) {
+                    try {
+                      const ms365Connection = await storage.getUserMs365Connection(userId);
+                      if (ms365Connection && ms365Connection.isConnected) {
+                        const { decryptTokenSafe } = await import("./lib/token-crypto");
+                        const { getValidAccessToken, sendEmail } = await import("./lib/ms365");
+                        const accessTok = decryptTokenSafe(ms365Connection.accessToken);
+                        const refreshTok = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+                        const tokenResult = await getValidAccessToken(accessTok, ms365Connection.tokenExpiresAt, refreshTok);
+                        if (tokenResult) {
+                          // Body intentionally excludes the resolved task description — it can
+                          // contain customer PII (name/phone/email). The title is the static
+                          // status-list label; full detail lives behind CRM auth.
+                          const recipients = assigneeRows.filter(r => !!r.email);
+                          const bodyHtml = `<p>Bola vám pridelená nová úloha v INDEXUS CRM.</p>`
+                            + `<p><strong>${taskTitle}</strong></p>`
+                            + `<p>Detaily nájdete v aplikácii INDEXUS CRM.</p>`;
+                          for (const r of recipients) {
+                            try {
+                              await sendEmail(tokenResult.accessToken, [r.email!], `Nová úloha: ${taskTitle}`, bodyHtml, true);
+                            } catch (e) { console.error("[assign_task] email send failed for user", r.id, e instanceof Error ? e.message : String(e)); }
+                          }
+                        } else {
+                          console.warn("[assign_task] email channel skipped: MS365 token invalid for triggering user");
+                        }
+                      } else {
+                        console.warn("[assign_task] email channel skipped: triggering user has no MS365 connection");
+                      }
+                    } catch (e) { console.error("[assign_task] email channel error:", e); }
+                  }
+
+                  // SMS — via BulkGate (system-level). Best-effort: skip when not configured or no phone.
+                  if (wantSms) {
+                    try {
+                      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+                      if (isBulkGateConfigured()) {
+                        const smsRecipients = assigneeRows.filter(r => !!r.phone);
+                        for (const r of smsRecipients) {
+                          try {
+                            await sendTransactionalSms({
+                              number: r.phone!,
+                              text: `INDEXUS: Nová úloha - ${taskTitle}`,
+                              country: contactCountry ?? undefined,
+                            });
+                          } catch (e) { console.error("[assign_task] sms send failed for user", r.id, e instanceof Error ? e.message : String(e)); }
+                        }
+                      } else {
+                        console.warn("[assign_task] sms channel skipped: BulkGate not configured");
+                      }
+                    } catch (e) { console.error("[assign_task] sms channel error:", e); }
+                  }
+                }
+              } catch (notifyErr) {
+                console.error("[assign_task] notification dispatch error:", notifyErr);
               }
             }
 

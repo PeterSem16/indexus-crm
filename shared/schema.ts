@@ -7707,6 +7707,8 @@ export const campaignStatusListAutomations = pgTable("campaign_status_list_autom
   dispositionId: varchar("disposition_id"),
   webhookTarget: text("webhook_target"),
   taskGroupId: varchar("task_group_id"),
+  assignNotify: boolean("assign_notify").notNull().default(false),
+  assignNotifyChannels: text("assign_notify_channels").array().notNull().default(sql`ARRAY[]::text[]`),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7729,6 +7731,8 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
   dispositionId: z.string().optional().nullable(),
   webhookTarget: z.string().optional().nullable(),
   taskGroupId: z.string().optional().nullable(),
+  assignNotify: z.boolean().optional().default(false),
+  assignNotifyChannels: z.array(z.string()).optional().default([]),
 });
 export type CampaignStatusListAutomation = typeof campaignStatusListAutomations.$inferSelect;
 export type InsertCampaignStatusListAutomation = z.infer<typeof insertCampaignStatusListAutomationSchema>;

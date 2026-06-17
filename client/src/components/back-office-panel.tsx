@@ -21,6 +21,7 @@ import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-f
 import { enUS, sk, cs, hu, ro, it, de } from "date-fns/locale";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
 import { UserAvatar } from "./user-avatar";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 const DF_LOCALES: Record<string, typeof enUS> = { en: enUS, sk, cs, hu, ro, it, de };
 function dfLocale(locale: string) {
@@ -812,6 +813,168 @@ export function BackOfficeTaskDrawer({ taskId, open, onClose, elevated = false }
   );
 }
 
+// ───────────────────── Agent SCORE / performance panel ─────────────────────
+type ScoreRange = "week" | "month" | "3m" | "6m" | "year";
+
+interface AgentScore {
+  range: string;
+  onTime: number;
+  late: number;
+  unknownCompleted: number;
+  totalCompleted: number;
+  openTotal: number;
+  openOverdue: number;
+  onTimeRate: number | null;
+  trend: { label: string; onTime: number; late: number }[];
+}
+
+// Local i18n dict (same pattern as the status-list builder) to avoid touching the
+// 25k-line translations.ts for a contained panel.
+const SCORE_SL: Record<string, Record<string, string>> = {
+  scoreTitle:     { sk: "Moje skóre", en: "My score", cs: "Moje skóre", hu: "Pontszámom", ro: "Scorul meu", it: "Il mio punteggio", de: "Meine Punktzahl" },
+  rangeWeek:      { sk: "Týždeň", en: "Week", cs: "Týden", hu: "Hét", ro: "Săpt.", it: "Settim.", de: "Woche" },
+  rangeMonth:     { sk: "Mesiac", en: "Month", cs: "Měsíc", hu: "Hónap", ro: "Lună", it: "Mese", de: "Monat" },
+  range3m:        { sk: "3M", en: "3M", cs: "3M", hu: "3H", ro: "3L", it: "3M", de: "3M" },
+  range6m:        { sk: "6M", en: "6M", cs: "6M", hu: "6H", ro: "6L", it: "6M", de: "6M" },
+  rangeYear:      { sk: "Rok", en: "Year", cs: "Rok", hu: "Év", ro: "An", it: "Anno", de: "Jahr" },
+  onTimeLbl:      { sk: "Načas", en: "On time", cs: "Včas", hu: "Időben", ro: "La timp", it: "In tempo", de: "Pünktlich" },
+  lateLbl:        { sk: "Po termíne", en: "Late", cs: "Po termínu", hu: "Késve", ro: "Întârziat", it: "In ritardo", de: "Verspätet" },
+  onTimeRateLbl:  { sk: "Úspešnosť načas", en: "On-time rate", cs: "Včasnost", hu: "Időben arány", ro: "Rată la timp", it: "Tasso puntualità", de: "Pünktlichkeit" },
+  completedLbl:   { sk: "Dokončené", en: "Completed", cs: "Dokončené", hu: "Befejezve", ro: "Finalizate", it: "Completati", de: "Erledigt" },
+  openOverdueLbl: { sk: "Otvorené po termíne", en: "Open overdue", cs: "Otevřené po termínu", hu: "Lejárt nyitott", ro: "Restante deschise", it: "Aperti scaduti", de: "Offen überfällig" },
+  noData:         { sk: "Zatiaľ žiadne dáta", en: "No data yet", cs: "Zatím žádná data", hu: "Még nincs adat", ro: "Încă fără date", it: "Ancora nessun dato", de: "Noch keine Daten" },
+  trendLbl:       { sk: "Vývoj", en: "Trend", cs: "Vývoj", hu: "Trend", ro: "Tendință", it: "Andamento", de: "Verlauf" },
+  greatJob:       { sk: "Skvelá práca!", en: "Great job!", cs: "Skvělá práce!", hu: "Remek munka!", ro: "Excelent!", it: "Ottimo lavoro!", de: "Großartig!" },
+  goodJob:        { sk: "Dobrá práca", en: "Good work", cs: "Dobrá práce", hu: "Jó munka", ro: "Bravo", it: "Buon lavoro", de: "Gute Arbeit" },
+  keepGoing:      { sk: "Len tak ďalej", en: "Keep going", cs: "Jen tak dál", hu: "Így tovább", ro: "Continuă", it: "Continua così", de: "Weiter so" },
+};
+function scoreSl(key: string, locale: string): string {
+  return SCORE_SL[key]?.[locale] ?? SCORE_SL[key]?.en ?? key;
+}
+
+function AgentScorePanel() {
+  const { locale } = useI18n();
+  const [range, setRange] = useState<ScoreRange>("week");
+
+  const { data, isLoading } = useQuery<AgentScore>({
+    queryKey: ["/api/back-office/agent-score", range],
+    queryFn: () => apiRequest("GET", `/api/back-office/agent-score?range=${range}`).then(r => r.json()),
+    refetchInterval: 30000,
+  });
+
+  const rate = data?.onTimeRate ?? null;
+  const hasRated = ((data?.onTime ?? 0) + (data?.late ?? 0)) > 0;
+  const tier: "great" | "good" | "keep" | null = rate == null ? null : rate >= 90 ? "great" : rate >= 70 ? "good" : "keep";
+  const CelebIcon = tier === "great" ? PartyPopper : tier === "good" ? Trophy : Sparkles;
+  const celebText = tier === "great" ? scoreSl("greatJob", locale) : tier === "good" ? scoreSl("goodJob", locale) : scoreSl("keepGoing", locale);
+
+  const pieData = [
+    { name: scoreSl("onTimeLbl", locale), value: data?.onTime ?? 0, color: "#10b981" },
+    { name: scoreSl("lateLbl", locale), value: data?.late ?? 0, color: "#ef4444" },
+  ];
+
+  const RANGES: { key: ScoreRange; lblKey: string }[] = [
+    { key: "week", lblKey: "rangeWeek" },
+    { key: "month", lblKey: "rangeMonth" },
+    { key: "3m", lblKey: "range3m" },
+    { key: "6m", lblKey: "range6m" },
+    { key: "year", lblKey: "rangeYear" },
+  ];
+
+  const hasTrend = !!data && data.trend.some(b => b.onTime + b.late > 0);
+
+  return (
+    <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l bg-muted/10 flex-col h-full overflow-hidden" data-testid="agent-score-panel">
+      <div className="px-3 py-2.5 border-b flex items-center gap-2 shrink-0">
+        <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+        <span className="text-sm font-semibold">{scoreSl("scoreTitle", locale)}</span>
+        {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+      </div>
+
+      <div className="flex flex-wrap gap-1 p-2 border-b shrink-0">
+        {RANGES.map(r => (
+          <button
+            key={r.key}
+            type="button"
+            onClick={() => setRange(r.key)}
+            data-testid={`btn-score-range-${r.key}`}
+            className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${range === r.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+          >
+            {scoreSl(r.lblKey, locale)}
+          </button>
+        ))}
+      </div>
+
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-3 space-y-3">
+          <div className="rounded-lg border bg-card p-3 text-center">
+            {hasRated && tier ? (
+              <>
+                <CelebIcon className={`h-8 w-8 mx-auto mb-1 ${tier === "great" ? "text-amber-500" : tier === "good" ? "text-emerald-500" : "text-sky-500"}`} />
+                <div className="text-3xl font-bold leading-none" data-testid="text-ontime-rate">{rate}%</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{scoreSl("onTimeRateLbl", locale)}</div>
+                <div className="text-xs font-medium mt-1">{celebText}</div>
+              </>
+            ) : (
+              <div className="py-4 text-xs text-muted-foreground">{scoreSl("noData", locale)}</div>
+            )}
+          </div>
+
+          {hasRated && (
+            <div className="rounded-lg border bg-card p-2">
+              <div className="h-32">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={36} outerRadius={52} paddingAngle={2}>
+                      {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-3 text-[11px]">
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />{scoreSl("onTimeLbl", locale)} {data?.onTime ?? 0}</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />{scoreSl("lateLbl", locale)} {data?.late ?? 0}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg border bg-card p-2 flex flex-col items-center" data-testid="stat-completed">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 mb-0.5" />
+              <div className="text-lg font-bold leading-none">{data?.totalCompleted ?? 0}</div>
+              <div className="text-[10px] text-muted-foreground text-center mt-0.5">{scoreSl("completedLbl", locale)}</div>
+            </div>
+            <div className="rounded-lg border bg-card p-2 flex flex-col items-center" data-testid="stat-open-overdue">
+              <Hourglass className="h-4 w-4 text-rose-500 mb-0.5" />
+              <div className="text-lg font-bold leading-none">{data?.openOverdue ?? 0}</div>
+              <div className="text-[10px] text-muted-foreground text-center mt-0.5">{scoreSl("openOverdueLbl", locale)}</div>
+            </div>
+          </div>
+
+          {hasTrend && (
+            <div className="rounded-lg border bg-card p-2">
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
+                <CalendarClock className="h-3 w-3" />{scoreSl("trendLbl", locale)}
+              </div>
+              <div className="h-28">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data!.trend} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                    <XAxis dataKey="label" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
+                    <Tooltip />
+                    <Bar dataKey="onTime" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="late" stackId="a" fill="#ef4444" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
 export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowInbound, onToggleAllowInbound }: { country?: string; fullScreen?: boolean; hasInboundQueues?: boolean; allowInbound?: boolean; onToggleAllowInbound?: () => void }) {
   const { t } = useI18n();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -866,7 +1029,8 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-x-auto">
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-x-auto">
         <div className="flex gap-3 p-3 h-full min-w-max">
           {COLUMN_ORDER.map(stateKey => {
             const cfg = STATE_CONFIG[stateKey];
@@ -905,6 +1069,8 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
             );
           })}
         </div>
+        </div>
+        <AgentScorePanel />
       </div>
 
       <BackOfficeTaskDrawer

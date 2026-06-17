@@ -153,9 +153,11 @@ app.use((req, res, next) => {
     await pool.query(`
       ALTER TABLE campaign_status_list_automations
         ADD COLUMN IF NOT EXISTS condition_json text,
-        ADD COLUMN IF NOT EXISTS webhook_target text;
+        ADD COLUMN IF NOT EXISTS webhook_target text,
+        ADD COLUMN IF NOT EXISTS assign_notify boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS assign_notify_channels text[] NOT NULL DEFAULT ARRAY[]::text[];
     `);
-    console.log('[migration] condition_json/webhook_target ensured on automations');
+    console.log('[migration] condition_json/webhook_target/assign_notify ensured on automations');
 
     await pool.query(`
       UPDATE hospitals SET full_name = name WHERE (full_name IS NULL OR full_name = '' OR full_name = '-') AND name IS NOT NULL AND name != '' AND name != '-';

@@ -142,6 +142,12 @@ const SL: Record<string, Record<string, string>> = {
   thenSub:       { sk: "Akcia ktorá sa vykoná", en: "Action to be executed", cs: "Akce, která se provede", hu: "Végrehajtandó akció", ro: "Acțiunea care se va executa", it: "Azione da eseguire", de: "Auszuführende Aktion" },
   actionTypeLbl: { sk: "Typ akcie", en: "Action type", cs: "Typ akce", hu: "Akció típusa", ro: "Tip acțiune", it: "Tipo di azione", de: "Aktionstyp" },
   targetRoleLbl: { sk: "Cieľová rola", en: "Target role", cs: "Cílová role", hu: "Célszerepkör", ro: "Rol țintă", it: "Ruolo destinatario", de: "Zielrolle" },
+  notifyAssignLbl: { sk: "Upozorniť priradenú skupinu/rolu", en: "Notify assigned group/role", cs: "Upozornit přiřazenou skupinu/roli", hu: "Hozzárendelt csoport/szerepkör értesítése", ro: "Notifică grupul/rolul atribuit", it: "Notifica al gruppo/ruolo assegnato", de: "Zugewiesene Gruppe/Rolle benachrichtigen" },
+  notifyAssignHint: { sk: "Každý člen dostane upozornenie cez zvolené kanály.", en: "Each member is notified via the selected channels.", cs: "Každý člen dostane upozornění přes zvolené kanály.", hu: "Minden tag értesítést kap a kiválasztott csatornákon.", ro: "Fiecare membru este notificat prin canalele selectate.", it: "Ogni membro viene notificato tramite i canali selezionati.", de: "Jedes Mitglied wird über die gewählten Kanäle benachrichtigt." },
+  channelsLbl: { sk: "Kanály upozornenia", en: "Notification channels", cs: "Kanály upozornění", hu: "Értesítési csatornák", ro: "Canale de notificare", it: "Canali di notifica", de: "Benachrichtigungskanäle" },
+  channelPush: { sk: "Push (v aplikácii)", en: "Push (in-app)", cs: "Push (v aplikaci)", hu: "Push (alkalmazásban)", ro: "Push (în aplicație)", it: "Push (in-app)", de: "Push (In-App)" },
+  channelEmail: { sk: "Email", en: "Email", cs: "E-mail", hu: "E-mail", ro: "Email", it: "Email", de: "E-Mail" },
+  channelSms: { sk: "SMS", en: "SMS", cs: "SMS", hu: "SMS", ro: "SMS", it: "SMS", de: "SMS" },
   taskDescLbl:   { sk: "Popis úlohy", en: "Task description", cs: "Popis úkolu", hu: "Feladat leírása", ro: "Descrierea sarcinii", it: "Descrizione compito", de: "Aufgabenbeschreibung" },
   taskDescPh:    { sk: "Popis úlohy pre Back Office / Koordinátora...", en: "Task description for Back Office / Coordinator...", cs: "Popis úkolu pro Back Office / Koordinátora...", hu: "Feladat leírása Back Office / Koordinátor számára...", ro: "Descrierea sarcinii pentru Back Office / Coordonator...", it: "Descrizione compito per Back Office / Coordinatore...", de: "Aufgabenbeschreibung für Back Office / Koordinator..." },
   deadlineLbl:   { sk: "Termín", en: "Deadline", cs: "Termín", hu: "Határidő", ro: "Termen", it: "Scadenza", de: "Frist" },
@@ -1162,6 +1168,8 @@ function AutomationForm({
     dispositionId: automation?.dispositionId || "",
     webhookTarget: automation?.webhookTarget || "",
     taskGroupId: automation?.taskGroupId || "",
+    assignNotify: (automation as any)?.assignNotify ?? false,
+    assignNotifyChannels: ((automation as any)?.assignNotifyChannels ?? []) as string[],
   });
   const [showActionHelp, setShowActionHelp] = useState(false);
   const taskDescRef = useRef<HTMLTextAreaElement>(null);
@@ -1233,6 +1241,8 @@ function AutomationForm({
           : null,
         webhookTarget: form.webhookTarget || null,
         taskGroupId: form.taskGroupId || null,
+        assignNotify: form.assignNotify,
+        assignNotifyChannels: form.assignNotify ? form.assignNotifyChannels : [],
       };
       if (isEdit) {
         return apiRequest("PUT", `/api/campaigns/${campaignId}/status-list/${itemId}/automations/${automation.id}`, payload);
@@ -1462,6 +1472,57 @@ function AutomationForm({
                 const p = PRIORITY_OPTIONS.find(o => o.value === form.taskPriority);
                 return p ? <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{locale === "sk" ? p.descSk : p.descEn}</p> : null;
               })()}
+            </div>
+            <div className="col-span-2 rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 p-2.5">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-input accent-amber-600 cursor-pointer"
+                  checked={form.assignNotify}
+                  onChange={e => setForm(f => ({ ...f, assignNotify: e.target.checked }))}
+                  data-testid="checkbox-assign-notify"
+                />
+                <span className="text-xs font-medium flex items-center gap-1.5">
+                  <Bell className="h-3.5 w-3.5 text-amber-600" />
+                  {sl("notifyAssignLbl", locale)}
+                </span>
+              </label>
+              {form.assignNotify && (
+                <div className="mt-2 pl-6">
+                  <p className="text-[10px] text-muted-foreground mb-1.5">{sl("notifyAssignHint", locale)}</p>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{sl("channelsLbl", locale)}</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {([
+                      { key: "push", icon: Bell, label: sl("channelPush", locale) },
+                      { key: "email", icon: Mail, label: sl("channelEmail", locale) },
+                      { key: "sms", icon: MessageSquare, label: sl("channelSms", locale) },
+                    ] as const).map(({ key, icon: Icon, label }) => {
+                      const active = form.assignNotifyChannels.includes(key);
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setForm(f => ({
+                            ...f,
+                            assignNotifyChannels: active
+                              ? f.assignNotifyChannels.filter(c => c !== key)
+                              : [...f.assignNotifyChannels, key],
+                          }))}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                            active
+                              ? "border-amber-400 bg-amber-100 text-amber-800 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-200"
+                              : "border-input bg-background text-muted-foreground hover:bg-muted"
+                          }`}
+                          data-testid={`chip-channel-${key}`}
+                        >
+                          <Icon className="h-3 w-3" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
