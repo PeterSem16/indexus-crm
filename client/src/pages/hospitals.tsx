@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, ArrowRight, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save, Network, User, Baby, Calendar } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -209,7 +210,7 @@ function PersonnelTabContent({ entityType, entityId, entityName }: { entityType:
 }
 
 
-export function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital: HospitalType; onClose: () => void; onSuccess: () => void }) {
+export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody = false, backdropClassName, panelClassName }: { hospital: HospitalType; onClose: () => void; onSuccess: () => void; portalToBody?: boolean; backdropClassName?: string; panelClassName?: string }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState("basic");
@@ -295,10 +296,10 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital:
     { id: "campaigns", label: (t as any).campaigns?.title || "Campaigns", icon: Target },
   ];
 
-  return (
+  const drawerContent = (
     <>
-      <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={onClose} data-testid="hospital-edit-backdrop" />
-      <div className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+      <div className={cn("fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200", backdropClassName)} onClick={onClose} data-testid="hospital-edit-backdrop" />
+      <div className={cn("fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col", panelClassName)}>
         <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -541,6 +542,7 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess }: { hospital:
       </Dialog>
     </>
   );
+  return portalToBody ? createPortal(drawerContent, document.body) : drawerContent;
 }
 
 function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {

@@ -277,6 +277,7 @@ interface ClinicFormSheetProps {
   mode?: "sheet" | "inline";
   prefillData?: Partial<ClinicFormData>;
   onCreated?: (clinic: { id: string; name: string; doctorTitle?: string | null; doctorFirstName?: string | null; doctorLastName?: string | null; doctorName?: string | null }) => void | Promise<void>;
+  sheetContentClassName?: string;
 }
 
 function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinicName: string }) {
@@ -438,7 +439,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
   );
 }
 
-export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mode = "sheet", prefillData, onCreated }: ClinicFormSheetProps) {
+export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mode = "sheet", prefillData, onCreated, sheetContentClassName }: ClinicFormSheetProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2735,7 +2736,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     return (
       <>
         <Sheet open={open} onOpenChange={onOpenChange}>
-          <SheetContent className="w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden" style={{ display: 'flex', flexDirection: 'column' }}>
+          <SheetContent className={cn("w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden", sheetContentClassName)} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="shrink-0 border-b px-5 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
@@ -2822,7 +2823,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden" style={{ display: 'flex', flexDirection: 'column' }}>
+        <SheetContent className={cn("w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden", sheetContentClassName)} style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="shrink-0 border-b px-5 py-3 flex items-center justify-between bg-muted/30">
             <div className="flex items-center gap-2.5">
               <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10">

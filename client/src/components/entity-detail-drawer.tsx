@@ -1,31 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/i18n";
-import {
-  Building2, MapPin, Phone, Mail, Link2, User, Stethoscope, Hospital,
-  Loader2, Smartphone,
-} from "lucide-react";
+import { User, Stethoscope, Hospital, Loader2 } from "lucide-react";
 import type { Customer } from "@shared/schema";
 import { CustomerDetailsContent } from "@/pages/customers";
+import { HospitalEditDrawer } from "@/pages/hospitals";
+import { ClinicFormSheet } from "@/components/clinic-form-wizard";
+import { queryClient } from "@/lib/queryClient";
 
 export type EntityRef = { type: "hospital" | "clinic" | "customer"; id: string };
 
-function Row({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-2 min-w-0">
-      <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-      <span className="min-w-0 break-words">{children}</span>
-    </div>
-  );
-}
-
-// Hospital / clinic: lightweight reference card. It has no nested portal UI, so it can
-// safely sit at z-[10030] above the Back Office drawers.
+// Hospital / clinic: open the SAME full detail card used on the Hospitals / MPN pages
+// (HospitalEditDrawer / ClinicFormSheet), so the agent can fully work with the entity
+// without leaving Back Office. We fetch the full record first, then mount the real card.
+//
+// Z-INDEX: both cards are elevated to z-[9994] — above the Back Office host drawer
+// (content z-[9991]) but BELOW their own portalled popups (Dialog z-[9996], Popover
+// z-[9999], Select z-[10000]) so every dropdown/dialog inside the card stays clickable.
+// Do NOT raise this above 9995 or the card's selects/dialogs will hide behind it.
 function InstitutionDetailDrawer({ entity, onClose }: { entity: EntityRef | null; onClose: () => void }) {
-  const { t } = useI18n();
-
   const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/entity-detail", entity?.type, entity?.id],
     queryFn: async () => {
@@ -38,80 +31,60 @@ function InstitutionDetailDrawer({ entity, onClose }: { entity: EntityRef | null
     enabled: !!entity,
   });
 
-  const typeLabel = entity?.type === "hospital" ? t.backOffice.hospitalLabel : t.backOffice.clinicLabel;
-  const name = data ? (data.fullName || data.name || "—") : "—";
-  const address = data ? [data.address, data.city, data.postalCode].filter(Boolean).join(", ") : "";
-  const country = data?.country || data?.countryCode;
-
-  return (
-    <Sheet open={!!entity} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-md overflow-y-auto z-[10030]"
-        data-testid="entity-detail-drawer"
-      >
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2 pr-6 min-w-0">
-            {entity?.type === "hospital"
-              ? <Hospital className="h-5 w-5 text-blue-600 shrink-0" />
-              : <Stethoscope className="h-5 w-5 text-emerald-600 shrink-0" />}
-            <span className="truncate">{isLoading ? "…" : name}</span>
-          </SheetTitle>
-        </SheetHeader>
-
-        {isLoading ? (
+  // While the full record loads, show a lightweight elevated sheet for instant feedback.
+  if (entity && (isLoading || !data)) {
+    return (
+      <Sheet open onOpenChange={(o) => { if (!o) onClose(); }}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-md overflow-y-auto z-[9994]"
+          data-testid="entity-detail-drawer"
+        >
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2 pr-6 min-w-0">
+              {entity.type === "hospital"
+                ? <Hospital className="h-5 w-5 text-blue-600 shrink-0" />
+                : <Stethoscope className="h-5 w-5 text-emerald-600 shrink-0" />}
+              <span className="truncate">…</span>
+            </SheetTitle>
+          </SheetHeader>
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : data ? (
-          <div className="space-y-4 mt-4">
-            <div className="flex flex-wrap gap-1.5">
-              <Badge variant="outline">{typeLabel}</Badge>
-              {data.isActive === true && <Badge className="bg-green-600 text-white text-xs">{t.common.active}</Badge>}
-              {data.isActive === false && <Badge variant="destructive" className="text-xs">{t.common.inactive}</Badge>}
-              {data.status === "active" && <Badge className="bg-green-600 text-white text-xs">{t.common.active}</Badge>}
-              {data.status === "inactive" && <Badge variant="destructive" className="text-xs">{t.common.inactive}</Badge>}
-              {data.status && data.status !== "active" && data.status !== "inactive" && (
-                <Badge variant="secondary" className="text-xs">{data.status}</Badge>
-              )}
-              {country && <Badge variant="outline">{country}</Badge>}
-            </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
-            <Card>
-              <CardContent className="p-4 space-y-2 text-sm">
-                {data.name && <Row icon={Building2}><span className="font-medium">{data.name}</span></Row>}
-                {address && <Row icon={MapPin}>{address}</Row>}
-                {data.phone && (
-                  <Row icon={Phone}>
-                    <a href={`tel:${data.phone}`} className="hover:text-foreground" data-testid="link-entity-phone">{data.phone}</a>
-                  </Row>
-                )}
-                {data.mobile && (
-                  <Row icon={Smartphone}>
-                    <a href={`tel:${data.mobile}`} className="hover:text-foreground" data-testid="link-entity-mobile">{data.mobile}</a>
-                  </Row>
-                )}
-                {data.email && (
-                  <Row icon={Mail}>
-                    <a href={`mailto:${data.email}`} className="hover:text-foreground truncate" data-testid="link-entity-email">{data.email}</a>
-                  </Row>
-                )}
-                {data.website && (
-                  <Row icon={Link2}>
-                    <a href={data.website} target="_blank" rel="noopener noreferrer" className="text-primary underline truncate">{data.website}</a>
-                  </Row>
-                )}
-                {data.notes && (
-                  <Row icon={Building2}><span className="text-muted-foreground italic">{data.notes}</span></Row>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <div className="py-12 text-center text-sm text-muted-foreground" data-testid="text-entity-no-data">{t.common.noData}</div>
-        )}
-      </SheetContent>
-    </Sheet>
+  if (!entity || !data) return null;
+
+  if (entity.type === "hospital") {
+    return (
+      <HospitalEditDrawer
+        hospital={data}
+        portalToBody
+        backdropClassName="z-[9993]"
+        panelClassName="z-[9994]"
+        onClose={onClose}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+          onClose();
+        }}
+      />
+    );
+  }
+
+  return (
+    <ClinicFormSheet
+      open
+      initialData={data}
+      sheetContentClassName="z-[9994]"
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      onSuccess={() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+        onClose();
+      }}
+    />
   );
 }
 
