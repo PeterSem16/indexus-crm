@@ -71,28 +71,28 @@ async function evaluateSingleRule(
   // ── Category A: Call activity ──────────────────────────────────────────
   if (field === "call_count") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM call_logs WHERE contact_id = ${contactId}`
     );
     return numOp(parseInt((row as any)?.cnt ?? "0"), op, parseInt(value));
   }
   if (field === "calls_today") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM call_logs WHERE contact_id = ${contactId} AND DATE(started_at) = CURRENT_DATE`
     );
     return numOp(parseInt((row as any)?.cnt ?? "0"), op, parseInt(value));
   }
   if (field === "last_disposition") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ disp: string }>(
+    const { rows: [row] } = await db.execute<{ disp: string }>(
       sql`SELECT disposition AS disp FROM call_logs WHERE contact_id = ${contactId} ORDER BY started_at DESC LIMIT 1`
     );
     return strOp((row as any)?.disp, op, value);
   }
   if (field === "last_call_duration") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ dur: string }>(
+    const { rows: [row] } = await db.execute<{ dur: string }>(
       sql`SELECT duration AS dur FROM call_logs WHERE contact_id = ${contactId} ORDER BY started_at DESC LIMIT 1`
     );
     return numOp(parseInt((row as any)?.dur ?? "0"), op, parseInt(value));
@@ -101,7 +101,7 @@ async function evaluateSingleRule(
   // ── Category B: Disposition / status history ───────────────────────────
   if (field === "current_status") {
     if (!contactId || !campaignId) return false;
-    const [row] = await db.execute<{ status: string }>(
+    const { rows: [row] } = await db.execute<{ status: string }>(
       sql`SELECT disposition AS status FROM campaign_contacts WHERE customer_id = ${contactId} AND campaign_id = ${campaignId} LIMIT 1`
     );
     return strOp((row as any)?.status, op, value);
@@ -111,21 +111,21 @@ async function evaluateSingleRule(
     const parts = value.split("|");
     const dispName = parts[0] ?? "";
     const threshold = parseInt(parts[1] ?? "1");
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM call_logs WHERE contact_id = ${contactId} AND disposition = ${dispName}`
     );
     return numOp(parseInt((row as any)?.cnt ?? "0"), op, threshold);
   }
   if (field === "disp_ever_used") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM call_logs WHERE contact_id = ${contactId} AND disposition = ${value} LIMIT 1`
     );
     return boolOp(parseInt((row as any)?.cnt ?? "0") > 0, op, value.split("|")[1] ?? "true");
   }
   if (field === "status_changes") {
     if (!contactId || !campaignId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM call_logs WHERE contact_id = ${contactId}`
     );
     return numOp(parseInt((row as any)?.cnt ?? "0"), op, parseInt(value));
@@ -147,14 +147,14 @@ async function evaluateSingleRule(
   }
   if (field === "contract_status") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ s: string }>(
+    const { rows: [row] } = await db.execute<{ s: string }>(
       sql`SELECT case_status AS s FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
     );
     return strOp((row as any)?.s, op, value);
   }
   if (field === "due_date_days") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ days: string }>(
+    const { rows: [row] } = await db.execute<{ days: string }>(
       sql`SELECT EXTRACT(DAY FROM (expected_date - NOW())) AS days FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
     );
     const days = parseFloat((row as any)?.days ?? "9999");
@@ -171,21 +171,21 @@ async function evaluateSingleRule(
   // ── Category D: Agent/record modifications ─────────────────────────────
   if (field === "record_modified") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM activity_logs WHERE entity_type = 'customer' AND entity_id = ${contactId} AND action_type IN ('update','edit','modify')`
     );
     return boolOp(parseInt((row as any)?.cnt ?? "0") > 0, op, value);
   }
   if (field === "modification_count") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM activity_logs WHERE entity_type = 'customer' AND entity_id = ${contactId} AND action_type IN ('update','edit','modify')`
     );
     return numOp(parseInt((row as any)?.cnt ?? "0"), op, parseInt(value));
   }
   if (field === "days_since_activity") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ last: string }>(
+    const { rows: [row] } = await db.execute<{ last: string }>(
       sql`SELECT MAX(created_at) AS last FROM activity_logs WHERE entity_type = 'customer' AND entity_id = ${contactId}`
     );
     if (!(row as any)?.last) return op === "gt";
@@ -194,7 +194,7 @@ async function evaluateSingleRule(
   }
   if (field === "modified_by_role") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM activity_logs al JOIN users u ON u.id::text = al.user_id WHERE al.entity_type = 'customer' AND al.entity_id = ${contactId} AND u.role = ${value}`
     );
     return boolOp(parseInt((row as any)?.cnt ?? "0") > 0, op, "true");
@@ -203,35 +203,35 @@ async function evaluateSingleRule(
   // ── Category E: Linked entities ────────────────────────────────────────
   if (field === "has_hospital") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM potential_cases WHERE customer_id = ${contactId} AND hospital_id IS NOT NULL`
     );
     return boolOp(parseInt((row as any)?.cnt ?? "0") > 0, op, value);
   }
   if (field === "hospital_name") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ name: string }>(
+    const { rows: [row] } = await db.execute<{ name: string }>(
       sql`SELECT h.name FROM potential_cases pc JOIN hospitals h ON h.id = pc.hospital_id WHERE pc.customer_id = ${contactId} ORDER BY pc.created_at DESC LIMIT 1`
     );
     return strOp((row as any)?.name, op, value);
   }
   if (field === "has_collaborator") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM potential_cases WHERE customer_id = ${contactId} AND collaborator_id IS NOT NULL`
     );
     return boolOp(parseInt((row as any)?.cnt ?? "0") > 0, op, value);
   }
   if (field === "collaborator_category") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cat: string }>(
+    const { rows: [row] } = await db.execute<{ cat: string }>(
       sql`SELECT co.category AS cat FROM potential_cases pc JOIN collaborators co ON co.id = pc.collaborator_id WHERE pc.customer_id = ${contactId} ORDER BY pc.created_at DESC LIMIT 1`
     );
     return strOp((row as any)?.cat, op, value);
   }
   if (field === "has_clinic") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM potential_cases WHERE customer_id = ${contactId} AND clinic_id IS NOT NULL`
     );
     return boolOp(parseInt((row as any)?.cnt ?? "0") > 0, op, value);
@@ -240,14 +240,14 @@ async function evaluateSingleRule(
   // ── Category F: Campaign activity ──────────────────────────────────────
   if (field === "campaign_contact_count") {
     if (!contactId || !campaignId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT call_count AS cnt FROM campaign_contacts WHERE customer_id = ${contactId} AND campaign_id = ${campaignId} LIMIT 1`
     );
     return numOp(parseInt((row as any)?.cnt ?? "0"), op, parseInt(value));
   }
   if (field === "days_since_campaign_contact") {
     if (!contactId || !campaignId) return false;
-    const [row] = await db.execute<{ last: string }>(
+    const { rows: [row] } = await db.execute<{ last: string }>(
       sql`SELECT last_contacted_at AS last FROM campaign_contacts WHERE customer_id = ${contactId} AND campaign_id = ${campaignId} LIMIT 1`
     );
     if (!(row as any)?.last) return op === "gt";
@@ -258,42 +258,42 @@ async function evaluateSingleRule(
   // ── Category G: Contact card (extended) ───────────────────────────────
   if (field === "contact.segment" || field === "client_segment") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ seg: string }>(
+    const { rows: [row] } = await db.execute<{ seg: string }>(
       sql`SELECT client_status AS seg FROM customers WHERE id = ${contactId} LIMIT 1`
     );
     return strOp((row as any)?.seg, op, value);
   }
   if (field === "contact.status_code" || field === "status_code") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ sc: string }>(
+    const { rows: [row] } = await db.execute<{ sc: string }>(
       sql`SELECT client_status AS sc FROM customers WHERE id = ${contactId} LIMIT 1`
     );
     return strOp((row as any)?.sc, op, value);
   }
   if (field === "contact.hospital_id") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ hid: string }>(
+    const { rows: [row] } = await db.execute<{ hid: string }>(
       sql`SELECT hospital_id AS hid FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
     );
     return strOp((row as any)?.hid, op, value);
   }
   if (field === "contact.clinic_id") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cid: string }>(
+    const { rows: [row] } = await db.execute<{ cid: string }>(
       sql`SELECT clinic_id AS cid FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
     );
     return strOp((row as any)?.cid, op, value);
   }
   if (field === "contact.contract_signed") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM potential_cases WHERE customer_id = ${contactId} AND case_status = 'signed' LIMIT 1`
     );
     return boolOp(parseInt((row as any)?.cnt ?? "0") > 0, op, value);
   }
   if (field === "contact.days_since_last_change") {
     if (!contactId) return false;
-    const [row] = await db.execute<{ last: string }>(
+    const { rows: [row] } = await db.execute<{ last: string }>(
       sql`SELECT MAX(created_at) AS last FROM activity_logs WHERE entity_type = 'customer' AND entity_id = ${contactId}`
     );
     if (!(row as any)?.last) return op === "gt";
@@ -319,56 +319,56 @@ async function getRawFieldValue(
 
   if (field === "contact.segment" || field === "client_segment") {
     if (!contactId) return null;
-    const [row] = await db.execute<{ seg: string }>(
+    const { rows: [row] } = await db.execute<{ seg: string }>(
       sql`SELECT client_status AS seg FROM customers WHERE id = ${contactId} LIMIT 1`
     );
     return (row as any)?.seg ?? null;
   }
   if (field === "contact.status_code" || field === "status_code") {
     if (!contactId) return null;
-    const [row] = await db.execute<{ sc: string }>(
+    const { rows: [row] } = await db.execute<{ sc: string }>(
       sql`SELECT client_status AS sc FROM customers WHERE id = ${contactId} LIMIT 1`
     );
     return (row as any)?.sc ?? null;
   }
   if (field === "contact.hospital_id") {
     if (!contactId) return null;
-    const [row] = await db.execute<{ hid: string }>(
+    const { rows: [row] } = await db.execute<{ hid: string }>(
       sql`SELECT hospital_id::text AS hid FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
     );
     return (row as any)?.hid ?? null;
   }
   if (field === "contact.clinic_id") {
     if (!contactId) return null;
-    const [row] = await db.execute<{ cid: string }>(
+    const { rows: [row] } = await db.execute<{ cid: string }>(
       sql`SELECT clinic_id::text AS cid FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
     );
     return (row as any)?.cid ?? null;
   }
   if (field === "contact.contract_signed") {
     if (!contactId) return null;
-    const [row] = await db.execute<{ cnt: string }>(
+    const { rows: [row] } = await db.execute<{ cnt: string }>(
       sql`SELECT COUNT(*) AS cnt FROM potential_cases WHERE customer_id = ${contactId} AND case_status = 'signed' LIMIT 1`
     );
     return parseInt((row as any)?.cnt ?? "0") > 0 ? "true" : "false";
   }
   if (field === "current_status") {
     if (!contactId || !campaignId) return null;
-    const [row] = await db.execute<{ status: string }>(
+    const { rows: [row] } = await db.execute<{ status: string }>(
       sql`SELECT disposition AS status FROM campaign_contacts WHERE customer_id = ${contactId} AND campaign_id = ${campaignId} LIMIT 1`
     );
     return (row as any)?.status ?? null;
   }
   if (field === "contract_status") {
     if (!contactId) return null;
-    const [row] = await db.execute<{ s: string }>(
+    const { rows: [row] } = await db.execute<{ s: string }>(
       sql`SELECT case_status AS s FROM potential_cases WHERE customer_id = ${contactId} ORDER BY created_at DESC LIMIT 1`
     );
     return (row as any)?.s ?? null;
   }
   if (field === "last_disposition") {
     if (!contactId) return null;
-    const [row] = await db.execute<{ disp: string }>(
+    const { rows: [row] } = await db.execute<{ disp: string }>(
       sql`SELECT disposition AS disp FROM call_logs WHERE contact_id = ${contactId} ORDER BY started_at DESC LIMIT 1`
     );
     return (row as any)?.disp ?? null;
@@ -386,14 +386,14 @@ async function getFieldSnapshot(
   campaignId: string | null,
   fieldName: string
 ): Promise<{ exists: false } | { exists: true; value: string | null }> {
-  const rows = await db.execute<{ last_value: string | null }>(
+  const result = await db.execute<{ last_value: string | null }>(
     sql`SELECT last_value FROM contact_field_snapshots
         WHERE contact_id = ${contactId}
           AND field_name = ${fieldName}
           AND (campaign_id = ${campaignId} OR (campaign_id IS NULL AND ${campaignId}::text IS NULL))
         LIMIT 1`
   );
-  const arr = rows as unknown as Array<{ last_value: string | null }>;
+  const arr = result.rows;
   if (!arr || arr.length === 0) return { exists: false };
   return { exists: true, value: arr[0].last_value ?? null };
 }
