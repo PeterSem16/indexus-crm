@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { gzip } from "zlib";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -32,6 +33,62 @@ declare module "http" {
 
 app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+});
+
+// Transparently gzip large JSON API responses using Node's built-in zlib (no
+// extra dependency, so the documented prod deploy that skips `npm install` keeps
+// working). Same data, smaller payload on the wire = faster responses for big
+// list endpoints. Scoped to res.json only, so file downloads, static assets,
+// SSE and WebSocket upgrades are never touched. Registered BEFORE the request
+// logger below so its body capture keeps working (logger wraps this wrapper).
+const GZIP_MIN_BYTES = 1024;
+function clientAcceptsGzip(acceptEncoding: string): boolean {
+  // Respect an explicit refusal like "gzip;q=0"; accept "gzip" or "gzip;q=0.x".
+  const m = acceptEncoding
+    .toLowerCase()
+    .match(/(?:^|,)\s*gzip\s*(?:;\s*q\s*=\s*([0-9.]+))?/);
+  if (!m) return false;
+  return m[1] === undefined || parseFloat(m[1]) > 0;
+}
+app.use((req, res, next) => {
+  const original = res.json.bind(res);
+  res.json = function (body?: any) {
+    const acceptEncoding = String(req.headers["accept-encoding"] || "");
+    if (
+      req.method === "HEAD" ||
+      body == null ||
+      res.headersSent ||
+      !clientAcceptsGzip(acceptEncoding)
+    ) {
+      return original(body);
+    }
+    let json: string;
+    try {
+      json = JSON.stringify(body);
+    } catch {
+      return original(body);
+    }
+    if (!json || Buffer.byteLength(json) < GZIP_MIN_BYTES) {
+      return original(body);
+    }
+    gzip(json, (err, buf) => {
+      if (err || res.headersSent) {
+        try {
+          original(body);
+        } catch {
+          /* response already gone */
+        }
+        return;
+      }
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Encoding", "gzip");
+      res.setHeader("Vary", "Accept-Encoding");
+      res.setHeader("Content-Length", String(buf.length));
+      res.end(buf);
+    });
+    return res;
+  };
   next();
 });
 
