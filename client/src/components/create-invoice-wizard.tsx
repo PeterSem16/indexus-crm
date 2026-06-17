@@ -1505,7 +1505,7 @@ export function CreateInvoiceWizard({
       if (ss) payBySquareData += `*X-SS:${ss}`;
       
       // 2. EPC QR format (EU standard) - include amount from items total
-      const totalAmount = submitItems.reduce((sum, item) => sum + parseFloat(item.total || "0"), 0);
+      const totalAmount = effectiveItems.reduce((sum, item) => sum + parseFloat(item.total || "0"), 0);
       const epcAmount = totalAmount > 0 ? `EUR${totalAmount.toFixed(2)}` : "";
       const epcRemittance = vs ? `Faktura VS:${vs}${ks ? ` KS:${ks}` : ""}${ss ? ` SS:${ss}` : ""}` : "";
       const epcLines = [
@@ -1550,7 +1550,7 @@ export function CreateInvoiceWizard({
     };
     
     generateQRCodes();
-  }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, selectedBillingAccount, selectedBillingCompany, billingInfo, previewInvoiceNumber, items]);
+  }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, selectedBillingAccount, selectedBillingCompany, billingInfo, previewInvoiceNumber, items, effectiveItems]);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
