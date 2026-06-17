@@ -17,8 +17,11 @@ after `httpServer.listen` (never blocks startup).
   multi-statement query (that becomes an implicit txn) — issue each as its own query.
 - A failed concurrent build leaves an INVALID index that `IF NOT EXISTS` then skips forever;
   precede each create with a check that DROPs any invalid leftover by name.
-- Self-healing: if `db:push` ever drops these (not in Drizzle schema), the next restart
-  recreates them.
+- Mirror every runtime-created index in the Drizzle schema (`shared/schema.ts`, 3-arg
+  `pgTable(..., (table) => ({ x: index("idx_..").on(...) }))`) using the EXACT same index
+  names. Otherwise `db:push` sees them as drift and drops them. Runtime ensure still owns
+  prod (no db:push there); the schema mirror is for dev/schema parity only. Belt-and-braces:
+  if a drop ever happens, the next restart recreates them.
 - **Single-process guard:** wrap the whole run in a `pg_try_advisory_lock`. Advisory locks
   AND CONCURRENTLY are both session-scoped, and pooled `pool.query` calls may hop
   connections — so acquire the lock on ONE dedicated `pool.connect()` client and run every

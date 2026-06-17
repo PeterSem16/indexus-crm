@@ -355,6 +355,8 @@ export interface IStorage {
   getTask(id: string): Promise<Task | undefined>;
   getAllTasks(): Promise<Task[]>;
   getTasksByUser(userId: string): Promise<Task[]>;
+  getAllTasksPaginated(page: number, limit: number): Promise<{ data: Task[], total: number }>;
+  getTasksByUserPaginated(userId: string, page: number, limit: number): Promise<{ data: Task[], total: number }>;
   getTasksByCustomer(customerId: string): Promise<Task[]>;
   getTasksByCountry(countryCodes: string[]): Promise<Task[]>;
   createTask(task: InsertTask): Promise<Task>;
@@ -649,6 +651,7 @@ export interface IStorage {
 
   // Campaign Contacts
   getCampaignContacts(campaignId: string): Promise<CampaignContact[]>;
+  getCampaignContactsPaginated(campaignId: string, page: number, limit: number): Promise<{ data: CampaignContact[], total: number }>;
   getCampaignContactsByCustomer(customerId: string): Promise<(CampaignContact & { campaign?: Campaign })[]>;
   getCampaignContact(id: string): Promise<CampaignContact | undefined>;
   createCampaignContact(data: InsertCampaignContact): Promise<CampaignContact>;
@@ -2421,6 +2424,21 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(tasks.createdAt));
   }
 
+  async getAllTasksPaginated(page: number, limit: number): Promise<{ data: Task[], total: number }> {
+    const offset = (page - 1) * limit;
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks);
+    const data = await db.select().from(tasks).orderBy(desc(tasks.createdAt)).limit(limit).offset(offset);
+    return { data, total: countResult.count };
+  }
+
+  async getTasksByUserPaginated(userId: string, page: number, limit: number): Promise<{ data: Task[], total: number }> {
+    const offset = (page - 1) * limit;
+    const where = eq(tasks.assignedUserId, userId);
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(where);
+    const data = await db.select().from(tasks).where(where).orderBy(desc(tasks.createdAt)).limit(limit).offset(offset);
+    return { data, total: countResult.count };
+  }
+
   async getTasksByCustomer(customerId: string): Promise<Task[]> {
     return db.select().from(tasks)
       .where(eq(tasks.customerId, customerId))
@@ -4105,6 +4123,14 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(campaignContacts)
       .where(eq(campaignContacts.campaignId, campaignId))
       .orderBy(desc(campaignContacts.createdAt));
+  }
+
+  async getCampaignContactsPaginated(campaignId: string, page: number, limit: number): Promise<{ data: CampaignContact[], total: number }> {
+    const offset = (page - 1) * limit;
+    const where = eq(campaignContacts.campaignId, campaignId);
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(campaignContacts).where(where);
+    const data = await db.select().from(campaignContacts).where(where).orderBy(desc(campaignContacts.createdAt)).limit(limit).offset(offset);
+    return { data, total: countResult.count };
   }
 
   async getCampaignContactsByCustomer(customerId: string): Promise<(CampaignContact & { campaign?: Campaign })[]> {

@@ -7936,6 +7936,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Tasks API (protected)
   app.get("/api/tasks", requireAuth, async (req, res) => {
     try {
+      if (req.query.page || req.query.limit) {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+        const result = await storage.getAllTasksPaginated(page, limit);
+        return res.json(result);
+      }
       const tasks = await storage.getAllTasks();
       res.json(tasks);
     } catch (error) {
@@ -7946,6 +7952,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.get("/api/tasks/my", requireAuth, async (req, res) => {
     try {
+      if (req.query.page || req.query.limit) {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+        const result = await storage.getTasksByUserPaginated(req.session.user!.id, page, limit);
+        return res.json(result);
+      }
       const tasks = await storage.getTasksByUser(req.session.user!.id);
       res.json(tasks);
     } catch (error) {
@@ -26375,7 +26387,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.get("/api/campaigns/:id/contacts", requireAuth, async (req, res) => {
     try {
-      const contacts = await storage.getCampaignContacts(req.params.id);
+      const paginated = !!(req.query.page || req.query.limit);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      let contacts;
+      let total: number | undefined;
+      if (paginated) {
+        const result = await storage.getCampaignContactsPaginated(req.params.id, page, limit);
+        contacts = result.data;
+        total = result.total;
+      } else {
+        contacts = await storage.getCampaignContacts(req.params.id);
+      }
       
       const enrichedContacts = await Promise.all(
         contacts.map(async (contact) => {
@@ -26393,6 +26416,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         })
       );
       
+      if (paginated) {
+        return res.json({ data: enrichedContacts, total, page, limit });
+      }
       res.json(enrichedContacts);
     } catch (error) {
       console.error("Failed to fetch campaign contacts:", error);

@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, jsonb, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, jsonb, unique, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -211,7 +211,9 @@ export const userSessions = pgTable("user_sessions", {
   userAgent: text("user_agent"),
   isActive: boolean("is_active").notNull().default(true),
   lastActivityAt: timestamp("last_activity_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxUserSessionsUserActive: index("idx_user_sessions_user_active").on(table.userId, table.isActive),
+}));
 
 // Configuration tables for settings
 // Complaint types - configurable in settings
@@ -303,7 +305,10 @@ export const hospitals = pgTable("hospitals", {
   dataSource: text("data_source"), // Pôvod záznamu (napr. 'iscbc' pre migráciu z CBC)
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxHospitalsCountry: index("idx_hospitals_country").on(table.countryCode),
+  idxHospitalsRepresentative: index("idx_hospitals_representative").on(table.representativeId),
+}));
 
 // Clinics table - ambulancie (outpatient clinics)
 export const clinics = pgTable("clinics", {
@@ -361,7 +366,9 @@ export const clinics = pgTable("clinics", {
   flyersLocation: text("flyers_location"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxClinicsCountry: index("idx_clinics_country").on(table.countryCode),
+}));
 
 export const insertClinicSchema = createInsertSchema(clinics).omit({
   id: true,
@@ -560,7 +567,13 @@ export const customers = pgTable("customers", {
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // Automation tags
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxCustomersCountryStatus: index("idx_customers_country_status").on(table.country, table.clientStatus),
+  idxCustomersAssignedUser: index("idx_customers_assigned_user").on(table.assignedUserId),
+  idxCustomersInternalId: index("idx_customers_internal_id").on(table.internalId),
+  idxCustomersEmail: index("idx_customers_email").on(table.email),
+  idxCustomersNationalId: index("idx_customers_national_id").on(table.nationalId),
+}));
 
 // Products table - services/products offered by the company
 export const products = pgTable("products", {
@@ -961,7 +974,10 @@ export const invoices = pgTable("invoices", {
   pdfDownloadedAt: timestamp("pdf_downloaded_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at"),
-});
+}, (table) => ({
+  idxInvoicesCustomer: index("idx_invoices_customer").on(table.customerId),
+  idxInvoicesStatus: index("idx_invoices_status").on(table.status),
+}));
 
 // Invoice items - individual line items on invoice
 export const invoiceItems = pgTable("invoice_items", {
@@ -978,7 +994,9 @@ export const invoiceItems = pgTable("invoice_items", {
   accountingCode: text("accounting_code"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").default(sql`now()`),
-});
+}, (table) => ({
+  idxInvoiceItemsInvoice: index("idx_invoice_items_invoice").on(table.invoiceId),
+}));
 
 // Invoice payments - payment records for invoices
 export const invoicePayments = pgTable("invoice_payments", {
@@ -1070,7 +1088,9 @@ export const customerNotes = pgTable("customer_notes", {
   contractId: varchar("contract_id"),
   dataSource: text("data_source"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxCustomerNotesCustomer: index("idx_customer_notes_customer").on(table.customerId),
+}));
 
 // Tasks - tasks assigned to users, optionally linked to customers
 export const tasks = pgTable("tasks", {
@@ -1095,7 +1115,15 @@ export const tasks = pgTable("tasks", {
   boState: text("bo_state").notNull().default("received"), // Back Office workflow: received|in_progress|waiting_agent|done
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxTasksAssignedUser: index("idx_tasks_assigned_user").on(table.assignedUserId),
+  idxTasksStatus: index("idx_tasks_status").on(table.status),
+  idxTasksBoState: index("idx_tasks_bo_state").on(table.boState),
+  idxTasksCustomer: index("idx_tasks_customer").on(table.customerId),
+  idxTasksRelatedEntity: index("idx_tasks_related_entity").on(table.relatedEntityType, table.relatedEntityId),
+  idxTasksSourceRun: index("idx_tasks_source_run").on(table.sourceRunId),
+  idxTasksCountry: index("idx_tasks_country").on(table.country),
+}));
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertTask = z.infer<typeof insertTaskSchema>;
@@ -1110,7 +1138,9 @@ export const taskComments = pgTable("task_comments", {
   kind: text("kind").notNull().default("comment"), // comment|question|answer|state_change
   metadata: jsonb("metadata").default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxTaskCommentsTask: index("idx_task_comments_task").on(table.taskId),
+}));
 
 export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({ id: true, createdAt: true });
 export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
@@ -1162,7 +1192,12 @@ export const communicationMessages = pgTable("communication_messages", {
   aiDoesNotAcceptContract: boolean("ai_does_not_accept_contract"),
   aiAnalysisNote: text("ai_analysis_note"),
   aiAnalyzedAt: timestamp("ai_analyzed_at"),
-});
+}, (table) => ({
+  idxCommMessagesCustomer: index("idx_comm_messages_customer").on(table.customerId),
+  idxCommMessagesContract: index("idx_comm_messages_contract").on(table.contractId),
+  idxCommMessagesExternal: index("idx_comm_messages_external").on(table.externalId),
+  idxCommMessagesCreatedAt: index("idx_comm_messages_created_at").on(table.createdAt),
+}));
 
 // Saved searches - user saved filter presets
 export const savedSearches = pgTable("saved_searches", {
@@ -1190,7 +1225,11 @@ export const activityLogs = pgTable("activity_logs", {
   details: text("details"), // JSON string with additional details
   ipAddress: text("ip_address"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxActivityLogsEntity: index("idx_activity_logs_entity").on(table.entityType, table.entityId),
+  idxActivityLogsUser: index("idx_activity_logs_user").on(table.userId),
+  idxActivityLogsCreatedAt: index("idx_activity_logs_created_at").on(table.createdAt),
+}));
 
 // GDPR Customer Consents - tracks all consent records
 export const customerConsents = pgTable("customer_consents", {
@@ -2114,7 +2153,12 @@ export const collaborators = pgTable("collaborators", {
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxCollaboratorsCountry: index("idx_collaborators_country").on(table.countryCode),
+  idxCollaboratorsHospital: index("idx_collaborators_hospital").on(table.hospitalId),
+  idxCollaboratorsClinic: index("idx_collaborators_clinic").on(table.clinicId),
+  idxCollaboratorsMobileUsername: index("idx_collaborators_mobile_username").on(table.mobileUsername),
+}));
 
 // Collaborator addresses table
 export const collaboratorAddresses = pgTable("collaborator_addresses", {
@@ -3003,7 +3047,10 @@ export const campaignAgents = pgTable("campaign_agents", {
   role: text("role").notNull().default("agent"), // agent, supervisor
   assignedAt: timestamp("assigned_at").notNull().default(sql`now()`),
   assignedBy: varchar("assigned_by"),
-});
+}, (table) => ({
+  idxCampaignAgentsCampaign: index("idx_campaign_agents_campaign").on(table.campaignId),
+  idxCampaignAgentsUser: index("idx_campaign_agents_user").on(table.userId),
+}));
 
 export const insertCampaignAgentSchema = createInsertSchema(campaignAgents).omit({
   id: true,
@@ -3052,7 +3099,15 @@ export const campaignContacts = pgTable("campaign_contacts", {
   currentScriptStepId: text("current_script_step_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxCampaignContactsCampaignStatus: index("idx_campaign_contacts_campaign_status").on(table.campaignId, table.status),
+  idxCampaignContactsCustomer: index("idx_campaign_contacts_customer").on(table.customerId),
+  idxCampaignContactsAssignedTo: index("idx_campaign_contacts_assigned_to").on(table.assignedTo),
+  idxCampaignContactsCallbackDate: index("idx_campaign_contacts_callback_date").on(table.callbackDate),
+  idxCampaignContactsHospital: index("idx_campaign_contacts_hospital").on(table.hospitalId),
+  idxCampaignContactsClinic: index("idx_campaign_contacts_clinic").on(table.clinicId),
+  idxCampaignContactsCollaborator: index("idx_campaign_contacts_collaborator").on(table.collaboratorId),
+}));
 
 export const insertCampaignContactSchema = createInsertSchema(campaignContacts).omit({
   id: true,
@@ -3091,7 +3146,9 @@ export const campaignContactHistory = pgTable("campaign_contact_history", {
   notes: text("notes"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxCcHistoryContact: index("idx_cc_history_contact").on(table.campaignContactId),
+}));
 
 export const insertCampaignContactHistorySchema = createInsertSchema(campaignContactHistory).omit({
   id: true,
@@ -3212,7 +3269,9 @@ export const campaignContactSessions = pgTable("campaign_contact_sessions", {
   notes: text("notes"),
   callbackScheduled: boolean("callback_scheduled").default(false),
   callbackDate: timestamp("callback_date"),
-});
+}, (table) => ({
+  idxCcSessionsContact: index("idx_cc_sessions_contact").on(table.campaignContactId),
+}));
 
 export const insertCampaignContactSessionSchema = createInsertSchema(campaignContactSessions).omit({
   id: true,
@@ -3701,7 +3760,14 @@ export const callLogs = pgTable("call_logs", {
   isForwarded: boolean("is_forwarded").notNull().default(false),
   forwardedToNumber: text("forwarded_to_number"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxCallLogsCustomer: index("idx_call_logs_customer").on(table.customerId),
+  idxCallLogsCampaign: index("idx_call_logs_campaign").on(table.campaignId),
+  idxCallLogsContact: index("idx_call_logs_contact").on(table.campaignContactId),
+  idxCallLogsUser: index("idx_call_logs_user").on(table.userId),
+  idxCallLogsCreatedAt: index("idx_call_logs_created_at").on(table.createdAt),
+  idxCallLogsInbound: index("idx_call_logs_inbound").on(table.inboundCallLogId),
+}));
 
 export const insertCallLogSchema = createInsertSchema(callLogs).omit({
   id: true,
@@ -5197,7 +5263,10 @@ export const notifications = pgTable("notifications", {
   
   // Timestamps
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxNotificationsUserRead: index("idx_notifications_user_read").on(table.userId, table.isRead),
+  idxNotificationsUserCreated: index("idx_notifications_user_created").on(table.userId, table.createdAt),
+}));
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
@@ -5338,7 +5407,12 @@ export const collections = pgTable("collections", {
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxCollectionsCustomer: index("idx_collections_customer").on(table.customerId),
+  idxCollectionsHospital: index("idx_collections_hospital").on(table.hospitalId),
+  idxCollectionsCountry: index("idx_collections_country").on(table.countryCode),
+  idxCollectionsCbu: index("idx_collections_cbu").on(table.cbuNumber),
+}));
 
 export const insertCollectionSchema = createInsertSchema(collections).omit({
   id: true,
@@ -5835,7 +5909,10 @@ export const agentSessions = pgTable("agent_sessions", {
   totalWrapUpTime: integer("total_wrap_up_time").default(0),
   contactsHandled: integer("contacts_handled").default(0),
   metadata: jsonb("metadata"),
-});
+}, (table) => ({
+  idxAgentSessionsUser: index("idx_agent_sessions_user").on(table.userId),
+  idxAgentSessionsStatus: index("idx_agent_sessions_status").on(table.status),
+}));
 
 export const insertAgentSessionSchema = createInsertSchema(agentSessions).omit({
   id: true,
@@ -6188,7 +6265,11 @@ export const inboundCallLogs = pgTable("inbound_call_logs", {
   calledBackByUserId: varchar("called_back_by_user_id"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxInboundCallLogsCustomer: index("idx_inbound_call_logs_customer").on(table.customerId),
+  idxInboundCallLogsQueue: index("idx_inbound_call_logs_queue").on(table.queueId),
+  idxInboundCallLogsStatus: index("idx_inbound_call_logs_status").on(table.status),
+}));
 
 export const insertInboundCallLogSchema = createInsertSchema(inboundCallLogs).omit({
   id: true,
@@ -6761,7 +6842,10 @@ export const webFormSubmissions = pgTable("web_form_submissions", {
   isOtpVerified: boolean("is_otp_verified").notNull().default(false),
   processedAt: timestamp("processed_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxWebFormSubmissionsForm: index("idx_web_form_submissions_form").on(table.formId),
+  idxWebFormSubmissionsCustomer: index("idx_web_form_submissions_customer").on(table.customerId),
+}));
 
 export const webFormOtp = pgTable("web_form_otp", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -6880,7 +6964,9 @@ export const customerDocuments = pgTable("customer_documents", {
   note: text("note"),
   legacyData: jsonb("legacy_data").$type<Record<string, any>>(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxCustomerDocumentsCustomer: index("idx_customer_documents_customer").on(table.customerId),
+}));
 
 export type CustomerDocument = typeof customerDocuments.$inferSelect;
 
@@ -7238,7 +7324,10 @@ export const contactAssignments = pgTable("contact_assignments", {
   cbcActivityCodes: text("cbc_activity_codes").array().notNull().default(sql`ARRAY[]::text[]`),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxContactAssignmentsEntity: index("idx_contact_assignments_entity").on(table.entityType, table.entityId),
+  idxContactAssignmentsPerson: index("idx_contact_assignments_person").on(table.personId),
+}));
 
 export const insertContactAssignmentSchema = createInsertSchema(contactAssignments).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   entityType: z.enum(["hospital", "clinic", "network"]).default("hospital"),
@@ -7789,7 +7878,10 @@ export const campaignContactStatusListState = pgTable("campaign_contact_status_l
   confirmedAt: timestamp("confirmed_at").notNull().default(sql`now()`),
   confirmedByUserId: text("confirmed_by_user_id").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxCcStatusStateContact: index("idx_cc_status_state_contact").on(table.campaignContactId),
+  idxCcStatusStateItem: index("idx_cc_status_state_item").on(table.campaignContactId, table.statusListItemId),
+}));
 
 export const insertCampaignContactStatusListStateSchema = createInsertSchema(campaignContactStatusListState).omit({
   id: true,
@@ -7851,7 +7943,10 @@ export const taskGroupMembers = pgTable('task_group_members', {
   groupId: varchar('group_id').notNull(),
   userId: varchar('user_id').notNull(),
   createdAt: timestamp('created_at').notNull().default(sql`now()`),
-});
+}, (table) => ({
+  idxTaskGroupMembersGroup: index("idx_task_group_members_group").on(table.groupId),
+  idxTaskGroupMembersUser: index("idx_task_group_members_user").on(table.userId),
+}));
 
 export const insertTaskGroupMemberSchema = createInsertSchema(taskGroupMembers).omit({ id: true, createdAt: true });
 export type TaskGroupMember = typeof taskGroupMembers.$inferSelect;
