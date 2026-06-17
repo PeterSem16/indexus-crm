@@ -40,6 +40,8 @@ type StatusListAutomation = {
   conditionValue: string | null;
   dispositionId: string | null;
   taskGroupId: string | null;
+  emailRecipients?: string[] | null;
+  callbackOffsetDays?: number | null;
 };
 
 type StatusListQuestion = {
@@ -91,6 +93,7 @@ const SL: Record<string, Record<string, string>> = {
   at_send_email_group:   { sk: "Email skupne", en: "Group email", cs: "Skupinový e-mail", hu: "Csoportos e-mail", ro: "Email de grup", it: "Email di gruppo", de: "Gruppen-E-Mail" },
   at_send_sms:           { sk: "SMS zákazníkovi", en: "SMS to contact", cs: "SMS zákazníkovi", hu: "SMS ügyfélnek", ro: "SMS clientului", it: "SMS al contatto", de: "SMS an Kontakt" },
   at_set_contact_status: { sk: "Nastaviť status", en: "Set contact status", cs: "Nastavit stav", hu: "Kontakt státusz beállítása", ro: "Setare status contact", it: "Imposta stato contatto", de: "Kontaktstatus setzen" },
+  at_set_callback:       { sk: "Naplánovať callback", en: "Schedule callback", cs: "Naplánovat callback", hu: "Visszahívás ütemezése", ro: "Programare callback", it: "Pianifica richiamo", de: "Rückruf planen" },
   at_notify_role:        { sk: "Notifikovať rolu", en: "Notify role", cs: "Upozornit roli", hu: "Szerepkör értesítése", ro: "Notifică rolul", it: "Notifica ruolo", de: "Rolle benachrichtigen" },
   at_sys_webhook:        { sk: "Systémový webhook", en: "System webhook", cs: "Systémový webhook", hu: "Rendszer webhook", ro: "Webhook sistem", it: "Webhook di sistema", de: "System-Webhook" },
 
@@ -98,6 +101,7 @@ const SL: Record<string, Record<string, string>> = {
   atHelp_send_email_group:   { sk: "Odošle skupinový e-mail podľa zvolenej šablóny. Šablóna môže obsahovať premenné kontaktu. Vhodné pre automatické uvítacie e-maily, pripomienky alebo follow-up správy.", en: "Sends a group email using the chosen template. Template can contain contact variables. Good for automated welcome emails, reminders or follow-up messages.", cs: "Odešle skupinový e-mail dle vybrané šablony. Vhodné pro uvítací e-maily a připomínky.", hu: "Csoportos e-mailt küld a kiválasztott sablon alapján. Üdvözlő e-mailekhez, emlékeztetőkhöz alkalmas.", ro: "Trimite un email de grup folosind șablonul ales. Potrivit pentru e-mailuri de bun venit și memento-uri.", it: "Invia un'email di gruppo usando il modello scelto. Adatto per e-mail di benvenuto e promemoria.", de: "Sendet eine Gruppen-E-Mail mit der gewählten Vorlage. Geeignet für Willkommens-E-Mails und Erinnerungen." },
   atHelp_send_sms:           { sk: "Odošle SMS správu priamo zákazníkovi. Vyžaduje platné telefónne číslo kontaktu. Správa je odoslaná cez SMS gateway a zalogovaná v komunikačnej histórii.", en: "Sends an SMS message directly to the contact. Requires a valid phone number on the contact. Message is sent via SMS gateway and logged in communication history.", cs: "Odešle SMS zprávu zákazníkovi. Vyžaduje platné telefonní číslo.", hu: "SMS üzenetet küld közvetlenül az ügyfélnek. Érvényes telefonszám szükséges.", ro: "Trimite un SMS direct clientului. Necesită număr de telefon valid.", it: "Invia un SMS direttamente al contatto. Richiede un numero di telefono valido.", de: "Sendet eine SMS-Nachricht direkt an den Kontakt. Erfordert eine gültige Telefonnummer." },
   atHelp_set_contact_status: { sk: "Automaticky zmení dispozíciu (status) kontaktu v kampani. Vhodné napr. pre automatickú zmenu stavu po podpise zmluvy alebo po vypršaní lehoty.", en: "Automatically changes the contact's disposition (status) in the campaign. Useful e.g. for auto-changing status after contract signing or deadline expiry.", cs: "Automaticky změní dispozici kontaktu v kampani. Vhodné pro automatickou změnu stavu po podpisu smlouvy.", hu: "Automatikusan megváltoztatja a kontakt diszpozícióját (státuszát) a kampányban.", ro: "Schimbă automat dispoziția (statusul) contactului în campanie.", it: "Cambia automaticamente la disposizione (stato) del contatto nella campagna.", de: "Ändert automatisch die Disposition (Status) des Kontakts in der Kampagne." },
+  atHelp_set_callback:       { sk: "Naplánuje spätné volanie (callback) kontaktu o zadaný počet pracovných dní na 09:00. Kontakt sa znova objaví vo fronte agenta v daný deň. Pri manuálnom spustení si agent môže vybrať vlastný dátum.", en: "Schedules a callback for the contact after the given number of business days at 09:00. The contact re-appears in the agent's queue on that day. On manual run the agent can pick a custom date.", cs: "Naplánuje zpětné volání kontaktu o zadaný počet pracovních dnů na 09:00. Kontakt se znovu objeví ve frontě agenta.", hu: "Visszahívást ütemez a kontakthoz a megadott munkanapok után 09:00-kor. A kontakt újra megjelenik az ügynök sorában.", ro: "Programează un callback pentru contact după numărul dat de zile lucrătoare la 09:00. Contactul reapare în coada agentului.", it: "Pianifica un richiamo per il contatto dopo il numero indicato di giorni lavorativi alle 09:00. Il contatto riappare nella coda dell'agente.", de: "Plant einen Rückruf für den Kontakt nach der angegebenen Anzahl von Werktagen um 09:00 Uhr. Der Kontakt erscheint erneut in der Warteschlange des Agenten." },
   atHelp_notify_role:        { sk: "Odošle systémovú notifikáciu všetkým používateľom s danou rolou. Notifikácia sa zobrazí v reálnom čase cez WebSocket a je uložená v histórii notifikácií.", en: "Sends a system notification to all users with the chosen role. Notification appears in real-time via WebSocket and is saved in notification history.", cs: "Odešle systémovou notifikaci všem uživatelům s danou rolí.", hu: "Rendszerértesítést küld az összes, a kiválasztott szerepkörrel rendelkező felhasználónak.", ro: "Trimite o notificare de sistem tuturor utilizatorilor cu rolul ales.", it: "Invia una notifica di sistema a tutti gli utenti con il ruolo scelto.", de: "Sendet eine Systembenachrichtigung an alle Benutzer mit der gewählten Rolle." },
   atHelp_sys_webhook:        { sk: "Odošle HTTP POST požiadavku na zadanú URL adresu s JSON payloadom obsahujúcim dáta kontaktu a kampane. Vhodné pre integrácie s externými systémami (Zapier, Make, vlastné API).", en: "Sends an HTTP POST request to the specified URL with a JSON payload containing contact and campaign data. Suitable for integrations with external systems (Zapier, Make, custom API).", cs: "Odešle HTTP POST požadavek na zadanou URL s JSON payloadem. Vhodné pro integrace s externími systémy.", hu: "HTTP POST kérést küld a megadott URL-re JSON payloaddal. Külső rendszerekkel való integrációkhoz alkalmas.", ro: "Trimite o cerere HTTP POST la URL-ul specificat cu payload JSON. Potrivit pentru integrări cu sisteme externe.", it: "Invia una richiesta HTTP POST all'URL specificato con un payload JSON. Adatto per integrazioni con sistemi esterni.", de: "Sendet eine HTTP POST-Anfrage an die angegebene URL mit JSON-Payload. Geeignet für externe System-Integrationen." },
 
@@ -185,6 +189,11 @@ const SL: Record<string, Record<string, string>> = {
   saveErr:       { sk: "Chyba pri ukladaní", en: "Save error", cs: "Chyba při ukládání", hu: "Mentési hiba", ro: "Eroare la salvare", it: "Errore di salvataggio", de: "Speicherfehler" },
   deleteErr:     { sk: "Chyba pri mazaní", en: "Delete error", cs: "Chyba při mazání", hu: "Törlési hiba", ro: "Eroare la ștergere", it: "Errore di eliminazione", de: "Löschfehler" },
   noEmailTpls:   { sk: "Žiadne email šablóny", en: "No email templates", cs: "Žádné e-mailové šablony", hu: "Nincs e-mail sablon", ro: "Niciun șablon email", it: "Nessun modello email", de: "Keine E-Mail-Vorlagen" },
+  emailRecipientsLbl:  { sk: "Pevní príjemcovia (e-maily)", en: "Fixed recipients (emails)", cs: "Pevní příjemci (e-maily)", hu: "Fix címzettek (e-mailek)", ro: "Destinatari fix (e-mailuri)", it: "Destinatari fissi (email)", de: "Feste Empfänger (E-Mails)" },
+  emailRecipientsPh:   { sk: "jeden e-mail na riadok alebo oddelené čiarkou", en: "one email per line or comma-separated", cs: "jeden e-mail na řádek nebo oddělené čárkou", hu: "soronként egy e-mail vagy vesszővel elválasztva", ro: "un email pe rând sau separate prin virgulă", it: "una email per riga o separate da virgola", de: "eine E-Mail pro Zeile oder durch Komma getrennt" },
+  emailRecipientsHelp: { sk: "Príjemcovia = tieto pevné adresy + používatelia zvolenej role. Nechajte prázdne ak chcete poslať len role.", en: "Recipients = these fixed addresses + users of the selected role. Leave empty to send only to the role.", cs: "Příjemci = tyto pevné adresy + uživatelé zvolené role. Nechte prázdné pro odeslání jen roli.", hu: "Címzettek = ezek a fix címek + a kiválasztott szerepkör felhasználói. Hagyja üresen, ha csak a szerepkörnek küld.", ro: "Destinatari = aceste adrese fixe + utilizatorii rolului selectat. Lăsați gol pentru a trimite doar rolului.", it: "Destinatari = questi indirizzi fissi + utenti del ruolo selezionato. Lasciare vuoto per inviare solo al ruolo.", de: "Empfänger = diese festen Adressen + Benutzer der gewählten Rolle. Leer lassen, um nur an die Rolle zu senden." },
+  callbackOffsetLbl:   { sk: "Odklad (pracovné dni)", en: "Offset (business days)", cs: "Odklad (pracovní dny)", hu: "Eltolás (munkanapok)", ro: "Decalaj (zile lucrătoare)", it: "Ritardo (giorni lavorativi)", de: "Versatz (Werktage)" },
+  callbackOffsetHelp:  { sk: "Za koľko pracovných dní sa kontakt znova objaví vo fronte (o 09:00).", en: "After how many business days the contact re-appears in the queue (at 09:00).", cs: "Za kolik pracovních dnů se kontakt znovu objeví ve frontě (v 09:00).", hu: "Hány munkanap múlva jelenik meg újra a kontakt a sorban (09:00-kor).", ro: "După câte zile lucrătoare reapare contactul în coadă (la 09:00).", it: "Dopo quanti giorni lavorativi il contatto riappare nella coda (alle 09:00).", de: "Nach wie vielen Werktagen erscheint der Kontakt erneut in der Warteschlange (um 09:00 Uhr)." },
   noDisps:       { sk: "Žiadne dispozície v tejto kampani", en: "No dispositions in this campaign", cs: "Žádné dispozice v této kampani", hu: "Nincs diszpozíció ebben a kampányban", ro: "Nicio dispoziție în această campanie", it: "Nessuna disposizione in questa campagna", de: "Keine Dispositionen in dieser Kampagne" },
 
   requiredBadge:   { sk: "Povinný", en: "Required", cs: "Povinný", hu: "Kötelező", ro: "Obligatoriu", it: "Obbligatorio", de: "Pflicht" },
@@ -703,6 +712,7 @@ const ACTION_TYPE_OPTIONS = [
   { value: "send_email_group",   slKey: "at_send_email_group",   icon: Mail,          color: "text-green-500" },
   { value: "send_sms",           slKey: "at_send_sms",           icon: MessageSquare, color: "text-yellow-500" },
   { value: "set_contact_status", slKey: "at_set_contact_status", icon: Tag,           color: "text-purple-500" },
+  { value: "set_callback",       slKey: "at_set_callback",       icon: Phone,         color: "text-cyan-500" },
   { value: "notify_role",        slKey: "at_notify_role",        icon: Bell,          color: "text-orange-500" },
   { value: "sys_webhook",        slKey: "at_sys_webhook",        icon: Webhook,       color: "text-rose-500" },
 ];
@@ -1166,6 +1176,8 @@ function AutomationForm({
     fieldChangedKey: (() => { try { const p = JSON.parse(automation?.conditionJson ?? "{}"); return p.__type === "field_changed_to" ? (p.field ?? "contact.status_code") : "contact.status_code"; } catch { return "contact.status_code"; } })(),
     fieldChangedValue: (() => { try { const p = JSON.parse(automation?.conditionJson ?? "{}"); return p.__type === "field_changed_to" ? (p.value ?? "") : ""; } catch { return ""; } })(),
     dispositionId: automation?.dispositionId || "",
+    emailRecipients: (automation?.emailRecipients ?? []).join("\n"),
+    callbackOffsetDays: automation?.callbackOffsetDays != null ? String(automation.callbackOffsetDays) : "1",
     webhookTarget: automation?.webhookTarget || "",
     taskGroupId: automation?.taskGroupId || "",
     assignNotify: (automation as any)?.assignNotify ?? false,
@@ -1231,6 +1243,12 @@ function AutomationForm({
         emailTemplateId: form.emailTemplateId || null,
         smsTemplateId: form.smsTemplateId || null,
         dispositionId: form.dispositionId || null,
+        emailRecipients: form.actionType === "send_email_group"
+          ? form.emailRecipients.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean)
+          : [],
+        callbackOffsetDays: form.actionType === "set_callback"
+          ? (Number.isFinite(parseInt(form.callbackOffsetDays, 10)) ? parseInt(form.callbackOffsetDays, 10) : 1)
+          : null,
         conditionField: (form.conditionType === "compound" || form.conditionType === "always" || form.conditionType === "field_changed_to") ? null : form.conditionType,
         conditionOperator: (form.conditionType === "always" || form.conditionType === "compound" || form.conditionType === "field_changed_to") ? null : "eq",
         conditionValue: (form.conditionType === "always" || form.conditionType === "compound" || form.conditionType === "field_changed_to") ? null : (form.conditionType === "country" ? form.conditionCountry : null),
@@ -1543,6 +1561,32 @@ function AutomationForm({
                 )}
               </SelectContent>
             </Select>
+            <div className="mt-2">
+              <Label className="text-xs mb-1 block">{sl("emailRecipientsLbl", locale)}</Label>
+              <Textarea
+                value={form.emailRecipients}
+                onChange={e => setForm(f => ({ ...f, emailRecipients: e.target.value }))}
+                placeholder={sl("emailRecipientsPh", locale)}
+                className="text-xs min-h-[60px] font-mono"
+                data-testid="textarea-email-recipients"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{sl("emailRecipientsHelp", locale)}</p>
+            </div>
+          </div>
+        )}
+
+        {form.actionType === "set_callback" && (
+          <div className="col-span-2">
+            <Label className="text-xs mb-1 block">{sl("callbackOffsetLbl", locale)}</Label>
+            <Input
+              type="number"
+              min={0}
+              value={form.callbackOffsetDays}
+              onChange={e => setForm(f => ({ ...f, callbackOffsetDays: e.target.value }))}
+              className="h-8 text-xs w-32"
+              data-testid="input-callback-offset"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{sl("callbackOffsetHelp", locale)}</p>
           </div>
         )}
 

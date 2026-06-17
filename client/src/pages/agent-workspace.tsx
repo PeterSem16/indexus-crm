@@ -188,6 +188,101 @@ import { COUNTRY_TO_LOCALE } from "@/i18n/translations";
 import { BackOfficePanel } from "@/components/back-office-panel";
 import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inbox";
 
+// Inline i18n for status-list manual action buttons (mission status list).
+// Kept local (like the builder's sl() helper) to avoid editing 7 locale blocks in translations.ts.
+const SL_ACTION_T: Record<string, Record<string, string>> = {
+  runEmail:      { sk: "Poslať e-mail", en: "Send email", cs: "Odeslat e-mail", hu: "E-mail küldése", ro: "Trimite email", it: "Invia email", de: "E-Mail senden" },
+  runStatus:     { sk: "Nastaviť status", en: "Set status", cs: "Nastavit stav", hu: "Státusz beállítása", ro: "Setează status", it: "Imposta stato", de: "Status setzen" },
+  runCallback:   { sk: "Naplánovať callback", en: "Schedule callback", cs: "Naplánovat callback", hu: "Visszahívás ütemezése", ro: "Programează callback", it: "Pianifica richiamo", de: "Rückruf planen" },
+  cbConfirm:     { sk: "Naplánovať", en: "Schedule", cs: "Naplánovat", hu: "Ütemezés", ro: "Programează", it: "Pianifica", de: "Planen" },
+  emailSent:     { sk: "E-mail odoslaný", en: "Email sent", cs: "E-mail odeslán", hu: "E-mail elküldve", ro: "Email trimis", it: "Email inviata", de: "E-Mail gesendet" },
+  emailFailed:   { sk: "E-mail sa nepodarilo odoslať", en: "Email could not be sent", cs: "E-mail se nepodařilo odeslat", hu: "Az e-mailt nem sikerült elküldeni", ro: "E-mailul nu a putut fi trimis", it: "Impossibile inviare l'email", de: "E-Mail konnte nicht gesendet werden" },
+  statusSet:     { sk: "Status nastavený", en: "Status set", cs: "Stav nastaven", hu: "Státusz beállítva", ro: "Status setat", it: "Stato impostato", de: "Status gesetzt" },
+  callbackSet:   { sk: "Callback naplánovaný", en: "Callback scheduled", cs: "Callback naplánován", hu: "Visszahívás ütemezve", ro: "Callback programat", it: "Richiamo pianificato", de: "Rückruf geplant" },
+  actionFailed:  { sk: "Akcia zlyhala", en: "Action failed", cs: "Akce selhala", hu: "A művelet sikertelen", ro: "Acțiunea a eșuat", it: "Azione fallita", de: "Aktion fehlgeschlagen" },
+  actionsTitle:  { sk: "Akcie", en: "Actions", cs: "Akce", hu: "Műveletek", ro: "Acțiuni", it: "Azioni", de: "Aktionen" },
+};
+const slt = (key: string, locale: string): string => SL_ACTION_T[key]?.[locale] ?? SL_ACTION_T[key]?.en ?? key;
+
+// Per-item manual action buttons rendered on the agent's mission status list.
+// Only appear for items that have a configured send_email_group / set_contact_status / set_callback automation.
+function SlActionButtons({ automations, onRun, running, locale }: {
+  automations: any[];
+  onRun: (automation: any, opts?: { callbackDate?: string }) => void;
+  running: Set<string>;
+  locale: string;
+}) {
+  const actionable = (automations || []).filter((a: any) =>
+    a.actionType === "send_email_group" || a.actionType === "set_contact_status" || a.actionType === "set_callback"
+  );
+  if (actionable.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+      {actionable.map((a: any) => {
+        const isRunning = running.has(String(a.id));
+        if (a.actionType === "send_email_group") {
+          return (
+            <Button key={a.id} type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
+              disabled={isRunning} onClick={() => onRun(a)} data-testid={`btn-sl-email-${a.id}`}>
+              {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3 text-green-600" />}
+              {slt("runEmail", locale)}
+            </Button>
+          );
+        }
+        if (a.actionType === "set_contact_status") {
+          return (
+            <Button key={a.id} type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
+              disabled={isRunning} onClick={() => onRun(a)} data-testid={`btn-sl-status-${a.id}`}>
+              {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3 text-purple-600" />}
+              {slt("runStatus", locale)}
+            </Button>
+          );
+        }
+        return <SlCallbackButton key={a.id} automation={a} isRunning={isRunning} onRun={onRun} locale={locale} />;
+      })}
+    </div>
+  );
+}
+
+function SlCallbackButton({ automation, isRunning, onRun, locale }: {
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string }) => void; locale: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dt, setDt] = useState("");
+  useEffect(() => {
+    if (open) {
+      const offset = Math.max(1, automation.callbackOffsetDays ?? 1);
+      const d = addBusinessDays(new Date(), offset);
+      d.setHours(9, 0, 0, 0);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      setDt(`${yyyy}-${mm}-${dd}T09:00`);
+    }
+  }, [open, automation.callbackOffsetDays]);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
+          disabled={isRunning} data-testid={`btn-sl-callback-${automation.id}`}>
+          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3 text-cyan-600" />}
+          {slt("runCallback", locale)}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start">
+        <div className="space-y-3">
+          <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime data-testid={`input-sl-callback-${automation.id}`} />
+          <Button size="sm" className="w-full h-8 text-xs" disabled={!dt || isRunning}
+            onClick={() => { onRun(automation, { callbackDate: dt }); setOpen(false); }}
+            data-testid={`btn-sl-callback-confirm-${automation.id}`}>
+            {slt("cbConfirm", locale)}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
 type ChannelType = "phone" | "email" | "sms" | "mixed";
@@ -2216,7 +2311,7 @@ function CommunicationCanvas({
   backOfficeModeActive?: boolean;
   contactCountry?: string | null;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
   const [emailSubject, setEmailSubject] = useState("");
@@ -2295,6 +2390,36 @@ function CommunicationCanvas({
       });
     }
   }, [campaign?.id, campaignContactId, contactCountry]);
+
+  // Manual ("run now") trigger for a single configured status-list automation.
+  const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
+  const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string }) => {
+    if (!campaign?.id || !campaignContactId) return;
+    const autoId = String(automation.id);
+    setSlRunningAuto(prev => new Set(prev).add(autoId));
+    try {
+      const res = await apiRequest(
+        "POST",
+        `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
+        { callbackDate: opts?.callbackDate ?? null, contactCountry: contactCountry ?? null },
+      );
+      const data = await res.json().catch(() => ({}));
+      const okFlag = data?.ok !== false;
+      let msg = slt("statusSet", locale);
+      if (automation.actionType === "send_email_group") msg = okFlag ? slt("emailSent", locale) : slt("emailFailed", locale);
+      else if (automation.actionType === "set_callback") msg = slt("callbackSet", locale);
+      toast({ title: msg, variant: okFlag ? undefined : "destructive" });
+      // Refresh contact lists/queue so a scheduled callback re-appears and status changes show
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+    } catch {
+      toast({ title: slt("actionFailed", locale), variant: "destructive" });
+    } finally {
+      setSlRunningAuto(prev => { const n = new Set(prev); n.delete(autoId); return n; });
+    }
+  }, [campaign?.id, campaignContactId, contactCountry, locale, toast]);
+
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   
   useEffect(() => {
@@ -3754,6 +3879,7 @@ function CommunicationCanvas({
                           </p>
                         ) : null;
                       })()}
+                      <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} />
                     </div>
                     <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0 pt-0.5">{item.stepId}</span>
                   </div>

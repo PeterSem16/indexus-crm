@@ -656,6 +656,248 @@ function parseDateFields(data: Record<string, any>): Record<string, any> {
   return result;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Status-list action helpers (Task #23): shared by the automatic firing loop
+// (on item confirmation) AND the manual "run now" endpoint. Each is best-effort
+// and must never throw in a way that breaks the caller's response.
+// ─────────────────────────────────────────────────────────────────────────
+
+type StatusListActionCtx = {
+  campaignContactId: string;
+  campaignId: string | null;
+  contactCountry?: string | null;
+  userId: string;
+  itemId?: string | null;
+};
+
+const SL_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Map a status-list "set status" disposition action to the contact status, mirroring
+// the disposition automation at the contact-update endpoint so behavior stays consistent.
+const SL_DISP_STATUS_MAP: Record<string, string> = {
+  callback: "callback_scheduled", schedule_email: "callback_scheduled", schedule_sms: "callback_scheduled",
+  dnd: "not_interested", complete: "completed", convert: "completed",
+  send_email: "contacted", send_sms: "contacted", none: "contacted",
+};
+
+// Compute a callback date N business days out at 09:00 local (same rule as the
+// disposition callback path). Used when no explicit date is supplied.
+function computeStatusListCallbackDate(offsetDays: number): Date {
+  const d = new Date();
+  let added = 0;
+  const target = Math.max(1, offsetDays);
+  while (added < target) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  d.setHours(9, 0, 0, 0);
+  return d;
+}
+
+// Derive a campaign-contact's country code server-side from its linked polymorphic
+// entity (customer/hospital/clinic/collaborator). Used for authorization and MS365
+// mailbox selection on the manual endpoint — never trust a client-supplied country.
+async function resolveCampaignContactCountry(ccRow: any): Promise<string | null> {
+  try {
+    if (ccRow.contactType === "hospital" && ccRow.hospitalId) {
+      const [h] = await db.select({ c: hospitals.countryCode }).from(hospitals).where(eq(hospitals.id, ccRow.hospitalId)).limit(1);
+      return h?.c ? String(h.c).trim().toUpperCase() : null;
+    }
+    if (ccRow.contactType === "clinic" && ccRow.clinicId) {
+      const [c] = await db.select({ c: clinics.countryCode }).from(clinics).where(eq(clinics.id, ccRow.clinicId)).limit(1);
+      return c?.c ? String(c.c).trim().toUpperCase() : null;
+    }
+    if (ccRow.contactType === "collaborator" && ccRow.collaboratorId) {
+      const [c] = await db.select({ c: collaborators.countryCode }).from(collaborators).where(eq(collaborators.id, ccRow.collaboratorId)).limit(1);
+      return c?.c ? String(c.c).trim().toUpperCase() : null;
+    }
+    if (ccRow.customerId) {
+      const [c] = await db.select({ c: customers.country }).from(customers).where(eq(customers.id, ccRow.customerId)).limit(1);
+      return c?.c ? String(c.c).trim().toUpperCase() : null;
+    }
+  } catch (e) {
+    console.error("[status-list] country resolution failed:", e instanceof Error ? e.message : String(e));
+  }
+  return null;
+}
+
+// Resolve the union of the fixed email list + emails of active users matching the
+// automation's targetRole. Returns a deduped, validated list of addresses.
+async function resolveStatusListEmailRecipients(automation: any): Promise<string[]> {
+  const out = new Set<string>();
+  // Fixed list configured by the manager
+  const fixed: string[] = Array.isArray(automation.emailRecipients) ? automation.emailRecipients : [];
+  for (const raw of fixed) {
+    const e = String(raw || "").trim().toLowerCase();
+    if (e && SL_EMAIL_RE.test(e)) out.add(e);
+  }
+  // Role users (same resolution as the assign_task role path)
+  const targetRole: string = automation.targetRole || "";
+  const roleName = targetRole.startsWith("role:") ? targetRole.slice(5) : targetRole;
+  if (roleName && roleName !== "sys") {
+    try {
+      const roleUsers = await db.execute<any>(sql`
+        WITH matching_roles AS (
+          SELECT id, legacy_role FROM roles
+          WHERE lower(name) = lower(${roleName}) OR legacy_role = ${roleName}
+        )
+        SELECT DISTINCT u.email
+        FROM users u
+        LEFT JOIN user_roles ur ON ur.user_id = u.id
+        WHERE u.is_active = true AND u.email IS NOT NULL AND (
+          ur.role_id IN (SELECT id FROM matching_roles)
+          OR u.role_id IN (SELECT id FROM matching_roles)
+          OR u.role = ${roleName}
+          OR u.role IN (SELECT legacy_role FROM matching_roles WHERE legacy_role IS NOT NULL)
+        )
+        LIMIT 50
+      `);
+      const rows: any[] = (roleUsers as any)?.rows ?? (Array.isArray(roleUsers) ? roleUsers : []);
+      for (const r of rows) {
+        const e = String(r.email || "").trim().toLowerCase();
+        if (e && SL_EMAIL_RE.test(e)) out.add(e);
+      }
+    } catch (e) {
+      console.error("[status-list:email_group] role recipient resolution failed:", e instanceof Error ? e.message : String(e));
+    }
+  }
+  return Array.from(out);
+}
+
+// Send the configured group/info email to the union of (fixed list ∪ role users).
+// Uses the country system MS365 mailbox with a SendGrid/log fallback.
+async function runStatusListEmailGroup(automation: any, ctx: StatusListActionCtx): Promise<{ ok: boolean; sent: number; provider: string }> {
+  const recipients = await resolveStatusListEmailRecipients(automation);
+  if (recipients.length === 0) {
+    console.warn("[status-list:email_group] no valid recipients (fixed list + role both empty)");
+    return { ok: false, sent: 0, provider: "none" };
+  }
+  if (!automation.emailTemplateId) {
+    console.warn("[status-list:email_group] no email template configured");
+    return { ok: false, sent: 0, provider: "none" };
+  }
+  const tpl = await storage.getMessageTemplate(automation.emailTemplateId);
+  if (!tpl) {
+    console.warn("[status-list:email_group] email template not found:", automation.emailTemplateId);
+    return { ok: false, sent: 0, provider: "none" };
+  }
+  const subject = String(tpl.subject || tpl.name || "INDEXUS CRM").trim();
+  const bodyRaw = String((tpl.format === "html" && tpl.contentHtml ? tpl.contentHtml : tpl.content) || "");
+  const html = /<[a-z][\s\S]*>/i.test(bodyRaw) ? bodyRaw : bodyRaw.replace(/\n/g, "<br/>");
+
+  const countryCode = ctx.contactCountry || undefined;
+  let provider = "log";
+  let sent = 0;
+
+  // Prefer the country system MS365 mailbox
+  if (countryCode) {
+    try {
+      const conn: any = await storage.getSystemMs365Connection(countryCode);
+      if (conn?.accessToken) {
+        const { getValidAccessToken, sendEmail: ms365SendEmail } = await import("./lib/ms365");
+        const tokenInfo = await getValidAccessToken(conn.accessToken, conn.tokenExpiresAt, conn.refreshToken);
+        if (tokenInfo?.accessToken) {
+          if ((tokenInfo as any).refreshed) {
+            try {
+              await storage.updateSystemMs365Connection(countryCode, {
+                accessToken: tokenInfo.accessToken,
+                refreshToken: (tokenInfo as any).refreshToken || conn.refreshToken,
+                tokenExpiresAt: (tokenInfo as any).expiresOn || undefined,
+              } as any);
+            } catch {}
+          }
+          provider = "ms365";
+          for (const to of recipients) {
+            try { await ms365SendEmail(tokenInfo.accessToken, [to], subject, html, true); sent++; }
+            catch (e) { console.error("[status-list:email_group] ms365 send failed:", e instanceof Error ? e.message : String(e)); }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[status-list:email_group] MS365 path failed, falling back:", e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  // Fallback: SendGrid / log provider
+  if (provider === "log") {
+    provider = process.env.SENDGRID_API_KEY ? "sendgrid" : "log";
+    const { sendEmail: sendEmailViaProvider } = await import("./email");
+    for (const to of recipients) {
+      try { const ok = await sendEmailViaProvider({ to, subject, html }); if (ok) sent++; }
+      catch (e) { console.error("[status-list:email_group] provider send failed:", e instanceof Error ? e.message : String(e)); }
+    }
+  }
+
+  // Audit: count + provider only, never recipient addresses (PII)
+  console.log(`[status-list:email_group] provider=${provider} sent=${sent}/${recipients.length} automation=${automation.id} contact=${ctx.campaignContactId}`);
+  try {
+    await db.insert(campaignContactHistory).values({
+      campaignContactId: ctx.campaignContactId,
+      userId: ctx.userId,
+      action: "status_list_action",
+      metadata: { actionType: "send_email_group", automationId: automation.id, recipientCount: sent, provider, campaignId: ctx.campaignId },
+    });
+  } catch (e) { console.error("[status-list:email_group] history log failed:", e); }
+  return { ok: sent > 0, sent, provider };
+}
+
+// Apply the configured disposition to the contact (status + dispositionCode).
+async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx): Promise<{ ok: boolean }> {
+  if (!automation.dispositionId) {
+    console.warn("[status-list:set_status] no disposition configured");
+    return { ok: false };
+  }
+  const [disp] = await db.select().from(campaignDispositions)
+    .where(eq(campaignDispositions.id, automation.dispositionId)).limit(1);
+  if (!disp) {
+    console.warn("[status-list:set_status] disposition not found:", automation.dispositionId);
+    return { ok: false };
+  }
+  const actionType = disp.actionType || "none";
+  const update: Record<string, any> = { dispositionCode: disp.code, updatedAt: new Date() };
+  const mapped = SL_DISP_STATUS_MAP[actionType];
+  if (mapped) update.status = mapped;
+  if (mapped === "contacted") update.contactedAt = new Date();
+  if (mapped === "completed") update.completedAt = new Date();
+  await db.update(campaignContacts).set(update).where(eq(campaignContacts.id, ctx.campaignContactId));
+  console.log(`[status-list:set_status] disposition=${disp.code} status=${update.status ?? "(unchanged)"} contact=${ctx.campaignContactId}`);
+  try {
+    await db.insert(campaignContactHistory).values({
+      campaignContactId: ctx.campaignContactId,
+      userId: ctx.userId,
+      action: "status_list_action",
+      metadata: { actionType: "set_contact_status", automationId: automation.id, dispositionCode: disp.code, status: update.status ?? null, campaignId: ctx.campaignId },
+    });
+  } catch (e) { console.error("[status-list:set_status] history log failed:", e); }
+  return { ok: true };
+}
+
+// Schedule a callback so the contact re-appears in the agent queue on that date.
+// Uses an explicit override date when supplied (manual picker), else the configured offset.
+async function runStatusListSetCallback(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null): Promise<{ ok: boolean; callbackDate: string }> {
+  let cb: Date;
+  if (overrideCallbackDate) {
+    const parsed = new Date(overrideCallbackDate);
+    cb = isNaN(parsed.getTime()) ? computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1) : parsed;
+  } else {
+    cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1);
+  }
+  await db.update(campaignContacts)
+    .set({ callbackDate: cb, status: "callback_scheduled", updatedAt: new Date() })
+    .where(eq(campaignContacts.id, ctx.campaignContactId));
+  console.log(`[status-list:set_callback] callbackDate=${cb.toISOString()} contact=${ctx.campaignContactId}`);
+  try {
+    await db.insert(campaignContactHistory).values({
+      campaignContactId: ctx.campaignContactId,
+      userId: ctx.userId,
+      action: "status_list_action",
+      metadata: { actionType: "set_callback", automationId: automation.id, callbackDate: cb.toISOString(), campaignId: ctx.campaignId },
+    });
+  } catch (e) { console.error("[status-list:set_callback] history log failed:", e); }
+  return { ok: true, callbackDate: cb.toISOString() };
+}
+
 // Extract text from PDF using pdftotext command (more reliable than pdf-parse)
 async function extractPdfText(filePath: string): Promise<string> {
   try {
@@ -28790,6 +29032,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               } catch (notifyErr) {
                 console.error("[assign_task] notification dispatch error:", notifyErr);
               }
+            } else if (automation.actionType === "send_email_group") {
+              try {
+                await runStatusListEmailGroup(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
+              } catch (e) { console.error("[status-list:email_group] firing failed:", e); }
+            } else if (automation.actionType === "set_contact_status") {
+              try {
+                await runStatusListSetStatus(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
+              } catch (e) { console.error("[status-list:set_status] firing failed:", e); }
+            } else if (automation.actionType === "set_callback") {
+              try {
+                await runStatusListSetCallback(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
+              } catch (e) { console.error("[status-list:set_callback] firing failed:", e); }
             }
 
           }
@@ -28841,6 +29095,72 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to update status list state:", error);
       res.status(500).json({ error: "Failed to update status list state" });
+    }
+  });
+
+  // POST /api/campaigns/:campaignId/contacts/:campaignContactId/status-list-actions/:automationId/run
+  // Manual ("run now") trigger for a SINGLE configured status-list automation. Binds to a
+  // specific automation id so the agent can only execute manager-configured actions (no
+  // arbitrary recipients/templates). Supports send_email_group / set_contact_status / set_callback.
+  app.post("/api/campaigns/:campaignId/contacts/:campaignContactId/status-list-actions/:automationId/run", requireAuth, async (req, res) => {
+    try {
+      const { campaignId, campaignContactId, automationId } = req.params;
+      const userId = req.session.user!.id;
+      const { callbackDate } = req.body as { callbackDate?: string | null };
+
+      // Validate the contact belongs to the campaign
+      const [ccRow] = await db.select().from(campaignContacts)
+        .where(eq(campaignContacts.id, campaignContactId)).limit(1);
+      if (!ccRow || ccRow.campaignId !== campaignId) {
+        return res.status(404).json({ error: "Contact not found in campaign" });
+      }
+
+      // Validate the automation belongs to a status-list item of this campaign
+      const [automation] = await db.select().from(campaignStatusListAutomations)
+        .where(eq(campaignStatusListAutomations.id, automationId)).limit(1);
+      if (!automation) return res.status(404).json({ error: "Automation not found" });
+      const [slItem] = await db.select().from(campaignStatusListItems)
+        .where(eq(campaignStatusListItems.id, automation.statusListItemId)).limit(1);
+      if (!slItem || slItem.campaignId !== campaignId) {
+        return res.status(404).json({ error: "Automation not found in campaign" });
+      }
+
+      // Authorization + country derivation (server-side; never trust client input).
+      // Derive the contact's country from its linked entity, falling back to the
+      // campaign's single country. Enforce the same country-access rule used by the
+      // back-office endpoints: admin bypasses; an unresolved (shared) country is
+      // allowed; otherwise the country must be one of the user's assigned countries.
+      const sessUser = req.session.user!;
+      const isAdmin = sessUser.role === "admin";
+      const userCountries = (((sessUser.assignedCountries as string[]) || [])
+        .map((c) => (c || "").toString().trim().toUpperCase()).filter(Boolean));
+      let country = await resolveCampaignContactCountry(ccRow);
+      if (!country) {
+        const [camp] = await db.select({ cc: campaigns.countryCodes }).from(campaigns)
+          .where(eq(campaigns.id, campaignId)).limit(1);
+        const codes = ((camp?.cc as string[]) || [])
+          .map((c) => (c || "").toString().trim().toUpperCase()).filter(Boolean);
+        if (codes.length === 1) country = codes[0];
+      }
+      if (!isAdmin && country && !userCountries.includes(country)) {
+        return res.status(403).json({ error: "Forbidden: contact is outside your assigned countries" });
+      }
+      const ctx = { campaignContactId, campaignId, contactCountry: country, userId, itemId: automation.statusListItemId };
+
+      if (automation.actionType === "send_email_group") {
+        const r = await runStatusListEmailGroup(automation, ctx);
+        return res.json({ ok: r.ok, actionType: automation.actionType, sent: r.sent, provider: r.provider });
+      } else if (automation.actionType === "set_contact_status") {
+        const r = await runStatusListSetStatus(automation, ctx);
+        return res.json({ ok: r.ok, actionType: automation.actionType });
+      } else if (automation.actionType === "set_callback") {
+        const r = await runStatusListSetCallback(automation, ctx, callbackDate ?? null);
+        return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate });
+      }
+      return res.status(400).json({ error: `Action type not supported for manual run: ${automation.actionType}` });
+    } catch (error) {
+      console.error("Failed to run status-list action:", error);
+      res.status(500).json({ error: "Failed to run status-list action" });
     }
   });
 
