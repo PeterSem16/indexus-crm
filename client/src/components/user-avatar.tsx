@@ -42,7 +42,7 @@ export function UserAvatar({
 }) {
   return (
     <Avatar className={cn("h-6 w-6 shrink-0", className)} data-testid={testId ?? "avatar-user"}>
-      {avatarUrl ? <AvatarImage src={avatarUrl} alt={name ?? ""} /> : null}
+      {avatarUrl ? <AvatarImage src={avatarUrl} alt={name ?? ""} className="object-cover" /> : null}
       <AvatarFallback className={cn("text-[9px] font-semibold leading-none", colorFor(name))}>
         {initials(name)}
       </AvatarFallback>
