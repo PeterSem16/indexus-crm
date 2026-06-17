@@ -380,6 +380,57 @@ const uploadAvatar = multer({
   },
 });
 
+// Configure multer for back-office task attachments (question + answer files)
+// Map allowed MIME types to safe, server-controlled extensions. We deliberately
+// ignore the client-supplied filename extension: files are served from the public
+// /data + /uploads static mounts, so writing an attacker-chosen .html/.svg/.js
+// (with a spoofed MIME) would otherwise allow stored XSS. None of these extensions
+// are active content.
+const TASK_ATTACHMENT_MIME_EXT: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/gif": ".gif",
+  "image/webp": ".webp",
+  "image/heic": ".heic",
+  "application/pdf": ".pdf",
+  "application/msword": ".doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+  "application/vnd.ms-excel": ".xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+  "text/plain": ".txt",
+  "text/csv": ".csv",
+  "application/zip": ".zip",
+  "application/x-zip-compressed": ".zip",
+};
+const taskAttachmentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, STORAGE_PATHS.taskAttachments);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = TASK_ATTACHMENT_MIME_EXT[file.mimetype] || ".bin";
+    cb(null, `bo-task-${uniqueSuffix}${ext}`);
+  },
+});
+const uploadTaskAttachment = multer({
+  storage: taskAttachmentStorage,
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain", "text/csv",
+      "application/zip", "application/x-zip-compressed",
+    ];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Invalid file type for attachment."));
+  },
+});
+
 // Configure multer for CSV/Excel contact imports (memory storage)
 const uploadContactsFile = multer({
   storage: multer.memoryStorage(),
@@ -27555,6 +27606,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const completionTime = (t: any, c: any): Date | null => {
         if (t.resolvedAt) return new Date(t.resolvedAt);
         if (c?.confirmedAt) return new Date(c.confirmedAt);
+        // Fallback for done tasks that never recorded a resolve/confirm timestamp
+        // (e.g. moved to Done outside the confirm flow): use the last-updated time so
+        // they still count toward Completed / on-time rate instead of being dropped.
+        if (t.updatedAt) return new Date(t.updatedAt);
+        if (t.createdAt) return new Date(t.createdAt);
         return null;
       };
 
@@ -27618,6 +27674,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     const tags: string[] = (task.tags as string[]) || [];
     if (!tags.includes("back_office")) return null;
     return task;
+  }
+
+  // Keep only attachments whose URL we actually generated (defense against arbitrary
+  // url injection in the JSON body); cap the count and string lengths.
+  function sanitizeBoAttachments(raw: any): { name: string; url: string; size: number; type: string }[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.slice(0, 10).map((a: any) => ({
+      name: String(a?.name ?? "file").slice(0, 200),
+      url: String(a?.url ?? ""),
+      size: Number.isFinite(Number(a?.size)) ? Number(a.size) : 0,
+      type: String(a?.type ?? "").slice(0, 120),
+    })).filter((a) => a.url.startsWith("/data/") || a.url.startsWith("/uploads/"));
   }
 
   // Helper: normalized list of the session user's assigned countries (back-office authz)
@@ -27849,6 +27917,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const content = (req.body?.content || "").toString().trim();
       if (!content) return res.status(400).json({ error: "Question content is required" });
       const highPriority = req.body?.highPriority === true;
+      const attachments = sanitizeBoAttachments(req.body?.attachments);
       const task = await getBackOfficeTask(taskId);
       if (!task) return res.status(404).json({ error: "Task not found" });
       if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
@@ -27856,7 +27925,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!task.createdByUserId) return res.status(400).json({ error: "Task has no originating agent" });
       const comment = await db.transaction(async (tx) => {
         const [c] = await tx.insert(taskComments).values({
-          taskId, userId, content, kind: "question", metadata: { askedBy: userId, highPriority } as any,
+          taskId, userId, content, kind: "question", metadata: { askedBy: userId, highPriority, attachments } as any,
         }).returning();
         await tx.update(tasks).set({ boState: "waiting_agent", status: "in_progress" }).where(eq(tasks.id, taskId));
         return c;
@@ -27980,6 +28049,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const userId = req.session.user!.id;
       const content = (req.body?.content || "").toString().trim();
       if (!content) return res.status(400).json({ error: "Answer content is required" });
+      const attachments = sanitizeBoAttachments(req.body?.attachments);
       const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
       if (!task) return res.status(404).json({ error: "Task not found" });
       const taskTags: string[] = (task.tags as string[]) || [];
@@ -27988,7 +28058,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (task.boState !== "waiting_agent") return res.status(409).json({ error: "No pending question to answer" });
       const comment = await db.transaction(async (tx) => {
         const [c] = await tx.insert(taskComments).values({
-          taskId, userId, content, kind: "answer", metadata: { answeredBy: userId } as any,
+          taskId, userId, content, kind: "answer", metadata: { answeredBy: userId, attachments } as any,
         }).returning();
         await tx.update(tasks).set({ boState: "in_progress" }).where(eq(tasks.id, taskId));
         return c;
@@ -28011,6 +28081,32 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to answer BO question:", error);
       res.status(500).json({ error: "Failed to answer question" });
+    }
+  });
+
+  // Upload a file attachment for a back-office task (used by BO question + agent answer).
+  // Returns lightweight file metadata to embed in the comment's metadata.attachments[].
+  app.post("/api/back-office/tasks/:taskId/attachment", requireAuth, uploadTaskAttachment.single("file"), async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = req.session.user!.id;
+      const file = req.file;
+      if (!file) return res.status(400).json({ error: "No file uploaded" });
+      const task = await getBackOfficeTask(taskId);
+      if (!task) { try { fs.unlinkSync(file.path); } catch {} return res.status(404).json({ error: "Task not found" }); }
+      // Allow either the back-office side (assignee/country access) or the originating agent.
+      const allowed = canAccessBoTask(req, task) || task.createdByUserId === userId;
+      if (!allowed) { try { fs.unlinkSync(file.path); } catch {} return res.status(403).json({ error: "Access denied" }); }
+      res.status(201).json({
+        name: file.originalname,
+        url: getPublicUrl(file.path),
+        size: file.size,
+        type: file.mimetype,
+      });
+    } catch (error) {
+      if (req.file) { try { fs.unlinkSync(req.file.path); } catch {} }
+      console.error("Failed to upload task attachment:", error);
+      res.status(500).json({ error: "Failed to upload attachment" });
     }
   });
 

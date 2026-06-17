@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, type ChangeEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, Loader2, Check,
   ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
   MessageSquare, Activity, Send, Hand, User, Phone, Mail,
-  MapPin, ExternalLink, Stethoscope,
+  MapPin, ExternalLink, Stethoscope, Paperclip,
   Trophy, PartyPopper, Sparkles, X, CalendarClock, Hourglass,
 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -22,7 +22,9 @@ import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-f
 import { enUS, sk, cs, hu, ro, it, de } from "date-fns/locale";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
 import { UserAvatar } from "./user-avatar";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { motion } from "framer-motion";
+import { SendProcessingOverlay } from "./send-processing-animation";
 
 const DF_LOCALES: Record<string, typeof enUS> = { en: enUS, sk, cs, hu, ro, it, de };
 function dfLocale(locale: string) {
@@ -148,8 +150,8 @@ const STATE_CONFIG: Record<BOState, {
 
 const KIND_CONFIG: Record<ThreadComment["kind"], { icon: typeof MessageSquare; color: string; ring: string }> = {
   comment: { icon: MessageSquare, color: "text-muted-foreground", ring: "bg-muted-foreground/40" },
-  question: { icon: HelpCircle, color: "text-purple-600 dark:text-purple-400", ring: "bg-purple-500" },
-  answer: { icon: Building2, color: "text-blue-600 dark:text-blue-400", ring: "bg-blue-500" },
+  question: { icon: Building2, color: "text-purple-600 dark:text-purple-400", ring: "bg-purple-500" },
+  answer: { icon: User, color: "text-blue-600 dark:text-blue-400", ring: "bg-blue-500" },
   state_change: { icon: Activity, color: "text-emerald-600 dark:text-emerald-400", ring: "bg-emerald-500" },
 };
 
@@ -270,9 +272,122 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
   );
 }
 
+export type BoAttachment = { name: string; url: string; size: number; type: string };
+
+export async function uploadBoAttachment(taskId: string, file: File): Promise<BoAttachment> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`/api/back-office/tasks/${taskId}/attachment`, {
+    method: "POST",
+    body: fd,
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Attachment upload failed");
+  return res.json();
+}
+
+export function AttachmentChips({ attachments }: { attachments?: BoAttachment[] }) {
+  if (!attachments || attachments.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {attachments.map((a, i) => (
+        <a
+          key={i}
+          href={a.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 max-w-full rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px] hover:bg-muted hover:underline"
+          data-testid={`link-timeline-attachment-${i}`}
+        >
+          <Paperclip className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+          <span className="truncate max-w-[140px]">{a.name}</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+export function BoAttachmentComposer({
+  taskId,
+  attachments,
+  onChange,
+  disabled,
+}: {
+  taskId: string;
+  attachments: BoAttachment[];
+  onChange: (next: BoAttachment[]) => void;
+  disabled?: boolean;
+}) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const att = await uploadBoAttachment(taskId, file);
+      onChange([...attachments, att]);
+    } catch {
+      toast({ title: t.backOffice.attachmentError, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        onChange={onFile}
+        data-testid={`input-bo-attachment-${taskId}`}
+      />
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7 gap-1.5 text-[11px]"
+        onClick={() => inputRef.current?.click()}
+        disabled={disabled || uploading}
+        data-testid={`btn-bo-attach-${taskId}`}
+      >
+        {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
+        {uploading ? t.backOffice.attachmentUploading : t.backOffice.attachLabel}
+      </Button>
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {attachments.map((a, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 max-w-full rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px]"
+              data-testid={`chip-bo-attachment-${i}`}
+            >
+              <Paperclip className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+              <span className="truncate max-w-[120px]">{a.name}</span>
+              <button
+                type="button"
+                onClick={() => onChange(attachments.filter((_, idx) => idx !== i))}
+                className="text-muted-foreground hover:text-foreground"
+                data-testid={`btn-remove-attachment-${i}`}
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Timeline({ thread }: { thread: ThreadData }) {
   const { t } = useI18n();
-  const events: { id: string; ring: string; icon: typeof MessageSquare; color: string; label: string; who: string | null; avatarUrl?: string | null; at: string; content?: string }[] = [];
+  const events: { id: string; ring: string; icon: typeof MessageSquare; color: string; label: string; who: string | null; avatarUrl?: string | null; at: string; content?: string; attachments?: BoAttachment[] }[] = [];
 
   events.push({
     id: "created",
@@ -297,6 +412,7 @@ export function Timeline({ thread }: { thread: ThreadData }) {
       avatarUrl: c.avatarUrl ?? null,
       at: c.createdAt,
       content: c.kind === "state_change" ? stateChangeContent(t, c.content) : c.content,
+      attachments: (c.metadata as any)?.attachments as BoAttachment[] | undefined,
     });
   }
 
@@ -326,6 +442,7 @@ export function Timeline({ thread }: { thread: ThreadData }) {
                 <span className="text-[10px] text-muted-foreground ml-auto">{format(new Date(e.at), "d.M. HH:mm")}</span>
               </div>
               {e.content && <p className="text-xs mt-0.5 leading-relaxed whitespace-pre-wrap break-words">{e.content}</p>}
+              <AttachmentChips attachments={e.attachments} />
             </div>
           </div>
         );
@@ -392,6 +509,10 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
   const [note, setNote] = useState("");
   const [question, setQuestion] = useState("");
   const [askHighPriority, setAskHighPriority] = useState(false);
+  const [askAttachments, setAskAttachments] = useState<BoAttachment[]>([]);
+  const [sendFx, setSendFx] = useState<null | "sending" | "done">(null);
+  const fxTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (fxTimer.current) clearTimeout(fxTimer.current); }, []);
   const [confirmNote, setConfirmNote] = useState("");
   const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
   const [recap, setRecap] = useState<{ createdAt: string; dueDate: string | null; completedAt: string } | null>(null);
@@ -422,9 +543,14 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
   });
 
   const askMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/ask-agent`, { content: question, highPriority: askHighPriority }).then(r => r.json()),
-    onSuccess: () => { setQuestion(""); setAskHighPriority(false); invalidate(); toast({ title: t.backOffice.toastQuestionSent }); },
-    onError: () => toast({ title: t.backOffice.toastQuestionError, variant: "destructive" }),
+    mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/ask-agent`, { content: question, highPriority: askHighPriority, attachments: askAttachments }).then(r => r.json()),
+    onMutate: () => setSendFx("sending"),
+    onSuccess: () => {
+      setQuestion(""); setAskHighPriority(false); setAskAttachments([]); invalidate();
+      setSendFx("done"); fxTimer.current = setTimeout(() => setSendFx(null), 1400);
+      toast({ title: t.backOffice.toastQuestionSent });
+    },
+    onError: () => { setSendFx(null); toast({ title: t.backOffice.toastQuestionError, variant: "destructive" }); },
   });
 
   const confirmMutation = useMutation({
@@ -609,6 +735,12 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                         <AlertTriangle className="h-3 w-3" /> {t.backOffice.askHighPriority}
                       </span>
                     </div>
+                    <BoAttachmentComposer
+                      taskId={taskId}
+                      attachments={askAttachments}
+                      onChange={setAskAttachments}
+                      disabled={askMutation.isPending}
+                    />
                     <Button
                       size="sm" className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
                       onClick={() => askMutation.mutate()}
@@ -687,6 +819,12 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
         </>
       )}
 
+      <SendProcessingOverlay
+        open={!!sendFx}
+        status={sendFx === "done" ? "done" : "sending"}
+        sendingLabel={t.backOffice.sendingLabel}
+        doneLabel={t.backOffice.sentForProcessing}
+      />
       <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
       {recap && (
         <TaskCompletionRecap
@@ -873,6 +1011,37 @@ function scoreSl(key: string, locale: string): string {
   return SCORE_SL[key]?.[locale] ?? SCORE_SL[key]?.en ?? key;
 }
 
+function RadialScore({ rate, tier }: { rate: number; tier: "great" | "good" | "keep" }) {
+  const radius = 52;
+  const circ = 2 * Math.PI * radius;
+  const color = tier === "great" ? "#f59e0b" : tier === "good" ? "#10b981" : "#0ea5e9";
+  const Icon = tier === "great" ? PartyPopper : tier === "good" ? Trophy : Sparkles;
+  return (
+    <div className="relative mx-auto h-36 w-36">
+      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+        <circle cx="60" cy="60" r={radius} fill="none" strokeWidth="9" stroke="currentColor" className="text-muted-foreground/20" />
+        <motion.circle
+          cx="60"
+          cy="60"
+          r={radius}
+          fill="none"
+          strokeWidth="9"
+          strokeLinecap="round"
+          stroke={color}
+          strokeDasharray={circ}
+          initial={{ strokeDashoffset: circ }}
+          animate={{ strokeDashoffset: circ - (rate / 100) * circ }}
+          transition={{ duration: 1.1, ease: "easeOut" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <Icon className="mb-0.5 h-5 w-5" style={{ color }} />
+        <div className="text-3xl font-extrabold leading-none tabular-nums" data-testid="text-ontime-rate">{rate}%</div>
+      </div>
+    </div>
+  );
+}
+
 function AgentScorePanel() {
   const { locale } = useI18n();
   const [range, setRange] = useState<ScoreRange>("week");
@@ -884,15 +1053,12 @@ function AgentScorePanel() {
   });
 
   const rate = data?.onTimeRate ?? null;
-  const hasRated = ((data?.onTime ?? 0) + (data?.late ?? 0)) > 0;
-  const tier: "great" | "good" | "keep" | null = rate == null ? null : rate >= 90 ? "great" : rate >= 70 ? "good" : "keep";
-  const CelebIcon = tier === "great" ? PartyPopper : tier === "good" ? Trophy : Sparkles;
+  const onTimeCount = data?.onTime ?? 0;
+  const lateCount = data?.late ?? 0;
+  const hasRated = (onTimeCount + lateCount) > 0;
+  const tier: "great" | "good" | "keep" = rate == null ? "keep" : rate >= 90 ? "great" : rate >= 70 ? "good" : "keep";
+  const tierColor = tier === "great" ? "text-amber-500" : tier === "good" ? "text-emerald-500" : "text-sky-500";
   const celebText = tier === "great" ? scoreSl("greatJob", locale) : tier === "good" ? scoreSl("goodJob", locale) : scoreSl("keepGoing", locale);
-
-  const pieData = [
-    { name: scoreSl("onTimeLbl", locale), value: data?.onTime ?? 0, color: "#10b981" },
-    { name: scoreSl("lateLbl", locale), value: data?.late ?? 0, color: "#ef4444" },
-  ];
 
   const RANGES: { key: ScoreRange; lblKey: string }[] = [
     { key: "week", lblKey: "rangeWeek" },
@@ -905,21 +1071,23 @@ function AgentScorePanel() {
   const hasTrend = !!data && data.trend.some(b => b.onTime + b.late > 0);
 
   return (
-    <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l bg-muted/10 flex-col h-full overflow-hidden" data-testid="agent-score-panel">
-      <div className="px-3 py-2.5 border-b flex items-center gap-2 shrink-0">
-        <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
-        <span className="text-sm font-semibold">{scoreSl("scoreTitle", locale)}</span>
+    <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l bg-gradient-to-b from-muted/30 to-background flex-col h-full overflow-hidden" data-testid="agent-score-panel">
+      <div className="px-3 py-2.5 border-b flex items-center gap-2 shrink-0 bg-gradient-to-r from-amber-500/10 via-purple-500/5 to-transparent">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-sm shadow-amber-500/30">
+          <Trophy className="h-4 w-4" />
+        </span>
+        <span className="text-sm font-bold">{scoreSl("scoreTitle", locale)}</span>
         {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
       </div>
 
-      <div className="flex flex-wrap gap-1 p-2 border-b shrink-0">
+      <div className="flex gap-1 p-2 border-b shrink-0">
         {RANGES.map(r => (
           <button
             key={r.key}
             type="button"
             onClick={() => setRange(r.key)}
             data-testid={`btn-score-range-${r.key}`}
-            className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${range === r.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+            className={`flex-1 px-1.5 py-1 rounded-full text-[11px] font-semibold transition-all ${range === r.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"}`}
           >
             {scoreSl(r.lblKey, locale)}
           </button>
@@ -928,63 +1096,63 @@ function AgentScorePanel() {
 
       <ScrollArea className="flex-1 min-h-0">
         <div className="p-3 space-y-3">
-          <div className="rounded-lg border bg-card p-3 text-center">
-            {hasRated && tier ? (
+          <motion.div
+            key={`${range}-${hasRated}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="rounded-2xl border bg-card p-4 text-center shadow-sm"
+          >
+            {hasRated && rate != null ? (
               <>
-                <CelebIcon className={`h-8 w-8 mx-auto mb-1 ${tier === "great" ? "text-amber-500" : tier === "good" ? "text-emerald-500" : "text-sky-500"}`} />
-                <div className="text-3xl font-bold leading-none" data-testid="text-ontime-rate">{rate}%</div>
-                <div className="text-[11px] text-muted-foreground mt-1">{scoreSl("onTimeRateLbl", locale)}</div>
-                <div className="text-xs font-medium mt-1">{celebText}</div>
+                <RadialScore rate={rate} tier={tier} />
+                <div className="mt-2 text-[11px] font-medium text-muted-foreground">{scoreSl("onTimeRateLbl", locale)}</div>
+                <div className={`mt-1 text-sm font-bold ${tierColor}`}>{celebText}</div>
+                <div className="mt-2.5 flex justify-center gap-3 text-[11px]">
+                  <span className="inline-flex items-center gap-1 font-medium"><span className="h-2 w-2 rounded-full bg-emerald-500" />{scoreSl("onTimeLbl", locale)} <b className="tabular-nums">{onTimeCount}</b></span>
+                  <span className="inline-flex items-center gap-1 font-medium"><span className="h-2 w-2 rounded-full bg-rose-500" />{scoreSl("lateLbl", locale)} <b className="tabular-nums">{lateCount}</b></span>
+                </div>
               </>
             ) : (
-              <div className="py-4 text-xs text-muted-foreground">{scoreSl("noData", locale)}</div>
+              <div className="py-6 flex flex-col items-center gap-2">
+                <motion.div
+                  animate={{ y: [0, -6, 0] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                  className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-sky-400/20 to-purple-400/20"
+                >
+                  <Sparkles className="h-7 w-7 text-sky-500" />
+                </motion.div>
+                <div className="text-xs font-medium text-muted-foreground">{scoreSl("noData", locale)}</div>
+                <div className="text-[11px] text-muted-foreground/80">{scoreSl("keepGoing", locale)}</div>
+              </div>
             )}
-          </div>
-
-          {hasRated && (
-            <div className="rounded-lg border bg-card p-2">
-              <div className="h-32">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={36} outerRadius={52} paddingAngle={2}>
-                      {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center gap-3 text-[11px]">
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />{scoreSl("onTimeLbl", locale)} {data?.onTime ?? 0}</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />{scoreSl("lateLbl", locale)} {data?.late ?? 0}</span>
-              </div>
-            </div>
-          )}
+          </motion.div>
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg border bg-card p-2 flex flex-col items-center" data-testid="stat-completed">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 mb-0.5" />
-              <div className="text-lg font-bold leading-none">{data?.totalCompleted ?? 0}</div>
+            <div className="rounded-xl border bg-gradient-to-br from-emerald-500/10 to-transparent p-2.5 flex flex-col items-center" data-testid="stat-completed">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 mb-1" />
+              <div className="text-xl font-extrabold leading-none tabular-nums">{data?.totalCompleted ?? 0}</div>
               <div className="text-[10px] text-muted-foreground text-center mt-0.5">{scoreSl("completedLbl", locale)}</div>
             </div>
-            <div className="rounded-lg border bg-card p-2 flex flex-col items-center" data-testid="stat-open-overdue">
-              <Hourglass className="h-4 w-4 text-rose-500 mb-0.5" />
-              <div className="text-lg font-bold leading-none">{data?.openOverdue ?? 0}</div>
+            <div className="rounded-xl border bg-gradient-to-br from-rose-500/10 to-transparent p-2.5 flex flex-col items-center" data-testid="stat-open-overdue">
+              <Hourglass className="h-4 w-4 text-rose-500 mb-1" />
+              <div className="text-xl font-extrabold leading-none tabular-nums">{data?.openOverdue ?? 0}</div>
               <div className="text-[10px] text-muted-foreground text-center mt-0.5">{scoreSl("openOverdueLbl", locale)}</div>
             </div>
           </div>
 
           {hasTrend && (
-            <div className="rounded-lg border bg-card p-2">
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
+            <div className="rounded-xl border bg-card p-2.5">
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1">
                 <CalendarClock className="h-3 w-3" />{scoreSl("trendLbl", locale)}
               </div>
               <div className="h-28">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data!.trend} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
-                    <XAxis dataKey="label" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
-                    <Tooltip />
+                    <XAxis dataKey="label" tick={{ fontSize: 9 }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                    <Tooltip cursor={{ fill: "rgba(148,163,184,0.12)" }} />
                     <Bar dataKey="onTime" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="late" stackId="a" fill="#ef4444" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="late" stackId="a" fill="#ef4444" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1051,7 +1219,7 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
       </div>
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-x-auto">
+        <div className="flex-1 min-w-0 min-h-0 overflow-x-auto">
         <div className="flex gap-3 p-3 h-full min-w-max">
           {COLUMN_ORDER.map(stateKey => {
             const cfg = STATE_CONFIG[stateKey];

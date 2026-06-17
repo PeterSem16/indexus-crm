@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
 import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
-import { Timeline, type ThreadData, type ThreadComment } from "./back-office-panel";
+import { Timeline, BoAttachmentComposer, type ThreadData, type ThreadComment, type BoAttachment } from "./back-office-panel";
+import { SendProcessingOverlay } from "./send-processing-animation";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
 import { UserAvatar } from "./user-avatar";
 
@@ -99,18 +100,25 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
   const { t } = useI18n();
   const { toast } = useToast();
   const [answer, setAnswer] = useState("");
+  const [answerAttachments, setAnswerAttachments] = useState<BoAttachment[]>([]);
+  const [sendFx, setSendFx] = useState<null | "sending" | "done">(null);
+  const fxTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (fxTimer.current) clearTimeout(fxTimer.current); }, []);
   const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
 
   const answerMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/agent/bo-questions/${item.task.id}/answer`, { content: answer }).then(r => r.json()),
+    mutationFn: () => apiRequest("POST", `/api/agent/bo-questions/${item.task.id}/answer`, { content: answer, attachments: answerAttachments }).then(r => r.json()),
+    onMutate: () => setSendFx("sending"),
     onSuccess: () => {
       setAnswer("");
+      setAnswerAttachments([]);
       queryClient.invalidateQueries({ queryKey: ["/api/agent/bo-questions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/back-office/tasks"] });
       toast({ title: t.backOffice.toastAnswerSent });
-      onClose();
+      setSendFx("done");
+      fxTimer.current = setTimeout(() => { setSendFx(null); onClose(); }, 1400);
     },
-    onError: () => toast({ title: t.backOffice.toastAnswerError, variant: "destructive" }),
+    onError: () => { setSendFx(null); toast({ title: t.backOffice.toastAnswerError, variant: "destructive" }); },
   });
 
   const custName = customerName(item.customer);
@@ -295,6 +303,12 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
                   onChange={e => setAnswer(e.target.value)}
                   data-testid={`textarea-bo-answer-${item.task.id}`}
                 />
+                <BoAttachmentComposer
+                  taskId={item.task.id}
+                  attachments={answerAttachments}
+                  onChange={setAnswerAttachments}
+                  disabled={answerMutation.isPending}
+                />
                 <Button
                   size="sm"
                   className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
@@ -311,6 +325,12 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
         </div>
       </ScrollArea>
 
+      <SendProcessingOverlay
+        open={!!sendFx}
+        status={sendFx === "done" ? "done" : "sending"}
+        sendingLabel={t.backOffice.sendingLabel}
+        doneLabel={t.backOffice.sentForProcessing}
+      />
       <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
     </>
   );
