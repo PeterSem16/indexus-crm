@@ -27578,6 +27578,35 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (row?.hospital_id) hospital = { id: row.hospital_id, name: row.hospital_name };
       } catch { /* non-fatal */ }
     }
+    // Fallback for tasks WITHOUT a customer: tasks spawned from a Status List
+    // confirmation may be about a hospital/clinic campaign contact, but the entity is
+    // never stored on the task (only related_entity_type=status_list_item). Recover it
+    // from the status-list confirmation that triggered this task — matched by the same
+    // status-list item + creator, nearest in time. The time math is column-to-column
+    // (inside SQL) so there is no JS↔DB timezone skew; only task.id is parameterised.
+    if (!clinic && !hospital && task?.relatedEntityType === "status_list_item" && task?.id) {
+      try {
+        const ccRes: any = await db.execute<any>(sql`
+          SELECT cc.contact_type, cc.hospital_id, cc.clinic_id,
+                 h.name AS hospital_name, cl.name AS clinic_name
+          FROM tasks t
+          JOIN LATERAL (
+            SELECT s.* FROM campaign_contact_status_list_state s
+            WHERE s.status_list_item_id = t.related_entity_id
+              AND s.confirmed_by_user_id = t.created_by_user_id
+            ORDER BY ABS(EXTRACT(EPOCH FROM (s.confirmed_at - t.created_at))) ASC
+            LIMIT 1
+          ) s ON true
+          JOIN campaign_contacts cc ON cc.id = s.campaign_contact_id
+          LEFT JOIN hospitals h ON h.id = cc.hospital_id
+          LEFT JOIN clinics cl ON cl.id = cc.clinic_id
+          WHERE t.id = ${task.id}
+          LIMIT 1`);
+        const row = ccRes?.rows?.[0];
+        if (row?.clinic_id) clinic = { id: row.clinic_id, name: row.clinic_name };
+        if (row?.hospital_id) hospital = { id: row.hospital_id, name: row.hospital_name };
+      } catch { /* non-fatal */ }
+    }
     if (task?.description && task.description.includes("{{")) {
       const custName = customer ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim() : "";
       task.description = task.description
